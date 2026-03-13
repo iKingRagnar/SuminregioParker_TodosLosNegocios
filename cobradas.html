@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suminregio Parker &mdash; Facturas Cobradas</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="filters.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060E1A;--s1:#0C1B29;--s2:#112233;--s3:#172D42;--s4:#1D3654;
+  --border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.11);
+  --green:#00E5A0;--green-dim:rgba(0,229,160,.1);
+  --yellow:#FFB800;--yellow-dim:rgba(255,184,0,.12);
+  --orange:#FF8C42;--orange-dim:rgba(255,140,66,.1);
+  --red:#FF4566;--red-dim:rgba(255,69,102,.12);
+  --blue:#4DA6FF;--blue-dim:rgba(77,166,255,.1);
+  --purple:#9B6DFF;--purple-dim:rgba(155,109,255,.1);
+  --cyan:#00D4FF;--cyan-dim:rgba(0,212,255,.1);
+  --text:#E8EFF8;--text2:#B0BECE;--muted:#5A7090;--dim:#243348;
+}
+html{font-size:16px;-webkit-font-smoothing:antialiased}
+body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh}
+.bg-orbs{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.orb{position:absolute;border-radius:50%;filter:blur(130px);opacity:.10;animation:drift 20s ease-in-out infinite alternate}
+.orb-1{width:700px;height:700px;background:radial-gradient(circle,#00E5A0,transparent 70%);top:-200px;left:-150px}
+.orb-2{width:600px;height:600px;background:radial-gradient(circle,#1E7FD9,transparent 70%);bottom:-150px;right:-150px;animation-delay:-7s}
+.orb-3{width:400px;height:400px;background:radial-gradient(circle,#F57C00,transparent 70%);top:40%;left:45%;transform:translate(-50%,-50%);animation-delay:-12s;opacity:.06}
+@keyframes drift{0%{transform:translate(0,0)}100%{transform:translate(20px,15px)}}
+header{position:sticky;top:0;z-index:100;background:rgba(5,11,20,.88);backdrop-filter:blur(24px);border-bottom:1px solid var(--border)}
+.header-inner{max-width:1800px;margin:0 auto;height:64px;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;padding:0 2rem}
+.logo{display:flex;align-items:center;gap:.75rem;text-decoration:none}
+.logo-icon{width:38px;height:38px;background:linear-gradient(135deg,var(--green),var(--blue));border-radius:10px;display:grid;place-items:center;flex-shrink:0;box-shadow:0 0 20px rgba(0,229,160,.3)}
+.logo-icon svg{width:22px;height:22px;fill:white}
+.logo-text{font-size:.92rem;font-weight:800;color:var(--text)}
+.logo-sub{font-size:.6rem;font-family:'DM Mono',monospace;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+nav{display:flex;align-items:center;gap:.2rem}
+.nav-link{display:flex;align-items:center;gap:.45rem;padding:.4rem .85rem;border-radius:8px;font-size:.78rem;font-weight:600;color:var(--muted);text-decoration:none;transition:all .2s}
+.nav-link:hover{color:var(--text);background:var(--s2)}
+.nav-link.active{color:var(--text);background:var(--s3);border:1px solid var(--border2)}
+.nav-link svg{width:14px;height:14px;fill:currentColor;flex-shrink:0}
+.header-right{display:flex;align-items:center;gap:1rem}
+.live-pill{display:flex;align-items:center;gap:.5rem;background:var(--green-dim);border:1px solid rgba(0,229,160,.25);border-radius:99px;padding:.3rem .8rem;font-family:'DM Mono',monospace;font-size:.65rem;color:var(--green);letter-spacing:.08em;text-transform:uppercase}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.clock{font-family:'DM Mono',monospace;font-size:.78rem;color:var(--muted);letter-spacing:.05em}
+.page{position:relative;z-index:1;max-width:1800px;margin:0 auto;padding:2rem}
+.hero{margin-bottom:2rem;display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.hero-eyebrow{font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:.5rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:inline-block;width:20px;height:1px;background:var(--green);opacity:.6}
+.hero-title{font-size:2.4rem;font-weight:800;line-height:1;letter-spacing:-.03em;background:linear-gradient(135deg,var(--text) 30%,var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-sub{font-size:.85rem;color:var(--muted);margin-top:.5rem;font-family:'DM Mono',monospace}
+
+/* KPI Grid */
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:1rem;margin-bottom:1.5rem}
+@media(max-width:1300px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:700px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:1.2rem 1.4rem;position:relative;overflow:hidden;transition:all .3s}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--kc),transparent)}
+.kpi::after{content:'';position:absolute;top:0;right:0;width:60px;height:60px;background:radial-gradient(circle at top right,var(--kc),transparent 70%);opacity:.07}
+.kpi.green{--kc:var(--green)}.kpi.blue{--kc:var(--blue)}.kpi.yellow{--kc:var(--yellow)}.kpi.orange{--kc:var(--orange)}.kpi.purple{--kc:var(--purple)}
+.kpi-mod{font-family:'DM Mono',monospace;font-size:.55rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:.3rem}
+.kpi-label{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:.5rem}
+.kpi-val{font-family:'DM Mono',monospace;font-size:1.5rem;font-weight:500;letter-spacing:-.02em;line-height:1}
+.kpi.green .kpi-val{color:var(--green)}.kpi.blue .kpi-val{color:var(--blue)}.kpi.yellow .kpi-val{color:var(--yellow)}.kpi.orange .kpi-val{color:var(--orange)}.kpi.purple .kpi-val{color:var(--purple)}
+.kpi-sub{margin-top:.4rem;font-family:'DM Mono',monospace;font-size:.63rem;color:var(--muted)}
+
+/* Section divider */
+.sd{display:flex;align-items:center;gap:1rem;margin:2rem 0 1.25rem}
+.sd-label{font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
+.sd-line{flex:1;height:1px;background:var(--border)}
+
+/* Grid layout */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.5rem}
+@media(max-width:1000px){.grid-2{grid-template-columns:1fr}}
+.grid-3{display:grid;grid-template-columns:2fr 1fr;gap:1.25rem;margin-bottom:1.5rem}
+@media(max-width:1000px){.grid-3{grid-template-columns:1fr}}
+
+/* Cards */
+.card{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:1.4rem;position:relative;overflow:hidden}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.2rem}
+.card-title{font-size:.82rem;font-weight:700;color:var(--text);letter-spacing:-.01em;display:flex;align-items:center;gap:.5rem}
+.card-title svg{width:15px;height:15px;fill:var(--green)}
+.card-badge{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);background:var(--s2);border:1px solid var(--border);padding:.2rem .6rem;border-radius:99px}
+
+/* Comision table */
+.comision-table{width:100%;border-collapse:collapse}
+.comision-table th{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;padding:.6rem .75rem;text-align:left;border-bottom:1px solid var(--border)}
+.comision-table td{font-size:.8rem;padding:.7rem .75rem;border-bottom:1px solid rgba(255,255,255,.04);color:var(--text2);transition:background .15s}
+.comision-table tr:hover td{background:var(--s2)}
+.comision-table .num{text-align:right;font-family:'DM Mono',monospace;font-size:.78rem}
+.rank-badge{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:.65rem;font-weight:700;font-family:'DM Mono',monospace}
+.rank-1{background:linear-gradient(135deg,#FFB800,#FF8C42);color:#050B14}
+.rank-2{background:linear-gradient(135deg,#B0BECE,#7A9ABE);color:#050B14}
+.rank-3{background:linear-gradient(135deg,#CD7F32,#A05C20);color:#E8EFF8}
+.rank-n{background:var(--s3);color:var(--muted)}
+
+/* Progress bar */
+.prog-wrap{width:100%;background:var(--s3);border-radius:99px;height:5px;overflow:hidden;margin-top:4px}
+.prog-fill{height:100%;border-radius:99px;transition:width 1.2s cubic-bezier(.4,0,.2,1)}
+
+/* Donut chart */
+.chart-wrap{position:relative;width:160px;height:160px;flex-shrink:0}
+.chart-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+.chart-center-val{font-family:'DM Mono',monospace;font-size:1.2rem;font-weight:500;color:var(--green)}
+.chart-center-lbl{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted)}
+
+/* Legends */
+.legend{display:flex;flex-direction:column;gap:.6rem;flex:1}
+.legend-item{display:flex;align-items:center;gap:.6rem;font-family:'DM Mono',monospace;font-size:.72rem}
+.legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.legend-lbl{color:var(--text2);flex:1}
+.legend-val{color:var(--text);font-weight:500}
+
+/* Tabs */
+.tabs{display:flex;gap:.3rem;margin-bottom:1.2rem}
+.tab{font-family:'DM Mono',monospace;font-size:.68rem;padding:.35rem .85rem;border-radius:8px;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:none;transition:all .2s;letter-spacing:.04em}
+.tab.active{color:var(--green);border-color:rgba(0,229,160,.3);background:var(--green-dim)}
+
+/* Detalle facturas */
+.fact-list{display:flex;flex-direction:column;gap:.4rem;max-height:380px;overflow-y:auto}
+.fact-item{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:.75rem;padding:.65rem .75rem;background:var(--s2);border-radius:8px;border:1px solid var(--border);font-size:.77rem}
+.fact-folio{font-family:'DM Mono',monospace;font-size:.7rem;color:var(--muted)}
+.fact-cliente{color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fact-monto{font-family:'DM Mono',monospace;color:var(--blue);font-size:.76rem;white-space:nowrap}
+.fact-comision{font-family:'DM Mono',monospace;color:var(--green);font-size:.76rem;white-space:nowrap}
+
+/* Bar chart rows */
+.bar-row{display:flex;align-items:center;gap:.75rem;padding:.5rem 0}
+.bar-row:not(:last-child){border-bottom:1px solid rgba(255,255,255,.04)}
+.bar-name{font-size:.78rem;color:var(--text2);width:140px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-outer{flex:1;background:var(--s3);border-radius:99px;height:7px;overflow:hidden}
+.bar-inner{height:100%;border-radius:99px;transition:width 1.2s cubic-bezier(.4,0,.2,1)}
+.bar-val{font-family:'DM Mono',monospace;font-size:.7rem;width:90px;text-align:right;flex-shrink:0}
+.bar-com{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--green);width:72px;text-align:right;flex-shrink:0}
+
+/* Period selector */
+.period-btns{display:flex;gap:.4rem}
+.period-btn{font-family:'DM Mono',monospace;font-size:.65rem;padding:.28rem .7rem;border-radius:6px;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:none;transition:all .2s}
+.period-btn.active{color:var(--green);border-color:rgba(0,229,160,.3);background:var(--green-dim)}
+
+/* Empty state */
+.empty{text-align:center;padding:2rem;color:var(--muted);font-family:'DM Mono',monospace;font-size:.78rem}
+</style>
+</head>
+<body>
+<div class="bg-orbs"><div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div></div>
+
+<header>
+  <div class="header-inner">
+    <a href="index.html" class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      </div>
+      <div><div class="logo-text">Suminregio Parker</div><div class="logo-sub">ERP Dashboard</div></div>
+    </a>
+    <nav>
+      <a href="index.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Inicio</a>
+      <a href="ventas.html" class="nav-link"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Ventas</a>
+      <a href="cobradas.html" class="nav-link active"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Cobradas</a>
+      <a href="vendedores.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Vendedores</a>
+      <a href="cxc.html" class="nav-link"><svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>CxC</a>
+      <a href="clientes.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Clientes</a>
+      <a href="inventario.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 2 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Inventario</a>
+      <a href="resultados.html" class="nav-link"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Resultados</a>
+    </nav>
+    <div class="header-right">
+      <div class="live-pill"><div class="live-dot"></div>Live</div>
+      <div class="clock" id="reloj">--:--:--</div>
+    </div>
+  </div>
+</header>
+
+<div class="page">
+  <!-- Hero -->
+  <div class="hero">
+    <div>
+      <div class="hero-eyebrow">Facturas Cobradas &bull; Comisiones</div>
+      <div class="hero-title">Cobradas &amp; Comisiones</div>
+      <div class="hero-sub" id="heroSub">Cargando datos...</div>
+    </div>
+  </div>
+
+  <!-- Barra de filtros compartida -->
+  <div id="filter-bar"></div>
+
+  <!-- KPIs principales -->
+  <div class="kpi-grid">
+    <div class="kpi green">
+      <div class="kpi-mod">Cobros</div>
+      <div class="kpi-label">Total cobrado del mes</div>
+      <div class="kpi-val" id="kpiTotalCobrado">--</div>
+      <div class="kpi-sub" id="kpiTotalCobradoSub">-- facturas</div>
+    </div>
+    <div class="kpi blue">
+      <div class="kpi-mod">Facturaci&oacute;n</div>
+      <div class="kpi-label">Total facturado (base cobros)</div>
+      <div class="kpi-val" id="kpiTotalVenta">--</div>
+      <div class="kpi-sub" id="kpiEficiencia">-- de conversi&oacute;n</div>
+    </div>
+    <div class="kpi yellow">
+      <div class="kpi-mod">Comisiones</div>
+      <div class="kpi-label">Total comisiones 8% cobro</div>
+      <div class="kpi-val" id="kpiTotalComision">--</div>
+      <div class="kpi-sub">8% sobre monto cobrado</div>
+    </div>
+    <div class="kpi orange">
+      <div class="kpi-mod">Promedio</div>
+      <div class="kpi-label">Ticket promedio cobrado</div>
+      <div class="kpi-val" id="kpiTicketProm">--</div>
+      <div class="kpi-sub" id="kpiTicketSub">-- facturas en periodo</div>
+    </div>
+    <div class="kpi purple">
+      <div class="kpi-mod">Mejor</div>
+      <div class="kpi-label">Vendedor top del mes</div>
+      <div class="kpi-val" id="kpiTopVend">--</div>
+      <div class="kpi-sub" id="kpiTopVendSub">-- en comisi&oacute;n</div>
+    </div>
+  </div>
+
+  <!-- Section: Ranking + Donut -->
+  <div class="sd"><div class="sd-label">Ranking por Vendedor</div><div class="sd-line"></div></div>
+  <div class="grid-3" style="grid-template-columns:2fr 1fr">
+    <!-- Ranking tabla completa -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Comisi&oacute;n por Vendedor
+        </div>
+        <div class="card-badge">8% del cobro</div>
+      </div>
+      <table class="comision-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Vendedor</th>
+            <th class="num">Facturas</th>
+            <th class="num">Venta Base</th>
+            <th class="num">Cobrado</th>
+            <th class="num">% Cobro</th>
+            <th class="num">Comisi&oacute;n 8%</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="rankingBody">
+          <tr><td colspan="8" class="empty">Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Donut participacion -->
+    <div class="card" style="display:flex;flex-direction:column;gap:1.2rem">
+      <div class="card-head" style="margin-bottom:0">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Distribuci&oacute;n
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:1.2rem;flex-wrap:wrap">
+        <div class="chart-wrap">
+          <canvas id="donutChart"></canvas>
+          <div class="chart-center">
+            <div class="chart-center-val" id="donutPct">--</div>
+            <div class="chart-center-lbl">top 1</div>
+          </div>
+        </div>
+        <div class="legend" id="donutLegend"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section: Barras cobranza + Detalle facturas -->
+  <div class="sd"><div class="sd-label">An&aacute;lisis Cobrado vs Facturado</div><div class="sd-line"></div></div>
+  <div class="grid-2">
+    <!-- Barras comparativas -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          Cobrado vs Facturado por Vendedor
+        </div>
+        <div class="card-badge">eficiencia cobro</div>
+      </div>
+      <div id="barrasVend"></div>
+    </div>
+
+    <!-- Detalle facturas recientes -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          &Uacute;ltimas Facturas Cobradas
+        </div>
+        <div class="tabs">
+          <button class="tab active" onclick="setFiltroVend(null,this)">Todos</button>
+          <button class="tab" id="tabVend1" onclick="setFiltroVend(0,this)">--</button>
+          <button class="tab" id="tabVend2" onclick="setFiltroVend(1,this)">--</button>
+        </div>
+      </div>
+      <div class="fact-list" id="factList"></div>
+    </div>
+  </div>
+
+  <!-- Section: Evolucion mensual -->
+  <div class="sd"><div class="sd-label">Evoluci&oacute;n Mensual de Cobros</div><div class="sd-line"></div></div>
+  <div class="card" style="margin-bottom:2rem">
+    <div class="card-head">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Tendencia Cobros &amp; Comisiones
+      </div>
+    </div>
+    <div style="height:220px"><canvas id="chartEvolucion"></canvas></div>
+  </div>
+</div>
+
+<script>
+const API = '';
+function fwt(url,fallback,ms=10000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
+const COMISION_PCT = 0.08;
+let allData = [];
+let currentPeriod = 'mes';
+let currentVendFiltro = null;
+let donutChartInst = null;
+let evoChartInst = null;
+
+// ── Helper: URL con filtros ────────────────────────────────────────────────
+function buildApiUrl(path, extra) {
+  const qs    = window.filterBuildQS ? filterBuildQS() : '';
+  const e     = extra ? String(extra).replace(/^[?&]+/, '') : '';
+  const parts = [qs, e].filter(Boolean).join('&');
+  return API + path + (parts ? '?' + parts : '');
+}
+
+setInterval(()=>{
+  const n=new Date();
+  document.getElementById('reloj').textContent=
+    String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');
+},1000);
+
+const fmtM = v => {
+  if(v===null||v===undefined||isNaN(v))return'--';
+  v=+v;
+  if(v>=1e6) return '$'+( v/1e6).toFixed(2)+'M';
+  if(v>=1e3) return '$'+(v/1e3).toFixed(1)+'K';
+  return '$'+Math.round(v).toLocaleString();
+};
+const pct = (a,b)=> b>0?Math.round(a/b*100):0;
+
+function setPeriod(p){
+  currentPeriod=p;
+  document.querySelectorAll('.period-btn').forEach(b=>{
+    b.classList.toggle('active', b.textContent.trim().toLowerCase().includes(
+      p==='mes'?'este':p==='anterior'?'anterior':'trimes'
+    ));
+  });
+  loadData();
+}
+
+function setFiltroVend(idx, btn){
+  currentVendFiltro=idx;
+  document.querySelectorAll('.tabs .tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  renderFactList();
+}
+
+function fwt(url, fallback, ms) { ms = ms || 12000; return Promise.race([ fetch(url).then(r=>r.json()).catch(()=>fallback), new Promise(r=>setTimeout(()=>r(fallback), ms)) ]); }
+async function loadData(){
+  const heroSub = document.getElementById('heroSub');
+  if(heroSub) heroSub.textContent = 'Cargando datos...';
+  try{
+    const r = await fwt(buildApiUrl('/api/ventas/cobradas'), { vendedores: [], totalCobrado: 0, totalFacturado: 0 });
+    if (r && Array.isArray(r.vendedores)) {
+      allData = r.vendedores;
+      totalCobradoGlobal = +r.totalCobrado || 0;
+      totalFacturadoGlobal = +r.totalFacturado || 0;
+    } else {
+      allData = Array.isArray(r) ? r : [];
+      totalCobradoGlobal = null;
+      totalFacturadoGlobal = null;
+    }
+    renderAll();
+    const ev = await fwt(buildApiUrl('/api/ventas/mensuales', 'meses=13'), []);
+    renderEvolucion(Array.isArray(ev) ? ev : []);
+  }catch(e){
+    allData = []; totalCobradoGlobal = null; totalFacturadoGlobal = null;
+    renderAll();
+    if(heroSub) heroSub.textContent = 'Error conectando con el servidor';
+  }
+}
+
+let totalCobradoGlobal = null;
+let totalFacturadoGlobal = null;
+
+function renderAll(){
+  const d = allData;
+  if(!d.length){
+    document.getElementById('heroSub').textContent='Sin datos de facturas cobradas';
+    return;
+  }
+
+  const totalCobrado = totalCobradoGlobal !== null ? totalCobradoGlobal : d.reduce((s,r)=>s+(+r.TOTAL_COBRADO||0),0);
+  const totalVenta   = totalFacturadoGlobal !== null ? totalFacturadoGlobal : d.reduce((s,r)=>s+(+r.TOTAL_VENTA||0),0);
+  const totalComision= totalCobrado * COMISION_PCT;
+  const totalFacturas= d.reduce((s,r)=>s+(+r.NUM_FACTURAS||0),0);
+  const ticketProm   = totalFacturas>0 ? totalCobrado/totalFacturas : 0;
+  const topVend      = [...d].sort((a,b)=>(+b.TOTAL_COBRADO||0)-(+a.TOTAL_COBRADO||0))[0];
+
+  document.getElementById('heroSub').textContent = d.length+' vendedores \u2022 '+totalFacturas+' facturas \u2022 '+fmtM(totalCobrado)+' cobrado';
+  document.getElementById('kpiTotalCobrado').textContent = fmtM(totalCobrado);
+  document.getElementById('kpiTotalCobradoSub').textContent = totalFacturas+' facturas cobradas';
+  document.getElementById('kpiTotalVenta').textContent = fmtM(totalVenta);
+  document.getElementById('kpiTotalVentaSub').textContent = totalFacturas+' facturas publicadas';
+  document.getElementById('kpiEficiencia').textContent = pct(totalCobrado,totalVenta)+'% conversi\u00f3n cobro';
+  document.getElementById('kpiTotalComision').textContent = fmtM(totalComision);
+  document.getElementById('kpiTicketProm').textContent = fmtM(ticketProm);
+  document.getElementById('kpiTicketSub').textContent = totalFacturas+' facturas en periodo';
+  document.getElementById('kpiTopVend').textContent = (topVend?.VENDEDOR||topVend?.NOMBRE||'--').split(' ')[0];
+  document.getElementById('kpiTopVendSub').textContent = fmtM((+topVend?.TOTAL_COBRADO||0)*COMISION_PCT)+' comisi\u00f3n';
+
+  renderRanking(d, totalCobrado);
+  renderBarras(d);
+  renderDonut(d, totalCobrado);
+  renderFactList();
+  renderTabsVend(d);
+}
+
+function renderRanking(d, totalCobrado){
+  const sorted = [...d].sort((a,b)=>(+b.TOTAL_COBRADO||0)-(+a.TOTAL_COBRADO||0));
+  const cols=['#00E5A0','#4DA6FF','#9B6DFF','#FFB800','#FF8C42','#FF4566','#00D4FF'];
+  const rows = sorted.map((r,i)=>{
+    const cobrado   = +r.TOTAL_COBRADO||0;
+    const venta     = +r.TOTAL_VENTA||0;
+    const comision  = cobrado*COMISION_PCT;
+    const pctCobro  = pct(cobrado,venta);
+    const pctPart   = pct(cobrado,totalCobrado);
+    const col       = cols[i%cols.length];
+    const rankHtml  = i===0?`<span class="rank-badge rank-1">1</span>`
+                    : i===1?`<span class="rank-badge rank-2">2</span>`
+                    : i===2?`<span class="rank-badge rank-3">3</span>`
+                    : `<span class="rank-badge rank-n">${i+1}</span>`;
+    return `<tr>
+      <td style="padding:.7rem .75rem">${rankHtml}</td>
+      <td style="padding:.7rem .75rem;font-size:.8rem;color:var(--text)">${r.VENDEDOR||r.NOMBRE||'Vendedor '+(i+1)}</td>
+      <td class="num" style="color:var(--text2)">${+r.NUM_FACTURAS||0}</td>
+      <td class="num" style="color:var(--blue)">${fmtM(venta)}</td>
+      <td class="num" style="color:var(--green)">${fmtM(cobrado)}</td>
+      <td class="num">
+        <span style="color:${pctCobro>=80?'var(--green)':pctCobro>=50?'var(--yellow)':'var(--red)'}">${pctCobro}%</span>
+        <div class="prog-wrap"><div class="prog-fill" style="width:${pctCobro}%;background:${col}"></div></div>
+      </td>
+      <td class="num" style="color:var(--yellow);font-weight:600">${fmtM(comision)}</td>
+      <td style="padding:.7rem .75rem"><span style="font-family:'DM Mono',monospace;font-size:.65rem;color:${col}">${pctPart}%</span></td>
+    </tr>`;
+  });
+  document.getElementById('rankingBody').innerHTML = rows.join('') || '<tr><td colspan="8" class="empty">Sin datos</td></tr>';
+}
+
+function renderBarras(d){
+  const sorted = [...d].sort((a,b)=>(+b.TOTAL_COBRADO||0)-(+a.TOTAL_COBRADO||0));
+  const maxCob = +sorted[0]?.TOTAL_COBRADO||1;
+  const cols=['#00E5A0','#4DA6FF','#9B6DFF','#FFB800','#FF8C42','#FF4566','#00D4FF'];
+  const html = sorted.map((r,i)=>{
+    const cob  = +r.TOTAL_COBRADO||0;
+    const ven  = +r.TOTAL_VENTA||0;
+    const nom  = (r.VENDEDOR||r.NOMBRE||'V'+(i+1)).split(' ')[0];
+    const pCob = Math.round(cob/maxCob*100);
+    const pEfi = pct(cob,ven);
+    return `<div class="bar-row">
+      <div class="bar-name" title="${r.VENDEDOR||r.NOMBRE}">${nom}</div>
+      <div class="bar-outer"><div class="bar-inner" style="width:${pCob}%;background:${cols[i%cols.length]}"></div></div>
+      <div class="bar-val" style="color:${cols[i%cols.length]}">${fmtM(cob)}</div>
+      <div class="bar-com">${fmtM(cob*COMISION_PCT)}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('barrasVend').innerHTML = html || '<div class="empty">Sin datos</div>';
+}
+
+function renderDonut(d, totalCobrado){
+  const sorted = [...d].sort((a,b)=>(+b.TOTAL_COBRADO||0)-(+a.TOTAL_COBRADO||0)).slice(0,6);
+  const cols=['#00E5A0','#4DA6FF','#9B6DFF','#FFB800','#FF8C42','#FF4566'];
+  const vals = sorted.map(r=>+r.TOTAL_COBRADO||0);
+  const labels = sorted.map(r=>(r.VENDEDOR||r.NOMBRE||'?').split(' ')[0]);
+  const topPct = totalCobrado>0?Math.round(vals[0]/totalCobrado*100):0;
+  document.getElementById('donutPct').textContent = topPct+'%';
+  const ctx = document.getElementById('donutChart');
+  if(donutChartInst)donutChartInst.destroy();
+  donutChartInst = new Chart(ctx,{
+    type:'doughnut',
+    data:{labels,datasets:[{data:vals,backgroundColor:cols,borderColor:'#0A1628',borderWidth:3,hoverBorderWidth:0}]},
+    options:{cutout:'72%',plugins:{legend:{display:false},tooltip:{backgroundColor:'#0D1D35',borderColor:'rgba(255,255,255,.1)',borderWidth:1,titleColor:'#E8EFF8',bodyColor:'#B0BECE',callbacks:{label:c=>' '+fmtM(c.raw)}}},animation:{animateRotate:true,duration:1000}}
+  });
+  document.getElementById('donutLegend').innerHTML = sorted.map((r,i)=>`
+    <div class="legend-item">
+      <div class="legend-dot" style="background:${cols[i]}"></div>
+      <div class="legend-lbl">${labels[i]}</div>
+      <div class="legend-val" style="color:${cols[i]}">${fmtM(vals[i])}</div>
+    </div>
+  `).join('');
+}
+
+function renderTabsVend(d){
+  const sorted=[...d].sort((a,b)=>(+b.TOTAL_COBRADO||0)-(+a.TOTAL_COBRADO||0));
+  ['tabVend1','tabVend2'].forEach((id,i)=>{
+    const el=document.getElementById(id);
+    if(sorted[i]) el.textContent=(sorted[i].VENDEDOR||sorted[i].NOMBRE||'V'+(i+1)).split(' ')[0];
+  });
+}
+
+function renderFactList(){
+  if(!allData.length){document.getElementById('factList').innerHTML='<div class="empty">Sin facturas</div>';return}
+  let data = allData;
+  if(currentVendFiltro!==null){
+    const sorted=[...data].sort((a,b)=>(+b.TOTAL_COBRADO||0)-(+a.TOTAL_COBRADO||0));
+    const vend=sorted[currentVendFiltro];
+    if(vend) data=[vend];
+  }
+  const html = data.map(r=>{
+    const cobrado=(+r.TOTAL_COBRADO||0);
+    const comision=cobrado*COMISION_PCT;
+    const nombre=(r.VENDEDOR||r.NOMBRE||'?').split(' ').slice(0,2).join(' ');
+    return `<div class="fact-item">
+      <div class="fact-folio">${+r.NUM_FACTURAS||0} facts.</div>
+      <div class="fact-cliente">${nombre}</div>
+      <div class="fact-monto">${fmtM(cobrado)}</div>
+      <div class="fact-comision">${fmtM(comision)}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('factList').innerHTML=html||'<div class="empty">Sin datos</div>';
+}
+
+function renderEvolucion(data){
+  if(!Array.isArray(data)||!data.length) return;
+  // /api/ventas/mensuales devuelve ANIO + MES (separados) y TOTAL_VENTAS
+  const MESES_ES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const labels = data.map(d=>{
+    if(d.ANIO && d.MES) return (MESES_ES[(+d.MES||1)-1]||d.MES)+' '+(d.ANIO||'');
+    // fallback para otros formatos
+    const raw = String(d.FECHA||d.DIA||'').substring(0,10);
+    const p = raw.split('-');
+    return p.length===3 ? p[2]+'/'+p[1] : raw;
+  });
+  const ventas = data.map(d=>+(d.TOTAL_VENTAS||d.TOTAL||d.VENTAS_NETAS||d.IMPORTE_NETO||0));
+  const comision = ventas.map(v=>v*COMISION_PCT);
+  const ctx=document.getElementById('chartEvolucion');
+  if(evoChartInst)evoChartInst.destroy();
+  evoChartInst=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        {label:'Cobrado',data:ventas,backgroundColor:'rgba(77,166,255,.25)',borderColor:'#4DA6FF',borderWidth:1.5,borderRadius:4},
+        {label:'Comisi\u00f3n 8%',data:comision,backgroundColor:'rgba(0,229,160,.3)',borderColor:'#00E5A0',borderWidth:1.5,borderRadius:4,type:'line',fill:false,tension:.3,pointRadius:3,pointBackgroundColor:'#00E5A0'}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'top',labels:{color:'#5A7090',font:{size:11,family:"'DM Mono'"}}},
+        tooltip:{backgroundColor:'#0D1D35',borderColor:'rgba(255,255,255,.1)',borderWidth:1,titleColor:'#E8EFF8',bodyColor:'#B0BECE',callbacks:{label:c=>' '+c.dataset.label+': '+fmtM(c.raw)}}},
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5A7090',font:{size:10,family:"'DM Mono'"}}},
+        y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5A7090',font:{size:10,family:"'DM Mono'"},callback:v=>fmtM(v)}}
+      }
+    }
+  });
+}
+
+// Carga inicial inmediata
+loadData();
+initFilters({ containerId:'filter-bar', showVendedor:true, onChange:()=>loadData() });
+setInterval(loadData, 120000);
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

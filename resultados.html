@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suminregio Parker — Estado de Resultados</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="filters.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060E1A;--s1:#0C1B29;--s2:#112233;--s3:#172D42;--s4:#1D3654;
+  --border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.14);
+  --green:#00E5A0;--green-dim:rgba(0,229,160,.10);
+  --yellow:#FFB800;--yellow-dim:rgba(255,184,0,.12);
+  --orange:#FF8C42;--orange-dim:rgba(255,140,66,.10);
+  --blue:#4DA6FF;--blue-dim:rgba(77,166,255,.10);
+  --red:#FF4566;--red-dim:rgba(255,69,102,.12);
+  --purple:#9B6DFF;--purple-dim:rgba(155,109,255,.10);
+  --cyan:#00D4FF;--cyan-dim:rgba(0,212,255,.10);
+  --text:#F0F6FF;--text2:#C8D8EC;--muted:#6A85A6;--dim:#1E2E42;
+}
+html{font-size:16px;-webkit-font-smoothing:antialiased}
+body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh}
+.bg-orbs{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.orb{position:absolute;border-radius:50%;filter:blur(140px);opacity:.09;animation:drift 22s ease-in-out infinite alternate}
+.orb-1{width:700px;height:700px;background:radial-gradient(circle,#1E7FD9,transparent 70%);top:-200px;left:-150px}
+.orb-2{width:600px;height:600px;background:radial-gradient(circle,#00E5A0,transparent 70%);bottom:-150px;right:-150px;animation-delay:-7s}
+.orb-3{width:400px;height:400px;background:radial-gradient(circle,#FFB800,transparent 70%);top:40%;left:45%;transform:translate(-50%,-50%);animation-delay:-12s;opacity:.05}
+@keyframes drift{0%{transform:translate(0,0)}100%{transform:translate(20px,15px)}}
+header{position:sticky;top:0;z-index:100;background:rgba(5,11,20,.92);backdrop-filter:blur(28px);border-bottom:1px solid var(--border)}
+.header-inner{max-width:1900px;margin:0 auto;height:62px;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;padding:0 2rem}
+.logo{display:flex;align-items:center;gap:.75rem;text-decoration:none}
+.logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--blue),var(--cyan));border-radius:9px;display:grid;place-items:center;flex-shrink:0;box-shadow:0 0 18px rgba(77,166,255,.28)}
+.logo-icon svg{width:20px;height:20px;fill:none;stroke:white;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.logo-text{font-size:.9rem;font-weight:800;color:var(--text)}
+.logo-sub{font-size:.57rem;font-family:'DM Mono',monospace;color:var(--muted);letter-spacing:.12em;text-transform:uppercase}
+nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
+.nav-link{display:flex;align-items:center;gap:.4rem;padding:.35rem .75rem;border-radius:7px;font-size:.73rem;font-weight:600;color:var(--muted);text-decoration:none;transition:all .2s}
+.nav-link:hover{color:var(--text2);background:var(--s2)}
+.nav-link.active{color:var(--text);background:var(--s3);border:1px solid var(--border2)}
+.nav-link svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.header-right{display:flex;align-items:center;gap:1rem}
+.live-pill{display:flex;align-items:center;gap:.45rem;background:var(--blue-dim);border:1px solid rgba(77,166,255,.22);border-radius:99px;padding:.28rem .7rem;font-family:'DM Mono',monospace;font-size:.62rem;color:var(--blue);letter-spacing:.08em;text-transform:uppercase}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--blue);box-shadow:0 0 7px var(--blue);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.clock{font-family:'DM Mono',monospace;font-size:.76rem;color:var(--muted)}
+.page{position:relative;z-index:1;max-width:1900px;margin:0 auto;padding:1.75rem 2rem 2.5rem}
+.hero{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.75rem}
+.hero-eyebrow{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;margin-bottom:.45rem;display:flex;align-items:center;gap:.55rem}
+.hero-eyebrow::before{content:'';display:inline-block;width:18px;height:1px;background:var(--blue);opacity:.7}
+.hero-title{font-size:2.5rem;font-weight:800;line-height:.95;letter-spacing:-.035em;background:linear-gradient(135deg,var(--text) 25%,var(--green) 80%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-sub{font-size:.8rem;color:var(--text2);margin-top:.5rem;font-family:'DM Mono',monospace;letter-spacing:.02em;line-height:1.5}
+.period-btns{display:flex;gap:.4rem;align-items:center}
+.period-btn{font-family:'DM Mono',monospace;font-size:.64rem;padding:.3rem .7rem;border-radius:7px;border:1px solid var(--border2);color:var(--muted);cursor:pointer;background:none;transition:all .2s;letter-spacing:.06em}
+.period-btn:hover{color:var(--text2);border-color:rgba(77,166,255,.3)}
+.period-btn.active{color:var(--blue);border-color:rgba(77,166,255,.35);background:var(--blue-dim)}
+
+/* KPI grid */
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.9rem;margin-bottom:1.5rem}
+@media(max-width:1400px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:700px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:1.2rem 1.3rem;position:relative;overflow:hidden;transition:all .3s}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2.5px;background:linear-gradient(90deg,transparent,var(--kc) 40%,transparent)}
+.kpi.blue{--kc:var(--blue)}.kpi.green{--kc:var(--green)}.kpi.yellow{--kc:var(--yellow)}.kpi.orange{--kc:var(--orange)}.kpi.purple{--kc:var(--purple)}.kpi.cyan{--kc:var(--cyan)}
+.kpi-lbl{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--text2);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.42rem;font-weight:500}
+.kpi-val{font-family:'DM Mono',monospace;font-size:1.95rem;font-weight:500;line-height:1;letter-spacing:-.025em}
+.kpi.blue .kpi-val{color:var(--blue)}.kpi.green .kpi-val{color:var(--green)}.kpi.yellow .kpi-val{color:var(--yellow)}.kpi.orange .kpi-val{color:var(--orange)}.kpi.purple .kpi-val{color:var(--purple)}.kpi.cyan .kpi-val{color:var(--cyan)}
+.kpi-sub{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);margin-top:.32rem;line-height:1.4}
+.kpi-trend{font-family:'DM Mono',monospace;font-size:.65rem;margin-top:.32rem;font-weight:500}
+.trend-up{color:var(--green)}.trend-dn{color:var(--red)}.trend-flat{color:var(--muted)}
+
+/* BI Insight box */
+.insight-box{background:var(--s1);border:1px solid var(--border);border-left:3px solid var(--blue);border-radius:12px;padding:1.1rem 1.4rem;margin-bottom:1.5rem;display:flex;align-items:flex-start;gap:1rem}
+.insight-icon{width:34px;height:34px;background:var(--blue-dim);border:1px solid rgba(77,166,255,.22);border-radius:9px;display:grid;place-items:center;flex-shrink:0}
+.insight-icon svg{width:16px;height:16px;fill:none;stroke:var(--blue);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.insight-content{flex:1}
+.insight-title{font-size:.8rem;font-weight:700;color:var(--text);margin-bottom:.35rem;letter-spacing:-.01em}
+.insight-text{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--text2);line-height:1.7}
+.insight-text strong{color:var(--text);font-weight:600}
+.insight-text .hi-green{color:var(--green)}.insight-text .hi-red{color:var(--red)}.insight-text .hi-yellow{color:var(--yellow)}.insight-text .hi-blue{color:var(--blue)}
+
+/* Section divider */
+.sd{display:flex;align-items:center;gap:1rem;margin:1.6rem 0 1.1rem}
+.sd-label{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
+.sd-line{flex:1;height:1px;background:var(--border)}
+
+/* Cards */
+.card{background:var(--s1);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.card-head{padding:.95rem 1.4rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+.card-title{font-size:.83rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:.55rem}
+.card-title svg{width:14px;height:14px;fill:none;stroke:var(--muted);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.card-badge{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted);background:var(--s2);border:1px solid var(--border);padding:.2rem .55rem;border-radius:99px}
+.card-body{padding:1.2rem}
+
+/* Grid */
+.grid-2{display:grid;grid-template-columns:1.15fr 1fr;gap:1rem;margin-bottom:1.2rem}
+@media(max-width:1100px){.grid-2{grid-template-columns:1fr}}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:1.2rem}
+@media(max-width:1100px){.grid-3{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.grid-3{grid-template-columns:1fr}}
+
+/* P&L Structured Table */
+.pnl-structured{width:100%;border-collapse:collapse}
+.pnl-structured .pnl-section-header td{background:var(--s3);font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1.2rem;border-bottom:1px solid var(--border)}
+.pnl-structured .pnl-section-header td:first-child{color:var(--muted);padding-left:1.4rem}
+.pnl-structured tr.data-row td{padding:.7rem 1.2rem;border-bottom:1px solid rgba(255,255,255,.04);transition:background .15s;vertical-align:middle}
+.pnl-structured tr.data-row:hover td{background:rgba(255,255,255,.025)}
+.pnl-structured tr.data-row td:first-child{font-size:.82rem;font-weight:600;color:var(--text);padding-left:2.5rem}
+.pnl-structured tr.data-row td:not(:first-child){font-family:'DM Mono',monospace;font-size:.78rem;color:var(--text2);text-align:right}
+.pnl-structured tr.subtotal-row td{padding:.65rem 1.2rem;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--s2)}
+.pnl-structured tr.subtotal-row td:first-child{font-size:.83rem;font-weight:700;color:var(--text);padding-left:1.4rem}
+.pnl-structured tr.subtotal-row td:not(:first-child){font-family:'DM Mono',monospace;font-size:.85rem;font-weight:700;color:var(--text);text-align:right}
+.pnl-structured tr.total-final td{padding:.8rem 1.2rem;background:linear-gradient(135deg,rgba(0,229,160,.08),rgba(77,166,255,.06));border-top:2px solid var(--border2)}
+.pnl-structured tr.total-final td:first-child{font-size:.88rem;font-weight:800;color:var(--green);padding-left:1.4rem;letter-spacing:-.01em}
+.pnl-structured tr.total-final td:not(:first-child){font-family:'DM Mono',monospace;font-size:.9rem;font-weight:700;text-align:right}
+.pnl-structured th{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.09em;text-transform:uppercase;padding:.55rem 1.2rem;text-align:right;border-bottom:1px solid var(--border2);background:var(--s2)}
+.pnl-structured th:first-child{text-align:left;padding-left:1.4rem}
+.delta-tag{display:inline-flex;align-items:center;gap:.2rem;font-family:'DM Mono',monospace;font-size:.6rem;font-weight:500}
+.delta-tag.up{color:var(--green)}.delta-tag.dn{color:var(--red)}.delta-tag.flat{color:var(--muted)}
+
+/* Gastos notice */
+.gastos-notice{background:rgba(255,184,0,.06);border:1px solid rgba(255,184,0,.2);border-radius:10px;padding:.85rem 1.1rem;margin-bottom:1.2rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--yellow);line-height:1.65}
+.gastos-notice strong{font-weight:700;color:var(--yellow)}
+
+/* MoM sparkline in table */
+.mom-positive{color:var(--green);font-size:.65rem}.mom-negative{color:var(--red);font-size:.65rem}.mom-neutral{color:var(--muted);font-size:.65rem}
+
+/* Notice */
+.notice{background:var(--blue-dim);border:1px solid rgba(77,166,255,.2);border-radius:9px;padding:.7rem 1rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--blue);margin-bottom:1.1rem;line-height:1.6}
+
+/* Trend mini chart area */
+.chart-h220{height:220px;position:relative}
+.chart-h200{height:200px;position:relative}
+
+/* Loader skeleton */
+.skel{background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 50%,var(--s2) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;height:1.2rem;width:80%}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.footer{text-align:center;padding:1.75rem;font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.06em;border-top:1px solid var(--border);margin-top:2rem}
+</style>
+</head>
+<body>
+<div class="bg-orbs"><div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div></div>
+
+<header>
+  <div class="header-inner">
+    <a href="index.html" class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      </div>
+      <div><div class="logo-text">Suminregio Parker</div><div class="logo-sub">ERP Dashboard</div></div>
+    </a>
+    <nav>
+      <a href="index.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Inicio</a>
+      <a href="ventas.html" class="nav-link"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Ventas</a>
+      <a href="cobradas.html" class="nav-link"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Cobradas</a>
+      <a href="vendedores.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Vendedores</a>
+      <a href="cxc.html" class="nav-link"><svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>CxC</a>
+      <a href="clientes.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Clientes</a>
+      <a href="inventario.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 2 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Inventario</a>
+      <a href="resultados.html" class="nav-link active"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Resultados</a>
+    </nav>
+    <div class="header-right">
+      <div class="live-pill"><div class="live-dot"></div>P&amp;L Live</div>
+      <div class="clock" id="reloj">--:--:--</div>
+    </div>
+  </div>
+</header>
+
+<div class="page">
+  <div class="hero">
+    <div>
+      <div class="hero-eyebrow">Estado de Resultados · P&amp;L</div>
+      <div class="hero-title">Resultados</div>
+      <div class="hero-sub" id="heroSub">Cargando datos financieros...</div>
+    </div>
+    <div class="period-btns">
+      <button class="period-btn active" onclick="setMeses(3,this)">3 meses</button>
+      <button class="period-btn" onclick="setMeses(6,this)">6 meses</button>
+      <button class="period-btn" onclick="setMeses(12,this)">12 meses</button>
+      <button class="period-btn" onclick="setMeses(24,this)">24 meses</button>
+    </div>
+  </div>
+
+  <!-- Barra de filtros compartida -->
+  <div id="filter-bar"></div>
+
+  <!-- KPIs -->
+  <div class="kpi-grid">
+    <div class="kpi blue">
+      <div class="kpi-lbl">Ventas Netas</div>
+      <div class="kpi-val" id="kpiVentas">--</div>
+      <div class="kpi-sub" id="kpiVentasSub">-- facturas · periodo</div>
+      <div class="kpi-trend" id="kpiVentasTrend">--</div>
+    </div>
+    <div class="kpi green">
+      <div class="kpi-lbl">Utilidad Bruta <span id="utilTip" style="font-size:.55rem;color:var(--muted);cursor:help" title="= Ventas Netas − Costo de Ventas. Cuando no hay costo capturado en BD, coincide con Ventas Netas (margen 100%). No confundir con Utilidad Neta.">ⓘ</span></div>
+      <div class="kpi-val" id="kpiUtilidad">--</div>
+      <div class="kpi-sub" id="kpiUtilidadSub">sobre ventas netas</div>
+      <div class="kpi-trend" id="kpiUtilidadTrend">--</div>
+    </div>
+    <div class="kpi yellow">
+      <div class="kpi-lbl">Margen Bruto %</div>
+      <div class="kpi-val" id="kpiMargen">--</div>
+      <div class="kpi-sub" id="kpiMargenSub">meta ≥ 30%</div>
+      <div class="kpi-trend" id="kpiMargenTrend">--</div>
+    </div>
+    <div class="kpi orange">
+      <div class="kpi-lbl">Costo de Ventas</div>
+      <div class="kpi-val" id="kpiCosto">--</div>
+      <div class="kpi-sub" id="kpiCostoSub">-- % de ventas</div>
+    </div>
+    <div class="kpi purple">
+      <div class="kpi-lbl">Cobros Recibidos</div>
+      <div class="kpi-val" id="kpiCobros">--</div>
+      <div class="kpi-sub" id="kpiCobrosSub">-- % de facturado</div>
+      <div class="kpi-trend" id="kpiCobrosEfic">--</div>
+    </div>
+  </div>
+
+  <!-- BI Insight -->
+  <div class="insight-box" id="insightBox">
+    <div class="insight-icon">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
+    <div class="insight-content">
+      <div class="insight-title">Análisis BI — Estado Financiero</div>
+      <div class="insight-text" id="insightText">Cargando análisis...</div>
+    </div>
+  </div>
+
+  <!-- Gastos notice — jerarquía P&L -->
+  <div class="gastos-notice" id="gastosNotice" style="display:none">
+    <strong>ℹ️ ¿Por qué Ventas Netas = Utilidad Bruta?</strong><br>
+    Porque <strong>Costo de Ventas</strong> no está capturado en la base de datos del módulo de Ventas de Microsip.
+    La jerarquía real de un Estado de Resultados es:<br>
+    <code style="font-size:.75rem;opacity:.85">
+      Ventas Netas<br>
+      &nbsp;&nbsp;− Costo de Ventas&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ <strong>Utilidad Bruta</strong><br>
+      &nbsp;&nbsp;− Gastos Operativos&nbsp;&nbsp;&nbsp;→ <strong>Utilidad de Operación (EBIT)</strong><br>
+      &nbsp;&nbsp;− Impuestos / ISR&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ <strong>Utilidad Neta</strong>
+    </code><br>
+    Para ver <strong>Utilidad Neta real</strong> se necesita integrar el módulo de Contabilidad de Microsip
+    (<code>POLIZAS_CONT</code> / <code>CUENTAS_CONT</code> / <code>PRESUPUESTOS</code>).
+    Actualmente este tablero solo tiene acceso al módulo de Ventas y CxC.
+  </div>
+
+  <!-- Charts grid -->
+  <div class="grid-2" style="margin-bottom:1rem">
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          Ventas Netas &amp; Utilidad Bruta por Mes
+        </div>
+        <div class="card-badge" id="chartBadge1">—</div>
+      </div>
+      <div class="card-body">
+        <div class="chart-h220"><canvas id="chartVentasCosto"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Margen Bruto % · Tendencia
+        </div>
+        <div class="card-badge" id="chartBadge2">—</div>
+      </div>
+      <div class="card-body">
+        <div class="chart-h220"><canvas id="chartMargen"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:1.2rem">
+    <div class="card-head">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Ventas vs Cobros · Industrial (VE) vs Mostrador (PV)
+      </div>
+      <div class="card-badge">Comparativo de canales</div>
+    </div>
+    <div class="card-body">
+      <div class="chart-h200"><canvas id="chartCobros"></canvas></div>
+    </div>
+  </div>
+
+  <!-- P&L Estructurado -->
+  <div class="sd"><div class="sd-label">Estado de Resultados Detallado por Mes</div><div class="sd-line"></div></div>
+
+  <div id="costNotice" class="notice" style="display:none">ℹ️ Costo de ventas no disponible en BD. El margen se calcula a 0% cuando no hay costo capturado. Capturar costo en DOCTOS_VE_DET activa el cálculo automático.</div>
+
+  <div class="card" style="margin-bottom:2rem">
+    <div style="overflow-x:auto">
+      <table class="pnl-structured">
+        <thead>
+          <tr>
+            <th style="width:22%">Concepto / Mes</th>
+            <th id="thMeses" colspan="99">— cargando —</th>
+          </tr>
+        </thead>
+        <tbody id="pnlBody">
+          <tr><td colspan="13" style="padding:2rem;text-align:center"><div class="skel" style="margin:0 auto"></div></td></tr>
+        </tbody>
+        <tfoot id="pnlFoot"></tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="footer">Suminregio Parker — Estado de Resultados v9.0 — Datos en tiempo real desde Microsip / Firebird DB</div>
+
+<script>
+const API = (function(){ const o=typeof window!=='undefined'?window.location.origin:''; if(o.startsWith('http')&&(o.includes('7000')||o.includes('localhost'))) return ''; if(!o||o==='null'||o==='file://') return 'http://localhost:7000'; return ''; })();
+function fwt(url,fallback,ms=10000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
+let chartVC=null, chartMg=null, chartCob=null;
+let currentMeses=3;
+
+// ── Helper: URL con filtros ────────────────────────────────────────────────
+function buildApiUrl(path, extra) {
+  const qs    = window.filterBuildQS ? filterBuildQS() : '';
+  const e     = extra ? String(extra).replace(/^[?&]+/, '') : '';
+  const parts = [qs, e].filter(Boolean).join('&');
+  return API + path + (parts ? '?' + parts : '');
+}
+
+// ── Reloj ──────────────────────────────────────────────────────────────────────
+setInterval(()=>{const n=new Date();document.getElementById('reloj').textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');},1000);
+
+// ── Formateo ───────────────────────────────────────────────────────────────────
+const fmtM=v=>{if(v===null||v===undefined||isNaN(+v))return'—';v=+v;if(v>=1e6)return'$'+(v/1e6).toFixed(2)+'M';if(v>=1e3)return'$'+(v/1e3).toFixed(1)+'K';return'$'+Math.round(v).toLocaleString('es-MX')};
+const fmtPct=v=>isNaN(+v)?'—':(+v).toFixed(1)+'%';
+const MESES_ES=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+function mesLabel(r){return (MESES_ES[+r.MES]||r.MES)+' '+(+r.ANIO||'')}
+function deltaTag(pct){
+  if(isNaN(pct)||pct===null)return'';
+  const cls=pct>0?'up':pct<0?'dn':'flat';
+  const arrow=pct>0?'↑':pct<0?'↓':'→';
+  return`<span class="delta-tag ${cls}">${arrow} ${Math.abs(pct).toFixed(1)}%</span>`;
+}
+function momPct(cur,prev){return prev>0?Math.round((cur-prev)/prev*100):null}
+
+function setMeses(m,btn){
+  currentMeses=m;
+  document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  loadData();
+}
+
+// ── Load ───────────────────────────────────────────────────────────────────────
+async function loadData(){
+  try{
+    const data=await fetch(buildApiUrl('/api/resultados/pnl', 'meses='+currentMeses)).then(r=>r.json()).catch(()=>({}));
+    const meses=Array.isArray(data.meses)?data.meses:[];
+    const tot=data.totales||{};
+    const hasCosto=data.tiene_costo||false;
+    renderKPIs(tot,meses,hasCosto);
+    renderInsight(tot,meses,hasCosto);
+    renderCharts(meses,hasCosto);
+    renderTabla(meses,tot,hasCosto);
+    document.getElementById('costNotice').style.display=hasCosto?'none':'block';
+    document.getElementById('gastosNotice').style.display='block';
+    document.getElementById('heroSub').textContent=
+      currentMeses+' meses · '+fmtM(+tot.VENTAS_NETAS||0)+' ventas netas · '
+      +(hasCosto?fmtPct(+tot.MARGEN_BRUTO_PCT||0)+' margen bruto':'Costo no en BD')
+      +' · '+fmtM(+tot.COBROS||0)+' cobrado';
+  }catch(e){
+    document.getElementById('heroSub').textContent='Error conectando con servidor';
+  }
+}
+
+// ── KPIs ───────────────────────────────────────────────────────────────────────
+function renderKPIs(tot,meses,hasCosto){
+  const ventas=+tot.VENTAS_NETAS||0;
+  const costo=+tot.COSTO_VENTAS||0;
+  const utilidad=+tot.UTILIDAD_BRUTA||0;
+  const margen=+tot.MARGEN_BRUTO_PCT||0;
+  const cobros=+tot.COBROS||0;
+  const facts=+tot.NUM_FACTURAS||0;
+
+  // Trends (last vs prev month)
+  let trendVentas='<span class="trend-flat">— sin hist.</span>';
+  let trendMargen='<span class="trend-flat">— sin hist.</span>';
+  let trendUtil='<span class="trend-flat">—</span>';
+  if(meses.length>=2){
+    const last=meses[meses.length-1];
+    const prev=meses[meses.length-2];
+    const pv=momPct(+last.VENTAS_NETAS||0,+prev.VENTAS_NETAS||1);
+    if(pv!==null){const cls=pv>=0?'trend-up':'trend-dn';const arr=pv>=0?'▲':'▼';trendVentas=`<span class="${cls}">${arr} ${Math.abs(pv)}% vs ${mesLabel(prev)}</span>`;}
+    const pm=momPct(+last.MARGEN_BRUTO_PCT||0,+prev.MARGEN_BRUTO_PCT||1);
+    if(pm!==null&&hasCosto){const cls=pm>=0?'trend-up':'trend-dn';const arr=pm>=0?'▲':'▼';trendMargen=`<span class="${cls}">${arr} ${Math.abs(pm).toFixed(1)} pp vs ${mesLabel(prev)}</span>`;}
+    const pu=momPct(+last.UTILIDAD_BRUTA||0,+prev.UTILIDAD_BRUTA||1);
+    if(pu!==null&&hasCosto){const cls=pu>=0?'trend-up':'trend-dn';const arr=pu>=0?'▲':'▼';trendUtil=`<span class="${cls}">${arr} ${Math.abs(pu)}% vs ${mesLabel(prev)}</span>`;}
+  }
+
+  document.getElementById('kpiVentas').textContent=fmtM(ventas);
+  document.getElementById('kpiVentasSub').textContent=facts+' facturas · '+currentMeses+' meses';
+  document.getElementById('kpiVentasTrend').innerHTML=trendVentas;
+  document.getElementById('kpiUtilidad').textContent=hasCosto?fmtM(utilidad):fmtM(ventas);
+  document.getElementById('kpiUtilidadSub').textContent=hasCosto?fmtPct(margen)+' sobre ventas':'(sin costo en BD)';
+  document.getElementById('kpiUtilidadTrend').innerHTML=trendUtil;
+  document.getElementById('kpiMargen').textContent=hasCosto?fmtPct(margen):'—';
+  const mgColor=margen>=30?'var(--green)':margen>=15?'var(--yellow)':'var(--red)';
+  document.getElementById('kpiMargen').style.color=mgColor;
+  document.getElementById('kpiMargenSub').innerHTML=`meta ≥ 30% &bull; <span style="color:${mgColor}">${margen>=30?'✓ OK':margen>=15?'⚠ Revisar':'✗ Bajo'}</span>`;
+  document.getElementById('kpiMargenTrend').innerHTML=trendMargen;
+  document.getElementById('kpiCosto').textContent=hasCosto?fmtM(costo):'Sin datos';
+  document.getElementById('kpiCostoSub').textContent=hasCosto?fmtPct(ventas>0?costo/ventas*100:0)+' de ventas':'Capturar en DOCTOS_VE_DET';
+  document.getElementById('kpiCobros').textContent=fmtM(cobros);
+  const efic=ventas>0?Math.round(cobros/ventas*100):0;
+  document.getElementById('kpiCobrosSub').textContent=fmtPct(efic)+' de facturado cobrado';
+  const eficColor=efic>=80?'var(--green)':efic>=50?'var(--yellow)':'var(--red)';
+  document.getElementById('kpiCobrosEfic').innerHTML=`<span style="color:${eficColor}">${efic>=80?'✓ Eficiencia alta':efic>=50?'⚠ Mejorar cobro':'✗ Cobro bajo'}</span>`;
+  document.getElementById('chartBadge1').textContent=currentMeses+' meses';
+  document.getElementById('chartBadge2').textContent=hasCosto?fmtPct(margen)+' promedio':'Sin costo';
+}
+
+// ── BI Insight text ────────────────────────────────────────────────────────────
+function renderInsight(tot,meses,hasCosto){
+  const ventas=+tot.VENTAS_NETAS||0;
+  const cobros=+tot.COBROS||0;
+  const margen=+tot.MARGEN_BRUTO_PCT||0;
+  const facts=+tot.NUM_FACTURAS||0;
+  const efic=ventas>0?Math.round(cobros/ventas*100):0;
+  let parts=[];
+
+  // Ventas trend
+  if(meses.length>=2){
+    const vals=meses.map(m=>+m.VENTAS_NETAS||0);
+    const tendStr=tendencia(vals);
+    const last=vals[vals.length-1];
+    const prev=vals[vals.length-2];
+    const pct=momPct(last,prev);
+    if(pct!==null){
+      const hi=pct>=0?'hi-green':'hi-red';
+      parts.push(`Ventas del último mes: <span class="${hi}"><strong>${fmtM(last)}</strong> (${pct>=0?'+':''}${pct}% vs anterior)</span>. Tendencia del periodo: <strong>${tendStr}</strong>.`);
+    }
+  }else if(meses.length===1){
+    parts.push(`Ventas del mes: <strong class="hi-blue">${fmtM(+meses[0].VENTAS_NETAS||0)}</strong>.`);
+  }
+
+  // Margen
+  if(hasCosto){
+    const mgColor=margen>=30?'hi-green':margen>=15?'hi-yellow':'hi-red';
+    const mgMsg=margen>=30?'excelente — dentro del objetivo':margen>=15?'moderado — hay oportunidad de mejora':'bajo — requiere análisis de costos';
+    parts.push(`Margen bruto del periodo: <span class="${mgColor}"><strong>${fmtPct(margen)}</strong> — ${mgMsg}</span>.`);
+  }else{
+    parts.push(`<span class="hi-yellow">Costo de ventas no disponible en la BD.</span> Para calcular margen real, capturar costo en <strong>DOCTOS_VE_DET</strong>.`);
+  }
+
+  // Cobros
+  const cobColor=efic>=80?'hi-green':efic>=50?'hi-yellow':'hi-red';
+  const cobMsg=efic>=80?'excelente eficiencia de cobro':efic>=50?'cobro moderado — gestionar cartera':'cobro bajo — revisar vencidos';
+  parts.push(`Eficiencia de cobro: <span class="${cobColor}"><strong>${efic}%</strong> del facturado cobrado — ${cobMsg}</span>. Total cobrado: <strong class="hi-blue">${fmtM(cobros)}</strong> vs <strong>${fmtM(ventas)}</strong> facturado.`);
+
+  // Gastos
+  parts.push(`<span class="hi-yellow">Los gastos operativos (sueldos, rentas, servicios) se registran en Contabilidad Microsip</span> y no están disponibles en este módulo. La utilidad mostrada es <strong>Bruta</strong> (Ventas − Costo). Para <strong>Utilidad Neta</strong> se requiere integrar las pólizas contables.`);
+
+  document.getElementById('insightText').innerHTML=parts.join('<br>');
+}
+
+function tendencia(vals){
+  if(vals.length<2)return'insuficiente';
+  const n=vals.length;
+  let sumX=0,sumY=0,sumXY=0,sumX2=0;
+  vals.forEach((v,i)=>{sumX+=i;sumY+=v;sumXY+=i*v;sumX2+=i*i;});
+  const slope=(n*sumXY-sumX*sumY)/(n*sumX2-sumX*sumX);
+  const avg=sumY/n;
+  const pctSlope=avg>0?(slope/avg*100):0;
+  if(pctSlope>3)return'📈 alcista';
+  if(pctSlope<-3)return'📉 bajista';
+  return'→ estable';
+}
+
+// ── Charts ─────────────────────────────────────────────────────────────────────
+function renderCharts(meses,hasCosto){
+  const labels=meses.map(mesLabel);
+  const ventas=meses.map(m=>+m.VENTAS_NETAS||0);
+  const util=meses.map(m=>+m.UTILIDAD_BRUTA||0);
+  const margen=meses.map(m=>+m.MARGEN_BRUTO_PCT||0);
+  const cobros=meses.map(m=>+m.COBROS||0);
+  const ve=meses.map(m=>+m.VENTAS_VE||0);
+  const pv=meses.map(m=>+m.VENTAS_PV||0);
+
+  const ctx1=document.getElementById('chartVentasCosto').getContext('2d');
+  if(chartVC)chartVC.destroy();
+  const ds1=[{label:'Ventas Netas',data:ventas,backgroundColor:'rgba(77,166,255,.22)',borderColor:'#4DA6FF',borderWidth:1.5,borderRadius:5,type:'bar'}];
+  if(hasCosto)ds1.push({label:'Utilidad Bruta',data:util,backgroundColor:'rgba(0,229,160,.35)',borderColor:'#00E5A0',borderWidth:1.5,borderRadius:5,type:'bar'});
+  chartVC=new Chart(ctx1,{data:{labels,datasets:ds1},options:chartOpts(v=>fmtM(v))});
+
+  const ctx2=document.getElementById('chartMargen').getContext('2d');
+  if(chartMg)chartMg.destroy();
+  chartMg=new Chart(ctx2,{type:'line',data:{labels,datasets:[
+    {label:'Margen %',data:margen,borderColor:'#FFB800',backgroundColor:'rgba(255,184,0,.08)',borderWidth:2,pointRadius:4,pointBackgroundColor:'#FFB800',fill:true,tension:.38},
+    {label:'Meta 30%',data:Array(meses.length).fill(30),borderColor:'rgba(0,229,160,.3)',borderDash:[4,4],borderWidth:1,pointRadius:0,fill:false}
+  ]},options:chartOpts(v=>v+'%')});
+
+  const ctx3=document.getElementById('chartCobros').getContext('2d');
+  if(chartCob)chartCob.destroy();
+  chartCob=new Chart(ctx3,{data:{labels,datasets:[
+    {type:'bar',label:'Industrial (VE)',data:ve,backgroundColor:'rgba(77,166,255,.35)',borderColor:'#4DA6FF',borderWidth:1,borderRadius:4},
+    {type:'bar',label:'Mostrador (PV)',data:pv,backgroundColor:'rgba(0,212,255,.3)',borderColor:'#00D4FF',borderWidth:1,borderRadius:4},
+    {type:'line',label:'Cobros',data:cobros,borderColor:'#00E5A0',backgroundColor:'transparent',borderWidth:2,pointRadius:4,pointBackgroundColor:'#00E5A0',tension:.35}
+  ]},options:{...chartOpts(v=>fmtM(v)),scales:{x:{stacked:true,grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6A85A6',font:{size:10,family:"'DM Mono'"}}},y:{stacked:false,grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6A85A6',font:{size:10,family:"'DM Mono'"},callback:v=>fmtM(v)}}}}});
+}
+
+function chartOpts(cbY){
+  return{responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{position:'top',labels:{color:'#6A85A6',font:{size:11,family:"'DM Mono'"},boxWidth:10,padding:14}},
+      tooltip:{backgroundColor:'#0D1D35',borderColor:'rgba(255,255,255,.1)',borderWidth:1,titleColor:'#F0F6FF',bodyColor:'#C8D8EC',callbacks:{label:c=>' '+c.dataset.label+': '+cbY(c.raw)}}},
+    scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6A85A6',font:{size:10,family:"'DM Mono'"}}},
+      y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6A85A6',font:{size:10,family:"'DM Mono'"},callback:cbY}}}};
+}
+
+// ── P&L Table — columnas por mes + fila de concepto ──────────────────────────
+function renderTabla(meses,tot,hasCosto){
+  if(!meses.length){
+    document.getElementById('pnlBody').innerHTML='<tr><td colspan="99" style="text-align:center;padding:2rem;font-family:DM Mono,monospace;font-size:.78rem;color:var(--muted)">Sin datos para el periodo seleccionado</td></tr>';
+    return;
+  }
+  // Build column headers
+  const thEl=document.getElementById('thMeses');
+  const colSpan=meses.length;
+  let thHtml=meses.map((m,i)=>{
+    let mom='';
+    if(i>0){
+      const pct=momPct(+m.VENTAS_NETAS||0,+meses[i-1].VENTAS_NETAS||1);
+      if(pct!==null){const cls=pct>=0?'mom-positive':'mom-negative';const arr=pct>=0?'↑':'↓';mom=` <span class="${cls}">${arr}${Math.abs(pct)}%</span>`;}
+    }
+    return`<th>${mesLabel(m)}${mom}</th>`;
+  }).join('');
+  thEl.outerHTML=`<th style="width:22%;text-align:left;padding:.55rem 1.4rem">Concepto</th>${thHtml}<th>Total</th>`;
+
+  // Rows
+  const rows=(key,color,fmt)=>meses.map(m=>`<td style="color:${color}">${fmt(+m[key]||0)}</td>`).join('');
+  const sumOf=key=>meses.reduce((s,m)=>s+(+m[key]||0),0);
+
+  const pnl=`
+  <tr class="pnl-section-header"><td colspan="${meses.length+2}">INGRESOS</td></tr>
+  <tr class="data-row">
+    <td>Ventas Industrial (VE)</td>
+    ${meses.map(m=>`<td style="color:var(--text2)">${fmtM(+m.VENTAS_VE||0)}</td>`).join('')}
+    <td style="color:var(--text2)">${fmtM(sumOf('VENTAS_VE'))}</td>
+  </tr>
+  <tr class="data-row">
+    <td>Ventas Mostrador (PV)</td>
+    ${meses.map(m=>`<td style="color:var(--text2)">${fmtM(+m.VENTAS_PV||0)}</td>`).join('')}
+    <td style="color:var(--text2)">${fmtM(sumOf('VENTAS_PV'))}</td>
+  </tr>
+  <tr class="subtotal-row">
+    <td>▶ Total Ventas Netas</td>
+    ${meses.map(m=>`<td style="color:var(--blue)">${fmtM(+m.VENTAS_NETAS||0)}</td>`).join('')}
+    <td style="color:var(--blue)">${fmtM(+tot.VENTAS_NETAS||0)}</td>
+  </tr>
+
+  <tr class="pnl-section-header"><td colspan="${meses.length+2}">COSTO DE VENTAS</td></tr>
+  <tr class="data-row">
+    <td>Costo de Ventas</td>
+    ${meses.map(m=>`<td style="color:var(--orange)">${hasCosto?fmtM(+m.COSTO_VENTAS||0):'—'}</td>`).join('')}
+    <td style="color:var(--orange)">${hasCosto?fmtM(+tot.COSTO_VENTAS||0):'—'}</td>
+  </tr>
+  <tr class="data-row">
+    <td>% Costo / Ventas</td>
+    ${meses.map(m=>{
+      const v=+m.VENTAS_NETAS||0;const c=+m.COSTO_VENTAS||0;
+      const p=v>0?Math.round(c/v*100):0;
+      const col=p>75?'var(--red)':p>60?'var(--yellow)':'var(--text2)';
+      return`<td style="color:${col}">${hasCosto?p+'%':'—'}</td>`;
+    }).join('')}
+    <td style="color:var(--text2)">${hasCosto&&(+tot.VENTAS_NETAS||0)>0?Math.round((+tot.COSTO_VENTAS||0)/(+tot.VENTAS_NETAS||1)*100)+'%':'—'}</td>
+  </tr>
+
+  <tr class="subtotal-row">
+    <td>▶ Utilidad Bruta</td>
+    ${meses.map(m=>{
+      const u=+m.UTILIDAD_BRUTA||(hasCosto?0:+m.VENTAS_NETAS||0);
+      const mg=+m.MARGEN_BRUTO_PCT||0;
+      const mgCol=mg>=30?'var(--green)':mg>=15?'var(--yellow)':'var(--red)';
+      return`<td><span style="color:${mgCol}">${hasCosto?fmtM(u):fmtM(+m.VENTAS_NETAS||0)}</span></td>`;
+    }).join('')}
+    <td style="color:${(+tot.MARGEN_BRUTO_PCT||0)>=30?'var(--green)':(+tot.MARGEN_BRUTO_PCT||0)>=15?'var(--yellow)':'var(--red)'}">${hasCosto?fmtM(+tot.UTILIDAD_BRUTA||0):fmtM(+tot.VENTAS_NETAS||0)}</td>
+  </tr>
+  <tr class="data-row">
+    <td>Margen Bruto %</td>
+    ${meses.map(m=>{
+      const mg=+m.MARGEN_BRUTO_PCT||0;
+      const col=mg>=30?'var(--green)':mg>=15?'var(--yellow)':'var(--red)';
+      return`<td><span style="color:${col};font-weight:600">${hasCosto?fmtPct(mg):'—'}</span></td>`;
+    }).join('')}
+    <td><span style="color:${(+tot.MARGEN_BRUTO_PCT||0)>=30?'var(--green)':(+tot.MARGEN_BRUTO_PCT||0)>=15?'var(--yellow)':'var(--red)'};font-weight:600">${hasCosto?fmtPct(+tot.MARGEN_BRUTO_PCT||0):'—'}</span></td>
+  </tr>
+
+  <tr class="pnl-section-header"><td colspan="${meses.length+2}">GASTOS OPERATIVOS (Módulo Contabilidad Microsip)</td></tr>
+  <tr class="data-row">
+    <td style="color:var(--muted)">Gastos de Operación</td>
+    ${meses.map(()=>'<td style="color:var(--muted);font-size:.65rem">N/D</td>').join('')}
+    <td style="color:var(--muted);font-size:.65rem">No disponible</td>
+  </tr>
+
+  <tr class="pnl-section-header"><td colspan="${meses.length+2}">COBROS Y LIQUIDEZ</td></tr>
+  <tr class="data-row">
+    <td>Cobros Recibidos</td>
+    ${meses.map(m=>`<td style="color:var(--purple)">${fmtM(+m.COBROS||0)}</td>`).join('')}
+    <td style="color:var(--purple)">${fmtM(+tot.COBROS||0)}</td>
+  </tr>
+  <tr class="data-row">
+    <td>Eficiencia de Cobro</td>
+    ${meses.map(m=>{
+      const v=+m.VENTAS_NETAS||0;const cob=+m.COBROS||0;
+      const e=v>0?Math.round(cob/v*100):0;
+      const col=e>=80?'var(--green)':e>=50?'var(--yellow)':'var(--red)';
+      return`<td style="color:${col}">${v>0?e+'%':'—'}</td>`;
+    }).join('')}
+    <td style="color:${(+tot.VENTAS_NETAS||0)>0&&Math.round((+tot.COBROS||0)/(+tot.VENTAS_NETAS||1)*100)>=80?'var(--green)':(+tot.VENTAS_NETAS||0)>0&&Math.round((+tot.COBROS||0)/(+tot.VENTAS_NETAS||1)*100)>=50?'var(--yellow)':'var(--red)'}">${(+tot.VENTAS_NETAS||0)>0?Math.round((+tot.COBROS||0)/(+tot.VENTAS_NETAS||1)*100)+'%':'—'}</td>
+  </tr>
+  <tr class="data-row">
+    <td>Número de Facturas</td>
+    ${meses.map(m=>`<td style="color:var(--muted)">${+m.NUM_FACTURAS||0}</td>`).join('')}
+    <td style="color:var(--muted)">${+tot.NUM_FACTURAS||0}</td>
+  </tr>`;
+
+  document.getElementById('pnlBody').innerHTML=pnl;
+
+  document.getElementById('pnlFoot').innerHTML=`
+  <tr class="total-final">
+    <td>RESUMEN ${currentMeses} MESES</td>
+    ${meses.map(m=>`<td style="color:var(--blue)">${fmtM(+m.VENTAS_NETAS||0)}</td>`).join('')}
+    <td style="color:var(--green)">${fmtM(+tot.VENTAS_NETAS||0)}</td>
+  </tr>`;
+}
+
+// Carga inicial inmediata
+loadData();
+initFilters({ containerId:'filter-bar', showVendedor:false, onChange:()=>loadData() });
+setInterval(loadData, 300000);
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

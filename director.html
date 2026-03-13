@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suminregio Parker &mdash; Director</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="filters.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060E1A;--s1:#0C1B29;--s2:#112233;--s3:#172D42;--s4:#1D3654;
+  --border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.11);
+  --green:#00E5A0;--green-dim:rgba(0,229,160,.1);
+  --yellow:#FFB800;--yellow-dim:rgba(255,184,0,.12);
+  --orange:#FF8C42;--orange-dim:rgba(255,140,66,.1);
+  --red:#FF4566;--red-dim:rgba(255,69,102,.12);
+  --blue:#4DA6FF;--blue-dim:rgba(77,166,255,.1);
+  --purple:#9B6DFF;--purple-dim:rgba(155,109,255,.1);
+  --text:#E8EFF8;--text2:#B0BECE;--muted:#5A7090;--dim:#243348;
+}
+html{font-size:16px;-webkit-font-smoothing:antialiased}
+body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh}
+.bg-orbs{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.orb{position:absolute;border-radius:50%;filter:blur(130px);opacity:.12;animation:drift 20s ease-in-out infinite alternate}
+.orb-1{width:700px;height:700px;background:radial-gradient(circle,#F57C00,transparent 70%);top:-200px;right:-200px}
+.orb-2{width:500px;height:500px;background:radial-gradient(circle,#00E5A0,transparent 70%);bottom:-100px;left:-100px;animation-delay:-10s}
+@keyframes drift{0%{transform:translate(0,0)}100%{transform:translate(25px,15px)}}
+header{position:sticky;top:0;z-index:100;background:rgba(5,11,20,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
+.header-inner{max-width:1600px;margin:0 auto;height:64px;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;padding:0 2rem}
+.logo{display:flex;align-items:center;gap:.75rem;text-decoration:none}
+.logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--purple),var(--blue));border-radius:10px;display:grid;place-items:center;flex-shrink:0}
+.logo-icon svg{width:20px;height:20px;fill:white}
+.logo-text{font-size:.9rem;font-weight:700;color:var(--text)}
+.logo-sub{font-size:.62rem;font-family:'DM Mono',monospace;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+nav{display:flex;align-items:center;gap:.25rem}
+.nav-link{display:flex;align-items:center;gap:.4rem;padding:.4rem .85rem;border-radius:8px;font-size:.8rem;font-weight:500;color:var(--muted);text-decoration:none;transition:all .2s}
+.nav-link:hover{color:var(--text);background:var(--s2)}
+.nav-link.active{color:var(--text);background:var(--s3);border:1px solid var(--border2)}
+.nav-link svg{width:14px;height:14px;fill:currentColor}
+.header-right{display:flex;align-items:center;gap:1rem}
+.live-pill{display:flex;align-items:center;gap:.5rem;background:var(--purple-dim);border:1px solid rgba(155,109,255,.2);border-radius:99px;padding:.3rem .75rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--purple);letter-spacing:.06em}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--purple);box-shadow:0 0 8px var(--purple);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.clock{font-family:'DM Mono',monospace;font-size:.78rem;color:var(--muted)}
+.page{position:relative;z-index:1;max-width:1600px;margin:0 auto;padding:2rem}
+.page-header{margin-bottom:2rem}
+.page-title{font-size:2.2rem;font-weight:800;background:linear-gradient(135deg,var(--text) 30%,var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-.03em;line-height:1}
+.page-sub{font-size:.8rem;color:var(--text2);margin-top:.4rem;font-family:'DM Mono',monospace;letter-spacing:.02em}
+.kpi-grid{display:grid;gap:1rem;margin-bottom:1.5rem}
+.kpi-grid-6{grid-template-columns:repeat(6,1fr)}
+.kpi-grid-4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:1200px){.kpi-grid-6{grid-template-columns:repeat(3,1fr)}.kpi-grid-4{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:700px){.kpi-grid-6,.kpi-grid-4{grid-template-columns:repeat(2,1fr)}}
+.kpi-card{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:1.25rem 1.5rem;position:relative;overflow:hidden;transition:all .3s}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--kpi-c),transparent);opacity:.8}
+.kpi-card:hover{border-color:var(--border2);transform:translateY(-2px);box-shadow:0 12px 40px rgba(0,0,0,.3)}
+.kpi-card.blue{--kpi-c:var(--blue)}.kpi-card.green{--kpi-c:var(--green)}.kpi-card.yellow{--kpi-c:var(--yellow)}.kpi-card.orange{--kpi-c:var(--orange)}.kpi-card.red{--kpi-c:var(--red)}.kpi-card.purple{--kpi-c:var(--purple)}
+.kpi-label{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--text2);letter-spacing:.09em;text-transform:uppercase;margin-bottom:.38rem;font-weight:500}
+.kpi-value{font-family:'DM Mono',monospace;font-size:1.9rem;font-weight:500;letter-spacing:-.025em;line-height:1}
+.kpi-card.blue .kpi-value{color:var(--blue)}.kpi-card.green .kpi-value{color:var(--green)}.kpi-card.yellow .kpi-value{color:var(--yellow)}.kpi-card.orange .kpi-value{color:var(--orange)}.kpi-card.red .kpi-value{color:var(--red)}.kpi-card.purple .kpi-value{color:var(--purple)}
+.kpi-sub{margin-top:.38rem;font-family:'DM Mono',monospace;font-size:.63rem;color:var(--muted);line-height:1.4}
+.meta-bar-wrap{margin-top:.6rem}.meta-bar-bg{height:3px;background:var(--s3);border-radius:99px;overflow:hidden}.meta-bar-fill{height:100%;border-radius:99px;background:var(--kpi-c);transition:width 1.2s cubic-bezier(.4,0,.2,1)}.meta-pct{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);margin-top:.25rem}
+/* Semaphore pill */
+.sem{display:inline-flex;align-items:center;gap:.26rem;padding:.17rem .48rem;border-radius:99px;font-family:'DM Mono',monospace;font-size:.54rem;font-weight:500;letter-spacing:.06em;margin-top:.35rem;white-space:nowrap}
+.sem-dot{width:5px;height:5px;border-radius:50%}
+.sem.ok{background:rgba(0,229,160,.1);border:1px solid rgba(0,229,160,.2);color:var(--green)}.sem.ok .sem-dot{background:var(--green);box-shadow:0 0 4px var(--green)}
+.sem.warn{background:rgba(255,184,0,.1);border:1px solid rgba(255,184,0,.2);color:var(--yellow)}.sem.warn .sem-dot{background:var(--yellow);box-shadow:0 0 4px var(--yellow)}
+.sem.danger{background:rgba(255,69,102,.1);border:1px solid rgba(255,69,102,.2);color:var(--red)}.sem.danger .sem-dot{background:var(--red);box-shadow:0 0 4px var(--red)}
+.sem.info{background:rgba(77,166,255,.1);border:1px solid rgba(77,166,255,.2);color:var(--blue)}.sem.info .sem-dot{background:var(--blue)}
+/* Intelligence insight */
+.intel-bar{background:var(--s1);border:1px solid var(--border);border-left:3px solid var(--purple);border-radius:12px;padding:.9rem 1.3rem;margin-bottom:1.25rem;display:flex;align-items:flex-start;gap:.85rem}
+.intel-icon{width:30px;height:30px;background:var(--purple-dim);border:1px solid rgba(155,109,255,.22);border-radius:8px;display:grid;place-items:center;flex-shrink:0}
+.intel-icon svg{width:15px;height:15px;fill:none;stroke:var(--purple);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.intel-body{flex:1}
+.intel-title{font-size:.78rem;font-weight:700;color:var(--text);margin-bottom:.28rem}
+.intel-text{font-family:'DM Mono',monospace;font-size:.67rem;color:var(--text2);line-height:1.65}
+.intel-text .hi-green{color:var(--green)}.intel-text .hi-red{color:var(--red)}.intel-text .hi-yellow{color:var(--yellow)}.intel-text .hi-blue{color:var(--blue)}
+.tag{display:inline-block;padding:.1rem .4rem;border-radius:4px;font-size:.6rem;font-weight:500}
+.tag.up{background:var(--green-dim);color:var(--green)}.tag.down{background:var(--red-dim);color:var(--red)}.tag.warn{background:var(--yellow-dim);color:var(--yellow)}.tag.ok{background:var(--blue-dim);color:var(--blue)}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.25rem;margin-bottom:1.25rem}
+@media(max-width:1100px){.grid-2,.grid-3{grid-template-columns:1fr}}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.card-head{padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+.card-title{font-size:.88rem;font-weight:600;color:var(--text);display:flex;align-items:center;gap:.6rem}
+.card-title svg{width:16px;height:16px;fill:var(--muted)}
+.card-badge{font-family:'DM Mono',monospace;font-size:.63rem;padding:.2rem .6rem;border-radius:99px;border:1px solid var(--border2);color:var(--muted)}
+.card-body{padding:1.5rem}.chart-wrap{position:relative;height:220px}
+.tbl{width:100%;border-collapse:collapse;font-size:.78rem}
+.tbl th{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--border)}
+.tbl td{padding:.65rem 1rem;border-bottom:1px solid var(--border);color:var(--text2)}
+.tbl tr:last-child td{border:none}.tbl tr:hover td{background:var(--s2);color:var(--text)}
+.tbl .num{text-align:right;font-family:'DM Mono',monospace;font-size:.75rem;color:var(--text)}
+.tbl .lbl{font-weight:600;color:var(--text)}
+.rank-num{display:inline-block;width:22px;height:22px;border-radius:6px;background:var(--s3);font-family:'DM Mono',monospace;font-size:.65rem;text-align:center;line-height:22px;color:var(--muted);margin-right:.4rem}
+.vendor-list{display:flex;flex-direction:column;gap:.85rem}
+.vendor-item{display:flex;flex-direction:column;gap:.3rem}
+.vendor-head{display:flex;align-items:center;justify-content:space-between}
+.vendor-name{font-size:.82rem;font-weight:600;color:var(--text)}
+.vendor-amount{font-family:'DM Mono',monospace;font-size:.85rem;color:var(--green)}
+.vendor-pct{font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted);margin-left:.5rem}
+.vendor-bar-bg{height:5px;background:var(--s3);border-radius:99px;overflow:hidden}
+.vendor-bar-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--purple),var(--blue));transition:width 1.2s}
+.tipo-badge{display:inline-block;padding:.1rem .4rem;border-radius:4px;font-size:.6rem;font-weight:600;font-family:'DM Mono',monospace}
+.tipo-ve{background:var(--blue-dim);color:var(--blue)}.tipo-pv{background:var(--purple-dim);color:var(--purple)}
+</style>
+</head>
+<body>
+<div class="bg-orbs"><div class="orb orb-1"></div><div class="orb orb-2"></div></div>
+
+<header>
+  <div class="header-inner">
+    <a href="index.html" class="logo">
+      <div class="logo-icon"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg></div>
+      <div><div class="logo-text">Suminregio Parker</div><div class="logo-sub">ERP Dashboard</div></div>
+    </a>
+    <nav>
+      <a href="index.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>Inicio</a>
+      <a href="director.html" class="nav-link active"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>Director</a>
+      <a href="ventas.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96C5 16.1 6.9 18 9 18h12v-2H9.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63H19c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0023.46 5H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>Ventas</a>
+      <a href="cxc.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>CXC</a>
+      <a href="inventario.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M20 7H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zm-8 9c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zM4 3h16v2H4z"/></svg>Inventario</a>
+    </nav>
+    <div class="header-right">
+      <div class="live-pill"><div class="live-dot"></div>EJECUTIVO</div>
+      <div class="clock" id="clock">--:--:--</div>
+    </div>
+  </div>
+</header>
+
+<div class="page">
+  <div class="page-header">
+    <div class="page-title">Resumen Ejecutivo</div>
+    <div class="page-sub" id="page-sub">Cargando datos...</div>
+  </div>
+
+  <!-- Barra de filtros compartida -->
+  <div id="filter-bar"></div>
+
+  <!-- Intelligence bar -->
+  <div class="intel-bar">
+    <div class="intel-icon"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></div>
+    <div class="intel-body">
+      <div class="intel-title">Inteligencia Ejecutiva ù Resumen del Dùa</div>
+      <div class="intel-text" id="intel-text">Cargando anùlisis...</div>
+    </div>
+  </div>
+
+  <!-- KPIs Ventas -->
+  <div style="font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.55rem">Ventas (Industrial VE + Mostrador PV)</div>
+  <div class="kpi-grid kpi-grid-6">
+    <div class="kpi-card blue">
+      <div class="kpi-label">Ventas Hoy</div>
+      <div class="kpi-value" id="v-hoy">&mdash;</div>
+      <div class="kpi-sub" id="v-hoy-sub">&nbsp;</div>
+      <div class="meta-bar-wrap"><div class="meta-bar-bg"><div class="meta-bar-fill" id="bar-hoy" style="width:0%"></div></div><div class="meta-pct" id="pct-hoy">&nbsp;</div></div>
+      <div id="sem-hoy" class="sem info"><div class="sem-dot"></div>ù</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">Ventas Mes</div>
+      <div class="kpi-value" id="v-mes">&mdash;</div>
+      <div class="kpi-sub" id="v-mes-sub">&nbsp;</div>
+      <div class="meta-bar-wrap"><div class="meta-bar-bg"><div class="meta-bar-fill" id="bar-mes" style="width:0%"></div></div><div class="meta-pct" id="pct-mes">&nbsp;</div></div>
+      <div id="sem-mes" class="sem info"><div class="sem-dot"></div>ù</div>
+    </div>
+    <div class="kpi-card blue" style="--kpi-c:var(--blue)">
+      <div class="kpi-label">Industrial (VE)</div>
+      <div class="kpi-value" id="v-mes-ve">&mdash;</div>
+      <div class="kpi-sub">Canal industrial ù mes</div>
+      <div id="sem-ve" class="sem info"><div class="sem-dot"></div>Canal principal</div>
+    </div>
+    <div class="kpi-card purple">
+      <div class="kpi-label">Mostrador (PV)</div>
+      <div class="kpi-value" id="v-mes-pv">&mdash;</div>
+      <div class="kpi-sub">Canal mostrador ù mes</div>
+      <div id="sem-pv" class="sem info"><div class="sem-dot"></div>Mostrador</div>
+    </div>
+    <div class="kpi-card yellow">
+      <div class="kpi-label">Cotiz. Hoy</div>
+      <div class="kpi-value" id="coti-hoy">&mdash;</div>
+      <div class="kpi-sub" id="coti-hoy-imp">&nbsp;</div>
+      <div id="sem-coti" class="sem info"><div class="sem-dot"></div>Oportunidades</div>
+    </div>
+    <div class="kpi-card orange">
+      <div class="kpi-label">Facturas Mes</div>
+      <div class="kpi-value" id="v-docs">&mdash;</div>
+      <div class="kpi-sub">documentos emitidos</div>
+      <div class="sem info"><div class="sem-dot"></div>Documentos VE+PV</div>
+    </div>
+  </div>
+
+  <!-- KPIs CXC -->
+  <div style="font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.55rem;margin-top:.2rem">Cuentas por Cobrar ù Salud de Cartera</div>
+  <div class="kpi-grid kpi-grid-4">
+    <div class="kpi-card yellow">
+      <div class="kpi-label">Saldo CxC Total</div>
+      <div class="kpi-value" id="cxc-total">&mdash;</div>
+      <div class="kpi-sub" id="cxc-clientes">&nbsp;</div>
+      <div id="sem-cxc" class="sem info"><div class="sem-dot"></div>Cartera total</div>
+    </div>
+    <div class="kpi-card red">
+      <div class="kpi-label">Vencido</div>
+      <div class="kpi-value" id="cxc-vencido">&mdash;</div>
+      <div class="kpi-sub" id="cxc-pct-venc">&nbsp;</div>
+      <div id="sem-venc" class="sem danger"><div class="sem-dot"></div>ù</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">Por Vencer (Vigente)</div>
+      <div class="kpi-value" id="cxc-vigente">&mdash;</div>
+      <div class="kpi-sub" id="cxc-pct-vig">&nbsp;</div>
+      <div id="sem-vig" class="sem ok"><div class="sem-dot"></div>Vigente</div>
+    </div>
+    <div class="kpi-card orange">
+      <div class="kpi-label">Relaciùn V/CxC</div>
+      <div class="kpi-value" id="rel-vcxc">&mdash;</div>
+      <div class="kpi-sub">Ventas mes ù CxC total</div>
+      <div id="sem-rel" class="sem info"><div class="sem-dot"></div>Rotaciùn cartera</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></svg>Ventas Diarias (VE + PV)</div><div class="card-badge">30 d&iacute;as</div></div>
+      <div class="card-body"><div class="chart-wrap"><canvas id="chartVentas"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>Desempe&ntilde;o Vendedores (mes)</div><div class="card-badge" id="vend-badge">&mdash;</div></div>
+      <div class="card-body" id="vendedores-list"><div style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</div></div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>Top Clientes (mes)</div><div class="card-badge">Mes actual</div></div>
+      <div class="card-body" style="padding:0">
+        <table class="tbl" id="tbl-clientes">
+          <thead><tr><th>#</th><th>Cliente</th><th class="num">Ventas Mes</th><th class="num">Docs</th></tr></thead>
+          <tbody><tr><td colspan="4" style="text-align:center;color:var(--muted)">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>Movimientos Recientes</div><div class="card-badge" id="rec-badge">&mdash;</div></div>
+      <div class="card-body" style="padding:0">
+        <table class="tbl" id="tbl-recientes">
+          <thead><tr><th>Folio</th><th>Fuente</th><th>Cliente</th><th>Vendedor</th><th class="num">Total</th><th>Fecha</th></tr></thead>
+          <tbody><tr><td colspan="6" style="text-align:center;color:var(--muted)">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = (function(){ const o=typeof window!=='undefined'?window.location.origin:''; if(o.startsWith('http')&&(o.includes('7000')||o.includes('localhost'))) return ''; if(!o||o==='null'||o==='file://') return 'http://localhost:7000'; return ''; })();
+function fwt(url,fallback,ms=10000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
+let chartVentas;
+
+// -- Helper: URL con filtros ------------------------------------------------
+function buildApiUrl(path, extra) {
+  const qs    = window.filterBuildQS ? filterBuildQS() : '';
+  const e     = extra ? String(extra).replace(/^[?&]+/, '') : '';
+  const parts = [qs, e].filter(Boolean).join('&');
+  return API + path + (parts ? '?' + parts : '');
+}
+const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const fmt  = n => isNaN(+n)||n==null?'ù':'$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});
+const fmtK = n => { if(isNaN(+n)||n==null) return 'ù'; n=+n; if(Math.abs(n)>=1e6) return '$'+(n/1e6).toFixed(2)+'M'; if(Math.abs(n)>=1e3) return '$'+(n/1e3).toFixed(1)+'K'; return '$'+n.toFixed(0); };
+const setText = (id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
+const setHtml = (id,v)=>{ const e=document.getElementById(id); if(e) e.innerHTML=v; };
+const setWid = (id,p)=>{ const e=document.getElementById(id); if(e) e.style.width=Math.min(+p||0,100)+'%'; };
+
+function setSem(id,cls,label){
+  const el=document.getElementById(id);if(!el)return;
+  el.className='sem '+cls;
+  el.innerHTML=`<div class="sem-dot"></div>${label}`;
+}
+
+function setBarColor(barId,pctId,pct,{invert=false}={}){
+  const bar=document.getElementById(barId);
+  const pctEl=document.getElementById(pctId);
+  const col=!invert?(pct>=100?'var(--green)':pct>=70?'var(--yellow)':'var(--red)'):(pct<25?'var(--green)':pct<50?'var(--yellow)':'var(--red)');
+  const label=!invert?(pct>=100?'Meta cumplida ?':pct>=70?'Buen avance':'Por debajo'):(pct<25?'Saludable':pct<50?'AtenciÛn':'CrÌtica');
+  if(bar){bar.style.width=Math.min(pct,100)+'%';bar.style.background=col}
+  if(pctEl){pctEl.innerHTML=`<span style="color:${col};font-weight:600">${pct}%</span> ${label}`}
+}
+
+setInterval(()=>{ document.getElementById('clock').textContent=new Date().toLocaleTimeString('es-MX'); },1000);
+
+async function loadAll() {
+  try {
+    const [dirR, cxcR, metR] = await Promise.allSettled([
+      fetch(buildApiUrl('/api/director/resumen')).then(r=>r.json()),
+      fetch(buildApiUrl('/api/cxc/resumen')).then(r=>r.json()),
+      fetch(`${API}/api/config/metas`).then(r=>r.json()),
+    ]);
+    const dir   = dirR.status==='fulfilled'  ? dirR.value  : {};
+    const cxcObj= cxcR.status==='fulfilled'  ? cxcR.value  : {};
+    const metas = metR.status==='fulfilled'  ? metR.value  : {};
+    // reasignar cxc desde director si cxcObj falla
+    const cxc   = (cxcObj && Object.keys(cxcObj).length>0) ? cxcObj : (dir.cxc||{});
+    const v = dir.ventas||{}, c = cxc, co = dir.cotizaciones||{};
+    const meta = +(metas.META_TOTAL_DIARIA||5650);
+    const ideal = +(metas.META_IDEAL_TOTAL||6215);
+    const dias = new Date().getDate();
+
+    const ventaHoy=+(v.HOY||0);
+    const ventaMes=+(v.MES_ACTUAL||0);
+    const pHoy=meta>0?Math.round(ventaHoy/meta*100):0;
+    const pMesIdeal=ideal*dias>0?Math.round(ventaMes/(ideal*dias)*100):0;
+    const mesBase=meta*(new Date().getDate()*22/30);
+    const pMesBase=mesBase>0?Math.round(ventaMes/mesBase*100):0;
+
+    setText('v-hoy', fmtK(ventaHoy));
+    setText('v-hoy-sub', `Meta: ${fmtK(meta)}`);
+    setBarColor('bar-hoy','pct-hoy',pHoy);
+    setSem('sem-hoy',pHoy>=100?'ok':pHoy>=70?'warn':'danger',pHoy>=100?'? Meta cumplida':pHoy>=70?'? En progreso':'? Bajo meta');
+
+    setText('v-mes', fmtK(ventaMes));
+    setBarColor('bar-mes','pct-mes',pMesIdeal);
+    setText('v-mes-sub', `${v.FACTURAS_MES||0} docs ù meta ideal acum.`);
+    setSem('sem-mes',pMesIdeal>=100?'ok':pMesIdeal>=70?'warn':'danger',pMesIdeal+'% vs ideal');
+
+    // Canal split
+    const ventaVE=+(v.MES_VE||0), ventaPV=+(v.MES_PV||0);
+    const totalCanal=ventaVE+ventaPV||1;
+    setText('v-mes-ve', fmtK(ventaVE));
+    const pVE=Math.round(ventaVE/totalCanal*100);
+    setSem('sem-ve','info',pVE+'% del mix');
+    setText('v-mes-pv', fmtK(ventaPV));
+    setSem('sem-pv','info',Math.round(ventaPV/totalCanal*100)+'% del mix');
+    setText('v-docs', v.FACTURAS_MES||0);
+
+    // Cotizaciones
+    const cotiN=+(co.COTI_HOY||0), cotiM=+(co.IMPORTE_COTI_HOY||0);
+    const cotiMesM=+(co.IMPORTE_COTI_MES||0), cotiMesN=+(co.COTI_MES||0);
+    setText('coti-hoy', cotiN>0?cotiN:'ù');
+    setText('coti-hoy-imp', cotiM>0?fmtK(cotiM):(cotiMesM>0?fmtK(cotiMesM)+' mes':'Sin datos'));
+    setSem('sem-coti','info',(cotiN>0?cotiN+' hoy ù ':'')+cotiMesN+' este mes');
+
+    // CxC
+    const cTotal=+(cxc.SALDO_TOTAL||0), cVenc=+(cxc.VENCIDO||0), cVig=+(cxc.POR_VENCER||0);
+    const pVenc=cTotal>0?Math.round(cVenc/cTotal*100):0;
+    const pVig=cTotal>0?Math.round(cVig/cTotal*100):0;
+    const pVigSafe=isNaN(pVig)?0:pVig;
+    setText('cxc-total', fmtK(cTotal));
+    setText('cxc-clientes', `${cxc.NUM_CLIENTES||0} clientes activos`);
+    setSem('sem-cxc','info',fmtK(cTotal)+' total');
+    setText('cxc-vencido', fmtK(cVenc));
+    setText('cxc-pct-venc', cTotal>0?`${pVenc}% del total ù ${cxc.NUM_CLIENTES_VENCIDOS||'ù'} clientes`:'Sin datos');
+    setSem('sem-venc',pVenc>50?'danger':pVenc>25?'warn':'ok',pVenc>50?'? Cartera crùtica':pVenc>25?'? Atenciùn':pVenc+'% vencido');
+    setText('cxc-vigente', fmtK(cVig));
+    setText('cxc-pct-vig', cTotal>0?`${pVigSafe}% vigente`:'ù');
+    setSem('sem-vig',pVigSafe>=60?'ok':pVigSafe>=40?'warn':'danger',pVigSafe+'% vigente');
+    const relN=cTotal>0?+(ventaMes/cTotal).toFixed(2):0;
+    setText('rel-vcxc', relN?relN+'x':'ù');
+    setSem('sem-rel',relN>=0.3?'ok':relN>=0.15?'warn':'danger',relN>=0.3?'Rotaciùn buena':relN>=0.15?'Rotaciùn media':'Rotaciùn baja');
+
+    // BI Intelligence text
+    const parts=[];
+    const hColor=pHoy>=100?'hi-green':pHoy>=70?'hi-yellow':'hi-red';
+    parts.push(`Venta de hoy: <strong class="${hColor}">${fmtK(ventaHoy)} (${pHoy}% de meta ${fmtK(meta)})</strong>.`);
+    parts.push(`Venta del mes: <strong class="${pMesBase>=100?'hi-green':pMesBase>=70?'hi-yellow':'hi-red'}">${fmtK(ventaMes)}</strong> ù industrial <strong>${fmtK(ventaVE)}</strong> (${pVE}%) + mostrador <strong>${fmtK(ventaPV)}</strong>.`);
+    const cxcColor=pVenc>50?'hi-red':pVenc>25?'hi-yellow':'hi-green';
+    parts.push(`CxC: cartera total <strong class="hi-blue">${fmtK(cTotal)}</strong> ù vencido <strong class="${cxcColor}">${fmtK(cVenc)} (${pVenc}%)</strong> ù vigente ${fmtK(cVig)}.`);
+    if(pVenc>50)parts.push(`<strong class="hi-red">? ALERTA:</strong> mùs del 50% de la cartera estù vencida ù gestiùn de cobranza urgente.`);
+    else if(pHoy<30)parts.push(`<strong class="hi-yellow">? ATENCIùN:</strong> venta del dùa muy baja (${pHoy}%) ù revisar actividad comercial.`);
+    else parts.push(`<strong class="hi-green">? Sistema operando normalmente.</strong> ${pVenc<=25?'Cartera saludable.':'Monitorear cobranza.'}`);
+    setHtml('intel-text', parts.join(' '));
+
+  } catch(e){ console.error('resumen',e); setText('page-sub','Error cargando datos: '+e.message); }
+
+  await Promise.all([loadDiarias(), loadVendedores(), loadClientes(), loadRecientes()]);
+  setText('page-sub', `Actualizado: ${new Date().toLocaleTimeString('es-MX')}`);
+}
+
+async function loadDiarias() {
+  try {
+    const rows = await fetch(buildApiUrl('/api/director/ventas-diarias', 'dias=30')).then(r=>r.json());
+    const metas = await fetch(`${API}/api/config/metas`).then(r=>r.json());
+    const meta = +(metas.META_TOTAL_DIARIA||5650);
+    const ideal = +(metas.META_IDEAL_TOTAL||6215);
+    const labels = rows.map(r=>{ const d=new Date(r.DIA); return `${d.getDate()}/${MESES[d.getMonth()]}`; });
+    if(chartVentas) chartVentas.destroy();
+    chartVentas = new Chart(document.getElementById('chartVentas').getContext('2d'), {
+      type:'line',
+      data:{ labels, datasets:[
+        {label:'Industrial (VE)', data:rows.map(r=>r.VENTAS_VE||0), backgroundColor:'rgba(77,166,255,.15)', borderColor:'#4DA6FF', borderWidth:2, fill:true, tension:.4},
+        {label:'Mostrador (PV)', data:rows.map(r=>r.VENTAS_PV||0), backgroundColor:'rgba(155,109,255,.15)', borderColor:'#9B6DFF', borderWidth:2, fill:true, tension:.4},
+        {label:'Meta', data:rows.map(()=>meta), borderColor:'rgba(255,184,0,.5)', borderWidth:1, borderDash:[4,4], pointRadius:0, fill:false},
+        {label:'Ideal (+10%)', data:rows.map(()=>ideal), borderColor:'rgba(0,229,160,.35)', borderWidth:1, borderDash:[2,4], pointRadius:0, fill:false},
+      ]},
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:true,labels:{color:'#B0BECE',font:{size:10},boxWidth:10}},
+          tooltip:{backgroundColor:'#0D1D35',borderColor:'rgba(255,255,255,.1)',borderWidth:1,callbacks:{label:ctx=>' $'+Number(ctx.raw).toLocaleString()}} },
+        scales:{ x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5A7090',font:{size:9}}},
+          y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5A7090',font:{size:9},callback:v=>fmtK(v)}} } }
+    });
+  } catch(e){}
+}
+
+async function loadVendedores() {
+  try {
+    const rows = await fetch(buildApiUrl('/api/director/vendedores')).then(r=>r.json());
+    const max = rows.reduce((m,r)=>Math.max(m,+(r.VENTAS_MES||0)),0);
+    const el = document.getElementById('vendedores-list');
+    el.innerHTML = rows.length ? `<div class="vendor-list">${rows.map((r,i)=>{
+      const pct = max>0?(+(r.VENTAS_MES||0)/max*100).toFixed(0):0;
+      return `<div class="vendor-item">
+        <div class="vendor-head">
+          <span class="vendor-name"><span class="rank-num">${i+1}</span>${r.VENDEDOR}</span>
+          <span><span class="vendor-amount">${fmtK(r.VENTAS_MES)}</span><span class="vendor-pct">${pct}%</span></span>
+        </div>
+        <div class="vendor-bar-bg"><div class="vendor-bar-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    }).join('')}</div>` : '<div style="text-align:center;color:var(--muted);padding:1.5rem">Sin datos</div>';
+    setText('vend-badge', `${rows.length} vendedores`);
+  } catch(e){}
+}
+
+async function loadClientes() {
+  try {
+    const rows = await fetch(buildApiUrl('/api/director/top-clientes', 'limit=10')).then(r=>r.json());
+    document.querySelector('#tbl-clientes tbody').innerHTML = rows.map((r,i)=>`<tr>
+      <td><span class="rank-num">${i+1}</span></td>
+      <td class="lbl">${r.CLIENTE}</td>
+      <td class="num">${fmt(r.TOTAL_VENTAS)}</td>
+      <td class="num">${r.NUM_FACTURAS}</td>
+    </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sin datos</td></tr>';
+  } catch(e){}
+}
+
+async function loadRecientes() {
+  try {
+    const rows = await fetch(buildApiUrl('/api/director/recientes', 'limit=15')).then(r=>r.json());
+    document.querySelector('#tbl-recientes tbody').innerHTML = rows.map(r=>{
+      const src = r.TIPO_SRC==='PV'?'<span class="tipo-badge tipo-pv">PV</span>':'<span class="tipo-badge tipo-ve">VE</span>';
+      const fecha = r.FECHA ? new Date(r.FECHA).toLocaleDateString('es-MX') : '&mdash;';
+      return `<tr><td class="lbl" style="font-family:'DM Mono',monospace">${r.FOLIO||'&mdash;'}</td><td>${src}</td><td>${r.CLIENTE||'&mdash;'}</td><td style="color:var(--muted)">${r.VENDEDOR||'&mdash;'}</td><td class="num">${fmt(r.TOTAL)}</td><td style="color:var(--muted);font-family:'DM Mono',monospace;font-size:.72rem">${fecha}</td></tr>`;
+    }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted)">Sin datos</td></tr>';
+    setText('rec-badge', `${rows.length} movimientos`);
+  } catch(e){}
+}
+
+// Carga inicial inmediata
+loadAll();
+initFilters({ containerId:'filter-bar', showVendedor:false, onChange:()=>loadAll() });
+setInterval(loadAll, 60000);
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

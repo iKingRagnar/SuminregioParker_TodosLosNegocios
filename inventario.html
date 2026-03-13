@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suminregio Parker &mdash; Inventario</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060E1A;--s1:#0C1B29;--s2:#112233;--s3:#172D42;--s4:#1D3654;
+  --border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.11);
+  --green:#00E5A0;--green-dim:rgba(0,229,160,.1);
+  --yellow:#FFB800;--yellow-dim:rgba(255,184,0,.12);
+  --orange:#FF8C42;--orange-dim:rgba(255,140,66,.1);
+  --red:#FF4566;--red-dim:rgba(255,69,102,.12);
+  --blue:#4DA6FF;--blue-dim:rgba(77,166,255,.1);
+  --purple:#9B6DFF;--purple-dim:rgba(155,109,255,.1);
+  --text:#E8EFF8;--text2:#B0BECE;--muted:#5A7090;--dim:#243348;
+}
+html{font-size:16px;-webkit-font-smoothing:antialiased}
+body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh}
+.bg-orbs{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.orb{position:absolute;border-radius:50%;filter:blur(130px);opacity:.12;animation:drift 20s ease-in-out infinite alternate}
+.orb-1{width:600px;height:600px;background:radial-gradient(circle,#1E7FD9,transparent 70%);bottom:-100px;right:-100px}
+.orb-2{width:500px;height:500px;background:radial-gradient(circle,#FFB800,transparent 70%);top:-100px;left:-100px;animation-delay:-5s}
+@keyframes drift{0%{transform:translate(0,0)}100%{transform:translate(15px,15px)}}
+header{position:sticky;top:0;z-index:100;background:rgba(5,11,20,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
+.header-inner{max-width:1600px;margin:0 auto;height:64px;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;padding:0 2rem}
+.logo{display:flex;align-items:center;gap:.75rem;text-decoration:none}
+.logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--orange),var(--yellow));border-radius:10px;display:grid;place-items:center;flex-shrink:0}
+.logo-icon svg{width:20px;height:20px;fill:white}
+.logo-text{font-size:.9rem;font-weight:700;color:var(--text)}
+.logo-sub{font-size:.62rem;font-family:'DM Mono',monospace;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+nav{display:flex;align-items:center;gap:.25rem}
+.nav-link{display:flex;align-items:center;gap:.4rem;padding:.4rem .85rem;border-radius:8px;font-size:.8rem;font-weight:500;color:var(--muted);text-decoration:none;transition:all .2s}
+.nav-link:hover{color:var(--text);background:var(--s2)}
+.nav-link.active{color:var(--text);background:var(--s3);border:1px solid var(--border2)}
+.nav-link svg{width:14px;height:14px;fill:currentColor}
+.header-right{display:flex;align-items:center;gap:1rem}
+.live-pill{display:flex;align-items:center;gap:.5rem;background:var(--orange-dim);border:1px solid rgba(255,140,66,.2);border-radius:99px;padding:.3rem .75rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--orange);letter-spacing:.06em}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--orange);box-shadow:0 0 8px var(--orange);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.clock{font-family:'DM Mono',monospace;font-size:.78rem;color:var(--muted)}
+.page{position:relative;z-index:1;max-width:1600px;margin:0 auto;padding:2rem}
+.page-header{margin-bottom:2rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.page-title{font-size:1.75rem;font-weight:800;background:linear-gradient(135deg,var(--text),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.page-sub{font-size:.85rem;color:var(--muted);margin-top:.35rem}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem}
+@media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+.kpi-card{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:1.25rem 1.5rem;position:relative;overflow:hidden;transition:all .3s}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--kpi-c),transparent);opacity:.8}
+.kpi-card:hover{border-color:var(--border2);transform:translateY(-2px);box-shadow:0 12px 40px rgba(0,0,0,.3)}
+.kpi-card.blue{--kpi-c:var(--blue)}.kpi-card.green{--kpi-c:var(--green)}.kpi-card.yellow{--kpi-c:var(--yellow)}.kpi-card.orange{--kpi-c:var(--orange)}.kpi-card.red{--kpi-c:var(--red)}
+.kpi-label{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem}
+.kpi-value{font-family:'DM Mono',monospace;font-size:1.4rem;font-weight:500;letter-spacing:-.02em;line-height:1}
+.kpi-card.blue .kpi-value{color:var(--blue)}.kpi-card.green .kpi-value{color:var(--green)}.kpi-card.yellow .kpi-value{color:var(--yellow)}.kpi-card.orange .kpi-value{color:var(--orange)}.kpi-card.red .kpi-value{color:var(--red)}
+.kpi-sub{margin-top:.4rem;font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted)}
+.tag{display:inline-block;padding:.1rem .4rem;border-radius:4px;font-size:.6rem;font-weight:500}
+.tag.up{background:var(--green-dim);color:var(--green)}.tag.down{background:var(--red-dim);color:var(--red)}.tag.warn{background:var(--yellow-dim);color:var(--yellow)}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem}
+@media(max-width:1000px){.grid-2{grid-template-columns:1fr}}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.card-head{padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+.card-title{font-size:.88rem;font-weight:600;color:var(--text);display:flex;align-items:center;gap:.6rem}
+.card-title svg{width:16px;height:16px;fill:var(--muted)}
+.card-badge{font-family:'DM Mono',monospace;font-size:.63rem;padding:.2rem .6rem;border-radius:99px;border:1px solid var(--border2);color:var(--muted)}
+.card-body{padding:1.5rem}
+.search-wrap{display:flex;gap:.75rem;margin-bottom:1rem}
+.search-input{flex:1;background:var(--s2);border:1px solid var(--border2);color:var(--text);padding:.5rem 1rem;border-radius:10px;font-size:.82rem;font-family:'Syne',sans-serif;outline:none}
+.search-input:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(77,166,255,.15)}
+.search-input::placeholder{color:var(--muted)}
+.tbl{width:100%;border-collapse:collapse;font-size:.78rem}
+.tbl th{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--border)}
+.tbl td{padding:.65rem 1rem;border-bottom:1px solid var(--border);color:var(--text2)}
+.tbl tr:last-child td{border:none}.tbl tr:hover td{background:var(--s2);color:var(--text)}
+.tbl .num{text-align:right;font-family:'DM Mono',monospace;font-size:.75rem;color:var(--text)}
+.tbl .lbl{font-weight:600;color:var(--text)}
+.stock-bar-wrap{display:flex;align-items:center;gap:.5rem}
+.stock-bar-bg{flex:1;height:6px;background:var(--s3);border-radius:99px;overflow:hidden}
+.stock-bar-fill{height:100%;border-radius:99px}
+.semanas-tag{display:inline-block;padding:.1rem .4rem;border-radius:4px;font-family:'DM Mono',monospace;font-size:.62rem}
+</style>
+</head>
+<body>
+<div class="bg-orbs"><div class="orb orb-1"></div><div class="orb orb-2"></div></div>
+
+<header>
+  <div class="header-inner">
+    <a href="index.html" class="logo">
+      <div class="logo-icon"><svg viewBox="0 0 24 24"><path d="M20 7H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zm-8 9c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zM4 3h16v2H4z"/></svg></div>
+      <div><div class="logo-text">Suminregio Parker</div><div class="logo-sub">ERP Dashboard</div></div>
+    </a>
+    <nav>
+      <a href="index.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>Inicio</a>
+      <a href="ventas.html" class="nav-link"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Ventas</a>
+      <a href="cobradas.html" class="nav-link"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Cobradas</a>
+      <a href="vendedores.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Vendedores</a>
+      <a href="cxc.html" class="nav-link"><svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>CxC</a>
+      <a href="clientes.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Clientes</a>
+      <a href="inventario.html" class="nav-link active"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 2 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Inventario</a>
+      <a href="resultados.html" class="nav-link"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Resultados</a>
+    </nav>
+    <div class="header-right">
+      <div class="live-pill"><div class="live-dot"></div>STOCK</div>
+      <div class="clock" id="clock">--:--:--</div>
+    </div>
+  </div>
+</header>
+
+<div class="page">
+  <div class="page-header">
+    <div>
+      <div class="page-title">Inventario</div>
+      <div class="page-sub" id="page-sub">Cargando datos...</div>
+    </div>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card blue"><div class="kpi-label">Total Art&iacute;culos</div><div class="kpi-value" id="kpi-total">&mdash;</div><div class="kpi-sub">Activos en cat&aacute;logo</div></div>
+    <div class="kpi-card yellow"><div class="kpi-label">Valor Inventario</div><div class="kpi-value" id="kpi-valor">&mdash;</div><div class="kpi-sub">Existencia × Precio</div></div>
+    <div class="kpi-card red"><div class="kpi-label">Bajo M&iacute;nimo</div><div class="kpi-value" id="kpi-minimo">&mdash;</div><div class="kpi-sub">Requieren reorden</div></div>
+    <div class="kpi-card orange"><div class="kpi-label">Sin Stock</div><div class="kpi-value" id="kpi-cero">&mdash;</div><div class="kpi-sub">Con m&iacute;nimo definido y existencia 0</div></div>
+  </div>
+
+  <!-- B&Uacute;SQUEDA -->
+  <div class="card" style="margin-bottom:1.25rem">
+    <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>Buscar Art&iacute;culo</div><div class="card-badge" id="busq-badge">Escribe m&iacute;nimo 2 caracteres</div></div>
+    <div class="card-body">
+      <div class="search-wrap">
+        <input class="search-input" id="busq-input" type="text" placeholder="Nombre o c&oacute;digo de art&iacute;culo..." oninput="doBusqueda(this.value)">
+      </div>
+      <div id="busq-resultado"></div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69zM12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6c3.31 0 6 2.69 6 6s-2.69 6-6 6zM6 12c0-1.93.78-3.68 2.04-4.96C8.01 8.32 8 9.15 8 10c0 2.42 1.72 4.44 4 4.9V18c-3.31 0-6-2.69-6-6z"/></svg>Art&iacute;culos Bajo M&iacute;nimo</div><div class="card-badge" id="minimo-badge">&mdash;</div></div>
+      <div class="card-body" style="padding:0">
+        <table class="tbl" id="tbl-minimo">
+          <thead><tr><th>Art&iacute;culo</th><th>Unidad</th><th class="num">Exist.</th><th class="num">M&iacute;nimo</th><th class="num">Faltante</th></tr></thead>
+          <tbody><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>Consumo Semanal (stock cr&iacute;tico)</div><div class="card-badge">&Uacute;ltimas 4 semanas</div></div>
+      <div class="card-body" style="padding:0">
+        <table class="tbl" id="tbl-consumo">
+          <thead><tr><th>Art&iacute;culo</th><th class="num">Exist.</th><th class="num">Cons/Sem</th><th class="num">Semanas</th></tr></thead>
+          <tbody><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 4l6 2.67V11c0 3.94-2.71 7.62-6 8.93-3.29-1.31-6-4.99-6-8.93V7.67L12 5z"/></svg>Top Art&iacute;culos por Valor de Inventario</div><div class="card-badge">Mayor valor en stock</div></div>
+    <div class="card-body" style="padding:0">
+      <table class="tbl" id="tbl-topstock">
+        <thead><tr><th>#</th><th>Art&iacute;culo</th><th>Unidad</th><th class="num">Existencia</th><th class="num">Precio</th><th class="num">Valor Total</th></tr></thead>
+        <tbody><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- FORECAST: Consumo + Stock M&iacute;nimo Recomendado + D&iacute;as hasta agotamiento -->
+  <div class="card" style="margin-top:1.25rem">
+    <div class="card-head">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24"><path d="M2.5 19h19v2h-19zm19.57-9.36c-.21-.8-1.04-1.28-1.84-1.06L14.92 10l-6.9-6.43-1.93.51 4.14 7.17-4.97 1.33-1.97-1.54-1.45.39 2.59 4.49s7.12-1.9 14.35-3.84c.81-.23 1.28-1.05 1.07-1.86z"/></svg>
+        Forecast: Consumo &amp; Reposici&oacute;n (&uacute;ltimos 90 d&iacute;as)
+      </div>
+      <div class="card-badge" id="consumo-badge">--</div>
+    </div>
+    <div class="card-body" style="padding:0">
+      <table class="tbl" id="tbl-forecast">
+        <thead><tr>
+          <th>Art&iacute;culo</th><th>Unidad</th>
+          <th class="num">Existencia</th><th class="num">Cons/D&iacute;a</th>
+          <th class="num">D&iacute;as Stock</th><th class="num">Stock M&iacute;n Rec.</th>
+          <th class="num">Reponer</th><th>Alerta</th>
+        </tr></thead>
+        <tbody id="tbl-forecast-body"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Art&iacute;culos sin movimiento -->
+  <div class="card" style="margin-top:1.25rem;margin-bottom:1.5rem">
+    <div class="card-head">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+        Art&iacute;culos Sin Movimiento (&gt;180 d&iacute;as con existencia)
+      </div>
+      <div class="card-badge" id="sinmov-badge">--</div>
+    </div>
+    <div class="card-body" style="padding:0">
+      <table class="tbl" id="tbl-sinmov">
+        <thead><tr>
+          <th>Art&iacute;culo</th><th>Unidad</th>
+          <th class="num">Existencia</th><th class="num">M&iacute;nimo</th>
+          <th class="num">D&iacute;as Sin Venta</th><th class="num">&Uacute;lt. Movimiento</th>
+        </tr></thead>
+        <tbody id="tbl-sinmov-body"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '';
+const fmt  = n => isNaN(+n)||n==null?'&mdash;':'$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});
+const fmtK = n => { if(isNaN(+n)||n==null) return '&mdash;'; n=+n; if(Math.abs(n)>=1e6) return '$'+(n/1e6).toFixed(1)+'M'; if(Math.abs(n)>=1e3) return '$'+(n/1e3).toFixed(0)+'k'; return '$'+n.toFixed(0); };
+const setText = (id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
+
+setInterval(()=>{ document.getElementById('clock').textContent=new Date().toLocaleTimeString('es-MX'); },1000);
+
+let busqTimer;
+function doBusqueda(val) {
+  clearTimeout(busqTimer);
+  if(val.trim().length < 2) { document.getElementById('busq-resultado').innerHTML=''; setText('busq-badge','Escribe m&iacute;nimo 2 caracteres'); return; }
+  busqTimer = setTimeout(async ()=>{
+    try {
+      const rows = await fetch(`${API}/api/inv/existencias?q=${encodeURIComponent(val)}`).then(r=>r.json());
+      setText('busq-badge', `${rows.length} resultados`);
+      document.getElementById('busq-resultado').innerHTML = rows.length ?
+        `<table class="tbl"><thead><tr><th>Art&iacute;culo</th><th>Unidad</th><th class="num">Existencia</th><th class="num">M&iacute;nimo</th><th class="num">Precio</th></tr></thead><tbody>${
+          rows.map(r=>{
+            const pct = r.EXISTENCIA_MINIMA>0?Math.min((r.EXISTENCIA/r.EXISTENCIA_MINIMA)*100,100):100;
+            const barColor = r.EXISTENCIA<=0?'var(--red)':r.EXISTENCIA<r.EXISTENCIA_MINIMA?'var(--orange)':'var(--green)';
+            return `<tr><td class="lbl">${r.DESCRIPCION}</td><td style="color:var(--muted)">${r.UNIDAD}</td>
+              <td class="num"><div class="stock-bar-wrap"><div class="stock-bar-bg"><div class="stock-bar-fill" style="width:${pct}%;background:${barColor}"></div></div><span>${r.EXISTENCIA}</span></div></td>
+              <td class="num" style="color:var(--muted)">${r.EXISTENCIA_MINIMA}</td>
+              <td class="num">${fmt(r.PRECIO_VENTA)}</td></tr>`;
+          }).join('')
+        }</tbody></table>` :
+        '<div style="text-align:center;color:var(--muted);padding:1rem">Sin resultados</div>';
+    } catch(e){}
+  }, 350);
+}
+
+async function loadAll() {
+  try {
+    const d = await fetch(`${API}/api/inv/resumen`).then(r=>r.json());
+    setText('kpi-total', Number(d.TOTAL_ARTICULOS||0).toLocaleString());
+    setText('kpi-valor', fmtK(d.VALOR_INVENTARIO));
+    setText('kpi-minimo', Number(d.BAJO_MINIMO||0).toLocaleString());
+    setText('kpi-cero', Number(d.SIN_STOCK||0).toLocaleString());
+  } catch(e){}
+
+  await Promise.all([loadMinimo(), loadConsumo(), loadTopStock(), loadForecast(), loadSinMovimiento()]);
+  setText('page-sub', `Actualizado: ${new Date().toLocaleTimeString('es-MX')}`);
+}
+
+async function loadMinimo() {
+  try {
+    const rows = await fetch(`${API}/api/inv/bajo-minimo?limit=50`).then(r=>r.json());
+    document.querySelector('#tbl-minimo tbody').innerHTML = rows.map(r=>{
+      const pct = r.EXISTENCIA_MINIMA>0?(r.EXISTENCIA/r.EXISTENCIA_MINIMA*100):0;
+      const barColor = r.EXISTENCIA<=0?'var(--red)':'var(--orange)';
+      return `<tr>
+        <td class="lbl">${r.DESCRIPCION}</td>
+        <td style="color:var(--muted)">${r.UNIDAD}</td>
+        <td class="num"><div class="stock-bar-wrap"><div class="stock-bar-bg"><div class="stock-bar-fill" style="width:${Math.min(pct,100)}%;background:${barColor}"></div></div><span style="color:${barColor}">${r.EXISTENCIA}</span></div></td>
+        <td class="num">${r.EXISTENCIA_MINIMA}</td>
+        <td class="num"><span style="color:var(--red)">-${r.FALTANTE}</span></td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted)">Sin art&iacute;culos bajo m&iacute;nimo</td></tr>';
+    setText('minimo-badge', `${rows.length} art&iacute;culos`);
+  } catch(e){}
+}
+
+async function loadConsumo() {
+  try {
+    const rows = await fetch(`${API}/api/inv/consumo-semanal?limit=30`).then(r=>r.json());
+    document.querySelector('#tbl-consumo tbody').innerHTML = rows.map(r=>{
+      const sem = +(r.SEMANAS_STOCK||0);
+      const semColor = sem<1?'var(--red)':sem<2?'var(--orange)':sem<4?'var(--yellow)':'var(--green)';
+      const semTag = sem<1?'down':sem<2?'warn':'up';
+      return `<tr>
+        <td class="lbl">${r.DESCRIPCION}</td>
+        <td class="num">${+(r.EXISTENCIA||0).toFixed(0)}</td>
+        <td class="num">${+(r.CONSUMO_SEMANAL_PROM||0).toFixed(1)}</td>
+        <td class="num"><span class="semanas-tag tag ${semTag}" style="color:${semColor}">${sem>9999?'8':sem.toFixed(1)} sem</span></td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sin datos de consumo</td></tr>';
+  } catch(e){ console.error('consumo',e); }
+}
+
+async function loadTopStock() {
+  try {
+    const rows = await fetch(`${API}/api/inv/top-stock?limit=30`).then(r=>r.json());
+    document.querySelector('#tbl-topstock tbody').innerHTML = rows.map((r,i)=>`<tr>
+      <td style="font-family:'DM Mono',monospace;font-size:.7rem;color:var(--muted)">${i+1}</td>
+      <td class="lbl">${r.DESCRIPCION}</td>
+      <td style="color:var(--muted)">${r.UNIDAD}</td>
+      <td class="num">${+(r.EXISTENCIA||0).toLocaleString()}</td>
+      <td class="num">${fmt(r.PRECIO_VENTA)}</td>
+      <td class="num"><span style="color:var(--yellow)">${fmt(r.VALOR_TOTAL)}</span></td>
+    </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted)">Sin datos</td></tr>';
+  } catch(e){}
+}
+
+async function loadForecast(){
+  try{
+    const rows = await fetch(`${API}/api/inv/consumo?dias=90&limit=50&lead=15`).then(r=>r.json());
+    setText('consumo-badge', rows.length+' art&iacute;culos');
+    document.getElementById('tbl-forecast-body').innerHTML = rows.map(r=>{
+      const dias = +(r.DIAS_STOCK||0);
+      const alerta = (r.ALERTA||'OK').toUpperCase();
+      const alertaCol = alerta==='CRITICO'?'var(--red)':alerta==='BAJO'?'var(--orange)':alerta==='BAJO_MINIMO'?'var(--yellow)':'var(--green)';
+      const alertaTxt = alerta==='CRITICO'?'&#9888; CR&Iacute;TICO':alerta==='BAJO'?'&#9650; BAJO':alerta==='BAJO_MINIMO'?'&#9432; MIN':'&#10003; OK';
+      const reponer = +(r.CANTIDAD_REPONER||0);
+      return `<tr>
+        <td class="lbl">${r.DESCRIPCION}</td>
+        <td style="color:var(--muted)">${r.UNIDAD||''}</td>
+        <td class="num">${+(r.EXISTENCIA_ACTUAL||0).toFixed(1)}</td>
+        <td class="num" style="color:var(--blue)">${+(r.CONSUMO_DIARIO||0).toFixed(2)}/d&iacute;a</td>
+        <td class="num"><span style="color:${alertaCol};font-weight:600">${dias>9000?'&infin;':dias+' d'}</span></td>
+        <td class="num">${+(r.STOCK_MINIMO_RECOMENDADO||0)}</td>
+        <td class="num" style="color:${reponer>0?'var(--orange)':'var(--muted)'}">${reponer>0?'+'+reponer:'--'}</td>
+        <td><span style="font-family:\'DM Mono\',monospace;font-size:.65rem;color:${alertaCol}">${alertaTxt}</span></td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.5rem">Sin datos</td></tr>';
+  }catch(e){console.error('forecast',e);}
+}
+
+async function loadSinMovimiento(){
+  try{
+    const rows = await fetch(`${API}/api/inv/sin-movimiento?dias=180&limit=50`).then(r=>r.json());
+    setText('sinmov-badge', rows.length+' art&iacute;culos');
+    document.getElementById('tbl-sinmov-body').innerHTML = rows.map(r=>{
+      const dias = +(r.DIAS_SIN_VENTA||9999);
+      const col  = dias>365?'var(--red)':dias>180?'var(--orange)':'var(--yellow)';
+      return `<tr>
+        <td class="lbl">${r.DESCRIPCION}</td>
+        <td style="color:var(--muted)">${r.UNIDAD||''}</td>
+        <td class="num" style="color:var(--yellow)">${+(r.EXISTENCIA_ACTUAL||0).toFixed(1)}</td>
+        <td class="num">${+(r.MIN_ACTUAL||0)}</td>
+        <td class="num"><span style="color:${col};font-weight:600">${dias>9000?'Sin hist.':dias+' d&iacute;as'}</span></td>
+        <td class="num" style="color:var(--muted)">${r.ULTIMO_MOVIMIENTO||'Sin registro'}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Sin art&iacute;culos sin movimiento &#127881;</td></tr>';
+  }catch(e){console.error('sin-movimiento',e);}
+}
+
+loadAll();
+setInterval(loadAll, 120000);
+</script>
+<script src="nav.js"></script>
+</body>
+</html>
