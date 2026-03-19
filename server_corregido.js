@@ -1035,12 +1035,22 @@ get('/api/universe/scorecard', async (req) => {
   const ok = rows.filter(r => r.ok);
   const totVentas = ok.reduce((s, r) => s + (r.ventas_mes || 0), 0);
   const totCxc = ok.reduce((s, r) => s + (r.cxc_saldo || 0), 0);
+  const totCoti = ok.reduce((s, r) => s + (r.cotiz_importe_mes || 0), 0);
+  const totFacts = ok.reduce((s, r) => s + (r.facturas_mes || 0), 0);
   return {
     generatedAt: new Date().toISOString(),
     concurrency: conc,
     queryMs: qms,
     empresas: rows,
-    consolidado: { ventas_mes_sum: totVentas, cxc_saldo_sum: Math.round(totCxc * 100) / 100, empresas_ok: ok.length, empresas_err: rows.length - ok.length },
+    consolidado: {
+      ventas_mes_sum: totVentas,
+      cxc_saldo_sum: Math.round(totCxc * 100) / 100,
+      cotiz_mes_sum: Math.round(totCoti * 100) / 100,
+      facturas_mes_sum: totFacts,
+      empresas_ok: ok.length,
+      empresas_err: rows.length - ok.length,
+      empresas_total: rows.length,
+    },
   };
 });
 
