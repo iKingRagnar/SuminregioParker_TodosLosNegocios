@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suminregio Parker &mdash; Consumos</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');
+</script>
+<script src="filters.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060E1A;--s1:#0C1B29;--s2:#112233;--s3:#172D42;--brd:rgba(255,255,255,.08);
+  --txt:#E8EFF8;--muted:#8DA2BF;--suminregio:#E6A800;--suminregio-dim:rgba(230,168,0,.15);
+  --green:#00E5A0;--blue:#4DA6FF;--purple:#9B6DFF;--orange:#FF8C42;--yellow:#FFB800;
+}
+body{background:var(--bg);color:var(--txt);font-family:'Syne',sans-serif}
+.orb{position:fixed;border-radius:50%;filter:blur(130px);opacity:.12;pointer-events:none}
+.o1{width:500px;height:500px;left:-120px;top:-120px;background:radial-gradient(circle,#1E7FD9,transparent 70%)}
+.o2{width:500px;height:500px;right:-130px;bottom:-130px;background:radial-gradient(circle,#00E5A0,transparent 70%)}
+header{position:sticky;top:0;z-index:20;background:rgba(5,11,20,.88);backdrop-filter:blur(18px);border-bottom:1px solid var(--brd)}
+.hd{max-width:1550px;margin:0 auto;height:64px;padding:0 20px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--txt)}
+.logo i{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:linear-gradient(135deg,var(--suminregio),var(--orange))}
+.logo b{font-size:.9rem}.logo span{font-size:.6rem;font-family:'DM Mono',monospace;color:var(--muted)}
+nav{display:flex;gap:4px;flex-wrap:wrap}
+.nav-link{font-size:.76rem;color:var(--muted);padding:6px 10px;border-radius:8px;text-decoration:none;border:1px solid transparent}
+.nav-link:hover{background:var(--s2);color:var(--txt)}
+.nav-link.active{color:var(--suminregio);background:var(--suminregio-dim);border-color:var(--suminregio)}
+.page{max-width:1550px;margin:0 auto;padding:24px 20px 30px;position:relative;z-index:1}
+.title{font-size:1.8rem;font-weight:800;background:linear-gradient(135deg,var(--suminregio),var(--yellow),var(--orange));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.sub{margin-top:6px;color:var(--muted);font-size:.86rem}
+.tabs{display:flex;gap:8px;margin:12px 0 18px}
+.tab{border:1px solid var(--brd);background:var(--s1);color:var(--muted);padding:7px 12px;border-radius:8px;font-size:.78rem;cursor:pointer}
+.tab.active{color:#051221;font-weight:700}
+#tAll.active{background:var(--green)} #tVE.active{background:var(--blue)} #tPV.active{background:var(--purple)}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px}
+.k{background:var(--s1);border:1px solid var(--brd);border-radius:14px;padding:14px}
+.k .l{font:600 .62rem 'DM Mono',monospace;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.k .v{margin-top:8px;font:500 1.3rem 'DM Mono',monospace}
+.k .s{margin-top:6px;color:var(--muted);font:.68rem 'DM Mono',monospace}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px}
+.card{background:var(--s1);border:1px solid var(--brd);border-radius:14px;overflow:hidden}
+.ch{padding:12px 14px;border-bottom:1px solid var(--brd);display:flex;justify-content:space-between;align-items:center}
+.ct{font-size:.84rem;color:var(--suminregio);font-weight:700}
+.cb{font:.63rem 'DM Mono',monospace;color:var(--muted)}
+.bd{padding:14px}
+.chart{position:relative;height:260px}
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{padding:9px 10px;border-bottom:1px solid var(--brd);text-align:left;font:.6rem 'DM Mono',monospace;color:var(--muted);text-transform:uppercase}
+.tbl td{padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.04);font:.78rem 'DM Mono',monospace}
+.tbl tr:hover td{background:var(--s2)}
+.num{text-align:right}
+.note{margin-top:14px;background:var(--s1);border:1px dashed var(--brd);border-radius:12px;padding:12px}
+.note b{color:var(--suminregio)}
+@media(max-width:1200px){.kpis{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.g2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="orb o1"></div><div class="orb o2"></div>
+<header>
+  <div class="hd">
+    <a class="logo" href="index.html"><i>◆</i><div><b>Suminregio Parker</b><br><span>ERP Dashboard</span></div></a>
+    <nav>
+      <a class="nav-link" href="index.html">Inicio</a>
+      <a class="nav-link" href="director.html">Director</a>
+      <a class="nav-link" href="ventas.html">Ventas</a>
+      <a class="nav-link active" href="consumos.html">Consumos</a>
+      <a class="nav-link" href="inventario.html">Inventario</a>
+      <a class="nav-link" href="cxc.html">CxC</a>
+      <a class="nav-link" href="resultados.html">Resultados</a>
+    </nav>
+  </div>
+</header>
+
+<main class="page">
+  <h1 class="title">Consumos</h1>
+  <div class="sub" id="pageSub">Cantidad vendida (unidades), no importe.</div>
+  <div id="filter-bar"></div>
+
+  <div class="tabs">
+    <button id="tAll" class="tab active" onclick="setTipo('')">Todos</button>
+    <button id="tVE" class="tab" onclick="setTipo('VE')">Industrial (VE)</button>
+    <button id="tPV" class="tab" onclick="setTipo('PV')">Mostrador (PV)</button>
+  </div>
+
+  <section class="kpis">
+    <article class="k"><div class="l">Consumo Hoy</div><div class="v" id="kHoy">—</div><div class="s">Unidades del d&iacute;a actual</div></article>
+    <article class="k"><div class="l">Consumo Periodo</div><div class="v" id="kPer">—</div><div class="s">Unidades del filtro</div></article>
+    <article class="k"><div class="l">Promedio Diario</div><div class="v" id="kProm">—</div><div class="s" id="kPromSub">Sobre d&iacute;as con movimiento</div></article>
+    <article class="k"><div class="l">M&aacute;ximo Diario</div><div class="v" id="kMax">—</div><div class="s" id="kMaxSub">Pico de consumo</div></article>
+    <article class="k"><div class="l">Art&iacute;culos Consumidos</div><div class="v" id="kArt">—</div><div class="s" id="kMov">Movimientos: —</div></article>
+  </section>
+
+  <section class="g2">
+    <article class="card">
+      <div class="ch"><div class="ct">Consumo Diario</div><div class="cb">30 d&iacute;as</div></div>
+      <div class="bd"><div class="chart"><canvas id="chDiario"></canvas></div></div>
+    </article>
+    <article class="card">
+      <div class="ch"><div class="ct">Top Art&iacute;culos por Consumo</div><div class="cb">Periodo actual</div></div>
+      <div class="bd"><div class="chart"><canvas id="chTop"></canvas></div></div>
+    </article>
+  </section>
+
+  <section class="g2">
+    <article class="card">
+      <div class="ch"><div class="ct">Consumo por Vendedor</div><div class="cb">Participaci&oacute;n por unidades</div></div>
+      <div class="bd">
+        <table class="tbl" id="tblVend">
+          <thead><tr><th>Vendedor</th><th class="num">Unidades</th><th class="num">% Part.</th></tr></thead>
+          <tbody><tr><td colspan="3">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </article>
+    <article class="note">
+      <b>Recomendaciones visuales y m&eacute;tricas para esta pesta&ntilde;a</b><br><br>
+      1) Agrega sem&aacute;foro por variaci&oacute;n semanal: Verde (&gt; +5%), Amarillo (-5% a +5%), Rojo (&lt; -5%).<br>
+      2) M&eacute;trica de concentraci&oacute;n: % que aporta Top 5 art&iacute;culos del total consumido.<br>
+      3) Tendencia comparativa: Consumo de este periodo vs periodo anterior (unidades y %).<br>
+      4) Combina con inventario: d&iacute;as de cobertura para los art&iacute;culos de mayor consumo.<br>
+      5) Alertas: art&iacute;culo de alto consumo con baja existencia (&ldquo;riesgo de quiebre&rdquo;).
+    </article>
+  </section>
+</main>
+
+<script>
+const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : '';
+let tipo = '';
+let chartDiario, chartTop;
+const fmtN = v => isNaN(+v) ? '0' : (+v).toLocaleString('es-MX', { maximumFractionDigits: 0 });
+const fmtF = v => isNaN(+v) ? '0' : (+v).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const toFecha = d => d ? new Date(d).toLocaleDateString('es-MX') : '&mdash;';
+const getQS = (extra={}) => {
+  if (typeof filterBuildQS === 'function') return filterBuildQS({ ...extra, ...(tipo ? { tipo } : {}) });
+  const p = new URLSearchParams({ ...extra, ...(tipo ? { tipo } : {}) });
+  return p.toString();
+};
+async function api(url){ const r = await fetch(API + url); if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }
+function setTipo(t){
+  tipo = t || '';
+  ['tAll','tVE','tPV'].forEach(id => document.getElementById(id).classList.remove('active'));
+  document.getElementById(tipo === 'VE' ? 'tVE' : tipo === 'PV' ? 'tPV' : 'tAll').classList.add('active');
+  loadAll();
+}
+function initCharts(){
+  const c1 = document.getElementById('chDiario').getContext('2d');
+  const c2 = document.getElementById('chTop').getContext('2d');
+  chartDiario = new Chart(c1,{type:'line',data:{labels:[],datasets:[{label:'Unidades',data:[],borderColor:'#4DA6FF',backgroundColor:'rgba(77,166,255,.15)',fill:true,tension:.28,pointRadius:2}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{color:'#8DA2BF'}}},scales:{x:{ticks:{color:'#8DA2BF'}},y:{ticks:{color:'#8DA2BF'}}}}});
+  chartTop = new Chart(c2,{type:'bar',data:{labels:[],datasets:[{label:'Unidades',data:[],backgroundColor:'rgba(0,229,160,.65)',borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8DA2BF'}}},scales:{x:{ticks:{color:'#8DA2BF'}},y:{ticks:{color:'#8DA2BF'}}}}});
+}
+async function loadResumen(){
+  const r = await api('/api/consumos/resumen?' + getQS());
+  document.getElementById('kHoy').textContent = fmtN(r.HOY_UNIDADES);
+  document.getElementById('kPer').textContent = fmtN(r.UNIDADES_PERIODO);
+  document.getElementById('kProm').textContent = fmtF(r.CONSUMO_PROMEDIO_DIARIO);
+  document.getElementById('kPromSub').textContent = (r.DIAS_CON_MOVIMIENTO||0) + ' d\u00edas con movimiento';
+  document.getElementById('kMax').textContent = fmtN(r.CONSUMO_MAXIMO_DIARIO);
+  document.getElementById('kMaxSub').textContent = 'Pico: ' + toFecha(r.DIA_MAXIMO);
+  document.getElementById('kArt').textContent = fmtN(r.ARTICULOS_CONSUMIDOS);
+  document.getElementById('kMov').textContent = 'Movimientos: ' + fmtN(r.MOVIMIENTOS);
+}
+async function loadDiario(){
+  const rows = await api('/api/consumos/diarias?' + getQS({ dias: 30 }));
+  chartDiario.data.labels = rows.map(r => new Date(r.DIA).toLocaleDateString('es-MX',{day:'2-digit',month:'short'}));
+  chartDiario.data.datasets[0].data = rows.map(r => +r.CONSUMO_TOTAL || 0);
+  chartDiario.update();
+}
+async function loadTop(){
+  const rows = await api('/api/consumos/top-articulos?' + getQS({ limit: 10 }));
+  chartTop.data.labels = rows.map(r => (r.ARTICULO || '').substring(0, 24));
+  chartTop.data.datasets[0].data = rows.map(r => +r.UNIDADES || 0);
+  chartTop.update();
+}
+async function loadVendedores(){
+  const rows = await api('/api/consumos/por-vendedor?' + getQS());
+  const tb = document.querySelector('#tblVend tbody');
+  if(!rows.length){ tb.innerHTML = '<tr><td colspan="3">Sin datos para este filtro</td></tr>'; return; }
+  tb.innerHTML = rows.map(r => `<tr><td>${r.VENDEDOR}</td><td class="num">${fmtN(r.UNIDADES)}</td><td class="num">${fmtF(r.PARTICIPACION)}%</td></tr>`).join('');
+}
+async function loadAll(){
+  try{
+    await Promise.all([loadResumen(), loadDiario(), loadTop(), loadVendedores()]);
+    document.getElementById('pageSub').textContent = 'Cantidad vendida (unidades) alineada al filtro activo.';
+  }catch(e){
+    document.getElementById('pageSub').textContent = 'Error al cargar consumos: ' + e.message;
+  }
+}
+(async function init(){
+  initCharts();
+  if (typeof initFilters === 'function') {
+    await initFilters({ containerId:'filter-bar', showVendedor:true, onChange:()=>loadAll() });
+  }
+  await loadAll();
+})();
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

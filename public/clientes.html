@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suminregio Parker &mdash; Clientes</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');
+if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/i.test(window.location.hostname)) {
+  var _f = window.fetch;
+  window.fetch = function(u, o) { o = o || {}; o.headers = Object.assign({}, o.headers, { 'ngrok-skip-browser-warning': '1' }); return _f.call(this, u, o); };
+}
+</script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060E1A;--s1:#0C1B29;--s2:#112233;--s3:#172D42;--s4:#1D3654;
+  --border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.11);
+  --suminregio:#E6A800;--suminregio-dim:rgba(230,168,0,.15);
+  --green:#00E5A0;--green-dim:rgba(0,229,160,.1);
+  --yellow:#FFB800;--yellow-dim:rgba(255,184,0,.12);
+  --orange:#FF8C42;--orange-dim:rgba(255,140,66,.1);
+  --red:#FF4566;--red-dim:rgba(255,69,102,.12);
+  --blue:#4DA6FF;--blue-dim:rgba(77,166,255,.1);
+  --purple:#9B6DFF;--purple-dim:rgba(155,109,255,.1);
+  --cyan:#00D4FF;--cyan-dim:rgba(0,212,255,.1);
+  --text:#E8EFF8;--text2:#B0BECE;--muted:#5A7090;
+}
+html{font-size:16px;-webkit-font-smoothing:antialiased}
+body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh}
+.bg-orbs{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.orb{position:absolute;border-radius:50%;filter:blur(130px);opacity:.10;animation:drift 20s ease-in-out infinite alternate}
+.orb-1{width:700px;height:700px;background:radial-gradient(circle,#FF4566,transparent 70%);top:-200px;left:-150px}
+.orb-2{width:600px;height:600px;background:radial-gradient(circle,#FFB800,transparent 70%);bottom:-150px;right:-150px;animation-delay:-7s}
+.orb-3{width:400px;height:400px;background:radial-gradient(circle,#1E7FD9,transparent 70%);top:40%;left:45%;transform:translate(-50%,-50%);animation-delay:-12s;opacity:.06}
+@keyframes drift{0%{transform:translate(0,0)}100%{transform:translate(20px,15px)}}
+header{position:sticky;top:0;z-index:100;background:rgba(5,11,20,.88);backdrop-filter:blur(24px);border-bottom:1px solid var(--border)}
+.header-inner{max-width:1800px;margin:0 auto;height:64px;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;padding:0 2rem}
+.logo{display:flex;align-items:center;gap:.75rem;text-decoration:none}
+.logo-icon{width:38px;height:38px;background:linear-gradient(135deg,var(--suminregio),var(--orange));border-radius:10px;display:grid;place-items:center;flex-shrink:0;box-shadow:0 0 20px rgba(230,168,0,.3)}
+.logo-icon svg{width:22px;height:22px;fill:white}
+.logo-text{font-size:.92rem;font-weight:800;color:var(--text)}
+.logo-sub{font-size:.6rem;font-family:'DM Mono',monospace;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+nav{display:flex;align-items:center;gap:.2rem}
+.nav-link{display:flex;align-items:center;gap:.45rem;padding:.4rem .85rem;border-radius:8px;font-size:.78rem;font-weight:600;color:var(--muted);text-decoration:none;transition:all .2s}
+.nav-link:hover{color:var(--text);background:var(--s2)}
+.nav-link.active{color:var(--suminregio);background:var(--suminregio-dim);border:1px solid var(--suminregio)}
+.nav-link svg{width:14px;height:14px;fill:currentColor;flex-shrink:0}
+.header-right{display:flex;align-items:center;gap:1rem}
+.live-pill{display:flex;align-items:center;gap:.5rem;background:var(--red-dim);border:1px solid rgba(255,69,102,.25);border-radius:99px;padding:.3rem .8rem;font-family:'DM Mono',monospace;font-size:.65rem;color:var(--red);letter-spacing:.08em;text-transform:uppercase}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--red);box-shadow:0 0 8px var(--red);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.clock{font-family:'DM Mono',monospace;font-size:.78rem;color:var(--muted)}
+.page{position:relative;z-index:1;max-width:1800px;margin:0 auto;padding:2rem}
+.hero{margin-bottom:2rem}
+.hero-eyebrow{font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:.5rem;display:flex;align-items:center;gap:.6rem}
+.hero-eyebrow::before{content:'';display:inline-block;width:20px;height:1px;background:var(--suminregio);opacity:.8}
+.hero-title{font-size:2.4rem;font-weight:800;line-height:1;letter-spacing:-.03em;background:linear-gradient(135deg,var(--suminregio),var(--yellow),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-sub{font-size:.85rem;color:var(--muted);margin-top:.5rem;font-family:'DM Mono',monospace}
+
+/* KPIs */
+.kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:1rem;margin-bottom:1.5rem}
+@media(max-width:1300px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:700px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:1.1rem 1.3rem;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--kc),transparent)}
+.kpi.red{--kc:var(--red)}.kpi.orange{--kc:var(--orange)}.kpi.yellow{--kc:var(--yellow)}.kpi.blue{--kc:var(--blue)}.kpi.green{--kc:var(--green)}.kpi.purple{--kc:var(--purple)}
+.kpi-lbl{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.4rem}
+.kpi-val{font-family:'DM Mono',monospace;font-size:1.4rem;font-weight:500;line-height:1;letter-spacing:-.02em}
+.kpi.red .kpi-val{color:var(--red)}.kpi.orange .kpi-val{color:var(--orange)}.kpi.yellow .kpi-val{color:var(--yellow)}.kpi.blue .kpi-val{color:var(--blue)}.kpi.green .kpi-val{color:var(--green)}.kpi.purple .kpi-val{color:var(--purple)}
+.kpi-sub{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);margin-top:.3rem}
+
+/* Tabs principales */
+.main-tabs{display:flex;gap:.4rem;margin-bottom:1.5rem}
+.main-tab{font-family:'DM Mono',monospace;font-size:.72rem;padding:.5rem 1.2rem;border-radius:10px;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:none;transition:all .2s;letter-spacing:.04em;font-weight:500}
+.main-tab.active-red{color:var(--red);border-color:rgba(255,69,102,.3);background:var(--red-dim)}
+.main-tab.active-yellow{color:var(--yellow);border-color:rgba(255,184,0,.3);background:var(--yellow-dim)}
+
+/* Section */
+.sd{display:flex;align-items:center;gap:1rem;margin:1.5rem 0 1.2rem}
+.sd-label{font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
+.sd-line{flex:1;height:1px;background:var(--border)}
+
+/* Cards */
+.card{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:1.4rem;position:relative;overflow:hidden}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.2rem}
+.card-title{font-size:.82rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:.5rem}
+.card-title svg{width:15px;height:15px;fill:var(--suminregio)}
+.card-badge{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);background:var(--s2);border:1px solid var(--border);padding:.2rem .6rem;border-radius:99px}
+
+/* Risk table */
+.risk-table{width:100%;border-collapse:collapse}
+.risk-table th{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;padding:.6rem .75rem;text-align:left;border-bottom:1px solid var(--border)}
+.risk-table td{font-size:.8rem;padding:.65rem .75rem;border-bottom:1px solid rgba(255,255,255,.04);color:var(--text2);transition:background .15s}
+.risk-table tr:hover td{background:var(--s2)}
+.th-sort{cursor:pointer;user-select:none;white-space:nowrap}
+.th-sort:hover{color:var(--text2)}
+.th-sort-icon{display:inline-block;margin-left:.35rem;vertical-align:middle;opacity:.9}
+.th-sort-icon::before{content:'';display:block;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent}
+.th-sort-icon.asc::before{border-bottom:5px solid rgba(255,255,255,.9);border-top:none}
+.th-sort-icon.desc::before{border-top:5px solid rgba(255,255,255,.9);border-bottom:none}
+.num{text-align:right;font-family:'DM Mono',monospace;font-size:.78rem}
+
+/* Risk level badges */
+.badge{display:inline-flex;align-items:center;gap:.3rem;font-family:'DM Mono',monospace;font-size:.6rem;padding:.18rem .55rem;border-radius:99px;font-weight:600}
+.badge-critico{background:var(--red-dim);color:var(--red);border:1px solid rgba(255,69,102,.3)}
+.badge-alto{background:var(--orange-dim);color:var(--orange);border:1px solid rgba(255,140,66,.3)}
+.badge-medio{background:var(--yellow-dim);color:var(--yellow);border:1px solid rgba(255,184,0,.3)}
+.badge-leve{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(77,166,255,.3)}
+.badge-muy{background:var(--red-dim);color:var(--red);border:1px solid rgba(255,69,102,.3)}
+.badge-inactivo{background:var(--yellow-dim);color:var(--yellow);border:1px solid rgba(255,184,0,.3)}
+.badge-riesgo{background:var(--orange-dim);color:var(--orange);border:1px solid rgba(255,140,66,.3)}
+
+/* Prog */
+.prog-wrap{width:100%;background:var(--s3);border-radius:99px;height:4px;overflow:hidden;margin-top:3px}
+.prog-fill{height:100%;border-radius:99px;transition:width 1.2s cubic-bezier(.4,0,.2,1)}
+
+/* Grid */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.5rem}
+@media(max-width:1000px){.grid-2{grid-template-columns:1fr}}
+
+/* Param panel */
+.param-panel{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:1rem 1.2rem;margin-bottom:1.5rem;display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap}
+.param-item{display:flex;align-items:center;gap:.5rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--text2)}
+.param-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.param-desc{color:var(--muted);font-size:.62rem}
+.empty{text-align:center;padding:2.5rem;color:var(--muted);font-family:'DM Mono',monospace;font-size:.78rem}
+
+/* Section hidden */
+.section-panel{display:none}
+.section-panel.active{display:block}
+</style>
+</head>
+<body>
+<div class="bg-orbs"><div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div></div>
+
+<header>
+  <div class="header-inner">
+    <a href="index.html" class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </div>
+      <div><div class="logo-text">Suminregio Parker</div><div class="logo-sub">ERP Dashboard</div></div>
+    </a>
+    <nav>
+      <a href="index.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Inicio</a>
+      <a href="ventas.html" class="nav-link"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Ventas</a>
+      <a href="cobradas.html" class="nav-link"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Cobradas</a>
+      <a href="vendedores.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>Vendedores</a>
+      <a href="cxc.html" class="nav-link"><svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>CxC</a>
+      <a href="clientes.html" class="nav-link active"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Clientes</a>
+      <a href="inventario.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 2 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Inventario</a>
+      <a href="resultados.html" class="nav-link"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Resultados</a>
+    </nav>
+    <div class="header-right">
+      <div class="live-pill"><div class="live-dot"></div>Alertas</div>
+      <div class="clock" id="reloj">--:--:--</div>
+    </div>
+  </div>
+</header>
+
+<div class="page">
+  <div class="hero">
+    <div class="hero-eyebrow">Gesti&oacute;n de Riesgo &bull; Reactivaci&oacute;n</div>
+    <div class="hero-title">Intel. de Clientes</div>
+    <div class="hero-sub" id="heroSub">Conectando con el servidor…</div>
+  </div>
+
+  <!-- KPIs globales -->
+  <div class="kpi-grid">
+    <div class="kpi red"><div class="kpi-lbl">Clientes en riesgo</div><div class="kpi-val" id="kpiEnRiesgo">--</div><div class="kpi-sub">con cartera vencida</div></div>
+    <div class="kpi red"><div class="kpi-lbl">Monto cr&iacute;tico</div><div class="kpi-val" id="kpiMontoCritico">--</div><div class="kpi-sub">&gt;90 d&iacute;as vencido</div></div>
+    <div class="kpi orange"><div class="kpi-lbl">Monto alto</div><div class="kpi-val" id="kpiMontoAlto">--</div><div class="kpi-sub">61&ndash;90 d&iacute;as</div></div>
+    <div class="kpi yellow"><div class="kpi-lbl">Clientes inactivos</div><div class="kpi-val" id="kpiInactivos">--</div><div class="kpi-sub">&gt;90 d&iacute;as sin compra</div></div>
+    <div class="kpi yellow"><div class="kpi-lbl">Pot. reactivaci&oacute;n</div><div class="kpi-val" id="kpiReactivacion">--</div><div class="kpi-sub">revenue recuperable /mes</div></div>
+    <div class="kpi blue"><div class="kpi-lbl">Exposici&oacute;n total</div><div class="kpi-val" id="kpiExposicion">--</div><div class="kpi-sub">saldo vencido acumulado</div></div>
+  </div>
+
+  <!-- Par&aacute;metros explicativos -->
+  <div class="param-panel">
+    <span style="font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase">Par&aacute;metros:</span>
+    <div class="param-item"><div class="param-dot" style="background:var(--red)"></div><span>CR&Iacute;TICO:</span><span class="param-desc">&gt;90 d&iacute;as vencido</span></div>
+    <div class="param-item"><div class="param-dot" style="background:var(--orange)"></div><span>ALTO:</span><span class="param-desc">61&ndash;90 d&iacute;as</span></div>
+    <div class="param-item"><div class="param-dot" style="background:var(--yellow)"></div><span>MEDIO:</span><span class="param-desc">31&ndash;60 d&iacute;as</span></div>
+    <div class="param-item"><div class="param-dot" style="background:var(--blue)"></div><span>LEVE:</span><span class="param-desc">1&ndash;30 d&iacute;as</span></div>
+    <div class="param-item"><div class="param-dot" style="background:var(--yellow)"></div><span>INACTIVO:</span><span class="param-desc">&gt;90 d&iacute;as sin compra</span></div>
+    <div class="param-item"><div class="param-dot" style="background:var(--red)"></div><span>MUY INACTIVO:</span><span class="param-desc">&gt;180 d&iacute;as</span></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="main-tabs">
+    <button class="main-tab active-red" onclick="showTab('riesgo',this)">&#128680; Clientes en Riesgo</button>
+    <button class="main-tab" onclick="showTab('inactivos',this)">&#128274; Clientes Inactivos</button>
+  </div>
+
+  <!-- Panel Riesgo -->
+  <div id="panelRiesgo" class="section-panel active">
+    <div class="grid-2">
+      <!-- Chart distribuci&oacute;n por nivel -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">
+            <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            Distribuci&oacute;n por Nivel de Riesgo
+          </div>
+        </div>
+        <div style="height:220px;display:flex;align-items:center;justify-content:center"><canvas id="chartRiesgo"></canvas></div>
+      </div>
+      <!-- Monto por bucket -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">
+            <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            Monto Expuesto por Bucket
+          </div>
+        </div>
+        <div style="height:220px"><canvas id="chartBuckets"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Tabla riesgo -->
+    <div class="card" style="margin-bottom:1.5rem">
+      <div class="card-head">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+          Clientes en Riesgo &mdash; Detalle
+        </div>
+        <div class="card-badge" id="riesgoCount">-- registros</div>
+      </div>
+      <table class="risk-table">
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th class="th-sort" id="thNivelSort" title="Clic para ordenar por nivel (Cr&#237;tico / Alto / Medio / Leve)">
+              Nivel <span class="th-sort-icon desc" id="nivelSortIcon" aria-hidden="true"></span>
+            </th>
+            <th class="num">Saldo Total</th>
+            <th class="num">Monto Vencido</th>
+            <th class="num">% Vencido</th>
+            <th class="num">Max D&iacute;as</th>
+            <th class="num">Docs</th>
+            <th>Condici&oacute;n</th>
+          </tr>
+        </thead>
+        <tbody id="riesgoBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Panel Inactivos -->
+  <div id="panelInactivos" class="section-panel">
+    <div class="card" style="margin-bottom:1.5rem">
+      <div class="card-head">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Clientes Inactivos &mdash; Oportunidades de Reactivaci&oacute;n
+        </div>
+        <div class="card-badge" id="inactivosCount">-- registros</div>
+      </div>
+      <table class="risk-table">
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th>Estado</th>
+            <th class="num">D&iacute;as Sin Compra</th>
+            <th class="num">&Uacute;ltima Compra</th>
+            <th class="num">Hist&oacute;rico</th>
+            <th class="num">Ticket Prom/Mes</th>
+            <th>Potencial</th>
+            <th>Condici&oacute;n</th>
+          </tr>
+        </thead>
+        <tbody id="inactivosBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+// Misma regla que CxC/Inventario: file:// → localhost:7000; si no → mismo origen (remoto/ngrok)
+const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : '';
+let chartRiesgoInst = null, chartBucketsInst = null;
+let riesgoData = [], inactivosData = [];
+let sortNivelDirection = 1; // 1 = Crítico primero (desc), -1 = Leve primero (asc)
+
+setInterval(()=>{const n=new Date();document.getElementById('reloj').textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');},1000);
+
+const fmtM=v=>{if(!v&&v!==0)return'--';v=+v;if(v>=1e6)return'$'+(v/1e6).toFixed(2)+'M';if(v>=1e3)return'$'+(v/1e3).toFixed(1)+'K';return'$'+Math.round(v).toLocaleString()};
+const fmtD=s=>s?String(s).split('T')[0]:'--';
+
+function showTab(tab, btn){
+  document.getElementById('panelRiesgo').classList.toggle('active',tab==='riesgo');
+  document.getElementById('panelInactivos').classList.toggle('active',tab==='inactivos');
+  document.querySelectorAll('.main-tab').forEach(b=>b.className='main-tab');
+  btn.className='main-tab '+(tab==='riesgo'?'active-red':'active-yellow');
+}
+
+function fwt(url, fallback, ms=10000){
+  return Promise.race([
+    fetch(url).then(r=>r.json()).catch(()=>fallback),
+    new Promise(r=>setTimeout(()=>r(fallback),ms))
+  ]);
+}
+
+async function loadData(){
+  const heroSub = document.getElementById('heroSub');
+  try{
+    if(heroSub) heroSub.textContent = 'Conectando con el servidor…';
+    const [riesgo, resumen] = await Promise.all([
+      fwt(API+'/api/clientes/riesgo?limit=100', [], 12000),
+      fwt(API+'/api/clientes/resumen-riesgo', {}, 8000),
+    ]);
+    riesgoData = Array.isArray(riesgo) ? riesgo : [];
+    const res = resumen && typeof resumen==='object' ? resumen : {};
+    renderKPIs(riesgoData, inactivosData, res);
+    renderRiesgo(riesgoData);
+    renderChartRiesgo(res);
+    renderChartBuckets(res);
+    if(riesgoData.length===0 && !res.TOTAL_EN_RIESGO && (+res.MONTO_CRITICO||0)===0){
+      if(heroSub) heroSub.textContent = 'Sin datos. Abre esta página desde http://localhost:7000/clientes.html (no desde archivo) y con el servidor en marcha (npm start).';
+    }else{
+      if(heroSub) heroSub.textContent = riesgoData.length+' clientes en riesgo '+'\u00b7 '+fmtM(+res.MONTO_CRITICO||0)+' en nivel cr\u00edtico';
+    }
+    loadInactivos();
+  }catch(e){
+    if(heroSub) heroSub.textContent = 'Error de conexión. Abre desde http://localhost:7000/clientes.html y revisa que el servidor esté corriendo (npm start).';
+    renderKPIs([], inactivosData, {});
+    renderRiesgo([]);
+    renderChartRiesgo({});
+    renderChartBuckets({});
+  }
+}
+
+async function loadInactivos(){
+  try{
+    const inactivos = await fwt(API+'/api/clientes/inactivos?limit=100', [], 15000);
+    inactivosData = Array.isArray(inactivos) ? inactivos : [];
+    renderInactivos(inactivosData);
+    document.getElementById('kpiInactivos').textContent = inactivosData.length;
+    const potReact = inactivosData.reduce((s,c)=>s+(+c.TICKET_PROMEDIO_MES||0),0);
+    document.getElementById('kpiReactivacion').textContent = fmtM(potReact);
+  }catch(e){ console.warn('inactivos',e); }
+}
+
+function renderKPIs(r,in_,res){
+  if(!res) res={};
+  const montoCritico = +res.MONTO_CRITICO||0;
+  const montoAlto    = +res.MONTO_ALTO||0;
+  const exposicion   = (montoCritico)+(montoAlto)+(+res.MONTO_MEDIO||0)+(+res.MONTO_LEVE||0);
+  const potReact     = (in_||[]).reduce((s,c)=>s+(+c.TICKET_PROMEDIO_MES||0),0);
+  const kpiEnRiesgo = document.getElementById('kpiEnRiesgo');
+  if(kpiEnRiesgo) kpiEnRiesgo.textContent = +res.TOTAL_EN_RIESGO||(r?r.length:0);
+  const kpiMontoCritico = document.getElementById('kpiMontoCritico');
+  if(kpiMontoCritico) kpiMontoCritico.textContent = fmtM(montoCritico);
+  const kpiMontoAlto = document.getElementById('kpiMontoAlto');
+  if(kpiMontoAlto) kpiMontoAlto.textContent = fmtM(montoAlto);
+  const kpiInactivos = document.getElementById('kpiInactivos');
+  if(kpiInactivos) kpiInactivos.textContent = (in_||[]).length;
+  const kpiReactivacion = document.getElementById('kpiReactivacion');
+  if(kpiReactivacion) kpiReactivacion.textContent = fmtM(potReact);
+  const kpiExposicion = document.getElementById('kpiExposicion');
+  if(kpiExposicion) kpiExposicion.textContent = fmtM(exposicion);
+}
+
+function nivelFromDias(maxDias){
+  const d = +maxDias||0;
+  if(d>90)return'CRITICO'; if(d>60)return'ALTO'; if(d>30)return'MEDIO'; return'LEVE';
+}
+function nivelOrder(nivelStr){
+  const n = (nivelStr||'').toUpperCase();
+  return n==='CRITICO'?4:n==='ALTO'?3:n==='MEDIO'?2:1;
+}
+function renderRiesgo(data){
+  const iconEl = document.getElementById('nivelSortIcon');
+  if(iconEl){ iconEl.className = 'th-sort-icon ' + (sortNivelDirection===1?'desc':'asc'); iconEl.setAttribute('title', sortNivelDirection===1?'Cr\u00edtico primero (clic: Leve primero)':'Leve primero (clic: Cr\u00edtico primero)'); }
+  let dataToRender = data;
+  if(sortNivelDirection!==0 && data.length>0){
+    dataToRender = [...data].sort((a,b)=>{
+      const na = (a.NIVEL_RIESGO||nivelFromDias(a.MAX_DIAS_VENCIDO)).toUpperCase();
+      const nb = (b.NIVEL_RIESGO||nivelFromDias(b.MAX_DIAS_VENCIDO)).toUpperCase();
+      const diff = nivelOrder(nb) - nivelOrder(na);
+      return sortNivelDirection===1 ? diff : -diff;
+    });
+  }
+  document.getElementById('riesgoCount').textContent = dataToRender.length+' registros';
+  const rows = dataToRender.map(r=>{
+    const maxD = +r.MAX_DIAS_VENCIDO||0;
+    const nivel = (r.NIVEL_RIESGO||nivelFromDias(maxD)).toUpperCase();
+    const badgeClass = nivel==='CRITICO'?'badge-critico':nivel==='ALTO'?'badge-alto':nivel==='MEDIO'?'badge-medio':'badge-leve';
+    const saldoTotal = +r.SALDO_TOTAL||+r.SALDO||0;
+    const montoVencido = +r.MONTO_VENCIDO||+r.MONTO_VENCIDO_BRUTO||+r.SALDO||0;
+    const pctV = saldoTotal>0 ? Math.round((montoVencido/saldoTotal)*100) : (+r.PCT_VENCIDO||0);
+    const col  = nivel==='CRITICO'?'var(--red)':nivel==='ALTO'?'var(--orange)':nivel==='MEDIO'?'var(--yellow)':'var(--blue)';
+    return `<tr>
+      <td style="padding:.65rem .75rem;color:var(--text);font-weight:600">${r.NOMBRE||'--'}</td>
+      <td style="padding:.65rem .75rem"><span class="badge ${badgeClass}">${nivel}</span></td>
+      <td class="num" style="color:var(--blue)">${fmtM(saldoTotal)}</td>
+      <td class="num" style="color:${col}">${fmtM(montoVencido)}</td>
+      <td class="num">
+        <span style="color:${col}">${pctV}%</span>
+        <div class="prog-wrap"><div class="prog-fill" style="width:${Math.min(pctV,100)}%;background:${col}"></div></div>
+      </td>
+      <td class="num" style="color:${col}">${maxD} d&iacute;as</td>
+      <td class="num" style="color:var(--text2)">${+r.NUM_DOCS_VENCIDOS||'--'}</td>
+      <td style="padding:.65rem .75rem;font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted)">${r.CONDICION_PAGO||'--'}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('riesgoBody').innerHTML = rows || `<tr><td colspan="8" class="empty">Sin clientes en riesgo</td></tr>`;
+}
+
+function renderInactivos(data){
+  document.getElementById('inactivosCount').textContent = data.length+' registros';
+  const rows = data.map(r=>{
+    const nivel = (r.NIVEL||'INACTIVO').toUpperCase();
+    const badgeClass = nivel==='MUY_INACTIVO'?'badge-muy':nivel==='INACTIVO'?'badge-inactivo':'badge-riesgo';
+    const nivelTxt = nivel==='MUY_INACTIVO'?'MUY INACTIVO':nivel;
+    return `<tr>
+      <td style="padding:.65rem .75rem;color:var(--text);font-weight:600">${r.NOMBRE||'--'}</td>
+      <td style="padding:.65rem .75rem"><span class="badge ${badgeClass}">${nivelTxt}</span></td>
+      <td class="num" style="color:var(--orange)">${+r.DIAS_SIN_COMPRA||0} d&iacute;as</td>
+      <td class="num" style="color:var(--text2)">${fmtD(r.ULTIMA_COMPRA)}</td>
+      <td class="num" style="color:var(--blue)">${fmtM(+r.TOTAL_COMPRADO_HISTORIAL||0)}</td>
+      <td class="num" style="color:var(--green)">${fmtM(+r.TICKET_PROMEDIO_MES||0)}</td>
+      <td style="padding:.65rem .75rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--green)">${r.REACTIVACION||'--'}</td>
+      <td style="padding:.65rem .75rem;font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted)">${r.CONDICION_PAGO||'--'}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('inactivosBody').innerHTML = rows || `<tr><td colspan="8" class="empty">Sin clientes inactivos &#127881;</td></tr>`;
+}
+
+function renderChartRiesgo(res){
+  if(!res || typeof res!=='object')return;
+  const vals = [+res.MONTO_CRITICO||0, +res.MONTO_ALTO||0, +res.MONTO_MEDIO||0, +res.MONTO_LEVE||0];
+  if(vals.every(v=>v===0))return;
+  const ctx=document.getElementById('chartRiesgo');
+  if(chartRiesgoInst)chartRiesgoInst.destroy();
+  chartRiesgoInst=new Chart(ctx,{
+    type:'doughnut',
+    data:{
+      labels:['Cr\u00edtico (+90d)','Alto (61-90d)','Medio (31-60d)','Leve (1-30d)'],
+      datasets:[{data:vals,backgroundColor:['rgba(255,69,102,.7)','rgba(255,140,66,.7)','rgba(255,184,0,.7)','rgba(77,166,255,.7)'],borderColor:'#0A1628',borderWidth:3}]
+    },
+    options:{cutout:'65%',interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{color:'#5A7090',font:{size:10,family:"'DM Mono'"},padding:12}},tooltip:{mode:'index',intersect:false,backgroundColor:'#0D1D35',borderColor:'rgba(255,255,255,.1)',borderWidth:1,callbacks:{label:c=>' '+c.label+': $'+Math.round(+c.raw).toLocaleString()}}}}
+  });
+}
+
+function renderChartBuckets(res){
+  if(!res || typeof res!=='object')return;
+  const ctx=document.getElementById('chartBuckets');
+  if(!ctx)return;
+  if(chartBucketsInst)chartBucketsInst.destroy();
+  chartBucketsInst=new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:['Leve\n1-30d','Medio\n31-60d','Alto\n61-90d','Cr\u00edtico\n+90d'],
+      datasets:[{data:[+res.MONTO_LEVE||0,+res.MONTO_MEDIO||0,+res.MONTO_ALTO||0,+res.MONTO_CRITICO||0],
+        backgroundColor:['rgba(77,166,255,.5)','rgba(255,184,0,.5)','rgba(255,140,66,.5)','rgba(255,69,102,.5)'],
+        borderColor:['#4DA6FF','#FFB800','#FF8C42','#FF4566'],borderWidth:1.5,borderRadius:5}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,backgroundColor:'#0D1D35',borderColor:'rgba(255,255,255,.1)',borderWidth:1,callbacks:{label:c=>' $'+Math.round(+c.raw).toLocaleString()}}},scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5A7090',font:{size:9,family:"'DM Mono'"}}},y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5A7090',font:{size:9,family:"'DM Mono'"},callback:v=>{if(v>=1e6)return'$'+(v/1e6).toFixed(1)+'M';if(v>=1e3)return'$'+(v/1e3).toFixed(0)+'K';return'$'+v}}}}}
+  });
+}
+
+document.getElementById('thNivelSort')?.addEventListener('click', function(){
+  sortNivelDirection = sortNivelDirection===1 ? -1 : 1;
+  renderRiesgo(riesgoData);
+});
+loadData();
+setInterval(loadData,120000);
+</script>
+<script src="nav.js"></script>
+</body>
+</html>
