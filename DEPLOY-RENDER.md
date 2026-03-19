@@ -202,3 +202,16 @@ net start FirebirdServerDefaultInstance
 | Variables | Panel Environment de Render | Archivo `.env` o variables del servicio |
 | Firebird | Debe ser IP/hostname **público o VPN** hacia tu servidor Firebird | `127.0.0.1` o localhost si Firebird está en la misma máquina |
 | “Entrar por CMD” | No hay SSH en el plan gratuito típico; usas logs en el panel | Sí: RDP o consola local, `git`, `node`, `npm` |
+
+---
+
+## 8. Deploy automático: GitHub → tu servidor Windows (runner autohospedado)
+
+Para que cada `git push` a `main` actualice el API en el servidor **sin** entrar a RDP a hacer `git pull` manual, usa **GitHub Actions** con un **self-hosted runner** en Windows.
+
+Guías en el bundle / Del Remoto:
+
+- **`GITHUB-RUNNER-WINDOWS-PASO-A-PASO.md`** — versión **con pinzas** (qué abrir, qué instalar, qué ejecutar).
+- **`GITHUB-RUNNER-WINDOWS.md`** — resumen técnico.
+
+El workflow está en `.github/workflows/deploy.yml`.

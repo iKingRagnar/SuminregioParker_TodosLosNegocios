@@ -1,0 +1,35 @@
+# Despliegue automático en servidor Windows con runner autohospedado.
+# Requisitos: ver GITHUB-RUNNER-WINDOWS.md en la raíz del repo.
+name: Deploy Windows (self-hosted)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    defaults:
+      run:
+        shell: powershell
+    steps:
+      - name: Pull, npm y PM2
+        run: |
+          # Ruta en el SERVIDOR donde hiciste git clone de ESTE repo (cámbiala una vez):
+          $AppDir = 'C:\apps\suminregio-microsip-api'
+          if (-not (Test-Path $AppDir)) {
+            throw "No existe la carpeta: $AppDir. Edita .github/workflows/deploy.yml y pon la ruta real del clone."
+          }
+          if (-not (Test-Path (Join-Path $AppDir '.git'))) {
+            throw "Esa carpeta no es un repositorio git (.git falta). Haz git clone del repo ahí."
+          }
+          Set-Location $AppDir
+          git config --global --add safe.directory $AppDir 2>$null
+          git fetch origin main
+          git checkout main
+          git reset --hard origin/main
+          npm ci --omit=dev
+          pm2 restart microsip-api
+          # Si también usas ngrok en PM2, descomenta:
+          # pm2 restart ngrok-tunnel

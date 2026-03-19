@@ -35,6 +35,8 @@ Resumen para retomar el proyecto sin depender del chat anterior.
 
 **Guía larga** (Render pantalla por pantalla, tabla de variables, Windows CMD, Firebird): `DEPLOY-RENDER.md` (en el bundle) o `scripts/DEPLOY-RENDER.md` en el monorepo.
 
+**Deploy automático PC → GitHub → servidor:** `GITHUB-RUNNER-WINDOWS-PASO-A-PASO.md` (guía detallada), `GITHUB-RUNNER-WINDOWS.md` (resumen), y `.github/workflows/deploy.yml`.
+
 ## Render — qué poner en la página (checklist)
 
 En [dashboard.render.com](https://dashboard.render.com), con el repo ya en GitHub:
