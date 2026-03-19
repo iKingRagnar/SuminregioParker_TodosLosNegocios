@@ -56,6 +56,14 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 /* PAGE */
 .page{position:relative;z-index:1;max-width:1900px;margin:0 auto;padding:1.75rem 2rem 2.5rem}
 
+/* Selector multi-empresa (misma lógica que resultados.html) */
+.biz-context-bar{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin:0 0 1.25rem;padding:.65rem 1rem;background:var(--s1);border:1px solid var(--border);border-radius:12px}
+.biz-context-label{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;white-space:nowrap}
+.biz-chips{display:flex;flex-wrap:wrap;gap:.45rem;flex:1;min-width:0}
+.biz-chip{font-family:'DM Mono',monospace;font-size:.68rem;padding:.32rem .85rem;border-radius:99px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;transition:all .2s}
+.biz-chip:hover{color:var(--text);border-color:rgba(230,168,0,.35)}
+.biz-chip.active{color:var(--suminregio);border-color:rgba(230,168,0,.45);background:var(--suminregio-dim)}
+
 /* HERO */
 .hero{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1.75rem}
 .hero-eyebrow{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;margin-bottom:.45rem;display:flex;align-items:center;gap:.55rem}
@@ -275,6 +283,12 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 
   <!-- Barra de filtros (a&#241;o, mes, vendedor) -->
   <div id="filter-bar"></div>
+
+  <!-- Empresa (solo si hay varias bases en FB_DATABASES_JSON) -->
+  <div class="biz-context-bar" id="bizContextBar" style="display:none" aria-label="Empresa">
+    <span class="biz-context-label">Empresa</span>
+    <div class="biz-chips" id="bizChips"></div>
+  </div>
 
   <!-- KPI ROW PRINCIPAL -->
   <div class="kpi-mega-grid">
@@ -653,7 +667,60 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 // Mismo origen si se sirve desde el servidor; si abres por file:// usa localhost:7000
 const API = (window.__API_BASE != null ? String(window.__API_BASE).replace(/\/+$/, '') : (window.location.protocol === 'file:' ? 'http://localhost:7000' : (window.location.origin || '')));
 function fwt(url,fallback,ms=10000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
-function buildApiUrl(path,extra){ const qs=window.filterBuildQS?filterBuildQS():''; const e=extra?String(extra).replace(/^[?&]+/,''):''; const parts=[qs,e].filter(Boolean).join('&'); return API+path+(parts?'?'+parts:''); }
+
+/** Lista de {id,label} desde GET /api/universe/databases (se llena en initBizBar). */
+let indexDbList = [];
+function indexDbQueryPart(){
+  try{
+    const db=(new URLSearchParams(window.location.search).get('db')||'').trim();
+    return db?('db='+encodeURIComponent(db)):'';
+  }catch(_){ return ''; }
+}
+function buildApiUrl(path,extra){
+  const qs=window.filterBuildQS?filterBuildQS():'';
+  const dbq=indexDbQueryPart();
+  const e=extra?String(extra).replace(/^[?&]+/,''):'';
+  const parts=[qs,dbq,e].filter(Boolean).join('&');
+  return API+path+(parts?'?'+parts:'');
+}
+/** Scorecard multi-empresa: no envía ?db= (siempre recorre el registro completo). */
+function universeScorecardUrl(){
+  const fqs=window.filterBuildQS?filterBuildQS():'';
+  const uni='concurrency=2&queryMs=10000';
+  const parts=[fqs,uni].filter(Boolean).join('&');
+  return API+'/api/universe/scorecard'+(parts?'?'+parts:'');
+}
+async function initBizBar(){
+  indexDbList=await fwt(API+'/api/universe/databases',[]);
+  if(!Array.isArray(indexDbList))indexDbList=[];
+  const bar=document.getElementById('bizContextBar');
+  const chips=document.getElementById('bizChips');
+  if(!bar||!chips)return;
+  if(indexDbList.length<=1){ bar.style.display='none'; return; }
+  bar.style.display='flex';
+  const urlDb=(new URLSearchParams(location.search).get('db')||'').trim();
+  const escAttr=s=>String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  const escTxt=s=>String(s).replace(/</g,'&lt;').replace(/&/g,'&amp;');
+  chips.innerHTML=['<button type="button" class="biz-chip'+(urlDb?'':' active')+'" data-db="">Predeterminado</button>']
+    .concat(indexDbList.map(e=>{
+      const id=String(e.id||'');
+      return '<button type="button" class="biz-chip'+(urlDb===id?' active':'')+'" data-db="'+escAttr(id)+'">'+escTxt(e.label||e.id||'')+'</button>';
+    })).join('');
+  chips.querySelectorAll('.biz-chip').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const raw=btn.getAttribute('data-db')||'';
+      try{
+        const u=new URL(location.href);
+        if(raw)u.searchParams.set('db',raw); else u.searchParams.delete('db');
+        history.replaceState({},'',u);
+      }catch(_){}
+      try{ sessionStorage.setItem('microsip_erp_db', raw||''); }catch(_){}
+      chips.querySelectorAll('.biz-chip').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      loadAll();
+    });
+  });
+}
 
 // -- Reloj ----------------------------------------------------------------------
 function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('es-MX')}
@@ -709,12 +776,17 @@ function renderUniverseScorecard(uni){
   const badge=document.getElementById('universeBadge');
   const foot=document.getElementById('universeConsolidado');
   if(!wrap||!tbody)return;
-  const emp=uni&&Array.isArray(uni.empresas)?uni.empresas:[];
-  if(emp.length<=1){
+  if(!indexDbList||indexDbList.length<=1){
     wrap.style.display='none';
     return;
   }
   wrap.style.display='block';
+  const emp=uni&&Array.isArray(uni.empresas)?uni.empresas:[];
+  if(emp.length<=1){
+    tbody.innerHTML='<tr><td colspan="5" style="color:var(--muted);font-size:.82rem;padding:1rem 1.5rem">El servidor registró varias bases pero el comparativo devolvió pocas filas. Revisa la consola del API y <span style="font-family:\'DM Mono\',monospace">FB_DATABASES_JSON</span> en el .env.</td></tr>';
+    if(foot)foot.textContent='';
+    return;
+  }
   if(badge&&uni.concurrency!=null)badge.textContent='c='+uni.concurrency+' · '+uni.queryMs+'ms · lectura';
   tbody.innerHTML=emp.map(r=>{
     if(!r.ok){
@@ -776,16 +848,16 @@ async function loadAll(){
   try{
     const [v,m,c,inv,dir,vends,cot,cumpl,cliRes,pnlData,uniData]=await Promise.all([
       fwt(buildApiUrl('/api/ventas/resumen'),{}),
-      fwt(API+'/api/config/metas',{}),
+      fwt(buildApiUrl('/api/config/metas'),{}),
       fwt(buildApiUrl('/api/cxc/resumen'),{}),
-      fwt(API+'/api/inv/resumen',{}),
+      fwt(buildApiUrl('/api/inv/resumen'),{}),
       fwt(buildApiUrl('/api/director/resumen'),{}),
       fwt(buildApiUrl('/api/director/vendedores'),[]),
       fwt(buildApiUrl('/api/ventas/cotizaciones/resumen'),{}),
       fwt(buildApiUrl('/api/ventas/cumplimiento'),[]),
-      fwt(API+'/api/clientes/resumen-riesgo',{}),
+      fwt(buildApiUrl('/api/clientes/resumen-riesgo'),{}),
       fwt(buildApiUrl('/api/resultados/pnl','meses=1'),{}),
-      fwt(buildApiUrl('/api/universe/scorecard','concurrency=2&queryMs=10000'),{ empresas: [], consolidado: {} }),
+      fwt(universeScorecardUrl(),{ empresas: [], consolidado: {} }),
     ]);
     // fwt ya retorna el fallback directamente ? no necesita .value
 
@@ -1074,7 +1146,7 @@ function renderAlertas({ventaHoy,metaDia,cxcVenc,cxcTotal,pVenc,invBajo,invCero}
 
 async function fetchTend(){
   try{
-    const url=(API||'')+'/api/ventas/diarias?dias=30';
+    const url=buildApiUrl('/api/ventas/diarias','dias=30');
     const data=await fetch(url).then(r=>r.json());
     const arr=Array.isArray(data)?data:[];
     if(arr.length)renderChart(arr);
@@ -1123,7 +1195,11 @@ function renderChart(data){
   });
 }
 
-if(window.initFilters){ initFilters({ containerId:'filter-bar', showVendedor:true, onReady:()=>loadAll(), onChange:()=>loadAll() }); }
+(async function boot(){
+  await initBizBar();
+  if(window.initFilters){ initFilters({ containerId:'filter-bar', showVendedor:true, onReady:()=>loadAll(), onChange:()=>loadAll() }); }
+  else loadAll();
+})();
 setInterval(loadAll,60000);
 </script>
 <script src="nav.js"></script>

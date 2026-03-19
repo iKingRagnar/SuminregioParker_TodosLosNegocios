@@ -23,6 +23,18 @@
     return p === '' ? 'index.html' : p;
   }
 
+  /** Mantiene ?db= al cambiar de módulo (Inicio → CxC, etc.). */
+  function navHref(href) {
+    let db = '';
+    try {
+      db = (new URLSearchParams(window.location.search).get('db') || '').trim();
+      if (!db) db = (sessionStorage.getItem('microsip_erp_db') || '').trim();
+    } catch (_) {}
+    if (!db) return href;
+    const sep = href.indexOf('?') >= 0 ? '&' : '?';
+    return href + sep + 'db=' + encodeURIComponent(db);
+  }
+
   function svgIcon(pathData) {
     return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${pathData}</svg>`;
   }
@@ -31,14 +43,14 @@
     const cur = currentPage();
     return PAGES.map(p => {
       const active = cur === p.href ? ' active' : '';
-      return `<a href="${p.href}" class="nav-link${active}">${svgIcon(p.icon)}${p.label}</a>`;
+      return `<a href="${navHref(p.href)}" class="nav-link${active}">${svgIcon(p.icon)}${p.label}</a>`;
     }).join('');
   }
 
   function buildHeader() {
     return `<header id="app-header">
   <div class="header-inner">
-    <a href="index.html" class="logo">
+    <a href="${navHref('index.html')}" class="logo">
       <div class="logo-icon">
         <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>

@@ -326,22 +326,40 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
 
 <script>
 'use strict';
-const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : '';
+const API = (window.__API_BASE != null ? String(window.__API_BASE).replace(/\/+$/, '') : (window.location.protocol === 'file:' ? 'http://localhost:7000' : (window.location.origin || '')));
 const MES_NOM = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
 const fmtK = v => { const n=+v||0; return n>=1e6 ? '$'+(n/1e6).toFixed(1)+'M' : n>=1e3 ? '$'+(n/1e3).toFixed(0)+'K' : '$'+n.toLocaleString('es-MX',{maximumFractionDigits:0}); };
 const fmtM = v => '$'+(+v||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});
 const setText = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
 
-async function apiFetch(url) {
-  const r = await fetch(API + url);
-  if (!r.ok) throw new Error('HTTP ' + r.status);
-  return r.json();
+function cxcEffectiveDb(){
+  let db='';
+  try{
+    db=(new URLSearchParams(location.search).get('db')||'').trim();
+    if(!db) db=(sessionStorage.getItem('microsip_erp_db')||'').trim();
+  }catch(_){}
+  return db;
+}
+function withDbParam(pathWithQuery){
+  const db=cxcEffectiveDb();
+  if(!db) return pathWithQuery;
+  const j=pathWithQuery.indexOf('?')>=0?'&':'?';
+  return pathWithQuery+j+'db='+encodeURIComponent(db);
+}
+async function apiFetch(pathWithQuery, opts){
+  const skipDb=opts&&opts.skipDb;
+  const path=skipDb?pathWithQuery:withDbParam(pathWithQuery);
+  const r=await fetch(API+path);
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  const data=await r.json();
+  if(data&&typeof data==='object'&&!Array.isArray(data)&&data.error) throw new Error(String(data.error));
+  return data;
 }
 
 async function checkStatus() {
   try {
-    await apiFetch('/api/ping');
+    await apiFetch('/api/ping',{skipDb:true});
     const d = document.getElementById('statusDot');
     if(d){ d.style.background='var(--grn)'; d.title='Conectado'; }
   } catch {
@@ -435,7 +453,19 @@ async function loadResumen() {
       chartAging.data.datasets[0].data=[age.CORRIENTE||0,age.DIAS_1_30||0,age.DIAS_31_60||0,age.DIAS_61_90||0,age.DIAS_MAS_90||0];
       chartAging.update();
     }
-  } catch(e){ console.error('resumen',e); }
+  } catch(e){
+    console.error('resumen',e);
+    setText('kSaldo','\u2014');
+    setText('kCli', (e&&e.message)?e.message.substring(0,80):'Sin conexi\u00f3n');
+    setText('kVencido','\u2014');
+    setText('kVigente','\u2014');
+    setText('kPctV','');
+    setText('kPctVig','');
+    const salEl=document.getElementById('kSalud');
+    const salSub=document.getElementById('kSaludSub');
+    if(salEl){ salEl.textContent='Error'; salEl.style.color='var(--red)'; }
+    if(salSub) salSub.textContent=(e&&e.message)?e.message:'Revisa API y consola';
+  }
 }
 
 // -- Vencidas ------------------------------------------------------------------

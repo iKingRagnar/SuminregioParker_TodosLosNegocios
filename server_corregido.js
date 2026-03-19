@@ -136,6 +136,16 @@ function parseDatabaseRegistry() {
 const DATABASE_REGISTRY = parseDatabaseRegistry();
 console.log('[Firebird] bases registradas:', DATABASE_REGISTRY.map(d => d.id).join(', '));
 
+/** null = FB_DATABASE por defecto; ?db=id debe existir en DATABASE_REGISTRY o lanza error. */
+function getReqDbOpts(req) {
+  if (!req || !req.query) return null;
+  const id = req.query.db != null ? String(req.query.db).trim() : '';
+  if (!id) return null;
+  const hit = DATABASE_REGISTRY.find(d => d.id === id);
+  if (!hit) throw new Error('Parámetro db desconocido: ' + id + '. Ver GET /api/universe/databases');
+  return hit.options;
+}
+
 /** Ejecuta tareas con a lo sumo `limit` en vuelo (reduce carga en servidor transaccional). */
 async function mapPoolLimit(items, limit, mapper) {
   const results = new Array(items.length);
@@ -418,7 +428,8 @@ function cxcSaldosSub() { return cxcCargosSQL(); }
 //  CONFIG / METAS  ✅ v5: META_IDEAL = 10% sobre base
 // ═══════════════════════════════════════════════════════════════════════════════
 
-get('/api/config/metas', async () => {
+get('/api/config/metas', async (req) => {
+  const dbo = getReqDbOpts(req);
   const rows = await query(`
     SELECT COUNT(DISTINCT VENDEDOR_ID) AS NUM_VENDEDORES
     FROM DOCTOS_VE
@@ -428,7 +439,7 @@ get('/api/config/metas', async () => {
     )
     AND EXTRACT(YEAR  FROM FECHA) = EXTRACT(YEAR  FROM CURRENT_DATE)
     AND EXTRACT(MONTH FROM FECHA) = EXTRACT(MONTH FROM CURRENT_DATE)
-  `);
+  `, [], 12000, dbo);
   const numV = (rows[0] && rows[0].NUM_VENDEDORES) ? Number(rows[0].NUM_VENDEDORES) : 1;
 
   const META_DIA_V   = 5650;
@@ -479,6 +490,7 @@ get('/api/config/filtros', async () => {
 
 // Ventas del periodo: HOY = venta del d\u00eda actual; MES_ACTUAL = total del periodo filtrado (anio/mes o desde-hasta) para que cuadre con Power BI.
 get('/api/ventas/resumen', async (req) => {
+  const dbo = getReqDbOpts(req);
   if (!req.query.desde && !req.query.hasta && !req.query.anio) {
     const now = new Date();
     req.query.anio = now.getFullYear();
@@ -496,7 +508,7 @@ get('/api/ventas/resumen', async (req) => {
                THEN d.IMPORTE_NETO ELSE 0 END)                     AS HASTA_AYER_MES
     FROM ${ventasSub(tipo)} d
     WHERE 1=1 ${f.sql}
-  `, f.params).catch(() => []);
+  `, f.params, 12000, dbo).catch(() => []);
   return rows[0] || {};
 });
 
@@ -506,6 +518,7 @@ function lastDayOfMonth(y, m) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 get('/api/ventas/cotizaciones/resumen', async (req) => {
+  const dbo = getReqDbOpts(req);
   if (!req.query.desde && !req.query.hasta && !req.query.anio) {
     const now = new Date();
     req.query.anio = now.getFullYear();
@@ -522,7 +535,7 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
     FROM DOCTOS_VE d
     WHERE ${sqlWhereCotizacionActiva('d')}
       ${f.sql}
-  `, f.params).catch(() => []);
+  `, f.params, 12000, dbo).catch(() => []);
   return normalizeCotizacionResumenRow(rows[0]);
 });
 
@@ -841,6 +854,7 @@ get('/api/ventas/diario', async (req) => {
 // ═══════════════════════════════════════════════════════════
 
 get('/api/ventas/cumplimiento', async (req) => {
+  const dbo = getReqDbOpts(req);
   const f = buildFiltros(req, 'd');
   const anioQ = req.query.anio ? parseInt(req.query.anio) : null;
   const mesQ = req.query.mes ? parseInt(req.query.mes) : null;
@@ -848,7 +862,7 @@ get('/api/ventas/cumplimiento', async (req) => {
   const desde = req.query.desde;
   const hasta = req.query.hasta;
 
-  const [metas] = await query(`SELECT COALESCE(MAX(META_DIARIA_POR_VENDEDOR),0) AS META_DIA, COALESCE(MAX(META_IDEAL_POR_VENDEDOR),0) AS META_IDEAL FROM CONFIGURACIONES_GEN`).catch(() => [{ META_DIA: 5650, META_IDEAL: 6500 }]);
+  const [metas] = await query(`SELECT COALESCE(MAX(META_DIARIA_POR_VENDEDOR),0) AS META_DIA, COALESCE(MAX(META_IDEAL_POR_VENDEDOR),0) AS META_IDEAL FROM CONFIGURACIONES_GEN`, [], 12000, dbo).catch(() => [{ META_DIA: 5650, META_IDEAL: 6500 }]);
   const metaDia = +(metas && metas.META_DIA) || 5650;
   const metaIdeal = +(metas && metas.META_IDEAL) || 6500;
 
@@ -884,7 +898,7 @@ get('/api/ventas/cumplimiento', async (req) => {
     FROM ${ventasSub()} d
     WHERE ${condAnioMes} AND d.VENDEDOR_ID > 0 ${condVendedor}
     GROUP BY d.VENDEDOR_ID
-  `).catch(() => []);
+  `, [], 12000, dbo).catch(() => []);
 
   const ventaMap = {};
   (ventas || []).forEach(v => { ventaMap[v.VENDEDOR_ID] = v; });
@@ -895,7 +909,7 @@ get('/api/ventas/cumplimiento', async (req) => {
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
     WHERE ${condAnioMes} AND d.VENDEDOR_ID > 0 ${condVendedor}
     ORDER BY 2
-  `).catch(() => []);
+  `, [], 12000, dbo).catch(() => []);
 
   const metaMes = metaDia * Math.max(diasTranscurridos, 1);
   const rowsMapped = (rows || []).map(v => {
@@ -985,7 +999,7 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
   };
 }
 
-get('/api/director/resumen', async (req) => directorResumenSnapshot(req, null, 12000));
+get('/api/director/resumen', async (req) => directorResumenSnapshot(req, getReqDbOpts(req), 12000));
 
 // Catálogo de bases (sin credenciales) + scorecard multi-empresa (misma lógica que director, concurrencia acotada).
 get('/api/universe/databases', async () =>
@@ -1079,6 +1093,7 @@ get('/api/director/top-clientes', async (req) => {
 // director.html e index.html (Inicio): listado de vendedores con ventas en el periodo.
 // Acepta desde, hasta, anio, mes. Si no hay fechas, se usa mes actual (comportamiento original).
 get('/api/director/vendedores', async (req) => {
+  const dbo = getReqDbOpts(req);
   if (!req.query.desde && !req.query.hasta && !req.query.anio) {
     const now = new Date();
     req.query.anio = now.getFullYear();
@@ -1092,7 +1107,7 @@ get('/api/director/vendedores', async (req) => {
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
     WHERE d.VENDEDOR_ID > 0 ${f.sql}
     GROUP BY d.VENDEDOR_ID, v.NOMBRE ORDER BY VENTAS_MES DESC
-  `, f.params).catch(() => []);
+  `, f.params, 12000, dbo).catch(() => []);
   return rows;
 });
 
@@ -1135,6 +1150,7 @@ function cxcDocSaldosSQL(cfSql) {
 
 // Resumen CxC: Vencido y No vencido como Power BI (suma de Saldo_Documento por doc vencido/vigente). Incluye Contado.
 get('/api/cxc/resumen', async (req) => {
+  const dbo = getReqDbOpts(req);
   const cf = req.query.cliente ? parseInt(req.query.cliente) : null;
   const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
   const [totales, numCli] = await Promise.all([
@@ -1143,8 +1159,8 @@ get('/api/cxc/resumen', async (req) => {
         SUM(CASE WHEN doc.DIAS_VENCIDO >= 1 THEN doc.SALDO_NETO ELSE 0 END) AS VENCIDO,
         SUM(CASE WHEN doc.DIAS_VENCIDO <= 0 THEN doc.SALDO_NETO ELSE 0 END) AS POR_VENCER
       FROM ${cxcDocSaldosSQL(cfSql)}
-    `).catch(() => [{ VENCIDO: 0, POR_VENCER: 0 }]),
-    query(`SELECT COUNT(DISTINCT doc.CLIENTE_ID) AS N FROM ${cxcDocSaldosSQL(cfSql)}`).catch(() => [{ N: 0 }]),
+    `, [], 12000, dbo).catch(() => [{ VENCIDO: 0, POR_VENCER: 0 }]),
+    query(`SELECT COUNT(DISTINCT doc.CLIENTE_ID) AS N FROM ${cxcDocSaldosSQL(cfSql)}`, [], 12000, dbo).catch(() => [{ N: 0 }]),
   ]);
   const vencido = +(totales[0] && totales[0].VENCIDO) || 0;
   const porVencer = +(totales[0] && totales[0].POR_VENCER) || 0;
@@ -1159,6 +1175,7 @@ get('/api/cxc/resumen', async (req) => {
 
 // Aging por documento: suma de Saldo_Documento por rango de días (igual que Power BI). Buckets suman = SALDO_TOTAL.
 get('/api/cxc/aging', async (req) => {
+  const dbo = getReqDbOpts(req);
   const cf = req.query.cliente ? parseInt(req.query.cliente) : null;
   const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
   const rows = await query(`
@@ -1169,7 +1186,7 @@ get('/api/cxc/aging', async (req) => {
       SUM(CASE WHEN doc.DIAS_VENCIDO BETWEEN 61 AND  90 THEN doc.SALDO_NETO ELSE 0 END) AS DIAS_61_90,
       SUM(CASE WHEN doc.DIAS_VENCIDO > 90               THEN doc.SALDO_NETO ELSE 0 END) AS DIAS_MAS_90
     FROM ${cxcDocSaldosSQL(cfSql)}
-  `).catch(() => [{ CORRIENTE: 0, DIAS_1_30: 0, DIAS_31_60: 0, DIAS_61_90: 0, DIAS_MAS_90: 0 }]);
+  `, [], 12000, dbo).catch(() => [{ CORRIENTE: 0, DIAS_1_30: 0, DIAS_31_60: 0, DIAS_61_90: 0, DIAS_MAS_90: 0 }]);
   const r = rows[0] || {};
   return {
     CORRIENTE  : Math.round((+r.CORRIENTE   || 0) * 100) / 100,
@@ -1182,6 +1199,7 @@ get('/api/cxc/aging', async (req) => {
 
 // Facturas vencidas: una fila por documento, SALDO = saldo neto (Cargo − Cobro) como Power BI Saldo_Documento.
 get('/api/cxc/vencidas', async (req) => {
+  const dbo = getReqDbOpts(req);
   const limit = Math.min(parseInt(req.query.limit) || 100, 500);
   const cf = req.query.cliente ? ` AND d.CLIENTE_ID = ${parseInt(req.query.cliente)}` : '';
   return query(`
@@ -1216,17 +1234,18 @@ get('/api/cxc/vencidas', async (req) => {
         WHERE i2.DOCTO_CC_ACR_ID = d.DOCTO_CC_ID AND i2.TIPO_IMPTE = 'R' AND COALESCE(i2.CANCELADO,'N') = 'N'), 0)
     ) > 0
     ORDER BY d.DIAS_VENCIDO DESC, 4 DESC
-  `).catch(() => []);
+  `, [], 12000, dbo).catch(() => []);
 });
 
 // Top Deudores: saldo neto + condición + vencido proporcional al saldo (igual que /api/cxc/resumen). Acepta ?cliente= para filtrar.
 get('/api/cxc/top-deudores', async (req) => {
+  const dbo = getReqDbOpts(req);
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
   const cf = req.query.cliente ? parseInt(req.query.cliente) : null;
   const cfSql = cf ? ` WHERE s.CLIENTE_ID = ${cf}` : '';
   const cfSql2 = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
   const [saldos, aging] = await Promise.all([
-    query(`SELECT s.CLIENTE_ID, s.SALDO FROM ${cxcClienteSQL()} s ${cfSql}`).catch(() => []),
+    query(`SELECT s.CLIENTE_ID, s.SALDO FROM ${cxcClienteSQL()} s ${cfSql}`, [], 12000, dbo).catch(() => []),
     query(`
       SELECT cd.CLIENTE_ID,
         SUM(cd.SALDO) AS TOTAL_C,
@@ -1236,7 +1255,7 @@ get('/api/cxc/top-deudores', async (req) => {
       FROM ${cxcCargosSQL()} cd
       WHERE 1=1 ${cfSql2}
       GROUP BY cd.CLIENTE_ID
-    `).catch(() => []),
+    `, [], 12000, dbo).catch(() => []),
   ]);
   const agingMap = {};
   aging.forEach(a => { agingMap[a.CLIENTE_ID] = a; });
@@ -1247,7 +1266,7 @@ get('/api/cxc/top-deudores', async (req) => {
     FROM CLIENTES cl
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = cl.COND_PAGO_ID
     WHERE cl.CLIENTE_ID IN (${clienteIds.join(',')})
-  `).catch(() => []);
+  `, [], 12000, dbo).catch(() => []);
   const clMap = {};
   clientes.forEach(c => { clMap[c.CLIENTE_ID] = c; });
   const result = saldos
@@ -1275,31 +1294,33 @@ get('/api/cxc/top-deudores', async (req) => {
 });
 
 get('/api/cxc/historial', async (req) => {
+  const dbo = getReqDbOpts(req);
   const cliente = req.query.cliente ? parseInt(req.query.cliente) : null;
   if (!cliente) return [];
   return query(`
     SELECT cd.CLIENTE_ID, cd.FOLIO, cd.FECHA_VENCIMIENTO, cd.DIAS_VENCIDO, cd.SALDO
     FROM ${cxcCargosSQL()} cd WHERE cd.CLIENTE_ID = ?
     ORDER BY cd.FECHA_VENCIMIENTO
-  `, [cliente]).catch(() => []);
+  `, [cliente], 12000, dbo).catch(() => []);
 });
 
 // Por Condición: saldo NETO por cliente (cargos − cobros), no suma de cargos. Cuadra con SALDO_TOTAL del resumen.
-get('/api/cxc/por-condicion', async () => {
+get('/api/cxc/por-condicion', async (req) => {
+  const dbo = getReqDbOpts(req);
   const [saldos, aging, cargosCond] = await Promise.all([
-    query(`SELECT cs.CLIENTE_ID, cs.SALDO FROM ${cxcClienteSQL()} cs`).catch(() => []),
+    query(`SELECT cs.CLIENTE_ID, cs.SALDO FROM ${cxcClienteSQL()} cs`, [], 12000, dbo).catch(() => []),
     query(`
       SELECT cd.CLIENTE_ID,
         SUM(cd.SALDO) AS TOTAL_C,
         SUM(CASE WHEN cd.DIAS_VENCIDO > 0 THEN cd.SALDO ELSE 0 END) AS VENC_C
       FROM ${cxcCargosSQL()} cd
       GROUP BY cd.CLIENTE_ID
-    `).catch(() => []),
+    `, [], 12000, dbo).catch(() => []),
     query(`
       SELECT cd.CLIENTE_ID, COUNT(DISTINCT cd.DOCTO_CC_ID) AS NUM_DOCS
       FROM ${cxcCargosSQL()} cd
       GROUP BY cd.CLIENTE_ID
-    `).catch(() => []),
+    `, [], 12000, dbo).catch(() => []),
   ]);
   const agMap = {}; aging.forEach(r => { agMap[r.CLIENTE_ID] = r; });
   const docMap = {}; cargosCond.forEach(r => { docMap[r.CLIENTE_ID] = +r.NUM_DOCS || 0; });
@@ -1310,7 +1331,7 @@ get('/api/cxc/por-condicion', async () => {
     FROM CLIENTES cl
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = cl.COND_PAGO_ID
     WHERE cl.CLIENTE_ID IN (${clienteIds.join(',')})
-  `).catch(() => []);
+  `, [], 12000, dbo).catch(() => []);
   const byCond = {};
   saldos.forEach(r => {
     const saldo = +r.SALDO || 0;
@@ -1347,6 +1368,7 @@ get('/api/cxc/por-condicion', async () => {
 // Calendario Pagos / Buro: por documento, con CLIENTE, ANIO, MES_EMISION, saldo restante, fechas. Sin ?cliente= devuelve todos.
 // Si ?saldos_actuales=1 devuelve { rows, saldosPorCliente } para que el front muestre deuda actual sin depender del filtro meses.
 get('/api/cxc/historial-pagos', async (req) => {
+  const dbo = getReqDbOpts(req);
   const limit = Math.min(parseInt(req.query.limit) || 300, 500);
   const meses = Math.min(parseInt(req.query.meses) || 12, 24);
   const saldosActuales = req.query.saldos_actuales === '1' || req.query.saldos_actuales === 'true';
@@ -1377,26 +1399,27 @@ get('/api/cxc/historial-pagos', async (req) => {
     GROUP BY dc.DOCTO_CC_ID, dc.FOLIO, cl.NOMBRE, cl.CLIENTE_ID, cp.NOMBRE, cp.DIAS_PPAG, dc.FECHA
     HAVING SUM(CASE WHEN i.TIPO_IMPTE = 'C' THEN i.IMPORTE ELSE 0 END) > 0
     ORDER BY dc.FECHA DESC
-  `).catch(() => []);
+  `, [], 12000, dbo).catch(() => []);
   if (!saldosActuales || !rows || !rows.length) return rows || [];
   const ids = [...new Set((rows || []).map(r => r.CLIENTE_ID).filter(Boolean))];
   if (!ids.length) return { rows, saldosPorCliente: {} };
   let saldosPorCliente = {};
   try {
-    const saldosRows = await query(`SELECT cs.CLIENTE_ID, cs.SALDO FROM ${cxcClienteSQL()} cs WHERE cs.CLIENTE_ID IN (${ids.join(',')})`).catch(() => []);
+    const saldosRows = await query(`SELECT cs.CLIENTE_ID, cs.SALDO FROM ${cxcClienteSQL()} cs WHERE cs.CLIENTE_ID IN (${ids.join(',')})`, [], 12000, dbo).catch(() => []);
     (saldosRows || []).forEach(r => { saldosPorCliente[r.CLIENTE_ID] = +r.SALDO || 0; });
   } catch (_) { /* si falla saldos, igual devolver rows */ }
   return { rows, saldosPorCliente };
 });
 
 get('/api/cxc/comportamiento-pago', async (req) => {
+  const dbo = getReqDbOpts(req);
   const cliente = req.query.cliente ? parseInt(req.query.cliente) : null;
   if (!cliente) return [];
   return query(`
     SELECT cd.CLIENTE_ID, AVG(cd.DIAS_VENCIDO) AS PROMEDIO_DIAS_VENCIDO, COUNT(*) AS DOCS_VENCIDOS
     FROM ${cxcCargosSQL()} cd WHERE cd.CLIENTE_ID = ? AND cd.DIAS_VENCIDO > 0
     GROUP BY cd.CLIENTE_ID
-  `, [cliente]).catch(() => []);
+  `, [cliente], 12000, dbo).catch(() => []);
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -1407,7 +1430,8 @@ const SQL_MINIMO_SUB = `( SELECT ARTICULO_ID, MAX(INVENTARIO_MINIMO) AS INVENTAR
 const SQL_PRECIO_SUB = `( SELECT ARTICULO_ID, MIN(PRECIO) AS PRECIO1 FROM PRECIOS_ARTICULOS WHERE MONEDA_ID = 1 AND PRECIO > 0 GROUP BY ARTICULO_ID )`;
 
 // SIN_STOCK = solo articulos con minimo definido y existencia 0 (alerta real). No contar todo el catalogo en cero.
-get('/api/inv/resumen', async () => {
+get('/api/inv/resumen', async (req) => {
+  const dbo = getReqDbOpts(req);
   const rows = await query(`
     SELECT
       COUNT(DISTINCT a.ARTICULO_ID) AS TOTAL_ARTICULOS,
@@ -1419,7 +1443,7 @@ get('/api/inv/resumen', async () => {
     LEFT JOIN ${SQL_MINIMO_SUB} n ON n.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${SQL_PRECIO_SUB} pr ON pr.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A'
-  `).catch(() => [{}]);
+  `, [], 12000, dbo).catch(() => [{}]);
   const r = rows[0] || {};
   return { TOTAL_ARTICULOS: +(r.TOTAL_ARTICULOS||0), VALOR_INVENTARIO: +(r.VALOR_INVENTARIO||0), BAJO_MINIMO: +(r.BAJO_MINIMO||0), SIN_STOCK: +(r.SIN_STOCK||0) };
 });
@@ -1563,7 +1587,8 @@ get('/api/clientes/inactivos', async (req) => {
   `, [meses * 31]).catch(() => []);
 });
 
-get('/api/clientes/resumen-riesgo', async () => {
+get('/api/clientes/resumen-riesgo', async (req) => {
+  const dbo = getReqDbOpts(req);
   const defaultRes = { TOTAL_EN_RIESGO: 0, MONTO_CRITICO: 0, MONTO_ALTO: 0, MONTO_MEDIO: 0, MONTO_LEVE: 0 };
   try {
     const [totales] = await query(`
@@ -1573,7 +1598,7 @@ get('/api/clientes/resumen-riesgo', async () => {
         SUM(CASE WHEN cd.DIAS_VENCIDO > 30 AND cd.DIAS_VENCIDO <= 60 THEN cd.SALDO ELSE 0 END) AS MONTO_MEDIO,
         SUM(CASE WHEN cd.DIAS_VENCIDO <= 30 THEN cd.SALDO ELSE 0 END) AS MONTO_LEVE
       FROM ${cxcCargosSQL()} cd WHERE cd.DIAS_VENCIDO > 0
-    `).catch(() => [null]);
+    `, [], 12000, dbo).catch(() => [null]);
     return { ...defaultRes, ...(totales || {}) };
   } catch (e) {
     return defaultRes;
