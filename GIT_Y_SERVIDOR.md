@@ -1,5 +1,11 @@
 # Git + servidor remoto (una sola fuente de verdad)
 
+## Resumen (3 pasos)
+
+1. Los cambios se suben a **GitHub** (`main`) desde la PC donde se edita el código.
+2. En el servidor: `cd C:\microsip-api` → `git pull origin main` → `pm2 restart all`.
+3. Abre **Ventas**: debe verse el título grande **IA Suprema · Ventas** y debajo la línea amarilla **Prueba Git deploy OK** con la **fecha de hoy**. Si no: `Ctrl+F5` (caché) o el `git pull` no se hizo en esa carpeta.
+
 ## Repo en GitHub
 
 - **Remoto:** `https://github.com/iKingRagnar/SuminregioParker_TodosLosNegocios.git`
