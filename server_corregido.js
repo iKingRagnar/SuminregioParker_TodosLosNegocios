@@ -651,19 +651,46 @@ function sqlExprEstatusNorm(alias = 'd') {
 }
 
 /**
- * Documento de venta válido para KPIs — remoto/BI: comparación directa F/V en TIPO_DOCTO **o** primer carácter (sqlExprTipoDoctoChar1).
- * Tipo R solo si MICROSIP_VENTAS_INCLUIR_REM=1.
+ * Modo **amplio** (default): cuenta ventas como “todo documento VE/PV que no sea cotización C/O/Q y no esté cancelado/traspaso”.
+ * Así siguen saliendo datos aunque TIPO_DOCTO no sea literalmente F/V (códigos numéricos, FAC, etc.).
+ * Excluir tipos extra (p. ej. P si en tu planta P=cotización): `MICROSIP_VENTAS_AMPLIO_EXCLUIR_TIPOS=P,X`
  *
- * Muchas instalaciones guardan TIPO_DOCTO como **entero** (1,2,3…) en lugar de 'F'/'V':
- * entonces `TIPO_DOCTO = 'F'` no coincide y todas las ventas quedan en $0 mientras CxC sí muestra datos.
- * Por defecto se incluyen filas cuyo tipo es **solo dígitos** (tras TRIM), con estatus válido.
- * Excluir códigos que en tu BD sean cotización u otros no-venta:
- *   MICROSIP_VENTAS_EXCLUIR_TIPOS_NUMERICOS=2,3
- * Desactivar rama numérica:
- *   MICROSIP_VENTAS_INCLUIR_TIPO_NUMERICO=0
+ * Modo **estricto**: solo F/V (+ opción R + rama “primer carácter numérico” sin SIMILAR TO).
+ *   `MICROSIP_VENTAS_FILTRO=estricto`
+ */
+function sqlWhereVentasAmplio(alias = 'd', opts = {}) {
+  const a = alias;
+  const e = sqlExprEstatusNorm(a);
+  const t0 = sqlExprTipoDoctoChar1(a);
+  const excluirT = String(process.env.MICROSIP_VENTAS_AMPLIO_EXCLUIR_T || '1').trim() !== '0';
+  const estatusOk = excluirT ? `${e} NOT IN ('C', 'T')` : `${e} <> 'C'`;
+  const extraCsv = String(process.env.MICROSIP_VENTAS_AMPLIO_EXCLUIR_TIPOS || '')
+    .split(/[,;\s]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const extraNotIn = extraCsv.length
+    ? ` AND TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(40))) NOT IN (${extraCsv.map((x) => `'${String(x).replace(/'/g, "''")}'`).join(', ')})`
+    : '';
+  const sinR = opts.omitRemision
+    ? ` AND NOT ((${a}.TIPO_DOCTO = 'R' OR ${t0} = 'R'))`
+    : '';
+  return `(
+    ${estatusOk}
+    AND NOT ((${a}.TIPO_DOCTO IN ('C', 'O', 'Q') OR ${t0} IN ('C', 'O', 'Q')))
+    ${extraNotIn}
+    ${sinR}
+  )`;
+}
+
+/**
+ * Documento de venta válido para KPIs — ver `sqlWhereVentasAmplio` vs estricto arriba.
  * @param {{ omitRemision?: boolean }} [opts] — `omitRemision: true` = sin tipo R (p. ej. consumos por unidades).
  */
 function sqlWhereVentasDocumentoValido(alias = 'd', opts = {}) {
+  const modo = String(process.env.MICROSIP_VENTAS_FILTRO || 'amplio').trim().toLowerCase();
+  if (modo !== 'estricto' && modo !== 'legacy' && modo !== 'fv') {
+    return sqlWhereVentasAmplio(alias, opts);
+  }
   const a = alias;
   const e = sqlExprEstatusNorm(a);
   const t0 = sqlExprTipoDoctoChar1(a);
@@ -677,9 +704,10 @@ function sqlWhereVentasDocumentoValido(alias = 'd', opts = {}) {
   const exclSql = exclNum.length
     ? ` AND TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(40))) NOT IN (${exclNum.map((x) => `'${x}'`).join(', ')})`
     : '';
+  // Sin SIMILAR TO: primer carácter es dígito (compatible Firebird 2.5+).
   const partNum = incluirNum
     ? ` OR (
-    TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(40))) SIMILAR TO '[0-9]+'
+    SUBSTRING(COALESCE(TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(40))), '') FROM 1 FOR 1) IN ('0','1','2','3','4','5','6','7','8','9')
     AND ${e} NOT IN ('C', 'T')
     ${exclSql}
   )`
@@ -3111,6 +3139,7 @@ get('/api/debug/ventas', async (req) => {
 
   return {
     dbParam: (req.query && req.query.db) || null,
+    filtro_ventas_modo: process.env.MICROSIP_VENTAS_FILTRO || 'amplio',
     doctos_ve_total: veAll.ok ? veAll.rows[0].N : null,
     doctos_pv_total: pvAll.ok ? pvAll.rows[0].N : null,
     legacy_fv_noC_ve: legacyVe.ok ? legacyVe.rows[0].N : null,
@@ -3129,6 +3158,49 @@ get('/api/debug/ventas', async (req) => {
     periodo_mes_usado: { anio, mes },
     hint:
       'Si count_ventas_sub_union > 0 pero count_ventas_sub_mes = 0, el periodo del filtro (mes/año) no tiene facturas. Prueba ?anio=2024 o preset "Este año" en la barra.',
+  };
+});
+
+/** Muestra cruda (sin filtro F/V) — ver qué valores reales hay en TIPO_DOCTO / IMPORTE_NETO. */
+get('/api/debug/ventas-muestra', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const lim = Math.min(30, Math.max(1, parseInt(req.query.limit, 10) || 12));
+  const tryQ = async (sql, params = []) => {
+    try {
+      return { ok: true, rows: await query(sql, params, 20000, dbo) };
+    } catch (e) {
+      return { ok: false, error: e.message || String(e) };
+    }
+  };
+  const ve = await tryQ(
+    `
+    SELECT FIRST ${lim}
+      CAST(d.FECHA AS DATE) AS FECHA,
+      d.FOLIO,
+      TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40))) AS TIPO_DOCTO,
+      TRIM(CAST(d.ESTATUS AS VARCHAR(10))) AS ESTATUS,
+      d.IMPORTE_NETO
+    FROM DOCTOS_VE d
+    ORDER BY d.FECHA DESC
+  `
+  );
+  const pv = await tryQ(
+    `
+    SELECT FIRST ${lim}
+      CAST(d.FECHA AS DATE) AS FECHA,
+      d.FOLIO,
+      TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40))) AS TIPO_DOCTO,
+      TRIM(CAST(d.ESTATUS AS VARCHAR(10))) AS ESTATUS,
+      d.IMPORTE_NETO
+    FROM DOCTOS_PV d
+    ORDER BY d.FECHA DESC
+  `
+  );
+  return {
+    dbParam: (req.query && req.query.db) || null,
+    filtro_ventas_modo: process.env.MICROSIP_VENTAS_FILTRO || 'amplio',
+    doctos_ve_muestra: ve.ok ? ve.rows : { error: ve.error },
+    doctos_pv_muestra: pv.ok ? pv.rows : { error: pv.error },
   };
 });
 
