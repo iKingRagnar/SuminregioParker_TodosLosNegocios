@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<!-- BUILD_CHECK: IA-SUPREMA-v4 (si ves esto en Ver codigo fuente, el HTML es el nuevo) -->
+<!-- BUILD_CHECK: IA-SUPREMA-v5 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- Pestaña: texto corto primero para que no lo recorte el navegador -->
-<title>IA Suprema v4 &middot; Ventas &middot; Suminregio</title>
+<title>IA Suprema v5 &middot; Ventas</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
@@ -128,7 +128,7 @@ nav{display:flex;align-items:center;gap:.25rem}
       <a href="inventario.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M20 7H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zm-8 9c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zM4 3h16v2H4z"/></svg>Inventario</a>
     </nav>
     <div class="header-right">
-      <span class="deploy-badge" id="deploy-badge" title="Si ves v4 aqui, el servidor ya tiene el ultimo git pull">IA Suprema v4</span>
+      <span class="deploy-badge" id="deploy-badge" title="Ultimo HTML desplegado">IA Suprema v5</span>
       <div class="live-pill"><div class="live-dot"></div>LIVE</div>
       <div class="clock" id="clock">--:--:--</div>
     </div>
@@ -138,10 +138,20 @@ nav{display:flex;align-items:center;gap:.25rem}
 <div class="page">
   <div class="page-header">
     <div>
-      <div class="page-title">Ventas</div>
+      <!-- Titulo VISIBLE en la pagina (no solo en la pestaña del navegador) -->
+      <div class="page-title" id="page-main-title">IA Suprema · Ventas</div>
+      <div class="page-sub" id="page-git-ok" style="color:var(--yellow);font-weight:700;font-size:.8rem;margin-top:.25rem;margin-bottom:.15rem">
+        Prueba Git deploy OK · <span id="page-fecha-hoy"></span>
+      </div>
       <div class="page-sub" id="page-sub">Cargando datos...</div>
     </div>
   </div>
+  <script>
+  (function(){
+    var el=document.getElementById('page-fecha-hoy');
+    if(el) el.textContent=new Date().toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  })();
+  </script>
 
   <!-- Barra de filtros compartida -->
   <div id="filter-bar"></div>
