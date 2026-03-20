@@ -630,17 +630,37 @@ function consumosVendedorClienteSql(req, alias = 'd') {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Documento de venta válido para KPIs: TRIM por CHAR relleno; ESTATUS NULL no debe excluir
- * (en Firebird `NULL <> 'C'` es UNKNOWN y quita la fila del WHERE).
+ * ESTATUS normalizado: NULL/vacío → vigente (no usar solo `<> 'C'` sobre crudo).
+ */
+function sqlExprEstatusNorm(alias = 'd') {
+  return `COALESCE(NULLIF(UPPER(TRIM(CAST(${alias}.ESTATUS AS VARCHAR(10)))), ''), 'N')`;
+}
+
+/**
+ * Primer carácter del tipo (CHAR largo / códigos extendidos en Microsip).
+ */
+function sqlExprTipoDoctoChar1(alias = 'd') {
+  return `SUBSTRING(TRIM(CAST(${alias}.TIPO_DOCTO AS VARCHAR(30))) FROM 1 FOR 1)`;
+}
+
+/**
+ * Documento de venta válido para KPIs — alineado a servidor remoto / BI:
+ * - Misma lógica que antes: **F** y **V** (Factura / Venta); **R** opcional con MICROSIP_VENTAS_INCLUIR_REM=1
+ * - `TIPO_DOCTO = 'F'|'V'` como en remoto **o** primer carácter F/V (tipos CHAR relleno)
+ * - No comparar solo `UPPER(TRIM(tipo)) = 'F'` sobre el string completo si el código es distinto (evitaba filas).
  */
 function sqlWhereVentasDocumentoValido(alias = 'd') {
   const a = alias;
-  const t = `NULLIF(UPPER(TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(10)))), '')`;
-  const e = `COALESCE(NULLIF(UPPER(TRIM(CAST(${a}.ESTATUS AS VARCHAR(10)))), ''), 'N')`;
+  const e = sqlExprEstatusNorm(a);
+  const t0 = sqlExprTipoDoctoChar1(a);
+  const incluirR = String(process.env.MICROSIP_VENTAS_INCLUIR_REM || '').trim() === '1';
+  const partR = incluirR
+    ? ` OR ((${a}.TIPO_DOCTO = 'R' OR ${t0} = 'R') AND ${e} <> 'C')`
+    : '';
   return `(
-    (${t} = 'F' AND ${e} <> 'C')
-    OR (${t} = 'V' AND ${e} NOT IN ('C', 'T'))
-    OR (${t} = 'R' AND ${e} <> 'C')
+    ((${a}.TIPO_DOCTO = 'F' OR ${t0} = 'F') AND ${e} <> 'C')
+    OR ((${a}.TIPO_DOCTO = 'V' OR ${t0} = 'V') AND ${e} NOT IN ('C', 'T'))
+    ${partR}
   )`;
 }
 
@@ -692,9 +712,9 @@ function ventasSub(tipo = '') {
 // ═══════════════════════════════════════════════════════════════════════════════
 function sqlWhereCotizacionActiva(alias = 'd') {
   const a = alias;
-  const t = `NULLIF(UPPER(TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(10)))), '')`;
-  const e = `COALESCE(NULLIF(UPPER(TRIM(CAST(${a}.ESTATUS AS VARCHAR(10)))), ''), 'N')`;
-  return `(${t} IN ('C', 'O', 'Q')) AND (${e} <> 'C')`;
+  const t0 = sqlExprTipoDoctoChar1(a);
+  const e = sqlExprEstatusNorm(a);
+  return `((${a}.TIPO_DOCTO IN ('C', 'O', 'Q') OR ${t0} IN ('C', 'O', 'Q')) AND (${e} <> 'C'))`;
 }
 
 function normalizeCotizacionResumenRow(row) {
@@ -712,10 +732,12 @@ function normalizeCotizacionResumenRow(row) {
  * tipo: 'VE' | 'PV' | '' (ambos)
  */
 function consumosSub(tipo = '') {
-  // F/V únicamente (sin R); ESTATUS NULL tratado como vigente (COALESCE).
+  // F/V únicamente (sin R); misma base que ventasSub.
+  const e = sqlExprEstatusNorm('d');
+  const t0 = sqlExprTipoDoctoChar1('d');
   const wVeCons = `(
-    (NULLIF(UPPER(TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(10)))), '') = 'F' AND COALESCE(NULLIF(UPPER(TRIM(CAST(d.ESTATUS AS VARCHAR(10)))), ''), 'N') <> 'C')
-    OR (NULLIF(UPPER(TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(10)))), '') = 'V' AND COALESCE(NULLIF(UPPER(TRIM(CAST(d.ESTATUS AS VARCHAR(10)))), ''), 'N') NOT IN ('C', 'T'))
+    ((d.TIPO_DOCTO = 'F' OR ${t0} = 'F') AND ${e} <> 'C')
+    OR ((d.TIPO_DOCTO = 'V' OR ${t0} = 'V') AND ${e} NOT IN ('C', 'T'))
   )`;
   const ve = `
     SELECT
@@ -954,7 +976,10 @@ get('/api/ventas/resumen', async (req) => {
                THEN d.IMPORTE_NETO ELSE 0 END)                     AS HASTA_AYER_MES
     FROM ${ventasSub(tipo)} d
     WHERE 1=1 ${f.sql}
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, 45000, dbo).catch((err) => {
+    console.error('[ventas/resumen]', err && err.message ? err.message : err);
+    return [];
+  });
   return rows[0] || {};
 });
 
@@ -2957,12 +2982,71 @@ get('/api/debug/cxc', async () => {
   return { doctos_cc: docs[0].N, importes_cc: importes[0].N, clientes: clientes[0].N };
 });
 
-get('/api/debug/ventas', async () => {
-  const [ve, pv] = await Promise.all([
-    query(`SELECT COUNT(*) AS N FROM DOCTOS_VE WHERE (TIPO_DOCTO = 'F' OR TIPO_DOCTO = 'V') AND ESTATUS <> 'C'`).catch(() => [{ N: 0 }]),
-    query(`SELECT COUNT(*) AS N FROM DOCTOS_PV WHERE (TIPO_DOCTO = 'F' OR TIPO_DOCTO = 'V') AND ESTATUS <> 'C'`).catch(() => [{ N: 0 }]),
-  ]);
-  return { doctos_ve: ve[0].N, doctos_pv: pv[0].N };
+get('/api/debug/ventas', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const out = {
+    db: (req.query && req.query.db) ? String(req.query.db) : '(default FB_DATABASE)',
+    anio: req.query && req.query.anio,
+    mes: req.query && req.query.mes,
+  };
+  try {
+    const sqlUnion = `SELECT COUNT(*) AS N FROM ${ventasSub()} d`;
+    const rU = await query(sqlUnion, [], 45000, dbo);
+    out.count_ventas_sub_union = rU[0] && rU[0].N != null ? rU[0].N : null;
+  } catch (e) {
+    out.ventas_sub_union_error = e && e.message ? e.message : String(e);
+  }
+  if (req.query && req.query.anio && req.query.mes) {
+    const y = parseInt(req.query.anio, 10);
+    const m = parseInt(req.query.mes, 10);
+    if (!isNaN(y) && !isNaN(m)) {
+      try {
+        const rM = await query(
+          `SELECT COUNT(*) AS N FROM ${ventasSub()} d WHERE EXTRACT(YEAR FROM d.FECHA) = ? AND EXTRACT(MONTH FROM d.FECHA) = ?`,
+          [y, m],
+          45000,
+          dbo
+        );
+        out.count_ventas_sub_mes = rM[0] && rM[0].N != null ? rM[0].N : null;
+      } catch (e) {
+        out.ventas_sub_mes_error = e && e.message ? e.message : String(e);
+      }
+    }
+  }
+  try {
+    const tipVe = await query(
+      `SELECT TRIM(CAST(TIPO_DOCTO AS VARCHAR(30))) AS T, COUNT(*) AS N FROM DOCTOS_VE GROUP BY 1 ORDER BY 2 DESC`,
+      [],
+      20000,
+      dbo
+    );
+    out.tipos_docto_ve = (tipVe || []).slice(0, 25);
+  } catch (e) {
+    out.tipos_ve_error = e && e.message ? e.message : String(e);
+  }
+  try {
+    const tipPv = await query(
+      `SELECT TRIM(CAST(TIPO_DOCTO AS VARCHAR(30))) AS T, COUNT(*) AS N FROM DOCTOS_PV GROUP BY 1 ORDER BY 2 DESC`,
+      [],
+      20000,
+      dbo
+    );
+    out.tipos_docto_pv = (tipPv || []).slice(0, 25);
+  } catch (e) {
+    out.tipos_pv_error = e && e.message ? e.message : String(e);
+  }
+  try {
+    const fechas = await query(
+      `SELECT MIN(d.FECHA) AS MIN_F, MAX(d.FECHA) AS MAX_F FROM DOCTOS_VE d WHERE ${sqlWhereVentasDocumentoValido('d')}`,
+      [],
+      20000,
+      dbo
+    );
+    out.fechas_ve_filtradas = fechas[0] || null;
+  } catch (e) {
+    out.fechas_error = e && e.message ? e.message : String(e);
+  }
+  return out;
 });
 
 get('/api/debug/pv', async () => {
