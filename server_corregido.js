@@ -84,10 +84,14 @@ function sqlVentaImporteBaseExpr(alias = 'd') {
   return `(COALESCE(${a}.IMPORTE_NETO, 0) / CAST(${VENTAS_SIN_IVA_DIVISOR} AS DOUBLE PRECISION))`;
 }
 
-/** Importe línea DET — Power BI dLineasDocumentos: UNIDADES × (PRECIO_UNITARIO o PRECIO_U). */
+/**
+ * Importe línea en *_DET (Microsip Firebird).
+ * No usar PRECIO_UNITARIO aquí: en muchas instalaciones ese campo no existe en la BD (rompe todas las queries).
+ * Orden: total del renglón si viene cargado; si no, UNIDADES × PRECIO_U (equivalente práctico al DAX).
+ */
 function sqlDetLineImporteExpr(detAlias = 'det') {
   const x = detAlias;
-  return `(COALESCE(${x}.UNIDADES, 0) * COALESCE(NULLIF(${x}.PRECIO_UNITARIO, 0), NULLIF(${x}.PRECIO_U, 0), CAST(0 AS DOUBLE PRECISION)))`;
+  return `COALESCE(NULLIF(${x}.PRECIO_TOTAL, 0), (COALESCE(${x}.UNIDADES, 0) * COALESCE(${x}.PRECIO_U, 0)), CAST(0 AS DOUBLE PRECISION))`;
 }
 
 /** Facturación (DAX Facturación $): solo TIPO F y V; ESTATUS no C / D / S. */
@@ -96,12 +100,21 @@ function sqlWhereFacturaVentaValida(alias = 'd') {
   return `(${a}.TIPO_DOCTO IN ('F', 'V')) AND (COALESCE(${a}.ESTATUS, 'N') NOT IN ('C', 'D', 'S'))`;
 }
 
+/** Descuento cabecera cotización VE; si tu BD no tiene DSCTO_IMPORTE pon en .env: MICROSIP_OMIT_VE_DSCTO=1 */
+function sqlCotiHeaderDsctoMaxExpr() {
+  if (String(process.env.MICROSIP_OMIT_VE_DSCTO || '').trim() === '1') {
+    return 'CAST(0 AS DOUBLE PRECISION)';
+  }
+  return 'COALESCE(MAX(d.DSCTO_IMPORTE), 0)';
+}
+
 /**
- * Subconsulta: una fila por cotización VE con importe = suma líneas − DSCTO_IMPORTE cabecera (DAX Cotizaciones $).
+ * Subconsulta: una fila por cotización VE con importe = suma líneas − descuento cabecera (DAX Cotizaciones $).
  * fSql debe incluir espacio inicial " AND ..." sobre alias d.
  */
 function sqlCotizacionesVeDocSubquery(fSql = '') {
   const L = sqlDetLineImporteExpr('det');
+  const ds = sqlCotiHeaderDsctoMaxExpr();
   return `(
     SELECT
       d.DOCTO_VE_ID,
@@ -111,12 +124,12 @@ function sqlCotizacionesVeDocSubquery(fSql = '') {
       d.ESTATUS,
       d.VENDEDOR_ID,
       d.CLIENTE_ID,
-      (COALESCE(SUM(${L}), 0) - COALESCE(MAX(d.DSCTO_IMPORTE), 0)) AS IMPORTE_NETO
+      (COALESCE(SUM(${L}), 0) - ${ds}) AS IMPORTE_NETO
     FROM DOCTOS_VE d
     INNER JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
     WHERE ${sqlWhereCotizacionActiva('d')}${fSql}
     GROUP BY d.DOCTO_VE_ID, d.FECHA, d.FOLIO, d.TIPO_DOCTO, d.ESTATUS, d.VENDEDOR_ID, d.CLIENTE_ID
-    HAVING (COALESCE(SUM(${L}), 0) - COALESCE(MAX(d.DSCTO_IMPORTE), 0)) <> 0
+    HAVING (COALESCE(SUM(${L}), 0) - ${ds}) <> 0
   )`;
 }
 
