@@ -68,6 +68,22 @@ const path     = require('path');
 const app  = express();
 const PORT = process.env.PORT || 7000;
 
+/**
+ * Power BI / reportes suelen usar importe base sin IVA; en cabecera DOCTOS_VE/PV el campo
+ * IMPORTE_NETO a veces viene con IVA acumulado. Por defecto se divide entre 1.16.
+ * En .env: MICROSIP_VENTAS_SIN_IVA_DIVISOR=1 desactiva la división (IMPORTE_NETO tal cual).
+ */
+const _ivaDiv = parseFloat(process.env.MICROSIP_VENTAS_SIN_IVA_DIVISOR);
+const VENTAS_SIN_IVA_DIVISOR = Number.isFinite(_ivaDiv) && _ivaDiv >= 0.0001 ? _ivaDiv : 1.16;
+
+function sqlVentaImporteBaseExpr(alias = 'd') {
+  const a = alias;
+  if (VENTAS_SIN_IVA_DIVISOR <= 1.00001) {
+    return `COALESCE(${a}.IMPORTE_NETO, 0)`;
+  }
+  return `(COALESCE(${a}.IMPORTE_NETO, 0) / CAST(${VENTAS_SIN_IVA_DIVISOR} AS DOUBLE PRECISION))`;
+}
+
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 app.use(express.json());
@@ -614,10 +630,11 @@ function consumosVendedorClienteSql(req, alias = 'd') {
  * @param {string} tipo - 'VE', 'PV' o '' (todos)
  */
 function ventasSub(tipo = '') {
+  const imp = sqlVentaImporteBaseExpr('d');
   const ve = `
     SELECT
       d.FECHA,
-      d.IMPORTE_NETO,
+      ${imp} AS IMPORTE_NETO,
       COALESCE(d.VENDEDOR_ID, 0)  AS VENDEDOR_ID,
       COALESCE(d.CLIENTE_ID,  0)  AS CLIENTE_ID,
       d.FOLIO,
@@ -636,7 +653,7 @@ function ventasSub(tipo = '') {
   const pv = `
     SELECT
       d.FECHA,
-      d.IMPORTE_NETO,
+      ${imp} AS IMPORTE_NETO,
       COALESCE(d.VENDEDOR_ID, 0)  AS VENDEDOR_ID,
       COALESCE(d.CLIENTE_ID,  0)  AS CLIENTE_ID,
       d.FOLIO,
@@ -664,9 +681,9 @@ function ventasSub(tipo = '') {
 // ═══════════════════════════════════════════════════════════════════════════════
 function sqlWhereCotizacionActiva(alias = 'd') {
   const a = alias;
-  // Cotización en DOCTOS_VE: C / O (como Power BI). No canceladas.
+  // Cotización en DOCTOS_VE: C / O / Q según planta Microsip. No canceladas.
   return `(
-    UPPER(TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(4)))) IN ('C', 'O')
+    UPPER(TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(4)))) IN ('C', 'O', 'Q')
   ) AND COALESCE(${a}.ESTATUS, 'N') <> 'C'`;
 }
 
@@ -680,10 +697,9 @@ function normalizeCotizacionResumenRow(row) {
   };
 }
 
-/** Importe cotización: total en cabecera DOCTOS_VE — IMPORTE_NETO (según tu BD). */
+/** Importe cotización en misma base que ventas (sin IVA según MICROSIP_VENTAS_SIN_IVA_DIVISOR). */
 function sqlCotiImporteExpr(alias = 'd') {
-  const a = alias;
-  return `COALESCE(${a}.IMPORTE_NETO, 0)`;
+  return sqlVentaImporteBaseExpr(alias);
 }
 
 /**
@@ -1196,7 +1212,7 @@ get('/api/ventas/ranking-clientes', async (req) => {
   `, f.params, 12000, dbo).catch(() => []);
 });
 
-// Cobradas: ventas en periodo (d.FECHA) + cobro real por vendedor (IMPORTES_DOCTOS_CC tipo R, i.FECHA).
+// Cobradas: ventas en periodo (d.FECHA) + cobro real por vendedor (IMPORTES_DOCTOS_CC tipo R). Fecha de periodo: COALESCE(i.FECHA, dc.FECHA) si i.FECHA viene nula.
 get('/api/ventas/cobradas', async (req) => {
   const dbo = getReqDbOpts(req);
   if (!req.query.desde && !req.query.hasta && !req.query.anio) {
@@ -1205,7 +1221,7 @@ get('/api/ventas/cobradas', async (req) => {
     req.query.mes = now.getMonth() + 1;
   }
   const f = buildFiltros(req, 'd');
-  const fi = filtrosImporteCobro(req, 'i');
+  const fi = filtrosImporteCobro(req, 'i', { coalesceDcFecha: true });
   const tipo = getTipo(req);
   const tipoFac = sqlTipoFacLinkCc('fac', tipo);
   const vendedorQ = req.query.vendedor ? ` AND d.VENDEDOR_ID = ${parseInt(req.query.vendedor, 10)}` : '';
@@ -1314,8 +1330,8 @@ get('/api/ventas/cobradas-detalle', async (req) => {
     req.query.anio = now.getFullYear();
     req.query.mes = now.getMonth() + 1;
   }
-  // Mismo criterio de periodo que /api/ventas/cobradas (i.FECHA). COALESCE con dc.FECHA solo en columnas mostradas.
-  const fi = filtrosImporteCobro(req, 'i');
+  // Periodo del cobro: muchas bases dejan i.FECHA nula en tipo R; el resumen reparte cobros aun así, aquí se filtra con COALESCE(i.FECHA, dc.FECHA).
+  const fi = filtrosImporteCobro(req, 'i', { coalesceDcFecha: true });
   const limit = Math.min(parseInt(req.query.limit, 10) || 400, 800);
   return query(`
     SELECT FIRST ${limit}
@@ -1353,7 +1369,11 @@ get('/api/ventas/margen-lineas', async (req) => {
       OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
       OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS <> 'C')
     )`;
-  const ventaSql = 'COALESCE(NULLIF(det.PRECIO_T, 0), COALESCE(det.UNIDADES, 0) * COALESCE(det.PRECIO_U, 0))';
+  const ventaBruta = 'COALESCE(NULLIF(det.PRECIO_T, 0), COALESCE(det.UNIDADES, 0) * COALESCE(det.PRECIO_U, 0))';
+  const ventaSql =
+    VENTAS_SIN_IVA_DIVISOR <= 1.00001
+      ? ventaBruta
+      : `((${ventaBruta}) / CAST(${VENTAS_SIN_IVA_DIVISOR} AS DOUBLE PRECISION))`;
   const mapRows = (rows) =>
     (rows || []).map((r) => {
       const venta = +r.VENTA || 0;
@@ -1374,7 +1394,7 @@ get('/api/ventas/margen-lineas', async (req) => {
           'VE' AS TIPO_SRC,
           c.NOMBRE AS CLIENTE,
           COALESCE(a.CLAVE, CAST(det.ARTICULO_ID AS VARCHAR(40))) AS CLAVE_ARTICULO,
-          COALESCE(NULLIF(TRIM(a.NOMBRE), ''), NULLIF(TRIM(a.DESCRIPCION), ''), '') AS DESC_ARTICULO,
+          COALESCE(a.NOMBRE, '') AS DESC_ARTICULO,
           COALESCE(det.UNIDADES, 0) AS CANTIDAD,
           COALESCE(det.PRECIO_U, 0) AS PRECIO_U,
           CAST(${costExpr} AS DECIMAL(18, 4)) AS COSTO,
@@ -1391,7 +1411,7 @@ get('/api/ventas/margen-lineas', async (req) => {
           'PV' AS TIPO_SRC,
           c.NOMBRE AS CLIENTE,
           COALESCE(a.CLAVE, CAST(det.ARTICULO_ID AS VARCHAR(40))) AS CLAVE_ARTICULO,
-          COALESCE(NULLIF(TRIM(a.NOMBRE), ''), NULLIF(TRIM(a.DESCRIPCION), ''), '') AS DESC_ARTICULO,
+          COALESCE(a.NOMBRE, '') AS DESC_ARTICULO,
           COALESCE(det.UNIDADES, 0) AS CANTIDAD,
           COALESCE(det.PRECIO_U, 0) AS PRECIO_U,
           CAST(${costExpr} AS DECIMAL(18, 4)) AS COSTO,
@@ -1418,6 +1438,7 @@ get('/api/ventas/margen-lineas', async (req) => {
     );
     return mapRows(rows);
   } catch (e1) {
+    console.error('[margen-lineas] intento 1:', e1.message);
     try {
       const { sql, params } = buildUnion(costFallback);
       const rows = await query(
@@ -1428,8 +1449,20 @@ get('/api/ventas/margen-lineas', async (req) => {
       );
       return mapRows(rows);
     } catch (e2) {
-      console.error('[margen-lineas]', e2.message);
-      return [];
+      console.error('[margen-lineas] intento 2:', e2.message);
+      try {
+        const { sql, params } = buildUnion('CAST(0 AS DECIMAL(18,4))');
+        const rows = await query(
+          `SELECT FIRST ${limit} * FROM (${sql}) u ORDER BY u.FECHA DESC, u.FOLIO DESC`,
+          params,
+          20000,
+          dbo
+        );
+        return mapRows(rows);
+      } catch (e3) {
+        console.error('[margen-lineas] intento 3:', e3.message);
+        return [];
+      }
     }
   }
 });
@@ -1443,7 +1476,7 @@ get('/api/ventas/cobradas-por-factura', async (req) => {
     req.query.mes = now.getMonth() + 1;
   }
   const f = buildFiltros(req, 'd');
-  const fiIr = filtrosImporteCobro(req, 'ir');
+  const fiIr = filtrosImporteCobro(req, 'ir', { coalesceDcFecha: true });
   const tipo = getTipo(req);
   const limit = Math.min(parseInt(req.query.limit, 10) || 600, 2000);
   const sql = `
@@ -1466,6 +1499,7 @@ get('/api/ventas/cobradas-por-factura', async (req) => {
         COALESCE((
           SELECT SUM(CASE WHEN COALESCE(ir.IMPUESTO, 0) > 0 THEN ir.IMPORTE ELSE ir.IMPORTE / 1.16 END)
           FROM IMPORTES_DOCTOS_CC ir
+          JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = ir.DOCTO_CC_ID
           WHERE ir.TIPO_IMPTE = 'R' AND COALESCE(ir.CANCELADO, 'N') = 'N'
             AND EXISTS (
               SELECT 1 FROM DOCTOS_CC ccf
@@ -1870,9 +1904,8 @@ get('/api/director/recientes', async (req) => {
 //  CXC
 // ═══════════════════════════════════════════════════════════
 
-// Subconsulta: una fila por documento con DIAS_VENCIDO y SALDO_NETO (Cargo − Cobro), como Power BI Saldo_Documento.
-// Contado / efectivo inmediato: DIAS_VENCIDO = 0 (no entra a morosidad aunque haya FECHA_VENCIMIENTO en tabla). Solo saldo > 0.
-function cxcDocSaldosSQL(cfSql) {
+// Filas por documento con DIAS_VENCIDO y SALDO_NETO (Cargo − Cobro). Sin filtro de saldo > 0 (para poder combinar WHERE en vencidas).
+function cxcDocSaldosInnerSQL(cfSql) {
   return `(
     SELECT d.DOCTO_CC_ID, d.CLIENTE_ID, d.DIAS_VENCIDO,
       CAST(
@@ -1888,7 +1921,13 @@ function cxcDocSaldosSQL(cfSql) {
       WHERE 1=1 ${cfSql}
       GROUP BY cd.DOCTO_CC_ID, cd.CLIENTE_ID, cd.DIAS_VENCIDO
     ) d
-  ) doc WHERE doc.SALDO_NETO > 0`;
+  )`;
+}
+
+// Subconsulta usable en FROM: alias doc + solo documentos con saldo pendiente.
+// Contado / efectivo inmediato: DIAS_VENCIDO = 0 (no entra a morosidad). No duplicar alias doc al anidar (rompía /api/cxc/vencidas).
+function cxcDocSaldosSQL(cfSql) {
+  return `${cxcDocSaldosInnerSQL(cfSql)} doc WHERE doc.SALDO_NETO > 0`;
 }
 
 // Resumen CxC: Vencido y No vencido (suma Saldo_Documento). Contado cuenta como vigente (sin días de atraso).
@@ -1968,10 +2007,9 @@ get('/api/cxc/vencidas', async (req) => {
         doc.CLIENTE_ID,
         MAX(doc.DIAS_VENCIDO) AS DIAS_ATRASO,
         MAX(doc.SALDO_NETO) AS SALDO_NETO
-      FROM ${cxcDocSaldosSQL(cfSql)} doc
-      WHERE doc.DIAS_VENCIDO >= 1
+      FROM ${cxcDocSaldosInnerSQL(cfSql)} doc
+      WHERE doc.SALDO_NETO > 0.005 AND doc.DIAS_VENCIDO >= 1
       GROUP BY doc.DOCTO_CC_ID, doc.CLIENTE_ID
-      HAVING MAX(doc.SALDO_NETO) > 0.005
     ) x
     JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = x.DOCTO_CC_ID
     JOIN CLIENTES c ON c.CLIENTE_ID = x.CLIENTE_ID

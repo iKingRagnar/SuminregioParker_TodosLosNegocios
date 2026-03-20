@@ -46,7 +46,7 @@ tfoot td{font-weight:600;background:rgba(230,168,0,.08)}
 <div class="page">
   <div class="page-header" style="margin-bottom:1rem">
     <div class="page-title">Margen de utilidad por renglón</div>
-    <p class="page-sub">Líneas de <strong>DOCTOS_VE_DET</strong> y <strong>DOCTOS_PV_DET</strong>. Venta del renglón: <code>PRECIO_T</code> si viene cargado; si no, <code>UNIDADES × PRECIO_U</code>. Costo: <code>COSTO_TOTAL</code>, o unidades × <code>COSTO_UNITARIO</code>, o × costo promedio del artículo. Utilidad = venta − costo; margen % = utilidad / venta.</p>
+    <p class="page-sub">Líneas de <strong>DOCTOS_VE_DET</strong> y <strong>DOCTOS_PV_DET</strong>. Venta del renglón: <code>PRECIO_T</code> si viene cargado; si no, <code>UNIDADES × PRECIO_U</code> (misma base sin IVA que ventas: divisor 1.16 en servidor, configurable con <code>MICROSIP_VENTAS_SIN_IVA_DIVISOR</code>). Costo: <code>COSTO_TOTAL</code>, unidades × <code>COSTO_UNITARIO</code> o costo promedio del artículo. Utilidad = venta − costo; margen % = utilidad / venta.</p>
   </div>
   <div id="filter-bar"></div>
   <div class="source-tabs">
