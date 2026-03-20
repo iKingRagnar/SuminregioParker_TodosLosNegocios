@@ -629,18 +629,28 @@ function consumosVendedorClienteSql(req, alias = 'd') {
 //  tipo: 'VE'=Industrial, 'PV'=Mostrador, ''=Todos
 // ═══════════════════════════════════════════════════════════════════════════════
 
+/** Primer carácter alfanumérico de TIPO_DOCTO (p. ej. 'FAC' → 'F'); evita perder filas si el CHAR viene relleno o el código es largo. */
+function sqlExprTipoDoctoChar1(alias = 'd') {
+  const a = alias;
+  return `UPPER(COALESCE(NULLIF(TRIM(SUBSTRING(TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(40))) FROM 1 FOR 1)), ''), ''))`;
+}
+
+/** ESTATUS normalizado: vacío/NULL → 'N' (Firebird: NULL <> 'C' excluiría la fila). */
+function sqlExprEstatusNorm(alias = 'd') {
+  const a = alias;
+  return `COALESCE(NULLIF(UPPER(TRIM(CAST(${a}.ESTATUS AS VARCHAR(10)))), ''), 'N')`;
+}
+
 /**
- * Documento de venta válido para KPIs: TRIM por CHAR relleno; ESTATUS NULL no debe excluir
- * (en Firebird `NULL <> 'C'` es UNKNOWN y quita la fila del WHERE).
+ * Documento de venta válido para KPIs: primer carácter F/V/R + ESTATUS coherente con Microsip.
  */
 function sqlWhereVentasDocumentoValido(alias = 'd') {
-  const a = alias;
-  const t = `NULLIF(UPPER(TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(10)))), '')`;
-  const e = `COALESCE(NULLIF(UPPER(TRIM(CAST(${a}.ESTATUS AS VARCHAR(10)))), ''), 'N')`;
+  const t1 = sqlExprTipoDoctoChar1(alias);
+  const e = sqlExprEstatusNorm(alias);
   return `(
-    (${t} = 'F' AND ${e} <> 'C')
-    OR (${t} = 'V' AND ${e} NOT IN ('C', 'T'))
-    OR (${t} = 'R' AND ${e} <> 'C')
+    (${t1} = 'F' AND ${e} <> 'C')
+    OR (${t1} = 'V' AND ${e} NOT IN ('C', 'T'))
+    OR (${t1} = 'R' AND ${e} <> 'C')
   )`;
 }
 
@@ -692,9 +702,9 @@ function ventasSub(tipo = '') {
 // ═══════════════════════════════════════════════════════════════════════════════
 function sqlWhereCotizacionActiva(alias = 'd') {
   const a = alias;
-  const t = `NULLIF(UPPER(TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(10)))), '')`;
-  const e = `COALESCE(NULLIF(UPPER(TRIM(CAST(${a}.ESTATUS AS VARCHAR(10)))), ''), 'N')`;
-  return `(${t} IN ('C', 'O', 'Q')) AND (${e} <> 'C')`;
+  const t1 = sqlExprTipoDoctoChar1(a);
+  const e = sqlExprEstatusNorm(a);
+  return `(${t1} IN ('C', 'O', 'Q')) AND (${e} <> 'C')`;
 }
 
 function normalizeCotizacionResumenRow(row) {
@@ -712,11 +722,9 @@ function normalizeCotizacionResumenRow(row) {
  * tipo: 'VE' | 'PV' | '' (ambos)
  */
 function consumosSub(tipo = '') {
-  // F/V únicamente (sin R); ESTATUS NULL tratado como vigente (COALESCE).
-  const wVeCons = `(
-    (NULLIF(UPPER(TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(10)))), '') = 'F' AND COALESCE(NULLIF(UPPER(TRIM(CAST(d.ESTATUS AS VARCHAR(10)))), ''), 'N') <> 'C')
-    OR (NULLIF(UPPER(TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(10)))), '') = 'V' AND COALESCE(NULLIF(UPPER(TRIM(CAST(d.ESTATUS AS VARCHAR(10)))), ''), 'N') NOT IN ('C', 'T'))
-  )`;
+  const t1 = sqlExprTipoDoctoChar1('d');
+  const e = sqlExprEstatusNorm('d');
+  const wVeCons = `((${t1} = 'F' AND ${e} <> 'C') OR (${t1} = 'V' AND ${e} NOT IN ('C', 'T')))`;
   const ve = `
     SELECT
       d.FECHA,
@@ -954,7 +962,10 @@ get('/api/ventas/resumen', async (req) => {
                THEN d.IMPORTE_NETO ELSE 0 END)                     AS HASTA_AYER_MES
     FROM ${ventasSub(tipo)} d
     WHERE 1=1 ${f.sql}
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, 12000, dbo).catch((err) => {
+    console.error('[ventas/resumen]', err && err.message, err);
+    return [];
+  });
   return rows[0] || {};
 });
 
@@ -2957,12 +2968,84 @@ get('/api/debug/cxc', async () => {
   return { doctos_cc: docs[0].N, importes_cc: importes[0].N, clientes: clientes[0].N };
 });
 
-get('/api/debug/ventas', async () => {
-  const [ve, pv] = await Promise.all([
-    query(`SELECT COUNT(*) AS N FROM DOCTOS_VE WHERE (TIPO_DOCTO = 'F' OR TIPO_DOCTO = 'V') AND ESTATUS <> 'C'`).catch(() => [{ N: 0 }]),
-    query(`SELECT COUNT(*) AS N FROM DOCTOS_PV WHERE (TIPO_DOCTO = 'F' OR TIPO_DOCTO = 'V') AND ESTATUS <> 'C'`).catch(() => [{ N: 0 }]),
+get('/api/debug/ventas', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const now = new Date();
+  const anio = parseInt(req.query.anio, 10) || now.getFullYear();
+  const mes = parseInt(req.query.mes, 10) || now.getMonth() + 1;
+
+  async function safeQ(sql, params = []) {
+    try {
+      return { ok: true, rows: await query(sql, params, 20000, dbo) };
+    } catch (e) {
+      return { ok: false, error: e.message || String(e) };
+    }
+  }
+
+  const [
+    veAll,
+    pvAll,
+    tiposVe,
+    tiposPv,
+    estVe,
+    estPv,
+    fechasVe,
+    subAll,
+    subMes,
+  ] = await Promise.all([
+    safeQ(`SELECT COUNT(*) AS N FROM DOCTOS_VE`),
+    safeQ(`SELECT COUNT(*) AS N FROM DOCTOS_PV`),
+    safeQ(`
+      SELECT TRIM(CAST(TIPO_DOCTO AS VARCHAR(40))) AS T, COUNT(*) AS C
+      FROM DOCTOS_VE GROUP BY 1 ORDER BY 2 DESC
+    `),
+    safeQ(`
+      SELECT TRIM(CAST(TIPO_DOCTO AS VARCHAR(40))) AS T, COUNT(*) AS C
+      FROM DOCTOS_PV GROUP BY 1 ORDER BY 2 DESC
+    `),
+    safeQ(`
+      SELECT TRIM(CAST(ESTATUS AS VARCHAR(10))) AS E, COUNT(*) AS C
+      FROM DOCTOS_VE GROUP BY 1 ORDER BY 2 DESC
+    `),
+    safeQ(`
+      SELECT TRIM(CAST(ESTATUS AS VARCHAR(10))) AS E, COUNT(*) AS C
+      FROM DOCTOS_PV GROUP BY 1 ORDER BY 2 DESC
+    `),
+    safeQ(`SELECT MIN(CAST(FECHA AS DATE)) AS MIN_F, MAX(CAST(FECHA AS DATE)) AS MAX_F FROM DOCTOS_VE`),
+    safeQ(`SELECT COUNT(*) AS N FROM ${ventasSub()} d`),
+    safeQ(
+      `SELECT COUNT(*) AS N FROM ${ventasSub()} d WHERE EXTRACT(YEAR FROM d.FECHA) = ? AND EXTRACT(MONTH FROM d.FECHA) = ?`,
+      [anio, mes]
+    ),
   ]);
-  return { doctos_ve: ve[0].N, doctos_pv: pv[0].N };
+
+  const legacyVe = await safeQ(
+    `SELECT COUNT(*) AS N FROM DOCTOS_VE WHERE (TIPO_DOCTO = 'F' OR TIPO_DOCTO = 'V') AND ESTATUS <> 'C'`
+  );
+  const legacyPv = await safeQ(
+    `SELECT COUNT(*) AS N FROM DOCTOS_PV WHERE (TIPO_DOCTO = 'F' OR TIPO_DOCTO = 'V') AND ESTATUS <> 'C'`
+  );
+
+  return {
+    dbParam: (req.query && req.query.db) || null,
+    doctos_ve_total: veAll.ok ? veAll.rows[0].N : null,
+    doctos_pv_total: pvAll.ok ? pvAll.rows[0].N : null,
+    /** Criterio antiguo (ESTATUS NULL se pierde en Firebird con &lt;&gt; 'C'). */
+    legacy_fv_noC_ve: legacyVe.ok ? legacyVe.rows[0].N : null,
+    legacy_fv_noC_pv: legacyPv.ok ? legacyPv.rows[0].N : null,
+    tipos_docto_ve: tiposVe.ok ? tiposVe.rows : [{ error: tiposVe.error }],
+    tipos_docto_pv: tiposPv.ok ? tiposPv.rows : [{ error: tiposPv.error }],
+    estatus_ve: estVe.ok ? estVe.rows : [{ error: estVe.error }],
+    estatus_pv: estPv.ok ? estPv.rows : [{ error: estPv.error }],
+    fechas_ve: fechasVe.ok ? fechasVe.rows[0] : { error: fechasVe.error },
+    count_ventas_sub_union: subAll.ok ? subAll.rows[0].N : null,
+    ventas_sub_union_error: subAll.ok ? null : subAll.error,
+    count_ventas_sub_mes: subMes.ok ? subMes.rows[0].N : null,
+    ventas_sub_mes_error: subMes.ok ? null : subMes.error,
+    periodo_mes_usado: { anio, mes },
+    hint:
+      'Si count_ventas_sub_union > 0 pero count_ventas_sub_mes = 0, el periodo del filtro (mes/año) no tiene facturas. Prueba ?anio=2024 o preset "Este año" en la barra.',
+  };
 });
 
 get('/api/debug/pv', async () => {
