@@ -336,7 +336,8 @@ const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ?
 function fwt(url,fallback,ms=45000){
   const urlFull = (String(url).startsWith('http') ? url : (API + url));
   const isNgrok = /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/i.test(urlFull);
-  if (ms < 60000 && isNgrok) ms = 60000;
+  if (ms < 120000 && /\/api\/(ventas\/resumen|director\/resumen)/.test(urlFull)) ms = 120000;
+  else if (ms < 60000 && isNgrok) ms = 60000;
   const opts = isNgrok ? { headers: { 'ngrok-skip-browser-warning': '1' } } : {};
   return Promise.race([
     fetch(urlFull, opts).then(r => r.json().then(data => (r.ok ? data : fallback)).catch(() => fallback)).catch(() => fallback),
@@ -506,8 +507,21 @@ async function loadResumen() {
   try {
     const d = await fwt(buildApiUrl('/api/ventas/resumen', tipoQ()), {});
     const banner = document.getElementById('ventas-api-banner');
+    const sinRespuesta =
+      !d ||
+      (d.HOY === undefined &&
+        d.MES_ACTUAL === undefined &&
+        !d._queryError &&
+        !d._diagnostico);
     if (banner) {
-      if (d && d._diagnostico && d._diagnostico.mensaje) {
+      if (sinRespuesta) {
+        banner.style.display = 'block';
+        banner.textContent =
+          'No se recibió respuesta del servidor a tiempo (timeout). Las consultas pueden tardar hasta 2 min; actualiza la página.';
+      } else if (d && d._queryError) {
+        banner.style.display = 'block';
+        banner.textContent = 'Error servidor: ' + d._queryError;
+      } else if (d && d._diagnostico && d._diagnostico.mensaje) {
         banner.style.display = 'block';
         banner.textContent =
           (d._filtro_ventas ? '[Filtro ventas: ' + d._filtro_ventas + '] ' : '') +
@@ -519,6 +533,7 @@ async function loadResumen() {
         banner.textContent = '';
       }
     }
+    if (sinRespuesta) return;
     const hoy=+(d.HOY||0), mes=+(d.MES_ACTUAL||0), docs=+(d.FACTURAS_MES||0);
     const diasMes = new Date().getDate();
     const meta = +(metas.META_TOTAL_DIARIA||5650);

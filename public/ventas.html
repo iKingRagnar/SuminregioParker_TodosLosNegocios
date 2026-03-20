@@ -360,7 +360,9 @@ const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ?
 function fwt(url,fallback,ms=45000){
   const urlFull = (String(url).startsWith('http') ? url : (API + url));
   const isNgrok = /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/i.test(urlFull);
-  if (ms < 60000 && isNgrok) ms = 60000;
+  // Alineado con server (120s en /api/ventas/resumen): si el cliente corta antes, recibes {} y parece "sin datos".
+  if (ms < 120000 && /\/api\/(ventas\/resumen|director\/resumen)/.test(urlFull)) ms = 120000;
+  else if (ms < 60000 && isNgrok) ms = 60000;
   const opts = isNgrok ? { headers: { 'ngrok-skip-browser-warning': '1' } } : {};
   return Promise.race([
     fetch(urlFull, opts).then(r => r.json().then(data => (r.ok ? data : fallback)).catch(() => fallback)).catch(() => fallback),
@@ -589,6 +591,19 @@ async function loadResumen() {
       banner.textContent = '';
     }
     const d = await fwt(buildApiUrl('/api/ventas/resumen', tipoQ()), {});
+    const sinRespuesta =
+      !d ||
+      (d.HOY === undefined &&
+        d.MES_ACTUAL === undefined &&
+        !d._queryError &&
+        !d._diagnostico);
+    if (sinRespuesta && banner) {
+      banner.textContent =
+        'No se recibió respuesta del servidor a tiempo (timeout del navegador). Las consultas de ventas pueden tardar hasta 2 min en Firebird. Actualiza la página o comprueba la red/consola del servidor.';
+      banner.classList.remove('winfo');
+      banner.classList.add('show');
+      return;
+    }
     if (d && d._queryError && banner) {
       banner.textContent = 'No se pudo leer ventas (Firebird). ' + d._queryError + '\nRevisa consola del servidor y /api/debug/ventas?db=…';
       banner.classList.remove('winfo');

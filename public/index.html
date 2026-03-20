@@ -964,12 +964,13 @@ let chartTend=null;
 async function loadAll(){
   try{
     const tKpi = 35000;
+    const tVentas = 120000;
     const [v,m,c,inv,dir,vends,cot,cumpl,cliRes,pnlData]=await Promise.all([
-      fwt(buildApiUrl('/api/ventas/resumen'),{},tKpi),
+      fwt(buildApiUrl('/api/ventas/resumen'),{},tVentas),
       fwt(buildApiUrl('/api/config/metas'),{},tKpi),
       fwt(buildApiUrl('/api/cxc/resumen'),{},tKpi),
       fwt(buildApiUrl('/api/inv/resumen'),{},tKpi),
-      fwt(buildApiUrl('/api/director/resumen'),{},tKpi),
+      fwt(buildApiUrl('/api/director/resumen'),{},tVentas),
       fwt(buildApiUrl('/api/director/vendedores'),[],tKpi),
       fwt(buildApiUrl('/api/ventas/cotizaciones/resumen'),{},tKpi),
       fwt(buildApiUrl('/api/ventas/cumplimiento'),[],tKpi),
