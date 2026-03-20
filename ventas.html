@@ -6,6 +6,10 @@
 <title>Suminregio Parker ? Ventas</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// Mismo origen que la página; file:// → localhost. filters.js aplica fix ngrok en fetch.
+window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');
+</script>
 <script src="filters.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -327,8 +331,17 @@ nav{display:flex;align-items:center;gap:.25rem}
 </div>
 
 <script>
-const API = '';
-function fwt(url,fallback,ms=10000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
+const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : '';
+function fwt(url,fallback,ms=45000){
+  const urlFull = (String(url).startsWith('http') ? url : (API + url));
+  const isNgrok = /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/i.test(urlFull);
+  if (ms < 60000 && isNgrok) ms = 60000;
+  const opts = isNgrok ? { headers: { 'ngrok-skip-browser-warning': '1' } } : {};
+  return Promise.race([
+    fetch(urlFull, opts).then(r => r.json().then(data => (r.ok ? data : fallback)).catch(() => fallback)).catch(() => fallback),
+    new Promise(r => setTimeout(() => r(fallback), ms))
+  ]);
+}
 let chartDiarias, chartMensuales, chartCotiDiarias, chartConvInst;
 let currentTipo = '';
 let currentDias = 30;

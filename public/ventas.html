@@ -356,13 +356,14 @@ nav{display:flex;align-items:center;gap:.25rem}
 <script>
 // Base de la API (vacío = misma origen). Si abres por file:// se usa http://localhost:7000 — mismo puerto que server_corregido.js
 const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : '';
-function fwt(url,fallback,ms=10000){
-  const urlFull = (url.startsWith('http') ? url : (API + url));
+function fwt(url,fallback,ms=45000){
+  const urlFull = (String(url).startsWith('http') ? url : (API + url));
   const isNgrok = /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/i.test(urlFull);
+  if (ms < 60000 && isNgrok) ms = 60000;
   const opts = isNgrok ? { headers: { 'ngrok-skip-browser-warning': '1' } } : {};
   return Promise.race([
-    fetch(urlFull, opts).then(r=>r.json().then(data=>r.ok ? data : fallback)).catch(()=>fallback),
-    new Promise(r=>setTimeout(()=>r(fallback),ms))
+    fetch(urlFull, opts).then(r => r.json().then(data => (r.ok ? data : fallback)).catch(() => fallback)).catch(() => fallback),
+    new Promise(r => setTimeout(() => r(fallback), ms))
   ]);
 }
 let chartDiarias, chartMensuales, chartCotiDiarias, chartConvInst;
