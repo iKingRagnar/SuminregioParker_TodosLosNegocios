@@ -1010,6 +1010,74 @@ get('/api/config/filtros', async (req) => {
   ]);
   return { vendedores, clientes, anios };
 });
+
+/**
+ * Agregados de ventas sin UNION (VE y PV en paralelo). El UNION ALL sobre tablas grandes en Firebird
+ * suele agotar timeout; dos SELECT con índice por tabla suele ser más rápido.
+ */
+async function queryVentasResumenAgregado(dbo, tipo, f, timeoutMs = 120000) {
+  const imp = sqlVentaImporteBaseExpr('d');
+  const wVe = sqlWhereVentasDocumentoValido('d');
+  const wPv = sqlWhereVentasDocumentoValido('d');
+  const sel = `
+      SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE
+               THEN ${imp} ELSE 0 END)                      AS HOY,
+      COALESCE(SUM(${imp}), 0)                              AS MES_ACTUAL,
+      COUNT(*)                                              AS FACTURAS_MES,
+      SUM(CASE WHEN CAST(d.FECHA AS DATE) < CURRENT_DATE
+               THEN ${imp} ELSE 0 END)                     AS HASTA_AYER_MES
+  `;
+  const sqlVe = `SELECT ${sel} FROM DOCTOS_VE d WHERE ${wVe} ${f.sql}`;
+  const sqlPv = `SELECT ${sel} FROM DOCTOS_PV d WHERE ${wPv} ${f.sql}`;
+  if (tipo === 'VE') return query(sqlVe, f.params, timeoutMs, dbo);
+  if (tipo === 'PV') return query(sqlPv, f.params, timeoutMs, dbo);
+  const [rVe, rPv] = await Promise.all([
+    query(sqlVe, f.params, timeoutMs, dbo),
+    query(sqlPv, f.params, timeoutMs, dbo),
+  ]);
+  const a = rVe[0] || {};
+  const b = rPv[0] || {};
+  return [
+    {
+      HOY: (+a.HOY || 0) + (+b.HOY || 0),
+      MES_ACTUAL: (+a.MES_ACTUAL || 0) + (+b.MES_ACTUAL || 0),
+      FACTURAS_MES: (+a.FACTURAS_MES || 0) + (+b.FACTURAS_MES || 0),
+      HASTA_AYER_MES: (+a.HASTA_AYER_MES || 0) + (+b.HASTA_AYER_MES || 0),
+    },
+  ];
+}
+
+/** Diagnóstico resumen: contar/sumar sin filtro de mes — mismo criterio que queryVentasResumenAgregado pero sin UNION. */
+async function queryVentasDiagnosticoSinFecha(dbo, tipo, f2, timeoutMs = 120000) {
+  const imp = sqlVentaImporteBaseExpr('d');
+  const wVe = sqlWhereVentasDocumentoValido('d');
+  const wPv = sqlWhereVentasDocumentoValido('d');
+  const sel = `COUNT(*) AS N, COALESCE(MAX(CAST(d.FECHA AS DATE)), NULL) AS ULTIMA,
+               COALESCE(SUM(${imp}), 0) AS SUMA_IMP`;
+  const sqlVe = `SELECT ${sel} FROM DOCTOS_VE d WHERE ${wVe} ${f2.sql}`;
+  const sqlPv = `SELECT ${sel} FROM DOCTOS_PV d WHERE ${wPv} ${f2.sql}`;
+  if (tipo === 'VE') return query(sqlVe, f2.params, timeoutMs, dbo);
+  if (tipo === 'PV') return query(sqlPv, f2.params, timeoutMs, dbo);
+  const [rVe, rPv] = await Promise.all([
+    query(sqlVe, f2.params, timeoutMs, dbo),
+    query(sqlPv, f2.params, timeoutMs, dbo),
+  ]);
+  const a = rVe[0] || {};
+  const b = rPv[0] || {};
+  const uA = a.ULTIMA;
+  const uB = b.ULTIMA;
+  let ULTIMA = null;
+  if (uA && uB) ULTIMA = new Date(uA) >= new Date(uB) ? uA : uB;
+  else ULTIMA = uA || uB || null;
+  return [
+    {
+      N: (+a.N || 0) + (+b.N || 0),
+      ULTIMA,
+      SUMA_IMP: (+a.SUMA_IMP || 0) + (+b.SUMA_IMP || 0),
+    },
+  ];
+}
+
 // ═══════════════════════════════════════════════════════════
 //  VENTAS — RESÚMENES
 // ═══════════════════════════════════════════════════════════
@@ -1026,22 +1094,7 @@ get('/api/ventas/resumen', async (req) => {
   const tipo = getTipo(req);
   let rows;
   try {
-    rows = await query(
-      `
-    SELECT
-      SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE
-               THEN d.IMPORTE_NETO ELSE 0 END)                      AS HOY,
-      COALESCE(SUM(d.IMPORTE_NETO), 0)                              AS MES_ACTUAL,
-      COUNT(*)                                                      AS FACTURAS_MES,
-      SUM(CASE WHEN CAST(d.FECHA AS DATE) < CURRENT_DATE
-               THEN d.IMPORTE_NETO ELSE 0 END)                     AS HASTA_AYER_MES
-    FROM ${ventasSub(tipo)} d
-    WHERE 1=1 ${f.sql}
-  `,
-      f.params,
-      45000,
-      dbo
-    );
+    rows = await queryVentasResumenAgregado(dbo, tipo, f, 120000);
   } catch (err) {
     console.error('[ventas/resumen]', err && err.message, err);
     return {
@@ -1063,17 +1116,7 @@ get('/api/ventas/resumen', async (req) => {
         if (rq2.query && Object.prototype.hasOwnProperty.call(rq2.query, k)) delete rq2.query[k];
       });
       const f2 = buildFiltros(rq2, 'd');
-      const imp = sqlVentaImporteBaseExpr('d');
-      const rows2 = await query(
-        `
-        SELECT COUNT(*) AS N, COALESCE(MAX(CAST(d.FECHA AS DATE)), NULL) AS ULTIMA,
-               COALESCE(SUM(${imp}), 0) AS SUMA_IMP
-        FROM ${ventasSub(tipo)} d WHERE 1=1 ${f2.sql}
-      `,
-        f2.params,
-        45000,
-        dbo
-      );
+      const rows2 = await queryVentasDiagnosticoSinFecha(dbo, tipo, f2, 120000);
       const r2 = rows2[0] || {};
       const nTot = +(r2.N || 0);
       if (nTot > 0) {
@@ -1845,7 +1888,7 @@ get('/api/ventas/cumplimiento', async (req) => {
 
 // director.html espera: dir.ventas (HOY, MES_ACTUAL, FACTURAS_MES, MES_VE, MES_PV), dir.cxc, dir.cotizaciones
 async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
-  const qms = perQueryMs != null ? perQueryMs : 12000;
+  const qms = perQueryMs != null ? perQueryMs : 60000;
   const rq = { query: { ...req.query } };
   if (!rq.query.desde && !rq.query.hasta && !rq.query.anio) {
     const now = new Date();
@@ -1854,17 +1897,17 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
   }
   const f = buildFiltros(rq, 'd');
   const ciDir = sqlCotiImporteExpr('d');
-  const [vRow, cxcSaldos, cxcAging, coRow] = await Promise.all([
-    query(`
-      SELECT
-        SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END) AS HOY,
-        COALESCE(SUM(d.IMPORTE_NETO), 0) AS MES_ACTUAL,
-        COUNT(*) AS FACTURAS_MES,
-        COALESCE(SUM(CASE WHEN d.TIPO_SRC = 'VE' THEN d.IMPORTE_NETO ELSE 0 END), 0) AS MES_VE,
-        COALESCE(SUM(CASE WHEN d.TIPO_SRC = 'PV' THEN d.IMPORTE_NETO ELSE 0 END), 0) AS MES_PV
-      FROM ${ventasSub()} d
-      WHERE 1=1 ${f.sql}
-    `, f.params, qms, dbOpts).catch(() => [{}]),
+  const imp = sqlVentaImporteBaseExpr('d');
+  const wVe = sqlWhereVentasDocumentoValido('d');
+  const wPv = sqlWhereVentasDocumentoValido('d');
+  const selV = `
+      SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN ${imp} ELSE 0 END) AS HOY,
+      COALESCE(SUM(${imp}), 0) AS MES_ACTUAL,
+      COUNT(*) AS FACTURAS_MES
+  `;
+  const [rVe, rPv, cxcSaldos, cxcAging, coRow] = await Promise.all([
+    query(`SELECT ${selV} FROM DOCTOS_VE d WHERE ${wVe} ${f.sql}`, f.params, qms, dbOpts).catch(() => [{}]),
+    query(`SELECT ${selV} FROM DOCTOS_PV d WHERE ${wPv} ${f.sql}`, f.params, qms, dbOpts).catch(() => [{}]),
     query(`SELECT cs.CLIENTE_ID, cs.SALDO FROM ${cxcClienteSQL()} cs`, [], qms, dbOpts).catch(() => []),
     query(`SELECT cd.CLIENTE_ID, SUM(cd.SALDO) AS TOTAL_C, SUM(CASE WHEN cd.DIAS_VENCIDO > 0 THEN cd.SALDO ELSE 0 END) AS VENC_C FROM ${cxcCargosSQL()} cd GROUP BY cd.CLIENTE_ID`, [], qms, dbOpts).catch(() => []),
     query(`
@@ -1877,6 +1920,17 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
       WHERE ${sqlWhereCotizacionActiva('d')} ${f.sql}
     `, f.params, qms, dbOpts).catch(() => [{}]),
   ]);
+  const a = rVe[0] || {};
+  const b = rPv[0] || {};
+  const vRow = [
+    {
+      HOY: (+a.HOY || 0) + (+b.HOY || 0),
+      MES_ACTUAL: (+a.MES_ACTUAL || 0) + (+b.MES_ACTUAL || 0),
+      FACTURAS_MES: (+a.FACTURAS_MES || 0) + (+b.FACTURAS_MES || 0),
+      MES_VE: +a.MES_ACTUAL || 0,
+      MES_PV: +b.MES_ACTUAL || 0,
+    },
+  ];
   const agMap = {};
   (cxcAging || []).forEach(r => { agMap[r.CLIENTE_ID] = r; });
   let saldoTotal = 0, vencido = 0, porVencer = 0;
@@ -1890,7 +1944,7 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
       porVencer += saldo * (1 - pct);
     } else porVencer += saldo;
   });
-  const v = vRow[0] || {};
+  const v = (vRow && vRow[0]) || {};
   const co = coRow[0] || {};
   let numCliVenc = 0;
   (cxcAging || []).forEach(a => { if (+a.VENC_C > 0) numCliVenc++; });
@@ -1901,7 +1955,7 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
   };
 }
 
-get('/api/director/resumen', async (req) => directorResumenSnapshot(req, getReqDbOpts(req), 12000));
+get('/api/director/resumen', async (req) => directorResumenSnapshot(req, getReqDbOpts(req), 60000));
 
 // Catálogo de bases (sin credenciales) + scorecard multi-empresa (misma lógica que director, concurrencia acotada).
 get('/api/universe/databases', async () =>
@@ -3127,25 +3181,16 @@ get('/api/debug/ventas', async (req) => {
   const anio = parseInt(req.query.anio, 10) || now.getFullYear();
   const mes = parseInt(req.query.mes, 10) || now.getMonth() + 1;
 
+  const QMS_DEBUG = 90000;
   async function safeQ(sql, params = []) {
     try {
-      return { ok: true, rows: await query(sql, params, 20000, dbo) };
+      return { ok: true, rows: await query(sql, params, QMS_DEBUG, dbo) };
     } catch (e) {
       return { ok: false, error: e.message || String(e) };
     }
   }
 
-  const [
-    veAll,
-    pvAll,
-    tiposVe,
-    tiposPv,
-    estVe,
-    estPv,
-    fechasVe,
-    subAll,
-    subMes,
-  ] = await Promise.all([
+  const [veAll, pvAll, tiposVe, tiposPv, estVe, estPv, fechasVe] = await Promise.all([
     safeQ(`SELECT COUNT(*) AS N FROM DOCTOS_VE`),
     safeQ(`SELECT COUNT(*) AS N FROM DOCTOS_PV`),
     safeQ(`
@@ -3165,12 +3210,28 @@ get('/api/debug/ventas', async (req) => {
       FROM DOCTOS_PV GROUP BY 1 ORDER BY 2 DESC
     `),
     safeQ(`SELECT MIN(CAST(FECHA AS DATE)) AS MIN_F, MAX(CAST(FECHA AS DATE)) AS MAX_F FROM DOCTOS_VE`),
-    safeQ(`SELECT COUNT(*) AS N FROM ${ventasSub()} d`),
+  ]);
+
+  const wVeDbg = sqlWhereVentasDocumentoValido('d');
+  const wPvDbg = sqlWhereVentasDocumentoValido('d');
+  const [subVeAll, subPvAll, subVeMes, subPvMes] = await Promise.all([
+    safeQ(`SELECT COUNT(*) AS N FROM DOCTOS_VE d WHERE ${wVeDbg}`),
+    safeQ(`SELECT COUNT(*) AS N FROM DOCTOS_PV d WHERE ${wPvDbg}`),
     safeQ(
-      `SELECT COUNT(*) AS N FROM ${ventasSub()} d WHERE EXTRACT(YEAR FROM d.FECHA) = ? AND EXTRACT(MONTH FROM d.FECHA) = ?`,
+      `SELECT COUNT(*) AS N FROM DOCTOS_VE d WHERE ${wVeDbg} AND EXTRACT(YEAR FROM d.FECHA) = ? AND EXTRACT(MONTH FROM d.FECHA) = ?`,
+      [anio, mes]
+    ),
+    safeQ(
+      `SELECT COUNT(*) AS N FROM DOCTOS_PV d WHERE ${wPvDbg} AND EXTRACT(YEAR FROM d.FECHA) = ? AND EXTRACT(MONTH FROM d.FECHA) = ?`,
       [anio, mes]
     ),
   ]);
+  const subAllOk = subVeAll.ok || subPvAll.ok;
+  const subAllN = (subVeAll.ok ? +subVeAll.rows[0].N : 0) + (subPvAll.ok ? +subPvAll.rows[0].N : 0);
+  const subAllErr = !subVeAll.ok && !subPvAll.ok ? `${subVeAll.error || ''} | ${subPvAll.error || ''}`.trim() : null;
+  const subMesOk = subVeMes.ok || subPvMes.ok;
+  const subMesN = (subVeMes.ok ? +subVeMes.rows[0].N : 0) + (subPvMes.ok ? +subPvMes.rows[0].N : 0);
+  const subMesErr = !subVeMes.ok && !subPvMes.ok ? `${subVeMes.error || ''} | ${subPvMes.error || ''}`.trim() : null;
 
   const legacyVe = await safeQ(
     `SELECT COUNT(*) AS N FROM DOCTOS_VE WHERE (TIPO_DOCTO = 'F' OR TIPO_DOCTO = 'V') AND ESTATUS <> 'C'`
@@ -3185,7 +3246,7 @@ get('/api/debug/ventas', async (req) => {
     const fechas = await query(
       `SELECT MIN(d.FECHA) AS MIN_F, MAX(d.FECHA) AS MAX_F FROM DOCTOS_VE d WHERE ${sqlWhereVentasDocumentoValido('d')}`,
       [],
-      20000,
+      QMS_DEBUG,
       dbo
     );
     fechas_ve_filtradas = fechas[0] || null;
@@ -3207,10 +3268,10 @@ get('/api/debug/ventas', async (req) => {
     fechas_ve: fechasVe.ok ? fechasVe.rows[0] : { error: fechasVe.error },
     fechas_ve_filtradas,
     fechas_filtradas_error,
-    count_ventas_sub_union: subAll.ok ? subAll.rows[0].N : null,
-    ventas_sub_union_error: subAll.ok ? null : subAll.error,
-    count_ventas_sub_mes: subMes.ok ? subMes.rows[0].N : null,
-    ventas_sub_mes_error: subMes.ok ? null : subMes.error,
+    count_ventas_sub_union: subAllOk ? subAllN : null,
+    ventas_sub_union_error: subAllOk ? null : subAllErr,
+    count_ventas_sub_mes: subMesOk ? subMesN : null,
+    ventas_sub_mes_error: subMesOk ? null : subMesErr,
     periodo_mes_usado: { anio, mes },
     hint:
       'Si count_ventas_sub_union > 0 pero count_ventas_sub_mes = 0, el periodo del filtro (mes/año) no tiene facturas. Prueba ?anio=2024 o preset "Este año" en la barra.',
@@ -3223,7 +3284,7 @@ get('/api/debug/ventas-muestra', async (req) => {
   const lim = Math.min(30, Math.max(1, parseInt(req.query.limit, 10) || 12));
   const tryQ = async (sql, params = []) => {
     try {
-      return { ok: true, rows: await query(sql, params, 20000, dbo) };
+      return { ok: true, rows: await query(sql, params, 90000, dbo) };
     } catch (e) {
       return { ok: false, error: e.message || String(e) };
     }
