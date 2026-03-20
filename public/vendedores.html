@@ -120,6 +120,8 @@ nav{display:flex;align-items:center;gap:.2rem}
 .prog-wrap{width:100%;background:var(--s3);border-radius:99px;height:5px;overflow:hidden;margin-top:3px}
 .prog-fill{height:100%;border-radius:99px;transition:width 1.2s cubic-bezier(.4,0,.2,1)}
 .empty{text-align:center;padding:2rem;color:var(--muted);font-family:'DM Mono',monospace;font-size:.78rem}
+html[data-theme=light] .sc-kpi-lbl,html[data-theme=light] .kpi-lbl,html[data-theme=light] .hero-eyebrow{color:#475569}
+html[data-theme=light] .kpi-sub,html[data-theme=light] .sc-id{color:#64748b}
 </style>
 </head>
 <body>
@@ -214,7 +216,7 @@ nav{display:flex;align-items:center;gap:.2rem}
       </div>
       <div style="height:220px"><canvas id="chartCobros"></canvas></div>
     </div>
-    <div class="card" style="display:flex;flex-direction:column;gap:.8rem">
+    <div class="card dash-sem-host dash-sem-neutral" id="vend-cobros-kpi-side" style="display:flex;flex-direction:column;gap:.8rem">
       <div style="font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase">KPIs de Cobro</div>
       <div>
         <div style="font-size:.56rem;font-family:'DM Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.18rem">Eficiencia acumulada</div>
@@ -376,6 +378,10 @@ async function loadCobros(){
       eficAcum>=60?'<span style="color:var(--amber)">&#9888; Cobranza moderada</span> — se est&#225; cobrando el '+eficAcum+'% de lo facturado. Revisar los vencidos m&#225;s antiguos primero.':
       '<span style="color:var(--red)">&#10005; Cobranza baja</span> — solo el '+eficAcum+'% cobrado. Se recomienda acci&#243;n inmediata en la cartera vencida.';
     document.getElementById('cobrosInsight').innerHTML = insight+'<br><span style="color:var(--muted)">&#250;lt. mes: '+lastEfic+'% ('+trend+')</span>';
+    const cobKpiCard = document.getElementById('vend-cobros-kpi-side');
+    if (cobKpiCard && typeof dashboardApplySem === 'function') {
+      dashboardApplySem(cobKpiCard, eficAcum >= 80 ? 'ok' : eficAcum >= 60 ? 'warn' : 'danger');
+    }
     // Chart
     const ctx = document.getElementById('chartCobros');
     if(!ctx) return;
@@ -429,6 +435,23 @@ function renderAll(vends, metas){
   document.getElementById('kpiEnMetaHoy').textContent = enMetaMes+'/'+vends.length;
   document.getElementById('kpiBestMes').textContent = (bestMes?.NOMBRE||'--').split(' ')[0];
   document.getElementById('kpiBestMesSub').textContent = fmtM(+bestMes?.VENTA_MES||0)+' mes';
+
+  if (typeof dashboardApplySem === 'function') {
+    const ring = (id, lvl) => {
+      const el = document.getElementById(id);
+      const box = el && el.closest('.kpi');
+      if (box) dashboardApplySem(box, lvl);
+    };
+    const pH = metaDia > 0 ? Math.round(totalHoy / metaDia * 100) : 0;
+    const pM = metaMes > 0 ? Math.round(totalMes / metaMes * 100) : 0;
+    const ratioMeta = vends.length ? enMetaMes / vends.length : 0;
+    ring('kpiVendedores', vends.length > 0 ? 'info' : 'neutral');
+    ring('kpiBestHoy', 'info');
+    ring('kpiTotalHoy', pH >= 100 ? 'ok' : pH >= 70 ? 'warn' : 'danger');
+    ring('kpiTotalMes', pM >= 100 ? 'ok' : pM >= 70 ? 'warn' : 'danger');
+    ring('kpiEnMetaHoy', ratioMeta >= 0.7 ? 'ok' : ratioMeta >= 0.4 ? 'warn' : 'danger');
+    ring('kpiBestMes', 'info');
+  }
 
   renderScorecards(vends);
   renderRanking(vends);

@@ -467,6 +467,17 @@ async function loadResumen() {
       chartAging.data.datasets[0].data=[age.CORRIENTE||0,age.DIAS_1_30||0,age.DIAS_31_60||0,age.DIAS_61_90||0,age.DIAS_MAS_90||0];
       chartAging.update();
     }
+    if (typeof dashboardApplySem === 'function') {
+      const pvigPct = saldo > 0 ? (pvenc / saldo) * 100 : 0;
+      const dash = (sel, lvl) => {
+        const n = document.querySelector(sel);
+        if (n) dashboardApplySem(n, lvl);
+      };
+      dash('.kpi--total', saldo > 0 ? 'info' : 'neutral');
+      dash('.kpi--venc', (typeof pV === 'number' && !isNaN(pV)) ? (pV > 40 ? 'danger' : pV > 20 ? 'warn' : 'ok') : 'neutral');
+      dash('.kpi--vig', saldo > 0 ? (pvigPct >= 60 ? 'ok' : pvigPct >= 40 ? 'warn' : 'danger') : 'neutral');
+      dash('.kpi--health', saldo <= 0 || typeof pV !== 'number' || isNaN(pV) ? 'neutral' : (porcVencidoDec > 0.2 ? 'danger' : 'ok'));
+    }
   } catch(e){
     console.error('resumen',e);
     setText('kSaldo','\u2014');

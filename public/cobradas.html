@@ -429,6 +429,20 @@ function renderAll(){
   renderDonut(d, totalCobrado);
   renderFactList();
   renderTabsVend(d);
+
+  if (typeof dashboardApplySem === 'function') {
+    const conv = pct(totalCobrado, totalVenta);
+    const ring = (id, lvl) => {
+      const el = document.getElementById(id);
+      const box = el && el.closest('.kpi');
+      if (box) dashboardApplySem(box, lvl);
+    };
+    ring('kpiTotalCobrado', conv >= 80 ? 'ok' : conv >= 50 ? 'warn' : 'danger');
+    ring('kpiTotalVenta', 'info');
+    ring('kpiTotalComision', 'info');
+    ring('kpiTicketProm', 'info');
+    ring('kpiTopVend', 'info');
+  }
 }
 
 function renderRanking(d, totalCobrado){

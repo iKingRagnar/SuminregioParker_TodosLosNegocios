@@ -83,6 +83,10 @@ nav{display:flex;align-items:center;gap:.25rem}
 .card-badge.btn{cursor:pointer}.card-badge.btn:hover{border-color:var(--blue);color:var(--blue)}
 #mensuales-periodo{display:flex;gap:2px;padding:0}.periodo-btn{border:1px solid var(--border2);background:transparent;color:var(--muted);font-family:'DM Mono',monospace;font-size:.6rem;padding:.15rem .45rem;border-radius:4px;cursor:pointer}
 .periodo-btn:hover{border-color:var(--blue);color:var(--blue)}.periodo-btn.active{background:var(--blue);border-color:var(--blue);color:#fff}
+.top-cli-wrap{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.top-cli-btn{border:1px solid var(--border2);background:transparent;color:var(--muted);font-family:'DM Mono',monospace;font-size:.58rem;padding:.22rem .5rem;border-radius:6px;cursor:pointer;transition:color .15s,border-color .15s,background .15s}
+.top-cli-btn:hover{border-color:var(--suminregio);color:var(--suminregio)}
+.top-cli-btn.active{background:var(--suminregio-dim);border-color:var(--suminregio);color:var(--suminregio);font-weight:600}
 .card-body{padding:1.5rem}.chart-wrap{position:relative;height:220px}
 .tbl{width:100%;border-collapse:collapse;font-size:.78rem}
 .tbl th{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--border)}
@@ -227,7 +231,19 @@ nav{display:flex;align-items:center;gap:.25rem}
       <div class="card-body"><div class="chart-wrap"><canvas id="chartMensuales"></canvas></div></div>
     </div>
     <div class="card">
-      <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>Top 10 Clientes</div><div class="card-badge">90 días</div></div>
+      <div class="card-head">
+        <div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>Top clientes</div>
+        <div class="top-cli-wrap">
+          <div class="card-badge" style="padding:4px 6px;display:flex;gap:3px;flex-wrap:wrap;max-width:min(100%,280px)">
+            <button type="button" class="top-cli-btn active" data-top="10" onclick="setTopClientes(10)">10</button>
+            <button type="button" class="top-cli-btn" data-top="20" onclick="setTopClientes(20)">20</button>
+            <button type="button" class="top-cli-btn" data-top="30" onclick="setTopClientes(30)">30</button>
+            <button type="button" class="top-cli-btn" data-top="40" onclick="setTopClientes(40)">40</button>
+            <button type="button" class="top-cli-btn" data-top="50" onclick="setTopClientes(50)">50</button>
+          </div>
+          <div class="card-badge" id="top-cli-badge">Filtro activo</div>
+        </div>
+      </div>
       <div class="card-body">
         <table class="tbl" id="tbl-clientes">
           <thead><tr><th>#</th><th>Cliente</th><th class="num">Total</th><th class="num">Docs</th></tr></thead>
@@ -351,6 +367,42 @@ let currentDias = 30;
 let currentMeses = 12;
 let metas = {};
 let lastCotiData = null;
+let topClientesLimit = 10;
+
+/** Días laborables Lun–Sáb (equivalente a WEEKDAY fecha,2 &lt;= 6 en DAX). */
+function isLaborDay(d) {
+  const x = d instanceof Date ? new Date(d) : new Date(d);
+  if (isNaN(x.getTime())) return false;
+  const wd = x.getDay();
+  return wd >= 1 && wd <= 6;
+}
+function countLaborDaysMonthToDate(ref) {
+  const end = ref instanceof Date ? new Date(ref) : new Date();
+  const y = end.getFullYear(), m = end.getMonth(), last = end.getDate();
+  let n = 0;
+  for (let day = 1; day <= last; day++) {
+    if (isLaborDay(new Date(y, m, day, 12, 0, 0))) n++;
+  }
+  return n;
+}
+function getVendedoresEnContexto(metaObj) {
+  const p = (window.filterGetParams && filterGetParams()) || {};
+  if (p.vendedor != null && String(p.vendedor).trim() !== '') return 1;
+  const n = +(metaObj && metaObj.NUM_VENDEDORES) || 1;
+  return Math.max(n, 1);
+}
+function ventasMetaBloqueadasPorTipo() {
+  return currentTipo === 'PV';
+}
+
+function setTopClientes(n) {
+  topClientesLimit = n;
+  document.querySelectorAll('.top-cli-btn').forEach(b => {
+    b.classList.toggle('active', +b.getAttribute('data-top') === n);
+  });
+  loadClientes();
+}
+
 // -- Helper: construye URL con filtros activos + params extra ---------------
 function buildApiUrl(path, extraParams) {
   const qs    = window.filterBuildQS ? filterBuildQS() : '';
@@ -463,6 +515,8 @@ function setTipo(t) {
   currentTipo = t;
   ['tab-all','tab-ve','tab-pv'].forEach(id => document.getElementById(id).classList.remove('active'));
   document.getElementById(t===''?'tab-all':t==='VE'?'tab-ve':'tab-pv').classList.add('active');
+  const cotiSec = document.getElementById('coti-section');
+  if (cotiSec) cotiSec.style.display = t === 'PV' ? 'none' : '';
   loadAll();
 }
 function setDias(d) {
@@ -490,9 +544,14 @@ async function loadAll() {
   try {
     const m = await fwt(buildApiUrl('/api/config/metas'), {});
     metas = m;
-    setText('kpi-meta', fmtK(m.META_TOTAL_DIARIA));
-    setText('kpi-meta-sub', `Ideal (+30%): ${fmtK(m.META_IDEAL_TOTAL)}`);
-    setText('kc-meta', fmtK(m.META_COTI_TOTAL));
+    const nV = getVendedoresEnContexto(m);
+    const bloq = ventasMetaBloqueadasPorTipo();
+    const metaVDia = bloq ? 0 : (+(m.META_DIARIA_POR_VENDEDOR || 5650) * nV);
+    const idealVDia = bloq ? 0 : (+(m.META_IDEAL_POR_VENDEDOR || 5650 * 1.3) * nV);
+    const metaCDia = bloq ? 0 : (+(m.META_COTI_POR_VENDEDOR || 10000) * nV);
+    setText('kpi-meta', bloq ? '—' : fmtK(metaVDia));
+    setText('kpi-meta-sub', bloq ? 'Metas de equipo no aplican en solo mostrador (DAX).' : `Meta equipo/día laboral · Ideal (+30%): ${fmtK(idealVDia)}`);
+    setText('kc-meta', bloq ? '—' : fmtK(metaCDia));
   } catch(e){}
 
   await Promise.all([loadResumen(), loadSplit(), loadDiarias(), loadMensuales(), loadVendedores(), loadClientes(), loadCotizaciones(), loadRecientes(), loadConversion()]);
@@ -503,26 +562,54 @@ async function loadAll() {
   else if(params.anio) labelParts.push(`A\u00f1o ${params.anio}`);
   labelParts.push(currentTipo||'Todos');
   setText('page-sub', `Actualizado: ${new Date().toLocaleTimeString('es-MX')} · ${labelParts.join(' · ')}`);
+  setText('top-cli-badge', labelParts.length ? labelParts.join(' · ') : 'Filtro activo');
 }
 
 async function loadResumen() {
   try {
     const d = await fwt(buildApiUrl('/api/ventas/resumen', tipoQ()), {});
     const hoy=+(d.HOY||0), mes=+(d.MES_ACTUAL||0), docs=+(d.FACTURAS_MES||0);
-    const diasMes = new Date().getDate();
-    const meta = +(metas.META_TOTAL_DIARIA||5650);
-    const ideal = +(metas.META_IDEAL_TOTAL||6215);
+    const diasCal = new Date().getDate();
+    const bloq = ventasMetaBloqueadasPorTipo();
+    const nV = getVendedoresEnContexto(metas);
+    const metaBase = +(metas.META_DIARIA_POR_VENDEDOR||5650);
+    const idealBase = +(metas.META_IDEAL_POR_VENDEDOR||metaBase*1.3);
+    const metaDia = bloq ? 0 : metaBase * nV;
+    const idealDia = bloq ? 0 : idealBase * nV;
+    const laborMes = countLaborDaysMonthToDate(new Date());
+    const denomIdealMes = Math.max(idealDia * laborMes, 1);
     setText('kpi-hoy', fmt(hoy));
-    setText('kpi-hoy-sub', `Meta: ${fmtK(meta)}`);
+    setText('kpi-hoy-sub', bloq ? 'Meta equipo no aplica (solo PV)' : `Meta equipo (día laboral): ${fmtK(metaDia)}`);
     setText('kpi-mes', fmt(mes));
-    setText('kpi-mes-sub', `${docs} docs`);
+    setText('kpi-mes-sub', `${docs} docs · meta ideal acum. (${laborMes} d. lab.)`);
     setText('kpi-facturas', docs.toLocaleString());
-    setText('kpi-prom', fmtK(diasMes>0?mes/diasMes:0));
-    setText('kpi-prom-sub', `${diasMes} días transcurridos`);
-    setWid('bar-hoy', (hoy/meta)*100);
-    setWid('bar-mes', (mes/(ideal*diasMes))*100);
-    setText('pct-hoy', `${((hoy/meta)*100).toFixed(0)}% de meta · ${((hoy/ideal)*100).toFixed(0)}% de ideal`);
-    setText('pct-mes', `${((mes/(ideal*diasMes))*100).toFixed(0)}% vs meta ideal acumulada`);
+    setText('kpi-prom', fmtK(diasCal>0?mes/diasCal:0));
+    setText('kpi-prom-sub', `${diasCal} días calendario del mes`);
+    if (metaDia > 0) {
+      setWid('bar-hoy', (hoy/metaDia)*100);
+      setText('pct-hoy', `${((hoy/metaDia)*100).toFixed(0)}% meta día · ${idealDia>0?((hoy/idealDia)*100).toFixed(0):'—'}% ideal día`);
+    } else {
+      setWid('bar-hoy', 0);
+      setText('pct-hoy', '—');
+    }
+    setWid('bar-mes', (mes/denomIdealMes)*100);
+    setText('pct-mes', `${((mes/denomIdealMes)*100).toFixed(0)}% vs meta ideal acumulada (días laborables)`);
+
+    if (typeof dashboardApplySem === 'function') {
+      const hLabor = isLaborDay(new Date());
+      const pHoyPct = metaDia > 0 ? (hoy / metaDia) * 100 : 0;
+      const pMesIdealPct = (mes / denomIdealMes) * 100;
+      const apply = (id, lvl) => {
+        const el = document.getElementById(id);
+        const card = el && el.closest('.kpi-card');
+        if (card) dashboardApplySem(card, lvl);
+      };
+      apply('kpi-hoy', bloq || !hLabor ? 'neutral' : (pHoyPct >= 100 ? 'ok' : pHoyPct >= 70 ? 'warn' : 'danger'));
+      apply('kpi-mes', bloq ? 'info' : (pMesIdealPct >= 100 ? 'ok' : pMesIdealPct >= 70 ? 'warn' : 'danger'));
+      apply('kpi-meta', bloq ? 'neutral' : 'info');
+      apply('kpi-facturas', docs > 0 ? 'info' : 'warn');
+      apply('kpi-prom', 'info');
+    }
   } catch(e){ console.error('resumen',e); }
 }
 
@@ -572,19 +659,31 @@ async function loadDiarias() {
     if (typeof console !== 'undefined' && console.log) console.log('Ventas diarias API:', Array.isArray(raw) ? raw.length + ' filas' : (raw && raw.error ? 'error' : 'no array'), raw && raw[0]);
     if (raw && raw.error) { console.warn('Ventas diarias API error:', raw.error); }
     const rows = normalizarDiariasVentas(raw);
-    const meta = +(metas.META_TOTAL_DIARIA||5650);
-    const ideal = +(metas.META_IDEAL_TOTAL||6215);
+    const bloq = ventasMetaBloqueadasPorTipo();
+    const nV = getVendedoresEnContexto(metas);
+    const metaBase = +(metas.META_DIARIA_POR_VENDEDOR||5650);
+    const idealBase = +(metas.META_IDEAL_POR_VENDEDOR||metaBase*1.3);
+    const metaDayTeam = bloq ? 0 : metaBase * nV;
+    const idealDayTeam = bloq ? 0 : idealBase * nV;
+    function metaPairForDate(dt) {
+      const d = (dt instanceof Date) ? dt : new Date(typeof dt === 'string' && dt.includes('-') ? dt.substring(0,10)+'T12:00:00' : dt);
+      const lab = isLaborDay(d) ? metaDayTeam : 0;
+      const idl = isLaborDay(d) ? idealDayTeam : 0;
+      return { lab, idl };
+    }
     let labels, metaL, idealL, datasets;
     if (!rows.length) {
       const today = new Date();
       labels = []; const data0 = [];
+      metaL = []; idealL = [];
       for (let i = currentDias - 1; i >= 0; i--) {
         const d = new Date(today); d.setDate(d.getDate() - i);
         labels.push(`${d.getDate()} ${MESES[d.getMonth()]}`);
         data0.push(0);
+        const mp = metaPairForDate(d);
+        metaL.push(mp.lab);
+        idealL.push(mp.idl);
       }
-      metaL = data0.map(() => meta);
-      idealL = data0.map(() => ideal);
       datasets = currentTipo === '' ? [
         {label:'Industrial (VE)', data: data0.slice(), borderColor:'#4DA6FF', borderWidth:2, fill:true, tension:.4},
         {label:'Mostrador (PV)', data: data0.slice(), borderColor:'#9B6DFF', borderWidth:2, fill:true, tension:.4},
@@ -593,6 +692,7 @@ async function loadDiarias() {
       ] : [
         {label:'Ventas', data: data0, borderColor: currentTipo==='VE'?'#4DA6FF':'#9B6DFF', borderWidth:2, fill:true, tension:.4},
         {label:'Meta', data: metaL, borderColor:'rgba(255,184,0,.85)', borderWidth:2.5, borderDash:[5,4], pointRadius:2, pointHoverRadius:5, fill:false},
+        {label:'Ideal (+30%)', data: idealL, borderColor:'rgba(0,229,160,.7)', borderWidth:2.5, borderDash:[3,4], pointRadius:2, pointHoverRadius:5, fill:false},
       ];
     } else {
       labels = rows.map(r=>{
@@ -600,8 +700,8 @@ async function loadDiarias() {
         const d = (raw instanceof Date) ? raw : new Date(typeof raw === 'string' && raw.includes('-') ? raw.substring(0,10)+'T12:00:00' : raw);
         return `${d.getDate()} ${MESES[d.getMonth()]}`;
       });
-      metaL = rows.map(()=>meta);
-      idealL = rows.map(()=>ideal);
+      metaL = rows.map(r => metaPairForDate(r.DIA).lab);
+      idealL = rows.map(r => metaPairForDate(r.DIA).idl);
       const getVe = r => +(r.VENTAS_VE ?? 0);
       const getPv = r => +(r.VENTAS_PV ?? 0);
       const getTotal = r => +(r.TOTAL_VENTAS ?? 0);
@@ -613,12 +713,13 @@ async function loadDiarias() {
       ] : [
         {label:'Ventas', data:rows.map(getTotal), backgroundColor:currentTipo==='VE'?'rgba(77,166,255,.15)':'rgba(155,109,255,.15)', borderColor:currentTipo==='VE'?'#4DA6FF':'#9B6DFF', borderWidth:2, fill:true, tension:.4},
         {label:'Meta', data:metaL, borderColor:'rgba(255,184,0,.85)', borderWidth:2.5, borderDash:[5,4], pointRadius:2, pointHoverRadius:5, fill:false},
+        {label:'Ideal (+30%)', data:idealL, borderColor:'rgba(0,229,160,.7)', borderWidth:2.5, borderDash:[3,4], pointRadius:2, pointHoverRadius:5, fill:false},
       ];
     }
     const opts = chartDefaults();
     opts.scales.y.min = 0;
     if (rows.length > 0) opts.scales.y.suggestedMax = undefined;
-    if (meta > 0) opts.scales.y.suggestedMax = Math.max(meta * 1.2, 1000);
+    if (metaDayTeam > 0) opts.scales.y.suggestedMax = Math.max(metaDayTeam * 1.2, 1000);
     if(chartDiarias) chartDiarias.destroy();
     chartDiarias = new Chart(document.getElementById('chartDiarias').getContext('2d'), {type:'line', data:{labels, datasets}, options:opts});
   } catch(e){ console.error('diarias',e); }
@@ -681,27 +782,40 @@ async function loadVendedores() {
 
 async function loadClientes() {
   try {
-    const rows = await fwt(buildApiUrl('/api/ventas/top-clientes', `limit=10&dias=90${tipoQ()}`), []);
+    const rows = await fwt(buildApiUrl('/api/ventas/top-clientes', `limit=${topClientesLimit}${tipoQ()}`), []);
+    const tot = r => +(r.TOTAL ?? r.TOTAL_VENTAS ?? r.IMPORTE_NETO ?? 0);
+    const docs = r => +(r.FACTURAS ?? r.NUM_FACTURAS ?? r.DOCS ?? 0);
     document.querySelector('#tbl-clientes tbody').innerHTML = rows.map((r,i)=>`<tr>
       <td><span class="rank-num">${i+1}</span></td>
-      <td class="lbl">${r.CLIENTE}</td>
-      <td class="num">${fmt(r.TOTAL_VENTAS)}</td>
-      <td class="num">${r.NUM_FACTURAS}</td>
+      <td class="lbl">${r.CLIENTE || '—'}</td>
+      <td class="num">${fmt(tot(r))}</td>
+      <td class="num">${docs(r).toLocaleString('es-MX')}</td>
     </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sin datos</td></tr>';
   } catch(e){}
 }
 
 function applyCotiData(resObj, diarias, vends, ventasVE) {
   resObj = resObj && typeof resObj === 'object' ? resObj : {};
+  const bloq = ventasMetaBloqueadasPorTipo();
+  const nV = getVendedoresEnContexto(metas);
+  const metaCBase = +(metas.META_COTI_POR_VENDEDOR||10000);
+  const idealCBase = +(metas.META_COTI_IDEAL||metaCBase*1.3);
+  const laborMes = countLaborDaysMonthToDate(new Date());
+  const metaAcumMes = bloq ? 0 : metaCBase * nV * laborMes;
+  const idealAcumMes = bloq ? 0 : idealCBase * nV * laborMes;
+
   setText('kc-hoy', resObj.COTIZACIONES_HOY||0);
   setText('kc-hoy-imp', fmt(resObj.HOY));
   setText('kc-mes', resObj.COTIZACIONES_MES||0);
   setText('kc-mes-imp', fmt(resObj.MES_ACTUAL));
   setText('kc-imp', fmt(resObj.MES_ACTUAL));
-  const metaC = +(metas.META_COTI_TOTAL||10000);
-  const dias = new Date().getDate();
-  setWid('bar-coti', ((+(resObj.MES_ACTUAL||0))/(metaC*Math.max(dias,1)))*100);
-  setText('pct-coti', `${(((+(resObj.MES_ACTUAL||0))/(metaC*Math.max(dias,1)))*100).toFixed(0)}% de meta acumulada`);
+  if (bloq) {
+    setWid('bar-coti', 0);
+    setText('pct-coti', 'Metas cotización no aplican en solo mostrador (DAX).');
+  } else {
+    setWid('bar-coti', metaAcumMes > 0 ? ((+(resObj.MES_ACTUAL||0))/metaAcumMes)*100 : 0);
+    setText('pct-coti', `${metaAcumMes > 0 ? (((+(resObj.MES_ACTUAL||0))/metaAcumMes)*100).toFixed(0) : '0'}% vs meta acum. (${laborMes} d. lab. × ${nV} vend.) · ideal ${fmtK(idealAcumMes)}`);
+  }
   const conv = +(resObj.MES_ACTUAL||0)>0 ? ((+(ventasVE&&ventasVE.MES_ACTUAL)||0)/+(resObj.MES_ACTUAL||0)*100).toFixed(0) : 0;
   setText('kc-conv', `${conv}%`);
   const diariasArr = Array.isArray(diarias) ? diarias : (diarias && (Array.isArray(diarias.data) ? diarias.data : Array.isArray(diarias.rows) ? diarias.rows : []));
@@ -709,16 +823,23 @@ function applyCotiData(resObj, diarias, vends, ventasVE) {
     DIA: r.DIA ?? r.FECHA ?? r.dia ?? r.fecha,
     TOTAL_COTIZACIONES: +(r.TOTAL_COTIZACIONES ?? r.total_cotizaciones ?? r.TOTAL ?? r.total ?? 0)
   }));
-  let lbls, vals, metaL;
+  function cotiMetaForDate(d) {
+    if (bloq) return { m: 0, i: 0 };
+    const ok = isLaborDay(d);
+    return { m: ok ? metaCBase * nV : 0, i: ok ? idealCBase * nV : 0 };
+  }
+  let lbls, vals, metaL, idealL;
   if (!arr.length) {
     const today = new Date();
-    lbls = []; vals = [];
+    lbls = []; vals = []; metaL = []; idealL = [];
     for (let i = 29; i >= 0; i--) {
       const d = new Date(today); d.setDate(d.getDate() - i);
       lbls.push(`${d.getDate()} ${MESES[d.getMonth()]}`);
       vals.push(0);
+      const mp = cotiMetaForDate(d);
+      metaL.push(mp.m);
+      idealL.push(mp.i);
     }
-    metaL = vals.map(() => metaC);
   } else {
     lbls = arr.map(r=>{
       const raw = r.DIA;
@@ -726,15 +847,27 @@ function applyCotiData(resObj, diarias, vends, ventasVE) {
       return `${d.getDate()} ${MESES[d.getMonth()]}`;
     });
     vals = arr.map(r=>r.TOTAL_COTIZACIONES||0);
-    metaL = arr.map(()=>metaC);
+    metaL = arr.map(r => {
+      const raw = r.DIA;
+      const d = (raw instanceof Date) ? raw : new Date(typeof raw === 'string' && raw.includes('-') ? raw.substring(0,10)+'T12:00:00' : raw);
+      return cotiMetaForDate(d).m;
+    });
+    idealL = arr.map(r => {
+      const raw = r.DIA;
+      const d = (raw instanceof Date) ? raw : new Date(typeof raw === 'string' && raw.includes('-') ? raw.substring(0,10)+'T12:00:00' : raw);
+      return cotiMetaForDate(d).i;
+    });
   }
   const opts = chartDefaults();
   opts.scales.y.min = 0;
-  if (arr.length === 0 && metaC > 0) opts.scales.y.suggestedMax = Math.max(metaC * 1.2, 1000);
+  const maxY = Math.max(0, ...vals, ...metaL, ...idealL, bloq ? 0 : metaCBase * nV * 1.1);
+  if (arr.length === 0 && !bloq && metaCBase * nV > 0) opts.scales.y.suggestedMax = Math.max(metaCBase * nV * 1.2, 1000);
+  else if (maxY > 0) opts.scales.y.suggestedMax = maxY * 1.15;
   if(chartCotiDiarias) chartCotiDiarias.destroy();
   chartCotiDiarias = new Chart(document.getElementById('chartCotiDiarias').getContext('2d'), {type:'bar', data:{labels:lbls, datasets:[
-    {label:'Cotizaciones', data:vals, backgroundColor:'rgba(255,184,0,.3)', borderColor:'#FFB800', borderWidth:1},
-    {label:'Meta', data:metaL, type:'line', borderColor:'rgba(255,140,66,.5)', borderWidth:1, borderDash:[4,4], pointRadius:0, fill:false},
+    {label:'Cotizaciones $', data:vals, backgroundColor:'rgba(255,184,0,.3)', borderColor:'#FFB800', borderWidth:1},
+    {label:'Meta (día laboral)', data:metaL, type:'line', borderColor:'rgba(255,140,66,.85)', borderWidth:2, borderDash:[5,4], pointRadius:0, fill:false},
+    {label:'Ideal (+30%)', data:idealL, type:'line', borderColor:'rgba(0,229,160,.75)', borderWidth:2, borderDash:[3,5], pointRadius:0, fill:false},
   ]}, options:opts});
   const vendsArr = Array.isArray(vends) ? vends : [];
   const maxV = vendsArr.reduce((m,r)=>Math.max(m,+(r.COTIZACIONES_MES||0)),0);

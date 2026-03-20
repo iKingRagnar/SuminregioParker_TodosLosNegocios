@@ -1085,6 +1085,21 @@ async function loadAll(){
     const pBajoInv=metaBajoMin>0?Math.min(100,Math.round(invBajo/metaBajoMin*100)):0;
     sem('semInvBajo',pBajoInv,{invert:true,labels:['OK','Revisar','Alerta']});
 
+    if (typeof dashboardApplySem === 'function') {
+      const ringMega = (valueId, lvl) => {
+        const el = document.getElementById(valueId);
+        const card = el && el.closest('.kpi-card');
+        if (card) dashboardApplySem(card, lvl);
+      };
+      ringMega('kpiVentaHoy', pVenta1 >= 100 ? 'ok' : pVenta1 >= 70 ? 'warn' : 'danger');
+      ringMega('kpiVentaMes', pMes >= 100 ? 'ok' : pMes >= 70 ? 'warn' : 'danger');
+      const pCotiBar = isVistaHoy ? pCotiHoy : pCotiMes;
+      ringMega('kpiCotiHoy', pCotiBar >= 100 ? 'ok' : pCotiBar >= 70 ? 'warn' : 'danger');
+      ringMega('kpiCxcTotal', cxcTotal > 0 ? 'info' : 'neutral');
+      ringMega('kpiCxcVencido', pVenc <= 25 ? 'ok' : pVenc <= 50 ? 'warn' : 'danger');
+      ringMega('kpiInvBajo', invBajo === 0 ? 'ok' : invBajo <= 10 ? 'warn' : 'danger');
+    }
+
     // Hero subtitle & situation badge
     const issues=[];
     if(pHoy<70)issues.push('venta del d\u00eda al '+pHoy+'%');

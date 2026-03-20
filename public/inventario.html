@@ -253,6 +253,18 @@ async function loadAll() {
     setText('kpi-valor', fmtK(d.VALOR_INVENTARIO));
     setText('kpi-minimo', Number(d.BAJO_MINIMO||0).toLocaleString());
     setText('kpi-cero', Number(d.SIN_STOCK||0).toLocaleString());
+    if (typeof dashboardApplySem === 'function') {
+      const bajo = +d.BAJO_MINIMO || 0, cero = +d.SIN_STOCK || 0, total = +d.TOTAL_ARTICULOS || 0;
+      const ap = (id, lvl) => {
+        const el = document.getElementById(id);
+        const card = el && el.closest('.kpi-card');
+        if (card) dashboardApplySem(card, lvl);
+      };
+      ap('kpi-total', total > 0 ? 'info' : 'neutral');
+      ap('kpi-valor', 'info');
+      ap('kpi-minimo', bajo === 0 ? 'ok' : bajo <= 5 ? 'warn' : 'danger');
+      ap('kpi-cero', cero === 0 ? 'ok' : cero <= 3 ? 'warn' : 'danger');
+    }
   } catch(e){}
 
   await Promise.all([loadMinimo(), loadConsumo(), loadTopStock(), loadForecast(), loadSinMovimiento()]);
@@ -261,7 +273,7 @@ async function loadAll() {
 
 async function loadMinimo() {
   try {
-    const rows = await fetch(apiDb('/api/inv/bajo-minimo?limit=50')).then(r=>r.json());
+    const rows = (await fetch(apiDb('/api/inv/bajo-minimo?limit=50')).then(r=>r.json())).slice().sort((a,b)=>(+b.FALTANTE||0)-(+a.FALTANTE||0));
     document.querySelector('#tbl-minimo tbody').innerHTML = rows.map(r=>{
       const pct = r.EXISTENCIA_MINIMA>0?(r.EXISTENCIA/r.EXISTENCIA_MINIMA*100):0;
       const barColor = r.EXISTENCIA<=0?'var(--red)':'var(--orange)';
@@ -286,7 +298,7 @@ async function loadMinimo() {
 
 async function loadConsumo() {
   try {
-    const rows = await fetch(apiDb('/api/inv/consumo-semanal?limit=30')).then(r=>r.json());
+    const rows = (await fetch(apiDb('/api/inv/consumo-semanal?limit=30')).then(r=>r.json())).slice().sort((a,b)=>(+b.CONSUMO_SEMANAL_PROM||0)-(+a.CONSUMO_SEMANAL_PROM||0));
     document.querySelector('#tbl-consumo tbody').innerHTML = rows.map(r=>{
       const sem = +(r.SEMANAS_STOCK||0);
       const semColor = sem<1?'var(--red)':sem<2?'var(--orange)':sem<4?'var(--yellow)':'var(--green)';
@@ -308,7 +320,7 @@ async function loadConsumo() {
 
 async function loadTopStock() {
   try {
-    const rows = await fetch(apiDb('/api/inv/top-stock?limit=30')).then(r=>r.json());
+    const rows = (await fetch(apiDb('/api/inv/top-stock?limit=30')).then(r=>r.json())).slice().sort((a,b)=>(+b.VALOR_TOTAL||0)-(+a.VALOR_TOTAL||0));
     document.querySelector('#tbl-topstock tbody').innerHTML = rows.map((r,i)=>`<tr>
       <td style="font-family:'DM Mono',monospace;font-size:.7rem;color:var(--muted)">${i+1}</td>
       <td class="lbl">${r.DESCRIPCION}</td>
@@ -322,8 +334,13 @@ async function loadTopStock() {
 
 async function loadForecast(){
   try{
-    const rows = await fetch(apiDb('/api/inv/consumo?dias=90&limit=50&lead=15')).then(r=>r.json());
-    setText('consumo-badge', rows.length+' art&iacute;culos');
+    const rows = (await fetch(apiDb('/api/inv/consumo?dias=90&limit=50&lead=15')).then(r=>r.json())).slice().sort((a,b)=>{
+      const da = +a.DIAS_STOCK, db = +b.DIAS_STOCK;
+      const na = isNaN(da) ? 999999 : da;
+      const nb = isNaN(db) ? 999999 : db;
+      return na - nb;
+    });
+    setText('consumo-badge', rows.length+' art\u00edculos');
     document.getElementById('tbl-forecast-body').innerHTML = rows.map(r=>{
       const dias = +(r.DIAS_STOCK||0);
       const alerta = (r.ALERTA||'OK').toUpperCase();
@@ -346,7 +363,7 @@ async function loadForecast(){
 
 async function loadSinMovimiento(){
   try{
-    const rows = await fetch(apiDb('/api/inv/sin-movimiento?dias=180&limit=50')).then(r=>r.json());
+    const rows = (await fetch(apiDb('/api/inv/sin-movimiento?dias=180&limit=50')).then(r=>r.json())).slice().sort((a,b)=>(+b.DIAS_SIN_VENTA||0)-(+a.DIAS_SIN_VENTA||0));
     setText('sinmov-badge', rows.length+' art&iacute;culos');
     document.getElementById('tbl-sinmov-body').innerHTML = rows.map(r=>{
       const dias = +(r.DIAS_SIN_VENTA||9999);

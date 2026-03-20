@@ -137,6 +137,12 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     return i >= 0 ? s.slice(i + 1) : s;
   }
 
+  /** Nombre visible sin extensión .fdb */
+  function displayDbTitle(fname) {
+    if (!fname) return '';
+    return String(fname).replace(/\.fdb$/i, '');
+  }
+
   function renderDbChipsInto(container, list, onChange) {
     if (!container) return;
     const urlDb = getSelectedDbId();
@@ -148,13 +154,13 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     (list || []).forEach(function (e) {
       const id = String(e.id || '');
       const fname = fdbBasename(e.database);
-      const main = fname || id;
-      const sub = (e.label && e.label !== fname && e.label !== id) ? e.label : (e.label || id);
+      const main = displayDbTitle(fname || id);
+      const sub = (e.label && e.label !== fname && e.label !== id) ? e.label : (e.label || displayDbTitle(id));
       const active = urlDb === id ? ' active' : '';
       const title = escChip((e.database || '') + (e.host ? ' \u00b7 ' + e.host : ''));
       const searchHay = escChip([main, sub, id, fname, e.host || ''].join(' ').toLowerCase());
       html += '<button type="button" class="biz-tile db-chip' + active + '" data-db="' + escChip(id) + '" data-search="' + searchHay + '" title="' + title + '">' +
-        '<span class="biz-tile-kicker">' + (fname ? '.FDB' : 'ID') + '</span>' +
+        '<span class="biz-tile-kicker">' + (fname ? 'Base' : 'ID') + '</span>' +
         '<span class="biz-tile-title">' + escChip(main.length > 42 ? main.slice(0, 40) + '\u2026' : main) + '</span>' +
         '<span class="biz-tile-meta">' + escChip(sub) + '</span></button>';
     });
@@ -633,8 +639,72 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
         background: linear-gradient(145deg, rgba(251,191,36,.2), rgba(253,230,138,.15));
         border-color: rgba(217,119,6,.45);
       }
+      html[data-theme="light"] .biz-tile-kicker { color: #64748b; }
+
+      @keyframes ms-dash-rise {
+        from { opacity: 0; transform: translateY(14px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .card, .kpi-card, .k, article.k, .g2 > .card {
+        animation: ms-dash-rise 0.55s cubic-bezier(.22, 1, .36, 1) both;
+      }
+
+      /* Semáforo KPI: borde + halo (todas las páginas que cargan filters.js) */
+      .kpi-card.dash-sem-ok, .kpi.dash-sem-ok, article.k.dash-sem-ok, .dash-sem-host.dash-sem-ok {
+        box-shadow: 0 0 0 1px rgba(0, 229, 160, 0.38), 0 12px 40px rgba(0, 229, 160, 0.1) !important;
+        border-color: rgba(0, 229, 160, 0.5) !important;
+      }
+      .kpi-card.dash-sem-warn, .kpi.dash-sem-warn, article.k.dash-sem-warn, .dash-sem-host.dash-sem-warn {
+        box-shadow: 0 0 0 1px rgba(255, 184, 0, 0.42), 0 12px 40px rgba(255, 184, 0, 0.09) !important;
+        border-color: rgba(255, 184, 0, 0.48) !important;
+      }
+      .kpi-card.dash-sem-danger, .kpi.dash-sem-danger, article.k.dash-sem-danger, .dash-sem-host.dash-sem-danger {
+        box-shadow: 0 0 0 1px rgba(255, 69, 102, 0.42), 0 12px 40px rgba(255, 69, 102, 0.1) !important;
+        border-color: rgba(255, 69, 102, 0.5) !important;
+      }
+      .kpi-card.dash-sem-info, .kpi.dash-sem-info, article.k.dash-sem-info, .dash-sem-host.dash-sem-info {
+        box-shadow: 0 0 0 1px rgba(77, 166, 255, 0.35), 0 12px 40px rgba(77, 166, 255, 0.08) !important;
+        border-color: rgba(77, 166, 255, 0.42) !important;
+      }
+      .kpi-card.dash-sem-neutral, .kpi.dash-sem-neutral, article.k.dash-sem-neutral, .dash-sem-host.dash-sem-neutral {
+        box-shadow: 0 0 0 1px rgba(90, 112, 144, 0.25), 0 8px 28px rgba(0, 0, 0, 0.12) !important;
+        border-color: rgba(148, 163, 184, 0.22) !important;
+      }
+      html[data-theme="light"] .kpi-card.dash-sem-ok, html[data-theme="light"] .kpi.dash-sem-ok, html[data-theme="light"] article.k.dash-sem-ok, html[data-theme="light"] .dash-sem-host.dash-sem-ok {
+        box-shadow: 0 0 0 1px rgba(22, 163, 74, 0.35), 0 8px 28px rgba(22, 163, 74, 0.07) !important;
+        border-color: rgba(22, 163, 74, 0.4) !important;
+      }
+      html[data-theme="light"] .kpi-card.dash-sem-warn, html[data-theme="light"] .kpi.dash-sem-warn, html[data-theme="light"] article.k.dash-sem-warn, html[data-theme="light"] .dash-sem-host.dash-sem-warn {
+        box-shadow: 0 0 0 1px rgba(217, 119, 6, 0.35), 0 8px 28px rgba(217, 119, 6, 0.08) !important;
+        border-color: rgba(217, 119, 6, 0.42) !important;
+      }
+      html[data-theme="light"] .kpi-card.dash-sem-danger, html[data-theme="light"] .kpi.dash-sem-danger, html[data-theme="light"] article.k.dash-sem-danger, html[data-theme="light"] .dash-sem-host.dash-sem-danger {
+        box-shadow: 0 0 0 1px rgba(220, 38, 38, 0.32), 0 8px 28px rgba(220, 38, 38, 0.07) !important;
+        border-color: rgba(220, 38, 38, 0.4) !important;
+      }
+      html[data-theme="light"] .kpi-card.dash-sem-info, html[data-theme="light"] .kpi.dash-sem-info, html[data-theme="light"] article.k.dash-sem-info, html[data-theme="light"] .dash-sem-host.dash-sem-info {
+        box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.28), 0 8px 28px rgba(37, 99, 235, 0.06) !important;
+        border-color: rgba(37, 99, 235, 0.35) !important;
+      }
+      html[data-theme="light"] .kpi-card.dash-sem-neutral, html[data-theme="light"] .kpi.dash-sem-neutral, html[data-theme="light"] article.k.dash-sem-neutral, html[data-theme="light"] .dash-sem-host.dash-sem-neutral {
+        box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.12), 0 6px 20px rgba(15, 23, 42, 0.06) !important;
+        border-color: rgba(15, 23, 42, 0.14) !important;
+      }
     `;
     document.head.appendChild(style);
+  }
+
+  var DASH_SEM_LEVELS = ['ok', 'warn', 'danger', 'info', 'neutral'];
+  function dashboardSemClass(level) {
+    var k = String(level == null ? 'neutral' : level).toLowerCase();
+    return DASH_SEM_LEVELS.indexOf(k) >= 0 ? ('dash-sem-' + k) : 'dash-sem-neutral';
+  }
+  function dashboardApplySem(el, level) {
+    if (!el || el.nodeType !== 1) return;
+    DASH_SEM_LEVELS.forEach(function (lv) {
+      el.classList.remove('dash-sem-' + lv);
+    });
+    el.classList.add(dashboardSemClass(level));
   }
 
   function renderBar() {
@@ -717,5 +787,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   window.renderDbChipsInto        = renderDbChipsInto;
   window.apiPathWithDb            = apiPathWithDb;
   window.initGlobalDbBarAfterNav  = initGlobalDbBarAfterNav;
+  window.dashboardSemClass        = dashboardSemClass;
+  window.dashboardApplySem        = dashboardApplySem;
 
 })();

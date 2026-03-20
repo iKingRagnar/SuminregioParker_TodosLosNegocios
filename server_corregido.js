@@ -781,7 +781,7 @@ function cxcCargosSQL() {
 function cxcSaldosSub() { return cxcCargosSQL(); }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-//  CONFIG / METAS  ✅ v5: META_IDEAL = 10% sobre base
+//  CONFIG / METAS  — ideal = +30% sobre meta diaria (Power BI / DAX)
 // ═══════════════════════════════════════════════════════════════════════════════
 
 get('/api/config/metas', async (req) => {
@@ -799,9 +799,9 @@ get('/api/config/metas', async (req) => {
   const numV = (rows[0] && rows[0].NUM_VENDEDORES) ? Number(rows[0].NUM_VENDEDORES) : 1;
 
   const META_DIA_V   = 5650;
-  const META_IDEAL_V = 5650 * 1.10;
+  const META_IDEAL_V = 5650 * 1.30;
   const META_DIA_C   = 10000;
-  const META_IDEAL_C = 10000 * 1.10;
+  const META_IDEAL_C = 10000 * 1.30;
 
   return {
     META_DIARIA_POR_VENDEDOR : META_DIA_V,
@@ -1452,14 +1452,16 @@ get('/api/director/ventas-diarias', async (req) => {
   `, paramsDiarias, 12000, dbo).catch(() => []);
 
   const numVRow = await query(`SELECT COUNT(*) AS N FROM VENDEDORES WHERE COALESCE(ESTATUS,'A') NOT IN ('I','B','0','N')`, [], 12000, dbo).catch(() => [{ N: 1 }]);
-  const numV = (numVRow[0] && numVRow[0].N != null) ? Math.max(Number(numVRow[0].N), 1) : 1;
+  let numV = (numVRow[0] && numVRow[0].N != null) ? Math.max(Number(numVRow[0].N), 1) : 1;
+  if (Number.isFinite(vid)) numV = 1;
   const cfgRow = await query(`SELECT COALESCE(MAX(META_DIARIA_POR_VENDEDOR), 0) AS M FROM CONFIGURACIONES_GEN`, [], 12000, dbo).catch(() => [{ M: 0 }]);
   const META_POR_VENDEDOR = +(cfgRow[0] && cfgRow[0].M) > 0 ? +(cfgRow[0].M) : 5650;
   const FACTOR_IDEAL = 1.30;
 
   (rows || []).forEach(r => {
     const d = r.DIA ? new Date(r.DIA) : new Date();
-    const laboral = d.getDay() !== 0;
+    const wd = d.getDay();
+    const laboral = wd >= 1 && wd <= 6;
     const metaEq = laboral ? META_POR_VENDEDOR * numV : 0;
     r.META_EQUILIBRIO = Math.round(metaEq * 100) / 100;
     r.META_IDEAL = Math.round(metaEq * FACTOR_IDEAL * 100) / 100;

@@ -73,10 +73,16 @@ nav{display:flex;align-items:center;gap:.25rem}
 .sem.danger{background:rgba(255,69,102,.1);border:1px solid rgba(255,69,102,.2);color:var(--red)}.sem.danger .sem-dot{background:var(--red);box-shadow:0 0 4px var(--red)}
 .sem.info{background:rgba(77,166,255,.1);border:1px solid rgba(77,166,255,.2);color:var(--blue)}.sem.info .sem-dot{background:var(--blue)}
 /* Intelligence insight */
-.intel-bar{background:var(--s1);border:1px solid var(--border);border-left:3px solid var(--purple);border-radius:12px;padding:.9rem 1.3rem;margin-bottom:1.25rem;display:flex;align-items:flex-start;gap:.85rem}
+.intel-bar{background:var(--s1);border:1px solid var(--border);border-left:3px solid var(--purple);border-radius:12px;padding:.9rem 1.3rem;margin-bottom:1.25rem;display:flex;align-items:stretch;flex-wrap:wrap;gap:.85rem 1rem}
 .intel-icon{width:30px;height:30px;background:var(--purple-dim);border:1px solid rgba(155,109,255,.22);border-radius:8px;display:grid;place-items:center;flex-shrink:0}
 .intel-icon svg{width:15px;height:15px;fill:none;stroke:var(--purple);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.intel-body{flex:1}
+.intel-body{flex:1;min-width:min(100%,320px)}
+.exec-score-wrap{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:.72rem .95rem;min-width:132px;max-width:200px;display:flex;flex-direction:column;justify-content:center;transition:box-shadow .25s,border-color .25s}
+.exec-score-lbl{font-family:'DM Mono',monospace;font-size:.52rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:.2rem}
+.exec-score-val{font-family:'DM Mono',monospace;font-size:1.65rem;font-weight:600;letter-spacing:-.03em;line-height:1;color:var(--text)}
+.exec-score-bar{height:4px;border-radius:99px;background:var(--s3);overflow:hidden;margin-top:.42rem}
+.exec-score-bar-f{height:100%;border-radius:99px;transition:width .85s cubic-bezier(.4,0,.2,1),background .25s}
+.exec-score-formula{font-family:'DM Mono',monospace;font-size:.55rem;color:var(--text2);line-height:1.45;margin-top:.32rem;max-width:190px}
 .intel-title{font-size:.78rem;font-weight:700;color:var(--text);margin-bottom:.28rem}
 .intel-text{font-family:'DM Mono',monospace;font-size:.67rem;color:var(--text2);line-height:1.65}
 .intel-text .hi-green{color:var(--green)}.intel-text .hi-red{color:var(--red)}.intel-text .hi-yellow{color:var(--yellow)}.intel-text .hi-blue{color:var(--blue)}
@@ -110,6 +116,22 @@ nav{display:flex;align-items:center;gap:.25rem}
 .vendor-bar-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--purple),var(--blue));transition:width 1.2s}
 .tipo-badge{display:inline-block;padding:.1rem .4rem;border-radius:4px;font-size:.6rem;font-weight:600;font-family:'DM Mono',monospace}
 .tipo-ve{background:var(--blue-dim);color:var(--blue)}.tipo-pv{background:var(--purple-dim);color:var(--purple)}
+.exec-mission{background:linear-gradient(145deg,rgba(30,127,217,.1),rgba(245,124,0,.08));border:1px solid var(--border);border-radius:16px;padding:1rem 1.25rem;margin-bottom:1.25rem}
+.exec-mission h2{font-size:.88rem;font-weight:800;color:var(--suminregio);margin-bottom:.35rem;letter-spacing:-.02em}
+.exec-mission p{font-size:.78rem;color:var(--text2);line-height:1.55;max-width:920px}
+.exec-pills{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.65rem}
+.exec-pill{font-family:'DM Mono',monospace;font-size:.58rem;padding:.28rem .55rem;border-radius:99px;border:1px solid var(--border2);color:var(--muted)}
+.chart-empty-msg{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:1rem;font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted);line-height:1.5;background:rgba(6,14,26,.55);border-radius:12px;z-index:2}
+.top-dir-wrap{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.top-dir-btn{border:1px solid var(--border2);background:transparent;color:var(--muted);font-family:'DM Mono',monospace;font-size:.58rem;padding:.2rem .45rem;border-radius:6px;cursor:pointer;transition:color .15s,border-color .15s,background .15s}
+.top-dir-btn:hover{border-color:var(--suminregio);color:var(--suminregio)}
+.top-dir-btn.on{background:var(--suminregio-dim);border-color:var(--suminregio);color:var(--suminregio);font-weight:600}
+html[data-theme=light] .exec-mission{background:linear-gradient(145deg,rgba(30,127,217,.08),rgba(251,191,36,.1));border-color:rgba(15,23,42,.1)}
+html[data-theme=light] .exec-mission p{color:#475569}
+html[data-theme=light] .kpi-label{color:#64748b}
+html[data-theme=light] .kpi-sub{color:#64748b}
+html[data-theme=light] .card-badge{color:#64748b;border-color:rgba(15,23,42,.12)}
+html[data-theme=light] .chart-empty-msg{background:rgba(255,255,255,.85);color:#64748b}
 </style>
 </head>
 <body>
@@ -125,12 +147,28 @@ nav{display:flex;align-items:center;gap:.25rem}
   <!-- Barra de filtros compartida -->
   <div id="filter-bar"></div>
 
+  <section class="exec-mission" aria-label="Enfoque ejecutivo">
+    <h2>Qué mira un director aquí</h2>
+    <p>Un solo tablero para decidir hoy: <strong>¿vamos a meta?</strong> (venta vs meta e ideal), <strong>¿de dónde viene el ingreso?</strong> (VE vs PV), <strong>¿la cartera aguanta?</strong> (CxC y vencido) y <strong>¿quién empuja el resultado?</strong> (vendedores y clientes). Use el filtro de periodo para alinear la lectura con cierres y comités.</p>
+    <div class="exec-pills">
+      <span class="exec-pill">Liquidez implícita · cobros vs facturación</span>
+      <span class="exec-pill">Riesgo · % vencido</span>
+      <span class="exec-pill">Ejecución · pipeline cotizaciones</span>
+    </div>
+  </section>
+
   <!-- Intelligence bar -->
   <div class="intel-bar">
     <div class="intel-icon"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></div>
     <div class="intel-body">
       <div class="intel-title">Inteligencia Ejecutiva &#8211; Resumen del D&#237;a</div>
       <div class="intel-text" id="intel-text">Cargando an&#225;lisis...</div>
+    </div>
+    <div class="exec-score-wrap dash-sem-host dash-sem-neutral" id="dir-exec-score">
+      <div class="exec-score-lbl">&Iacute;ndice direcci&oacute;n</div>
+      <div class="exec-score-val" id="dir-exec-val">&mdash;</div>
+      <div class="exec-score-bar"><div class="exec-score-bar-f" id="dir-exec-bar" style="width:0%"></div></div>
+      <div class="exec-score-formula" id="dir-exec-sub">Mes vs ideal, CxC, hoy, rotaci&oacute;n V/CxC</div>
     </div>
   </div>
 
@@ -210,7 +248,10 @@ nav{display:flex;align-items:center;gap:.25rem}
     <div class="card">
       <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></svg>Ventas Diarias (VE + PV)</div><div class="card-badge">30 d&iacute;as</div></div>
       <div class="card-body">
-        <div class="chart-wrap"><canvas id="chartVentas"></canvas></div>
+        <div class="chart-wrap">
+          <canvas id="chartVentas"></canvas>
+          <div id="chartVentas-empty" class="chart-empty-msg" style="display:none">Sin ventas diarias en este rango.<br><span style="opacity:.85">Amplía el periodo en la barra de filtros o revisa otra empresa.</span></div>
+        </div>
         <div id="chartVentas-meta-ref" class="meta-ref"></div>
       </div>
     </div>
@@ -222,7 +263,19 @@ nav{display:flex;align-items:center;gap:.25rem}
 
   <div class="grid-2">
     <div class="card">
-      <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>Top Clientes</div><div class="card-badge" id="badge-top-clientes">Periodo filtrado</div></div>
+      <div class="card-head">
+        <div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>Top clientes</div>
+        <div class="top-dir-wrap">
+          <div class="card-badge" style="padding:4px 6px;display:flex;gap:3px;flex-wrap:wrap;border:none;background:transparent">
+            <button type="button" class="top-dir-btn on" data-top="10" onclick="setDirTopCli(10)">10</button>
+            <button type="button" class="top-dir-btn" data-top="20" onclick="setDirTopCli(20)">20</button>
+            <button type="button" class="top-dir-btn" data-top="30" onclick="setDirTopCli(30)">30</button>
+            <button type="button" class="top-dir-btn" data-top="40" onclick="setDirTopCli(40)">40</button>
+            <button type="button" class="top-dir-btn" data-top="50" onclick="setDirTopCli(50)">50</button>
+          </div>
+          <div class="card-badge" id="badge-top-clientes">Periodo filtrado</div>
+        </div>
+      </div>
       <div class="card-body" style="padding:0">
         <table class="tbl" id="tbl-clientes">
           <thead><tr><th>#</th><th>Cliente</th><th class="num">Ventas Mes</th><th class="num">Docs</th></tr></thead>
@@ -249,6 +302,36 @@ async function fetchJson(url,fallback={}){
   try{const r=await fetch(url);if(!r.ok)throw new Error(String(r.status));return await r.json();}catch(_){return fallback;}
 }
 let chartVentas;
+let topDirCliLimit = 10;
+
+function isLaborDay(d) {
+  const x = d instanceof Date ? new Date(d) : new Date(d);
+  if (isNaN(x.getTime())) return false;
+  const wd = x.getDay();
+  return wd >= 1 && wd <= 6;
+}
+function countLaborDaysMonthToDate() {
+  const end = new Date();
+  const y = end.getFullYear(), m = end.getMonth(), last = end.getDate();
+  let n = 0;
+  for (let day = 1; day <= last; day++) {
+    if (isLaborDay(new Date(y, m, day, 12, 0, 0))) n++;
+  }
+  return Math.max(n, 1);
+}
+function getVendedoresEnContexto(metaObj) {
+  const p = (typeof filterGetParams === 'function') ? filterGetParams() : {};
+  if (p.vendedor != null && String(p.vendedor).trim() !== '') return 1;
+  const n = +(metaObj && metaObj.NUM_VENDEDORES) || 1;
+  return Math.max(n, 1);
+}
+function setDirTopCli(n) {
+  topDirCliLimit = n;
+  document.querySelectorAll('.top-dir-btn').forEach(b => {
+    b.classList.toggle('on', +b.getAttribute('data-top') === n);
+  });
+  loadClientes();
+}
 
 // -- Helper: URL con filtros ------------------------------------------------
 function buildApiUrl(path, extra) {
@@ -288,6 +371,42 @@ function labelPeriodoFiltro(){
   return 'Periodo filtrado';
 }
 
+function applyDirKpiSem(valueId, level){
+  const v = document.getElementById(valueId);
+  if (typeof dashboardApplySem === 'function' && v) {
+    const card = v.closest('.kpi-card');
+    if (card) dashboardApplySem(card, level);
+  }
+}
+
+/** 0\u2013100: peso mes vs ideal, % vencido CxC, venta hoy, relaci\u00f3n ventas/CxC */
+function computeDirectorExecScore(o){
+  const subMes = Math.min(100, Math.max(0, +o.pMesIdeal || 0));
+  const subHoy = !o.hoyLabor ? 78 : Math.min(100, Math.max(0, +o.pHoy || 0));
+  const pv = Math.max(0, +o.pVenc || 0);
+  const subCxC = Math.max(0, 100 - pv * 2);
+  const rel = +o.relN || 0;
+  const subRel = rel >= 0.3 ? 100 : rel >= 0.15 ? 65 : 35;
+  const raw = 0.40 * subMes + 0.20 * subHoy + 0.28 * subCxC + 0.12 * subRel;
+  return Math.round(Math.min(100, Math.max(0, raw)));
+}
+
+function renderDirectorExecScore(score){
+  const wrap = document.getElementById('dir-exec-score');
+  const valEl = document.getElementById('dir-exec-val');
+  const bar = document.getElementById('dir-exec-bar');
+  const sub = document.getElementById('dir-exec-sub');
+  if (!valEl || !bar) return;
+  valEl.textContent = score;
+  bar.style.width = score + '%';
+  const col = score >= 75 ? 'var(--green)' : score >= 50 ? 'var(--yellow)' : 'var(--red)';
+  bar.style.background = col;
+  if (sub) sub.textContent = 'Pesos: mes vs ideal 40% \u00b7 vencido CxC 28% \u00b7 venta hoy 20% \u00b7 rotaci\u00f3n V/CxC 12%';
+  if (typeof dashboardApplySem === 'function' && wrap) {
+    dashboardApplySem(wrap, score >= 75 ? 'ok' : score >= 50 ? 'warn' : 'danger');
+  }
+}
+
 async function loadAll() {
   try {
     setText('badge-top-clientes', labelPeriodoFiltro());
@@ -299,25 +418,38 @@ async function loadAll() {
     // reasignar cxc desde director si cxcObj falla
     const cxc   = (cxcObj && Object.keys(cxcObj).length>0) ? cxcObj : (dir.cxc||{});
     const v = dir.ventas||{}, c = cxc, co = dir.cotizaciones||{};
-    const meta = +(metas.META_TOTAL_DIARIA||5650);
-    const ideal = +(metas.META_IDEAL_TOTAL||6215);
-    const dias = new Date().getDate();
+    const nV = getVendedoresEnContexto(metas);
+    const metaBase = +(metas.META_DIARIA_POR_VENDEDOR||5650);
+    const idealBase = +(metas.META_IDEAL_POR_VENDEDOR||metaBase*1.3);
+    const metaDia = metaBase * nV;
+    const idealDia = idealBase * nV;
+    const laborMes = countLaborDaysMonthToDate();
+    const denomIdealMes = Math.max(idealDia * laborMes, 1);
 
     const ventaHoy=+(v.HOY||0);
     const ventaMes=+(v.MES_ACTUAL||0);
-    const pHoy=meta>0?Math.round(ventaHoy/meta*100):0;
-    const pMesIdeal=ideal*dias>0?Math.round(ventaMes/(ideal*dias)*100):0;
-    const mesBase=meta*(new Date().getDate()*22/30);
+    const hoyLabor = isLaborDay(new Date());
+    const pHoy = (metaDia > 0 && hoyLabor) ? Math.round(ventaHoy/metaDia*100) : (metaDia > 0 && !hoyLabor ? 0 : 0);
+    const pMesIdeal = Math.round(ventaMes/denomIdealMes*100);
+    const mesBase = metaDia * laborMes;
     const pMesBase=mesBase>0?Math.round(ventaMes/mesBase*100):0;
 
     setText('v-hoy', fmtK(ventaHoy));
-    setText('v-hoy-sub', `Meta: ${fmtK(meta)}`);
-    setBarColor('bar-hoy','pct-hoy',pHoy);
-    setSem('sem-hoy',pHoy>=100?'ok':pHoy>=70?'warn':'danger',pHoy>=100?'\u2713 Meta cumplida':pHoy>=70?'En progreso':'Bajo meta');
+    setText('v-hoy-sub', !hoyLabor ? 'Día no laboral · meta diaria en 0' : `Meta equipo (laboral): ${fmtK(metaDia)}`);
+    if (!hoyLabor) {
+      const bh = document.getElementById('bar-hoy');
+      if (bh) { bh.style.width = '0%'; bh.style.background = 'var(--muted)'; }
+      const pe = document.getElementById('pct-hoy');
+      if (pe) pe.innerHTML = '<span style="color:var(--muted)">Meta no aplica en domingo</span>';
+      setSem('sem-hoy','info','Domingo / sin meta');
+    } else {
+      setBarColor('bar-hoy','pct-hoy',pHoy);
+      setSem('sem-hoy',pHoy>=100?'ok':pHoy>=70?'warn':'danger',pHoy>=100?'\u2713 Meta cumplida':pHoy>=70?'En progreso':'Bajo meta');
+    }
 
     setText('v-mes', fmtK(ventaMes));
     setBarColor('bar-mes','pct-mes',pMesIdeal);
-    setText('v-mes-sub', `${v.FACTURAS_MES||0} docs y meta ideal acum.`);
+    setText('v-mes-sub', `${v.FACTURAS_MES||0} docs · ideal acum. (${laborMes} d. lab.)`);
     setSem('sem-mes',pMesIdeal>=100?'ok':pMesIdeal>=70?'warn':'danger',pMesIdeal+'% vs ideal');
 
     // Canal split
@@ -355,7 +487,7 @@ async function loadAll() {
     setText('cxc-vencido', fmtK(cVenc));
     const ncv = (cxc.NUM_CLIENTES_VENCIDOS != null && cxc.NUM_CLIENTES_VENCIDOS !== '') ? cxc.NUM_CLIENTES_VENCIDOS : '\u2014';
     setText('cxc-pct-venc', cTotal>0?`${pVenc}% del total \u00b7 ${ncv} clientes c/vencido`:'Sin datos');
-    setSem('sem-venc',pVenc>50?'danger':pVenc>25?'warn':'ok',pVenc>50?'✓ Cartera crítica':pVenc>25?'✓ Atención':pVenc+'% vencido');
+    setSem('sem-venc',pVenc>50?'danger':pVenc>25?'warn':'ok',pVenc>50?'Cartera crítica':pVenc>25?'Atención cobranza':pVenc+'% vencido');
     setText('cxc-vigente', fmtK(cVig));
     setText('cxc-pct-vig', cTotal>0?`${pVigSafe}% vigente`:'-');
     setSem('sem-vig',pVigSafe>=60?'ok':pVigSafe>=40?'warn':'danger',pVigSafe+'% vigente');
@@ -363,10 +495,25 @@ async function loadAll() {
     setText('rel-vcxc', relN?relN+'x':'-');
     setSem('sem-rel',relN>=0.3?'ok':relN>=0.15?'warn':'danger',relN>=0.3?'Rotaci\u00f3n buena':relN>=0.15?'Rotaci\u00f3n media':'Rotaci\u00f3n baja');
 
+    if (typeof dashboardApplySem === 'function') {
+      applyDirKpiSem('v-hoy', !hoyLabor ? 'neutral' : (pHoy >= 100 ? 'ok' : pHoy >= 70 ? 'warn' : 'danger'));
+      applyDirKpiSem('v-mes', pMesIdeal >= 100 ? 'ok' : pMesIdeal >= 70 ? 'warn' : 'danger');
+      applyDirKpiSem('v-mes-ve', 'info');
+      applyDirKpiSem('v-mes-pv', 'info');
+      const cotOk = (cotiN > 0 || cotiMesN > 0);
+      applyDirKpiSem('coti-hoy', cotOk ? 'ok' : 'warn');
+      applyDirKpiSem('v-docs', 'info');
+      applyDirKpiSem('cxc-total', cTotal > 0 ? 'info' : 'neutral');
+      applyDirKpiSem('cxc-vencido', pVenc > 50 ? 'danger' : pVenc > 25 ? 'warn' : 'ok');
+      applyDirKpiSem('cxc-vigente', pVigSafe >= 60 ? 'ok' : pVigSafe >= 40 ? 'warn' : 'danger');
+      applyDirKpiSem('rel-vcxc', relN >= 0.3 ? 'ok' : relN >= 0.15 ? 'warn' : 'danger');
+      renderDirectorExecScore(computeDirectorExecScore({ pMesIdeal, pHoy, hoyLabor, pVenc, relN }));
+    }
+
     // BI Intelligence text
     const parts=[];
     const hColor=pHoy>=100?'hi-green':pHoy>=70?'hi-yellow':'hi-red';
-    parts.push(`Venta de hoy: <strong class="${hColor}">${fmtK(ventaHoy)} (${pHoy}% de meta ${fmtK(meta)})</strong>.`);
+    parts.push(`Venta de hoy: <strong class="${hColor}">${fmtK(ventaHoy)}</strong> (${!hoyLabor ? 'día no laboral' : pHoy + '% de meta ' + fmtK(metaDia)}).`);
     parts.push(`Venta del mes: <strong class="${pMesBase>=100?'hi-green':pMesBase>=70?'hi-yellow':'hi-red'}">${fmtK(ventaMes)}</strong> &#8211; industrial <strong>${fmtK(ventaVE)}</strong> (${pVE}%) + mostrador <strong>${fmtK(ventaPV)}</strong>.`);
     const cxcColor=pVenc>50?'hi-red':pVenc>25?'hi-yellow':'hi-green';
     parts.push(`CxC: cartera total <strong class="hi-blue">${fmtK(cTotal)}</strong> &#8211; vencido <strong class="${cxcColor}">${fmtK(cVenc)} (${pVenc}%)</strong> &#8211; vigente ${fmtK(cVig)}.`);
@@ -375,7 +522,18 @@ async function loadAll() {
     else parts.push(`<strong class="hi-green">&#10003; Sistema operando normalmente.</strong> ${pVenc<=25?'Cartera saludable.':'Monitorear cobranza.'}`);
     setHtml('intel-text', parts.join(' '));
 
-  } catch(e){ console.error('resumen',e); setText('page-sub','Error cargando datos: '+e.message); }
+  } catch(e){
+    console.error('resumen',e);
+    setText('page-sub','Error cargando datos: '+e.message);
+    const vExec = document.getElementById('dir-exec-val');
+    const bExec = document.getElementById('dir-exec-bar');
+    if (vExec) vExec.textContent = '\u2014';
+    if (bExec) { bExec.style.width = '0%'; bExec.style.background = 'var(--muted)'; }
+    if (typeof dashboardApplySem === 'function') {
+      const w = document.getElementById('dir-exec-score');
+      if (w) dashboardApplySem(w, 'neutral');
+    }
+  }
 
   await Promise.all([loadDiarias(), loadVendedores(), loadClientes(), loadRecientes()]);
   setText('page-sub', `Actualizado: ${new Date().toLocaleTimeString('es-MX')}`);
@@ -385,8 +543,20 @@ async function loadDiarias() {
   try {
     const url = buildApiUrl('/api/director/ventas-diarias', 'dias=30');
     const rows = await fetchJson(url, []);
-    if (!Array.isArray(rows)) return;
-    const labels = rows.map(r=>{ const d=new Date(r.DIA); return `${d.getDate()}/${MESES[d.getMonth()]}`; });
+    const emptyEl = document.getElementById('chartVentas-empty');
+    if (!Array.isArray(rows) || !rows.length) {
+      if (emptyEl) emptyEl.style.display = 'grid';
+      if (chartVentas) { try { chartVentas.destroy(); } catch(_){} chartVentas = null; }
+      const metaRefEl = document.getElementById('chartVentas-meta-ref');
+      if (metaRefEl) metaRefEl.innerHTML = '';
+      return;
+    }
+    if (emptyEl) emptyEl.style.display = 'none';
+    const labels = rows.map(r=>{
+      const raw = r.DIA;
+      const d = (raw instanceof Date) ? raw : new Date(typeof raw === 'string' && raw.includes('-') ? raw.substring(0,10)+'T12:00:00' : raw);
+      return `${d.getDate()}/${MESES[d.getMonth()]}`;
+    });
     const metaArr = rows.map(r=> r.META_EQUILIBRIO != null ? r.META_EQUILIBRIO : 0);
     const idealArr = rows.map(r=> r.META_IDEAL != null ? r.META_IDEAL : 0);
     const metaSample = metaArr.find(m=> m > 0) || 0;
@@ -417,8 +587,14 @@ async function loadDiarias() {
 
 async function loadVendedores() {
   try {
-    const rows = await fetchJson(buildApiUrl('/api/director/vendedores'), []);
-    if (!Array.isArray(rows)) return;
+    const rawV = await fetchJson(buildApiUrl('/api/director/vendedores'), []);
+    if (!Array.isArray(rawV)) {
+      const el0 = document.getElementById('vendedores-list');
+      if (el0) el0.innerHTML = '<div style="text-align:center;color:var(--muted);padding:1.5rem">Sin datos</div>';
+      setText('vend-badge', '\u2014');
+      return;
+    }
+    const rows = rawV.slice().sort((a,b)=>(+b.VENTAS_MES||0)-(+a.VENTAS_MES||0));
     const max = rows.reduce((m,r)=>Math.max(m,+(r.VENTAS_MES||0)),0);
     const el = document.getElementById('vendedores-list');
     el.innerHTML = rows.length ? `<div class="vendor-list">${rows.map((r,i)=>{
@@ -437,13 +613,15 @@ async function loadVendedores() {
 
 async function loadClientes() {
   try {
-    const rows = await fetchJson(buildApiUrl('/api/director/top-clientes', 'limit=10'), []);
+    const rows = await fetchJson(buildApiUrl('/api/director/top-clientes', 'limit=' + topDirCliLimit), []);
     if (!Array.isArray(rows)) return;
+    const tot = r => +(r.TOTAL_VENTAS ?? r.TOTAL ?? r.IMPORTE_NETO ?? 0);
+    const docs = r => +(r.NUM_FACTURAS ?? r.FACTURAS ?? r.DOCS ?? 0);
     document.querySelector('#tbl-clientes tbody').innerHTML = rows.map((r,i)=>`<tr>
       <td><span class="rank-num">${i+1}</span></td>
-      <td class="lbl">${r.CLIENTE}</td>
-      <td class="num">${fmt(r.TOTAL_VENTAS)}</td>
-      <td class="num">${r.NUM_FACTURAS}</td>
+      <td class="lbl">${r.CLIENTE || '—'}</td>
+      <td class="num">${fmt(tot(r))}</td>
+      <td class="num">${docs(r).toLocaleString('es-MX')}</td>
     </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sin datos</td></tr>';
   } catch(e){}
 }

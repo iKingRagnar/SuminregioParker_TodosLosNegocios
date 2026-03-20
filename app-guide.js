@@ -10,7 +10,7 @@
     {
       href: null,
       title: 'Bienvenida',
-      body: 'Aquí tienes el menú principal del panel. Puedes cambiar de módulo en cualquier momento; el filtro de empresa (.fdb) y el periodo se conservan al navegar cuando aplica.'
+      body: 'Aquí tienes el menú principal del panel. Puedes cambiar de módulo en cualquier momento; el negocio seleccionado y el periodo se conservan al navegar cuando aplica.'
     },
     {
       href: 'index.html',
@@ -20,7 +20,7 @@
     {
       href: 'director.html',
       title: 'Director',
-      body: 'Resumen ejecutivo: ventas, CxC, gráficas y vendedores en un solo vistazo.'
+      body: 'Vista de dirección: ventas vs meta, salud de cartera (CxC), tendencia diaria VE+PV, ranking de vendedores y clientes. Pensada para comités rápidos y seguimiento de riesgo.'
     },
     {
       href: 'ventas.html',
@@ -30,7 +30,7 @@
     {
       href: 'consumos.html',
       title: 'Consumos',
-      body: 'Seguimiento de consumos y movimientos asociados.'
+      body: 'Consumo en unidades para compras y almacén: ritmo, concentración, cobertura vs existencia y riesgo de quiebre.'
     },
     {
       href: 'cobradas.html',
@@ -68,7 +68,7 @@
     {
       id: 'n-empresa',
       title: 'Selector de empresa',
-      body: 'Si hay varias bases Firebird, usa la barra "Negocio" bajo el menú para cambiar de .fdb; la URL lleva ?db= para compartir el contexto.',
+      body: 'Si hay varias bases Firebird, usa la barra "Negocio" bajo el menú para cambiar de empresa; la URL lleva ?db= para compartir el contexto.',
       t: 1
     },
     {
@@ -144,17 +144,32 @@
       '.app-tour-root{position:fixed;inset:0;z-index:10040}' +
       '.app-tour-root.hidden{display:none!important}' +
       '.app-tour-backdrop{position:absolute;inset:0;background:rgba(4,8,16,.82);backdrop-filter:blur(2px)}' +
+      '@keyframes appTourIn{from{opacity:0;transform:translateX(-50%) translateY(16px) scale(.98)}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}' +
       '.app-tour-popover{position:absolute;left:50%;bottom:max(12%,80px);transform:translateX(-50%);' +
-      'width:min(400px,calc(100vw - 2rem));padding:1.15rem 1.2rem;border-radius:14px;' +
-      'background:rgba(14,24,38,.98);border:1px solid var(--border2,rgba(255,255,255,.12));' +
-      'box-shadow:0 20px 50px rgba(0,0,0,.5)}' +
-      '.app-tour-popover h3{margin:0 0 .5rem;font-size:1rem;font-weight:700;color:var(--text,#EDF4FF)}' +
-      '.app-tour-popover p{margin:0 0 1rem;font-size:.8rem;line-height:1.55;color:var(--text2,#93B4CC)}' +
+      'width:min(420px,calc(100vw - 2rem));padding:0;border-radius:18px;overflow:hidden;' +
+      'background:linear-gradient(165deg,rgba(18,32,52,.98) 0%,rgba(10,18,30,.99) 100%);' +
+      'border:1px solid rgba(255,255,255,.1);' +
+      'box-shadow:0 28px 80px rgba(0,0,0,.55),0 0 0 1px rgba(245,124,0,.08) inset;' +
+      'animation:appTourIn .45s cubic-bezier(.22,1,.36,1) both}' +
+      '.app-tour-accent{height:4px;background:linear-gradient(90deg,#f57c00,#ffb800,#1e7fd9,#00e5a0);opacity:.95}' +
+      '.app-tour-progress-track{height:3px;background:rgba(255,255,255,.06);margin:0}' +
+      '.app-tour-progress-fill{height:100%;width:0%;background:linear-gradient(90deg,#f57c00,#ffb800);transition:width .35s ease}' +
+      '.app-tour-popover-inner{padding:1.15rem 1.25rem 1.1rem}' +
+      '.app-tour-popover h3{margin:0 0 .55rem;font-size:1.05rem;font-weight:800;letter-spacing:-.02em;color:var(--text,#EDF4FF)}' +
+      '.app-tour-popover p{margin:0 0 1rem;font-size:.82rem;line-height:1.6;color:var(--text2,#93B4CC)}' +
       '.app-tour-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;align-items:center}' +
       '.app-tour-actions button{font-family:inherit;font-size:.74rem;padding:.45rem .85rem;border-radius:8px;cursor:pointer;border:1px solid var(--border2);background:transparent;color:var(--text2)}' +
       '.app-tour-actions button.primary{background:var(--orange,#F57C00);border-color:var(--orange);color:#0a0f16;font-weight:600}' +
       '.app-tour-actions button:hover{filter:brightness(1.08)}' +
-      '.app-tour-progress{font-size:.62rem;color:var(--muted);margin-top:.75rem;font-family:ui-monospace,monospace}' +
+      '.app-tour-progress{font-size:.62rem;color:var(--muted);margin-top:.85rem;font-family:ui-monospace,monospace}' +
+      'html[data-theme=light] .app-tour-backdrop{background:rgba(248,250,252,.93)}' +
+      'html[data-theme=light] .app-tour-popover{background:#fff;border-color:rgba(15,23,42,.12);box-shadow:0 28px 80px rgba(15,23,42,.12)}' +
+      'html[data-theme=light] .app-tour-popover h3{color:#0f172a}' +
+      'html[data-theme=light] .app-tour-popover p{color:#475569}' +
+      'html[data-theme=light] .app-tour-actions button{color:#334155;border-color:rgba(15,23,42,.15);background:rgba(15,23,42,.04)}' +
+      'html[data-theme=light] .app-tour-actions button.primary{color:#0a0f16}' +
+      'html[data-theme=light] .app-tour-progress{color:#64748b}' +
+      'html[data-theme=light] .app-tour-progress-track{background:rgba(15,23,42,.08)}' +
       'a.nav-link.app-tour-highlight{position:relative;z-index:10045;outline:2px solid var(--orange,#F57C00);outline-offset:3px;border-radius:8px;box-shadow:0 0 0 4px rgba(245,124,0,.2)}' +
       '.app-shortcuts-root{position:fixed;inset:0;z-index:10038;display:flex;align-items:center;justify-content:center;padding:1rem}' +
       '.app-shortcuts-root.hidden{display:none!important}' +
@@ -208,6 +223,9 @@
     if (title) title.textContent = step.title;
     if (body) body.textContent = step.body;
     if (prog) prog.textContent = 'Paso ' + (tourIndex + 1) + ' de ' + tourSteps.length;
+    var pfill = document.getElementById('app-tour-progress-fill');
+    if (pfill && tourSteps.length)
+      pfill.style.width = (100 * (tourIndex + 1)) / tourSteps.length + '%';
     if (btnPrev) btnPrev.style.visibility = tourIndex <= 0 ? 'hidden' : 'visible';
     if (btnNext) btnNext.textContent = tourIndex >= tourSteps.length - 1 ? 'Listo' : 'Siguiente';
     if (step.el) {
@@ -256,6 +274,9 @@
       '<div id="app-tour-root" class="app-tour-root hidden" aria-hidden="true">' +
         '<div class="app-tour-backdrop" id="app-tour-backdrop"></div>' +
         '<div class="app-tour-popover" role="dialog" aria-modal="true" aria-labelledby="app-tour-title">' +
+        '<div class="app-tour-accent"></div>' +
+        '<div class="app-tour-progress-track"><div class="app-tour-progress-fill" id="app-tour-progress-fill"></div></div>' +
+        '<div class="app-tour-popover-inner">' +
         '<h3 id="app-tour-title"></h3>' +
         '<p id="app-tour-body"></p>' +
         '<div class="app-tour-actions">' +
@@ -264,7 +285,7 @@
         '<button type="button" id="app-tour-next" class="primary">Siguiente</button>' +
         '</div>' +
         '<div class="app-tour-progress" id="app-tour-progress"></div>' +
-        '</div></div>'
+        '</div></div></div>'
     );
     document.getElementById('app-tour-skip').addEventListener('click', function () {
       closeTour(true);

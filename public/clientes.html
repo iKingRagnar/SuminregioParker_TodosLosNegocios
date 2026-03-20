@@ -288,6 +288,7 @@ function apiDb(rel){
 }
 let chartRiesgoInst = null, chartBucketsInst = null;
 let riesgoData = [], inactivosData = [];
+const clientesSemCtx = { riesgo: [], inactivos: [], res: {} };
 let sortNivelDirection = 1; // 1 = Crítico primero (desc), -1 = Leve primero (asc)
 
 setInterval(()=>{const n=new Date();document.getElementById('reloj').textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');},1000);
@@ -342,15 +343,44 @@ async function loadInactivos(){
   try{
     const inactivos = await fwt(apiDb('/api/clientes/inactivos?limit=100'), [], 15000);
     inactivosData = Array.isArray(inactivos) ? inactivos : [];
+    clientesSemCtx.inactivos = inactivosData;
     renderInactivos(inactivosData);
     document.getElementById('kpiInactivos').textContent = inactivosData.length;
     const potReact = inactivosData.reduce((s,c)=>s+(+c.TICKET_PROMEDIO_MES||0),0);
     document.getElementById('kpiReactivacion').textContent = fmtM(potReact);
+    applyClientesDashSem();
   }catch(e){ console.warn('inactivos',e); }
+}
+
+function applyClientesDashSem(){
+  if (typeof dashboardApplySem !== 'function') return;
+  const res = clientesSemCtx.res || {};
+  const r = clientesSemCtx.riesgo || [];
+  const in_ = clientesSemCtx.inactivos || [];
+  const montoCritico = +res.MONTO_CRITICO || 0;
+  const montoAlto = +res.MONTO_ALTO || 0;
+  const exposicion = montoCritico + montoAlto + (+res.MONTO_MEDIO || 0) + (+res.MONTO_LEVE || 0);
+  const potReact = in_.reduce((s, c) => s + (+c.TICKET_PROMEDIO_MES || 0), 0);
+  const nRiesgo = +res.TOTAL_EN_RIESGO || r.length;
+  const nin = in_.length;
+  const ring = (id, lvl) => {
+    const el = document.getElementById(id);
+    const box = el && el.closest('.kpi');
+    if (box) dashboardApplySem(box, lvl);
+  };
+  ring('kpiEnRiesgo', nRiesgo === 0 ? 'ok' : nRiesgo <= 8 ? 'warn' : 'danger');
+  ring('kpiMontoCritico', montoCritico <= 0 ? 'ok' : montoCritico >= 250000 ? 'danger' : 'warn');
+  ring('kpiMontoAlto', montoAlto <= 0 ? 'ok' : montoAlto >= 150000 ? 'danger' : 'warn');
+  ring('kpiInactivos', nin === 0 ? 'ok' : nin <= 12 ? 'warn' : 'danger');
+  ring('kpiReactivacion', potReact > 0 ? 'info' : 'neutral');
+  ring('kpiExposicion', exposicion <= 0 ? 'ok' : exposicion >= 400000 ? 'danger' : 'warn');
 }
 
 function renderKPIs(r,in_,res){
   if(!res) res={};
+  clientesSemCtx.riesgo = r || [];
+  clientesSemCtx.inactivos = in_ || [];
+  clientesSemCtx.res = res;
   const montoCritico = +res.MONTO_CRITICO||0;
   const montoAlto    = +res.MONTO_ALTO||0;
   const exposicion   = (montoCritico)+(montoAlto)+(+res.MONTO_MEDIO||0)+(+res.MONTO_LEVE||0);
@@ -367,6 +397,7 @@ function renderKPIs(r,in_,res){
   if(kpiReactivacion) kpiReactivacion.textContent = fmtM(potReact);
   const kpiExposicion = document.getElementById('kpiExposicion');
   if(kpiExposicion) kpiExposicion.textContent = fmtM(exposicion);
+  applyClientesDashSem();
 }
 
 function nivelFromDias(maxDias){
