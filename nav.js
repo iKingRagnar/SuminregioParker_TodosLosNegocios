@@ -23,7 +23,7 @@
     return p === '' ? 'index.html' : p;
   }
 
-  /** Mantiene ?db= al cambiar de módulo (Inicio → CxC, etc.). */
+  /** Mantiene ?db= al cambiar de m�dulo (Inicio ? CxC, etc.). */
   function navHref(href) {
     let db = '';
     try {
@@ -43,9 +43,14 @@
     const cur = currentPage();
     return PAGES.map(p => {
       const active = cur === p.href ? ' active' : '';
-      return `<a href="${navHref(p.href)}" class="nav-link${active}">${svgIcon(p.icon)}${p.label}</a>`;
+      return `<a href="${navHref(p.href)}" class="nav-link${active}" data-app-tour="${p.href}">${svgIcon(p.icon)}${p.label}</a>`;
     }).join('');
   }
+
+  const icSun = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
+  const icMoon = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+  const icMap = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>';
+  const icBell = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>';
 
   function buildHeader() {
     return `<header id="app-header">
@@ -64,12 +69,52 @@
     <nav id="main-nav">
       ${buildNavLinks()}
     </nav>
+    <div class="nav-aux-wrap" id="nav-aux-wrap">
+      <button type="button" class="nav-aux-btn" id="app-theme-toggle" aria-label="Tema claro u oscuro" title="Tema">${icSun}</button>
+      <button type="button" class="nav-aux-btn" id="app-shortcuts-open" aria-label="Atajos de teclado" title="Atajos (? )">?</button>
+      <button type="button" class="nav-aux-btn" id="app-tour-start" aria-label="Tour guiado por m�dulos" title="Tour">${icMap}</button>
+      <button type="button" class="nav-aux-btn" id="app-notif-toggle" aria-label="Avisos" aria-expanded="false" title="Avisos">${icBell}<span id="app-notif-badge" class="app-notif-badge hidden">0</span></button>
+    </div>
     <div class="header-right">
       <div class="live-pill"><div class="live-dot"></div>Live</div>
       <div class="clock" id="reloj">--:--:--</div>
     </div>
   </div>
 </header>`;
+  }
+
+  const LS_THEME = 'microsip_theme';
+  function applyNavTheme() {
+    let t = 'dark';
+    try { t = localStorage.getItem(LS_THEME) || 'dark'; } catch (_) {}
+    const light = t === 'light';
+    document.documentElement.setAttribute('data-theme', light ? 'light' : 'dark');
+    const btn = document.getElementById('app-theme-toggle');
+    if (btn) {
+      btn.innerHTML = light ? icMoon : icSun;
+      btn.title = light ? 'Cambiar a tema oscuro' : 'Cambiar a tema claro';
+    }
+  }
+  function toggleNavTheme() {
+    const light = document.documentElement.getAttribute('data-theme') === 'light';
+    try { localStorage.setItem(LS_THEME, light ? 'dark' : 'light'); } catch (_) {}
+    applyNavTheme();
+  }
+
+  function loadAppGuideScript() {
+    if (typeof window.microsipInitAppGuide === 'function') {
+      window.microsipInitAppGuide();
+      return;
+    }
+    if (document.getElementById('app-guide-loader')) return;
+    const sc = document.createElement('script');
+    sc.id = 'app-guide-loader';
+    sc.src = '/app-guide.js';
+    sc.defer = true;
+    sc.onload = function () {
+      if (typeof window.microsipInitAppGuide === 'function') window.microsipInitAppGuide();
+    };
+    document.body.appendChild(sc);
   }
 
   /* Inject shared CSS variables + header styles if not already present */
@@ -117,7 +162,7 @@ header#app-header {
   border-bottom:1px solid var(--border);
 }
 .header-inner {
-  max-width:1900px;margin:0 auto;height:62px;
+  max-width:1900px;margin:0 auto;height:62px;min-width:0;
   display:flex;align-items:center;justify-content:space-between;
   gap:1rem;padding:0 1.5rem;
 }
@@ -136,7 +181,7 @@ header#app-header {
 
 nav#main-nav {
   display:flex;align-items:center;gap:.15rem;flex-wrap:nowrap;overflow-x:auto;
-  scrollbar-width:none;flex:1;justify-content:center;padding:0 1rem;
+  scrollbar-width:none;flex:1;min-width:0;justify-content:center;padding:0 1rem;
 }
 nav#main-nav::-webkit-scrollbar { display:none; }
 
@@ -169,6 +214,30 @@ nav#main-nav::-webkit-scrollbar { display:none; }
 }
 @keyframes livepulse{0%,100%{opacity:1}50%{opacity:.35}}
 .clock { font-family:'DM Mono',monospace;font-size:.75rem;color:var(--muted);letter-spacing:.04em; }
+
+.nav-aux-wrap{display:flex;align-items:center;gap:.35rem;flex-shrink:0;margin-left:.35rem}
+.nav-aux-btn{position:relative;display:grid;place-items:center;width:36px;height:36px;border-radius:9px;border:1px solid var(--border2);background:rgba(255,255,255,.05);color:var(--text2);cursor:pointer;transition:background .15s,border-color .15s,color .15s;font-weight:700;font-size:.85rem;font-family:inherit;padding:0;line-height:1}
+.nav-aux-btn:hover{color:var(--text);background:var(--s2);border-color:rgba(245,124,0,.35)}
+
+.microsip-skip-link{position:absolute;left:-9999px;top:0;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+.microsip-skip-link:focus{position:fixed;left:12px;top:12px;z-index:20000;width:auto;height:auto;clip:auto;overflow:visible;padding:10px 16px;background:#0f172a;color:#fff;border-radius:8px;text-decoration:none;outline:2px solid var(--orange)}
+
+html[data-theme="light"]{
+  --bg:#f0f5fa;--s1:#ffffff;--s2:#e8eef6;--s3:#dce6f0;--s4:#cfd9e8;
+  --border:rgba(15,23,42,.08);--border2:rgba(15,23,42,.12);
+  --text:#0f172a;--text2:#334155;--muted:#64748b;--dim:#e2e8f0;
+}
+html[data-theme="light"] body{background:var(--bg)!important;color:var(--text)!important}
+html[data-theme="light"] header#app-header{background:rgba(255,255,255,.96);border-bottom-color:var(--border2)}
+html[data-theme="light"] .logo-sub{color:var(--muted)}
+html[data-theme="light"] .nav-link{color:var(--muted)}
+html[data-theme="light"] .nav-link:hover{color:var(--text2);background:var(--s2)}
+html[data-theme="light"] .nav-link.active{color:#b45309;background:rgba(251,191,36,.15);border-color:rgba(217,119,6,.35)}
+html[data-theme="light"] .live-pill{background:rgba(30,127,217,.1);border-color:rgba(30,127,217,.25);color:var(--blue)}
+html[data-theme="light"] .clock{color:var(--muted)}
+html[data-theme="light"] .orb{opacity:.06!important}
+html[data-theme="light"] .nav-aux-btn{background:rgba(15,23,42,.04);color:var(--text2);border-color:var(--border2)}
+html[data-theme="light"] .microsip-skip-link:focus{background:#0f172a;color:#fff}
 `;
     document.head.appendChild(style); // Append last so brand vars override page vars
   }
@@ -176,13 +245,25 @@ nav#main-nav::-webkit-scrollbar { display:none; }
   /* Replace or inject header */
   function inject() {
     injectSharedStyles();
+    if (!document.getElementById('microsip-skip')) {
+      document.body.insertAdjacentHTML(
+        'afterbegin',
+        '<a id="microsip-skip" class="microsip-skip-link" href="#app-main-content">Ir al contenido</a>'
+      );
+    }
+    const skipEl = document.getElementById('microsip-skip');
     const existing = document.querySelector('header');
     const html = buildHeader();
     if (existing) {
       existing.outerHTML = html;
+    } else if (skipEl) {
+      skipEl.insertAdjacentHTML('afterend', html);
     } else {
       document.body.insertAdjacentHTML('afterbegin', html);
     }
+
+    const mainEl = document.querySelector('main') || document.querySelector('.page');
+    if (mainEl && !mainEl.id) mainEl.id = 'app-main-content';
 
     // Start clock
     const clockEl = document.getElementById('reloj');
@@ -198,14 +279,22 @@ nav#main-nav::-webkit-scrollbar { display:none; }
       setInterval(tick, 1000);
     }
 
+    const themeBtn = document.getElementById('app-theme-toggle');
+    if (themeBtn) {
+      themeBtn.addEventListener('click', toggleNavTheme);
+    }
+    applyNavTheme();
+
     injectAiAssistant();
+
+    loadAppGuideScript();
 
     if (typeof window.initGlobalDbBarAfterNav === 'function') {
       window.initGlobalDbBarAfterNav(document.getElementById('app-header'));
     }
   }
 
-  /** Widget IA: mismos IDs que sistema-cotizacion-web (#ai-widget-wrap, #ai-fab, …). */
+  /** Widget IA: mismos IDs que sistema-cotizacion-web (#ai-widget-wrap, #ai-fab, �). */
   function injectAiAssistant() {
     if (document.getElementById('ai-widget-wrap')) return;
 
