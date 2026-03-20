@@ -113,27 +113,8 @@ nav{display:flex;align-items:center;gap:.25rem}
 </style>
 </head>
 <body>
+<script src="nav.js"></script>
 <div class="bg-orbs"><div class="orb orb-1"></div><div class="orb orb-2"></div></div>
-
-<header>
-  <div class="header-inner">
-    <a href="index.html" class="logo">
-      <div class="logo-icon"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg></div>
-      <div><div class="logo-text">Suminregio Parker</div><div class="logo-sub">ERP Dashboard</div></div>
-    </a>
-    <nav>
-      <a href="index.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>Inicio</a>
-      <a href="director.html" class="nav-link active"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>Director</a>
-      <a href="ventas.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96C5 16.1 6.9 18 9 18h12v-2H9.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63H19c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0023.46 5H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>Ventas</a>
-      <a href="cxc.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>CXC</a>
-      <a href="inventario.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M20 7H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zm-8 9c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zM4 3h16v2H4z"/></svg>Inventario</a>
-    </nav>
-    <div class="header-right">
-      <div class="live-pill"><div class="live-dot"></div>EJECUTIVO</div>
-      <div class="clock" id="clock">--:--:--</div>
-    </div>
-  </div>
-</header>
 
 <div class="page">
   <div class="page-header">
@@ -241,7 +222,7 @@ nav{display:flex;align-items:center;gap:.25rem}
 
   <div class="grid-2">
     <div class="card">
-      <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>Top Clientes (mes)</div><div class="card-badge">Mes actual</div></div>
+      <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>Top Clientes</div><div class="card-badge" id="badge-top-clientes">Periodo filtrado</div></div>
       <div class="card-body" style="padding:0">
         <table class="tbl" id="tbl-clientes">
           <thead><tr><th>#</th><th>Cliente</th><th class="num">Ventas Mes</th><th class="num">Docs</th></tr></thead>
@@ -263,7 +244,10 @@ nav{display:flex;align-items:center;gap:.25rem}
 
 <script>
 const API = (window.__API_BASE != null ? String(window.__API_BASE).replace(/\/+$/, '') : (window.location.protocol === 'file:' ? 'http://localhost:7000' : (window.location.origin || '')));
-function fwt(url,fallback,ms=10000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
+function fwt(url,fallback,ms=10000){return Promise.race([fetch(url).then(r=>{if(!r.ok)throw new Error(String(r.status));return r.json();}).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
+async function fetchJson(url,fallback={}){
+  try{const r=await fetch(url);if(!r.ok)throw new Error(String(r.status));return await r.json();}catch(_){return fallback;}
+}
 let chartVentas;
 
 // -- Helper: URL con filtros ------------------------------------------------
@@ -296,18 +280,22 @@ function setBarColor(barId,pctId,pct,{invert=false}={}){
   if(pctEl){pctEl.innerHTML=`<span style="color:${col};font-weight:600">${pct}%</span> ${label}`}
 }
 
-setInterval(()=>{ document.getElementById('clock').textContent=new Date().toLocaleTimeString('es-MX'); },1000);
+function labelPeriodoFiltro(){
+  const p = (typeof filterGetParams === 'function') ? filterGetParams() : {};
+  if (p.desde && p.hasta) return p.desde === p.hasta ? p.desde : (p.desde + ' \u2013 ' + p.hasta);
+  if (p.anio && p.mes) return (MESES[(+p.mes||1)-1]||p.mes) + ' ' + p.anio;
+  if (p.anio) return 'A\u00f1o ' + p.anio;
+  return 'Periodo filtrado';
+}
 
 async function loadAll() {
   try {
-    const [dirR, cxcR, metR] = await Promise.allSettled([
-      fetch(buildApiUrl('/api/director/resumen')).then(r=>r.json()),
-      fetch(buildApiUrl('/api/cxc/resumen')).then(r=>r.json()),
-      fetch(`${API}/api/config/metas`).then(r=>r.json()),
+    setText('badge-top-clientes', labelPeriodoFiltro());
+    const [dir, cxcObj, metas] = await Promise.all([
+      fetchJson(buildApiUrl('/api/director/resumen')),
+      fetchJson(buildApiUrl('/api/cxc/resumen')),
+      fetchJson(buildApiUrl('/api/config/metas')),
     ]);
-    const dir   = dirR.status==='fulfilled'  ? dirR.value  : {};
-    const cxcObj= cxcR.status==='fulfilled'  ? cxcR.value  : {};
-    const metas = metR.status==='fulfilled'  ? metR.value  : {};
     // reasignar cxc desde director si cxcObj falla
     const cxc   = (cxcObj && Object.keys(cxcObj).length>0) ? cxcObj : (dir.cxc||{});
     const v = dir.ventas||{}, c = cxc, co = dir.cotizaciones||{};
@@ -365,7 +353,8 @@ async function loadAll() {
     setText('cxc-clientes', `${cxc.NUM_CLIENTES||0} clientes activos`);
     setSem('sem-cxc','info',fmtK(cTotal)+' total');
     setText('cxc-vencido', fmtK(cVenc));
-    setText('cxc-pct-venc', cTotal>0?`${pVenc}% del total – ${cxc.NUM_CLIENTES_VENCIDOS||'0'} clientes`:'Sin datos');
+    const ncv = (cxc.NUM_CLIENTES_VENCIDOS != null && cxc.NUM_CLIENTES_VENCIDOS !== '') ? cxc.NUM_CLIENTES_VENCIDOS : '\u2014';
+    setText('cxc-pct-venc', cTotal>0?`${pVenc}% del total \u00b7 ${ncv} clientes c/vencido`:'Sin datos');
     setSem('sem-venc',pVenc>50?'danger':pVenc>25?'warn':'ok',pVenc>50?'✓ Cartera crítica':pVenc>25?'✓ Atención':pVenc+'% vencido');
     setText('cxc-vigente', fmtK(cVig));
     setText('cxc-pct-vig', cTotal>0?`${pVigSafe}% vigente`:'-');
@@ -394,8 +383,9 @@ async function loadAll() {
 
 async function loadDiarias() {
   try {
-    const url = (API || '') + '/api/director/ventas-diarias?dias=30';
-    const rows = await fetch(url).then(r=>r.json());
+    const url = buildApiUrl('/api/director/ventas-diarias', 'dias=30');
+    const rows = await fetchJson(url, []);
+    if (!Array.isArray(rows)) return;
     const labels = rows.map(r=>{ const d=new Date(r.DIA); return `${d.getDate()}/${MESES[d.getMonth()]}`; });
     const metaArr = rows.map(r=> r.META_EQUILIBRIO != null ? r.META_EQUILIBRIO : 0);
     const idealArr = rows.map(r=> r.META_IDEAL != null ? r.META_IDEAL : 0);
@@ -427,7 +417,8 @@ async function loadDiarias() {
 
 async function loadVendedores() {
   try {
-    const rows = await fetch(buildApiUrl('/api/director/vendedores')).then(r=>r.json());
+    const rows = await fetchJson(buildApiUrl('/api/director/vendedores'), []);
+    if (!Array.isArray(rows)) return;
     const max = rows.reduce((m,r)=>Math.max(m,+(r.VENTAS_MES||0)),0);
     const el = document.getElementById('vendedores-list');
     el.innerHTML = rows.length ? `<div class="vendor-list">${rows.map((r,i)=>{
@@ -446,7 +437,8 @@ async function loadVendedores() {
 
 async function loadClientes() {
   try {
-    const rows = await fetch(buildApiUrl('/api/director/top-clientes', 'limit=10')).then(r=>r.json());
+    const rows = await fetchJson(buildApiUrl('/api/director/top-clientes', 'limit=10'), []);
+    if (!Array.isArray(rows)) return;
     document.querySelector('#tbl-clientes tbody').innerHTML = rows.map((r,i)=>`<tr>
       <td><span class="rank-num">${i+1}</span></td>
       <td class="lbl">${r.CLIENTE}</td>
@@ -458,7 +450,8 @@ async function loadClientes() {
 
 async function loadRecientes() {
   try {
-    const rows = await fetch(buildApiUrl('/api/director/recientes', 'limit=15')).then(r=>r.json());
+    const rows = await fetchJson(buildApiUrl('/api/director/recientes', 'limit=15'), []);
+    if (!Array.isArray(rows)) return;
     document.querySelector('#tbl-recientes tbody').innerHTML = rows.map(r=>{
       const src = r.TIPO_SRC==='PV'?'<span class="tipo-badge tipo-pv">PV</span>':'<span class="tipo-badge tipo-ve">VE</span>';
       const fecha = r.FECHA ? new Date(r.FECHA).toLocaleDateString('es-MX') : '&mdash;';
@@ -469,9 +462,8 @@ async function loadRecientes() {
 }
 
 // Carga inicial inmediata
-initFilters({ containerId:'filter-bar', showVendedor:false, onReady:()=>loadAll(), onChange:()=>loadAll() });
+initFilters({ containerId:'filter-bar', showVendedor:true, onReady:()=>loadAll(), onChange:()=>loadAll() });
 setInterval(loadAll, 60000);
 </script>
-<script src="nav.js"></script>
 </body>
 </html>

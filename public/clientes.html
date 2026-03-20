@@ -13,6 +13,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   window.fetch = function(u, o) { o = o || {}; o.headers = Object.assign({}, o.headers, { 'ngrok-skip-browser-warning': '1' }); return _f.call(this, u, o); };
 }
 </script>
+<script src="filters.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -281,6 +282,10 @@ nav{display:flex;align-items:center;gap:.2rem}
 <script>
 // Misma regla que CxC/Inventario: file:// → localhost:7000; si no → mismo origen (remoto/ngrok)
 const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : '';
+function apiDb(rel){
+  const p = rel.startsWith('/') ? rel : '/' + rel;
+  return API + (typeof apiPathWithDb === 'function' ? apiPathWithDb(p) : p);
+}
 let chartRiesgoInst = null, chartBucketsInst = null;
 let riesgoData = [], inactivosData = [];
 let sortNivelDirection = 1; // 1 = Crítico primero (desc), -1 = Leve primero (asc)
@@ -309,8 +314,8 @@ async function loadData(){
   try{
     if(heroSub) heroSub.textContent = 'Conectando con el servidor…';
     const [riesgo, resumen] = await Promise.all([
-      fwt(API+'/api/clientes/riesgo?limit=100', [], 12000),
-      fwt(API+'/api/clientes/resumen-riesgo', {}, 8000),
+      fwt(apiDb('/api/clientes/riesgo?limit=100'), [], 12000),
+      fwt(apiDb('/api/clientes/resumen-riesgo'), {}, 8000),
     ]);
     riesgoData = Array.isArray(riesgo) ? riesgo : [];
     const res = resumen && typeof resumen==='object' ? resumen : {};
@@ -335,7 +340,7 @@ async function loadData(){
 
 async function loadInactivos(){
   try{
-    const inactivos = await fwt(API+'/api/clientes/inactivos?limit=100', [], 15000);
+    const inactivos = await fwt(apiDb('/api/clientes/inactivos?limit=100'), [], 15000);
     inactivosData = Array.isArray(inactivos) ? inactivos : [];
     renderInactivos(inactivosData);
     document.getElementById('kpiInactivos').textContent = inactivosData.length;

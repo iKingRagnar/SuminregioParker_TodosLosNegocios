@@ -337,8 +337,8 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
   <div id="filter-bar"></div>
 
   <!-- Empresa (contexto operativo; siempre que el API registre al menos una base) -->
-  <div class="biz-context-bar" id="bizContextBar" style="display:none" aria-label="Empresa">
-    <span class="biz-context-label" id="bizContextLabel">Empresa</span>
+  <div class="biz-context-bar" id="bizContextBar" style="display:none" aria-label="Base de datos">
+    <span class="biz-context-label" id="bizContextLabel">Base de datos (.fdb)</span>
     <div class="biz-chips" id="bizChips"></div>
   </div>
 
@@ -732,27 +732,26 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 const API = (window.__API_BASE != null ? String(window.__API_BASE).replace(/\/+$/, '') : (window.location.protocol === 'file:' ? 'http://localhost:7000' : (window.location.origin || '')));
 function fwt(url,fallback,ms=10000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
 
-/** Lista de {id,label} desde GET /api/universe/databases (se llena en initBizBar). */
+/** Lista de {id,label,database} desde GET /api/universe/databases (initBizBar). */
 let indexDbList = [];
-function indexDbQueryPart(){
-  try{
-    const db=(new URLSearchParams(window.location.search).get('db')||'').trim();
-    return db?('db='+encodeURIComponent(db)):'';
-  }catch(_){ return ''; }
-}
 function buildApiUrl(path,extra){
   const qs=window.filterBuildQS?filterBuildQS():'';
-  const dbq=indexDbQueryPart();
   const e=extra?String(extra).replace(/^[?&]+/,''):'';
-  const parts=[qs,dbq,e].filter(Boolean).join('&');
+  const parts=[qs,e].filter(Boolean).join('&');
   return API+path+(parts?'?'+parts:'');
 }
-/** Scorecard multi-empresa: no envía ?db= (siempre recorre el registro completo). */
+/** Scorecard multi-empresa: no envía ?db= (recorre el registro completo). */
 function universeScorecardUrl(){
-  const fqs=window.filterBuildQS?filterBuildQS():'';
-  const uni='concurrency=2&queryMs=10000';
+  const fqs=window.filterBuildQS?filterBuildQS(null,{omitDb:true}):'';
+  const uni='concurrency=3&queryMs=120000';
   const parts=[fqs,uni].filter(Boolean).join('&');
   return API+'/api/universe/scorecard'+(parts?'?'+parts:'');
+}
+function fdbBasenameIndex(p){
+  if(!p)return'';
+  const s=String(p).replace(/\\/g,'/');
+  const i=s.lastIndexOf('/');
+  return i>=0?s.slice(i+1):s;
 }
 async function initBizBar(){
   indexDbList=await fwt(API+'/api/universe/databases',[]);
@@ -763,33 +762,31 @@ async function initBizBar(){
   if(!bar||!chips)return;
   if(indexDbList.length===0){ bar.style.display='none'; return; }
   bar.style.display='flex';
-  if(lbl) lbl.textContent=indexDbList.length>1?'Empresa activa':'Base de datos';
-  const urlDb=(new URLSearchParams(location.search).get('db')||'').trim();
-  const escAttr=s=>String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
-  const escTxt=s=>String(s).replace(/</g,'&lt;').replace(/&/g,'&amp;');
-  chips.innerHTML=['<button type="button" class="biz-chip'+(urlDb?'':' active')+'" data-db="">Predeterminado</button>']
-    .concat(indexDbList.map(e=>{
-      const id=String(e.id||'');
-      return '<button type="button" class="biz-chip'+(urlDb===id?' active':'')+'" data-db="'+escAttr(id)+'">'+escTxt(e.label||e.id||'')+'</button>';
-    })).join('');
-  chips.querySelectorAll('.biz-chip').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      const raw=btn.getAttribute('data-db')||'';
-      try{
-        const u=new URL(location.href);
-        if(raw)u.searchParams.set('db',raw); else u.searchParams.delete('db');
-        history.replaceState({},'',u);
-      }catch(_){}
-      try{ sessionStorage.setItem('microsip_erp_db', raw||''); }catch(_){}
-      chips.querySelectorAll('.biz-chip').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
-      loadAll();
+  if(lbl) lbl.textContent='Base de datos (.fdb)';
+  if(window.renderDbChipsInto){
+    renderDbChipsInto(chips,indexDbList,()=>loadAll());
+  }else{
+    const urlDb=(new URLSearchParams(location.search).get('db')||'').trim();
+    chips.innerHTML='<button type="button" class="biz-chip'+(urlDb?'':' active')+'" data-db="">Por defecto</button>'+indexDbList.map(e=>{
+      const id=String(e.id||''); const fn=String(e.database||'').replace(/\\/g,'/').split('/').filter(Boolean).pop()||id;
+      return '<button type="button" class="biz-chip'+(urlDb===id?' active':'')+'" data-db="'+id.replace(/"/g,'&quot;')+'">'+fn.replace(/</g,'')+'</button>';
+    }).join('');
+    chips.querySelectorAll('.biz-chip').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        const raw=btn.getAttribute('data-db')||'';
+        try{ const u=new URL(location.href); if(raw)u.searchParams.set('db',raw); else u.searchParams.delete('db'); history.replaceState({},'',u);}catch(_){}
+        try{ if(raw)sessionStorage.setItem('microsip_erp_db',raw); else sessionStorage.removeItem('microsip_erp_db');}catch(_){}
+        chips.querySelectorAll('.biz-chip').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); loadAll();
+      });
     });
-  });
+  }
 }
 
-// -- Reloj ----------------------------------------------------------------------
-function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('es-MX')}
+// -- Reloj (nav.js reemplaza el header y usa #reloj; si no existe, #clock del HTML estático)
+function tick(){
+  const el=document.getElementById('reloj')||document.getElementById('clock');
+  if(el) el.textContent=new Date().toLocaleTimeString('es-MX');
+}
 setInterval(tick,1000);tick();
 
 // -- Fecha ----------------------------------------------------------------------
@@ -864,7 +861,9 @@ function renderUniversePortfolio(uni){
   if(n===1){
     const p=indexDbList[0];
     const pathEsc=escHtml((p&&p.database)||'');
-    sub.innerHTML='Est\u00e1s viendo <strong>'+escHtml(p.label||p.id||'Principal')+'</strong> <span style="opacity:.75">('+escHtml(p.id)+')</span>. Los KPI de abajo siguen el filtro de fechas. Para comparar <strong>varias</strong> empresas en este panel, configura <code>FB_DATABASES_JSON</code> en el <code>.env</code> del servidor.'+(pathEsc?'<br><span style="opacity:.85">Ruta: <code>'+pathEsc+'</code></span>':'');
+    const fdb=fdbBasenameIndex(p&&p.database);
+    const headLine=escHtml(fdb||p.label||p.id||'Principal');
+    sub.innerHTML='Est\u00e1s viendo <strong>'+headLine+'</strong> <span style="opacity:.75">('+escHtml(p.id)+')</span>. Los KPI de abajo siguen el filtro de fechas. Para listar <strong>varias</strong> .fdb, en el <code>.env</code> del servidor define <code>FB_DATABASE_DIR</code> (carpeta donde est\u00e1n todas las bases) y/o <code>FB_DATABASES_JSON</code>; el archivo <code>.env</code> debe ser solo l\u00edneas <code>VAR=valor</code> (sin pegar c\u00f3digo .js). Reinicia Node y revisa en consola del servidor la l\u00ednea <code>[Firebird] bases registradas</code>.'+(pathEsc?'<br><span style="opacity:.85">Ruta: <code>'+pathEsc+'</code></span>':'');
   }else{
     sub.textContent='Vista consolidada del mismo periodo que el filtro superior. Cada tarjeta es una base Firebird registrada; el detalle operativo (KPI) lo controlan los chips de empresa.';
   }
@@ -971,7 +970,7 @@ async function loadAll(){
       fwt(buildApiUrl('/api/ventas/cumplimiento'),[]),
       fwt(buildApiUrl('/api/clientes/resumen-riesgo'),{}),
       fwt(buildApiUrl('/api/resultados/pnl','meses=1'),{}),
-      fwt(universeScorecardUrl(),{ empresas: [], consolidado: {} }),
+      fwt(universeScorecardUrl(),{ empresas: [], consolidado: {} },130000),
     ]);
     // fwt ya retorna el fallback directamente ? no necesita .value
 

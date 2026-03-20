@@ -6,6 +6,7 @@
 <title>Suminregio Parker &mdash; Inventario</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <script>window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');</script>
+<script src="filters.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -211,6 +212,10 @@ nav{display:flex;align-items:center;gap:.25rem}
 
 <script>
 const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : '';
+function apiDb(rel){
+  const p = rel.startsWith('/') ? rel : '/' + rel;
+  return API + (typeof apiPathWithDb === 'function' ? apiPathWithDb(p) : p);
+}
 const fmt  = n => isNaN(+n)||n==null?'&mdash;':'$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});
 const fmtK = n => { if(isNaN(+n)||n==null) return '&mdash;'; n=+n; if(Math.abs(n)>=1e6) return '$'+(n/1e6).toFixed(1)+'M'; if(Math.abs(n)>=1e3) return '$'+(n/1e3).toFixed(0)+'k'; return '$'+n.toFixed(0); };
 const setText = (id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
@@ -223,7 +228,7 @@ function doBusqueda(val) {
   if(val.trim().length < 2) { document.getElementById('busq-resultado').innerHTML=''; setText('busq-badge','Escribe m&iacute;nimo 2 caracteres'); return; }
   busqTimer = setTimeout(async ()=>{
     try {
-      const rows = await fetch(API+'/api/inv/existencias?q='+encodeURIComponent(val)).then(r=>r.json());
+      const rows = await fetch(apiDb('/api/inv/existencias?q='+encodeURIComponent(val))).then(r=>r.json());
       setText('busq-badge', rows.length+' resultados');
       document.getElementById('busq-resultado').innerHTML = rows.length ?
         `<table class="tbl"><thead><tr><th>Art&iacute;culo</th><th>Unidad</th><th class="num">Existencia</th><th class="num">M&iacute;nimo</th><th class="num">Precio</th></tr></thead><tbody>${
@@ -243,7 +248,7 @@ function doBusqueda(val) {
 
 async function loadAll() {
   try {
-    const d = await fetch(API+'/api/inv/resumen').then(r=>r.json());
+    const d = await fetch(apiDb('/api/inv/resumen')).then(r=>r.json());
     setText('kpi-total', Number(d.TOTAL_ARTICULOS||0).toLocaleString());
     setText('kpi-valor', fmtK(d.VALOR_INVENTARIO));
     setText('kpi-minimo', Number(d.BAJO_MINIMO||0).toLocaleString());
@@ -256,7 +261,7 @@ async function loadAll() {
 
 async function loadMinimo() {
   try {
-    const rows = await fetch(API+'/api/inv/bajo-minimo?limit=50').then(r=>r.json());
+    const rows = await fetch(apiDb('/api/inv/bajo-minimo?limit=50')).then(r=>r.json());
     document.querySelector('#tbl-minimo tbody').innerHTML = rows.map(r=>{
       const pct = r.EXISTENCIA_MINIMA>0?(r.EXISTENCIA/r.EXISTENCIA_MINIMA*100):0;
       const barColor = r.EXISTENCIA<=0?'var(--red)':'var(--orange)';
@@ -277,7 +282,7 @@ async function loadMinimo() {
 
 async function loadConsumo() {
   try {
-    const rows = await fetch(API+'/api/inv/consumo-semanal?limit=30').then(r=>r.json());
+    const rows = await fetch(apiDb('/api/inv/consumo-semanal?limit=30')).then(r=>r.json());
     document.querySelector('#tbl-consumo tbody').innerHTML = rows.map(r=>{
       const sem = +(r.SEMANAS_STOCK||0);
       const semColor = sem<1?'var(--red)':sem<2?'var(--orange)':sem<4?'var(--yellow)':'var(--green)';
@@ -295,7 +300,7 @@ async function loadConsumo() {
 
 async function loadTopStock() {
   try {
-    const rows = await fetch(API+'/api/inv/top-stock?limit=30').then(r=>r.json());
+    const rows = await fetch(apiDb('/api/inv/top-stock?limit=30')).then(r=>r.json());
     document.querySelector('#tbl-topstock tbody').innerHTML = rows.map((r,i)=>`<tr>
       <td style="font-family:'DM Mono',monospace;font-size:.7rem;color:var(--muted)">${i+1}</td>
       <td class="lbl">${r.DESCRIPCION}</td>
@@ -309,7 +314,7 @@ async function loadTopStock() {
 
 async function loadForecast(){
   try{
-    const rows = await fetch(API+'/api/inv/consumo?dias=90&limit=50&lead=15').then(r=>r.json());
+    const rows = await fetch(apiDb('/api/inv/consumo?dias=90&limit=50&lead=15')).then(r=>r.json());
     setText('consumo-badge', rows.length+' art&iacute;culos');
     document.getElementById('tbl-forecast-body').innerHTML = rows.map(r=>{
       const dias = +(r.DIAS_STOCK||0);
@@ -333,7 +338,7 @@ async function loadForecast(){
 
 async function loadSinMovimiento(){
   try{
-    const rows = await fetch(API+'/api/inv/sin-movimiento?dias=180&limit=50').then(r=>r.json());
+    const rows = await fetch(apiDb('/api/inv/sin-movimiento?dias=180&limit=50')).then(r=>r.json());
     setText('sinmov-badge', rows.length+' art&iacute;culos');
     document.getElementById('tbl-sinmov-body').innerHTML = rows.map(r=>{
       const dias = +(r.DIAS_SIN_VENTA||9999);

@@ -362,7 +362,7 @@ function buildApiUrl(path, extraParams) {
 // -- Conversión Cotizaciones → Ventas ----------------------------------
 async function loadConversion(){
   try{
-    const data = await fwt(API+'/api/ventas/vs-cotizaciones?meses=6', {}).catch(()=>({}));
+    const data = await fwt(buildApiUrl('/api/ventas/vs-cotizaciones','meses=6'), {}).catch(()=>({}));
     const ventasArr = Array.isArray(data.ventas) ? data.ventas : [];
     const cotiArr   = Array.isArray(data.cotizaciones) ? data.cotizaciones : [];
     if(!ventasArr.length && !cotiArr.length) return;
@@ -488,7 +488,7 @@ const chartDefaults = () => ({
 
 async function loadAll() {
   try {
-    const m = await fwt(`${API}/api/config/metas`, {});
+    const m = await fwt(buildApiUrl('/api/config/metas'), {});
     metas = m;
     setText('kpi-meta', fmtK(m.META_TOTAL_DIARIA));
     setText('kpi-meta-sub', `Ideal (+30%): ${fmtK(m.META_IDEAL_TOTAL)}`);
@@ -567,7 +567,7 @@ function normalizarDiariasVentas(raw) {
 async function loadDiarias() {
   try {
     // Diarias: solo dias + tipo (sin anio/mes de la barra) para que el servidor use "últimos N días"
-    const urlDiarias = API + '/api/ventas/diarias?dias=' + currentDias + (currentTipo ? '&tipo=' + currentTipo : '');
+    const urlDiarias = buildApiUrl('/api/ventas/diarias', 'dias=' + currentDias + (currentTipo ? '&tipo=' + currentTipo : ''));
     const raw = await fwt(urlDiarias, [], 20000);
     if (typeof console !== 'undefined' && console.log) console.log('Ventas diarias API:', Array.isArray(raw) ? raw.length + ' filas' : (raw && raw.error ? 'error' : 'no array'), raw && raw[0]);
     if (raw && raw.error) { console.warn('Ventas diarias API error:', raw.error); }
