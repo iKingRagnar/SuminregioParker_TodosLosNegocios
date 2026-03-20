@@ -237,16 +237,18 @@ nav{display:flex;align-items:center;gap:.2rem}
         <thead>
           <tr>
             <th>Cliente</th>
-            <th class="th-sort" id="thNivelSort" title="Clic: Nivel cr&#237;tico &rarr; leve &rarr; volver a p&#233;rdida est.">
+            <th class="th-sort" id="thNivelSort" title="Clic: Nivel cr&#237;tico &rarr; leve &rarr; volver a orden por monto vencido">
               Nivel <span class="th-sort-icon desc" id="nivelSortIcon" aria-hidden="true"></span>
             </th>
             <th class="num">Saldo Total</th>
-            <th class="num">Monto Vencido</th>
+            <th class="num" title="Parte de la cartera con documentos ya fuera de plazo (suma de saldos de cargos con d&#237;as de atraso &gt; 0). No es el monto de la &#250;ltima compra.">Monto vencido (cartera)</th>
             <th class="num">% Vencido</th>
             <th class="num">Max D&iacute;as</th>
             <th class="num">Docs</th>
             <th class="num">Compras</th>
-            <th class="num" title="Si hay ticket &gt;$1/mes (12m): ticket&#215;d&#237;as sin compra/30 (m&#225;x. 730 d). Si hay compras pero poco ticket: vencido&#215;d&#237;as/90. Sin historial: vencido&#215;m&#225;x. atraso/60.">P&eacute;rdida est.</th>
+            <th class="num">&Uacute;ltima compra</th>
+            <th class="num" title="Importe neto del documento de venta m&#225;s reciente (VE o PV), seg&#250;n FECHA.">Monto &#250;lt. compra</th>
+            <th class="num" title="Aproximaci&#243;n: ticket promedio mensual (&#250;ltimos 12 meses) &#215; 12. Si el cliente dejara de comprar al ritmo reciente, es el volumen anual que dejar&#237;as de facturar.">Venta anual est. en riesgo</th>
             <th>Condici&oacute;n</th>
           </tr>
         </thead>
@@ -322,7 +324,7 @@ function apiDb(rel){
 let chartRiesgoInst = null, chartBucketsInst = null;
 let riesgoData = [], inactivosData = [], comercialData = [];
 const clientesSemCtx = { riesgo: [], inactivos: [], comercial: [], res: {} };
-/** 0 = orden por p&eacute;rdida estimada (API / clic en &quot;P&eacute;rdida est.&quot;); 1 / -1 = por nivel de atraso */
+/** 0 = orden por monto vencido; 1 / -1 = por nivel de atraso (clic en Nivel) */
 let sortNivelDirection = 0;
 
 setInterval(()=>{const n=new Date();document.getElementById('reloj').textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');},1000);
@@ -484,7 +486,8 @@ function renderRiesgo(data){
     if (saldoTotal > 0) pctV = Math.min(100, Math.round((montoVencido / saldoTotal) * 100));
     else if (montoVencido > 0) pctV = 100;
     const col  = nivel==='CRITICO'?'var(--red)':nivel==='ALTO'?'var(--orange)':nivel==='MEDIO'?'var(--yellow)':'var(--blue)';
-    const perdida = +r.PERDIDA_OPORTUNIDAD||0;
+    const ultImp = +r.ULTIMA_COMPRA_IMPORTE || 0;
+    const riesgoAnual = +r.PERDIDA_VENTA_ANUAL_EST || 0;
     const nCom = +r.NUM_COMPRAS_VIDA||0;
     return `<tr>
       <td style="padding:.65rem .75rem;color:var(--text);font-weight:600">${r.NOMBRE||'--'}</td>
@@ -498,11 +501,13 @@ function renderRiesgo(data){
       <td class="num" style="color:${col}">${maxD} d&iacute;as</td>
       <td class="num" style="color:var(--text2)">${+r.NUM_DOCS_VENCIDOS||'--'}</td>
       <td class="num" style="color:var(--text2)">${nCom||'\u2014'}</td>
-      <td class="num" style="color:var(--orange)">${fmtM(perdida)}</td>
+      <td class="num" style="color:var(--text2);font-size:.78rem">${fmtD(r.ULTIMA_COMPRA)}</td>
+      <td class="num" style="color:var(--green)">${fmtM(ultImp)}</td>
+      <td class="num" style="color:var(--orange)">${fmtM(riesgoAnual)}</td>
       <td style="padding:.65rem .75rem;font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted)">${r.CONDICION_PAGO||'--'}</td>
     </tr>`;
   }).join('');
-  document.getElementById('riesgoBody').innerHTML = rows || `<tr><td colspan="10" class="empty">Sin clientes en riesgo</td></tr>`;
+  document.getElementById('riesgoBody').innerHTML = rows || `<tr><td colspan="12" class="empty">Sin clientes en riesgo</td></tr>`;
 }
 
 function renderComercial(data){

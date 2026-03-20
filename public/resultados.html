@@ -497,7 +497,13 @@ function renderBizChips(empresas){
   const ok=(empresas||[]).filter(e=>e.ok);
   if(ok.length<=1){ bar.style.display='none'; return; }
   bar.style.display='flex';
-  if(!selectedBizId||selectedBizId==='')selectedBizId='__ALL__';
+  if(!selectedBizId||selectedBizId===''){
+    try{
+      const saved=(sessionStorage.getItem('microsip_erp_db')||'').trim();
+      if(saved&&ok.some(e=>String(e.id)===String(saved)))selectedBizId=saved;
+      else selectedBizId='__ALL__';
+    }catch(_){ selectedBizId='__ALL__'; }
+  }
   sel.replaceChildren();
   const optAll=document.createElement('option');
   optAll.value='__ALL__';
@@ -641,11 +647,24 @@ async function loadData(){
       setDbUrl('');
     }else{
       renderBizChips(empresas);
-      if(!selectedBizId)selectedBizId='__ALL__';
+      if(!selectedBizId||selectedBizId===''){
+        try{
+          const saved=(sessionStorage.getItem('microsip_erp_db')||'').trim();
+          if(saved&&okEmp.some(e=>String(e.id)===String(saved)))selectedBizId=saved;
+          else selectedBizId='__ALL__';
+        }catch(_){ selectedBizId='__ALL__'; }
+      }
       if(selectedBizId!=='__ALL__'){
-        const exists=okEmp.some(e=>e.id===selectedBizId);
+        const exists=okEmp.some(e=>String(e.id)===String(selectedBizId));
         if(!exists)selectedBizId='__ALL__';
       }
+      const consProbe=uni.consolidado||{};
+      if(selectedBizId==='__ALL__'&&!(+consProbe.VENTAS_NETAS>0)){
+        const withSales=okEmp.find(e=>+(e.totales&&e.totales.VENTAS_NETAS)>0);
+        if(withSales)selectedBizId=String(withSales.id);
+      }
+      const selBiz=document.getElementById('bizSelect');
+      if(selBiz&&[...selBiz.options].some(o=>String(o.value)===String(selectedBizId)))selBiz.value=selectedBizId;
       setDbUrl(selectedBizId);
       renderPlMiniTable(empresas,'c='+(uni.concurrency||2)+' · '+okEmp.length+' empresas');
     }

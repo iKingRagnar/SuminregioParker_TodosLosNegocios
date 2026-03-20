@@ -664,9 +664,9 @@ function ventasSub(tipo = '') {
 // ═══════════════════════════════════════════════════════════════════════════════
 function sqlWhereCotizacionActiva(alias = 'd') {
   const a = alias;
-  // Microsip: cotización suele ser C; algunas plantas usan O, Q o minúsculas. Solo excluimos canceladas.
+  // Cotización en DOCTOS_VE: C / O (como Power BI). No canceladas.
   return `(
-    UPPER(TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(4)))) IN ('C', 'O', 'Q')
+    UPPER(TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(4)))) IN ('C', 'O')
   ) AND COALESCE(${a}.ESTATUS, 'N') <> 'C'`;
 }
 
@@ -680,10 +680,10 @@ function normalizeCotizacionResumenRow(row) {
   };
 }
 
-/** Importe en cotizaciones DOCTOS_VE: a veces IMPORTE_NETO viene en 0 y el total está en IMPORTE. */
+/** Importe cotización: total en cabecera DOCTOS_VE — IMPORTE_NETO (según tu BD). */
 function sqlCotiImporteExpr(alias = 'd') {
   const a = alias;
-  return `COALESCE(${a}.IMPORTE_NETO, ${a}.IMPORTE, 0)`;
+  return `COALESCE(${a}.IMPORTE_NETO, 0)`;
 }
 
 /**
@@ -1314,7 +1314,8 @@ get('/api/ventas/cobradas-detalle', async (req) => {
     req.query.anio = now.getFullYear();
     req.query.mes = now.getMonth() + 1;
   }
-  const fi = filtrosImporteCobro(req, 'i', { coalesceDcFecha: true });
+  // Mismo criterio de periodo que /api/ventas/cobradas (i.FECHA). COALESCE con dc.FECHA solo en columnas mostradas.
+  const fi = filtrosImporteCobro(req, 'i');
   const limit = Math.min(parseInt(req.query.limit, 10) || 400, 800);
   return query(`
     SELECT FIRST ${limit}
@@ -1334,6 +1335,103 @@ get('/api/ventas/cobradas-detalle', async (req) => {
     WHERE i.TIPO_IMPTE = 'R' AND COALESCE(i.CANCELADO, 'N') = 'N' ${fi.sql}
     ORDER BY COALESCE(i.FECHA, dc.FECHA) DESC, dc.FOLIO DESC
   `, fi.params, 15000, dbo).catch(() => []);
+});
+
+// Margen por renglón: DOCTOS_VE_DET / DOCTOS_PV_DET (venta sin campo importe: PRECIO_T o UNIDADES×PRECIO_U).
+get('/api/ventas/margen-lineas', async (req) => {
+  const dbo = getReqDbOpts(req);
+  if (!req.query.desde && !req.query.hasta && !req.query.anio) {
+    const now = new Date();
+    req.query.anio = now.getFullYear();
+    req.query.mes = now.getMonth() + 1;
+  }
+  const f = buildFiltros(req, 'd');
+  const tipo = getTipo(req);
+  const limit = Math.min(parseInt(req.query.limit, 10) || 3000, 12000);
+  const docOk = `(
+      (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
+      OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
+      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS <> 'C')
+    )`;
+  const ventaSql = 'COALESCE(NULLIF(det.PRECIO_T, 0), COALESCE(det.UNIDADES, 0) * COALESCE(det.PRECIO_U, 0))';
+  const mapRows = (rows) =>
+    (rows || []).map((r) => {
+      const venta = +r.VENTA || 0;
+      const costo = +r.COSTO || 0;
+      const util = venta - costo;
+      const pct = venta > 0.0001 ? (util / venta) * 100 : null;
+      return {
+        ...r,
+        UTILIDAD: Math.round(util * 100) / 100,
+        MARGEN_PCT: pct == null ? null : Math.round(pct * 100) / 100,
+      };
+    });
+  const buildUnion = (costExpr) => {
+    const vePart = `
+        SELECT
+          d.FOLIO,
+          CAST(d.FECHA AS DATE) AS FECHA,
+          'VE' AS TIPO_SRC,
+          c.NOMBRE AS CLIENTE,
+          COALESCE(a.CLAVE, CAST(det.ARTICULO_ID AS VARCHAR(40))) AS CLAVE_ARTICULO,
+          COALESCE(NULLIF(TRIM(a.NOMBRE), ''), NULLIF(TRIM(a.DESCRIPCION), ''), '') AS DESC_ARTICULO,
+          COALESCE(det.UNIDADES, 0) AS CANTIDAD,
+          COALESCE(det.PRECIO_U, 0) AS PRECIO_U,
+          CAST(${costExpr} AS DECIMAL(18, 4)) AS COSTO,
+          CAST(${ventaSql} AS DECIMAL(18, 4)) AS VENTA
+        FROM DOCTOS_VE d
+        JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
+        LEFT JOIN ARTICULOS a ON a.ARTICULO_ID = det.ARTICULO_ID
+        LEFT JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
+        WHERE ${docOk} ${f.sql}`;
+    const pvPart = `
+        SELECT
+          d.FOLIO,
+          CAST(d.FECHA AS DATE) AS FECHA,
+          'PV' AS TIPO_SRC,
+          c.NOMBRE AS CLIENTE,
+          COALESCE(a.CLAVE, CAST(det.ARTICULO_ID AS VARCHAR(40))) AS CLAVE_ARTICULO,
+          COALESCE(NULLIF(TRIM(a.NOMBRE), ''), NULLIF(TRIM(a.DESCRIPCION), ''), '') AS DESC_ARTICULO,
+          COALESCE(det.UNIDADES, 0) AS CANTIDAD,
+          COALESCE(det.PRECIO_U, 0) AS PRECIO_U,
+          CAST(${costExpr} AS DECIMAL(18, 4)) AS COSTO,
+          CAST(${ventaSql} AS DECIMAL(18, 4)) AS VENTA
+        FROM DOCTOS_PV d
+        JOIN DOCTOS_PV_DET det ON det.DOCTO_PV_ID = d.DOCTO_PV_ID
+        LEFT JOIN ARTICULOS a ON a.ARTICULO_ID = det.ARTICULO_ID
+        LEFT JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
+        WHERE ${docOk} ${f.sql}`;
+    if (tipo === 'VE') return { sql: vePart, params: f.params };
+    if (tipo === 'PV') return { sql: pvPart, params: f.params };
+    return { sql: `${vePart} UNION ALL ${pvPart}`, params: [...f.params, ...f.params] };
+  };
+  const costFull =
+    'COALESCE(NULLIF(det.COSTO_TOTAL, 0), COALESCE(det.UNIDADES, 0) * COALESCE(det.COSTO_UNITARIO, 0), COALESCE(det.UNIDADES, 0) * COALESCE(a.COSTO_PROMEDIO, 0), 0)';
+  const costFallback = 'COALESCE(NULLIF(det.COSTO_TOTAL, 0), COALESCE(det.UNIDADES, 0) * COALESCE(a.COSTO_PROMEDIO, 0), 0)';
+  try {
+    const { sql, params } = buildUnion(costFull);
+    const rows = await query(
+      `SELECT FIRST ${limit} * FROM (${sql}) u ORDER BY u.FECHA DESC, u.FOLIO DESC`,
+      params,
+      20000,
+      dbo
+    );
+    return mapRows(rows);
+  } catch (e1) {
+    try {
+      const { sql, params } = buildUnion(costFallback);
+      const rows = await query(
+        `SELECT FIRST ${limit} * FROM (${sql}) u ORDER BY u.FECHA DESC, u.FOLIO DESC`,
+        params,
+        20000,
+        dbo
+      );
+      return mapRows(rows);
+    } catch (e2) {
+      console.error('[margen-lineas]', e2.message);
+      return [];
+    }
+  }
 });
 
 // Facturas del periodo de ventas con cobro acumulado en periodo de cobros (misma query string de filtro).
@@ -1846,7 +1944,7 @@ get('/api/cxc/aging', async (req) => {
   };
 });
 
-// Facturas vencidas: misma base que aging/resumen (cxcDocSaldosSQL), 1 fila por DOCTO_CC_ID, orden por saldo.
+// Facturas vencidas: misma base que aging (cxcDocSaldosSQL). Sin subconsultas anidadas extra (Firebird).
 get('/api/cxc/vencidas', async (req) => {
   const dbo = getReqDbOpts(req);
   const limit = Math.min(parseInt(req.query.limit) || 100, 500);
@@ -1854,49 +1952,31 @@ get('/api/cxc/vencidas', async (req) => {
   const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
   return query(`
     SELECT FIRST ${limit}
-      sorted.FOLIO,
-      sorted.CLIENTE,
-      sorted.CONDICION_PAGO,
-      sorted.SALDO,
-      sorted.ATRASO,
-      sorted.DIAS_ATRASO,
-      sorted.FECHA_VENTA,
-      sorted.FECHA_VENC_PLAZO,
-      sorted.FECHA_VENCIMIENTO,
-      sorted.TIEMPO_SIN_PAGAR_DIAS
+      dc.FOLIO,
+      c.NOMBRE AS CLIENTE,
+      COALESCE(cp.NOMBRE, 'S/D') AS CONDICION_PAGO,
+      x.SALDO_NETO AS SALDO,
+      x.DIAS_ATRASO AS ATRASO,
+      x.DIAS_ATRASO AS DIAS_ATRASO,
+      CAST(dc.FECHA AS DATE) AS FECHA_VENTA,
+      CAST(CAST(dc.FECHA AS DATE) + CAST(COALESCE(cp.DIAS_PPAG, 0) AS INTEGER) AS DATE) AS FECHA_VENC_PLAZO,
+      CAST(NULL AS DATE) AS FECHA_VENCIMIENTO,
+      x.DIAS_ATRASO AS TIEMPO_SIN_PAGAR_DIAS
     FROM (
       SELECT
-        dc.FOLIO AS FOLIO,
-        c.NOMBRE AS CLIENTE,
-        COALESCE(cp.NOMBRE, 'S/D') AS CONDICION_PAGO,
-        x.SALDO_NETO AS SALDO,
-        x.DIAS_ATRASO AS ATRASO,
-        x.DIAS_ATRASO AS DIAS_ATRASO,
-        CAST(dc.FECHA AS DATE) AS FECHA_VENTA,
-        CAST(CAST(dc.FECHA AS DATE) + CAST(COALESCE(cp.DIAS_PPAG, 0) AS INTEGER) AS DATE) AS FECHA_VENC_PLAZO,
-        fv.FECHA_VENCIMIENTO AS FECHA_VENCIMIENTO,
-        x.DIAS_ATRASO AS TIEMPO_SIN_PAGAR_DIAS
-      FROM (
-        SELECT
-          doc.DOCTO_CC_ID,
-          doc.CLIENTE_ID,
-          MAX(doc.DIAS_VENCIDO) AS DIAS_ATRASO,
-          MAX(doc.SALDO_NETO) AS SALDO_NETO
-        FROM ${cxcDocSaldosSQL(cfSql)} doc
-        WHERE doc.DIAS_VENCIDO >= 1
-        GROUP BY doc.DOCTO_CC_ID, doc.CLIENTE_ID
-        HAVING MAX(doc.SALDO_NETO) > 0.005
-      ) x
-      JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = x.DOCTO_CC_ID
-      JOIN CLIENTES c ON c.CLIENTE_ID = x.CLIENTE_ID
-      LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = dc.COND_PAGO_ID
-      LEFT JOIN (
-        SELECT cd.DOCTO_CC_ID, MAX(CAST(cd.FECHA_VENCIMIENTO AS DATE)) AS FECHA_VENCIMIENTO
-        FROM ${cxcCargosSQL()} cd
-        GROUP BY cd.DOCTO_CC_ID
-      ) fv ON fv.DOCTO_CC_ID = x.DOCTO_CC_ID
-      ORDER BY x.SALDO_NETO DESC, x.DIAS_ATRASO DESC
-    ) sorted
+        doc.DOCTO_CC_ID,
+        doc.CLIENTE_ID,
+        MAX(doc.DIAS_VENCIDO) AS DIAS_ATRASO,
+        MAX(doc.SALDO_NETO) AS SALDO_NETO
+      FROM ${cxcDocSaldosSQL(cfSql)} doc
+      WHERE doc.DIAS_VENCIDO >= 1
+      GROUP BY doc.DOCTO_CC_ID, doc.CLIENTE_ID
+      HAVING MAX(doc.SALDO_NETO) > 0.005
+    ) x
+    JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = x.DOCTO_CC_ID
+    JOIN CLIENTES c ON c.CLIENTE_ID = x.CLIENTE_ID
+    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = dc.COND_PAGO_ID
+    ORDER BY x.SALDO_NETO DESC, x.DIAS_ATRASO DESC
   `, [], 12000, dbo).catch(() => []);
 });
 
@@ -2302,30 +2382,29 @@ get('/api/clientes/riesgo', async (req) => {
       agg.NUM_DOCS_VENCIDOS,
       COALESCE(buy.NUM_COMPRAS_VIDA, 0) AS NUM_COMPRAS_VIDA,
       buy.ULTIMA_COMPRA,
-      CAST(
-        CASE
-          WHEN COALESCE(buy.TICKET_PROMEDIO_MES, 0) > 1 THEN
-            buy.TICKET_PROMEDIO_MES * (
-              (CASE
-                WHEN buy.ULTIMA_COMPRA IS NULL THEN 0
-                WHEN (CURRENT_DATE - buy.ULTIMA_COMPRA) > 730 THEN 730
-                WHEN (CURRENT_DATE - buy.ULTIMA_COMPRA) > 0 THEN (CURRENT_DATE - buy.ULTIMA_COMPRA)
-                ELSE 0
-              END) / 30.0
-            )
-          WHEN COALESCE(buy.NUM_COMPRAS_VIDA, 0) > 0 THEN
-            agg.MONTO_VENCIDO * (
-              (CASE
-                WHEN buy.ULTIMA_COMPRA IS NULL THEN 365
-                WHEN (CURRENT_DATE - buy.ULTIMA_COMPRA) > 730 THEN 730
-                WHEN (CURRENT_DATE - buy.ULTIMA_COMPRA) > 0 THEN (CURRENT_DATE - buy.ULTIMA_COMPRA)
-                ELSE 0
-              END) / 90.0
-            )
-          ELSE
-            agg.MONTO_VENCIDO * CAST(agg.MAX_DIAS_VENCIDO AS DOUBLE PRECISION) / 60.0
-        END
-      AS DECIMAL(18, 2)) AS PERDIDA_OPORTUNIDAD
+      (SELECT FIRST 1 COALESCE(z.IMP, 0)
+       FROM (
+         SELECT CAST(v.FECHA AS DATE) AS FD, COALESCE(v.IMPORTE_NETO, 0) AS IMP
+         FROM DOCTOS_VE v
+         WHERE v.CLIENTE_ID = agg.CLIENTE_ID AND v.CLIENTE_ID > 0
+           AND (
+             (v.TIPO_DOCTO = 'F' AND v.ESTATUS <> 'C')
+             OR (v.TIPO_DOCTO = 'V' AND v.ESTATUS NOT IN ('C','T'))
+             OR (v.TIPO_DOCTO = 'R' AND v.ESTATUS <> 'C')
+           )
+         UNION ALL
+         SELECT CAST(p.FECHA AS DATE), COALESCE(p.IMPORTE_NETO, 0)
+         FROM DOCTOS_PV p
+         WHERE p.CLIENTE_ID = agg.CLIENTE_ID AND p.CLIENTE_ID > 0
+           AND (
+             (p.TIPO_DOCTO = 'F' AND p.ESTATUS <> 'C')
+             OR (p.TIPO_DOCTO = 'V' AND p.ESTATUS NOT IN ('C','T'))
+             OR (p.TIPO_DOCTO = 'R' AND p.ESTATUS <> 'C')
+           )
+       ) z
+       ORDER BY z.FD DESC
+      ) AS ULTIMA_COMPRA_IMPORTE,
+      CAST(COALESCE(buy.TICKET_PROMEDIO_MES, 0) * 12 AS DECIMAL(18, 2)) AS PERDIDA_VENTA_ANUAL_EST
     FROM (
       SELECT
         cd.CLIENTE_ID,
@@ -2343,20 +2422,32 @@ get('/api/clientes/riesgo', async (req) => {
     JOIN ${cxcClienteSQL()} st ON st.CLIENTE_ID = agg.CLIENTE_ID
     LEFT JOIN (
       SELECT
-        CLIENTE_ID,
+        t.CLIENTE_ID,
         COUNT(*) AS NUM_COMPRAS_VIDA,
-        MAX(CAST(FECHA AS DATE)) AS ULTIMA_COMPRA,
-        COALESCE(SUM(CASE WHEN CAST(FECHA AS DATE) >= (CURRENT_DATE - 365) THEN IMPORTE_NETO ELSE 0 END), 0) / 12.0 AS TICKET_PROMEDIO_MES
-      FROM DOCTOS_VE
-      WHERE CLIENTE_ID > 0
-        AND (
-          (TIPO_DOCTO = 'F' AND ESTATUS <> 'C')
-          OR (TIPO_DOCTO = 'V' AND ESTATUS NOT IN ('C', 'T'))
-          OR (TIPO_DOCTO = 'R' AND ESTATUS <> 'C')
-        )
-      GROUP BY CLIENTE_ID
+        MAX(t.FECHA_D) AS ULTIMA_COMPRA,
+        COALESCE(SUM(CASE WHEN t.FECHA_D >= (CURRENT_DATE - 365) THEN t.IMP_NETO ELSE 0 END), 0) / 12.0 AS TICKET_PROMEDIO_MES
+      FROM (
+        SELECT CLIENTE_ID, CAST(FECHA AS DATE) AS FECHA_D, COALESCE(IMPORTE_NETO, 0) AS IMP_NETO
+        FROM DOCTOS_VE
+        WHERE CLIENTE_ID > 0
+          AND (
+            (TIPO_DOCTO = 'F' AND ESTATUS <> 'C')
+            OR (TIPO_DOCTO = 'V' AND ESTATUS NOT IN ('C', 'T'))
+            OR (TIPO_DOCTO = 'R' AND ESTATUS <> 'C')
+          )
+        UNION ALL
+        SELECT CLIENTE_ID, CAST(FECHA AS DATE), COALESCE(IMPORTE_NETO, 0)
+        FROM DOCTOS_PV
+        WHERE CLIENTE_ID > 0
+          AND (
+            (TIPO_DOCTO = 'F' AND ESTATUS <> 'C')
+            OR (TIPO_DOCTO = 'V' AND ESTATUS NOT IN ('C', 'T'))
+            OR (TIPO_DOCTO = 'R' AND ESTATUS <> 'C')
+          )
+      ) t
+      GROUP BY t.CLIENTE_ID
     ) buy ON buy.CLIENTE_ID = agg.CLIENTE_ID
-    ORDER BY agg.MONTO_VENCIDO DESC, PERDIDA_OPORTUNIDAD DESC
+    ORDER BY agg.MONTO_VENCIDO DESC, COALESCE(buy.TICKET_PROMEDIO_MES, 0) DESC
   `, [], 12000, dbo).catch(() => []);
 });
 
