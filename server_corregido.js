@@ -64,7 +64,8 @@ const PORT = process.env.PORT || 7000;
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 app.use(express.json());
 
-// Servir archivos estáticos — raíz del proyecto Y carpeta public/
+// Servir archivos estáticos — public/ primero: si hay mismo nombre en raíz y en public/, gana public/
+// (evita que index.html viejo en la raíz opaque public/index.html).
 const staticOpts = {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.html')) res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -72,8 +73,8 @@ const staticOpts = {
     if (filePath.endsWith('.css'))  res.setHeader('Content-Type', 'text/css; charset=utf-8');
   }
 };
-app.use(express.static(__dirname, staticOpts));                          // raíz
-app.use(express.static(path.join(__dirname, 'public'), staticOpts));     // carpeta public/
+app.use(express.static(path.join(__dirname, 'public'), staticOpts));
+app.use(express.static(__dirname, staticOpts));
 
 // ── Configuración Firebird ────────────────────────────────────────────────────
 const DB_OPTIONS = {

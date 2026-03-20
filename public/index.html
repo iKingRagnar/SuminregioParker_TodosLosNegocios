@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Suminregio Parker &mdash; Command Center</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
@@ -328,7 +329,7 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
       </div>
       <div id="situationBadge" class="situation-badge neutral">
         <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-        Evaluando?
+        Evaluando&hellip;
       </div>
     </div>
   </div>
@@ -339,7 +340,7 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
   <!-- Empresa (contexto operativo; siempre que el API registre al menos una base) -->
   <div class="biz-context-bar" id="bizContextBar" style="display:none" aria-label="Base de datos">
     <span class="biz-context-label" id="bizContextLabel">Base de datos (.fdb)</span>
-    <div class="biz-chips" id="bizChips"></div>
+    <div class="biz-chips biz-chips-grid" id="bizChips"></div>
   </div>
 
   <!-- Universo de negocios — panel BI (todas las .fdb del registro) -->
@@ -385,10 +386,10 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
     <div class="kpi-card green">
       <div class="kpi-top">
         <div class="kpi-module" id="kpiModuleVentaHoy">Ventas &#183; D&#237;a</div>
-        <div class="sem neutral" id="semVentaHoy"><div class="sem-dot"></div>?</div>
+        <div class="sem neutral" id="semVentaHoy"><div class="sem-dot"></div><span class="sem-txt-pend">--</span></div>
       </div>
       <div class="kpi-label" id="kpiLabelVentaHoy">Venta del D&#237;a</div>
-      <div class="kpi-value" id="kpiVentaHoy">?</div>
+      <div class="kpi-value" id="kpiVentaHoy">$0</div>
       <div class="kpi-sub" id="kpiVentaHoySub">vs meta diaria</div>
       <div class="meta-bar-wrap">
         <div class="meta-bar-bg"><div class="meta-bar-fill" id="barVentaHoy" style="width:0%"></div></div>
@@ -398,10 +399,10 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
     <div class="kpi-card blue">
       <div class="kpi-top">
         <div class="kpi-module" id="kpiModuleVentaMes">Ventas &#183; Acum.</div>
-        <div class="sem neutral" id="semVentaMes"><div class="sem-dot"></div>?</div>
+        <div class="sem neutral" id="semVentaMes"><div class="sem-dot"></div><span class="sem-txt-pend">--</span></div>
       </div>
       <div class="kpi-label" id="kpiLabelVentaMes">Venta del Mes</div>
-      <div class="kpi-value" id="kpiVentaMes">?</div>
+      <div class="kpi-value" id="kpiVentaMes">$0</div>
       <div class="kpi-sub" id="kpiVentaMesSub">vs meta mensual</div>
       <div class="meta-bar-wrap">
         <div class="meta-bar-bg"><div class="meta-bar-fill" id="barVentaMes" style="width:0%"></div></div>
@@ -411,10 +412,10 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
     <div class="kpi-card yellow">
       <div class="kpi-top">
         <div class="kpi-module" id="kpiModuleCotiHoy">Cotiz. &#183; D&#237;a</div>
-        <div class="sem neutral" id="semCotiHoy"><div class="sem-dot"></div>?</div>
+        <div class="sem neutral" id="semCotiHoy"><div class="sem-dot"></div><span class="sem-txt-pend">--</span></div>
       </div>
       <div class="kpi-label" id="kpiLabelCotiHoy">Cotiz. del D&#237;a</div>
-      <div class="kpi-value" id="kpiCotiHoy">?</div>
+      <div class="kpi-value" id="kpiCotiHoy">$0</div>
       <div class="kpi-sub" id="kpiCotiHoySub">vs meta cotizaci&#243;n</div>
       <div class="meta-bar-wrap">
         <div class="meta-bar-bg"><div class="meta-bar-fill" id="barCotiHoy" style="width:0%"></div></div>
@@ -424,19 +425,19 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
     <div class="kpi-card orange">
       <div class="kpi-top">
         <div class="kpi-module">CxC &#8211; Cartera</div>
-        <div class="sem neutral" id="semCxcTotal"><div class="sem-dot"></div>?</div>
+        <div class="sem neutral" id="semCxcTotal"><div class="sem-dot"></div><span class="sem-txt-pend">--</span></div>
       </div>
       <div class="kpi-label">Saldo Total CxC</div>
-      <div class="kpi-value" id="kpiCxcTotal">?</div>
+      <div class="kpi-value" id="kpiCxcTotal">$0</div>
       <div class="kpi-sub" id="kpiCxcSub">cartera activa</div>
     </div>
     <div class="kpi-card red">
       <div class="kpi-top">
         <div class="kpi-module">CxC &#8211; Vencido</div>
-        <div class="sem neutral" id="semCxcVenc"><div class="sem-dot"></div>?</div>
+        <div class="sem neutral" id="semCxcVenc"><div class="sem-dot"></div><span class="sem-txt-pend">--</span></div>
       </div>
       <div class="kpi-label">Vencido</div>
-      <div class="kpi-value" id="kpiCxcVencido">?</div>
+      <div class="kpi-value" id="kpiCxcVencido">$0</div>
       <div class="kpi-sub" id="kpiCxcVencSub">% de cartera</div>
       <div class="meta-bar-wrap">
         <div class="meta-bar-bg"><div class="meta-bar-fill" id="barCxcVenc" style="width:0%;background:var(--red)"></div></div>
@@ -446,10 +447,10 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
     <div class="kpi-card purple">
       <div class="kpi-top">
         <div class="kpi-module">Inventario</div>
-        <div class="sem neutral" id="semInvBajo"><div class="sem-dot"></div>?</div>
+        <div class="sem neutral" id="semInvBajo"><div class="sem-dot"></div><span class="sem-txt-pend">--</span></div>
       </div>
       <div class="kpi-label">Bajo M&#237;nimo</div>
-      <div class="kpi-value" id="kpiInvBajo">?</div>
+      <div class="kpi-value" id="kpiInvBajo">0</div>
       <div class="kpi-sub" id="kpiInvSub">art&#237;culos en alerta</div>
     </div>
   </div>
@@ -461,7 +462,7 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
         <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
         Scorecard Ejecutivo &#8211; Metas vs Actual
       </div>
-      <div class="scorecard-badge" id="scFecha">?</div>
+      <div class="scorecard-badge" id="scFecha">&mdash;</div>
     </div>
     <table class="sc-table">
       <thead>
@@ -499,13 +500,13 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
         </div>
       </div>
       <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Venta Hoy</span><span class="mod-kpi-val" id="modVentaHoy">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Venta Mes</span><span class="mod-kpi-val" id="modVentaMes">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Cotiz. Hoy</span><span class="mod-kpi-val" id="modCotiHoy">?</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Venta Hoy</span><span class="mod-kpi-val" id="modVentaHoy">$0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Venta Mes</span><span class="mod-kpi-val" id="modVentaMes">$0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Cotiz. Hoy</span><span class="mod-kpi-val" id="modCotiHoy">$0</span></div>
       </div>
       <div class="mod-footer">
         <span class="mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
-        <span class="mod-status" id="modVentaStatus">?</span>
+        <span class="mod-status" id="modVentaStatus">&mdash;</span>
       </div>
     </a>
 
@@ -519,13 +520,13 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
         </div>
       </div>
       <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Cobrado Mes</span><span class="mod-kpi-val" id="modCobradoMes">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Comisi&#243;n Est.</span><span class="mod-kpi-val" id="modComision">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Facturas</span><span class="mod-kpi-val" id="modCobFacts">?</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Cobrado Mes</span><span class="mod-kpi-val" id="modCobradoMes">$0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Comisi&#243;n Est.</span><span class="mod-kpi-val" id="modComision">$0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Facturas</span><span class="mod-kpi-val" id="modCobFacts">0</span></div>
       </div>
       <div class="mod-footer">
         <span class="mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
-        <span class="mod-status" id="modCobStatus">?</span>
+        <span class="mod-status" id="modCobStatus">&mdash;</span>
       </div>
     </a>
 
@@ -539,13 +540,13 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
         </div>
       </div>
       <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">En Meta Hoy</span><span class="mod-kpi-val" id="modVendEnMeta">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">% Equipo Mes</span><span class="mod-kpi-val" id="modVendPctMes">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Activos</span><span class="mod-kpi-val" id="modVendActivos">?</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">En Meta Hoy</span><span class="mod-kpi-val" id="modVendEnMeta">0/0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">% Equipo Mes</span><span class="mod-kpi-val" id="modVendPctMes">0%</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Activos</span><span class="mod-kpi-val" id="modVendActivos">0</span></div>
       </div>
       <div class="mod-footer">
         <span class="mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
-        <span class="mod-status" id="modVendStatus">?</span>
+        <span class="mod-status" id="modVendStatus">&mdash;</span>
       </div>
     </a>
 
@@ -559,13 +560,13 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
         </div>
       </div>
       <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Saldo Total</span><span class="mod-kpi-val" id="modCxcTotal">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Vencido</span><span class="mod-kpi-val" id="modCxcVenc">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Clientes</span><span class="mod-kpi-val" id="modCxcClientes">?</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Saldo Total</span><span class="mod-kpi-val" id="modCxcTotal">$0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Vencido</span><span class="mod-kpi-val" id="modCxcVenc">$0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Clientes</span><span class="mod-kpi-val" id="modCxcClientes">0</span></div>
       </div>
       <div class="mod-footer">
         <span class="mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
-        <span class="mod-status" id="modCxcStatus">?</span>
+        <span class="mod-status" id="modCxcStatus">&mdash;</span>
       </div>
     </a>
 
@@ -579,13 +580,13 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
         </div>
       </div>
       <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">En Riesgo</span><span class="mod-kpi-val" id="modCliRiesgo">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Monto Cr&#237;tico</span><span class="mod-kpi-val" id="modCliCritico">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Inactivos</span><span class="mod-kpi-val" id="modCliInactivos">?</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">En Riesgo</span><span class="mod-kpi-val" id="modCliRiesgo">0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Monto Cr&#237;tico</span><span class="mod-kpi-val" id="modCliCritico">$0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Inactivos</span><span class="mod-kpi-val" id="modCliInactivos">0</span></div>
       </div>
       <div class="mod-footer">
         <span class="mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
-        <span class="mod-status" id="modCliStatus">?</span>
+        <span class="mod-status" id="modCliStatus">&mdash;</span>
       </div>
     </a>
 
@@ -599,13 +600,13 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
         </div>
       </div>
       <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Total Art&#237;culos</span><span class="mod-kpi-val" id="modInvTotal">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Bajo M&#237;nimo</span><span class="mod-kpi-val" id="modInvBajo">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Sin Stock</span><span class="mod-kpi-val" id="modInvCero">?</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Total Art&#237;culos</span><span class="mod-kpi-val" id="modInvTotal">0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Bajo M&#237;nimo</span><span class="mod-kpi-val" id="modInvBajo">0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Sin Stock</span><span class="mod-kpi-val" id="modInvCero">0</span></div>
       </div>
       <div class="mod-footer">
         <span class="mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
-        <span class="mod-status" id="modInvStatus">?</span>
+        <span class="mod-status" id="modInvStatus">&mdash;</span>
       </div>
     </a>
 
@@ -619,9 +620,9 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
         </div>
       </div>
       <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Venta Mes</span><span class="mod-kpi-val" id="modDirVenta">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Margen</span><span class="mod-kpi-val" id="modDirMargen">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Salud Cartera</span><span class="mod-kpi-val" id="modDirSalud">?</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Venta Mes</span><span class="mod-kpi-val" id="modDirVenta">$0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Margen</span><span class="mod-kpi-val" id="modDirMargen">0%</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Salud Cartera</span><span class="mod-kpi-val" id="modDirSalud">0%</span></div>
       </div>
       <div class="mod-footer">
         <span class="mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
@@ -639,13 +640,13 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
         </div>
       </div>
       <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Ventas Netas</span><span class="mod-kpi-val" id="modResVentas">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Margen Bruto</span><span class="mod-kpi-val" id="modResMargen">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Cobros Mes</span><span class="mod-kpi-val" id="modResCobros">?</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Ventas Netas</span><span class="mod-kpi-val" id="modResVentas">$0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Margen Bruto</span><span class="mod-kpi-val" id="modResMargen">0%</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Cobros Mes</span><span class="mod-kpi-val" id="modResCobros">$0</span></div>
       </div>
       <div class="mod-footer">
         <span class="mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
-        <span class="mod-status" id="modResStatus">?</span>
+        <span class="mod-status" id="modResStatus">&mdash;</span>
       </div>
     </a>
 
@@ -659,13 +660,13 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
         </div>
       </div>
       <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Meta Diaria</span><span class="mod-kpi-val" id="modMetaDiaria">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Meta Cotiz.</span><span class="mod-kpi-val" id="modMetaCoti">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Vendedores</span><span class="mod-kpi-val" id="modMetaVend">?</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Meta Diaria</span><span class="mod-kpi-val" id="modMetaDiaria">$0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Meta Cotiz.</span><span class="mod-kpi-val" id="modMetaCoti">$0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Vendedores</span><span class="mod-kpi-val" id="modMetaVend">0</span></div>
       </div>
       <div class="mod-footer">
         <span class="mod-open" style="color:var(--yellow)">Config. activa <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></span>
-        <span class="mod-status" id="modMetaStatus">?</span>
+        <span class="mod-status" id="modMetaStatus">&mdash;</span>
       </div>
     </div>
 
@@ -679,7 +680,7 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
           <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
           <span id="rankTitle">Ranking Vendedores</span>
         </div>
-        <div class="card-badge" id="rankFecha">?</div>
+        <div class="card-badge" id="rankFecha">&mdash;</div>
       </div>
       <div class="card-body">
         <div id="vendedoresContainer">
@@ -805,7 +806,7 @@ function setEl(id,val){const e=document.getElementById(id);if(e)e.textContent=va
 function setHtml(id,val){const e=document.getElementById(id);if(e)e.innerHTML=val}
 
 // -- Semaphore helper -----------------------------------------------------------
-function sem(id,pct,{invert=false,labels=['Cumplido','En riesgo','Critico']}={}){
+function sem(id,pct,{invert=false,labels=['Cumplido','En riesgo','Cr\u00edtico']}={}){
   const el=document.getElementById(id);if(!el)return;
   const ok=invert?pct<25:pct>=100;
   const warn=invert?(pct>=25&&pct<50):(pct>=70&&pct<100);
@@ -937,15 +938,15 @@ function renderScorecard(rows){
     const barW=pct!==null?Math.min(r.invert?Math.max(0,100-(r.statusCxc!=null?pct:pct*2)):pct,100):0;
     const deltaStr=delta!==null
       ?`<span class="${delta>=0&&!r.invert||delta<0&&r.invert?'delta-up':'delta-down'}">${delta>=0?'+':''}${delta.toFixed(1)}%</span>`
-      :'<span class="delta-flat">?</span>';
+      :'<span class="delta-flat">\u2014</span>';
     return `<tr>
       <td><div class="sc-kpi-name">${r.name}</div><div class="sc-kpi-area">${r.area}</div></td>
       <td class="sc-val" style="color:${r.valColor||'var(--text)'}">${r.actualFmt}</td>
-      <td class="sc-meta">${r.metaFmt||'?'}</td>
+      <td class="sc-meta">${r.metaFmt!=null&&r.metaFmt!==''?r.metaFmt:'\u2014'}</td>
       <td class="sc-delta">${deltaStr}</td>
       <td class="sc-bar-wrap">
         ${pct!==null?`<div class="sc-bar-bg"><div class="sc-bar-fill" style="width:${barW}%;background:${barColor}"></div></div>
-        <div class="sc-pct" style="color:${barColor}">${pct}%</div>`:'?'}
+        <div class="sc-pct" style="color:${barColor}">${pct}%</div>`:'<span class="sc-pct" style="color:var(--muted)">\u2014</span>'}
       </td>
       <td class="sc-sem"><span style="font-family:'DM Mono',monospace;font-size:.62rem;color:${semColor}">${semTxt}</span></td>
     </tr>`;
@@ -972,7 +973,7 @@ async function loadAll(){
       fwt(buildApiUrl('/api/resultados/pnl','meses=1'),{}),
       fwt(universeScorecardUrl(),{ empresas: [], consolidado: {} },130000),
     ]);
-    // fwt ya retorna el fallback directamente ? no necesita .value
+    // fwt ya retorna el fallback directamente; no necesita .value
 
     // Metas
     const numVend=+m.NUM_VENDEDORES||vends.length||1;
@@ -1093,7 +1094,7 @@ async function loadAll(){
         badgeEl.innerHTML=`<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>Operaci\u00f3n Normal`;
       }else if(issues.length<=1){
         badgeEl.className='situation-badge warn';
-        badgeEl.innerHTML=`<svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>Atenci&#243;n requerida`;
+        badgeEl.innerHTML=`<svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>Atenci\u00f3n requerida`;
       }else{
         badgeEl.className='situation-badge danger';
         badgeEl.innerHTML=`<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>Alertas activas`;
@@ -1101,8 +1102,8 @@ async function loadAll(){
     }
     setEl('heroSub',
       issues.length===0
-        ? `${numVend} vendedores activos ? Meta diaria ${fmtM(metaDia)} ? CxC ${fmtM(cxcTotal)} ? Sin alertas criticas`
-        : `${numVend} vendedores ? Meta ${fmtM(metaDia)} ? CxC ${fmtM(cxcTotal)} ? Alertas: ${issues.join(', ')}`
+        ? `${numVend} vendedores activos \u00b7 Meta diaria ${fmtM(metaDia)} \u00b7 CxC ${fmtM(cxcTotal)} \u00b7 Sin alertas cr\u00edticas`
+        : `${numVend} vendedores \u00b7 Meta ${fmtM(metaDia)} \u00b7 CxC ${fmtM(cxcTotal)} \u00b7 Alertas: ${issues.join(', ')}`
     );
 
     // Module cards (valores según preset; texto meta según periodo)
@@ -1178,7 +1179,7 @@ async function loadAll(){
     const dirMargen=+dir.MARGEN_PCT||0;
     const dirSalud=+dir.SALUD_CARTERA||(cxcTotal>0?Math.round((1-cxcVenc/cxcTotal)*100):100);
     setEl('modDirVenta',fmtM(dirVenta));
-    setEl('modDirMargen',dirMargen?dirMargen.toFixed(1)+'%':'?');
+    setEl('modDirMargen',dirMargen?dirMargen.toFixed(1)+'%':'0%');
     setEl('modDirSalud',dirSalud+'%');
 
     // Vendedores ranking
@@ -1194,11 +1195,11 @@ async function loadAll(){
       {name:labelVenta1,area:'Ventas - Tiempo Real',actual:valorVenta1,meta:metaVenta1,actualFmt:fmtM(valorVenta1),metaFmt:fmtM(metaVenta1),valColor:'var(--green)'},
       {name:labelVenta2,area:areaPeriodLabel,actual:ventaMes,meta:metaMes,actualFmt:fmtM(ventaMes),metaFmt:fmtM(metaMes),valColor:'var(--blue)'},
       {name:scCotiName,area:'Ventas - Oportunidades',actual:valorCoti,meta:metaCotiDia,actualFmt:fmtM(valorCoti),metaFmt:fmtM(metaCotiDia),valColor:'var(--yellow)'},
-      {name:'Cartera Total CxC',area:'Cobranza - Saldo',actual:cxcTotal,meta:null,actualFmt:fmtM(cxcTotal),metaFmt:'?',valColor:'var(--orange)',statusCxc:pVenc},
+      {name:'Cartera Total CxC',area:'Cobranza - Saldo',actual:cxcTotal,meta:null,actualFmt:fmtM(cxcTotal),metaFmt:'Ref. % vencido',valColor:'var(--orange)',statusCxc:pVenc},
       {name:'Cartera Vencida',area:'Cobranza - Riesgo',actual:pVenc,meta:20,actualFmt:pVenc+'%',metaFmt:'<20%',valColor:pVenc>50?'var(--red)':pVenc>25?'var(--yellow)':'var(--green)',invert:true},
-      {name:'Articulos Bajo M&#237;nimo',area:'Inventario - Alerta',actual:invBajo,meta:metaBajoMin,actualFmt:invBajo.toLocaleString(),metaFmt:'<'+metaBajoMin,valColor:invBajo>10?'var(--red)':invBajo>0?'var(--yellow)':'var(--green)',invert:true},
+      {name:'Art\u00edculos bajo m\u00ednimo',area:'Inventario - Alerta',actual:invBajo,meta:metaBajoMin,actualFmt:invBajo.toLocaleString(),metaFmt:'<'+metaBajoMin,valColor:invBajo>10?'var(--red)':invBajo>0?'var(--yellow)':'var(--green)',invert:true},
       {name:'Vendedores en Meta',area:'Ventas - Equipo',actual:cumpl.filter(r=>+r.PCT_HOY>=100).length,meta:numVend,actualFmt:cumpl.filter(r=>+r.PCT_HOY>=100).length+'/'+numVend,metaFmt:numVend+' vend.',valColor:'var(--purple)'},
-      {name:'Margen Bruto',area:'Resultados - P&amp;L',actual:resMargen,meta:30,actualFmt:resMargen.toFixed(1)+'%',metaFmt:'?30%',valColor:resMargen>=30?'var(--green)':resMargen>=15?'var(--yellow)':'var(--red)'},
+      {name:'Margen Bruto',area:'Resultados - P&amp;L',actual:resMargen,meta:30,actualFmt:resMargen.toFixed(1)+'%',metaFmt:'\u2265 30%',valColor:resMargen>=30?'var(--green)':resMargen>=15?'var(--yellow)':'var(--red)'},
     ]);
 
     renderUniversePortfolio(uniData);
