@@ -454,16 +454,16 @@ function renderRiesgo(data){
   if(iconEl){
     if(sortNivelDirection===0){
       iconEl.className = 'th-sort-icon muted';
-      iconEl.setAttribute('title','Orden: p\u00e9rdida est. (clic para ordenar por nivel)');
+      iconEl.setAttribute('title','Orden: monto vencido (clic para ordenar por nivel)');
     }else{
       iconEl.className = 'th-sort-icon ' + (sortNivelDirection===1?'desc':'asc');
-      iconEl.setAttribute('title', sortNivelDirection===1?'Cr\u00edtico primero (clic: leve primero)':'Leve primero (clic: volver a p\u00e9rdida est.)');
+      iconEl.setAttribute('title', sortNivelDirection===1?'Cr\u00edtico primero (clic: leve primero)':'Leve primero (clic: volver a monto vencido)');
     }
   }
   let dataToRender = data;
   if(data.length>0){
     if(sortNivelDirection===0){
-      dataToRender = [...data].sort((a,b)=>(+b.PERDIDA_OPORTUNIDAD||0)-(+a.PERDIDA_OPORTUNIDAD||0));
+      dataToRender = [...data].sort((a,b)=>(+b.MONTO_VENCIDO||0)-(+a.MONTO_VENCIDO||0));
     }else{
       dataToRender = [...data].sort((a,b)=>{
         const na = (a.NIVEL_RIESGO||nivelFromDias(a.MAX_DIAS_VENCIDO)).toUpperCase();
@@ -480,7 +480,9 @@ function renderRiesgo(data){
     const badgeClass = nivel==='CRITICO'?'badge-critico':nivel==='ALTO'?'badge-alto':nivel==='MEDIO'?'badge-medio':'badge-leve';
     const saldoTotal = +r.SALDO_TOTAL||+r.SALDO||0;
     const montoVencido = +r.MONTO_VENCIDO||+r.MONTO_VENCIDO_BRUTO||+r.SALDO||0;
-    const pctV = saldoTotal>0 ? Math.round((montoVencido/saldoTotal)*100) : (+r.PCT_VENCIDO||0);
+    let pctV = 0;
+    if (saldoTotal > 0) pctV = Math.min(100, Math.round((montoVencido / saldoTotal) * 100));
+    else if (montoVencido > 0) pctV = 100;
     const col  = nivel==='CRITICO'?'var(--red)':nivel==='ALTO'?'var(--orange)':nivel==='MEDIO'?'var(--yellow)':'var(--blue)';
     const perdida = +r.PERDIDA_OPORTUNIDAD||0;
     const nCom = +r.NUM_COMPRAS_VIDA||0;

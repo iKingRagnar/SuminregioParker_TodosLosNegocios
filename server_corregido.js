@@ -420,6 +420,7 @@ function buildFiltros(req, alias = 'd', options = {}) {
   const omitVC = options.omitVendedorCliente === true;
   const conds  = [];
   const params = [];
+  const feRoot = options.fechaExpr != null ? options.fechaExpr : `${alias}.FECHA`;
   const { anio, mes, dia, vendedor, cliente } = req.query;
   let   { desde, hasta } = req.query;
 
@@ -428,15 +429,15 @@ function buildFiltros(req, alias = 'd', options = {}) {
   if (desde && !reDate.test(desde)) desde = null;
   if (hasta && !reDate.test(hasta)) hasta = null;
 
-  if (desde) { conds.push(`CAST(${alias}.FECHA AS DATE) >= CAST(? AS DATE)`); params.push(desde); }
-  if (hasta) { conds.push(`CAST(${alias}.FECHA AS DATE) <= CAST(? AS DATE)`); params.push(hasta); }
+  if (desde) { conds.push(`CAST(${feRoot} AS DATE) >= CAST(? AS DATE)`); params.push(desde); }
+  if (hasta) { conds.push(`CAST(${feRoot} AS DATE) <= CAST(? AS DATE)`); params.push(hasta); }
 
   // anio/mes solo si no hay rango explícito
   if (!desde) {
-    if (anio) { conds.push(`EXTRACT(YEAR  FROM ${alias}.FECHA) = ?`); params.push(parseInt(anio)); }
-    if (mes)  { conds.push(`EXTRACT(MONTH FROM ${alias}.FECHA) = ?`); params.push(parseInt(mes)); }
+    if (anio) { conds.push(`EXTRACT(YEAR  FROM ${feRoot}) = ?`); params.push(parseInt(anio)); }
+    if (mes)  { conds.push(`EXTRACT(MONTH FROM ${feRoot}) = ?`); params.push(parseInt(mes)); }
   }
-  if (dia) { conds.push(`CAST(${alias}.FECHA AS DATE) = CAST(? AS DATE)`); params.push(dia); }
+  if (dia) { conds.push(`CAST(${feRoot} AS DATE) = CAST(? AS DATE)`); params.push(dia); }
   if (!omitVC && vendedor) { conds.push(`${alias}.VENDEDOR_ID = ?`); params.push(parseInt(vendedor)); }
   if (!omitVC && cliente) { conds.push(`${alias}.CLIENTE_ID  = ?`); params.push(parseInt(cliente)); }
 
@@ -454,8 +455,11 @@ function buildFiltros(req, alias = 'd', options = {}) {
  * Filtro de fechas sobre IMPORTES_DOCTOS_CC + vendedor/cliente vía documento CC aplicado
  * (COALESCE(DOCTO_CC_ACR_ID, DOCTO_CC_ID) → DOCTOS_CC → VE/PV).
  */
-function filtrosImporteCobro(req, importAlias = 'i') {
-  const base = buildFiltros(req, importAlias, { omitVendedorCliente: true });
+function filtrosImporteCobro(req, importAlias = 'i', opts = {}) {
+  const base = buildFiltros(req, importAlias, {
+    omitVendedorCliente: true,
+    fechaExpr: opts.coalesceDcFecha ? `COALESCE(${importAlias}.FECHA, dc.FECHA)` : undefined,
+  });
   let sql = base.sql;
   const params = [...base.params];
   const a = importAlias;
@@ -660,7 +664,10 @@ function ventasSub(tipo = '') {
 // ═══════════════════════════════════════════════════════════════════════════════
 function sqlWhereCotizacionActiva(alias = 'd') {
   const a = alias;
-  return `(${a}.TIPO_DOCTO IN ('C', 'O')) AND COALESCE(${a}.ESTATUS, '') <> 'C'`;
+  // Microsip: cotización suele ser C; algunas plantas usan O, Q o minúsculas. Solo excluimos canceladas.
+  return `(
+    UPPER(TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(4)))) IN ('C', 'O', 'Q')
+  ) AND COALESCE(${a}.ESTATUS, 'N') <> 'C'`;
 }
 
 function normalizeCotizacionResumenRow(row) {
@@ -673,11 +680,18 @@ function normalizeCotizacionResumenRow(row) {
   };
 }
 
+/** Importe en cotizaciones DOCTOS_VE: a veces IMPORTE_NETO viene en 0 y el total está en IMPORTE. */
+function sqlCotiImporteExpr(alias = 'd') {
+  const a = alias;
+  return `COALESCE(${a}.IMPORTE_NETO, ${a}.IMPORTE, 0)`;
+}
+
 /**
  * Subconsulta de consumo por unidades vendidas (VE + PV)
  * tipo: 'VE' | 'PV' | '' (ambos)
  */
 function consumosSub(tipo = '') {
+  // Sin tipo R: las devoluciones suelen no tener renglones en *_DET y anulan el consumo agregado (KPIs en 0).
   const ve = `
     SELECT
       d.FECHA,
@@ -691,7 +705,6 @@ function consumosSub(tipo = '') {
     WHERE (
       (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
       OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
-      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS <> 'C')
     )`;
 
   const pv = `
@@ -707,7 +720,6 @@ function consumosSub(tipo = '') {
     WHERE (
       (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
       OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
-      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS <> 'C')
     )`;
 
   if (tipo === 'VE') return `(${ve})`;
@@ -940,11 +952,12 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
     req.query.mes = now.getMonth() + 1;
   }
   const f = buildFiltros(req, 'd');
+  const ci = sqlCotiImporteExpr('d');
   const rows = await query(`
     SELECT
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE
-               THEN COALESCE(d.IMPORTE_NETO, 0) ELSE 0 END)         AS HOY,
-      COALESCE(SUM(d.IMPORTE_NETO), 0)                              AS MES_ACTUAL,
+               THEN ${ci} ELSE 0 END)         AS HOY,
+      COALESCE(SUM(${ci}), 0)                              AS MES_ACTUAL,
       COUNT(*)                                                      AS COTIZACIONES_MES,
       COUNT(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 END) AS COTIZACIONES_HOY
     FROM DOCTOS_VE d
@@ -1029,8 +1042,9 @@ get('/api/ventas/cotizaciones/diarias', async (req) => {
   const desde = new Date();
   desde.setDate(desde.getDate() - dias);
   const desdeStr = desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-' + String(desde.getDate()).padStart(2, '0');
+  const ci = sqlCotiImporteExpr('d');
   const rows = await query(`
-    SELECT CAST(d.FECHA AS DATE) AS DIA, COUNT(*) AS COTIZACIONES, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL_COTIZACIONES
+    SELECT CAST(d.FECHA AS DATE) AS DIA, COUNT(*) AS COTIZACIONES, COALESCE(SUM(${ci}),0) AS TOTAL_COTIZACIONES
     FROM DOCTOS_VE d
     WHERE ${sqlWhereCotizacionActiva('d')}
       AND CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
@@ -1042,9 +1056,10 @@ get('/api/ventas/cotizaciones/diarias', async (req) => {
 get('/api/ventas/cotizaciones/semanales', async (req) => {
   const dbo = getReqDbOpts(req);
   const f = buildFiltros(req, 'd');
+  const ci = sqlCotiImporteExpr('d');
   return query(`
     SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(WEEK FROM d.FECHA) AS SEMANA,
-      COUNT(*) AS COTIZACIONES, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL
+      COUNT(*) AS COTIZACIONES, COALESCE(SUM(${ci}),0) AS TOTAL
     FROM DOCTOS_VE d WHERE ${sqlWhereCotizacionActiva('d')} ${f.sql}
     GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(WEEK FROM d.FECHA) ORDER BY 1, 2
   `, f.params, 12000, dbo).catch(() => []);
@@ -1053,9 +1068,10 @@ get('/api/ventas/cotizaciones/semanales', async (req) => {
 get('/api/ventas/cotizaciones/mensuales', async (req) => {
   const dbo = getReqDbOpts(req);
   const f = buildFiltros(req, 'd');
+  const ci = sqlCotiImporteExpr('d');
   return query(`
     SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
-      COUNT(*) AS COTIZACIONES, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL
+      COUNT(*) AS COTIZACIONES, COALESCE(SUM(${ci}),0) AS TOTAL
     FROM DOCTOS_VE d WHERE ${sqlWhereCotizacionActiva('d')} ${f.sql}
     GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
   `, f.params, 12000, dbo).catch(() => []);
@@ -1109,12 +1125,13 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
   const vendSql = Number.isFinite(vid) ? ' AND d.VENDEDOR_ID = ?' : '';
   const params = [...f.params];
   if (Number.isFinite(vid)) params.push(vid);
+  const ci = sqlCotiImporteExpr('d');
   return query(`
     SELECT
       COALESCE(v.NOMBRE, 'Vendedor ' || CAST(d.VENDEDOR_ID AS VARCHAR(12))) AS VENDEDOR,
       d.VENDEDOR_ID,
-      SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN COALESCE(d.IMPORTE_NETO, 0) ELSE 0 END) AS COTIZACIONES_HOY,
-      COALESCE(SUM(d.IMPORTE_NETO), 0) AS COTIZACIONES_MES,
+      SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN ${ci} ELSE 0 END) AS COTIZACIONES_HOY,
+      COALESCE(SUM(${ci}), 0) AS COTIZACIONES_MES,
       COUNT(*) AS NUM_COTI_MES
     FROM DOCTOS_VE d
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
@@ -1156,7 +1173,7 @@ get('/api/ventas/vs-cotizaciones', async (req) => {
     `, [desdeStr], 12000, dbo).catch(() => []),
     query(`
       SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
-        COALESCE(SUM(d.IMPORTE_NETO), 0) AS TOTAL_COTI, COUNT(*) AS NUM_COTI
+        COALESCE(SUM(${sqlCotiImporteExpr('d')}), 0) AS TOTAL_COTI, COUNT(*) AS NUM_COTI
       FROM DOCTOS_VE d
       WHERE ${sqlWhereCotizacionActiva('d')}
         AND CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
@@ -1297,11 +1314,11 @@ get('/api/ventas/cobradas-detalle', async (req) => {
     req.query.anio = now.getFullYear();
     req.query.mes = now.getMonth() + 1;
   }
-  const fi = filtrosImporteCobro(req, 'i');
+  const fi = filtrosImporteCobro(req, 'i', { coalesceDcFecha: true });
   const limit = Math.min(parseInt(req.query.limit, 10) || 400, 800);
   return query(`
     SELECT FIRST ${limit}
-      CAST(i.FECHA AS DATE) AS FECHA_COBRO,
+      CAST(COALESCE(i.FECHA, dc.FECHA) AS DATE) AS FECHA_COBRO,
       dc.FOLIO AS FOLIO_CC,
       COALESCE(fac.FOLIO, dc.FOLIO) AS FOLIO,
       cl.NOMBRE AS CLIENTE,
@@ -1315,7 +1332,7 @@ get('/api/ventas/cobradas-detalle', async (req) => {
     LEFT JOIN DOCTOS_PV pv ON pv.DOCTO_PV_ID = fac.DOCTO_PV_ID
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = COALESCE(ve.VENDEDOR_ID, pv.VENDEDOR_ID)
     WHERE i.TIPO_IMPTE = 'R' AND COALESCE(i.CANCELADO, 'N') = 'N' ${fi.sql}
-    ORDER BY i.FECHA DESC, dc.FOLIO DESC
+    ORDER BY COALESCE(i.FECHA, dc.FECHA) DESC, dc.FOLIO DESC
   `, fi.params, 15000, dbo).catch(() => []);
 });
 
@@ -1414,9 +1431,10 @@ get('/api/ventas/cotizaciones', async (req) => {
   const dbo = getReqDbOpts(req);
   const f = buildFiltros(req, 'd');
   const limit = Math.min(parseInt(req.query.limit, 10) || 50, 500);
+  const ci = sqlCotiImporteExpr('d');
   return query(`
     SELECT FIRST ${limit}
-      d.DOCTO_VE_ID, d.FECHA, d.FOLIO, d.TIPO_DOCTO, d.IMPORTE_NETO, d.CLIENTE_ID,
+      d.DOCTO_VE_ID, d.FECHA, d.FOLIO, d.TIPO_DOCTO, ${ci} AS IMPORTE_NETO, d.CLIENTE_ID,
       c.NOMBRE AS CLIENTE, d.VENDEDOR_ID,
       COALESCE(v.NOMBRE, 'Vendedor ' || CAST(d.VENDEDOR_ID AS VARCHAR(12))) AS VENDEDOR
     FROM DOCTOS_VE d
@@ -1563,8 +1581,8 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
     query(`SELECT cd.CLIENTE_ID, SUM(cd.SALDO) AS TOTAL_C, SUM(CASE WHEN cd.DIAS_VENCIDO > 0 THEN cd.SALDO ELSE 0 END) AS VENC_C FROM ${cxcCargosSQL()} cd GROUP BY cd.CLIENTE_ID`, [], qms, dbOpts).catch(() => []),
     query(`
       SELECT
-        SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END) AS IMPORTE_COTI_HOY,
-        COALESCE(SUM(d.IMPORTE_NETO), 0) AS IMPORTE_COTI_MES,
+        SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN ${sqlCotiImporteExpr('d')} ELSE 0 END) AS IMPORTE_COTI_HOY,
+        COALESCE(SUM(${sqlCotiImporteExpr('d')}), 0) AS IMPORTE_COTI_MES,
         SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 ELSE 0 END) AS COTI_HOY,
         COUNT(*) AS COTI_MES
       FROM DOCTOS_VE d
@@ -1758,7 +1776,7 @@ get('/api/director/recientes', async (req) => {
 // Contado / efectivo inmediato: DIAS_VENCIDO = 0 (no entra a morosidad aunque haya FECHA_VENCIMIENTO en tabla). Solo saldo > 0.
 function cxcDocSaldosSQL(cfSql) {
   return `(
-    SELECT d.CLIENTE_ID, d.DIAS_VENCIDO,
+    SELECT d.DOCTO_CC_ID, d.CLIENTE_ID, d.DIAS_VENCIDO,
       CAST(
         COALESCE((SELECT SUM(i.IMPORTE) FROM IMPORTES_DOCTOS_CC i
           WHERE i.DOCTO_CC_ID = d.DOCTO_CC_ID AND i.TIPO_IMPTE = 'C' AND COALESCE(i.CANCELADO,'N') = 'N'), 0)
@@ -1828,56 +1846,57 @@ get('/api/cxc/aging', async (req) => {
   };
 });
 
-// Facturas vencidas: una fila por documento, SALDO = saldo neto (Cargo − Cobro) como Power BI Saldo_Documento.
-// Solo saldo pendiente real: filtro sobre el mismo CAST que se devuelve (evita filas ya liquidadas o polvo numérico).
+// Facturas vencidas: misma base que aging/resumen (cxcDocSaldosSQL), 1 fila por DOCTO_CC_ID, orden por saldo.
 get('/api/cxc/vencidas', async (req) => {
   const dbo = getReqDbOpts(req);
   const limit = Math.min(parseInt(req.query.limit) || 100, 500);
-  const cf = req.query.cliente ? ` AND d.CLIENTE_ID = ${parseInt(req.query.cliente)}` : '';
+  const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
+  const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
   return query(`
     SELECT FIRST ${limit}
-      q.FOLIO,
-      q.CLIENTE,
-      q.CONDICION_PAGO,
-      q.SALDO,
-      q.ATRASO,
-      q.DIAS_ATRASO,
-      q.FECHA_VENTA,
-      q.FECHA_VENC_PLAZO,
-      q.FECHA_VENCIMIENTO,
-      q.TIEMPO_SIN_PAGAR_DIAS
+      sorted.FOLIO,
+      sorted.CLIENTE,
+      sorted.CONDICION_PAGO,
+      sorted.SALDO,
+      sorted.ATRASO,
+      sorted.DIAS_ATRASO,
+      sorted.FECHA_VENTA,
+      sorted.FECHA_VENC_PLAZO,
+      sorted.FECHA_VENCIMIENTO,
+      sorted.TIEMPO_SIN_PAGAR_DIAS
     FROM (
       SELECT
-        d.FOLIO,
+        dc.FOLIO AS FOLIO,
         c.NOMBRE AS CLIENTE,
         COALESCE(cp.NOMBRE, 'S/D') AS CONDICION_PAGO,
-        CAST((
-          COALESCE((SELECT SUM(i.IMPORTE) FROM IMPORTES_DOCTOS_CC i
-            WHERE i.DOCTO_CC_ID = d.DOCTO_CC_ID AND i.TIPO_IMPTE = 'C' AND COALESCE(i.CANCELADO,'N') = 'N'), 0)
-          - COALESCE((SELECT SUM(CASE WHEN COALESCE(i2.IMPUESTO,0) > 0 THEN i2.IMPORTE ELSE i2.IMPORTE / 1.16 END)
-            FROM IMPORTES_DOCTOS_CC i2
-            WHERE i2.DOCTO_CC_ACR_ID = d.DOCTO_CC_ID AND i2.TIPO_IMPTE = 'R' AND COALESCE(i2.CANCELADO,'N') = 'N'), 0)
-        ) AS DECIMAL(18,2)) AS SALDO,
-        d.DIAS_VENCIDO AS ATRASO,
-        d.DIAS_VENCIDO AS DIAS_ATRASO,
-        CAST(COALESCE(ve.FECHA, pv.FECHA, dc.FECHA) AS DATE) AS FECHA_VENTA,
+        x.SALDO_NETO AS SALDO,
+        x.DIAS_ATRASO AS ATRASO,
+        x.DIAS_ATRASO AS DIAS_ATRASO,
+        CAST(dc.FECHA AS DATE) AS FECHA_VENTA,
         CAST(CAST(dc.FECHA AS DATE) + CAST(COALESCE(cp.DIAS_PPAG, 0) AS INTEGER) AS DATE) AS FECHA_VENC_PLAZO,
-        d.FECHA_VENCIMIENTO,
-        d.DIAS_VENCIDO AS TIEMPO_SIN_PAGAR_DIAS
+        fv.FECHA_VENCIMIENTO AS FECHA_VENCIMIENTO,
+        x.DIAS_ATRASO AS TIEMPO_SIN_PAGAR_DIAS
       FROM (
-        SELECT cd.DOCTO_CC_ID, cd.CLIENTE_ID, cd.FOLIO, cd.FECHA_VENCIMIENTO, cd.DIAS_VENCIDO
-        FROM ${cxcCargosSQL()} cd
-        WHERE cd.DIAS_VENCIDO > 0 ${cf}
-        GROUP BY cd.DOCTO_CC_ID, cd.CLIENTE_ID, cd.FOLIO, cd.FECHA_VENCIMIENTO, cd.DIAS_VENCIDO
-      ) d
-      JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
-      LEFT JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = d.DOCTO_CC_ID
+        SELECT
+          doc.DOCTO_CC_ID,
+          doc.CLIENTE_ID,
+          MAX(doc.DIAS_VENCIDO) AS DIAS_ATRASO,
+          MAX(doc.SALDO_NETO) AS SALDO_NETO
+        FROM ${cxcDocSaldosSQL(cfSql)} doc
+        WHERE doc.DIAS_VENCIDO >= 1
+        GROUP BY doc.DOCTO_CC_ID, doc.CLIENTE_ID
+        HAVING MAX(doc.SALDO_NETO) > 0.005
+      ) x
+      JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = x.DOCTO_CC_ID
+      JOIN CLIENTES c ON c.CLIENTE_ID = x.CLIENTE_ID
       LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = dc.COND_PAGO_ID
-      LEFT JOIN DOCTOS_VE ve ON ve.DOCTO_VE_ID = dc.DOCTO_VE_ID
-      LEFT JOIN DOCTOS_PV pv ON pv.DOCTO_PV_ID = dc.DOCTO_PV_ID
-    ) q
-    WHERE q.SALDO > 0.005
-    ORDER BY q.SALDO DESC, q.DIAS_ATRASO DESC
+      LEFT JOIN (
+        SELECT cd.DOCTO_CC_ID, MAX(CAST(cd.FECHA_VENCIMIENTO AS DATE)) AS FECHA_VENCIMIENTO
+        FROM ${cxcCargosSQL()} cd
+        GROUP BY cd.DOCTO_CC_ID
+      ) fv ON fv.DOCTO_CC_ID = x.DOCTO_CC_ID
+      ORDER BY x.SALDO_NETO DESC, x.DIAS_ATRASO DESC
+    ) sorted
   `, [], 12000, dbo).catch(() => []);
 });
 
@@ -2337,7 +2356,7 @@ get('/api/clientes/riesgo', async (req) => {
         )
       GROUP BY CLIENTE_ID
     ) buy ON buy.CLIENTE_ID = agg.CLIENTE_ID
-    ORDER BY PERDIDA_OPORTUNIDAD DESC, agg.MONTO_VENCIDO DESC
+    ORDER BY agg.MONTO_VENCIDO DESC, PERDIDA_OPORTUNIDAD DESC
   `, [], 12000, dbo).catch(() => []);
 });
 
@@ -2588,7 +2607,7 @@ async function resultadosPnlCore(req, dbOpts) {
   const ey = parseInt(String(hastaStr).slice(0, 4), 10);
   const em = parseInt(String(hastaStr).slice(5, 7), 10);
 
-  const [ventasMes, costosINMes, costosINDirect, cobrosMes, costosSaldos5101] = await Promise.all([
+  const [ventasMes, costosINMes, costosINDirect, cobrosMes, costosSaldos5101, gastosSaldos52] = await Promise.all([
     q(`
       SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
         COALESCE(SUM(d.IMPORTE_NETO), 0) AS VENTAS_NETAS,
@@ -2636,6 +2655,37 @@ async function resultadosPnlCore(req, dbOpts) {
       GROUP BY s.ANO, s.MES
       ORDER BY 1, 2
     `, [sy, ey, sy, sm, ey, em], 15000).catch(() => []),
+    q(`
+      SELECT s.ANO AS ANIO, s.MES AS MES,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5201' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_A1,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5202' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_A2,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5203' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_A3,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5204' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_A4,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5205' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_A5,
+        SUM(CASE
+          WHEN cu.CUENTA_PT STARTING WITH '52'
+           AND NOT (cu.CUENTA_PT STARTING WITH '5201' OR cu.CUENTA_PT STARTING WITH '5202' OR cu.CUENTA_PT STARTING WITH '5203'
+             OR cu.CUENTA_PT STARTING WITH '5204' OR cu.CUENTA_PT STARTING WITH '5205')
+          THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_A6,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5301' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_B1,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5302' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_B2,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5303' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_B3,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5304' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_B4,
+        SUM(CASE
+          WHEN cu.CUENTA_PT STARTING WITH '53'
+           AND NOT (cu.CUENTA_PT STARTING WITH '5301' OR cu.CUENTA_PT STARTING WITH '5302'
+             OR cu.CUENTA_PT STARTING WITH '5303' OR cu.CUENTA_PT STARTING WITH '5304')
+          THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_B5
+      FROM SALDOS_CO s
+      JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
+      WHERE (cu.TIPO = 'R' OR cu.TIPO IS NULL)
+        AND (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53')
+        AND s.ANO >= ? AND s.ANO <= ?
+        AND NOT (s.ANO = ? AND s.MES < ?)
+        AND NOT (s.ANO = ? AND s.MES > ?)
+      GROUP BY s.ANO, s.MES
+      ORDER BY 1, 2
+    `, [sy, ey, sy, sm, ey, em], 15000).catch(() => []),
   ]);
 
   const key = (a, m) => `${a}-${m}`;
@@ -2650,6 +2700,9 @@ async function resultadosPnlCore(req, dbOpts) {
     if (!costMap[k] || costMap[k] === 0) costMap[k] = v;
   });
   const cobMap = {}; (cobrosMes || []).forEach(r => { cobMap[key(r.ANIO, r.MES)] = +r.COBROS || 0; });
+  const gasMap = {};
+  (gastosSaldos52 || []).forEach(r => { gasMap[key(r.ANIO, r.MES)] = r; });
+  const gasAbs = (g, k) => Math.abs(+g[k] || 0);
 
   const meses = (ventasMes || []).map(r => {
     const ventas = +r.VENTAS_NETAS || 0;
@@ -2657,6 +2710,7 @@ async function resultadosPnlCore(req, dbOpts) {
     const cobros = cobMap[key(r.ANIO, r.MES)] || 0;
     const util = ventas - costo;
     const margenPct = ventas > 0 ? Math.round((util / ventas) * 1000) / 10 : 0;
+    const g = gasMap[key(r.ANIO, r.MES)] || {};
     return {
       ANIO: r.ANIO,
       MES: r.MES,
@@ -2668,6 +2722,17 @@ async function resultadosPnlCore(req, dbOpts) {
       MARGEN_BRUTO_PCT: margenPct,
       COBROS: cobros,
       NUM_FACTURAS: +r.NUM_FACTURAS || 0,
+      CO_A1: gasAbs(g, 'CO_A1'),
+      CO_A2: gasAbs(g, 'CO_A2'),
+      CO_A3: gasAbs(g, 'CO_A3'),
+      CO_A4: gasAbs(g, 'CO_A4'),
+      CO_A5: gasAbs(g, 'CO_A5'),
+      CO_A6: gasAbs(g, 'CO_A6'),
+      CO_B1: gasAbs(g, 'CO_B1'),
+      CO_B2: gasAbs(g, 'CO_B2'),
+      CO_B3: gasAbs(g, 'CO_B3'),
+      CO_B4: gasAbs(g, 'CO_B4'),
+      CO_B5: gasAbs(g, 'CO_B5'),
     };
   });
 
@@ -2679,14 +2744,31 @@ async function resultadosPnlCore(req, dbOpts) {
     acc.UTILIDAD_BRUTA += m.UTILIDAD_BRUTA;
     acc.COBROS += m.COBROS;
     acc.NUM_FACTURAS += m.NUM_FACTURAS;
+    acc.CO_A1 += m.CO_A1 || 0;
+    acc.CO_A2 += m.CO_A2 || 0;
+    acc.CO_A3 += m.CO_A3 || 0;
+    acc.CO_A4 += m.CO_A4 || 0;
+    acc.CO_A5 += m.CO_A5 || 0;
+    acc.CO_A6 += m.CO_A6 || 0;
+    acc.CO_B1 += m.CO_B1 || 0;
+    acc.CO_B2 += m.CO_B2 || 0;
+    acc.CO_B3 += m.CO_B3 || 0;
+    acc.CO_B4 += m.CO_B4 || 0;
+    acc.CO_B5 += m.CO_B5 || 0;
     return acc;
-  }, { VENTAS_NETAS: 0, VENTAS_VE: 0, VENTAS_PV: 0, COSTO_VENTAS: 0, UTILIDAD_BRUTA: 0, COBROS: 0, NUM_FACTURAS: 0 });
+  }, {
+    VENTAS_NETAS: 0, VENTAS_VE: 0, VENTAS_PV: 0, COSTO_VENTAS: 0, UTILIDAD_BRUTA: 0, COBROS: 0, NUM_FACTURAS: 0,
+    CO_A1: 0, CO_A2: 0, CO_A3: 0, CO_A4: 0, CO_A5: 0, CO_A6: 0, CO_B1: 0, CO_B2: 0, CO_B3: 0, CO_B4: 0, CO_B5: 0,
+  });
   totales.MARGEN_BRUTO_PCT = totales.VENTAS_NETAS > 0
     ? Math.round((totales.UTILIDAD_BRUTA / totales.VENTAS_NETAS) * 1000) / 10 : 0;
 
   const tiene_costo = totales.COSTO_VENTAS > 0;
+  const sumGastoCo = ['CO_A1', 'CO_A2', 'CO_A3', 'CO_A4', 'CO_A5', 'CO_A6', 'CO_B1', 'CO_B2', 'CO_B3', 'CO_B4', 'CO_B5']
+    .reduce((s, k) => s + (+totales[k] || 0), 0);
+  const tiene_gastos_co = sumGastoCo > 0.01;
 
-  return { meses, totales, tiene_costo };
+  return { meses, totales, tiene_costo, tiene_gastos_co };
 }
 
 get('/api/resultados/pnl', async (req) => {
@@ -2709,7 +2791,7 @@ get('/api/resultados/pnl-universe', async (req) => {
   const conc = Math.min(Math.max(parseInt(req.query.concurrency, 10) || 2, 1), 4);
   const rows = await mapPoolLimit(DATABASE_REGISTRY, conc, async (entry) => {
     try {
-      const { meses, totales, tiene_costo } = await resultadosPnlCore(req, entry.options);
+      const { meses, totales, tiene_costo, tiene_gastos_co } = await resultadosPnlCore(req, entry.options);
       const t = totales || {};
       return {
         ok: true,
@@ -2726,6 +2808,7 @@ get('/api/resultados/pnl-universe', async (req) => {
           VENTAS_PV: +t.VENTAS_PV || 0,
         },
         tiene_costo: !!tiene_costo,
+        tiene_gastos_co: !!tiene_gastos_co,
         meses_count: (meses || []).length,
       };
     } catch (e) {

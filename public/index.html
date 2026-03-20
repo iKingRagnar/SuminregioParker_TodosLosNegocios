@@ -964,7 +964,7 @@ let chartTend=null;
 async function loadAll(){
   try{
     const tKpi = 35000;
-    const [v,m,c,inv,dir,vends,cot,cumpl,cliRes,pnlData,uniData]=await Promise.all([
+    const [v,m,c,inv,dir,vends,cot,cumpl,cliRes,pnlData]=await Promise.all([
       fwt(buildApiUrl('/api/ventas/resumen'),{},tKpi),
       fwt(buildApiUrl('/api/config/metas'),{},tKpi),
       fwt(buildApiUrl('/api/cxc/resumen'),{},tKpi),
@@ -975,7 +975,6 @@ async function loadAll(){
       fwt(buildApiUrl('/api/ventas/cumplimiento'),[],tKpi),
       fwt(buildApiUrl('/api/clientes/resumen-riesgo'),{},tKpi),
       fwt(buildApiUrl('/api/resultados/pnl','meses=1'),{},tKpi),
-      fwt(universeScorecardUrl(),{ empresas: [], consolidado: {} },130000),
     ]);
     // fwt ya retorna el fallback directamente; no necesita .value
 
@@ -1203,7 +1202,7 @@ async function loadAll(){
     if(pnlMeses.length>0){
       const last=pnlMeses[pnlMeses.length-1];
       resVentas=+last.VENTAS_NETAS||ventaMes;
-      resMargen=+last.MARGEN_PCT||0;
+      resMargen=+last.MARGEN_BRUTO_PCT||+last.MARGEN_PCT||0;
       resCobros=+last.COBROS||0;
     }
     setEl('modResVentas',fmtM(resVentas));
@@ -1214,7 +1213,7 @@ async function loadAll(){
 
     // Director
     const dirVenta=+dir.VENTAS_MES||ventaMes;
-    const dirMargen=+dir.MARGEN_PCT||0;
+    const dirMargen=+dir.MARGEN_BRUTO_PCT||+dir.MARGEN_PCT||0;
     const dirSalud=+dir.SALUD_CARTERA||(cxcTotal>0?Math.round((1-cxcVenc/cxcTotal)*100):100);
     setEl('modDirVenta',fmtM(dirVenta));
     setEl('modDirMargen',dirMargen?dirMargen.toFixed(1)+'%':'0%');
@@ -1240,7 +1239,9 @@ async function loadAll(){
       {name:'Margen Bruto',area:'Resultados - P&amp;L',actual:resMargen,meta:30,actualFmt:resMargen.toFixed(1)+'%',metaFmt:'\u2265 30%',valColor:resMargen>=30?'var(--green)':resMargen>=15?'var(--yellow)':'var(--red)'},
     ]);
 
-    renderUniversePortfolio(uniData);
+    fwt(universeScorecardUrl(),{ empresas: [], consolidado: {} },45000).then(function(uniData){
+      try{ renderUniversePortfolio(uniData); }catch(_){}
+    });
 
   }catch(e){
     console.error('loadAll error:',e);
