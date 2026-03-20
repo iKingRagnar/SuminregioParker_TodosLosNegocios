@@ -1050,6 +1050,14 @@ async function loadAll(){
     setEl('kpiLabelVentaMes', labelVenta2);
     setEl('kpiVentaMes', fmtM(ventaMes));
     setEl('kpiVentaMesSub', 'Meta: '+fmtM(metaMes));
+    if (v && v._queryError) {
+      setEl('kpiVentaMesSub', 'Error ventas: ' + String(v._queryError).slice(0, 160));
+      const _kms = document.getElementById('kpiVentaMesSub');
+      if (_kms) _kms.style.color = 'var(--red)';
+    } else {
+      const _kms = document.getElementById('kpiVentaMesSub');
+      if (_kms) _kms.style.color = '';
+    }
     setBar('barVentaMes','pctVentaMes', pMes);
     sem('semVentaMes', pMes, {labels:['Cumplido','En riesgo','Critico']});
 
@@ -1092,7 +1100,7 @@ async function loadAll(){
         if (card) dashboardApplySem(card, lvl);
       };
       ringMega('kpiVentaHoy', pVenta1 >= 100 ? 'ok' : pVenta1 >= 70 ? 'warn' : 'danger');
-      ringMega('kpiVentaMes', pMes >= 100 ? 'ok' : pMes >= 70 ? 'warn' : 'danger');
+      ringMega('kpiVentaMes', v && v._queryError ? 'danger' : pMes >= 100 ? 'ok' : pMes >= 70 ? 'warn' : 'danger');
       const pCotiBar = isVistaHoy ? pCotiHoy : pCotiMes;
       ringMega('kpiCotiHoy', pCotiBar >= 100 ? 'ok' : pCotiBar >= 70 ? 'warn' : 'danger');
       ringMega('kpiCxcTotal', cxcTotal > 0 ? 'info' : 'neutral');
@@ -1102,6 +1110,7 @@ async function loadAll(){
 
     // Hero subtitle & situation badge
     const issues=[];
+    if (v && v._queryError) issues.push('API ventas: ' + String(v._queryError).slice(0, 80));
     if(pHoy<70)issues.push('venta del d\u00eda al '+pHoy+'%');
     if(pVenc>30)issues.push('cartera vencida al '+pVenc+'%');
     if(invBajo>10)issues.push(invBajo+' art\u00edculos bajo m\u00ednimo');

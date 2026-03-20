@@ -106,6 +106,8 @@ nav{display:flex;align-items:center;gap:.25rem}
 .vendor-split{display:flex;gap:.5rem;margin-top:.15rem;font-family:'DM Mono',monospace;font-size:.6rem}
 .sk{display:inline-block;background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 50%,var(--s2) 75%);background-size:200%;animation:shimmer 1.5s infinite;border-radius:4px}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.api-err-banner{display:none;margin:0 0 1rem;padding:.75rem 1rem;border-radius:10px;border:1px solid rgba(255,69,102,.35);background:var(--red-dim);color:var(--red);font-family:'DM Mono',monospace;font-size:.72rem;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+.api-err-banner.show{display:block}
 .tipo-badge{display:inline-block;padding:.1rem .4rem;border-radius:4px;font-size:.6rem;font-weight:600;font-family:'DM Mono',monospace}
 .tipo-ve{background:var(--blue-dim);color:var(--blue)}.tipo-pv{background:var(--purple-dim);color:var(--purple)}
 .split-bar{display:flex;height:8px;border-radius:99px;overflow:hidden;margin-top:.5rem}
@@ -145,6 +147,7 @@ nav{display:flex;align-items:center;gap:.25rem}
 
   <!-- Barra de filtros compartida -->
   <div id="filter-bar"></div>
+  <div id="ventas-api-banner" class="api-err-banner" role="alert" aria-live="polite"></div>
 
   <div class="source-tabs">
     <button class="tab-btn tab-all active" onclick="setTipo('')" id="tab-all">Todos</button>
@@ -578,7 +581,16 @@ async function loadAll() {
 
 async function loadResumen() {
   try {
+    const banner = document.getElementById('ventas-api-banner');
+    if (banner) {
+      banner.classList.remove('show');
+      banner.textContent = '';
+    }
     const d = await fwt(buildApiUrl('/api/ventas/resumen', tipoQ()), {});
+    if (d && d._queryError && banner) {
+      banner.textContent = 'No se pudo leer ventas (Firebird). ' + d._queryError + '\nRevisa consola del servidor y /api/debug/ventas?db=…';
+      banner.classList.add('show');
+    }
     const hoy=+(d.HOY||0), mes=+(d.MES_ACTUAL||0), docs=+(d.FACTURAS_MES||0);
     const diasCal = new Date().getDate();
     const bloq = ventasMetaBloqueadasPorTipo();
