@@ -1018,6 +1018,34 @@ get('/api/config/filtros', async (req) => {
   return { vendedores, clientes, anios };
 });
 
+/** Diagnóstico: ¿el chip ?db= existe en DATABASE_REGISTRY? Si no, getReqDbOpts cae en FB_DATABASE y los KPI pueden verse en ceros. */
+get('/api/config/db-check', async (req) => {
+  const id = String(req.query.db || '').trim();
+  if (!id || id.toLowerCase() === 'default') {
+    return {
+      ok: true,
+      mode: 'default',
+      database: String(DB_OPTIONS.database || ''),
+    };
+  }
+  const hit = DATABASE_REGISTRY.find((d) => String(d.id).toLowerCase() === id.toLowerCase());
+  if (!hit) {
+    return {
+      ok: false,
+      error: 'unknown_db_id',
+      id,
+      hint: 'El id no está en el registro del servidor; se usará FB_DATABASE. Revisa la consola: [Firebird] bases registradas',
+      registeredIds: DATABASE_REGISTRY.map((d) => d.id),
+    };
+  }
+  return {
+    ok: true,
+    id: hit.id,
+    label: hit.label,
+    database: hit.options.database,
+  };
+});
+
 /**
  * Agregados de ventas sin UNION (VE y PV en paralelo). El UNION ALL sobre tablas grandes en Firebird
  * suele agotar timeout; dos SELECT con índice por tabla suele ser más rápido.

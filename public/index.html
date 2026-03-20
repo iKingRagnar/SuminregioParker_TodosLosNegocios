@@ -769,6 +769,16 @@ function fdbBasenameIndex(p){
 async function initBizBar(){
   indexDbList=await fwt(API+'/api/universe/databases',[]);
   if(!Array.isArray(indexDbList))indexDbList=[];
+  // Si ?db= o sessionStorage tienen un id viejo (no listado en el servidor), el API ignora el chip y usa FB_DATABASE → KPI en ceros.
+  const validIds=new Set(indexDbList.map(function(e){return String(e&&e.id||'');}).filter(Boolean));
+  try{
+    var uDb=(new URLSearchParams(location.search).get('db')||'').trim();
+    if(uDb&&!validIds.has(uDb)){
+      var u=new URL(location.href); u.searchParams.delete('db'); history.replaceState({},'',u);
+    }
+    var sDb=(sessionStorage.getItem('microsip_erp_db')||'').trim();
+    if(sDb&&!validIds.has(sDb)) sessionStorage.removeItem('microsip_erp_db');
+  }catch(_){}
   const bar=document.getElementById('bizContextBar');
   const chips=document.getElementById('bizChips');
   const lbl=document.getElementById('bizContextLabel');
@@ -987,6 +997,8 @@ async function loadAll(){
       fwt(buildApiUrl('/api/resultados/pnl','meses=1'),{},tApi),
     ]);
     // fwt ya retorna el fallback directamente; no necesita .value
+    const cumplArr=Array.isArray(cumpl)?cumpl:[];
+    const vendsArr=Array.isArray(vends)?vends:[];
 
     // Metas
     const numVend=+m.NUM_VENDEDORES||vends.length||1;
@@ -1195,12 +1207,12 @@ async function loadAll(){
     setEl('modCobStatus','Ver detalle');
 
     // Vendedores cumplimiento
-    if(cumpl.length>0){
-      const enMeta=cumpl.filter(r=>+r.PCT_HOY>=100||r.STATUS==='OK').length;
-      const totalPctMes=cumpl.reduce((s,r)=>s+(+r.PCT_MES||0),0)/cumpl.length;
-      setEl('modVendEnMeta',enMeta+'/'+cumpl.length);
+    if(cumplArr.length>0){
+      const enMeta=cumplArr.filter(r=>+r.PCT_HOY>=100||r.STATUS==='OK').length;
+      const totalPctMes=cumplArr.reduce((s,r)=>s+(+r.PCT_MES||0),0)/cumplArr.length;
+      setEl('modVendEnMeta',enMeta+'/'+cumplArr.length);
       setEl('modVendPctMes',totalPctMes.toFixed(0)+'%');
-      setEl('modVendActivos',cumpl.length+' vend.');
+      setEl('modVendActivos',cumplArr.length+' vend.');
       const vColor2=totalPctMes>=100?'var(--green)':totalPctMes>=75?'var(--yellow)':'var(--red)';
       setHtml('modVendStatus',`<span style="color:${vColor2}">${totalPctMes.toFixed(0)}% meta mes</span>`);
     }
@@ -1239,7 +1251,7 @@ async function loadAll(){
     setEl('modDirSalud',dirSalud+'%');
 
     // Vendedores ranking
-    renderVendedores(vends);
+    renderVendedores(vendsArr);
     // Alertas
     renderAlertas({ventaHoy,metaDia,cxcVenc,cxcTotal,pVenc,invBajo,invCero});
     // Tendencia
@@ -1254,7 +1266,7 @@ async function loadAll(){
       {name:'Cartera Total CxC',area:'Cobranza - Saldo',actual:cxcTotal,meta:null,actualFmt:fmtM(cxcTotal),metaFmt:'Ref. % vencido',valColor:'var(--orange)',statusCxc:pVenc},
       {name:'Cartera Vencida',area:'Cobranza - Riesgo',actual:pVenc,meta:20,actualFmt:pVenc+'%',metaFmt:'<20%',valColor:pVenc>50?'var(--red)':pVenc>25?'var(--yellow)':'var(--green)',invert:true},
       {name:'Art\u00edculos bajo m\u00ednimo',area:'Inventario - Alerta',actual:invBajo,meta:metaBajoMin,actualFmt:invBajo.toLocaleString(),metaFmt:'<'+metaBajoMin,valColor:invBajo>10?'var(--red)':invBajo>0?'var(--yellow)':'var(--green)',invert:true},
-      {name:'Vendedores en Meta',area:'Ventas - Equipo',actual:cumpl.filter(r=>+r.PCT_HOY>=100).length,meta:numVend,actualFmt:cumpl.filter(r=>+r.PCT_HOY>=100).length+'/'+numVend,metaFmt:numVend+' vend.',valColor:'var(--purple)'},
+      {name:'Vendedores en Meta',area:'Ventas - Equipo',actual:cumplArr.filter(r=>+r.PCT_HOY>=100).length,meta:numVend,actualFmt:cumplArr.filter(r=>+r.PCT_HOY>=100).length+'/'+numVend,metaFmt:numVend+' vend.',valColor:'var(--purple)'},
       {name:'Margen Bruto',area:'Resultados - P&amp;L',actual:resMargen,meta:30,actualFmt:resMargen.toFixed(1)+'%',metaFmt:'\u2265 30%',valColor:resMargen>=30?'var(--green)':resMargen>=15?'var(--yellow)':'var(--red)'},
     ]);
 
