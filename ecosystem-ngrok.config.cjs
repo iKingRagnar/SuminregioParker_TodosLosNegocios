@@ -11,8 +11,9 @@
 const path = require('path');
 
 const exe = path.join(__dirname, 'ngrok.exe');
-// Puerto al que ngrok debe tunelar (debe coincidir con PORT en .env o 7000 por defecto en server_corregido.js)
-const port = process.env.PORT || '7000';
+// Puerto local de la API (debe coincidir con .env / server_corregido.js). Solo dígitos.
+const raw = (process.env.PORT && String(process.env.PORT).trim()) || '7000';
+const port = String(parseInt(raw, 10) || 7000);
 
 module.exports = {
   apps: [
@@ -20,7 +21,8 @@ module.exports = {
       name: 'ngrok-tunnel',
       cwd: __dirname,
       script: exe,
-      args: `http ${port} --log=stdout`,
+      // ngrok v3: subcomando "http" + puerto. No uses --log=stdout aquí (provoca ayuda y exit).
+      args: ['http', port],
       interpreter: 'none',
       autorestart: true,
       max_restarts: 30,
