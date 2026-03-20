@@ -84,6 +84,42 @@ function sqlVentaImporteBaseExpr(alias = 'd') {
   return `(COALESCE(${a}.IMPORTE_NETO, 0) / CAST(${VENTAS_SIN_IVA_DIVISOR} AS DOUBLE PRECISION))`;
 }
 
+/** Importe línea DET — Power BI dLineasDocumentos: UNIDADES × (PRECIO_UNITARIO o PRECIO_U). */
+function sqlDetLineImporteExpr(detAlias = 'det') {
+  const x = detAlias;
+  return `(COALESCE(${x}.UNIDADES, 0) * COALESCE(NULLIF(${x}.PRECIO_UNITARIO, 0), NULLIF(${x}.PRECIO_U, 0), CAST(0 AS DOUBLE PRECISION)))`;
+}
+
+/** Facturación (DAX Facturación $): solo TIPO F y V; ESTATUS no C / D / S. */
+function sqlWhereFacturaVentaValida(alias = 'd') {
+  const a = alias;
+  return `(${a}.TIPO_DOCTO IN ('F', 'V')) AND (COALESCE(${a}.ESTATUS, 'N') NOT IN ('C', 'D', 'S'))`;
+}
+
+/**
+ * Subconsulta: una fila por cotización VE con importe = suma líneas − DSCTO_IMPORTE cabecera (DAX Cotizaciones $).
+ * fSql debe incluir espacio inicial " AND ..." sobre alias d.
+ */
+function sqlCotizacionesVeDocSubquery(fSql = '') {
+  const L = sqlDetLineImporteExpr('det');
+  return `(
+    SELECT
+      d.DOCTO_VE_ID,
+      d.FECHA,
+      d.FOLIO,
+      d.TIPO_DOCTO,
+      d.ESTATUS,
+      d.VENDEDOR_ID,
+      d.CLIENTE_ID,
+      (COALESCE(SUM(${L}), 0) - COALESCE(MAX(d.DSCTO_IMPORTE), 0)) AS IMPORTE_NETO
+    FROM DOCTOS_VE d
+    INNER JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
+    WHERE ${sqlWhereCotizacionActiva('d')}${fSql}
+    GROUP BY d.DOCTO_VE_ID, d.FECHA, d.FOLIO, d.TIPO_DOCTO, d.ESTATUS, d.VENDEDOR_ID, d.CLIENTE_ID
+    HAVING (COALESCE(SUM(${L}), 0) - COALESCE(MAX(d.DSCTO_IMPORTE), 0)) <> 0
+  )`;
+}
+
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 app.use(express.json());
@@ -625,16 +661,17 @@ function consumosVendedorClienteSql(req, alias = 'd') {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Genera sub-SELECT con UNION ALL de DOCTOS_VE + DOCTOS_PV,
- * filtrando solo Facturas/Ventas válidas sin doble-conteo.
+ * UNION ALL VE+PV: **una fila por documento** con IMPORTE_NETO = suma de líneas DET (DAX dLineasDocumentos),
+ * solo TIPO_DOCTO F y V, ESTATUS no C/D/S. Sin tipo R. Documentos sin renglones o importe 0 no entran.
  * @param {string} tipo - 'VE', 'PV' o '' (todos)
  */
 function ventasSub(tipo = '') {
-  const imp = sqlVentaImporteBaseExpr('d');
+  const L = sqlDetLineImporteExpr('det');
+  const w = sqlWhereFacturaVentaValida('d');
   const ve = `
     SELECT
       d.FECHA,
-      ${imp} AS IMPORTE_NETO,
+      COALESCE(SUM(${L}), 0) AS IMPORTE_NETO,
       COALESCE(d.VENDEDOR_ID, 0)  AS VENDEDOR_ID,
       COALESCE(d.CLIENTE_ID,  0)  AS CLIENTE_ID,
       d.FOLIO,
@@ -644,16 +681,15 @@ function ventasSub(tipo = '') {
       CAST(NULL AS INTEGER) AS DOCTO_PV_ID,
       'VE' AS TIPO_SRC
     FROM DOCTOS_VE d
-    WHERE (
-      (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
-      OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
-      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS <> 'C')
-    )`;
+    INNER JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
+    WHERE ${w}
+    GROUP BY d.DOCTO_VE_ID, d.FECHA, d.VENDEDOR_ID, d.CLIENTE_ID, d.FOLIO, d.TIPO_DOCTO, d.ESTATUS
+    HAVING COALESCE(SUM(${L}), 0) <> 0`;
 
   const pv = `
     SELECT
       d.FECHA,
-      ${imp} AS IMPORTE_NETO,
+      COALESCE(SUM(${L}), 0) AS IMPORTE_NETO,
       COALESCE(d.VENDEDOR_ID, 0)  AS VENDEDOR_ID,
       COALESCE(d.CLIENTE_ID,  0)  AS CLIENTE_ID,
       d.FOLIO,
@@ -663,11 +699,10 @@ function ventasSub(tipo = '') {
       d.DOCTO_PV_ID,
       'PV' AS TIPO_SRC
     FROM DOCTOS_PV d
-    WHERE (
-      (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
-      OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
-      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS <> 'C')
-    )`;
+    INNER JOIN DOCTOS_PV_DET det ON det.DOCTO_PV_ID = d.DOCTO_PV_ID
+    WHERE ${w}
+    GROUP BY d.DOCTO_PV_ID, d.FECHA, d.VENDEDOR_ID, d.CLIENTE_ID, d.FOLIO, d.TIPO_DOCTO, d.ESTATUS
+    HAVING COALESCE(SUM(${L}), 0) <> 0`;
 
   if (tipo === 'VE') return `(${ve})`;
   if (tipo === 'PV') return `(${pv})`;
@@ -675,16 +710,11 @@ function ventasSub(tipo = '') {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-//  COTIZACIONES (solo DOCTOS_VE) — mismo predicado en todos los endpoints
-//  TIPO_DOCTO: 'C' cotización estándar; 'O' usado en algunas plantas Microsip.
-//  Excluye canceladas. (Sin PV: mostrador no maneja cotización en esta API.)
+//  COTIZACIONES — DAX: TIPO_DOCTO = "C" y ESTATUS <> "C"; importe = líneas − DSCTO_IMPORTE.
 // ═══════════════════════════════════════════════════════════════════════════════
 function sqlWhereCotizacionActiva(alias = 'd') {
   const a = alias;
-  // Cotización en DOCTOS_VE: C / O / Q según planta Microsip. No canceladas.
-  return `(
-    UPPER(TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(4)))) IN ('C', 'O', 'Q')
-  ) AND COALESCE(${a}.ESTATUS, 'N') <> 'C'`;
+  return `(UPPER(TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(4)))) = 'C') AND (COALESCE(${a}.ESTATUS, 'N') <> 'C')`;
 }
 
 function normalizeCotizacionResumenRow(row) {
@@ -697,17 +727,12 @@ function normalizeCotizacionResumenRow(row) {
   };
 }
 
-/** Importe cotización en misma base que ventas (sin IVA según MICROSIP_VENTAS_SIN_IVA_DIVISOR). */
-function sqlCotiImporteExpr(alias = 'd') {
-  return sqlVentaImporteBaseExpr(alias);
-}
-
 /**
  * Subconsulta de consumo por unidades vendidas (VE + PV)
  * tipo: 'VE' | 'PV' | '' (ambos)
  */
 function consumosSub(tipo = '') {
-  // Sin tipo R: las devoluciones suelen no tener renglones en *_DET y anulan el consumo agregado (KPIs en 0).
+  const w = sqlWhereFacturaVentaValida('d');
   const ve = `
     SELECT
       d.FECHA,
@@ -718,10 +743,7 @@ function consumosSub(tipo = '') {
       'VE' AS TIPO_SRC
     FROM DOCTOS_VE d
     JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
-    WHERE (
-      (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
-      OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
-    )`;
+    WHERE ${w}`;
 
   const pv = `
     SELECT
@@ -733,10 +755,7 @@ function consumosSub(tipo = '') {
       'PV' AS TIPO_SRC
     FROM DOCTOS_PV d
     JOIN DOCTOS_PV_DET det ON det.DOCTO_PV_ID = d.DOCTO_PV_ID
-    WHERE (
-      (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
-      OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
-    )`;
+    WHERE ${w}`;
 
   if (tipo === 'VE') return `(${ve})`;
   if (tipo === 'PV') return `(${pv})`;
@@ -968,17 +987,14 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
     req.query.mes = now.getMonth() + 1;
   }
   const f = buildFiltros(req, 'd');
-  const ci = sqlCotiImporteExpr('d');
   const rows = await query(`
     SELECT
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE
-               THEN ${ci} ELSE 0 END)         AS HOY,
-      COALESCE(SUM(${ci}), 0)                              AS MES_ACTUAL,
-      COUNT(*)                                                      AS COTIZACIONES_MES,
+               THEN d.IMPORTE_NETO ELSE 0 END)         AS HOY,
+      COALESCE(SUM(d.IMPORTE_NETO), 0)                 AS MES_ACTUAL,
+      COUNT(*)                                         AS COTIZACIONES_MES,
       COUNT(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 END) AS COTIZACIONES_HOY
-    FROM DOCTOS_VE d
-    WHERE ${sqlWhereCotizacionActiva('d')}
-      ${f.sql}
+    FROM ${sqlCotizacionesVeDocSubquery(f.sql)} d
   `, f.params, 12000, dbo).catch(() => []);
   return normalizeCotizacionResumenRow(rows[0]);
 });
@@ -1058,12 +1074,10 @@ get('/api/ventas/cotizaciones/diarias', async (req) => {
   const desde = new Date();
   desde.setDate(desde.getDate() - dias);
   const desdeStr = desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-' + String(desde.getDate()).padStart(2, '0');
-  const ci = sqlCotiImporteExpr('d');
   const rows = await query(`
-    SELECT CAST(d.FECHA AS DATE) AS DIA, COUNT(*) AS COTIZACIONES, COALESCE(SUM(${ci}),0) AS TOTAL_COTIZACIONES
-    FROM DOCTOS_VE d
-    WHERE ${sqlWhereCotizacionActiva('d')}
-      AND CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
+    SELECT CAST(d.FECHA AS DATE) AS DIA, COUNT(*) AS COTIZACIONES, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL_COTIZACIONES
+    FROM ${sqlCotizacionesVeDocSubquery('')} d
+    WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
     GROUP BY CAST(d.FECHA AS DATE) ORDER BY 1
   `, [desdeStr], 12000, dbo).catch(() => []);
   return (rows || []).map(r => ({ DIA: r.DIA, COTIZACIONES: r.COTIZACIONES, TOTAL_COTIZACIONES: r.TOTAL_COTIZACIONES || 0 }));
@@ -1072,11 +1086,10 @@ get('/api/ventas/cotizaciones/diarias', async (req) => {
 get('/api/ventas/cotizaciones/semanales', async (req) => {
   const dbo = getReqDbOpts(req);
   const f = buildFiltros(req, 'd');
-  const ci = sqlCotiImporteExpr('d');
   return query(`
     SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(WEEK FROM d.FECHA) AS SEMANA,
-      COUNT(*) AS COTIZACIONES, COALESCE(SUM(${ci}),0) AS TOTAL
-    FROM DOCTOS_VE d WHERE ${sqlWhereCotizacionActiva('d')} ${f.sql}
+      COUNT(*) AS COTIZACIONES, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL
+    FROM ${sqlCotizacionesVeDocSubquery(f.sql)} d
     GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(WEEK FROM d.FECHA) ORDER BY 1, 2
   `, f.params, 12000, dbo).catch(() => []);
 });
@@ -1084,11 +1097,10 @@ get('/api/ventas/cotizaciones/semanales', async (req) => {
 get('/api/ventas/cotizaciones/mensuales', async (req) => {
   const dbo = getReqDbOpts(req);
   const f = buildFiltros(req, 'd');
-  const ci = sqlCotiImporteExpr('d');
   return query(`
     SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
-      COUNT(*) AS COTIZACIONES, COALESCE(SUM(${ci}),0) AS TOTAL
-    FROM DOCTOS_VE d WHERE ${sqlWhereCotizacionActiva('d')} ${f.sql}
+      COUNT(*) AS COTIZACIONES, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL
+    FROM ${sqlCotizacionesVeDocSubquery(f.sql)} d
     GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
   `, f.params, 12000, dbo).catch(() => []);
 });
@@ -1141,17 +1153,15 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
   const vendSql = Number.isFinite(vid) ? ' AND d.VENDEDOR_ID = ?' : '';
   const params = [...f.params];
   if (Number.isFinite(vid)) params.push(vid);
-  const ci = sqlCotiImporteExpr('d');
   return query(`
     SELECT
       COALESCE(v.NOMBRE, 'Vendedor ' || CAST(d.VENDEDOR_ID AS VARCHAR(12))) AS VENDEDOR,
       d.VENDEDOR_ID,
-      SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN ${ci} ELSE 0 END) AS COTIZACIONES_HOY,
-      COALESCE(SUM(${ci}), 0) AS COTIZACIONES_MES,
+      SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END) AS COTIZACIONES_HOY,
+      COALESCE(SUM(d.IMPORTE_NETO), 0) AS COTIZACIONES_MES,
       COUNT(*) AS NUM_COTI_MES
-    FROM DOCTOS_VE d
+    FROM ${sqlCotizacionesVeDocSubquery(' AND d.VENDEDOR_ID > 0' + f.sql + vendSql)} d
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
-    WHERE ${sqlWhereCotizacionActiva('d')} AND d.VENDEDOR_ID > 0 ${f.sql} ${vendSql}
     GROUP BY v.NOMBRE, d.VENDEDOR_ID
     ORDER BY COTIZACIONES_MES DESC
   `, params, 12000, dbo).catch(() => []);
@@ -1189,10 +1199,8 @@ get('/api/ventas/vs-cotizaciones', async (req) => {
     `, [desdeStr], 12000, dbo).catch(() => []),
     query(`
       SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
-        COALESCE(SUM(${sqlCotiImporteExpr('d')}), 0) AS TOTAL_COTI, COUNT(*) AS NUM_COTI
-      FROM DOCTOS_VE d
-      WHERE ${sqlWhereCotizacionActiva('d')}
-        AND CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
+        COALESCE(SUM(d.IMPORTE_NETO), 0) AS TOTAL_COTI, COUNT(*) AS NUM_COTI
+      FROM ${sqlCotizacionesVeDocSubquery(' AND CAST(d.FECHA AS DATE) >= CAST(? AS DATE)')} d
       GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
     `, [desdeStr], 12000, dbo).catch(() => []),
   ]);
@@ -1364,16 +1372,8 @@ get('/api/ventas/margen-lineas', async (req) => {
   const f = buildFiltros(req, 'd');
   const tipo = getTipo(req);
   const limit = Math.min(parseInt(req.query.limit, 10) || 3000, 12000);
-  const docOk = `(
-      (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
-      OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
-      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS <> 'C')
-    )`;
-  const ventaBruta = 'COALESCE(NULLIF(det.PRECIO_T, 0), COALESCE(det.UNIDADES, 0) * COALESCE(det.PRECIO_U, 0))';
-  const ventaSql =
-    VENTAS_SIN_IVA_DIVISOR <= 1.00001
-      ? ventaBruta
-      : `((${ventaBruta}) / CAST(${VENTAS_SIN_IVA_DIVISOR} AS DOUBLE PRECISION))`;
+  const docOk = sqlWhereFacturaVentaValida('d');
+  const ventaSql = sqlDetLineImporteExpr('det');
   const mapRows = (rows) =>
     (rows || []).map((r) => {
       const venta = +r.VENTA || 0;
@@ -1525,18 +1525,15 @@ get('/api/ventas/cobradas-por-factura', async (req) => {
 get('/api/ventas/margen', async (req) => {
   const dbo = getReqDbOpts(req);
   const f = buildFiltros(req, 'd');
+  const L = sqlDetLineImporteExpr('det');
   return query(`
     SELECT d.VENDEDOR_ID, v.NOMBRE, EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
-      COALESCE(SUM(det.PRECIO_TOTAL - COALESCE(det.COSTO_TOTAL, 0)), 0) AS MARGEN,
-      COALESCE(SUM(det.PRECIO_TOTAL), 0) AS VENTA
+      COALESCE(SUM((${L}) - COALESCE(det.COSTO_TOTAL, 0)), 0) AS MARGEN,
+      COALESCE(SUM(${L}), 0) AS VENTA
     FROM DOCTOS_VE d
     JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
-    WHERE (
-      (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
-      OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C', 'T'))
-      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS <> 'C')
-    ) ${f.sql}
+    WHERE ${sqlWhereFacturaVentaValida('d')} ${f.sql}
     GROUP BY d.VENDEDOR_ID, v.NOMBRE, EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA)
   `, f.params, 12000, dbo).catch(() => []);
 });
@@ -1545,16 +1542,15 @@ get('/api/ventas/margen-articulos', async (req) => {
   const dbo = getReqDbOpts(req);
   const f = buildFiltros(req, 'd');
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+  const L = sqlDetLineImporteExpr('det');
   return query(`
-    SELECT a.ARTICULO_ID, a.DESCRIPCION, SUM(det.PRECIO_TOTAL - COALESCE(det.COSTO_TOTAL, 0)) AS MARGEN, SUM(det.PRECIO_TOTAL) AS VENTA
+    SELECT a.ARTICULO_ID, a.DESCRIPCION,
+      COALESCE(SUM((${L}) - COALESCE(det.COSTO_TOTAL, 0)), 0) AS MARGEN,
+      COALESCE(SUM(${L}), 0) AS VENTA
     FROM DOCTOS_VE d
     JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
     LEFT JOIN ARTICULOS a ON a.ARTICULO_ID = det.ARTICULO_ID
-    WHERE (
-      (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
-      OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C', 'T'))
-      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS <> 'C')
-    ) ${f.sql}
+    WHERE ${sqlWhereFacturaVentaValida('d')} ${f.sql}
     GROUP BY a.ARTICULO_ID, a.DESCRIPCION ORDER BY MARGEN DESC
   `, f.params, 12000, dbo).catch(() => []);
 });
@@ -1563,16 +1559,14 @@ get('/api/ventas/cotizaciones', async (req) => {
   const dbo = getReqDbOpts(req);
   const f = buildFiltros(req, 'd');
   const limit = Math.min(parseInt(req.query.limit, 10) || 50, 500);
-  const ci = sqlCotiImporteExpr('d');
   return query(`
     SELECT FIRST ${limit}
-      d.DOCTO_VE_ID, d.FECHA, d.FOLIO, d.TIPO_DOCTO, ${ci} AS IMPORTE_NETO, d.CLIENTE_ID,
+      d.DOCTO_VE_ID, d.FECHA, d.FOLIO, d.TIPO_DOCTO, d.IMPORTE_NETO, d.CLIENTE_ID,
       c.NOMBRE AS CLIENTE, d.VENDEDOR_ID,
       COALESCE(v.NOMBRE, 'Vendedor ' || CAST(d.VENDEDOR_ID AS VARCHAR(12))) AS VENDEDOR
-    FROM DOCTOS_VE d
+    FROM ${sqlCotizacionesVeDocSubquery(f.sql)} d
     LEFT JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
-    WHERE ${sqlWhereCotizacionActiva('d')} ${f.sql}
     ORDER BY d.FECHA DESC, d.FOLIO DESC
   `, f.params, 12000, dbo).catch(() => []);
 });
@@ -1687,8 +1681,7 @@ get('/api/ventas/cumplimiento', async (req) => {
 // ═══════════════════════════════════════════════════════════
 
 // director.html espera: dir.ventas (HOY, MES_ACTUAL, FACTURAS_MES, MES_VE, MES_PV), dir.cxc, dir.cotizaciones
-// Respeta preset/filtro de fechas: ventas y cotizaciones del periodo (desde/hasta o anio/mes).
-// Cotizaciones: DOCTOS_VE TIPO_DOCTO='C' ESTATUS<>'C' SUM(IMPORTE_NETO); mismo criterio que Power BI si BI usa igual (ver COTIZACIONES_WEB_VS_POWERBI.md).
+// Ventas: líneas DET (UNIDADES×precio), TIPO F/V, ESTATUS no C/D/S. Cotizaciones: TIPO C, líneas − DSCTO_IMPORTE.
 async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
   const qms = perQueryMs != null ? perQueryMs : 12000;
   const rq = { query: { ...req.query } };
@@ -1713,12 +1706,11 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
     query(`SELECT cd.CLIENTE_ID, SUM(cd.SALDO) AS TOTAL_C, SUM(CASE WHEN cd.DIAS_VENCIDO > 0 THEN cd.SALDO ELSE 0 END) AS VENC_C FROM ${cxcCargosSQL()} cd GROUP BY cd.CLIENTE_ID`, [], qms, dbOpts).catch(() => []),
     query(`
       SELECT
-        SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN ${sqlCotiImporteExpr('d')} ELSE 0 END) AS IMPORTE_COTI_HOY,
-        COALESCE(SUM(${sqlCotiImporteExpr('d')}), 0) AS IMPORTE_COTI_MES,
+        SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END) AS IMPORTE_COTI_HOY,
+        COALESCE(SUM(d.IMPORTE_NETO), 0) AS IMPORTE_COTI_MES,
         SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 ELSE 0 END) AS COTI_HOY,
         COUNT(*) AS COTI_MES
-      FROM DOCTOS_VE d
-      WHERE ${sqlWhereCotizacionActiva('d')} ${f.sql}
+      FROM ${sqlCotizacionesVeDocSubquery(f.sql)} d
     `, f.params, qms, dbOpts).catch(() => [{}]),
   ]);
   const agMap = {};
@@ -2086,39 +2078,29 @@ get('/api/cxc/historial', async (req) => {
   `, [cliente], 12000, dbo).catch(() => []);
 });
 
-// Por condición: saldo neto por documento CC (IMPORTES C/R), agrupado por COND_PAGO del documento (no del cliente).
-// "Contado" no aparece en el desglose crediticio; el pendiente de esos docs va en pendiente_contado.
+// Por condición: mismo saldo documento que aging (cargo en DOCTO_CC_ID − cobros en DOCTO_CC_ACR_ID); una fila por DOCTO_CC_ID.
+// Evita inflar totales sumando IMPORTES fila a fila sin aplicar ACR_ID. Contado → pendiente_contado.
 get('/api/cxc/por-condicion', async (req) => {
   const dbo = getReqDbOpts(req);
-  const cargosSub = cxcCargosSQL();
   const innerSQL = `
     SELECT
-      dc.DOCTO_CC_ID,
-      dc.CLIENTE_ID,
+      x.DOCTO_CC_ID,
+      x.CLIENTE_ID,
       TRIM(COALESCE(cp.NOMBRE, 'Sin condición')) AS CONDICION_PAGO,
       COALESCE(cp.DIAS_PPAG, 0) AS DIAS_CREDITO,
-      MAX(CASE WHEN ${CXC_SQL_ES_CONTADO} THEN 1 ELSE 0 END) AS ES_CONTADO,
-      COALESCE(MAX(venc.DIAS_VENCIDO), 0) AS DIAS_VENCIDO,
-      SUM(CASE
-        WHEN i.TIPO_IMPTE = 'C' THEN i.IMPORTE
-        WHEN i.TIPO_IMPTE = 'R' THEN -(CASE WHEN COALESCE(i.IMPUESTO, 0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END)
-        ELSE 0
-      END) AS SALDO_NETO
-    FROM IMPORTES_DOCTOS_CC i
-    JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = i.DOCTO_CC_ID
+      CASE WHEN ${CXC_SQL_ES_CONTADO} THEN 1 ELSE 0 END AS ES_CONTADO,
+      x.DIAS_VENCIDO,
+      x.SALDO_NETO
+    FROM (
+      SELECT doc.DOCTO_CC_ID, doc.CLIENTE_ID,
+        MAX(doc.SALDO_NETO) AS SALDO_NETO,
+        MAX(doc.DIAS_VENCIDO) AS DIAS_VENCIDO
+      FROM ${cxcDocSaldosInnerSQL('')} doc
+      WHERE doc.SALDO_NETO > 0.005
+      GROUP BY doc.DOCTO_CC_ID, doc.CLIENTE_ID
+    ) x
+    JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = x.DOCTO_CC_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = dc.COND_PAGO_ID
-    LEFT JOIN (
-      SELECT z.DOCTO_CC_ID, MAX(z.DIAS_VENCIDO) AS DIAS_VENCIDO
-      FROM ${cargosSub} z
-      GROUP BY z.DOCTO_CC_ID
-    ) venc ON venc.DOCTO_CC_ID = dc.DOCTO_CC_ID
-    WHERE COALESCE(i.CANCELADO, 'N') = 'N' ${CXC_EXCLUIR_CONTADO}
-    GROUP BY dc.DOCTO_CC_ID, dc.CLIENTE_ID, cp.NOMBRE, cp.DIAS_PPAG
-    HAVING SUM(CASE
-      WHEN i.TIPO_IMPTE = 'C' THEN i.IMPORTE
-      WHEN i.TIPO_IMPTE = 'R' THEN -(CASE WHEN COALESCE(i.IMPUESTO, 0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END)
-      ELSE 0
-    END) > 0.005
   `;
   const docs = await query(innerSQL, [], 15000, dbo).catch(() => []);
   const byCond = {};
