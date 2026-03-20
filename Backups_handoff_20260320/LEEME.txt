@@ -1,0 +1,13 @@
+Backup 20/03/2026 — antes de fix initFilters / ventas
+=====================================================
+Archivos copiados:
+- filters.js          (versión anterior)
+- public_ventas.html (copia de public/ventas.html por si acaso)
+
+Motivo del cambio:
+- initFilters() hacía await loadVendedores() ANTES de onReady().
+- Si /api/config/filtros tardaba o no respondía, loadAll() en ventas.html nunca corría
+  → KPI en "?" y "Cargando datos..." indefinido.
+
+Restaurar:
+  Copiar filters.js desde esta carpeta sobre microsip-api/filters.js y reiniciar el servidor.

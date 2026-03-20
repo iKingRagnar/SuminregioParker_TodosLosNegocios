@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suminregio Parker &mdash; Ventas</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// API = mismo origen que la página. Si abres por file:// se usa localhost:7000. filters.js aplica el fix para ngrok.
+window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');
+</script>
+<script src="filters.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060E1A;--s1:#0C1B29;--s2:#112233;--s3:#172D42;--s4:#1D3654;
+  --border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.11);
+  --green:#00E5A0;--green-dim:rgba(0,229,160,.1);
+  --yellow:#FFB800;--yellow-dim:rgba(255,184,0,.12);
+  --orange:#FF8C42;--orange-dim:rgba(255,140,66,.1);
+  --red:#FF4566;--red-dim:rgba(255,69,102,.12);
+  --blue:#4DA6FF;--blue-dim:rgba(77,166,255,.1);
+  --purple:#9B6DFF;--purple-dim:rgba(155,109,255,.1);
+  --text:#E8EFF8;--text2:#B0BECE;--muted:#5A7090;--dim:#243348;
+  --suminregio:#E6A800;--suminregio-dim:rgba(230,168,0,.15);--accent:var(--suminregio);
+}
+html{font-size:16px;-webkit-font-smoothing:antialiased}
+body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh}
+.bg-orbs{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.orb{position:absolute;border-radius:50%;filter:blur(130px);opacity:.12;animation:drift 20s ease-in-out infinite alternate}
+.orb-1{width:600px;height:600px;background:radial-gradient(circle,#1E7FD9,transparent 70%);top:-150px;left:-100px}
+.orb-2{width:500px;height:500px;background:radial-gradient(circle,#00E5A0,transparent 70%);bottom:-100px;right:-100px;animation-delay:-7s}
+@keyframes drift{0%{transform:translate(0,0)}100%{transform:translate(20px,15px)}}
+header{position:sticky;top:0;z-index:100;background:rgba(5,11,20,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
+.header-inner{max-width:1600px;margin:0 auto;height:64px;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;padding:0 2rem}
+.logo{display:flex;align-items:center;gap:.75rem;text-decoration:none}
+.logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--suminregio),var(--orange));border-radius:10px;display:grid;place-items:center;flex-shrink:0;box-shadow:0 0 14px rgba(230,168,0,.3)}
+.logo-icon svg{width:20px;height:20px;fill:white}
+.logo-text{font-size:.9rem;font-weight:700;color:var(--text)}
+.logo-sub{font-size:.62rem;font-family:'DM Mono',monospace;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+nav{display:flex;align-items:center;gap:.25rem}
+.nav-link{display:flex;align-items:center;gap:.4rem;padding:.4rem .85rem;border-radius:8px;font-size:.8rem;font-weight:500;color:var(--muted);text-decoration:none;transition:all .2s}
+.nav-link:hover{color:var(--text);background:var(--s2)}
+.nav-link.active{color:var(--suminregio);background:var(--suminregio-dim);border:1px solid var(--suminregio)}
+.nav-link svg{width:14px;height:14px;fill:currentColor}
+.header-right{display:flex;align-items:center;gap:1rem}
+.live-pill{display:flex;align-items:center;gap:.5rem;background:var(--green-dim);border:1px solid rgba(0,229,160,.2);border-radius:99px;padding:.3rem .75rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--green);letter-spacing:.06em}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.clock{font-family:'DM Mono',monospace;font-size:.78rem;color:var(--muted)}
+.page{position:relative;z-index:1;max-width:1600px;margin:0 auto;padding:2rem}
+.page-header{margin-bottom:2rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.page-title{font-size:1.75rem;font-weight:800;background:linear-gradient(135deg,var(--suminregio) 0%,var(--yellow) 50%,var(--orange) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.page-sub{font-size:.85rem;color:var(--muted);margin-top:.35rem}
+.source-tabs{display:flex;gap:.5rem;margin-bottom:1.5rem;flex-wrap:wrap;align-items:center}
+.tab-btn{padding:.45rem 1.1rem;border-radius:8px;font-size:.8rem;font-weight:600;cursor:pointer;border:1px solid var(--border2);background:var(--s1);color:var(--muted);transition:all .2s;font-family:'Syne',sans-serif}
+.tab-btn:hover{color:var(--text);border-color:var(--blue)}
+.tab-all.active{background:var(--green-dim);color:var(--green);border-color:var(--green)}
+.tab-ve.active{background:var(--blue-dim);color:var(--blue);border-color:var(--blue)}
+.tab-pv.active{background:var(--purple-dim);color:var(--purple);border-color:var(--purple)}
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:1rem;margin-bottom:1.5rem}
+@media(max-width:1200px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:700px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+.kpi-card{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:1.25rem 1.5rem;position:relative;overflow:hidden;transition:all .3s}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--kpi-c),transparent);opacity:.8}
+.kpi-card:hover{border-color:var(--border2);transform:translateY(-2px);box-shadow:0 12px 40px rgba(0,0,0,.3)}
+.kpi-card.blue{--kpi-c:var(--blue)}.kpi-card.green{--kpi-c:var(--green)}.kpi-card.yellow{--kpi-c:var(--yellow)}.kpi-card.orange{--kpi-c:var(--orange)}.kpi-card.purple{--kpi-c:var(--purple)}
+.kpi-label{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem}
+.kpi-value{font-family:'DM Mono',monospace;font-size:1.4rem;font-weight:500;letter-spacing:-.02em;line-height:1}
+.kpi-card.blue .kpi-value{color:var(--blue)}.kpi-card.green .kpi-value{color:var(--green)}.kpi-card.yellow .kpi-value{color:var(--yellow)}.kpi-card.orange .kpi-value{color:var(--orange)}.kpi-card.purple .kpi-value{color:var(--purple)}
+.kpi-sub{margin-top:.4rem;font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted)}
+.meta-bar-wrap{margin-top:.6rem}.meta-bar-bg{height:4px;background:var(--s3);border-radius:99px;overflow:hidden}.meta-bar-fill{height:100%;border-radius:99px;background:var(--kpi-c);transition:width 1.2s cubic-bezier(.4,0,.2,1)}.meta-pct{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);margin-top:.2rem}
+.tag{display:inline-block;padding:.1rem .4rem;border-radius:4px;font-size:.6rem;font-weight:500}
+.tag.up{background:var(--green-dim);color:var(--green)}.tag.down{background:var(--red-dim);color:var(--red)}.tag.warn{background:var(--yellow-dim);color:var(--yellow)}.tag.ok{background:var(--blue-dim);color:var(--blue)}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem}
+@media(max-width:1100px){.grid-2{grid-template-columns:1fr}}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.card-head{padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+.card-title{font-size:.88rem;font-weight:600;color:var(--suminregio);display:flex;align-items:center;gap:.6rem}
+.card-title svg{width:16px;height:16px;fill:var(--muted)}
+.card-badge{font-family:'DM Mono',monospace;font-size:.63rem;padding:.2rem .6rem;border-radius:99px;border:1px solid var(--border2);color:var(--muted);background:transparent;cursor:default}
+.card-badge.btn{cursor:pointer}.card-badge.btn:hover{border-color:var(--blue);color:var(--blue)}
+#mensuales-periodo{display:flex;gap:2px;padding:0}.periodo-btn{border:1px solid var(--border2);background:transparent;color:var(--muted);font-family:'DM Mono',monospace;font-size:.6rem;padding:.15rem .45rem;border-radius:4px;cursor:pointer}
+.periodo-btn:hover{border-color:var(--blue);color:var(--blue)}.periodo-btn.active{background:var(--blue);border-color:var(--blue);color:#fff}
+.top-cli-wrap{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.top-cli-btn{border:1px solid var(--border2);background:transparent;color:var(--muted);font-family:'DM Mono',monospace;font-size:.58rem;padding:.22rem .5rem;border-radius:6px;cursor:pointer;transition:color .15s,border-color .15s,background .15s}
+.top-cli-btn:hover{border-color:var(--suminregio);color:var(--suminregio)}
+.top-cli-btn.active{background:var(--suminregio-dim);border-color:var(--suminregio);color:var(--suminregio);font-weight:600}
+.card-body{padding:1.5rem}.chart-wrap{position:relative;height:220px}
+.tbl{width:100%;border-collapse:collapse;font-size:.78rem}
+.tbl th{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--border)}
+.tbl td{padding:.65rem 1rem;border-bottom:1px solid var(--border);color:var(--text2)}
+.tbl tr:last-child td{border:none}.tbl tr:hover td{background:var(--s2);color:var(--text)}
+.tbl .num{text-align:right;font-family:'DM Mono',monospace;font-size:.75rem;color:var(--text)}
+.tbl .lbl{font-weight:600;color:var(--text)}
+.rank-num{display:inline-block;width:22px;height:22px;border-radius:6px;background:var(--s3);font-family:'DM Mono',monospace;font-size:.65rem;text-align:center;line-height:22px;color:var(--muted);margin-right:.4rem}
+.vendor-list{display:flex;flex-direction:column;gap:.85rem}
+.vendor-item{display:flex;flex-direction:column;gap:.3rem}
+.vendor-head{display:flex;align-items:center;justify-content:space-between}
+.vendor-name{font-size:.82rem;font-weight:600;color:var(--text)}
+.vendor-amount{font-family:'DM Mono',monospace;font-size:.85rem;color:var(--green)}
+.vendor-pct{font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted);margin-left:.5rem}
+.vendor-bar-bg{height:5px;background:var(--s3);border-radius:99px;overflow:hidden}
+.vendor-bar-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--blue),var(--green));transition:width 1.2s cubic-bezier(.4,0,.2,1)}
+.vendor-split{display:flex;gap:.5rem;margin-top:.15rem;font-family:'DM Mono',monospace;font-size:.6rem}
+.sk{display:inline-block;background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 50%,var(--s2) 75%);background-size:200%;animation:shimmer 1.5s infinite;border-radius:4px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.api-err-banner{display:none;margin:0 0 1rem;padding:.75rem 1rem;border-radius:10px;border:1px solid rgba(255,69,102,.35);background:var(--red-dim);color:var(--red);font-family:'DM Mono',monospace;font-size:.72rem;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+.api-err-banner.show{display:block}
+.tipo-badge{display:inline-block;padding:.1rem .4rem;border-radius:4px;font-size:.6rem;font-weight:600;font-family:'DM Mono',monospace}
+.tipo-ve{background:var(--blue-dim);color:var(--blue)}.tipo-pv{background:var(--purple-dim);color:var(--purple)}
+.split-bar{display:flex;height:8px;border-radius:99px;overflow:hidden;margin-top:.5rem}
+.split-bar-ve{background:var(--blue);transition:width .8s}.split-bar-pv{background:var(--purple);transition:width .8s}
+</style>
+</head>
+<body>
+<div class="bg-orbs"><div class="orb orb-1"></div><div class="orb orb-2"></div></div>
+
+<header>
+  <div class="header-inner">
+    <a href="index.html" class="logo">
+      <div class="logo-icon"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg></div>
+      <div><div class="logo-text">Suminregio Parker</div><div class="logo-sub">ERP Dashboard</div></div>
+    </a>
+    <nav>
+      <a href="index.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>Inicio</a>
+      <a href="director.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>Director</a>
+      <a href="ventas.html" class="nav-link active"><svg viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96C5 16.1 6.9 18 9 18h12v-2H9.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63H19c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1 1 0 0023.46 5H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>Ventas</a>
+      <a href="cxc.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>CXC</a>
+      <a href="inventario.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M20 7H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zm-8 9c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zM4 3h16v2H4z"/></svg>Inventario</a>
+    </nav>
+    <div class="header-right">
+      <div class="live-pill"><div class="live-dot"></div>LIVE</div>
+      <div class="clock" id="clock">--:--:--</div>
+    </div>
+  </div>
+</header>
+
+<div class="page">
+  <div class="page-header">
+    <div>
+      <div class="page-title">Ventas</div>
+      <div class="page-sub" id="page-sub">Cargando datos...</div>
+    </div>
+  </div>
+
+  <!-- Barra de filtros compartida -->
+  <div id="filter-bar"></div>
+  <div id="ventas-api-banner" class="api-err-banner" role="alert" aria-live="polite"></div>
+
+  <div class="source-tabs">
+    <button class="tab-btn tab-all active" onclick="setTipo('')" id="tab-all">Todos</button>
+    <button class="tab-btn tab-ve" onclick="setTipo('VE')" id="tab-ve">Industrial (VE)</button>
+    <button class="tab-btn tab-pv" onclick="setTipo('PV')" id="tab-pv">Mostrador (PV)</button>
+    <span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted)" id="split-info"></span>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card blue">
+      <div class="kpi-label">Hoy</div>
+      <div class="kpi-value" id="kpi-hoy">?</div>
+      <div class="kpi-sub" id="kpi-hoy-sub">&nbsp;</div>
+      <div class="meta-bar-wrap"><div class="meta-bar-bg"><div class="meta-bar-fill" id="bar-hoy" style="width:0%"></div></div><div class="meta-pct" id="pct-hoy">&nbsp;</div></div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">Mes Actual</div>
+      <div class="kpi-value" id="kpi-mes">?</div>
+      <div class="kpi-sub" id="kpi-mes-sub">&nbsp;</div>
+      <div class="meta-bar-wrap"><div class="meta-bar-bg"><div class="meta-bar-fill" id="bar-mes" style="width:0%"></div></div><div class="meta-pct" id="pct-mes">&nbsp;</div></div>
+    </div>
+    <div class="kpi-card yellow">
+      <div class="kpi-label">Meta Diaria</div>
+      <div class="kpi-value" id="kpi-meta">?</div>
+      <div class="kpi-sub" id="kpi-meta-sub">Base / Ideal (+30%)</div>
+    </div>
+    <div class="kpi-card orange">
+      <div class="kpi-label">Facturas Mes</div>
+      <div class="kpi-value" id="kpi-facturas">?</div>
+      <div class="kpi-sub" id="kpi-facturas-sub">&nbsp;</div>
+    </div>
+    <div class="kpi-card purple">
+      <div class="kpi-label">Prom. Diario</div>
+      <div class="kpi-value" id="kpi-prom">?</div>
+      <div class="kpi-sub" id="kpi-prom-sub">Días transcurridos</div>
+    </div>
+  </div>
+
+  <!-- Split VE/PV -->
+  <div class="card" style="margin-bottom:1.25rem">
+    <div class="card-head">
+      <div class="card-title"><svg viewBox="0 0 24 24"><path d="M3 3h8v8H3zm10 0h8v8h-8zM3 13h8v8H3zm10 0h8v8h-8z"/></svg>Industrial vs Mostrador · Mes Actual</div>
+      <div class="card-badge" id="split-badge">Cargando...</div>
+    </div>
+    <div class="card-body" style="padding:1rem 1.5rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+        <div style="display:flex;gap:1.5rem">
+          <div><div class="kpi-label" style="margin:0">Industrial (VE)</div><div style="font-family:'DM Mono',monospace;font-size:1rem;color:var(--blue)" id="split-ve-amt">?</div></div>
+          <div><div class="kpi-label" style="margin:0">Mostrador (PV)</div><div style="font-family:'DM Mono',monospace;font-size:1rem;color:var(--purple)" id="split-pv-amt">?</div></div>
+        </div>
+        <div style="text-align:right"><div class="kpi-label" style="margin:0">Total Combinado</div><div style="font-family:'DM Mono',monospace;font-size:1rem;color:var(--green)" id="split-total">?</div></div>
+      </div>
+      <div class="split-bar"><div class="split-bar-ve" id="split-bar-ve" style="width:50%"></div><div class="split-bar-pv" id="split-bar-pv" style="width:50%"></div></div>
+      <div style="display:flex;justify-content:space-between;margin-top:.3rem;font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted)">
+        <span id="split-ve-pct">VE 0%</span><span id="split-pv-pct">PV 0%</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title"><svg viewBox="0 0 24 24"><path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></svg>Ventas Diarias</div>
+        <div style="display:flex;gap:.4rem">
+          <button onclick="setDias(14)" class="card-badge btn" id="btn-14d">14d</button>
+          <button onclick="setDias(30)" class="card-badge btn" id="btn-30d" style="border-color:var(--accent);color:var(--accent)">30d</button>
+          <button onclick="setDias(60)" class="card-badge btn" id="btn-60d">60d</button>
+        </div>
+      </div>
+      <div class="card-body"><div class="chart-wrap"><canvas id="chartDiarias"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>Por Vendedor (mes actual)</div>
+        <div class="card-badge" id="vendedor-badge">?</div>
+      </div>
+      <div class="card-body" id="vendedores-list"><div style="text-align:center;padding:2rem;color:var(--muted)">Cargando...</div></div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg>Ventas Mensuales (VE + PV)</div><div class="card-badge" id="mensuales-periodo"><button type="button" class="periodo-btn" data-meses="3">3m</button><button type="button" class="periodo-btn" data-meses="6">6m</button><button type="button" class="periodo-btn active" data-meses="12">12m</button></div></div>
+      <p style="font:.62rem 'DM Mono',monospace;color:var(--muted);padding:0 1rem .5rem;margin:0;line-height:1.45">Metas por mes = meta diaria &times; vendedores en contexto &times; d&iacute;as laborales (Lun&ndash;S&aacute;b) del mes. El relleno &aacute;mbar entre l&iacute;neas es la zona entre <strong>equilibrio</strong> e <strong>ideal</strong>.</p>
+      <div class="card-body"><div class="chart-wrap"><canvas id="chartMensuales"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>Top clientes</div>
+        <div class="top-cli-wrap">
+          <div class="card-badge" style="padding:4px 6px;display:flex;gap:3px;flex-wrap:wrap;max-width:min(100%,280px)">
+            <button type="button" class="top-cli-btn active" data-top="10" onclick="setTopClientes(10)">10</button>
+            <button type="button" class="top-cli-btn" data-top="20" onclick="setTopClientes(20)">20</button>
+            <button type="button" class="top-cli-btn" data-top="30" onclick="setTopClientes(30)">30</button>
+            <button type="button" class="top-cli-btn" data-top="40" onclick="setTopClientes(40)">40</button>
+            <button type="button" class="top-cli-btn" data-top="50" onclick="setTopClientes(50)">50</button>
+          </div>
+          <div class="card-badge" id="top-cli-badge">Filtro activo</div>
+        </div>
+      </div>
+      <div class="card-body">
+        <table class="tbl" id="tbl-clientes">
+          <thead><tr><th>#</th><th>Cliente</th><th class="num">Total</th><th class="num">Docs</th></tr></thead>
+          <tbody><tr><td colspan="4" style="text-align:center;color:var(--muted)">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- COTIZACIONES -->
+  <div id="coti-section" style="padding-top:.5rem">
+    <div style="margin-bottom:1rem;padding-top:.5rem;border-top:1px solid var(--border)">
+      <div style="font-size:1.1rem;font-weight:700;color:var(--text);margin-bottom:.25rem">Cotizaciones</div>
+      <div style="font-size:.8rem;color:var(--muted)">Solo m&#243;dulo Industrial &#183; DOCTOS_VE, TIPO_DOCTO = C
+        <button type="button" id="coti-reintentar" style="display:none;margin-left:.6rem;padding:.25rem .6rem;font-size:.7rem;background:var(--orange);color:#050B14;border:none;border-radius:6px;cursor:pointer;font-weight:600">Reintentar</button>
+      </div>
+    </div>
+
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr)">
+      <div class="kpi-card yellow">
+        <div class="kpi-label">Cotiz. Hoy</div>
+        <div class="kpi-value" id="kc-hoy">?</div>
+        <div class="kpi-sub" id="kc-hoy-imp">&nbsp;</div>
+      </div>
+      <div class="kpi-card orange">
+        <div class="kpi-label">Cotiz. Mes</div>
+        <div class="kpi-value" id="kc-mes">?</div>
+        <div class="kpi-sub" id="kc-mes-imp">&nbsp;</div>
+      </div>
+      <div class="kpi-card blue">
+        <div class="kpi-label">Importe Mes</div>
+        <div class="kpi-value" id="kc-imp">?</div>
+        <div class="kpi-sub">Meta: <span id="kc-meta">?</span></div>
+        <div class="meta-bar-wrap"><div class="meta-bar-bg"><div class="meta-bar-fill" id="bar-coti" style="width:0%"></div></div><div class="meta-pct" id="pct-coti">&nbsp;</div></div>
+      </div>
+      <div class="kpi-card green">
+        <div class="kpi-label">Conv. Estimada</div>
+        <div class="kpi-value" id="kc-conv">?</div>
+        <div class="kpi-sub">Ventas / Cotizaciones</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>Cotizaciones Diarias</div><div class="card-badge">30 días</div></div>
+        <div class="card-body"><div class="chart-wrap"><canvas id="chartCotiDiarias"></canvas></div></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>Cotizaciones por Vendedor</div><div class="card-badge">Mes actual</div></div>
+        <div class="card-body" id="coti-vendedores-list"><div style="text-align:center;padding:2rem;color:var(--muted)">Cargando...</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- -- Análisis Cotizaciones vs Ventas ----------------------- -->
+  <div class="card" style="margin-top:1.25rem;margin-bottom:1.25rem">
+    <div class="card-head">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        Conversión Cotizaciones → Ventas
+      </div>
+      <div class="card-badge" id="conv-badge">6 meses</div>
+    </div>
+    <div class="card-body">
+      <!-- KPI strip -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.85rem;margin-bottom:1.25rem">
+        <div style="background:var(--s2);border-radius:12px;padding:.9rem 1rem;border:1px solid var(--border)">
+          <div style="font-family:'DM Mono',monospace;font-size:.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.25rem">Total Cotizado</div>
+          <div id="cv-total-coti" style="font-family:'DM Mono',monospace;font-size:1.25rem;font-weight:500;color:var(--amber)">?</div>
+          <div id="cv-num-coti" style="font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted);margin-top:.15rem">? cotizaciones</div>
+        </div>
+        <div style="background:var(--s2);border-radius:12px;padding:.9rem 1rem;border:1px solid var(--border)">
+          <div style="font-family:'DM Mono',monospace;font-size:.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.25rem">Total Vendido</div>
+          <div id="cv-total-ventas" style="font-family:'DM Mono',monospace;font-size:1.25rem;font-weight:500;color:var(--blue)">?</div>
+          <div id="cv-num-ventas" style="font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted);margin-top:.15rem">? documentos</div>
+        </div>
+        <div style="background:var(--s2);border-radius:12px;padding:.9rem 1rem;border:1px solid var(--border)">
+          <div style="font-family:'DM Mono',monospace;font-size:.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.25rem">Tasa Conversión $</div>
+          <div id="cv-tasa" style="font-family:'DM Mono',monospace;font-size:1.55rem;font-weight:500;color:var(--green)">?</div>
+          <div style="font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);margin-top:.15rem">de lo cotizado se vende</div>
+        </div>
+        <div style="background:var(--s2);border-radius:12px;padding:.9rem 1rem;border:1px solid var(--border)">
+          <div style="font-family:'DM Mono',monospace;font-size:.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.25rem">Tasa Docs (# piezas)</div>
+          <div id="cv-tasa-docs" style="font-family:'DM Mono',monospace;font-size:1.55rem;font-weight:500;color:var(--orange)">?</div>
+          <div style="font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);margin-top:.15rem">cotizaciones convertidas</div>
+        </div>
+      </div>
+      <!-- Intelligence bar -->
+      <div id="cv-insight" style="background:var(--s3);border:1px solid var(--border);border-left:3px solid var(--orange);border-radius:8px;padding:.75rem 1rem;font-family:'DM Mono',monospace;font-size:.67rem;color:var(--text2);line-height:1.7;margin-bottom:1.1rem">Analizando conversión...</div>
+      <!-- Chart -->
+      <div style="height:220px"><canvas id="chartConversion"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:1rem">
+    <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>Documentos Recientes</div><div class="card-badge" id="rec-badge">Últimos 20</div></div>
+    <div class="card-body" style="padding:0">
+      <table class="tbl" id="tbl-recientes">
+        <thead><tr><th>Folio</th><th>Tipo</th><th>Fuente</th><th>Cliente</th><th>Vendedor</th><th class="num">Total</th><th>Fecha</th></tr></thead>
+        <tbody><tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+// Base de la API (vacío = misma origen). Si abres por file:// se usa http://localhost:7000 — mismo puerto que server_corregido.js
+const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : '';
+function fwt(url,fallback,ms=45000){
+  const urlFull = (String(url).startsWith('http') ? url : (API + url));
+  const isNgrok = /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/i.test(urlFull);
+  if (ms < 60000 && isNgrok) ms = 60000;
+  const opts = isNgrok ? { headers: { 'ngrok-skip-browser-warning': '1' } } : {};
+  return Promise.race([
+    fetch(urlFull, opts).then(r => r.json().then(data => (r.ok ? data : fallback)).catch(() => fallback)).catch(() => fallback),
+    new Promise(r => setTimeout(() => r(fallback), ms))
+  ]);
+}
+let chartDiarias, chartMensuales, chartCotiDiarias, chartConvInst;
+let currentTipo = '';
+let currentDias = 30;
+let currentMeses = 12;
+let metas = {};
+let lastCotiData = null;
+let topClientesLimit = 10;
+
+/** Días laborables Lun–Sáb (equivalente a WEEKDAY fecha,2 &lt;= 6 en DAX). */
+function isLaborDay(d) {
+  const x = d instanceof Date ? new Date(d) : new Date(d);
+  if (isNaN(x.getTime())) return false;
+  const wd = x.getDay();
+  return wd >= 1 && wd <= 6;
+}
+function countLaborDaysMonthToDate(ref) {
+  const end = ref instanceof Date ? new Date(ref) : new Date();
+  const y = end.getFullYear(), m = end.getMonth(), last = end.getDate();
+  let n = 0;
+  for (let day = 1; day <= last; day++) {
+    if (isLaborDay(new Date(y, m, day, 12, 0, 0))) n++;
+  }
+  return n;
+}
+/** Días laborales Lun–Sáb en un mes calendario completo (MES 1–12). */
+function countLaborDaysInMonth(anio, mes1to12) {
+  const y = +anio, m = (+mes1to12 || 1) - 1;
+  const last = new Date(y, m + 1, 0).getDate();
+  let n = 0;
+  for (let day = 1; day <= last; day++) {
+    if (isLaborDay(new Date(y, m, day, 12, 0, 0))) n++;
+  }
+  return n;
+}
+function getVendedoresEnContexto(metaObj) {
+  const p = (window.filterGetParams && filterGetParams()) || {};
+  if (p.vendedor != null && String(p.vendedor).trim() !== '') return 1;
+  const n = +(metaObj && metaObj.NUM_VENDEDORES) || 1;
+  return Math.max(n, 1);
+}
+function ventasMetaBloqueadasPorTipo() {
+  return currentTipo === 'PV';
+}
+
+function setTopClientes(n) {
+  topClientesLimit = n;
+  document.querySelectorAll('.top-cli-btn').forEach(b => {
+    b.classList.toggle('active', +b.getAttribute('data-top') === n);
+  });
+  loadClientes();
+}
+
+// -- Helper: construye URL con filtros activos + params extra ---------------
+function buildApiUrl(path, extraParams) {
+  const qs    = window.filterBuildQS ? filterBuildQS() : '';
+  const extra = extraParams ? String(extraParams).replace(/^[?&]+/, '') : '';
+  const combined = [qs, extra].filter(Boolean).join('&');
+  return API + path + (combined ? '?' + combined : '');
+}
+
+// -- Conversión Cotizaciones → Ventas ----------------------------------
+async function loadConversion(){
+  try{
+    const data = await fwt(buildApiUrl('/api/ventas/vs-cotizaciones','meses=6'), {}).catch(()=>({}));
+    const ventasArr = Array.isArray(data.ventas) ? data.ventas : [];
+    const cotiArr   = Array.isArray(data.cotizaciones) ? data.cotizaciones : [];
+    if(!ventasArr.length && !cotiArr.length) return;
+
+    // Build month key map
+    const mapa = {};
+    cotiArr.forEach(c=>{
+      const k=`${c.ANIO}-${String(c.MES).padStart(2,'0')}`;
+      mapa[k]={ ANIO:c.ANIO, MES:c.MES, COTI:+c.TOTAL_COTI||0, NUM_COTI:+c.NUM_COTI||0, VENTAS:0, NUM_VEN:0 };
+    });
+    ventasArr.forEach(v=>{
+      const k=`${v.ANIO}-${String(v.MES).padStart(2,'0')}`;
+      if(mapa[k]){ mapa[k].VENTAS=+v.TOTAL_VENTAS||0; mapa[k].NUM_VEN=+v.NUM_DOCS||0; }
+      else mapa[k]={ ANIO:v.ANIO, MES:v.MES, COTI:0, NUM_COTI:0, VENTAS:+v.TOTAL_VENTAS||0, NUM_VEN:+v.NUM_DOCS||0 };
+    });
+    const rows = Object.values(mapa).sort((a,b)=>a.ANIO!==b.ANIO?a.ANIO-b.ANIO:a.MES-b.MES);
+
+    const MESES_ES=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const labels  = rows.map(r=>(MESES_ES[+r.MES]||r.MES)+' '+(+r.ANIO||''));
+    const cotiVals= rows.map(r=>r.COTI);
+    const venVals = rows.map(r=>r.VENTAS);
+    const tasas   = rows.map(r=>r.COTI>0?Math.round(r.VENTAS/r.COTI*100):0);
+
+    const totCoti = cotiVals.reduce((s,v)=>s+v,0);
+    const totVen  = venVals.reduce((s,v)=>s+v,0);
+    const numCoti = cotiArr.reduce((s,r)=>s+(+r.NUM_COTI||0),0);
+    const numVen  = ventasArr.reduce((s,r)=>s+(+r.NUM_DOCS||0),0);
+    const tasaAmt = totCoti>0?Math.round(totVen/totCoti*100):0;
+    const tasaDocs= numCoti>0?Math.round(numVen/numCoti*100):0;
+
+    const setTxt=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+    const setH  =(id,v)=>{const e=document.getElementById(id);if(e)e.innerHTML=v;};
+
+    setTxt('cv-total-coti', fmtK(totCoti));
+    setTxt('cv-num-coti',   numCoti+' cotizaciones');
+    setTxt('cv-total-ventas', fmtK(totVen));
+    setTxt('cv-num-ventas', numVen+' documentos');
+    setTxt('cv-tasa', tasaAmt+'%');
+    setTxt('cv-tasa-docs', tasaDocs+'%');
+
+    // Color conversion rate
+    const tasaEl = document.getElementById('cv-tasa');
+    if(tasaEl) tasaEl.style.color = tasaAmt>=40?'var(--green)':tasaAmt>=25?'var(--amber)':'var(--red)';
+
+    // Insight
+    const msg = tasaAmt>=40
+      ? `<span style="color:var(--green)">&#10003; Tasa de conversi&#243;n saludable</span>: por cada $100 cotizados se venden $${tasaAmt}. `
+      : tasaAmt>=25
+      ? `<span style="color:var(--amber)">&#9888; Tasa moderada</span>: por cada $100 cotizados se venden $${tasaAmt}. Oportunidad de mejorar el seguimiento. `
+      : `<span style="color:var(--red)">&#10005; Tasa baja</span>: solo $${tasaAmt} de cada $100 cotizados se convierten en venta. Revisar proceso comercial. `;
+    const lastTasa = tasas[tasas.length-1]||0;
+    const prevTasa = tasas[tasas.length-2]||0;
+    const tendMsg  = lastTasa>=prevTasa
+      ? `<span style="color:var(--green)">&#8593; mejora en el &#250;ltimo mes (${lastTasa}% vs ${prevTasa}% anterior)</span>.`
+      : `<span style="color:var(--red)">&#8595; baja en el &#250;ltimo mes (${lastTasa}% vs ${prevTasa}% anterior)</span>.`;
+    setH('cv-insight', msg+' Tendencia reciente: '+tendMsg
+      +`<br><span style="color:var(--muted)">Total 6 meses: ${fmtK(totCoti)} cotizado, ${fmtK(totVen)} vendido (${numCoti} cotizaciones, ${numVen} facturas)</span>`);
+
+    // Chart
+    const ctx = document.getElementById('chartConversion');
+    if(ctx){
+      if(chartConvInst) chartConvInst.destroy();
+      chartConvInst = new Chart(ctx, {
+        data:{labels,datasets:[
+          {type:'bar',label:'Cotizaciones',data:cotiVals,backgroundColor:'rgba(255,184,0,.28)',borderColor:'#FFB800',borderWidth:1.5,borderRadius:4},
+          {type:'bar',label:'Ventas',data:venVals,backgroundColor:'rgba(30,127,217,.32)',borderColor:'#1E7FD9',borderWidth:1.5,borderRadius:4},
+          {type:'line',label:'% Conversi\u00f3n',data:tasas,borderColor:'#F57C00',backgroundColor:'rgba(245,124,0,.1)',borderWidth:2.5,pointRadius:5,pointBackgroundColor:'#F57C00',fill:true,tension:.35,yAxisID:'y2'}
+        ]},
+        options:{responsive:true,maintainAspectRatio:false,
+          plugins:{legend:{labels:{color:'#4D6E8A',font:{size:11,family:"'DM Mono'"}}},
+            tooltip:{backgroundColor:'#112233',borderColor:'rgba(255,255,255,.1)',borderWidth:1,titleColor:'#EDF4FF',bodyColor:'#93B4CC',
+              callbacks:{label:c=>c.dataset.label+': '+(c.datasetIndex===2?c.raw+'%':fmtK(c.raw))}}},
+          scales:{
+            x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#4D6E8A',font:{size:10,family:"'DM Mono'"}}},
+            y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#4D6E8A',font:{size:10,family:"'DM Mono'"},callback:v=>fmtK(v)}},
+            y2:{position:'right',min:0,max:120,grid:{display:false},ticks:{color:'#F57C00',font:{size:10,family:"'DM Mono'"},callback:v=>v+'%'}}
+          }}
+      });
+    }
+  }catch(e){console.warn('loadConversion error:',e);}
+}
+
+const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const fmt  = n => isNaN(+n)||n==null?'?':'$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});
+const fmtK = n => {
+  if(isNaN(+n)||n==null) return '?';
+  n = +n;
+  if(Math.abs(n)>=1e6) return '$'+(n/1e6).toFixed(1)+'M';
+  if(Math.abs(n)>=1e3) return '$'+(n/1e3).toFixed(0)+'k';
+  return '$'+n.toFixed(0);
+};
+const setText = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
+const setWid  = (id,p) => { const e=document.getElementById(id); if(e) e.style.width=Math.min(+p||0,100)+'%'; };
+
+setInterval(()=>{ document.getElementById('clock').textContent=new Date().toLocaleTimeString('es-MX'); },1000);
+
+function setTipo(t) {
+  currentTipo = t;
+  ['tab-all','tab-ve','tab-pv'].forEach(id => document.getElementById(id).classList.remove('active'));
+  document.getElementById(t===''?'tab-all':t==='VE'?'tab-ve':'tab-pv').classList.add('active');
+  const cotiSec = document.getElementById('coti-section');
+  if (cotiSec) cotiSec.style.display = t === 'PV' ? 'none' : '';
+  loadAll();
+}
+function setDias(d) {
+  currentDias = d;
+  ['btn-14d','btn-30d','btn-60d'].forEach(id => { const e=document.getElementById(id); if(e){e.style.borderColor='';e.style.color='';} });
+  const bid = d===14?'btn-14d':d===30?'btn-30d':'btn-60d';
+  const be = document.getElementById(bid); if(be){be.style.borderColor='var(--accent)';be.style.color='var(--accent)';}
+  loadDiarias();
+}
+const tipoQ = () => currentTipo ? `&tipo=${currentTipo}` : '';
+
+const chartDefaults = () => ({
+  responsive:true, maintainAspectRatio:false,
+  interaction:{ mode:'index', intersect:false },
+  plugins:{ legend:{ display:true, labels:{ color:'#B0BECE', font:{size:10}, boxWidth:10 } },
+    tooltip:{ mode:'index', intersect:false, backgroundColor:'#0D1D35', borderColor:'rgba(255,255,255,.1)', borderWidth:1,
+      callbacks:{ label: ctx => ' '+ctx.dataset.label+': '+fmt(ctx.raw) } } },
+  scales:{
+    x:{ grid:{color:'rgba(255,255,255,.04)'}, ticks:{color:'#5A7090',font:{size:9}} },
+    y:{ grid:{color:'rgba(255,255,255,.04)'}, ticks:{color:'#5A7090',font:{size:9},callback:v=>fmtK(v)} }
+  }
+});
+
+async function loadAll() {
+  try {
+    const m = await fwt(buildApiUrl('/api/config/metas'), {});
+    metas = m;
+    const nV = getVendedoresEnContexto(m);
+    const bloq = ventasMetaBloqueadasPorTipo();
+    const metaVDia = bloq ? 0 : (+(m.META_DIARIA_POR_VENDEDOR || 5650) * nV);
+    const idealVDia = bloq ? 0 : (+(m.META_IDEAL_POR_VENDEDOR || 5650 * 1.3) * nV);
+    const metaCDia = bloq ? 0 : (+(m.META_COTI_POR_VENDEDOR || 10000) * nV);
+    setText('kpi-meta', bloq ? '—' : fmtK(metaVDia));
+    setText('kpi-meta-sub', bloq ? 'Metas de equipo no aplican en solo mostrador (DAX).' : `Meta equipo/día laboral · Ideal (+30%): ${fmtK(idealVDia)}`);
+    setText('kc-meta', bloq ? '—' : fmtK(metaCDia));
+  } catch(e){}
+
+  await Promise.all([loadResumen(), loadSplit(), loadDiarias(), loadMensuales(), loadVendedores(), loadClientes(), loadCotizaciones(), loadRecientes(), loadConversion()]);
+  const params = window.filterGetParams ? filterGetParams() : {};
+  const labelParts = [];
+  if(params.desde && params.hasta) labelParts.push(params.desde === params.hasta ? params.desde : `${params.desde} – ${params.hasta}`);
+  else if(params.anio && params.mes) labelParts.push(`${['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][params.mes-1]} ${params.anio}`);
+  else if(params.anio) labelParts.push(`A\u00f1o ${params.anio}`);
+  labelParts.push(currentTipo||'Todos');
+  setText('page-sub', `Actualizado: ${new Date().toLocaleTimeString('es-MX')} · ${labelParts.join(' · ')}`);
+  setText('top-cli-badge', labelParts.length ? labelParts.join(' · ') : 'Filtro activo');
+}
+
+async function loadResumen() {
+  try {
+    const banner = document.getElementById('ventas-api-banner');
+    if (banner) {
+      banner.classList.remove('show');
+      banner.textContent = '';
+    }
+    const d = await fwt(buildApiUrl('/api/ventas/resumen', tipoQ()), {});
+    if (d && d._queryError && banner) {
+      banner.textContent = 'No se pudo leer ventas (Firebird). ' + d._queryError + '\nRevisa consola del servidor y /api/debug/ventas?db=…';
+      banner.classList.add('show');
+    }
+    const hoy=+(d.HOY||0), mes=+(d.MES_ACTUAL||0), docs=+(d.FACTURAS_MES||0);
+    const diasCal = new Date().getDate();
+    const bloq = ventasMetaBloqueadasPorTipo();
+    const nV = getVendedoresEnContexto(metas);
+    const metaBase = +(metas.META_DIARIA_POR_VENDEDOR||5650);
+    const idealBase = +(metas.META_IDEAL_POR_VENDEDOR||metaBase*1.3);
+    const metaDia = bloq ? 0 : metaBase * nV;
+    const idealDia = bloq ? 0 : idealBase * nV;
+    const laborMes = countLaborDaysMonthToDate(new Date());
+    const denomIdealMes = Math.max(idealDia * laborMes, 1);
+    setText('kpi-hoy', fmt(hoy));
+    setText('kpi-hoy-sub', bloq ? 'Meta equipo no aplica (solo PV)' : `Meta equipo (día laboral): ${fmtK(metaDia)}`);
+    setText('kpi-mes', fmt(mes));
+    setText('kpi-mes-sub', `${docs} docs · meta ideal acum. (${laborMes} d. lab.)`);
+    setText('kpi-facturas', docs.toLocaleString());
+    setText('kpi-prom', fmtK(diasCal>0?mes/diasCal:0));
+    setText('kpi-prom-sub', `${diasCal} días calendario del mes`);
+    if (metaDia > 0) {
+      setWid('bar-hoy', (hoy/metaDia)*100);
+      setText('pct-hoy', `${((hoy/metaDia)*100).toFixed(0)}% meta día · ${idealDia>0?((hoy/idealDia)*100).toFixed(0):'—'}% ideal día`);
+    } else {
+      setWid('bar-hoy', 0);
+      setText('pct-hoy', '—');
+    }
+    setWid('bar-mes', (mes/denomIdealMes)*100);
+    setText('pct-mes', `${((mes/denomIdealMes)*100).toFixed(0)}% vs meta ideal acumulada (días laborables)`);
+
+    if (typeof dashboardApplySem === 'function') {
+      const hLabor = isLaborDay(new Date());
+      const pHoyPct = metaDia > 0 ? (hoy / metaDia) * 100 : 0;
+      const pMesIdealPct = (mes / denomIdealMes) * 100;
+      const apply = (id, lvl) => {
+        const el = document.getElementById(id);
+        const card = el && el.closest('.kpi-card');
+        if (card) dashboardApplySem(card, lvl);
+      };
+      apply('kpi-hoy', bloq || !hLabor ? 'neutral' : (pHoyPct >= 100 ? 'ok' : pHoyPct >= 70 ? 'warn' : 'danger'));
+      apply('kpi-mes', bloq ? 'info' : (pMesIdealPct >= 100 ? 'ok' : pMesIdealPct >= 70 ? 'warn' : 'danger'));
+      apply('kpi-meta', bloq ? 'neutral' : 'info');
+      apply('kpi-facturas', docs > 0 ? 'info' : 'warn');
+      apply('kpi-prom', 'info');
+    }
+  } catch(e){ console.error('resumen',e); }
+}
+
+async function loadSplit() {
+  try {
+    const [dVE,dPV] = await Promise.all([
+      fwt(buildApiUrl('/api/ventas/resumen', 'tipo=VE'), {}),
+      fwt(buildApiUrl('/api/ventas/resumen', 'tipo=PV'), {}),
+    ]);
+    const ve=+(dVE.MES_ACTUAL||0), pv=+(dPV.MES_ACTUAL||0), total=ve+pv;
+    setText('split-ve-amt', fmt(ve));
+    setText('split-pv-amt', fmt(pv));
+    setText('split-total', fmt(total));
+    setText('split-badge', `Total: ${fmt(total)}`);
+    if(total>0){
+      const vp=(ve/total*100), pp=(pv/total*100);
+      setWid('split-bar-ve', vp); setWid('split-bar-pv', pp);
+      setText('split-ve-pct', `VE ${vp.toFixed(0)}%`);
+      setText('split-pv-pct', `PV ${pp.toFixed(0)}%`);
+      setText('split-info', `VE: ${vp.toFixed(0)}% | PV: ${pp.toFixed(0)}%`);
+    }
+  } catch(e){}
+}
+
+// Normaliza respuesta de diarias: acepta array directo o { data/rows: array }; cada fila puede tener DIA o FECHA, VENTAS_VE/VENTAS_PV/TOTAL_VENTAS o TOTAL
+function normalizarDiariasVentas(raw) {
+  const arr = Array.isArray(raw) ? raw : (raw && (Array.isArray(raw.data) ? raw.data : Array.isArray(raw.rows) ? raw.rows : []));
+  return arr.map(r => {
+    const total = +(r.TOTAL_VENTAS ?? r.total_ventas ?? r.TOTAL ?? r.total ?? 0);
+    const ve = +(r.VENTAS_VE ?? r.ventas_ve ?? 0);
+    const pv = +(r.VENTAS_PV ?? r.ventas_pv ?? 0);
+    const hasSplit = (ve !== 0 || pv !== 0) || (r.VENTAS_VE != null || r.VENTAS_PV != null);
+    return {
+      DIA: r.DIA ?? r.FECHA ?? r.dia ?? r.fecha,
+      VENTAS_VE: hasSplit ? ve : total,
+      VENTAS_PV: hasSplit ? pv : 0,
+      TOTAL_VENTAS: total || (ve + pv)
+    };
+  });
+}
+
+async function loadDiarias() {
+  try {
+    // Diarias: solo dias + tipo (sin anio/mes de la barra) para que el servidor use "últimos N días"
+    const urlDiarias = buildApiUrl('/api/ventas/diarias', 'dias=' + currentDias + (currentTipo ? '&tipo=' + currentTipo : ''));
+    const raw = await fwt(urlDiarias, [], 20000);
+    if (typeof console !== 'undefined' && console.log) console.log('Ventas diarias API:', Array.isArray(raw) ? raw.length + ' filas' : (raw && raw.error ? 'error' : 'no array'), raw && raw[0]);
+    if (raw && raw.error) { console.warn('Ventas diarias API error:', raw.error); }
+    const rows = normalizarDiariasVentas(raw);
+    const bloq = ventasMetaBloqueadasPorTipo();
+    const nV = getVendedoresEnContexto(metas);
+    const metaBase = +(metas.META_DIARIA_POR_VENDEDOR||5650);
+    const idealBase = +(metas.META_IDEAL_POR_VENDEDOR||metaBase*1.3);
+    const metaDayTeam = bloq ? 0 : metaBase * nV;
+    const idealDayTeam = bloq ? 0 : idealBase * nV;
+    function metaPairForDate(dt) {
+      const d = (dt instanceof Date) ? dt : new Date(typeof dt === 'string' && dt.includes('-') ? dt.substring(0,10)+'T12:00:00' : dt);
+      const lab = isLaborDay(d) ? metaDayTeam : 0;
+      const idl = isLaborDay(d) ? idealDayTeam : 0;
+      return { lab, idl };
+    }
+    let labels, metaL, idealL, datasets;
+    if (!rows.length) {
+      const today = new Date();
+      labels = []; const data0 = [];
+      metaL = []; idealL = [];
+      for (let i = currentDias - 1; i >= 0; i--) {
+        const d = new Date(today); d.setDate(d.getDate() - i);
+        labels.push(`${d.getDate()} ${MESES[d.getMonth()]}`);
+        data0.push(0);
+        const mp = metaPairForDate(d);
+        metaL.push(mp.lab);
+        idealL.push(mp.idl);
+      }
+      datasets = currentTipo === '' ? [
+        {label:'Industrial (VE)', data: data0.slice(), borderColor:'#4DA6FF', borderWidth:2, fill:true, tension:.4},
+        {label:'Mostrador (PV)', data: data0.slice(), borderColor:'#9B6DFF', borderWidth:2, fill:true, tension:.4},
+        {label:'Meta', data: metaL, borderColor:'rgba(255,184,0,.85)', borderWidth:2.5, borderDash:[5,4], pointRadius:2, pointHoverRadius:5, fill:false},
+        {label:'Ideal (+30%)', data: idealL, borderColor:'rgba(0,229,160,.7)', borderWidth:2.5, borderDash:[3,4], pointRadius:2, pointHoverRadius:5, fill:false},
+      ] : [
+        {label:'Ventas', data: data0, borderColor: currentTipo==='VE'?'#4DA6FF':'#9B6DFF', borderWidth:2, fill:true, tension:.4},
+        {label:'Meta', data: metaL, borderColor:'rgba(255,184,0,.85)', borderWidth:2.5, borderDash:[5,4], pointRadius:2, pointHoverRadius:5, fill:false},
+        {label:'Ideal (+30%)', data: idealL, borderColor:'rgba(0,229,160,.7)', borderWidth:2.5, borderDash:[3,4], pointRadius:2, pointHoverRadius:5, fill:false},
+      ];
+    } else {
+      labels = rows.map(r=>{
+        const raw = r.DIA;
+        const d = (raw instanceof Date) ? raw : new Date(typeof raw === 'string' && raw.includes('-') ? raw.substring(0,10)+'T12:00:00' : raw);
+        return `${d.getDate()} ${MESES[d.getMonth()]}`;
+      });
+      metaL = rows.map(r => metaPairForDate(r.DIA).lab);
+      idealL = rows.map(r => metaPairForDate(r.DIA).idl);
+      const getVe = r => +(r.VENTAS_VE ?? 0);
+      const getPv = r => +(r.VENTAS_PV ?? 0);
+      const getTotal = r => +(r.TOTAL_VENTAS ?? 0);
+      datasets = currentTipo==='' ? [
+        {label:'Industrial (VE)', data:rows.map(getVe), backgroundColor:'rgba(77,166,255,.15)', borderColor:'#4DA6FF', borderWidth:2, fill:true, tension:.4},
+        {label:'Mostrador (PV)', data:rows.map(getPv), backgroundColor:'rgba(155,109,255,.15)', borderColor:'#9B6DFF', borderWidth:2, fill:true, tension:.4},
+        {label:'Meta', data:metaL, borderColor:'rgba(255,184,0,.85)', borderWidth:2.5, borderDash:[5,4], pointRadius:2, pointHoverRadius:5, fill:false},
+        {label:'Ideal (+30%)', data:idealL, borderColor:'rgba(0,229,160,.7)', borderWidth:2.5, borderDash:[3,4], pointRadius:2, pointHoverRadius:5, fill:false},
+      ] : [
+        {label:'Ventas', data:rows.map(getTotal), backgroundColor:currentTipo==='VE'?'rgba(77,166,255,.15)':'rgba(155,109,255,.15)', borderColor:currentTipo==='VE'?'#4DA6FF':'#9B6DFF', borderWidth:2, fill:true, tension:.4},
+        {label:'Meta', data:metaL, borderColor:'rgba(255,184,0,.85)', borderWidth:2.5, borderDash:[5,4], pointRadius:2, pointHoverRadius:5, fill:false},
+        {label:'Ideal (+30%)', data:idealL, borderColor:'rgba(0,229,160,.7)', borderWidth:2.5, borderDash:[3,4], pointRadius:2, pointHoverRadius:5, fill:false},
+      ];
+    }
+    const opts = chartDefaults();
+    opts.scales.y.min = 0;
+    if (rows.length > 0) opts.scales.y.suggestedMax = undefined;
+    if (metaDayTeam > 0) opts.scales.y.suggestedMax = Math.max(metaDayTeam * 1.2, 1000);
+    if(chartDiarias) chartDiarias.destroy();
+    chartDiarias = new Chart(document.getElementById('chartDiarias').getContext('2d'), {type:'line', data:{labels, datasets}, options:opts});
+  } catch(e){ console.error('diarias',e); }
+}
+
+// Normaliza mensuales: acepta VENTAS_VE/VENTAS_PV o solo TOTAL (server_corregido_resto)
+function normalizarMensuales(raw) {
+  const arr = Array.isArray(raw) ? raw : (raw && (Array.isArray(raw.data) ? raw.data : Array.isArray(raw.rows) ? raw.rows : []));
+  return arr.map(r => {
+    const total = +(r.TOTAL ?? r.total ?? 0);
+    const ve = +(r.VENTAS_VE ?? r.ventas_ve ?? 0);
+    const pv = +(r.VENTAS_PV ?? r.ventas_pv ?? 0);
+    const hasSplit = ve !== 0 || pv !== 0 || r.VENTAS_VE != null || r.VENTAS_PV != null;
+    return {
+      ANIO: r.ANIO ?? r.anio,
+      MES: r.MES ?? r.mes,
+      VENTAS_VE: hasSplit ? ve : total,
+      VENTAS_PV: hasSplit ? pv : 0
+    };
+  });
+}
+
+async function loadMensuales() {
+  try {
+    const raw = await fwt(buildApiUrl('/api/ventas/mensuales', `meses=${currentMeses}`), [], 15000);
+    const rows = normalizarMensuales(raw);
+    const labels = rows.map(r=>`${MESES[+(r.MES)-1]} ${r.ANIO}`);
+    if(chartMensuales) chartMensuales.destroy();
+    const bloq = ventasMetaBloqueadasPorTipo();
+    const nV = getVendedoresEnContexto(metas);
+    const metaBase = +(metas.META_DIARIA_POR_VENDEDOR||5650);
+    const idealBase = +(metas.META_IDEAL_POR_VENDEDOR||metaBase*1.3);
+    const metaMes = rows.map(r => bloq ? 0 : metaBase * nV * countLaborDaysInMonth(r.ANIO, r.MES));
+    const idealMes = rows.map(r => bloq ? 0 : idealBase * nV * countLaborDaysInMonth(r.ANIO, r.MES));
+    const opts = {...chartDefaults(), scales:{...chartDefaults().scales, x:{...chartDefaults().scales.x, stacked:true}, y:{...chartDefaults().scales.y, stacked:true}}};
+    const barTot = rows.map(r => +(r.VENTAS_VE||0) + +(r.VENTAS_PV||0));
+    const maxY = Math.max(1, ...barTot, ...metaMes, ...idealMes);
+    opts.scales.y.suggestedMax = maxY * 1.12;
+    const ds = [
+      { type:'bar', label:'Industrial (VE)', data:rows.map(r=>+(r.VENTAS_VE||0)), stack:'ven', order:0,
+        backgroundColor:'rgba(77,166,255,.58)', borderColor:'#4DA6FF', borderWidth:1, borderRadius:{topLeft:4,topRight:4} },
+      { type:'bar', label:'Mostrador (PV)', data:rows.map(r=>+(r.VENTAS_PV||0)), stack:'ven', order:0,
+        backgroundColor:'rgba(155,109,255,.58)', borderColor:'#9B6DFF', borderWidth:1, borderRadius:{topLeft:4,topRight:4} },
+    ];
+    if (!bloq && metaBase > 0) {
+      ds.push(
+        { type:'line', label:'Meta equilibrio (mes)', data:metaMes, order:2, tension:.15,
+          borderColor:'rgba(255,184,0,.92)', borderWidth:2.5, borderDash:[6,4], pointRadius:2, fill:false, yAxisID:'y' },
+        { type:'line', label:'Meta ideal (+30%)', data:idealMes, order:3, tension:.15,
+          borderColor:'rgba(0,229,160,.85)', borderWidth:2, borderDash:[3,4], pointRadius:2,
+          fill:'-1', backgroundColor:'rgba(255,184,0,.14)', yAxisID:'y' }
+      );
+    }
+    chartMensuales = new Chart(document.getElementById('chartMensuales').getContext('2d'), {
+      type:'bar',
+      data:{ labels, datasets: ds },
+      options:opts
+    });
+  } catch(e){ console.warn('mensuales', e); }
+}
+
+async function loadVendedores() {
+  try {
+    const rows = await fwt(buildApiUrl('/api/ventas/por-vendedor', tipoQ()), []);
+    const max = rows.reduce((m,r)=>Math.max(m,+(r.VENTAS_MES||0)),0);
+    const el = document.getElementById('vendedores-list');
+    el.innerHTML = rows.length ? `<div class="vendor-list">${rows.map((r,i)=>{
+      const pct = max>0?((+(r.VENTAS_MES||0))/max*100).toFixed(0):0;
+      return `<div class="vendor-item">
+        <div class="vendor-head">
+          <span class="vendor-name"><span class="rank-num">${i+1}</span>${r.VENDEDOR}</span>
+          <span><span class="vendor-amount">${fmtK(r.VENTAS_MES)}</span><span class="vendor-pct">${pct}%</span></span>
+        </div>
+        <div class="vendor-bar-bg"><div class="vendor-bar-fill" style="width:${pct}%"></div></div>
+        <div class="vendor-split">
+          <span style="color:var(--blue)">VE: ${fmtK(r.VENTAS_MES_VE||0)}</span>
+          <span style="color:var(--muted)">|</span>
+          <span style="color:var(--purple)">PV: ${fmtK(r.VENTAS_MES_PV||0)}</span>
+        </div>
+      </div>`;
+    }).join('')}</div>` : '<div style="text-align:center;color:var(--muted);padding:1.5rem">Sin datos</div>';
+    setText('vendedor-badge', `${rows.length} vendedores`);
+  } catch(e){}
+}
+
+async function loadClientes() {
+  try {
+    const rows = await fwt(buildApiUrl('/api/ventas/top-clientes', `limit=${topClientesLimit}${tipoQ()}`), []);
+    const tot = r => +(r.TOTAL ?? r.TOTAL_VENTAS ?? r.IMPORTE_NETO ?? 0);
+    const docs = r => +(r.FACTURAS ?? r.NUM_FACTURAS ?? r.DOCS ?? 0);
+    document.querySelector('#tbl-clientes tbody').innerHTML = rows.map((r,i)=>`<tr>
+      <td><span class="rank-num">${i+1}</span></td>
+      <td class="lbl">${r.CLIENTE || '—'}</td>
+      <td class="num">${fmt(tot(r))}</td>
+      <td class="num">${docs(r).toLocaleString('es-MX')}</td>
+    </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sin datos</td></tr>';
+  } catch(e){}
+}
+
+function applyCotiData(resObj, diarias, vends, ventasVE) {
+  resObj = resObj && typeof resObj === 'object' ? resObj : {};
+  const bloq = ventasMetaBloqueadasPorTipo();
+  const nV = getVendedoresEnContexto(metas);
+  const metaCBase = +(metas.META_COTI_POR_VENDEDOR||10000);
+  const idealCBase = +(metas.META_COTI_IDEAL||metaCBase*1.3);
+  const laborMes = countLaborDaysMonthToDate(new Date());
+  const metaAcumMes = bloq ? 0 : metaCBase * nV * laborMes;
+  const idealAcumMes = bloq ? 0 : idealCBase * nV * laborMes;
+
+  setText('kc-hoy', resObj.COTIZACIONES_HOY||0);
+  setText('kc-hoy-imp', fmt(resObj.HOY));
+  setText('kc-mes', resObj.COTIZACIONES_MES||0);
+  setText('kc-mes-imp', fmt(resObj.MES_ACTUAL));
+  setText('kc-imp', fmt(resObj.MES_ACTUAL));
+  if (bloq) {
+    setWid('bar-coti', 0);
+    setText('pct-coti', 'Metas cotización no aplican en solo mostrador (DAX).');
+  } else {
+    setWid('bar-coti', metaAcumMes > 0 ? ((+(resObj.MES_ACTUAL||0))/metaAcumMes)*100 : 0);
+    setText('pct-coti', `${metaAcumMes > 0 ? (((+(resObj.MES_ACTUAL||0))/metaAcumMes)*100).toFixed(0) : '0'}% vs meta acum. (${laborMes} d. lab. × ${nV} vend.) · ideal ${fmtK(idealAcumMes)}`);
+  }
+  const conv = +(resObj.MES_ACTUAL||0)>0 ? ((+(ventasVE&&ventasVE.MES_ACTUAL)||0)/+(resObj.MES_ACTUAL||0)*100).toFixed(0) : 0;
+  setText('kc-conv', `${conv}%`);
+  const diariasArr = Array.isArray(diarias) ? diarias : (diarias && (Array.isArray(diarias.data) ? diarias.data : Array.isArray(diarias.rows) ? diarias.rows : []));
+  const arr = diariasArr.map(r => ({
+    DIA: r.DIA ?? r.FECHA ?? r.dia ?? r.fecha,
+    TOTAL_COTIZACIONES: +(r.TOTAL_COTIZACIONES ?? r.total_cotizaciones ?? r.TOTAL ?? r.total ?? 0)
+  }));
+  function cotiMetaForDate(d) {
+    if (bloq) return { m: 0, i: 0 };
+    const ok = isLaborDay(d);
+    return { m: ok ? metaCBase * nV : 0, i: ok ? idealCBase * nV : 0 };
+  }
+  let lbls, vals, metaL, idealL;
+  if (!arr.length) {
+    const today = new Date();
+    lbls = []; vals = []; metaL = []; idealL = [];
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(today); d.setDate(d.getDate() - i);
+      lbls.push(`${d.getDate()} ${MESES[d.getMonth()]}`);
+      vals.push(0);
+      const mp = cotiMetaForDate(d);
+      metaL.push(mp.m);
+      idealL.push(mp.i);
+    }
+  } else {
+    lbls = arr.map(r=>{
+      const raw = r.DIA;
+      const d = (raw instanceof Date) ? raw : new Date(typeof raw === 'string' && raw.includes('-') ? raw.substring(0,10)+'T12:00:00' : raw);
+      return `${d.getDate()} ${MESES[d.getMonth()]}`;
+    });
+    vals = arr.map(r=>r.TOTAL_COTIZACIONES||0);
+    metaL = arr.map(r => {
+      const raw = r.DIA;
+      const d = (raw instanceof Date) ? raw : new Date(typeof raw === 'string' && raw.includes('-') ? raw.substring(0,10)+'T12:00:00' : raw);
+      return cotiMetaForDate(d).m;
+    });
+    idealL = arr.map(r => {
+      const raw = r.DIA;
+      const d = (raw instanceof Date) ? raw : new Date(typeof raw === 'string' && raw.includes('-') ? raw.substring(0,10)+'T12:00:00' : raw);
+      return cotiMetaForDate(d).i;
+    });
+  }
+  const opts = chartDefaults();
+  opts.scales.y.min = 0;
+  const maxY = Math.max(0, ...vals, ...metaL, ...idealL, bloq ? 0 : metaCBase * nV * 1.1);
+  if (arr.length === 0 && !bloq && metaCBase * nV > 0) opts.scales.y.suggestedMax = Math.max(metaCBase * nV * 1.2, 1000);
+  else if (maxY > 0) opts.scales.y.suggestedMax = maxY * 1.15;
+  if(chartCotiDiarias) chartCotiDiarias.destroy();
+  chartCotiDiarias = new Chart(document.getElementById('chartCotiDiarias').getContext('2d'), {type:'bar', data:{labels:lbls, datasets:[
+    {label:'Cotizaciones $', data:vals, order:0, backgroundColor:'rgba(255,184,0,.3)', borderColor:'#FFB800', borderWidth:1},
+    {label:'Meta (día laboral)', data:metaL, type:'line', order:1, borderColor:'rgba(255,140,66,.9)', borderWidth:2.2, borderDash:[6,4], pointRadius:0, fill:false},
+    {label:'Ideal (+30%)', data:idealL, type:'line', order:2, borderColor:'rgba(0,229,160,.82)', borderWidth:2, borderDash:[3,5], pointRadius:0, fill:'-1', backgroundColor:'rgba(255,184,0,.16)'},
+  ]}, options:opts});
+  const vendsArr = Array.isArray(vends) ? vends : [];
+  const maxV = vendsArr.reduce((m,r)=>Math.max(m,+(r.COTIZACIONES_MES||0)),0);
+  document.getElementById('coti-vendedores-list').innerHTML = vendsArr.length ?
+    `<div class="vendor-list">${vendsArr.map((r,i)=>{
+      const pct = maxV>0?((+(r.COTIZACIONES_MES||0))/maxV*100).toFixed(0):0;
+      return `<div class="vendor-item">
+        <div class="vendor-head">
+          <span class="vendor-name"><span class="rank-num">${i+1}</span>${r.VENDEDOR}</span>
+          <span><span class="vendor-amount" style="color:var(--yellow)">${fmtK(r.COTIZACIONES_MES)}</span><span class="vendor-pct">${r.NUM_COTI_MES} coti</span></span>
+        </div>
+        <div class="vendor-bar-bg"><div style="height:5px;border-radius:99px;background:linear-gradient(90deg,var(--yellow),var(--orange));width:${pct}%;transition:width 1.2s"></div></div>
+      </div>`;
+    }).join('')}</div>` : '<div style="text-align:center;color:var(--muted);padding:1.5rem">Sin datos</div>';
+}
+
+function asArrayCotizacionesDocs(raw){
+  if (Array.isArray(raw)) return raw;
+  if (raw && raw.error) return [];
+  if (raw && Array.isArray(raw.data)) return raw.data;
+  if (raw && Array.isArray(raw.rows)) return raw.rows;
+  return [];
+}
+
+function deriveCotiFromDocs(rows){
+  const docs = Array.isArray(rows) ? rows : [];
+  const byDay = {};
+  const byVend = {};
+  const today = new Date();
+  const y = today.getFullYear(), m = today.getMonth(), d = today.getDate();
+  let mesImp = 0, hoyImp = 0, mesCnt = 0, hoyCnt = 0;
+  for(const r of docs){
+    const f = r && r.FECHA ? new Date(r.FECHA) : null;
+    if(!f || isNaN(f)) continue;
+    const imp = +(r.IMPORTE_NETO || 0);
+    const dayKey = `${f.getFullYear()}-${String(f.getMonth()+1).padStart(2,'0')}-${String(f.getDate()).padStart(2,'0')}`;
+    byDay[dayKey] = (byDay[dayKey] || 0) + imp;
+    const vid = r.VENDEDOR_ID != null ? r.VENDEDOR_ID : 0;
+    const vend = (r.VENDEDOR && String(r.VENDEDOR).trim()) ? r.VENDEDOR : (vid ? ('Vendedor ' + vid) : 'Sin vendedor');
+    const vkey = String(vid) + '|' + vend;
+    if(!byVend[vkey]) byVend[vkey] = { VENDEDOR: vend, VENDEDOR_ID: vid, COTIZACIONES_MES: 0, NUM_COTI_MES: 0 };
+    byVend[vkey].COTIZACIONES_MES += imp;
+    byVend[vkey].NUM_COTI_MES += 1;
+    if(f.getFullYear()===y && f.getMonth()===m){
+      mesImp += imp; mesCnt++;
+      if(f.getDate()===d){ hoyImp += imp; hoyCnt++; }
+    }
+  }
+  const diarias = Object.keys(byDay).sort().map(k=>({ DIA:k, TOTAL_COTIZACIONES:byDay[k] }));
+  const vends = Object.values(byVend).sort((a,b)=>(+b.COTIZACIONES_MES||0)-(+a.COTIZACIONES_MES||0)).slice(0,20);
+  const resObj = { HOY:hoyImp, MES_ACTUAL:mesImp, COTIZACIONES_MES:mesCnt, COTIZACIONES_HOY:hoyCnt };
+  return { resObj, diarias, vends };
+}
+
+async function loadCotizaciones() {
+  const btnReintentar = document.getElementById('coti-reintentar');
+  // Estado inicial para que no se quede en "?"
+  applyCotiData({ HOY:0, MES_ACTUAL:0, COTIZACIONES_MES:0, COTIZACIONES_HOY:0 }, [], [], { MES_ACTUAL:0 });
+  if (lastCotiData) applyCotiData(lastCotiData.resObj, lastCotiData.diarias, lastCotiData.vends, lastCotiData.ventasVE);
+  document.getElementById('coti-vendedores-list').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)">Cargando...</div>';
+  try {
+    const settled = await Promise.allSettled([
+      fwt(buildApiUrl('/api/ventas/cotizaciones', 'limit=400'), [], 45000),
+      fwt(buildApiUrl('/api/ventas/resumen','tipo=VE'), {}),
+    ]);
+    const safe = (idx, fb) => (settled[idx] && settled[idx].status === 'fulfilled') ? settled[idx].value : fb;
+    const docs = asArrayCotizacionesDocs(safe(0, []));
+    const ventasVE = safe(1, {});
+    const derived = deriveCotiFromDocs(docs);
+    const resObj = derived.resObj;
+    const diarias = derived.diarias;
+    const vends = derived.vends;
+    lastCotiData = { resObj, diarias, vends, ventasVE };
+    applyCotiData(resObj, diarias, vends, ventasVE);
+    if (btnReintentar) btnReintentar.style.display = 'none';
+  } catch(e) {
+    console.error('coti', e);
+    if (lastCotiData) applyCotiData(lastCotiData.resObj, lastCotiData.diarias, lastCotiData.vends, lastCotiData.ventasVE);
+    else applyCotiData({ HOY:0, MES_ACTUAL:0, COTIZACIONES_MES:0, COTIZACIONES_HOY:0 }, [], [], { MES_ACTUAL:0 });
+    if (btnReintentar) btnReintentar.style.display = 'inline-block';
+  }
+}
+document.getElementById('coti-reintentar')?.addEventListener('click', function(){ this.style.display='none'; loadCotizaciones(); });
+
+async function loadRecientes() {
+  try {
+    const rows = await fwt(buildApiUrl('/api/ventas/recientes', `limit=20${tipoQ()}`), []);
+    document.querySelector('#tbl-recientes tbody').innerHTML = rows.map(r=>{
+      const src = r.TIPO_SRC==='PV'?'<span class="tipo-badge tipo-pv">PV</span>':'<span class="tipo-badge tipo-ve">VE</span>';
+      const tipo = r.TIPO_DOCTO==='F'?'<span class="tag ok">Factura</span>':'<span class="tag warn">Venta</span>';
+      const fecha = r.FECHA ? new Date(r.FECHA).toLocaleDateString('es-MX') : '?';
+      return `<tr><td class="lbl" style="font-family:'DM Mono',monospace">${r.FOLIO||'?'}</td><td>${tipo}</td><td>${src}</td><td>${r.CLIENTE||'?'}</td><td style="color:var(--muted)">${r.VENDEDOR||'?'}</td><td class="num">${fmt(r.TOTAL!=null?r.TOTAL:r.IMPORTE_NETO)}</td><td style="color:var(--muted);font-family:'DM Mono',monospace;font-size:.72rem">${fecha}</td></tr>`;
+    }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1.5rem">Sin datos</td></tr>';
+    setText('rec-badge', `${rows.length} documentos`);
+  } catch(e){}
+}
+
+// Carga inicial inmediata — si filters.js falla/no carga, seguimos sin romper la página.
+if (typeof initFilters === 'function') {
+  initFilters({ containerId:'filter-bar', showVendedor:true, onReady:()=>loadAll(), onChange:()=>loadAll() });
+} else {
+  const fb = document.getElementById('filter-bar');
+  if (fb) fb.innerHTML = '<div style="padding:10px 12px;color:var(--muted);font-size:.75rem;border:1px solid var(--border);border-radius:10px;background:var(--s1)">Filtros no disponibles temporalmente. Cargando ventas con configuración base...</div>';
+  loadAll();
+}
+document.getElementById('mensuales-periodo')?.addEventListener('click', function(e){
+  const btn = e.target.closest('.periodo-btn');
+  if(!btn) return;
+  const m = parseInt(btn.dataset.meses,10);
+  if(isNaN(m)) return;
+  currentMeses = m;
+  this.querySelectorAll('.periodo-btn').forEach(b=>b.classList.toggle('active', parseInt(b.dataset.meses,10)===m));
+  loadMensuales();
+});
+setInterval(loadAll, 60000);
+</script>
+<script src="nav.js"></script>
+</body>
+</html>
