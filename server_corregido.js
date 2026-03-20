@@ -1050,7 +1050,61 @@ get('/api/ventas/resumen', async (req) => {
       _queryError: String((err && err.message) || err),
     };
   }
-  return rows[0] || {};
+  const out = rows[0] || {};
+  out._filtro_ventas = process.env.MICROSIP_VENTAS_FILTRO || 'amplio';
+  // Si el periodo (mes/año barra) da 0 pero en la BD sí hay documentos comerciales, el problema suele ser FECHA, no el SQL del servidor.
+  const mesCero = +(out.MES_ACTUAL || 0) === 0 && +(out.FACTURAS_MES || 0) === 0;
+  if (mesCero && !out._queryError) {
+    try {
+      const rq2 = { query: { ...(req.query || {}) } };
+      ['anio', 'mes', 'dia', 'desde', 'hasta'].forEach((k) => {
+        if (rq2.query && Object.prototype.hasOwnProperty.call(rq2.query, k)) delete rq2.query[k];
+      });
+      const f2 = buildFiltros(rq2, 'd');
+      const imp = sqlVentaImporteBaseExpr('d');
+      const rows2 = await query(
+        `
+        SELECT COUNT(*) AS N, COALESCE(MAX(CAST(d.FECHA AS DATE)), NULL) AS ULTIMA,
+               COALESCE(SUM(${imp}), 0) AS SUMA_IMP
+        FROM ${ventasSub(tipo)} d WHERE 1=1 ${f2.sql}
+      `,
+        f2.params,
+        45000,
+        dbo
+      );
+      const r2 = rows2[0] || {};
+      const nTot = +(r2.N || 0);
+      if (nTot > 0) {
+        out._diagnostico = {
+          tipo: 'periodo_sin_datos',
+          documentos_sin_filtro_fecha: nTot,
+          ultima_fecha: r2.ULTIMA,
+          suma_importe_todas_fechas: Math.round((+r2.SUMA_IMP || 0) * 100) / 100,
+          mensaje:
+            'Hay facturas en esta empresa, pero ninguna en el mes/año del filtro. Prueba "Este año", "Mes anterior" o revisa el periodo en la barra.',
+        };
+      } else {
+        const [cVe, cPv] = await Promise.all([
+          query(`SELECT COUNT(*) AS N FROM DOCTOS_VE`, [], 8000, dbo).catch(() => [{ N: 0 }]),
+          query(`SELECT COUNT(*) AS N FROM DOCTOS_PV`, [], 8000, dbo).catch(() => [{ N: 0 }]),
+        ]);
+        const nVe = +(cVe[0] && cVe[0].N);
+        const nPv = +(cPv[0] && cPv[0].N);
+        out._diagnostico = {
+          tipo: nVe + nPv === 0 ? 'tablas_vacias' : 'filtro_excluye_todo',
+          doctos_ve_total: nVe,
+          doctos_pv_total: nPv,
+          mensaje:
+            nVe + nPv === 0
+              ? 'DOCTOS_VE y DOCTOS_PV están vacíos en esta conexión (revisa chip de empresa / FB_DATABASE).'
+              : 'Hay movimientos en VE/PV pero ninguno entra al filtro de ventas (TIPO_DOCTO/ESTATUS). Abre /api/debug/ventas y /api/debug/ventas-muestra con el mismo ?db=.',
+        };
+      }
+    } catch (e) {
+      out._diagnostico = { error: String((e && e.message) || e) };
+    }
+  }
+  return out;
 });
 
 // Cotizaciones: rango de fechas explícito (primer/último día del mes) para que Firebird use índice y no escanee toda la tabla.

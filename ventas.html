@@ -140,6 +140,7 @@ nav{display:flex;align-items:center;gap:.25rem}
 
   <!-- Barra de filtros compartida -->
   <div id="filter-bar"></div>
+  <div id="ventas-api-banner" class="api-err-banner" role="alert" aria-live="polite" style="display:none;margin:0 0 1rem;padding:.65rem .9rem;border-radius:10px;border:1px solid rgba(245,124,0,.45);background:rgba(245,124,0,.12);color:#ffb366;font-family:'DM Mono',monospace;font-size:.68rem;line-height:1.45;white-space:pre-wrap"></div>
 
   <div class="source-tabs">
     <button class="tab-btn tab-all active" onclick="setTipo('')" id="tab-all">Todos</button>
@@ -504,6 +505,20 @@ async function loadAll() {
 async function loadResumen() {
   try {
     const d = await fwt(buildApiUrl('/api/ventas/resumen', tipoQ()), {});
+    const banner = document.getElementById('ventas-api-banner');
+    if (banner) {
+      if (d && d._diagnostico && d._diagnostico.mensaje) {
+        banner.style.display = 'block';
+        banner.textContent =
+          (d._filtro_ventas ? '[Filtro ventas: ' + d._filtro_ventas + '] ' : '') +
+          d._diagnostico.mensaje +
+          (d._diagnostico.ultima_fecha ? '\nÚltima fecha con venta (sin filtro de mes): ' + d._diagnostico.ultima_fecha : '') +
+          (d._diagnostico.documentos_sin_filtro_fecha != null ? '\nDocs (sin filtro fecha): ' + d._diagnostico.documentos_sin_filtro_fecha : '');
+      } else {
+        banner.style.display = 'none';
+        banner.textContent = '';
+      }
+    }
     const hoy=+(d.HOY||0), mes=+(d.MES_ACTUAL||0), docs=+(d.FACTURAS_MES||0);
     const diasMes = new Date().getDate();
     const meta = +(metas.META_TOTAL_DIARIA||5650);
