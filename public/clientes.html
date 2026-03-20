@@ -101,6 +101,8 @@ nav{display:flex;align-items:center;gap:.2rem}
 .th-sort-icon::before{content:'';display:block;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent}
 .th-sort-icon.asc::before{border-bottom:5px solid rgba(255,255,255,.9);border-top:none}
 .th-sort-icon.desc::before{border-top:5px solid rgba(255,255,255,.9);border-bottom:none}
+.th-sort-icon.muted{opacity:.35}
+.th-sort-icon.muted::before{display:none}
 .num{text-align:right;font-family:'DM Mono',monospace;font-size:.78rem}
 
 /* Risk level badges */
@@ -235,7 +237,7 @@ nav{display:flex;align-items:center;gap:.2rem}
         <thead>
           <tr>
             <th>Cliente</th>
-            <th class="th-sort" id="thNivelSort" title="Clic para ordenar por nivel (Cr&#237;tico / Alto / Medio / Leve)">
+            <th class="th-sort" id="thNivelSort" title="Clic: Nivel cr&#237;tico &rarr; leve &rarr; volver a p&#233;rdida est.">
               Nivel <span class="th-sort-icon desc" id="nivelSortIcon" aria-hidden="true"></span>
             </th>
             <th class="num">Saldo Total</th>
@@ -243,6 +245,8 @@ nav{display:flex;align-items:center;gap:.2rem}
             <th class="num">% Vencido</th>
             <th class="num">Max D&iacute;as</th>
             <th class="num">Docs</th>
+            <th class="num">Compras</th>
+            <th class="num" title="Si hay ticket &gt;$1/mes (12m): ticket&#215;d&#237;as sin compra/30 (m&#225;x. 730 d). Si hay compras pero poco ticket: vencido&#215;d&#237;as/90. Sin historial: vencido&#215;m&#225;x. atraso/60.">P&eacute;rdida est.</th>
             <th>Condici&oacute;n</th>
           </tr>
         </thead>
@@ -318,7 +322,8 @@ function apiDb(rel){
 let chartRiesgoInst = null, chartBucketsInst = null;
 let riesgoData = [], inactivosData = [], comercialData = [];
 const clientesSemCtx = { riesgo: [], inactivos: [], comercial: [], res: {} };
-let sortNivelDirection = 1; // 1 = Crítico primero (desc), -1 = Leve primero (asc)
+/** 0 = orden por p&eacute;rdida estimada (API / clic en &quot;P&eacute;rdida est.&quot;); 1 / -1 = por nivel de atraso */
+let sortNivelDirection = 0;
 
 setInterval(()=>{const n=new Date();document.getElementById('reloj').textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');},1000);
 
@@ -446,15 +451,27 @@ function nivelOrder(nivelStr){
 }
 function renderRiesgo(data){
   const iconEl = document.getElementById('nivelSortIcon');
-  if(iconEl){ iconEl.className = 'th-sort-icon ' + (sortNivelDirection===1?'desc':'asc'); iconEl.setAttribute('title', sortNivelDirection===1?'Cr\u00edtico primero (clic: Leve primero)':'Leve primero (clic: Cr\u00edtico primero)'); }
+  if(iconEl){
+    if(sortNivelDirection===0){
+      iconEl.className = 'th-sort-icon muted';
+      iconEl.setAttribute('title','Orden: p\u00e9rdida est. (clic para ordenar por nivel)');
+    }else{
+      iconEl.className = 'th-sort-icon ' + (sortNivelDirection===1?'desc':'asc');
+      iconEl.setAttribute('title', sortNivelDirection===1?'Cr\u00edtico primero (clic: leve primero)':'Leve primero (clic: volver a p\u00e9rdida est.)');
+    }
+  }
   let dataToRender = data;
-  if(sortNivelDirection!==0 && data.length>0){
-    dataToRender = [...data].sort((a,b)=>{
-      const na = (a.NIVEL_RIESGO||nivelFromDias(a.MAX_DIAS_VENCIDO)).toUpperCase();
-      const nb = (b.NIVEL_RIESGO||nivelFromDias(b.MAX_DIAS_VENCIDO)).toUpperCase();
-      const diff = nivelOrder(nb) - nivelOrder(na);
-      return sortNivelDirection===1 ? diff : -diff;
-    });
+  if(data.length>0){
+    if(sortNivelDirection===0){
+      dataToRender = [...data].sort((a,b)=>(+b.PERDIDA_OPORTUNIDAD||0)-(+a.PERDIDA_OPORTUNIDAD||0));
+    }else{
+      dataToRender = [...data].sort((a,b)=>{
+        const na = (a.NIVEL_RIESGO||nivelFromDias(a.MAX_DIAS_VENCIDO)).toUpperCase();
+        const nb = (b.NIVEL_RIESGO||nivelFromDias(b.MAX_DIAS_VENCIDO)).toUpperCase();
+        const diff = nivelOrder(nb) - nivelOrder(na);
+        return sortNivelDirection===1 ? diff : -diff;
+      });
+    }
   }
   document.getElementById('riesgoCount').textContent = dataToRender.length+' registros';
   const rows = dataToRender.map(r=>{
@@ -465,6 +482,8 @@ function renderRiesgo(data){
     const montoVencido = +r.MONTO_VENCIDO||+r.MONTO_VENCIDO_BRUTO||+r.SALDO||0;
     const pctV = saldoTotal>0 ? Math.round((montoVencido/saldoTotal)*100) : (+r.PCT_VENCIDO||0);
     const col  = nivel==='CRITICO'?'var(--red)':nivel==='ALTO'?'var(--orange)':nivel==='MEDIO'?'var(--yellow)':'var(--blue)';
+    const perdida = +r.PERDIDA_OPORTUNIDAD||0;
+    const nCom = +r.NUM_COMPRAS_VIDA||0;
     return `<tr>
       <td style="padding:.65rem .75rem;color:var(--text);font-weight:600">${r.NOMBRE||'--'}</td>
       <td style="padding:.65rem .75rem"><span class="badge ${badgeClass}">${nivel}</span></td>
@@ -476,10 +495,12 @@ function renderRiesgo(data){
       </td>
       <td class="num" style="color:${col}">${maxD} d&iacute;as</td>
       <td class="num" style="color:var(--text2)">${+r.NUM_DOCS_VENCIDOS||'--'}</td>
+      <td class="num" style="color:var(--text2)">${nCom||'\u2014'}</td>
+      <td class="num" style="color:var(--orange)">${fmtM(perdida)}</td>
       <td style="padding:.65rem .75rem;font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted)">${r.CONDICION_PAGO||'--'}</td>
     </tr>`;
   }).join('');
-  document.getElementById('riesgoBody').innerHTML = rows || `<tr><td colspan="8" class="empty">Sin clientes en riesgo</td></tr>`;
+  document.getElementById('riesgoBody').innerHTML = rows || `<tr><td colspan="10" class="empty">Sin clientes en riesgo</td></tr>`;
 }
 
 function renderComercial(data){
@@ -560,7 +581,9 @@ function renderChartBuckets(res){
 }
 
 document.getElementById('thNivelSort')?.addEventListener('click', function(){
-  sortNivelDirection = sortNivelDirection===1 ? -1 : 1;
+  if(sortNivelDirection===0) sortNivelDirection = 1;
+  else if(sortNivelDirection===1) sortNivelDirection = -1;
+  else sortNivelDirection = 0;
   renderRiesgo(riesgoData);
 });
 loadData();

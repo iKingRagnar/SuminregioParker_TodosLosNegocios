@@ -267,8 +267,8 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
         <p class="card-note">Facturas <strong>Contado</strong> / inmediato no se tratan como vencidas (sin atraso a cr&eacute;dito). Resto: estatus por d&iacute;as como Power BI. Saldo = neto por documento (cargo &minus; cobro). <strong>No aparecen facturas ya liquidadas</strong> (saldo pendiente 0).</p>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th>Folio</th><th>Cliente</th><th>Condici&oacute;n</th><th>Estatus</th><th>Saldo</th><th>Atraso</th><th>F. Vencimiento</th></tr></thead>
-            <tbody id="tbVenc"><tr><td colspan="7"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr></tbody>
+            <thead><tr><th>Folio</th><th>Cliente</th><th>Condici&oacute;n</th><th>Estatus</th><th>Saldo</th><th>F. Venta</th><th>Venc. (plazo)</th><th>Atraso</th><th>Sin pagar</th><th>F. Venc. (sist.)</th></tr></thead>
+            <tbody id="tbVenc"><tr><td colspan="10"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr></tbody>
           </table>
         </div>
       </div>
@@ -514,28 +514,33 @@ async function loadVencidas() {
     const raw = await apiFetch('/api/cxc/vencidas'+qs);
     const rows = (Array.isArray(raw) ? raw : []).filter(r => (+r.SALDO || 0) > 0.005);
     setText('vBadge', rows.length+' docs');
-    if(!rows.length){ tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--txt3);padding:20px">Sin facturas vencidas</td></tr>'; return; }
+    if(!rows.length){ tb.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--txt3);padding:20px">Sin facturas vencidas</td></tr>'; return; }
     function estatusRango(d){
       if(d<=0) return 'No Vencido';
       if(d<=30) return 'Vencido \u2264 30 d\u00edas';
       if(d<=60) return 'Vencido \u2264 60 d\u00edas';
       return 'Vencido > 60 d\u00edas';
     }
+    const fmtDay = x => (x ? new Date(x).toLocaleDateString('es-MX') : '\u2014');
     tb.innerHTML = rows.map(r=>{
       const d = +(r.DIAS_ATRASO||0);
       const estatus = estatusRango(d);
       const estatusCl = d<=30?'c1':d<=60?'c2':'c4';
+      const dSp = +(r.TIEMPO_SIN_PAGAR_DIAS != null ? r.TIEMPO_SIN_PAGAR_DIAS : r.DIAS_ATRASO) || 0;
       return `<tr>
       <td style="color:var(--acc2)">${r.FOLIO||'\u2014'}</td>
       <td style="color:var(--txt)">${(r.CLIENTE||'').substring(0,28)}</td>
       <td style="color:var(--txt3)">${r.CONDICION_PAGO||'S/D'}</td>
       <td><span class="aging-lbl estatus-bkt ${estatusCl}">${estatus}</span></td>
       <td style="color:var(--red)">${fmtSaldoDoc(r.SALDO)}</td>
+      <td style="color:var(--txt3);font-size:11px">${fmtDay(r.FECHA_VENTA)}</td>
+      <td style="color:var(--txt3);font-size:11px">${fmtDay(r.FECHA_VENC_PLAZO)}</td>
       <td><span style="background:rgba(239,68,68,.15);color:var(--red);padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700">+${d}d</span></td>
-      <td style="color:var(--txt3)">${r.FECHA_VENCIMIENTO?new Date(r.FECHA_VENCIMIENTO).toLocaleDateString('es-MX'):'\u2014'}</td>
+      <td style="color:var(--txt2);font-size:11px;font-family:var(--mono)">${dSp} d\u00edas</td>
+      <td style="color:var(--txt3);font-size:11px">${fmtDay(r.FECHA_VENCIMIENTO)}</td>
     </tr>`;
     }).join('');
-  } catch(e){ tb.innerHTML='<tr><td colspan="7" style="color:var(--red);padding:12px">Error: '+e.message+'</td></tr>'; }
+  } catch(e){ tb.innerHTML='<tr><td colspan="10" style="color:var(--red);padding:12px">Error: '+e.message+'</td></tr>'; }
 }
 
 // -- Top Deudores --------------------------------------------------------------

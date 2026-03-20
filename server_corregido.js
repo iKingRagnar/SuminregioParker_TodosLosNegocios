@@ -626,6 +626,7 @@ function ventasSub(tipo = '') {
     WHERE (
       (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
       OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
+      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS <> 'C')
     )`;
 
   const pv = `
@@ -644,6 +645,7 @@ function ventasSub(tipo = '') {
     WHERE (
       (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
       OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
+      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS <> 'C')
     )`;
 
   if (tipo === 'VE') return `(${ve})`;
@@ -689,6 +691,7 @@ function consumosSub(tipo = '') {
     WHERE (
       (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
       OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
+      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS <> 'C')
     )`;
 
   const pv = `
@@ -704,6 +707,7 @@ function consumosSub(tipo = '') {
     WHERE (
       (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
       OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
+      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS <> 'C')
     )`;
 
   if (tipo === 'VE') return `(${ve})`;
@@ -845,6 +849,7 @@ get('/api/config/metas', async (req) => {
     WHERE (
       (TIPO_DOCTO = 'F' AND ESTATUS <> 'C')
       OR (TIPO_DOCTO = 'V' AND ESTATUS NOT IN ('C', 'T'))
+      OR (TIPO_DOCTO = 'R' AND ESTATUS <> 'C')
     )
     AND EXTRACT(YEAR  FROM FECHA) = EXTRACT(YEAR  FROM CURRENT_DATE)
     AND EXTRACT(MONTH FROM FECHA) = EXTRACT(MONTH FROM CURRENT_DATE)
@@ -1188,7 +1193,13 @@ get('/api/ventas/cobradas', async (req) => {
   const tipoFac = sqlTipoFacLinkCc('fac', tipo);
   const vendedorQ = req.query.vendedor ? ` AND d.VENDEDOR_ID = ${parseInt(req.query.vendedor, 10)}` : '';
 
-  const cobroSqlBase = `
+  /** Cobros del periodo: total sin exigir enlace VE/PV (muchas bases no llenan DOCTO_* en CC). */
+  const cobroSqlFull = `
+    FROM IMPORTES_DOCTOS_CC i
+    JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = i.DOCTO_CC_ID
+    WHERE i.TIPO_IMPTE = 'R' AND COALESCE(i.CANCELADO, 'N') = 'N' ${fi.sql}`;
+  /** Misma join que antes para atribuir por vendedor cuando sí hay factura ligada. */
+  const cobroSqlAtrib = `
     FROM IMPORTES_DOCTOS_CC i
     JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = i.DOCTO_CC_ID
     LEFT JOIN DOCTOS_CC fac ON fac.DOCTO_CC_ID = COALESCE(i.DOCTO_CC_ACR_ID, i.DOCTO_CC_ID)
@@ -1197,7 +1208,7 @@ get('/api/ventas/cobradas', async (req) => {
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = COALESCE(ve.VENDEDOR_ID, pv.VENDEDOR_ID)
     WHERE i.TIPO_IMPTE = 'R' AND COALESCE(i.CANCELADO, 'N') = 'N' ${tipoFac} ${fi.sql}`;
 
-  const [rows, cobroPorVend, cobrosRow] = await Promise.all([
+  const [rows, cobroPorVend, cobrosRow, cobroLinkedRows] = await Promise.all([
     query(`
       SELECT d.VENDEDOR_ID, v.NOMBRE AS VENDEDOR, COUNT(DISTINCT d.FOLIO) AS NUM_FACTURAS, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL_VENTA
       FROM ${ventasSub(tipo)} d
@@ -1210,21 +1221,30 @@ get('/api/ventas/cobradas', async (req) => {
         COALESCE(ve.VENDEDOR_ID, pv.VENDEDOR_ID, 0) AS VENDEDOR_ID,
         MAX(COALESCE(v.NOMBRE, '')) AS VENDEDOR,
         COALESCE(SUM(CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END), 0) AS TOTAL_COBRADO
-      ${cobroSqlBase}
+      ${cobroSqlAtrib}
       GROUP BY COALESCE(ve.VENDEDOR_ID, pv.VENDEDOR_ID, 0)
     `, fi.params, 12000, dbo).catch(() => []),
     query(`
       SELECT COALESCE(SUM(CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END), 0) AS TOTAL_COBRADO
-      ${cobroSqlBase}
+      ${cobroSqlFull}
+    `, fi.params, 12000, dbo).catch(() => [{ TOTAL_COBRADO: 0 }]),
+    query(`
+      SELECT COALESCE(SUM(CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END), 0) AS TOTAL_COBRADO
+      ${cobroSqlAtrib}
     `, fi.params, 12000, dbo).catch(() => [{ TOTAL_COBRADO: 0 }]),
   ]);
 
   const totalCobradoReal = +(cobrosRow && cobrosRow[0] && cobrosRow[0].TOTAL_COBRADO) || 0;
+  const totalLinked = +(cobroLinkedRows && cobroLinkedRows[0] && cobroLinkedRows[0].TOTAL_COBRADO) || 0;
+  const orphanCobro = Math.max(0, Math.round((totalCobradoReal - totalLinked) * 100) / 100);
   const totalFacturado = (rows || []).reduce((s, r) => s + (+r.TOTAL_VENTA || 0), 0);
   const cobMap = Object.fromEntries((cobroPorVend || []).map(r => [r.VENDEDOR_ID, +r.TOTAL_COBRADO || 0]));
   const seen = new Set();
   const mapped = (rows || []).map(r => {
     seen.add(r.VENDEDOR_ID);
+    const exact = cobMap[r.VENDEDOR_ID] != null ? +cobMap[r.VENDEDOR_ID] || 0 : 0;
+    const share = totalFacturado > 0 ? orphanCobro * ((+r.TOTAL_VENTA || 0) / totalFacturado) : 0;
+    const totalCob = Math.round((exact + share) * 100) / 100;
     return {
       VENDEDOR_ID: r.VENDEDOR_ID,
       VENDEDOR: r.VENDEDOR,
@@ -1232,7 +1252,7 @@ get('/api/ventas/cobradas', async (req) => {
       NUM_FACTURAS: r.NUM_FACTURAS,
       FACTURAS_COBRADAS: r.NUM_FACTURAS,
       TOTAL_VENTA: +r.TOTAL_VENTA || 0,
-      TOTAL_COBRADO: cobMap[r.VENDEDOR_ID] != null ? cobMap[r.VENDEDOR_ID] : 0,
+      TOTAL_COBRADO: totalCob,
     };
   });
   for (const c of cobroPorVend || []) {
@@ -1249,6 +1269,23 @@ get('/api/ventas/cobradas', async (req) => {
       TOTAL_COBRADO: +c.TOTAL_COBRADO || 0,
     });
   }
+  let sumC = mapped.reduce((s, r) => s + (+r.TOTAL_COBRADO || 0), 0);
+  const rem = Math.round((totalCobradoReal - sumC) * 100) / 100;
+  if (rem > 0.02 && totalFacturado > 0) {
+    mapped.forEach(r => {
+      r.TOTAL_COBRADO = Math.round((+r.TOTAL_COBRADO + rem * ((+r.TOTAL_VENTA || 0) / totalFacturado)) * 100) / 100;
+    });
+  } else if (rem > 0.02) {
+    mapped.push({
+      VENDEDOR_ID: 0,
+      VENDEDOR: 'Sin asignar',
+      NOMBRE: 'Sin asignar',
+      NUM_FACTURAS: 0,
+      FACTURAS_COBRADAS: 0,
+      TOTAL_VENTA: 0,
+      TOTAL_COBRADO: rem,
+    });
+  }
   return { vendedores: mapped, totalFacturado, totalCobrado: totalCobradoReal };
 });
 
@@ -1261,8 +1298,6 @@ get('/api/ventas/cobradas-detalle', async (req) => {
     req.query.mes = now.getMonth() + 1;
   }
   const fi = filtrosImporteCobro(req, 'i');
-  const tipo = getTipo(req);
-  const tipoFac = sqlTipoFacLinkCc('fac', tipo);
   const limit = Math.min(parseInt(req.query.limit, 10) || 400, 800);
   return query(`
     SELECT FIRST ${limit}
@@ -1279,7 +1314,7 @@ get('/api/ventas/cobradas-detalle', async (req) => {
     LEFT JOIN DOCTOS_VE ve ON ve.DOCTO_VE_ID = fac.DOCTO_VE_ID
     LEFT JOIN DOCTOS_PV pv ON pv.DOCTO_PV_ID = fac.DOCTO_PV_ID
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = COALESCE(ve.VENDEDOR_ID, pv.VENDEDOR_ID)
-    WHERE i.TIPO_IMPTE = 'R' AND COALESCE(i.CANCELADO, 'N') = 'N' ${tipoFac} ${fi.sql}
+    WHERE i.TIPO_IMPTE = 'R' AND COALESCE(i.CANCELADO, 'N') = 'N' ${fi.sql}
     ORDER BY i.FECHA DESC, dc.FOLIO DESC
   `, fi.params, 15000, dbo).catch(() => []);
 });
@@ -1348,7 +1383,11 @@ get('/api/ventas/margen', async (req) => {
     FROM DOCTOS_VE d
     JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
-    WHERE (d.TIPO_DOCTO = 'F' OR d.TIPO_DOCTO = 'V') AND d.ESTATUS <> 'C' ${f.sql}
+    WHERE (
+      (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
+      OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C', 'T'))
+      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS <> 'C')
+    ) ${f.sql}
     GROUP BY d.VENDEDOR_ID, v.NOMBRE, EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA)
   `, f.params, 12000, dbo).catch(() => []);
 });
@@ -1362,7 +1401,11 @@ get('/api/ventas/margen-articulos', async (req) => {
     FROM DOCTOS_VE d
     JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
     LEFT JOIN ARTICULOS a ON a.ARTICULO_ID = det.ARTICULO_ID
-    WHERE (d.TIPO_DOCTO = 'F' OR d.TIPO_DOCTO = 'V') AND d.ESTATUS <> 'C' ${f.sql}
+    WHERE (
+      (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
+      OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C', 'T'))
+      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS <> 'C')
+    ) ${f.sql}
     GROUP BY a.ARTICULO_ID, a.DESCRIPCION ORDER BY MARGEN DESC
   `, f.params, 12000, dbo).catch(() => []);
 });
@@ -1799,7 +1842,10 @@ get('/api/cxc/vencidas', async (req) => {
       q.SALDO,
       q.ATRASO,
       q.DIAS_ATRASO,
-      q.FECHA_VENCIMIENTO
+      q.FECHA_VENTA,
+      q.FECHA_VENC_PLAZO,
+      q.FECHA_VENCIMIENTO,
+      q.TIEMPO_SIN_PAGAR_DIAS
     FROM (
       SELECT
         d.FOLIO,
@@ -1814,7 +1860,10 @@ get('/api/cxc/vencidas', async (req) => {
         ) AS DECIMAL(18,2)) AS SALDO,
         d.DIAS_VENCIDO AS ATRASO,
         d.DIAS_VENCIDO AS DIAS_ATRASO,
-        d.FECHA_VENCIMIENTO
+        CAST(COALESCE(ve.FECHA, pv.FECHA, dc.FECHA) AS DATE) AS FECHA_VENTA,
+        CAST(CAST(dc.FECHA AS DATE) + CAST(COALESCE(cp.DIAS_PPAG, 0) AS INTEGER) AS DATE) AS FECHA_VENC_PLAZO,
+        d.FECHA_VENCIMIENTO,
+        d.DIAS_VENCIDO AS TIEMPO_SIN_PAGAR_DIAS
       FROM (
         SELECT cd.DOCTO_CC_ID, cd.CLIENTE_ID, cd.FOLIO, cd.FECHA_VENCIMIENTO, cd.DIAS_VENCIDO
         FROM ${cxcCargosSQL()} cd
@@ -1824,9 +1873,11 @@ get('/api/cxc/vencidas', async (req) => {
       JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
       LEFT JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = d.DOCTO_CC_ID
       LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = dc.COND_PAGO_ID
+      LEFT JOIN DOCTOS_VE ve ON ve.DOCTO_VE_ID = dc.DOCTO_VE_ID
+      LEFT JOIN DOCTOS_PV pv ON pv.DOCTO_PV_ID = dc.DOCTO_PV_ID
     ) q
     WHERE q.SALDO > 0.005
-    ORDER BY q.DIAS_ATRASO DESC, q.SALDO DESC
+    ORDER BY q.SALDO DESC, q.DIAS_ATRASO DESC
   `, [], 12000, dbo).catch(() => []);
 });
 
@@ -1881,7 +1932,8 @@ get('/api/cxc/top-deudores', async (req) => {
         NUM_DOCUMENTOS : +ag.NUM_DOCS || 0,
       };
     })
-    .sort((a, b) => b.SALDO_TOTAL - a.SALDO_TOTAL)
+    .filter(r => (+r.VENCIDO || 0) > 0.005)
+    .sort((a, b) => (+b.VENCIDO || 0) - (+a.VENCIDO || 0))
     .slice(0, limit);
   return result;
 });
@@ -2222,18 +2274,70 @@ get('/api/clientes/riesgo', async (req) => {
   const limit = Math.min(parseInt(req.query.limit) || 100, 500);
   return query(`
     SELECT FIRST ${limit}
-      cd.CLIENTE_ID,
-      c.NOMBRE,
-      COALESCE(cp.NOMBRE, 'S/D') AS CONDICION_PAGO,
-      SUM(cd.SALDO) AS SALDO,
-      MAX(cd.DIAS_VENCIDO) AS MAX_DIAS_VENCIDO,
-      COUNT(*) AS NUM_DOCS_VENCIDOS
-    FROM ${cxcCargosSQL()} cd
-    LEFT JOIN CLIENTES c ON c.CLIENTE_ID = cd.CLIENTE_ID
-    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = c.COND_PAGO_ID
-    WHERE cd.DIAS_VENCIDO > 0
-    GROUP BY cd.CLIENTE_ID, c.NOMBRE, cp.NOMBRE
-    ORDER BY MAX_DIAS_VENCIDO DESC
+      agg.CLIENTE_ID,
+      agg.NOMBRE,
+      agg.CONDICION_PAGO,
+      st.SALDO AS SALDO_TOTAL,
+      agg.MONTO_VENCIDO,
+      agg.MAX_DIAS_VENCIDO,
+      agg.NUM_DOCS_VENCIDOS,
+      COALESCE(buy.NUM_COMPRAS_VIDA, 0) AS NUM_COMPRAS_VIDA,
+      buy.ULTIMA_COMPRA,
+      CAST(
+        CASE
+          WHEN COALESCE(buy.TICKET_PROMEDIO_MES, 0) > 1 THEN
+            buy.TICKET_PROMEDIO_MES * (
+              (CASE
+                WHEN buy.ULTIMA_COMPRA IS NULL THEN 0
+                WHEN (CURRENT_DATE - buy.ULTIMA_COMPRA) > 730 THEN 730
+                WHEN (CURRENT_DATE - buy.ULTIMA_COMPRA) > 0 THEN (CURRENT_DATE - buy.ULTIMA_COMPRA)
+                ELSE 0
+              END) / 30.0
+            )
+          WHEN COALESCE(buy.NUM_COMPRAS_VIDA, 0) > 0 THEN
+            agg.MONTO_VENCIDO * (
+              (CASE
+                WHEN buy.ULTIMA_COMPRA IS NULL THEN 365
+                WHEN (CURRENT_DATE - buy.ULTIMA_COMPRA) > 730 THEN 730
+                WHEN (CURRENT_DATE - buy.ULTIMA_COMPRA) > 0 THEN (CURRENT_DATE - buy.ULTIMA_COMPRA)
+                ELSE 0
+              END) / 90.0
+            )
+          ELSE
+            agg.MONTO_VENCIDO * CAST(agg.MAX_DIAS_VENCIDO AS DOUBLE PRECISION) / 60.0
+        END
+      AS DECIMAL(18, 2)) AS PERDIDA_OPORTUNIDAD
+    FROM (
+      SELECT
+        cd.CLIENTE_ID,
+        c.NOMBRE,
+        COALESCE(cp.NOMBRE, 'S/D') AS CONDICION_PAGO,
+        SUM(cd.SALDO) AS MONTO_VENCIDO,
+        MAX(cd.DIAS_VENCIDO) AS MAX_DIAS_VENCIDO,
+        COUNT(*) AS NUM_DOCS_VENCIDOS
+      FROM ${cxcCargosSQL()} cd
+      LEFT JOIN CLIENTES c ON c.CLIENTE_ID = cd.CLIENTE_ID
+      LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = c.COND_PAGO_ID
+      WHERE cd.DIAS_VENCIDO > 0
+      GROUP BY cd.CLIENTE_ID, c.NOMBRE, cp.NOMBRE
+    ) agg
+    JOIN ${cxcClienteSQL()} st ON st.CLIENTE_ID = agg.CLIENTE_ID
+    LEFT JOIN (
+      SELECT
+        CLIENTE_ID,
+        COUNT(*) AS NUM_COMPRAS_VIDA,
+        MAX(CAST(FECHA AS DATE)) AS ULTIMA_COMPRA,
+        COALESCE(SUM(CASE WHEN CAST(FECHA AS DATE) >= (CURRENT_DATE - 365) THEN IMPORTE_NETO ELSE 0 END), 0) / 12.0 AS TICKET_PROMEDIO_MES
+      FROM DOCTOS_VE
+      WHERE CLIENTE_ID > 0
+        AND (
+          (TIPO_DOCTO = 'F' AND ESTATUS <> 'C')
+          OR (TIPO_DOCTO = 'V' AND ESTATUS NOT IN ('C', 'T'))
+          OR (TIPO_DOCTO = 'R' AND ESTATUS <> 'C')
+        )
+      GROUP BY CLIENTE_ID
+    ) buy ON buy.CLIENTE_ID = agg.CLIENTE_ID
+    ORDER BY PERDIDA_OPORTUNIDAD DESC, agg.MONTO_VENCIDO DESC
   `, [], 12000, dbo).catch(() => []);
 });
 
@@ -2257,14 +2361,22 @@ get('/api/clientes/inactivos', async (req) => {
       SELECT CLIENTE_ID, MAX(CAST(FECHA AS DATE)) AS ULTIMA
       FROM DOCTOS_VE
       WHERE CLIENTE_ID > 0
-        AND ((TIPO_DOCTO = 'F' AND ESTATUS <> 'C') OR (TIPO_DOCTO = 'V' AND ESTATUS NOT IN ('C', 'T')))
+        AND (
+          (TIPO_DOCTO = 'F' AND ESTATUS <> 'C')
+          OR (TIPO_DOCTO = 'V' AND ESTATUS NOT IN ('C', 'T'))
+          OR (TIPO_DOCTO = 'R' AND ESTATUS <> 'C')
+        )
       GROUP BY CLIENTE_ID
     ) ult ON ult.CLIENTE_ID = c.CLIENTE_ID
     LEFT JOIN (
       SELECT CLIENTE_ID, COALESCE(SUM(IMPORTE_NETO), 0) AS TOT
       FROM DOCTOS_VE
       WHERE CLIENTE_ID > 0
-        AND ((TIPO_DOCTO = 'F' AND ESTATUS <> 'C') OR (TIPO_DOCTO = 'V' AND ESTATUS NOT IN ('C', 'T')))
+        AND (
+          (TIPO_DOCTO = 'F' AND ESTATUS <> 'C')
+          OR (TIPO_DOCTO = 'V' AND ESTATUS NOT IN ('C', 'T'))
+          OR (TIPO_DOCTO = 'R' AND ESTATUS <> 'C')
+        )
         AND CAST(FECHA AS DATE) >= (CURRENT_DATE - 365)
       GROUP BY CLIENTE_ID
     ) h ON h.CLIENTE_ID = c.CLIENTE_ID
@@ -2294,14 +2406,22 @@ get('/api/clientes/comercial-atraso', async (req) => {
       SELECT CLIENTE_ID, MAX(CAST(FECHA AS DATE)) AS ULTIMA
       FROM DOCTOS_VE
       WHERE CLIENTE_ID > 0
-        AND ((TIPO_DOCTO = 'F' AND ESTATUS <> 'C') OR (TIPO_DOCTO = 'V' AND ESTATUS NOT IN ('C', 'T')))
+        AND (
+          (TIPO_DOCTO = 'F' AND ESTATUS <> 'C')
+          OR (TIPO_DOCTO = 'V' AND ESTATUS NOT IN ('C', 'T'))
+          OR (TIPO_DOCTO = 'R' AND ESTATUS <> 'C')
+        )
       GROUP BY CLIENTE_ID
     ) ult ON ult.CLIENTE_ID = c.CLIENTE_ID
     LEFT JOIN (
       SELECT CLIENTE_ID, COALESCE(SUM(IMPORTE_NETO), 0) AS TOT
       FROM DOCTOS_VE
       WHERE CLIENTE_ID > 0
-        AND ((TIPO_DOCTO = 'F' AND ESTATUS <> 'C') OR (TIPO_DOCTO = 'V' AND ESTATUS NOT IN ('C', 'T')))
+        AND (
+          (TIPO_DOCTO = 'F' AND ESTATUS <> 'C')
+          OR (TIPO_DOCTO = 'V' AND ESTATUS NOT IN ('C', 'T'))
+          OR (TIPO_DOCTO = 'R' AND ESTATUS <> 'C')
+        )
         AND CAST(FECHA AS DATE) >= (CURRENT_DATE - 180)
       GROUP BY CLIENTE_ID
     ) h ON h.CLIENTE_ID = c.CLIENTE_ID
@@ -2383,7 +2503,11 @@ async function resultadosPnlCore(req, dbOpts) {
       FROM DOCTOS_VE d
       JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
       JOIN ARTICULOS a ON a.ARTICULO_ID = det.ARTICULO_ID
-      WHERE (d.TIPO_DOCTO = 'F' OR d.TIPO_DOCTO = 'V') AND d.ESTATUS <> 'C'
+      WHERE (
+          (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
+          OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C', 'T'))
+          OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS <> 'C')
+        )
         AND CAST(d.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(d.FECHA AS DATE) <= CAST(? AS DATE)
       GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
     `, dateParams);
@@ -2394,7 +2518,11 @@ async function resultadosPnlCore(req, dbOpts) {
           COALESCE(SUM(COALESCE(NULLIF(det.COSTO_TOTAL, 0), det.CANTIDAD * COALESCE(det.COSTO_UNITARIO, 0))), 0) AS COSTO_VENTAS
         FROM DOCTOS_VE d
         JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
-        WHERE (d.TIPO_DOCTO = 'F' OR d.TIPO_DOCTO = 'V') AND d.ESTATUS <> 'C'
+        WHERE (
+          (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
+          OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C', 'T'))
+          OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS <> 'C')
+        )
           AND CAST(d.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(d.FECHA AS DATE) <= CAST(? AS DATE)
         GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
       `, dateParams);
@@ -2455,7 +2583,12 @@ async function resultadosPnlCore(req, dbOpts) {
     }
   }
 
-  const [ventasMes, costosINMes, costosINDirect, cobrosMes] = await Promise.all([
+  const sy = parseInt(String(desdeStr).slice(0, 4), 10);
+  const sm = parseInt(String(desdeStr).slice(5, 7), 10);
+  const ey = parseInt(String(hastaStr).slice(0, 4), 10);
+  const em = parseInt(String(hastaStr).slice(5, 7), 10);
+
+  const [ventasMes, costosINMes, costosINDirect, cobrosMes, costosSaldos5101] = await Promise.all([
     q(`
       SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
         COALESCE(SUM(d.IMPORTE_NETO), 0) AS VENTAS_NETAS,
@@ -2490,6 +2623,19 @@ async function resultadosPnlCore(req, dbOpts) {
         AND ${dateCondCc}
       GROUP BY EXTRACT(YEAR FROM dc.FECHA), EXTRACT(MONTH FROM dc.FECHA) ORDER BY 1, 2
     `, dateParams).catch(() => []),
+    q(`
+      SELECT s.ANO AS ANIO, s.MES AS MES,
+        COALESCE(SUM(COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0)), 0) AS COSTO_VENTAS
+      FROM SALDOS_CO s
+      JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
+      WHERE (cu.TIPO = 'R' OR cu.TIPO IS NULL)
+        AND cu.CUENTA_PT STARTING WITH '5101'
+        AND s.ANO >= ? AND s.ANO <= ?
+        AND NOT (s.ANO = ? AND s.MES < ?)
+        AND NOT (s.ANO = ? AND s.MES > ?)
+      GROUP BY s.ANO, s.MES
+      ORDER BY 1, 2
+    `, [sy, ey, sy, sm, ey, em], 15000).catch(() => []),
   ]);
 
   const key = (a, m) => `${a}-${m}`;
@@ -2497,6 +2643,12 @@ async function resultadosPnlCore(req, dbOpts) {
   (costosVEMes || []).forEach(r => { costMap[key(r.ANIO, r.MES)] = (costMap[key(r.ANIO, r.MES)] || 0) + (+r.COSTO_VENTAS || 0); });
   (costosINMes || []).forEach(r => { costMap[key(r.ANIO, r.MES)] = (costMap[key(r.ANIO, r.MES)] || 0) + (+r.COSTO_VENTAS || 0); });
   (costosINDirect || []).forEach(r => { costMap[key(r.ANIO, r.MES)] = (costMap[key(r.ANIO, r.MES)] || 0) + (+r.COSTO_VENTAS || 0); });
+  (costosSaldos5101 || []).forEach(r => {
+    const k = key(r.ANIO, r.MES);
+    const v = +r.COSTO_VENTAS || 0;
+    if (v <= 0) return;
+    if (!costMap[k] || costMap[k] === 0) costMap[k] = v;
+  });
   const cobMap = {}; (cobrosMes || []).forEach(r => { cobMap[key(r.ANIO, r.MES)] = +r.COBROS || 0; });
 
   const meses = (ventasMes || []).map(r => {
@@ -2541,7 +2693,8 @@ get('/api/resultados/pnl', async (req) => {
   let dbId = req.query.db ? String(req.query.db).trim() : '';
   if (dbId.toLowerCase() === 'default') dbId = '';
   if (dbId) {
-    const hit = DATABASE_REGISTRY.find(d => d.id === dbId);
+    const idLc = dbId.toLowerCase();
+    const hit = DATABASE_REGISTRY.find(d => String(d.id).toLowerCase() === idLc);
     if (!hit) {
       console.warn('[resultados/pnl] db desconocido, usando default:', dbId);
       return resultadosPnlCore(req, null);
