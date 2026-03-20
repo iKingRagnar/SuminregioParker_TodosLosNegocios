@@ -74,6 +74,9 @@ const DB_OPTIONS = {
 };
 
 console.log('DB path:', DB_OPTIONS.database);
+/** Default para `query()` si no pasas timeoutMs (alineado con cliente fwt ~60s). */
+const DEFAULT_FB_QUERY_MS = parseInt(process.env.FB_QUERY_DEFAULT_MS || '60000', 10) || 60000;
+console.log('[Firebird] query() timeout por defecto:', DEFAULT_FB_QUERY_MS, 'ms (env FB_QUERY_DEFAULT_MS)');
 
 /**
  * Power BI / reportes suelen usar importe base sin IVA; en cabecera DOCTOS_VE/PV el campo
@@ -92,7 +95,7 @@ function sqlVentaImporteBaseExpr(alias = 'd') {
 }
 
 // ── Helper: ejecuta query → promesa ──────────────────────────────────────────
-function query(sql, params = [], timeoutMs = parseInt(process.env.FB_QUERY_DEFAULT_MS || '45000', 10) || 45000) {
+function query(sql, params = [], timeoutMs = DEFAULT_FB_QUERY_MS) {
   const queryPromise = new Promise((resolve, reject) => {
     Firebird.attach(DB_OPTIONS, (err, db) => {
       if (err) return reject(err);
@@ -162,8 +165,8 @@ function buildFiltros(req, alias = 'd') {
 
 /** Cotizaciones: rango explícito en FECHA (evita EXTRACT en WHERE → índice usable en Firebird). */
 // Firebird: si es muy bajo, el cliente recibe [] y parece "sin datos". Director ventas vuelve a buildFiltros (no reutilizar cotizacionesFechaWhere sobre UNION ventasSub — en algunos FB es lento/incorrecto).
-const COTI_QUERY_MS = 55000;
-const DIRECTOR_VENTAS_MS = 55000;
+const COTI_QUERY_MS = Math.max(60000, DEFAULT_FB_QUERY_MS);
+const DIRECTOR_VENTAS_MS = Math.max(60000, DEFAULT_FB_QUERY_MS);
 /** CXC (director e /api/cxc/resumen): el default 12s cortaba consultas reales en producción. */
 const DIRECTOR_CXC_MS = 90000;
 const CXC_RESUMEN_MS = 90000;

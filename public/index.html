@@ -733,12 +733,12 @@ async function loadAll(){
       fwt(buildApiUrl('/api/ventas/resumen'),{},60000),
       fwt(API+'/api/config/metas',{},25000),
       fwt(buildApiUrl('/api/cxc/resumen'),{},60000),
-      fwt(API+'/api/inv/resumen',{},45000),
+      fwt(API+'/api/inv/resumen',{},60000),
       fwt(buildApiUrl('/api/director/vendedores'),[],60000),
       fwt(buildApiUrl('/api/ventas/cotizaciones/resumen'),{},60000),
       fwt(buildApiUrl('/api/ventas/cumplimiento'),[],60000),
-      fwt(API+'/api/clientes/resumen-riesgo',{},45000),
-      fwt(buildApiUrl('/api/resultados/pnl','meses=1'),{},45000),
+      fwt(API+'/api/clientes/resumen-riesgo',{},60000),
+      fwt(buildApiUrl('/api/resultados/pnl','meses=1'),{},60000),
     ]);
     const cumplArr = Array.isArray(cumpl) ? cumpl : [];
     const vendsArr = Array.isArray(vends) ? vends : [];

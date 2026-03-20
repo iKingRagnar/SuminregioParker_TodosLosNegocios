@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Suminregio Parker &mdash; Ventas &middot; IA Suprema v2</title>
+<title>Suminregio Parker &mdash; Ventas &middot; IA Suprema v3</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
@@ -49,6 +49,7 @@ nav{display:flex;align-items:center;gap:.25rem}
 .live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 .clock{font-family:'DM Mono',monospace;font-size:.78rem;color:var(--muted)}
+.deploy-badge{font-family:'DM Mono',monospace;font-size:.58rem;font-weight:600;color:var(--yellow);border:1px solid rgba(255,184,0,.4);padding:.22rem .55rem;border-radius:8px;white-space:nowrap;background:rgba(255,184,0,.08)}
 .page{position:relative;z-index:1;max-width:1600px;margin:0 auto;padding:2rem}
 .page-header{margin-bottom:2rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}
 .page-title{font-size:1.75rem;font-weight:800;background:linear-gradient(135deg,var(--suminregio) 0%,var(--yellow) 50%,var(--orange) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
@@ -125,6 +126,7 @@ nav{display:flex;align-items:center;gap:.25rem}
       <a href="inventario.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M20 7H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zm-8 9c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zM4 3h16v2H4z"/></svg>Inventario</a>
     </nav>
     <div class="header-right">
+      <span class="deploy-badge" id="deploy-badge" title="Si ves IA Suprema v3, el HTML llegó al servidor tras git pull">IA Suprema v3</span>
       <div class="live-pill"><div class="live-dot"></div>LIVE</div>
       <div class="clock" id="clock">--:--:--</div>
     </div>
