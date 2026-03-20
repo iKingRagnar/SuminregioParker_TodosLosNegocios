@@ -60,10 +60,10 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 .period-btn.active{color:var(--suminregio);border-color:rgba(230,168,0,.35);background:var(--suminregio-dim)}
 
 /* KPI grid */
-.kpi-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1.1rem 1.2rem;margin-bottom:1.75rem}
-@media(max-width:1400px){.kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:700px){.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-.kpi{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:1.35rem 1.45rem;position:relative;overflow:hidden;transition:all .3s}
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.9rem;margin-bottom:1.5rem}
+@media(max-width:1400px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:700px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:1.2rem 1.3rem;position:relative;overflow:hidden;transition:all .3s}
 .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2.5px;background:linear-gradient(90deg,transparent,var(--kc) 40%,transparent)}
 .kpi.blue{--kc:var(--blue)}.kpi.green{--kc:var(--green)}.kpi.yellow{--kc:var(--yellow)}.kpi.orange{--kc:var(--orange)}.kpi.purple{--kc:var(--purple)}.kpi.cyan{--kc:var(--cyan)}
 .kpi-lbl{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--text2);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.42rem;font-weight:500}
@@ -74,7 +74,7 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 .trend-up{color:var(--green)}.trend-dn{color:var(--red)}.trend-flat{color:var(--muted)}
 
 /* BI Insight box */
-.insight-box{background:var(--s1);border:1px solid var(--border);border-left:3px solid var(--blue);border-radius:12px;padding:1.25rem 1.5rem;margin-bottom:1.65rem;display:flex;align-items:flex-start;gap:1.1rem;line-height:1.55}
+.insight-box{background:var(--s1);border:1px solid var(--border);border-left:3px solid var(--blue);border-radius:12px;padding:1.1rem 1.4rem;margin-bottom:1.5rem;display:flex;align-items:flex-start;gap:1rem}
 .insight-icon{width:34px;height:34px;background:var(--blue-dim);border:1px solid rgba(77,166,255,.22);border-radius:9px;display:grid;place-items:center;flex-shrink:0}
 .insight-icon svg{width:16px;height:16px;fill:none;stroke:var(--blue);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .insight-content{flex:1}
@@ -135,55 +135,10 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 /* Trend mini chart area */
 .chart-h220{height:220px;position:relative}
 .chart-h200{height:200px;position:relative}
-.chart-overlay-empty{position:absolute;inset:0;display:none;place-items:center;text-align:center;padding:1rem;font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted);line-height:1.5;background:rgba(6,14,26,.65);border-radius:12px;z-index:2}
-html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);color:#64748b}
 
 /* Loader skeleton */
 .skel{background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 50%,var(--s2) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;height:1.2rem;width:80%}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-
-/* Multi-empresa P&L — selector compacto (#id gana a .biz-context-bar inyectado en filters.js) */
-#bizContextBar.biz-context-bar--compact{
-  background:linear-gradient(165deg,rgba(17,34,51,.96),rgba(12,22,38,.92));
-  border:1px solid rgba(255,255,255,.09);border-radius:14px;padding:.75rem 1.1rem 1rem;margin-bottom:1.15rem;
-  display:flex;flex-direction:column;align-items:stretch;flex-wrap:nowrap;gap:.5rem;
-  box-shadow:0 12px 40px rgba(0,0,0,.22);
-}
-.biz-toolbar-row{display:flex;align-items:center;gap:.75rem 1rem;flex-wrap:wrap;width:100%}
-.biz-context-label{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;flex-shrink:0}
-.biz-select-wrap{flex:1;min-width:min(100%,200px);max-width:560px}
-.biz-select{
-  width:100%;box-sizing:border-box;
-  font-family:'DM Mono',monospace;font-size:.78rem;font-weight:500;
-  padding:.55rem 2.35rem .55rem .9rem;border-radius:10px;
-  border:1px solid var(--border2);background-color:var(--s2);color:var(--text);
-  cursor:pointer;transition:border-color .2s,box-shadow .2s;
-  appearance:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236A85A6' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:right .75rem center;
-}
-.biz-select:hover{border-color:rgba(230,168,0,.28)}
-.biz-select:focus{outline:none;border-color:rgba(230,168,0,.5);box-shadow:0 0 0 3px var(--suminregio-dim)}
-.biz-context-hint--compact{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);line-height:1.45;margin:0;padding:0;opacity:.88;max-width:72ch}
-.pl-score-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem 1.1rem;margin-bottom:1.4rem}
-@media(max-width:900px){.pl-score-grid{grid-template-columns:repeat(2,1fr)}}
-.pl-sc-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:.95rem 1rem;position:relative;overflow:hidden}
-.pl-sc-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--suminregio),transparent);opacity:.7}
-.pl-sc-lbl{font-family:'DM Mono',monospace;font-size:.56rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.35rem}
-.pl-sc-val{font-family:'DM Mono',monospace;font-size:1.35rem;font-weight:600;color:var(--text);letter-spacing:-.02em}
-.pl-sc-sub{font-family:'DM Mono',monospace;font-size:.6rem;margin-top:.28rem;line-height:1.35}
-.pl-sc-sub.ok{color:var(--green)}.pl-sc-sub.warn{color:var(--yellow)}.pl-sc-sub.bad{color:var(--red)}
-.pl-mini-wrap{background:var(--s1);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:1.25rem}
-.pl-mini-head{padding:.85rem 1.2rem;border-bottom:1px solid var(--border);font-size:.8rem;font-weight:700;color:var(--text);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
-.pl-mini-head span{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted);font-weight:500}
-.pl-mini-table{width:100%;border-collapse:collapse;font-size:.74rem}
-.pl-mini-table th{font-family:'DM Mono',monospace;font-size:.56rem;color:var(--muted);text-align:left;padding:.55rem 1rem;border-bottom:1px solid var(--border);background:var(--s2)}
-.pl-mini-table th:nth-child(n+2){text-align:right}
-.pl-mini-table td{padding:.65rem 1rem;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle}
-.pl-mini-table td:nth-child(n+2){font-family:'DM Mono',monospace;text-align:right}
-.pl-mini-table tr:hover td{background:rgba(255,255,255,.02)}
-.pl-mini-table .err{color:var(--red);font-size:.72rem}
-
 .footer{text-align:center;padding:1.75rem;font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.06em;border-top:1px solid var(--border);margin-top:2rem}
 </style>
 </head>
@@ -232,38 +187,6 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
 
   <!-- Barra de filtros compartida -->
   <div id="filter-bar"></div>
-
-  <!-- Multi-empresa: chips + scorecard (inspirado en complemento MTD/YTD; aquí periodo = filtros + meses) -->
-  <div id="bizContextBar" class="biz-context-bar biz-context-bar--compact" style="display:none">
-    <div class="biz-toolbar-row">
-      <span class="biz-context-label">Negocio</span>
-      <div class="biz-select-wrap">
-        <select id="bizSelect" class="biz-select" aria-label="Vista consolidada o empresa"></select>
-      </div>
-    </div>
-    <p class="biz-context-hint biz-context-hint--compact" id="bizHint">Consolidado suma el P&amp;L del periodo de cada base registrada. Elige una empresa para el detalle mes a mes y gr&aacute;ficas.</p>
-  </div>
-  <div id="plScoreStrip" style="display:none">
-    <div class="pl-score-grid" id="plScoreGrid"></div>
-  </div>
-  <div id="plMiniTableWrap" class="pl-mini-wrap" style="display:none">
-    <div class="pl-mini-head">Scorecard P&amp;L por empresa <span id="plMiniMeta"></span></div>
-    <div style="overflow-x:auto">
-      <table class="pl-mini-table">
-        <thead>
-          <tr>
-            <th>Empresa</th>
-            <th>Ventas netas</th>
-            <th>Util. bruta</th>
-            <th>Margen %</th>
-            <th>Cobros</th>
-            <th>Facts</th>
-          </tr>
-        </thead>
-        <tbody id="plMiniBody"></tbody>
-      </table>
-    </div>
-  </div>
 
   <!-- KPIs -->
   <div class="kpi-grid">
@@ -324,8 +247,8 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
     Para ver <strong>Utilidad Neta</strong> (despu&#233;s de gastos e ISR) se necesita integrar m&#225;s cuentas del m&#243;dulo de Contabilidad.
   </div>
 
-  <!-- Charts grid (vista por empresa) -->
-  <div id="chartsNormal" class="grid-2" style="margin-bottom:1rem">
+  <!-- Charts grid -->
+  <div class="grid-2" style="margin-bottom:1rem">
     <div class="card">
       <div class="card-head">
         <div class="card-title">
@@ -361,23 +284,7 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
       <div class="card-badge">Comparativo de canales</div>
     </div>
     <div class="card-body">
-      <div class="chart-h200">
-        <canvas id="chartCobros"></canvas>
-        <div id="chartCobros-empty" class="chart-overlay-empty">Sin datos de VE, PV o cobros en este periodo.</div>
-      </div>
-    </div>
-  </div>
-
-  <div id="chartEmpresasWrap" class="card" style="display:none;margin-bottom:1.2rem">
-    <div class="card-head">
-      <div class="card-title">
-        <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
-        Ventas netas por empresa (periodo seleccionado)
-      </div>
-      <div class="card-badge">Vista consolidado</div>
-    </div>
-    <div class="card-body">
-      <div class="chart-h220"><canvas id="chartPorEmpresa"></canvas></div>
+      <div class="chart-h200"><canvas id="chartCobros"></canvas></div>
     </div>
   </div>
 
@@ -408,46 +315,25 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
 
 <script>
 const API = (window.__API_BASE != null ? String(window.__API_BASE).replace(/\/+$/, '') : (window.location.protocol === 'file:' ? 'http://localhost:7000' : (window.location.origin || '')));
-function fwt(url,fallback,ms=10000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
-let chartVC=null, chartMg=null, chartCob=null, chartEmp=null;
+function fwt(url,fallback,ms=60000){
+  const u=String(url);
+  const isNgrok=/ngrok-free\.app|ngrok\.io|ngrok-free\.dev/i.test(u);
+  if(ms<60000&&isNgrok)ms=60000;
+  const opts=isNgrok?{headers:{'ngrok-skip-browser-warning':'1'}}:{};
+  return Promise.race([
+    fetch(u,opts).then(r=>r.json().then(d=>(r.ok?d:fallback)).catch(()=>fallback)).catch(()=>fallback),
+    new Promise(r=>setTimeout(()=>r(fallback),ms))
+  ]);
+}
+let chartVC=null, chartMg=null, chartCob=null;
 let currentMeses=3;
-/** null = una sola base por defecto; '__ALL__' = consolidado multi-empresa; string = id en FB_DATABASES_JSON */
-let selectedBizId=(function(){try{const p=new URLSearchParams(location.search).get('db');return p||null;}catch(_){return null;}})();
-let lastUniversePayload=null;
 
-// ── Helper: URL con filtros (otros módulos) ───────────────────────────────────
+// ── Helper: URL con filtros ────────────────────────────────────────────────
 function buildApiUrl(path, extra) {
   const qs    = window.filterBuildQS ? filterBuildQS() : '';
   const e     = extra ? String(extra).replace(/^[?&]+/, '') : '';
   const parts = [qs, e].filter(Boolean).join('&');
   return API + path + (parts ? '?' + parts : '');
-}
-
-// P&L: NO mezclar preset global (Hoy / Este mes) — en el servidor anio/mes ganan sobre meses=N
-// y dejan el rango en un solo mes → costo contable suele salir 0 y todo se ve "Sin datos".
-function buildPnlQuery(extra, opts) {
-  opts = opts || {};
-  const parts = [];
-  if (extra) {
-    const e = String(extra).replace(/^[?&]+/, '');
-    if (e) parts.push(e);
-  }
-  if (!opts.omitDb) {
-    let dbId = '';
-    if (selectedBizId && selectedBizId !== '__ALL__') dbId = String(selectedBizId).trim();
-    else {
-      try {
-        dbId = (new URLSearchParams(location.search).get('db') || '').trim();
-        if (!dbId) dbId = (sessionStorage.getItem('microsip_erp_db') || '').trim();
-      } catch (_) {}
-    }
-    if (dbId && dbId.toLowerCase() !== 'default') parts.push('db=' + encodeURIComponent(dbId));
-  }
-  return parts.join('&');
-}
-function buildPnlApiUrl(path, extra, opts) {
-  const q = buildPnlQuery(extra, opts);
-  return API + path + (q ? '?' + q : '');
 }
 
 // ── Reloj ──────────────────────────────────────────────────────────────────────
@@ -468,128 +354,9 @@ function momPct(cur,prev){return prev>0?Math.round((cur-prev)/prev*100):null}
 
 function setMeses(m,btn){
   currentMeses=m;
-  document.querySelectorAll('.hero .period-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   loadData();
-}
-
-function setDbUrl(id){
-  try{
-    const u=new URL(location.href);
-    if(id==null||id==='')u.searchParams.delete('db');
-    else u.searchParams.set('db',id);
-    history.replaceState({},'',u);
-  }catch(_){}
-}
-
-function selectBusiness(id){
-  selectedBizId=id;
-  setDbUrl(id);
-  const sel=document.getElementById('bizSelect');
-  if(sel&&[...sel.options].some(o=>String(o.value)===String(id)))sel.value=id;
-  loadData();
-}
-
-function renderBizChips(empresas){
-  const bar=document.getElementById('bizContextBar');
-  const sel=document.getElementById('bizSelect');
-  if(!bar||!sel)return;
-  const ok=(empresas||[]).filter(e=>e.ok);
-  if(ok.length<=1){ bar.style.display='none'; return; }
-  bar.style.display='flex';
-  if(!selectedBizId||selectedBizId===''){
-    try{
-      const saved=(sessionStorage.getItem('microsip_erp_db')||'').trim();
-      if(saved&&ok.some(e=>String(e.id)===String(saved)))selectedBizId=saved;
-      else selectedBizId='__ALL__';
-    }catch(_){ selectedBizId='__ALL__'; }
-  }
-  sel.replaceChildren();
-  const optAll=document.createElement('option');
-  optAll.value='__ALL__';
-  optAll.textContent='Grupo consolidado (\u03a3 todas las empresas)';
-  sel.appendChild(optAll);
-  ok.forEach(e=>{
-    const o=document.createElement('option');
-    o.value=String(e.id);
-    o.textContent=String(e.label||e.id);
-    sel.appendChild(o);
-  });
-  sel.value=[...sel.options].some(o=>o.value===selectedBizId)?selectedBizId:'__ALL__';
-  sel.onchange=function(){ selectBusiness(sel.value); };
-}
-
-function renderPlScoreFromTotals(tot, hasCosto, label){
-  const grid=document.getElementById('plScoreGrid');
-  const strip=document.getElementById('plScoreStrip');
-  if(!grid||!strip)return;
-  const vn=+tot.VENTAS_NETAS||0, ub=+tot.UTILIDAD_BRUTA||0, mg=+tot.MARGEN_BRUTO_PCT||0;
-  const opx=+tot.COSTO_VENTAS||0, cob=+tot.COBROS||0;
-  const efic=vn>0?Math.round(cob/vn*100):0;
-  const cards=[
-    {l:'Ventas netas',v:fmtM(vn),s:label||'Periodo',cls:'ok'},
-    {l:'Utilidad bruta',v:fmtM(hasCosto?ub:vn),s:hasCosto?fmtPct(mg)+' margen':'Sin costo en BD',cls:hasCosto?(mg>=30?'ok':mg>=15?'warn':'bad'):'warn'},
-    {l:'Costo / Cobros',v:fmtM(opx)+' / '+fmtM(cob),s:efic+'% cobro vs fact.',cls:efic>=80?'ok':efic>=50?'warn':'bad'},
-    {l:'Facturas',v:String(+tot.NUM_FACTURAS||0),s:'Documentos periodo',cls:'ok'},
-  ];
-  grid.innerHTML=cards.map(c=>`<div class="pl-sc-card"><div class="pl-sc-lbl">${c.l}</div><div class="pl-sc-val">${c.v}</div><div class="pl-sc-sub ${c.cls}">${c.s}</div></div>`).join('');
-  strip.style.display='grid';
-}
-
-function renderPlMiniTable(empresas, meta){
-  const wrap=document.getElementById('plMiniTableWrap');
-  const body=document.getElementById('plMiniBody');
-  const m=document.getElementById('plMiniMeta');
-  if(!wrap||!body)return;
-  const list = (empresas||[]).slice();
-  const errs = list.filter(e => !e.ok);
-  const oks = list.filter(e => e.ok).sort((a,b)=>{
-    const ma = +(a.totales && a.totales.MARGEN_BRUTO_PCT) || 0;
-    const mb = +(b.totales && b.totales.MARGEN_BRUTO_PCT) || 0;
-    return mb - ma;
-  });
-  const ordered = oks.concat(errs);
-  const rows=ordered.map(e=>{
-    if(!e.ok)return`<tr><td colspan="6" class="err">${(e.label||e.id)+': '+(e.error||'Error')}</td></tr>`;
-    const t=e.totales||{};
-    const mg=+t.MARGEN_BRUTO_PCT||0;
-    const mgc=mg>=30?'var(--green)':mg>=15?'var(--yellow)':'var(--red)';
-    return`<tr style="cursor:pointer" data-biz-row="${e.id}">
-      <td><strong>${(e.label||e.id).replace(/</g,'')}</strong></td>
-      <td>${fmtM(+t.VENTAS_NETAS||0)}</td>
-      <td>${e.tiene_costo?fmtM(+t.UTILIDAD_BRUTA||0):'—'}</td>
-      <td style="color:${e.tiene_costo?mgc:'var(--muted)'}">${e.tiene_costo?fmtPct(mg):'—'}</td>
-      <td>${fmtM(+t.COBROS||0)}</td>
-      <td>${+t.NUM_FACTURAS||0}</td>
-    </tr>`;
-  }).join('');
-  body.innerHTML=rows;
-  if(m)m.textContent=meta||'';
-  wrap.style.display='block';
-  body.querySelectorAll('tr[data-biz-row]').forEach(tr=>{
-    tr.addEventListener('click',()=>selectBusiness(tr.getAttribute('data-biz-row')));
-  });
-}
-
-function renderEmpresaVentasChart(empresas){
-  const wrap=document.getElementById('chartEmpresasWrap');
-  const el=document.getElementById('chartPorEmpresa');
-  if(!wrap||!el)return;
-  const ok=(empresas||[]).filter(e=>e.ok).sort((a,b)=>(+b.totales.VENTAS_NETAS||0)-(+a.totales.VENTAS_NETAS||0));
-  if(!ok.length){ wrap.style.display='none'; return; }
-  wrap.style.display='block';
-  const labels=ok.map(e=>(e.label||e.id).slice(0,22));
-  const vals=ok.map(e=>+e.totales.VENTAS_NETAS||0);
-  const ctx=el.getContext('2d');
-  if(chartEmp)chartEmp.destroy();
-  chartEmp=new Chart(ctx,{
-    type:'bar',
-    data:{labels,datasets:[{label:'Ventas netas',data:vals,backgroundColor:'rgba(77,166,255,.45)',borderColor:'#4DA6FF',borderWidth:1,borderRadius:6}]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmtM(c.raw)}}},
-      scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6A85A6',callback:v=>fmtM(v)}},
-        y:{grid:{display:false},ticks:{color:'#C8D8EC',font:{size:10}}}}},
-  });
 }
 
 // Limpiar cards de inmediato al cambiar filtro (evita que se queden datos del periodo anterior)
@@ -608,7 +375,7 @@ function clearResultadosUI(){
 // ── Load ───────────────────────────────────────────────────────────────────────
 async function loadData(){
   const heroEl=document.getElementById('heroSub');
-    let url=buildPnlApiUrl('/api/resultados/pnl','meses='+currentMeses)+'&_='+Date.now();
+  const url=buildApiUrl('/api/resultados/pnl','meses='+currentMeses)+'&_='+Date.now();
   let data={};
   function getBase(){
     const a=typeof API!=='undefined'&&API?String(API).replace(/\/+$/,''):'';
@@ -623,93 +390,11 @@ async function loadData(){
     try{ return await r.json(); }catch(_){ return null; }
   }
   clearResultadosUI();
-  document.getElementById('plScoreStrip')&&(document.getElementById('plScoreStrip').style.display='none');
-  document.getElementById('plMiniTableWrap')&&(document.getElementById('plMiniTableWrap').style.display='none');
-  document.getElementById('chartEmpresasWrap')&&(document.getElementById('chartEmpresasWrap').style.display='none');
   try{
-    const uniUrl=buildPnlApiUrl('/api/resultados/pnl-universe','meses='+currentMeses+'&concurrency=2',{ omitDb:true })+'&_='+Date.now();
-    let uni=await tryFetch(uniUrl)||{};
-    const base=getBase();
-    if((!uni.empresas||!uni.empresas.length)&&base.indexOf(':7000')===-1&&window.location.protocol!=='file:'){
-      const altU=uniUrl.replace(/^(https?:\/\/[^\/]+)/,(window.location.origin||'').replace(/:\d+$/,'')+':7000');
-      uni=await tryFetch(altU)||uni;
-    }
-    lastUniversePayload=uni;
-    const empresas=Array.isArray(uni.empresas)?uni.empresas:[];
-    const okEmp=empresas.filter(e=>e.ok);
-    const multi=okEmp.length>1;
-
-    if(!multi){
-      document.getElementById('bizContextBar')&&(document.getElementById('bizContextBar').style.display='none');
-      document.getElementById('plScoreStrip')&&(document.getElementById('plScoreStrip').style.display='none');
-      document.getElementById('plMiniTableWrap')&&(document.getElementById('plMiniTableWrap').style.display='none');
-      selectedBizId=null;
-      setDbUrl('');
-    }else{
-      renderBizChips(empresas);
-      if(!selectedBizId||selectedBizId===''){
-        try{
-          const saved=(sessionStorage.getItem('microsip_erp_db')||'').trim();
-          if(saved&&okEmp.some(e=>String(e.id)===String(saved)))selectedBizId=saved;
-          else selectedBizId='__ALL__';
-        }catch(_){ selectedBizId='__ALL__'; }
-      }
-      if(selectedBizId!=='__ALL__'){
-        const exists=okEmp.some(e=>String(e.id)===String(selectedBizId));
-        if(!exists)selectedBizId='__ALL__';
-      }
-      const consProbe=uni.consolidado||{};
-      if(selectedBizId==='__ALL__'&&!(+consProbe.VENTAS_NETAS>0)){
-        const withSales=okEmp.find(e=>+(e.totales&&e.totales.VENTAS_NETAS)>0);
-        if(withSales)selectedBizId=String(withSales.id);
-      }
-      const selBiz=document.getElementById('bizSelect');
-      if(selBiz&&[...selBiz.options].some(o=>String(o.value)===String(selectedBizId)))selBiz.value=selectedBizId;
-      setDbUrl(selectedBizId);
-      renderPlMiniTable(empresas,'c='+(uni.concurrency||2)+' · '+okEmp.length+' empresas');
-    }
-
-    const vistaConsolidado=multi&&selectedBizId==='__ALL__';
-
-    if(vistaConsolidado){
-      document.getElementById('chartsNormal')&&(document.getElementById('chartsNormal').style.display='none');
-      const cons=uni.consolidado||{};
-      const tot={
-        VENTAS_NETAS:+(cons.VENTAS_NETAS||0),
-        COSTO_VENTAS:+(cons.COSTO_VENTAS||0),
-        UTILIDAD_BRUTA:+(cons.UTILIDAD_BRUTA||0),
-        MARGEN_BRUTO_PCT:+(cons.MARGEN_BRUTO_PCT||0),
-        COBROS:+(cons.COBROS||0),
-        NUM_FACTURAS:+(cons.NUM_FACTURAS||0),
-        VENTAS_VE:+(cons.VENTAS_VE||0),
-        VENTAS_PV:+(cons.VENTAS_PV||0),
-      };
-      const hasCosto=(+tot.COSTO_VENTAS>0)||(cons.tiene_costo===true);
-      renderPlScoreFromTotals(tot,hasCosto,'Σ '+okEmp.length+' negocios');
-      renderEmpresaVentasChart(empresas);
-      renderKPIs(tot,[],hasCosto);
-      renderInsight(tot,[],hasCosto);
-      if(chartVC){ chartVC.destroy(); chartVC=null; }
-      if(chartMg){ chartMg.destroy(); chartMg=null; }
-      if(chartCob){ chartCob.destroy(); chartCob=null; }
-      const note=document.getElementById('pnlBody');
-      const foot=document.getElementById('pnlFoot');
-      if(note)note.innerHTML='<tr><td colspan="99" style="text-align:center;padding:2rem;font-family:DM Mono,monospace;font-size:.78rem;color:var(--muted)">Selecciona una <strong>empresa</strong> arriba para ver el estado de resultados <strong>mes a mes</strong> y las gráficas de tendencia.</td></tr>';
-      if(foot)foot.innerHTML='';
-      const costNotice=document.getElementById('costNotice');
-      if(costNotice)costNotice.style.display=hasCosto?'none':'block';
-      const gastosNotice=document.getElementById('gastosNotice');
-      if(gastosNotice)gastosNotice.style.display='block';
-      if(heroEl)heroEl.textContent='Vista consolidada · '+currentMeses+' meses · '+fmtM(tot.VENTAS_NETAS)+' ventas netas (suma empresas)';
-      return;
-    }
-
-    document.getElementById('chartsNormal')&&(document.getElementById('chartsNormal').style.display='grid');
-    document.getElementById('plScoreStrip')&&(document.getElementById('plScoreStrip').style.display='none');
-
     data=await tryFetch(url)||{};
+    const base=getBase();
     if((!data.meses||!data.meses.length)&&base.indexOf(':7000')===-1&&window.location.protocol!=='file:'){
-      const altUrl=url.replace(/^(https?:\/\/[^\/]+)/,(window.location.origin||'').replace(/:\d+$/,'')+':7000');
+      const altUrl=url.replace(/^(https?:\/\/[^\/]+)/, (window.location.origin||'').replace(/:\d+$/,'')+':7000');
       data=await tryFetch(altUrl)||data;
     }
     const meses=Array.isArray(data.meses)?data.meses:[];
@@ -724,17 +409,17 @@ async function loadData(){
       VENTAS_VE:+(rawTot.VENTAS_VE||0),
       VENTAS_PV:+(rawTot.VENTAS_PV||0)
     };
-    const hasCosto=(+tot.COSTO_VENTAS>0)||(data.tiene_costo===true);
+    const hasCosto=!!(data.tiene_costo&&tot.COSTO_VENTAS>0);
     try{ renderKPIs(tot,meses,hasCosto); }catch(e){ console.warn('renderKPIs',e); }
     try{ renderInsight(tot,meses,hasCosto); }catch(e){ console.warn('renderInsight',e); }
     try{ renderCharts(meses,hasCosto); }catch(e){ console.warn('renderCharts',e); }
-    try{ renderTabla(meses,tot,hasCosto,data.tiene_gastos_co===true); }catch(e){ console.warn('renderTabla',e); }
+    try{ renderTabla(meses,tot,hasCosto); }catch(e){ console.warn('renderTabla',e); }
     const costNotice=document.getElementById('costNotice');
     if(costNotice)costNotice.style.display=hasCosto?'none':'block';
     const gastosNotice=document.getElementById('gastosNotice');
-    if(gastosNotice)gastosNotice.style.display=data.tiene_gastos_co===true?'none':'block';
+    if(gastosNotice)gastosNotice.style.display='block';
     if(heroEl)heroEl.textContent=meses.length||tot.VENTAS_NETAS
-      ?((multi?(okEmp.find(e=>e.id===selectedBizId)||{}).label+' · ':'')+currentMeses+' meses · '+fmtM(+tot.VENTAS_NETAS||0)+' ventas netas · '+(hasCosto?fmtPct(+tot.MARGEN_BRUTO_PCT||0)+' margen bruto':'Costo no en BD')+' · '+fmtM(+tot.COBROS||0)+' cobrado')
+      ?(currentMeses+' meses · '+fmtM(+tot.VENTAS_NETAS||0)+' ventas netas · '+(hasCosto?fmtPct(+tot.MARGEN_BRUTO_PCT||0)+' margen bruto':'Costo no en BD')+' · '+fmtM(+tot.COBROS||0)+' cobrado')
       :'Sin datos. ¿Servidor Node en marcha? Probar: '+url;
   }catch(e){
     if(heroEl)heroEl.textContent='Error: '+e.message+'. Revisar consola (F12).';
@@ -791,19 +476,6 @@ function renderKPIs(tot,meses,hasCosto){
   document.getElementById('kpiCobrosEfic').innerHTML=`<span style="color:${eficColor}">${efic>=80?'✓ Eficiencia alta':efic>=50?'⚠ Mejorar cobro':'✗ Cobro bajo'}</span>`;
   document.getElementById('chartBadge1').textContent=currentMeses+' meses';
   document.getElementById('chartBadge2').textContent=fmtPct(margen)+' promedio';
-
-  if (typeof dashboardApplySem === 'function') {
-    const ring = (id, lvl) => {
-      const el = document.getElementById(id);
-      const box = el && el.closest('.kpi');
-      if (box) dashboardApplySem(box, lvl);
-    };
-    ring('kpiVentas', ventas > 0 ? 'info' : 'neutral');
-    ring('kpiUtilidad', !hasCosto ? 'neutral' : (margen >= 30 ? 'ok' : margen >= 15 ? 'warn' : 'danger'));
-    ring('kpiMargen', !hasCosto ? 'neutral' : (margen >= 30 ? 'ok' : margen >= 15 ? 'warn' : 'danger'));
-    ring('kpiCosto', hasCosto ? 'info' : 'warn');
-    ring('kpiCobros', ventas <= 0 ? 'neutral' : (efic >= 80 ? 'ok' : efic >= 50 ? 'warn' : 'danger'));
-  }
 }
 
 // ── BI Insight text ────────────────────────────────────────────────────────────
@@ -894,43 +566,11 @@ function renderCharts(meses,hasCosto){
   if(!el3)return;
   const ctx3=el3.getContext('2d');
   if(chartCob)chartCob.destroy();
-  const empty3=document.getElementById('chartCobros-empty');
-  const hasAny = labels.length && (ve.some(x=>+x)||pv.some(x=>+x)||cobros.some(x=>+x));
-  if(empty3){
-    if(!labels.length){
-      empty3.textContent = 'Sin meses en el periodo: amplía el rango en filtros.';
-      empty3.style.display = 'grid';
-    }else if(!hasAny){
-      empty3.textContent = 'Sin desglose VE/PV ni cobros en estos meses (revisa periodo o contabilidad de cobros).';
-      empty3.style.display = 'grid';
-    }else{
-      empty3.style.display = 'none';
-    }
-  }
-  if(!hasAny){
-    return;
-  }
-  const maxStack = Math.max(1,...labels.map((_,i)=>(+ve[i]||0)+(+pv[i]||0)));
-  const maxCob = Math.max(1,...cobros.map(c=>+c||0));
-  const yMax = Math.max(maxStack,maxCob)*1.12;
-  chartCob=new Chart(ctx3,{
-    data:{labels,datasets:[
-      {type:'bar',label:'Industrial (VE)',data:ve,stack:'ventas',yAxisID:'y',backgroundColor:'rgba(77,166,255,.55)',borderColor:'#4DA6FF',borderWidth:1.5,borderRadius:4},
-      {type:'bar',label:'Mostrador (PV)',data:pv,stack:'ventas',yAxisID:'y',backgroundColor:'rgba(155,109,255,.5)',borderColor:'#9B6DFF',borderWidth:1.5,borderRadius:4},
-      {type:'line',label:'Cobros',data:cobros,yAxisID:'y1',borderColor:'#00E5A0',backgroundColor:'rgba(0,229,160,.12)',borderWidth:2.5,pointRadius:4,pointHoverRadius:6,pointBackgroundColor:'#00E5A0',tension:.35,fill:true}
-    ]},
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      interaction:{mode:'index',intersect:false},
-      plugins:{legend:{position:'top',labels:{color:'#6A85A6',font:{size:11,family:"'DM Mono'"},boxWidth:10,padding:14}},
-        tooltip:{mode:'index',intersect:false,backgroundColor:'#0D1D35',borderColor:'rgba(255,255,255,.1)',borderWidth:1,titleColor:'#F0F6FF',bodyColor:'#C8D8EC',callbacks:{label:c=>' '+c.dataset.label+': '+fmtM(c.raw)}}},
-      scales:{
-        x:{stacked:true,grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6A85A6',font:{size:10,family:"'DM Mono'"}}},
-        y:{stacked:true,position:'left',min:0,max:yMax,grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6A85A6',font:{size:10,family:"'DM Mono'"},callback:v=>fmtM(v)}},
-        y1:{stacked:false,position:'right',min:0,max:yMax,grid:{drawOnChartArea:false},ticks:{color:'#00E5A0',font:{size:10,family:"'DM Mono'"},callback:v=>fmtM(v)}}
-      }
-    }
-  });
+  chartCob=new Chart(ctx3,{data:{labels,datasets:[
+    {type:'bar',label:'Industrial (VE)',data:ve,backgroundColor:'rgba(77,166,255,.35)',borderColor:'#4DA6FF',borderWidth:1,borderRadius:4},
+    {type:'bar',label:'Mostrador (PV)',data:pv,backgroundColor:'rgba(0,212,255,.3)',borderColor:'#00D4FF',borderWidth:1,borderRadius:4},
+    {type:'line',label:'Cobros',data:cobros,borderColor:'#00E5A0',backgroundColor:'transparent',borderWidth:2,pointRadius:4,pointBackgroundColor:'#00E5A0',tension:.35}
+  ]},options:{...chartOpts(v=>fmtM(v)),scales:{x:{stacked:true,grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6A85A6',font:{size:10,family:"'DM Mono'"}}},y:{stacked:false,grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6A85A6',font:{size:10,family:"'DM Mono'"},callback:v=>fmtM(v)}}}}});
 }
 
 function chartOpts(cbY){
@@ -942,14 +582,8 @@ function chartOpts(cbY){
       y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6A85A6',font:{size:10,family:"'DM Mono'"},callback:cbY}}}};
 }
 
-// Gastos CO: prefijos 5201–5205 + resto 52* (A6), 5301–5304 + resto 53* (B5) — aproximación a Desglose_Gerencial en Power BI.
-const _GAS_A=['CO_A1','CO_A2','CO_A3','CO_A4','CO_A5','CO_A6'];
-const _GAS_B=['CO_B1','CO_B2','CO_B3','CO_B4','CO_B5'];
-function sumGastoKeys(m,keys){return keys.reduce((s,k)=>s+(+m[k]||0),0);}
-
 // ── P&L Table — columnas por mes + fila de concepto ──────────────────────────
-function renderTabla(meses,tot,hasCosto,tieneGastosCo){
-  const tg=tieneGastosCo===true;
+function renderTabla(meses,tot,hasCosto){
   const pnlBodyEl=document.getElementById('pnlBody');
   const pnlFootEl=document.getElementById('pnlFoot');
   const thEl=document.getElementById('thMeses');
@@ -974,17 +608,6 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   // Rows
   const rows=(key,color,fmt)=>meses.map(m=>`<td style="color:${color}">${fmt(+m[key]||0)}</td>`).join('');
   const sumOf=key=>meses.reduce((s,m)=>s+(+m[key]||0),0);
-  function tdGasto(m,k){
-    if(!tg)return'<td style="color:var(--muted);font-size:.62rem">N/D</td>';
-    const v=+m[k]||0;
-    if(v<=0)return`<td style="color:var(--text2)">${fmtM(0)}</td>`;
-    return`<td style="color:var(--red)">(${fmtM(v)})</td>`;
-  }
-  function footGasto(k){
-    if(!tg)return'—';
-    const v=+tot[k]||0;
-    return v>0?`(${fmtM(v)})`:fmtM(0);
-  }
 
   const pnl=`
   <tr class="pnl-section-header"><td colspan="${meses.length+2}">INGRESOS</td></tr>
@@ -1041,36 +664,11 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     <td><span style="color:${(+tot.MARGEN_BRUTO_PCT||0)>=30?'var(--green)':(+tot.MARGEN_BRUTO_PCT||0)>=15?'var(--yellow)':'var(--red)'};font-weight:600">${hasCosto?fmtPct(+tot.MARGEN_BRUTO_PCT||0):'—'}</span></td>
   </tr>
 
-  <tr class="pnl-section-header"><td colspan="${meses.length+2}">GASTOS OPERATIVOS (Contabilidad &mdash; SALDOS_CO por prefijo cuenta 52/53, estilo Desglose_Gerencial)</td></tr>
-  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">A1. Gastos ventas &middot; pref. 5201</td>${meses.map(m=>tdGasto(m,'CO_A1')).join('')}<td style="color:var(--red)">${footGasto('CO_A1')}</td></tr>
-  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">A2. &middot; pref. 5202</td>${meses.map(m=>tdGasto(m,'CO_A2')).join('')}<td style="color:var(--red)">${footGasto('CO_A2')}</td></tr>
-  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">A3. &middot; pref. 5203</td>${meses.map(m=>tdGasto(m,'CO_A3')).join('')}<td style="color:var(--red)">${footGasto('CO_A3')}</td></tr>
-  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">A4. &middot; pref. 5204</td>${meses.map(m=>tdGasto(m,'CO_A4')).join('')}<td style="color:var(--red)">${footGasto('CO_A4')}</td></tr>
-  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">A5. &middot; pref. 5205</td>${meses.map(m=>tdGasto(m,'CO_A5')).join('')}<td style="color:var(--red)">${footGasto('CO_A5')}</td></tr>
-  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">A6. Otros 52* (no 5201&ndash;5205)</td>${meses.map(m=>tdGasto(m,'CO_A6')).join('')}<td style="color:var(--red)">${footGasto('CO_A6')}</td></tr>
-  <tr class="subtotal-row"><td>▶ A. Gastos de ventas (suma 52*)</td>${meses.map(m=>{
-    if(!tg)return'<td style="color:var(--yellow);font-size:.65rem">N/D</td>';
-    const s=sumGastoKeys(m,_GAS_A);
-    return s>0?`<td style="color:var(--yellow)">(${fmtM(s)})</td>`:`<td style="color:var(--text2)">${fmtM(0)}</td>`;
-  }).join('')}<td style="color:var(--yellow)">${tg?'('+fmtM(sumGastoKeys(tot,_GAS_A))+')':'—'}</td></tr>
-  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">B1. Gastos oper. &middot; pref. 5301</td>${meses.map(m=>tdGasto(m,'CO_B1')).join('')}<td style="color:var(--red)">${footGasto('CO_B1')}</td></tr>
-  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">B2. &middot; pref. 5302</td>${meses.map(m=>tdGasto(m,'CO_B2')).join('')}<td style="color:var(--red)">${footGasto('CO_B2')}</td></tr>
-  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">B3. &middot; pref. 5303</td>${meses.map(m=>tdGasto(m,'CO_B3')).join('')}<td style="color:var(--red)">${footGasto('CO_B3')}</td></tr>
-  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">B4. &middot; pref. 5304</td>${meses.map(m=>tdGasto(m,'CO_B4')).join('')}<td style="color:var(--red)">${footGasto('CO_B4')}</td></tr>
-  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">B5. Otros 53* (no 5301&ndash;5304)</td>${meses.map(m=>tdGasto(m,'CO_B5')).join('')}<td style="color:var(--red)">${footGasto('CO_B5')}</td></tr>
-  <tr class="subtotal-row"><td>▶ B. Gastos de operación (suma 53*)</td>${meses.map(m=>{
-    if(!tg)return'<td style="color:var(--yellow);font-size:.65rem">N/D</td>';
-    const s=sumGastoKeys(m,_GAS_B);
-    return s>0?`<td style="color:var(--yellow)">(${fmtM(s)})</td>`:`<td style="color:var(--text2)">${fmtM(0)}</td>`;
-  }).join('')}<td style="color:var(--yellow)">${tg?'('+fmtM(sumGastoKeys(tot,_GAS_B))+')':'—'}</td></tr>
+  <tr class="pnl-section-header"><td colspan="${meses.length+2}">GASTOS OPERATIVOS (Módulo Contabilidad Microsip)</td></tr>
   <tr class="data-row">
-    <td style="color:var(--orange);font-weight:600">Gastos operativos (OPEX) total</td>
-    ${meses.map(m=>{
-      if(!tg)return'<td style="color:var(--muted);font-size:.65rem">N/D</td>';
-      const s=sumGastoKeys(m,_GAS_A)+sumGastoKeys(m,_GAS_B);
-      return s>0?`<td style="color:var(--orange)">(${fmtM(s)})</td>`:`<td style="color:var(--text2)">${fmtM(0)}</td>`;
-    }).join('')}
-    <td style="color:var(--orange)">${tg?'('+fmtM(sumGastoKeys(tot,_GAS_A)+sumGastoKeys(tot,_GAS_B))+')':'Sin datos en cuentas 52/53 (SALDOS_CO)'}</td>
+    <td style="color:var(--muted)">Gastos de Operación</td>
+    ${meses.map(()=>'<td style="color:var(--muted);font-size:.65rem">N/D</td>').join('')}
+    <td style="color:var(--muted);font-size:.65rem">No disponible</td>
   </tr>
 
   <tr class="pnl-section-header"><td colspan="${meses.length+2}">COBROS Y LIQUIDEZ</td></tr>
