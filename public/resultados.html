@@ -219,7 +219,7 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
   <!-- Multi-empresa: chips + scorecard (inspirado en complemento MTD/YTD; aquí periodo = filtros + meses) -->
   <div id="bizContextBar" class="biz-context-bar" style="display:none">
     <span class="biz-context-label">Negocio</span>
-    <div class="biz-chips" id="bizChips"></div>
+    <div class="biz-chips biz-chips-grid" id="bizChips"></div>
     <div class="biz-context-hint" id="bizHint">Consolidado suma el P&amp;L del periodo de cada .fdb registrada. Elige una empresa para ver tablas y gráficas mensuales.</div>
   </div>
   <div id="plScoreStrip" style="display:none">
@@ -391,12 +391,39 @@ let currentMeses=3;
 let selectedBizId=(function(){try{const p=new URLSearchParams(location.search).get('db');return p||null;}catch(_){return null;}})();
 let lastUniversePayload=null;
 
-// ── Helper: URL con filtros ────────────────────────────────────────────────
+// ── Helper: URL con filtros (otros módulos) ───────────────────────────────────
 function buildApiUrl(path, extra) {
   const qs    = window.filterBuildQS ? filterBuildQS() : '';
   const e     = extra ? String(extra).replace(/^[?&]+/, '') : '';
   const parts = [qs, e].filter(Boolean).join('&');
   return API + path + (parts ? '?' + parts : '');
+}
+
+// P&L: NO mezclar preset global (Hoy / Este mes) — en el servidor anio/mes ganan sobre meses=N
+// y dejan el rango en un solo mes → costo contable suele salir 0 y todo se ve "Sin datos".
+function buildPnlQuery(extra, opts) {
+  opts = opts || {};
+  const parts = [];
+  if (extra) {
+    const e = String(extra).replace(/^[?&]+/, '');
+    if (e) parts.push(e);
+  }
+  if (!opts.omitDb) {
+    let dbId = '';
+    if (selectedBizId && selectedBizId !== '__ALL__') dbId = String(selectedBizId).trim();
+    else {
+      try {
+        dbId = (new URLSearchParams(location.search).get('db') || '').trim();
+        if (!dbId) dbId = (sessionStorage.getItem('microsip_erp_db') || '').trim();
+      } catch (_) {}
+    }
+    if (dbId && dbId.toLowerCase() !== 'default') parts.push('db=' + encodeURIComponent(dbId));
+  }
+  return parts.join('&');
+}
+function buildPnlApiUrl(path, extra, opts) {
+  const q = buildPnlQuery(extra, opts);
+  return API + path + (q ? '?' + q : '');
 }
 
 // ── Reloj ──────────────────────────────────────────────────────────────────────
@@ -534,7 +561,7 @@ function clearResultadosUI(){
 // ── Load ───────────────────────────────────────────────────────────────────────
 async function loadData(){
   const heroEl=document.getElementById('heroSub');
-  let url=buildApiUrl('/api/resultados/pnl','meses='+currentMeses)+'&_='+Date.now();
+    let url=buildPnlApiUrl('/api/resultados/pnl','meses='+currentMeses)+'&_='+Date.now();
   let data={};
   function getBase(){
     const a=typeof API!=='undefined'&&API?String(API).replace(/\/+$/,''):'';
@@ -553,7 +580,7 @@ async function loadData(){
   document.getElementById('plMiniTableWrap')&&(document.getElementById('plMiniTableWrap').style.display='none');
   document.getElementById('chartEmpresasWrap')&&(document.getElementById('chartEmpresasWrap').style.display='none');
   try{
-    const uniUrl=buildApiUrl('/api/resultados/pnl-universe','meses='+currentMeses+'&concurrency=2')+'&_='+Date.now();
+    const uniUrl=buildPnlApiUrl('/api/resultados/pnl-universe','meses='+currentMeses+'&concurrency=2',{ omitDb:true })+'&_='+Date.now();
     let uni=await tryFetch(uniUrl)||{};
     const base=getBase();
     if((!uni.empresas||!uni.empresas.length)&&base.indexOf(':7000')===-1&&window.location.protocol!=='file:'){
@@ -597,7 +624,7 @@ async function loadData(){
         VENTAS_VE:+(cons.VENTAS_VE||0),
         VENTAS_PV:+(cons.VENTAS_PV||0),
       };
-      const hasCosto=!!cons.tiene_costo&&tot.COSTO_VENTAS>0;
+      const hasCosto=(+tot.COSTO_VENTAS>0)||(cons.tiene_costo===true);
       renderPlScoreFromTotals(tot,hasCosto,'Σ '+okEmp.length+' negocios');
       renderEmpresaVentasChart(empresas);
       renderKPIs(tot,[],hasCosto);
@@ -620,7 +647,6 @@ async function loadData(){
     document.getElementById('chartsNormal')&&(document.getElementById('chartsNormal').style.display='grid');
     document.getElementById('plScoreStrip')&&(document.getElementById('plScoreStrip').style.display='none');
 
-    if(selectedBizId&&selectedBizId!=='__ALL__')url+='&db='+encodeURIComponent(selectedBizId);
     data=await tryFetch(url)||{};
     if((!data.meses||!data.meses.length)&&base.indexOf(':7000')===-1&&window.location.protocol!=='file:'){
       const altUrl=url.replace(/^(https?:\/\/[^\/]+)/,(window.location.origin||'').replace(/:\d+$/,'')+':7000');
@@ -638,7 +664,7 @@ async function loadData(){
       VENTAS_VE:+(rawTot.VENTAS_VE||0),
       VENTAS_PV:+(rawTot.VENTAS_PV||0)
     };
-    const hasCosto=!!(data.tiene_costo&&tot.COSTO_VENTAS>0);
+    const hasCosto=(+tot.COSTO_VENTAS>0)||(data.tiene_costo===true);
     try{ renderKPIs(tot,meses,hasCosto); }catch(e){ console.warn('renderKPIs',e); }
     try{ renderInsight(tot,meses,hasCosto); }catch(e){ console.warn('renderInsight',e); }
     try{ renderCharts(meses,hasCosto); }catch(e){ console.warn('renderCharts',e); }

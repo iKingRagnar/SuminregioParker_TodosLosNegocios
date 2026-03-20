@@ -251,8 +251,12 @@ nav{display:flex;align-items:center;gap:.2rem}
 </div>
 
 <script>
-// Mismo origen si se sirve desde el servidor (ej. http://localhost:7000); si abres por file:// usa localhost:7000
-const API = (function(){ const o=typeof window!=='undefined'?window.location.origin:''; if(o.startsWith('http')&&(o.includes('7000')||o.includes('localhost'))) return ''; if(!o||o==='null'||o==='file://') return 'http://localhost:7000'; return ''; })();
+const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : (function () {
+  const o = typeof window !== 'undefined' ? window.location.origin : '';
+  if (o.startsWith('http') && (o.includes('7000') || o.includes('localhost'))) return '';
+  if (!o || o === 'null' || o === 'file://') return 'http://localhost:7000';
+  return '';
+})();
 function fwt(url,fallback,ms=10000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
 let chartDiarioInst = null, chartCumplInst = null, chartCobrosInst = null;
 
@@ -277,18 +281,16 @@ async function loadData(){
   try{
     const [cumplData, metas, diario, cotiVends, cxcTop] = await Promise.all([
       fwt(buildApiUrl('/api/ventas/cumplimiento'),[]),
-      fwt(API+'/api/config/metas',{}),
+      fwt((API || '') + '/api/config/metas',{}),
       fwt(buildApiUrl('/api/ventas/diarias','dias=30'),[]),
       fwt(buildApiUrl('/api/ventas/por-vendedor/cotizaciones'),[]),
-      fwt(API+'/api/cxc/top-deudores?limit=50',[]),
+      fwt((API || '') + '/api/cxc/top-deudores?limit=50',[]),
     ]);
     const vends = Array.isArray(cumplData) ? cumplData : [];
 
-    // Merge cotizaciones por vendedor
     const cotiMap = {};
     (Array.isArray(cotiVends)?cotiVends:[]).forEach(c=>{ cotiMap[c.VENDEDOR_ID]=c; });
 
-    // Merge CxC: mapear por nombre (no hay VENDEDOR_ID en top-deudores directamente)
     const vendsEnriched = vends.map(v => ({
       ...v,
       COTI_MES    : +(cotiMap[v.VENDEDOR_ID]?.COTIZACIONES_MES||0),
@@ -297,9 +299,13 @@ async function loadData(){
     }));
 
     renderAll(vendsEnriched, metas);
-    const dias = Array.isArray(diario) ? diario : (diario?.dias||[]);
-    renderChartDiario(dias.length ? dias : null);
-    renderChartCumpl(vendsEnriched);
+    try {
+      const dias = Array.isArray(diario) ? diario : (diario?.dias||[]);
+      renderChartDiario(dias.length ? dias : null);
+    } catch (e1) { console.warn('[vendedores] chart diario', e1); }
+    try {
+      renderChartCumpl(vendsEnriched);
+    } catch (e2) { console.warn('[vendedores] chart cumplimiento', e2); }
     loadCobros();
   }catch(e){
     console.error('loadData error', e);
@@ -310,7 +316,7 @@ async function loadData(){
 
 async function loadCobros(){
   try{
-    const data = await fwt(API+'/api/resultados/pnl?meses=6', { meses: [], totales: {} });
+    const data = await fwt((API || '') + '/api/resultados/pnl?meses=6', { meses: [], totales: {} });
     const meses = Array.isArray(data.meses) ? data.meses : [];
     const MESES_ES = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
     if (!meses.length) {
@@ -541,6 +547,8 @@ function renderChartDiario(dias){
 
 function renderChartCumpl(vends){
   if(!vends.length)return;
+  const el = document.getElementById('chartCumplimiento');
+  if (!el || typeof Chart === 'undefined') return;
   const sorted=[...vends].sort((a,b)=>(+b.VENTA_MES||0)-(+a.VENTA_MES||0));
   const labels=sorted.map(v=>(v.NOMBRE||'V').split(' ')[0]);
   const pcts=sorted.map(v=>{
@@ -551,9 +559,8 @@ function renderChartCumpl(vends){
     const p=pcts[i];
     return p>=100?'rgba(0,229,160,.5)':p>=70?'rgba(255,184,0,.5)':'rgba(255,69,102,.5)';
   });
-  const ctx=document.getElementById('chartCumplimiento');
   if(chartCumplInst)chartCumplInst.destroy();
-  chartCumplInst=new Chart(ctx,{
+  chartCumplInst=new Chart(el,{
     type:'bar',
     data:{labels,datasets:[
       {label:'% Cumplimiento',data:pcts,backgroundColor:bgs,borderColor:bgs.map(c=>c.replace('.5)','.9)')),borderWidth:1,borderRadius:4},
@@ -563,9 +570,12 @@ function renderChartCumpl(vends){
   });
 }
 
-// Carga inicial inmediata
-loadData();
-initFilters({ containerId:'filter-bar', showVendedor:true, onChange:()=>loadData() });
+initFilters({
+  containerId:'filter-bar',
+  showVendedor:true,
+  onReady:()=>{ loadData(); },
+  onChange:()=>loadData()
+});
 setInterval(loadData, 60000);
 </script>
 <script src="nav.js"></script>

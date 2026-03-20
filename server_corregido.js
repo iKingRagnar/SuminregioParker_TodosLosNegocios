@@ -1928,9 +1928,17 @@ async function resultadosPnlCore(req, dbOpts) {
   const reDate = /^\d{4}-\d{2}-\d{2}$/;
   let desdeStr, hastaStr;
   const { desde, hasta, anio, mes } = req.query;
+  const mesesParam = parseInt(req.query.meses, 10);
+  const useMesesRolling = !isNaN(mesesParam) && mesesParam > 0;
   if (desde && reDate.test(desde) && hasta && reDate.test(hasta)) {
     desdeStr = desde;
     hastaStr = hasta;
+  } else if (useMesesRolling) {
+    const mesesN = Math.min(Math.max(mesesParam, 1), 24);
+    const d = new Date();
+    d.setMonth(d.getMonth() - mesesN);
+    desdeStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-01';
+    hastaStr = new Date().toISOString().slice(0, 10);
   } else if (anio) {
     const y = parseInt(anio);
     const m = mes ? parseInt(mes) : null;

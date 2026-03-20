@@ -138,6 +138,16 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 .skel{background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 50%,var(--s2) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;height:1.2rem;width:80%}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .footer{text-align:center;padding:1.75rem;font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.06em;border-top:1px solid var(--border);margin-top:2rem}
+
+.univ-lead{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--muted);margin-bottom:1rem;line-height:1.55;padding:0 2px}
+.univ-pnl-table{width:100%;border-collapse:collapse;font-size:.76rem}
+.univ-pnl-table th{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:.65rem .75rem;text-align:left;border-bottom:1px solid var(--border2);background:var(--s2)}
+.univ-pnl-table th.num{text-align:right}
+.univ-pnl-table td{padding:.65rem .75rem;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top}
+.univ-pnl-table td.num{text-align:right;font-family:'DM Mono',monospace;color:var(--text2)}
+.univ-pnl-table .univ-id{font-size:.58rem;color:var(--muted);margin-top:3px;font-family:'DM Mono',monospace;word-break:break-all}
+.univ-pnl-table tr.univ-consolidado td{background:rgba(0,229,160,.08);font-weight:700;border-top:1px solid var(--border2)}
+.univ-pnl-table .univ-err{color:var(--red);font-size:.68rem;max-width:280px;line-height:1.35}
 </style>
 </head>
 <body>
@@ -308,12 +318,52 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
       </table>
     </div>
   </div>
+
+  <!-- Comparativo: todas las empresas del registro (mismo periodo que filtros; sin ?db=) -->
+  <div class="sd" style="margin-top:2.2rem"><div class="sd-label">Comparativo multi-negocio</div><div class="sd-line"></div></div>
+  <p class="univ-lead" id="univLead">Una fila por cada base configurada en el servidor. Usa el mismo periodo que la barra de filtros de arriba; no aplica el chip de empresa seleccionado.</p>
+  <div class="card" style="margin-bottom:1.5rem">
+    <div class="card-head">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        Resumen por negocio (P&amp;L)
+      </div>
+      <div class="card-badge" id="univBadge">—</div>
+    </div>
+    <div class="card-body" style="padding:0">
+      <div style="overflow-x:auto">
+        <table class="univ-pnl-table">
+          <thead>
+            <tr>
+              <th style="min-width:160px">Negocio · id</th>
+              <th class="num">Ventas netas</th>
+              <th class="num">Util. bruta</th>
+              <th class="num">Margen %</th>
+              <th class="num">Cobros</th>
+              <th class="num">Facts.</th>
+              <th class="num">VE</th>
+              <th class="num">PV</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="univPnlBody">
+            <tr><td colspan="9" style="text-align:center;padding:1.5rem;color:var(--muted);font-family:'DM Mono',monospace;font-size:.72rem">Cargando comparativo…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="footer">Suminregio Parker — Estado de Resultados v9.0 — Datos en tiempo real desde Microsip / Firebird DB</div>
 
 <script>
-const API = (function(){ const o=typeof window!=='undefined'?window.location.origin:''; if(o.startsWith('http')&&(o.includes('7000')||o.includes('localhost'))) return ''; if(!o||o==='null'||o==='file://') return 'http://localhost:7000'; return ''; })();
+const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : (function () {
+  const o = typeof window !== 'undefined' ? window.location.origin : '';
+  if (o.startsWith('http') && (o.includes('7000') || o.includes('localhost'))) return '';
+  if (!o || o === 'null' || o === 'file://') return 'http://localhost:7000';
+  return '';
+})();
 function fwt(url,fallback,ms=10000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
 let chartVC=null, chartMg=null, chartCob=null;
 let currentMeses=3;
@@ -334,6 +384,9 @@ const fmtM=v=>{if(v===null||v===undefined||isNaN(+v))return'—';v=+v;if(v>=1e6)
 const fmtPct=v=>isNaN(+v)?'—':(+v).toFixed(1)+'%';
 const MESES_ES=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 function mesLabel(r){return (MESES_ES[+r.MES]||r.MES)+' '+(+r.ANIO||'')}
+function escHtml(s){
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+}
 function deltaTag(pct){
   if(isNaN(pct)||pct===null)return'';
   const cls=pct>0?'up':pct<0?'dn':'flat';
@@ -366,8 +419,74 @@ async function loadData(){
       currentMeses+' meses · '+fmtM(+tot.VENTAS_NETAS||0)+' ventas netas · '
       +(hasCosto?fmtPct(+tot.MARGEN_BRUTO_PCT||0)+' margen bruto':'Costo no en BD')
       +' · '+fmtM(+tot.COBROS||0)+' cobrado';
+    loadUniversePnl();
   }catch(e){
     document.getElementById('heroSub').textContent='Error conectando con servidor';
+    const ub = document.getElementById('univPnlBody');
+    if (ub) ub.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:1rem;color:var(--muted);font-size:.72rem">Sin comparativo (error al cargar página).</td></tr>';
+  }
+}
+
+async function loadUniversePnl(){
+  const body = document.getElementById('univPnlBody');
+  const badge = document.getElementById('univBadge');
+  const lead = document.getElementById('univLead');
+  if (!body) return;
+  body.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:1.25rem;color:var(--muted);font-family:\'DM Mono\',monospace;font-size:.72rem">Cargando comparativo multi-negocio…</td></tr>';
+  try {
+    const extra = { meses: currentMeses };
+    const qs = window.filterBuildQS ? filterBuildQS(extra, { omitDb: true }) : ('meses=' + encodeURIComponent(currentMeses));
+    const url = (API || '') + '/api/resultados/pnl-universe?' + qs + '&concurrency=3';
+    const res = await fetch(url);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !Array.isArray(data.empresas)) {
+      body.innerHTML = '<tr><td colspan="9" class="univ-err" style="padding:1rem">No se pudo cargar <code>/api/resultados/pnl-universe</code> (HTTP ' + res.status + '). ¿El servidor está actualizado?</td></tr>';
+      if (badge) badge.textContent = 'Error';
+      return;
+    }
+    const rows = data.empresas;
+    const okN = rows.filter(function (r) { return r.ok; }).length;
+    if (badge) badge.textContent = okN + '/' + rows.length + ' OK';
+    const sorted = rows.slice().sort(function (a, b) {
+      var va = a.ok ? (+((a.totales && a.totales.VENTAS_NETAS) || 0)) : -1;
+      var vb = b.ok ? (+((b.totales && b.totales.VENTAS_NETAS) || 0)) : -1;
+      return vb - va;
+    });
+    var html = sorted.map(function (r) {
+      if (!r.ok) {
+        return '<tr><td><strong>' + escHtml(r.label || r.id) + '</strong><div class="univ-id">' + escHtml(r.id) + '</div></td><td class="num" colspan="7">—</td><td class="univ-err">' + escHtml(r.error || 'Error') + '</td></tr>';
+      }
+      var t = r.totales || {};
+      var vn = +t.VENTAS_NETAS || 0;
+      var ub = +t.UTILIDAD_BRUTA || 0;
+      var mgTxt = r.tiene_costo ? fmtPct(+t.MARGEN_BRUTO_PCT || 0) : '—';
+      return '<tr><td><strong>' + escHtml(r.label || r.id) + '</strong><div class="univ-id">' + escHtml(r.id) + '</div></td>' +
+        '<td class="num">' + fmtM(vn) + '</td>' +
+        '<td class="num">' + fmtM(ub) + '</td>' +
+        '<td class="num">' + mgTxt + '</td>' +
+        '<td class="num">' + fmtM(+t.COBROS || 0) + '</td>' +
+        '<td class="num">' + (+t.NUM_FACTURAS || 0).toLocaleString('es-MX') + '</td>' +
+        '<td class="num">' + fmtM(+t.VENTAS_VE || 0) + '</td>' +
+        '<td class="num">' + fmtM(+t.VENTAS_PV || 0) + '</td>' +
+        '<td><span style="color:var(--green);font-size:.65rem;font-weight:600">OK</span></td></tr>';
+    }).join('');
+    var c = data.consolidado || {};
+    var foot = '<tr class="univ-consolidado"><td>CONSOLIDADO (suma empresas OK)</td>' +
+      '<td class="num">' + fmtM(+c.VENTAS_NETAS || 0) + '</td>' +
+      '<td class="num">' + fmtM(+c.UTILIDAD_BRUTA || 0) + '</td>' +
+      '<td class="num">' + fmtPct(+c.MARGEN_BRUTO_PCT || 0) + '</td>' +
+      '<td class="num">' + fmtM(+c.COBROS || 0) + '</td>' +
+      '<td class="num">' + (+c.NUM_FACTURAS || 0).toLocaleString('es-MX') + '</td>' +
+      '<td class="num">' + fmtM(+c.VENTAS_VE || 0) + '</td>' +
+      '<td class="num">' + fmtM(+c.VENTAS_PV || 0) + '</td><td></td></tr>';
+    body.innerHTML = html + foot;
+    if (lead && data.generatedAt) {
+      lead.textContent = 'Mismo periodo que los filtros superiores (sin aplicar el chip de empresa). Actualizado: ' + new Date(data.generatedAt).toLocaleString('es-MX') + '.';
+    }
+  } catch (err) {
+    console.warn('[resultados] pnl-universe', err);
+    body.innerHTML = '<tr><td colspan="9" class="univ-err" style="padding:1rem">Error de red al cargar el comparativo.</td></tr>';
+    if (badge) badge.textContent = 'Error';
   }
 }
 
@@ -631,9 +750,12 @@ function renderTabla(meses,tot,hasCosto){
   </tr>`;
 }
 
-// Carga inicial inmediata
-loadData();
-initFilters({ containerId:'filter-bar', showVendedor:false, onChange:()=>loadData() });
+initFilters({
+  containerId:'filter-bar',
+  showVendedor:false,
+  onReady:function(){ loadData(); },
+  onChange:function(){ loadData(); }
+});
 setInterval(loadData, 300000);
 </script>
 <script src="nav.js"></script>

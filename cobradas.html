@@ -318,8 +318,19 @@ nav{display:flex;align-items:center;gap:.2rem}
 </div>
 
 <script>
-const API = '';
-function fwt(url,fallback,ms=10000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
+const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : (function () {
+  const o = typeof window !== 'undefined' ? window.location.origin : '';
+  if (o.startsWith('http') && (o.includes('7000') || o.includes('localhost'))) return '';
+  if (!o || o === 'null' || o === 'file://') return 'http://localhost:7000';
+  return '';
+})();
+function fwt(url, fallback, ms) {
+  ms = ms || 12000;
+  return Promise.race([
+    fetch(url).then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))).catch(() => fallback),
+    new Promise(r => setTimeout(() => r(fallback), ms))
+  ]);
+}
 const COMISION_PCT = 0.08;
 let allData = [];
 let currentPeriod = 'mes';
@@ -367,7 +378,6 @@ function setFiltroVend(idx, btn){
   renderFactList();
 }
 
-function fwt(url, fallback, ms) { ms = ms || 12000; return Promise.race([ fetch(url).then(r=>r.json()).catch(()=>fallback), new Promise(r=>setTimeout(()=>r(fallback), ms)) ]); }
 async function loadData(){
   const heroSub = document.getElementById('heroSub');
   if(heroSub) heroSub.textContent = 'Cargando datos...';
@@ -383,9 +393,14 @@ async function loadData(){
       totalFacturadoGlobal = null;
     }
     renderAll();
-    const ev = await fwt(buildApiUrl('/api/ventas/mensuales', 'meses=13'), []);
-    renderEvolucion(Array.isArray(ev) ? ev : []);
+    try {
+      const ev = await fwt(buildApiUrl('/api/ventas/mensuales', 'meses=13'), []);
+      renderEvolucion(Array.isArray(ev) ? ev : []);
+    } catch (chartErr) {
+      console.warn('[cobradas] evolución mensual:', chartErr);
+    }
   }catch(e){
+    console.error('[cobradas]', e);
     allData = []; totalCobradoGlobal = null; totalFacturadoGlobal = null;
     renderAll();
     if(heroSub) heroSub.textContent = 'Error conectando con el servidor';
@@ -534,6 +549,8 @@ function renderFactList(){
 
 function renderEvolucion(data){
   if(!Array.isArray(data)||!data.length) return;
+  const canvas = document.getElementById('chartEvolucion');
+  if (!canvas || typeof Chart === 'undefined') return;
   // /api/ventas/mensuales devuelve ANIO + MES (separados) y TOTAL_VENTAS
   const MESES_ES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const labels = data.map(d=>{
@@ -545,9 +562,10 @@ function renderEvolucion(data){
   });
   const ventas = data.map(d=>+(d.TOTAL_VENTAS||d.TOTAL||d.VENTAS_NETAS||d.IMPORTE_NETO||0));
   const comision = ventas.map(v=>v*COMISION_PCT);
-  const ctx=document.getElementById('chartEvolucion');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
   if(evoChartInst)evoChartInst.destroy();
-  evoChartInst=new Chart(ctx,{
+  evoChartInst=new Chart(canvas,{
     type:'bar',
     data:{
       labels,
@@ -568,9 +586,12 @@ function renderEvolucion(data){
   });
 }
 
-// Carga inicial inmediata
-loadData();
-initFilters({ containerId:'filter-bar', showVendedor:true, onChange:()=>loadData() });
+initFilters({
+  containerId:'filter-bar',
+  showVendedor:true,
+  onReady:()=>{ loadData(); },
+  onChange:()=>loadData()
+});
 setInterval(loadData, 120000);
 </script>
 <script src="nav.js"></script>

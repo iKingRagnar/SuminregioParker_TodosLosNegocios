@@ -277,7 +277,11 @@ async function loadMinimo() {
       </tr>`;
     }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted)">Sin art&iacute;culos bajo m&iacute;nimo</td></tr>';
     setText('minimo-badge', rows.length+' art&iacute;culos');
-  } catch(e){}
+  } catch(e){
+    console.error('bajo-minimo',e);
+    const tb=document.querySelector('#tbl-minimo tbody');
+    if(tb) tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--red);padding:1.5rem">Error al cargar bajo m&iacute;nimo.</td></tr>';
+  }
 }
 
 async function loadConsumo() {
@@ -295,7 +299,11 @@ async function loadConsumo() {
         <td class="num"><span class="semanas-tag tag ${semTag}" style="color:${semColor}">${semTxt}</span></td>
       </tr>`;
     }).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sin datos de consumo</td></tr>';
-  } catch(e){ console.error('consumo',e); }
+  } catch(e){
+    console.error('consumo',e);
+    const tb=document.querySelector('#tbl-consumo tbody');
+    if(tb) tb.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--red);padding:1.5rem">Error al cargar consumo semanal. Revisa consola o API.</td></tr>';
+  }
 }
 
 async function loadTopStock() {
