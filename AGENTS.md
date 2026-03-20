@@ -13,6 +13,7 @@ Resumen para retomar el proyecto sin depender del chat anterior.
 | Área | Ruta / archivo |
 |------|----------------|
 | Servidor | `server_corregido.js` |
+| PM2 (sincronizado por Git) | `ecosystem.config.cjs` (API), `ecosystem-ngrok.config.cjs` (túnel; requiere `ngrok.exe` local). Guía: **`PM2-GITHUB.md`**. Atajo CMD: `scripts\levantar-pm2.cmd` |
 | Variables | `.env` (usar `.env.example` como plantilla; **no** commitear secretos) |
 | Público | `public/` |
 | Comparativo multi-FDB | `GET /api/universe/scorecard`, `GET /api/universe/databases` |

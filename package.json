@@ -2,10 +2,13 @@
   "name": "microsip-api",
   "version": "1.0.0",
   "main": "server.js",
-"scripts": {
-  "start": "node server_corregido.js",
-  "server": "node server_corregido.js"
-},
+  "scripts": {
+    "start": "node server_corregido.js",
+    "server": "node server_corregido.js",
+    "pm2:api": "pm2 start ecosystem.config.cjs",
+    "pm2:ngrok": "pm2 start ecosystem-ngrok.config.cjs",
+    "pm2:save": "pm2 save"
+  },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",

@@ -30,6 +30,7 @@ jobs:
           git checkout main
           git reset --hard origin/main
           npm ci --omit=dev
+          # Definición versionada en ecosystem.config.cjs (nombre: microsip-api)
           pm2 restart microsip-api
-          # Si también usas ngrok en PM2, descomenta:
+          # Si usas ngrok en este servidor (ngrok.exe en la raíz + proceso creado antes):
           # pm2 restart ngrok-tunnel
