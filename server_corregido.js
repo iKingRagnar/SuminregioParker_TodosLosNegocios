@@ -629,25 +629,21 @@ function consumosVendedorClienteSql(req, alias = 'd') {
 //  tipo: 'VE'=Industrial, 'PV'=Mostrador, ''=Todos
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/**
- * ESTATUS normalizado: NULL/vacío → vigente (no usar solo `<> 'C'` sobre crudo).
- */
-function sqlExprEstatusNorm(alias = 'd') {
-  return `COALESCE(NULLIF(UPPER(TRIM(CAST(${alias}.ESTATUS AS VARCHAR(10)))), ''), 'N')`;
-}
-
-/**
- * Primer carácter del tipo (CHAR largo / códigos extendidos en Microsip).
- */
+/** Primer carácter alfanumérico de TIPO_DOCTO (p. ej. 'FAC' → 'F'); evita perder filas si el CHAR viene relleno o el código es largo. */
 function sqlExprTipoDoctoChar1(alias = 'd') {
-  return `SUBSTRING(TRIM(CAST(${alias}.TIPO_DOCTO AS VARCHAR(30))) FROM 1 FOR 1)`;
+  const a = alias;
+  return `UPPER(COALESCE(NULLIF(TRIM(SUBSTRING(TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(40))) FROM 1 FOR 1)), ''), ''))`;
+}
+
+/** ESTATUS normalizado: vacío/NULL → 'N' (Firebird: NULL <> 'C' excluiría la fila). */
+function sqlExprEstatusNorm(alias = 'd') {
+  const a = alias;
+  return `COALESCE(NULLIF(UPPER(TRIM(CAST(${a}.ESTATUS AS VARCHAR(10)))), ''), 'N')`;
 }
 
 /**
- * Documento de venta válido para KPIs — alineado a servidor remoto / BI:
- * - Misma lógica que antes: **F** y **V** (Factura / Venta); **R** opcional con MICROSIP_VENTAS_INCLUIR_REM=1
- * - `TIPO_DOCTO = 'F'|'V'` como en remoto **o** primer carácter F/V (tipos CHAR relleno)
- * - No comparar solo `UPPER(TRIM(tipo)) = 'F'` sobre el string completo si el código es distinto (evitaba filas).
+ * Documento de venta válido para KPIs — remoto/BI: comparación directa F/V en TIPO_DOCTO **o** primer carácter (sqlExprTipoDoctoChar1).
+ * Tipo R solo si MICROSIP_VENTAS_INCLUIR_REM=1.
  */
 function sqlWhereVentasDocumentoValido(alias = 'd') {
   const a = alias;
@@ -966,7 +962,10 @@ get('/api/ventas/resumen', async (req) => {
   }
   const f    = buildFiltros(req, 'd');
   const tipo = getTipo(req);
-  const rows = await query(`
+  let rows;
+  try {
+    rows = await query(
+      `
     SELECT
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE
                THEN d.IMPORTE_NETO ELSE 0 END)                      AS HOY,
@@ -976,10 +975,21 @@ get('/api/ventas/resumen', async (req) => {
                THEN d.IMPORTE_NETO ELSE 0 END)                     AS HASTA_AYER_MES
     FROM ${ventasSub(tipo)} d
     WHERE 1=1 ${f.sql}
-  `, f.params, 45000, dbo).catch((err) => {
-    console.error('[ventas/resumen]', err && err.message ? err.message : err);
-    return [];
-  });
+  `,
+      f.params,
+      45000,
+      dbo
+    );
+  } catch (err) {
+    console.error('[ventas/resumen]', err && err.message, err);
+    return {
+      HOY: 0,
+      MES_ACTUAL: 0,
+      FACTURAS_MES: 0,
+      HASTA_AYER_MES: 0,
+      _queryError: String((err && err.message) || err),
+    };
+  }
   return rows[0] || {};
 });
 
@@ -1136,25 +1146,38 @@ get('/api/ventas/top-clientes', async (req) => {
   `, f.params, 12000, dbo).catch(() => []);
 });
 
-// ventas (4).html y vendedores esperan: VENDEDOR, VENTAS_HOY, VENTAS_MES, VENTAS_MES_VE, VENTAS_MES_PV, FACTURAS_HOY, FACTURAS_MES
+// ventas.html / vendedores: totales del **periodo filtrado** (anio/mes, año, o desde-hasta), no forzados al mes calendario del servidor.
 get('/api/ventas/por-vendedor', async (req) => {
   const dbo = getReqDbOpts(req);
+  if (!req.query.desde && !req.query.hasta && !req.query.anio) {
+    const now = new Date();
+    req.query.anio = now.getFullYear();
+    req.query.mes = now.getMonth() + 1;
+  }
   const f = buildFiltros(req, 'd');
   const tipo = getTipo(req);
-  return query(`
+  return query(
+    `
     SELECT COALESCE(d.VENDEDOR_ID, 0) AS VENDEDOR_ID,
       COALESCE(v.NOMBRE, 'Sin vendedor') AS VENDEDOR,
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END) AS VENTAS_HOY,
-      SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE) THEN d.IMPORTE_NETO ELSE 0 END) AS VENTAS_MES,
-      SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE) AND d.TIPO_SRC = 'VE' THEN d.IMPORTE_NETO ELSE 0 END) AS VENTAS_MES_VE,
-      SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE) AND d.TIPO_SRC = 'PV' THEN d.IMPORTE_NETO ELSE 0 END) AS VENTAS_MES_PV,
+      COALESCE(SUM(d.IMPORTE_NETO), 0) AS VENTAS_MES,
+      COALESCE(SUM(CASE WHEN d.TIPO_SRC = 'VE' THEN d.IMPORTE_NETO ELSE 0 END), 0) AS VENTAS_MES_VE,
+      COALESCE(SUM(CASE WHEN d.TIPO_SRC = 'PV' THEN d.IMPORTE_NETO ELSE 0 END), 0) AS VENTAS_MES_PV,
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 ELSE 0 END) AS FACTURAS_HOY,
-      SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE) THEN 1 ELSE 0 END) AS FACTURAS_MES
+      COUNT(*) AS FACTURAS_MES
     FROM ${ventasSub(tipo)} d
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
-    WHERE EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE) ${f.sql}
+    WHERE 1=1 ${f.sql}
     GROUP BY COALESCE(d.VENDEDOR_ID, 0), COALESCE(v.NOMBRE, 'Sin vendedor') ORDER BY VENTAS_MES DESC
-  `, f.params, 12000, dbo).catch(() => []);
+  `,
+    f.params,
+    12000,
+    dbo
+  ).catch((err) => {
+    console.error('[ventas/por-vendedor]', err && err.message, err);
+    return [];
+  });
 });
 
 get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
@@ -2984,57 +3007,64 @@ get('/api/debug/cxc', async () => {
 
 get('/api/debug/ventas', async (req) => {
   const dbo = getReqDbOpts(req);
-  const out = {
-    db: (req.query && req.query.db) ? String(req.query.db) : '(default FB_DATABASE)',
-    anio: req.query && req.query.anio,
-    mes: req.query && req.query.mes,
-  };
-  try {
-    const sqlUnion = `SELECT COUNT(*) AS N FROM ${ventasSub()} d`;
-    const rU = await query(sqlUnion, [], 45000, dbo);
-    out.count_ventas_sub_union = rU[0] && rU[0].N != null ? rU[0].N : null;
-  } catch (e) {
-    out.ventas_sub_union_error = e && e.message ? e.message : String(e);
-  }
-  if (req.query && req.query.anio && req.query.mes) {
-    const y = parseInt(req.query.anio, 10);
-    const m = parseInt(req.query.mes, 10);
-    if (!isNaN(y) && !isNaN(m)) {
-      try {
-        const rM = await query(
-          `SELECT COUNT(*) AS N FROM ${ventasSub()} d WHERE EXTRACT(YEAR FROM d.FECHA) = ? AND EXTRACT(MONTH FROM d.FECHA) = ?`,
-          [y, m],
-          45000,
-          dbo
-        );
-        out.count_ventas_sub_mes = rM[0] && rM[0].N != null ? rM[0].N : null;
-      } catch (e) {
-        out.ventas_sub_mes_error = e && e.message ? e.message : String(e);
-      }
+  const now = new Date();
+  const anio = parseInt(req.query.anio, 10) || now.getFullYear();
+  const mes = parseInt(req.query.mes, 10) || now.getMonth() + 1;
+
+  async function safeQ(sql, params = []) {
+    try {
+      return { ok: true, rows: await query(sql, params, 20000, dbo) };
+    } catch (e) {
+      return { ok: false, error: e.message || String(e) };
     }
   }
-  try {
-    const tipVe = await query(
-      `SELECT TRIM(CAST(TIPO_DOCTO AS VARCHAR(30))) AS T, COUNT(*) AS N FROM DOCTOS_VE GROUP BY 1 ORDER BY 2 DESC`,
-      [],
-      20000,
-      dbo
-    );
-    out.tipos_docto_ve = (tipVe || []).slice(0, 25);
-  } catch (e) {
-    out.tipos_ve_error = e && e.message ? e.message : String(e);
-  }
-  try {
-    const tipPv = await query(
-      `SELECT TRIM(CAST(TIPO_DOCTO AS VARCHAR(30))) AS T, COUNT(*) AS N FROM DOCTOS_PV GROUP BY 1 ORDER BY 2 DESC`,
-      [],
-      20000,
-      dbo
-    );
-    out.tipos_docto_pv = (tipPv || []).slice(0, 25);
-  } catch (e) {
-    out.tipos_pv_error = e && e.message ? e.message : String(e);
-  }
+
+  const [
+    veAll,
+    pvAll,
+    tiposVe,
+    tiposPv,
+    estVe,
+    estPv,
+    fechasVe,
+    subAll,
+    subMes,
+  ] = await Promise.all([
+    safeQ(`SELECT COUNT(*) AS N FROM DOCTOS_VE`),
+    safeQ(`SELECT COUNT(*) AS N FROM DOCTOS_PV`),
+    safeQ(`
+      SELECT TRIM(CAST(TIPO_DOCTO AS VARCHAR(40))) AS T, COUNT(*) AS C
+      FROM DOCTOS_VE GROUP BY 1 ORDER BY 2 DESC
+    `),
+    safeQ(`
+      SELECT TRIM(CAST(TIPO_DOCTO AS VARCHAR(40))) AS T, COUNT(*) AS C
+      FROM DOCTOS_PV GROUP BY 1 ORDER BY 2 DESC
+    `),
+    safeQ(`
+      SELECT TRIM(CAST(ESTATUS AS VARCHAR(10))) AS E, COUNT(*) AS C
+      FROM DOCTOS_VE GROUP BY 1 ORDER BY 2 DESC
+    `),
+    safeQ(`
+      SELECT TRIM(CAST(ESTATUS AS VARCHAR(10))) AS E, COUNT(*) AS C
+      FROM DOCTOS_PV GROUP BY 1 ORDER BY 2 DESC
+    `),
+    safeQ(`SELECT MIN(CAST(FECHA AS DATE)) AS MIN_F, MAX(CAST(FECHA AS DATE)) AS MAX_F FROM DOCTOS_VE`),
+    safeQ(`SELECT COUNT(*) AS N FROM ${ventasSub()} d`),
+    safeQ(
+      `SELECT COUNT(*) AS N FROM ${ventasSub()} d WHERE EXTRACT(YEAR FROM d.FECHA) = ? AND EXTRACT(MONTH FROM d.FECHA) = ?`,
+      [anio, mes]
+    ),
+  ]);
+
+  const legacyVe = await safeQ(
+    `SELECT COUNT(*) AS N FROM DOCTOS_VE WHERE (TIPO_DOCTO = 'F' OR TIPO_DOCTO = 'V') AND ESTATUS <> 'C'`
+  );
+  const legacyPv = await safeQ(
+    `SELECT COUNT(*) AS N FROM DOCTOS_PV WHERE (TIPO_DOCTO = 'F' OR TIPO_DOCTO = 'V') AND ESTATUS <> 'C'`
+  );
+
+  let fechas_ve_filtradas = null;
+  let fechas_filtradas_error = null;
   try {
     const fechas = await query(
       `SELECT MIN(d.FECHA) AS MIN_F, MAX(d.FECHA) AS MAX_F FROM DOCTOS_VE d WHERE ${sqlWhereVentasDocumentoValido('d')}`,
@@ -3042,11 +3072,32 @@ get('/api/debug/ventas', async (req) => {
       20000,
       dbo
     );
-    out.fechas_ve_filtradas = fechas[0] || null;
+    fechas_ve_filtradas = fechas[0] || null;
   } catch (e) {
-    out.fechas_error = e && e.message ? e.message : String(e);
+    fechas_filtradas_error = e && e.message ? e.message : String(e);
   }
-  return out;
+
+  return {
+    dbParam: (req.query && req.query.db) || null,
+    doctos_ve_total: veAll.ok ? veAll.rows[0].N : null,
+    doctos_pv_total: pvAll.ok ? pvAll.rows[0].N : null,
+    legacy_fv_noC_ve: legacyVe.ok ? legacyVe.rows[0].N : null,
+    legacy_fv_noC_pv: legacyPv.ok ? legacyPv.rows[0].N : null,
+    tipos_docto_ve: tiposVe.ok ? tiposVe.rows : [{ error: tiposVe.error }],
+    tipos_docto_pv: tiposPv.ok ? tiposPv.rows : [{ error: tiposPv.error }],
+    estatus_ve: estVe.ok ? estVe.rows : [{ error: estVe.error }],
+    estatus_pv: estPv.ok ? estPv.rows : [{ error: estPv.error }],
+    fechas_ve: fechasVe.ok ? fechasVe.rows[0] : { error: fechasVe.error },
+    fechas_ve_filtradas,
+    fechas_filtradas_error,
+    count_ventas_sub_union: subAll.ok ? subAll.rows[0].N : null,
+    ventas_sub_union_error: subAll.ok ? null : subAll.error,
+    count_ventas_sub_mes: subMes.ok ? subMes.rows[0].N : null,
+    ventas_sub_mes_error: subMes.ok ? null : subMes.error,
+    periodo_mes_usado: { anio, mes },
+    hint:
+      'Si count_ventas_sub_union > 0 pero count_ventas_sub_mes = 0, el periodo del filtro (mes/año) no tiene facturas. Prueba ?anio=2024 o preset "Este año" en la barra.',
+  };
 });
 
 get('/api/debug/pv', async () => {
