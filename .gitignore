@@ -1,4 +1,6 @@
 node_modules/
+# Carpeta generada por scripts/export-suminregio-deploy.ps1 (regenerar antes de publicar)
+suminregio-microsip-deploy/
 .env
 env
 *.log
