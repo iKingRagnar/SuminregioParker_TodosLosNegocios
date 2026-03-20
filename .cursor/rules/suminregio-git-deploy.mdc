@@ -1,0 +1,27 @@
+---
+description: Tras cambios al microsip-api, subir a GitHub; el usuario solo hace pull en el servidor remoto.
+alwaysApply: true
+---
+
+# Deploy Suminregio (Git + servidor)
+
+## Fuente del repo que sube a GitHub
+
+- Esta carpeta es la raíz del repo con `origin` → **SuminregioParker_TodosLosNegocios**, rama **`main`**.
+
+## Después de editar código (obligación del agente)
+
+Cuando haya cambios listos para desplegar:
+
+1. `git add -A` (o archivos concretos), `git commit -m "mensaje claro"`, `git push origin main`.
+2. No dejar cambios solo locales sin push si el objetivo es actualizar el servidor remoto.
+
+## En el servidor remoto (solo el usuario)
+
+- `cd C:\microsip-api` (o la ruta real del clon)
+- `git pull origin main`
+- `pm2 restart all`
+
+## Sin títulos de prueba en la UI
+
+- No añadir textos de prueba en títulos de página salvo petición explícita y temporal.

@@ -1,11 +1,9 @@
 <!DOCTYPE html>
-<!-- BUILD_CHECK: IA-SUPREMA-v5 -->
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- Pestaña: texto corto primero para que no lo recorte el navegador -->
-<title>IA Suprema v5 &middot; Ventas</title>
+<title>Suminregio Parker &mdash; Ventas</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
@@ -51,7 +49,6 @@ nav{display:flex;align-items:center;gap:.25rem}
 .live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 .clock{font-family:'DM Mono',monospace;font-size:.78rem;color:var(--muted)}
-.deploy-badge{font-family:'DM Mono',monospace;font-size:.58rem;font-weight:600;color:var(--yellow);border:1px solid rgba(255,184,0,.4);padding:.22rem .55rem;border-radius:8px;white-space:nowrap;background:rgba(255,184,0,.08)}
 .page{position:relative;z-index:1;max-width:1600px;margin:0 auto;padding:2rem}
 .page-header{margin-bottom:2rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}
 .page-title{font-size:1.75rem;font-weight:800;background:linear-gradient(135deg,var(--suminregio) 0%,var(--yellow) 50%,var(--orange) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
@@ -128,7 +125,6 @@ nav{display:flex;align-items:center;gap:.25rem}
       <a href="inventario.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M20 7H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zm-8 9c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zM4 3h16v2H4z"/></svg>Inventario</a>
     </nav>
     <div class="header-right">
-      <span class="deploy-badge" id="deploy-badge" title="Ultimo HTML desplegado">IA Suprema v5</span>
       <div class="live-pill"><div class="live-dot"></div>LIVE</div>
       <div class="clock" id="clock">--:--:--</div>
     </div>
@@ -138,20 +134,10 @@ nav{display:flex;align-items:center;gap:.25rem}
 <div class="page">
   <div class="page-header">
     <div>
-      <!-- Titulo VISIBLE en la pagina (no solo en la pestaña del navegador) -->
-      <div class="page-title" id="page-main-title">IA Suprema · Ventas</div>
-      <div class="page-sub" id="page-git-ok" style="color:var(--yellow);font-weight:700;font-size:.8rem;margin-top:.25rem;margin-bottom:.15rem">
-        Prueba Git deploy OK · <span id="page-fecha-hoy"></span>
-      </div>
+      <div class="page-title">Ventas</div>
       <div class="page-sub" id="page-sub">Cargando datos...</div>
     </div>
   </div>
-  <script>
-  (function(){
-    var el=document.getElementById('page-fecha-hoy');
-    if(el) el.textContent=new Date().toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-  })();
-  </script>
 
   <!-- Barra de filtros compartida -->
   <div id="filter-bar"></div>
@@ -527,12 +513,30 @@ async function loadAll() {
   else if(params.anio && params.mes) labelParts.push(`${['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][params.mes-1]} ${params.anio}`);
   else if(params.anio) labelParts.push(`A\u00f1o ${params.anio}`);
   labelParts.push(currentTipo||'Todos');
-  setText('page-sub', `Actualizado: ${new Date().toLocaleTimeString('es-MX')} · ${labelParts.join(' · ')}`);
+  if (window.__VENTAS_RESUMEN_WARN) {
+    setText('page-sub', window.__VENTAS_RESUMEN_WARN);
+  } else {
+    setText('page-sub', `Actualizado: ${new Date().toLocaleTimeString('es-MX')} · ${labelParts.join(' · ')}`);
+  }
 }
 
 async function loadResumen() {
   try {
+    window.__VENTAS_RESUMEN_WARN = '';
     const d = await fwt(buildApiUrl('/api/ventas/resumen', tipoQ()), {});
+    if (d && d.error) {
+      window.__VENTAS_RESUMEN_WARN = 'Error API: ' + String(d.error).slice(0, 200);
+      console.error('[ventas/resumen]', d);
+      return;
+    }
+    if (!d || (typeof d === 'object' && Object.keys(d).length === 0)) {
+      window.__VENTAS_RESUMEN_WARN = 'Sin respuesta de /api/ventas/resumen (timeout o red). F12 → Red · .env FB_DATABASE en el servidor.';
+      console.warn('[ventas/resumen] cuerpo vacío');
+      return;
+    }
+    if (d._queryError) {
+      window.__VENTAS_RESUMEN_WARN = 'Firebird: ' + String(d._queryError).slice(0, 160) + (d._diagnostico && d._diagnostico.mensaje ? ' · ' + String(d._diagnostico.mensaje).slice(0, 120) : '');
+    }
     const hoy=+(d.HOY||0), mes=+(d.MES_ACTUAL||0), docs=+(d.FACTURAS_MES||0);
     const diasMes = new Date().getDate();
     const meta = +(metas.META_TOTAL_DIARIA||5650);

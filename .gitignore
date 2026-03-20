@@ -11,7 +11,9 @@ Thumbs.db
 ngrok.exe
 
 # ── Evita "Filename too long" en Windows y basura que no debe ir a GitHub ──
-.cursor/
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
 Cerebro Cursor/
 ARCHIVO__referencia_pbix/
 ARCHIVO__principal_viejo/

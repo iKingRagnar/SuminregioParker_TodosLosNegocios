@@ -4,7 +4,7 @@
 
 1. Los cambios se suben a **GitHub** (`main`) desde la PC donde se edita el código.
 2. En el servidor: `cd C:\microsip-api` → `git pull origin main` → `pm2 restart all`.
-3. Abre **Ventas**: debe verse el título grande **IA Suprema · Ventas** y debajo la línea amarilla **Prueba Git deploy OK** con la **fecha de hoy**. Si no: `Ctrl+F5` (caché) o el `git pull` no se hizo en esa carpeta.
+3. Tras `pull`, recarga el navegador con `Ctrl+F5` si no ves cambios (caché).
 
 ## Repo en GitHub
 
