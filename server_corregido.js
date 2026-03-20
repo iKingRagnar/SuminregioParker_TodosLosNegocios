@@ -651,9 +651,9 @@ function sqlExprEstatusNorm(alias = 'd') {
 }
 
 /**
- * Modo **amplio** (default): cuenta ventas como “todo documento VE/PV que no sea cotización C/O/Q y no esté cancelado/traspaso”.
- * Así siguen saliendo datos aunque TIPO_DOCTO no sea literalmente F/V (códigos numéricos, FAC, etc.).
- * Excluir tipos extra (p. ej. P si en tu planta P=cotización): `MICROSIP_VENTAS_AMPLIO_EXCLUIR_TIPOS=P,X`
+ * Modo **amplio** (default): cuenta ventas como documentos VE/PV **no cancelados**, excluyendo solo tipos **exactamente** `C`, `O` o `Q` (cotización de una letra típica).
+ * **Importante:** No usar el primer carácter (`t0`) para excluir C/O/Q: tipos como `CON`, `COT`, `CRED` empezarían por `C` y se eliminaban **todas** las ventas.
+ * Excluir más códigos (p. ej. `COTI`, `P`): `MICROSIP_VENTAS_AMPLIO_EXCLUIR_TIPOS=COTI,P`
  *
  * Modo **estricto**: solo F/V (+ opción R + rama “primer carácter numérico” sin SIMILAR TO).
  *   `MICROSIP_VENTAS_FILTRO=estricto`
@@ -662,6 +662,7 @@ function sqlWhereVentasAmplio(alias = 'd', opts = {}) {
   const a = alias;
   const e = sqlExprEstatusNorm(a);
   const t0 = sqlExprTipoDoctoChar1(a);
+  const tipoStr = `TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(40)))`;
   const excluirT = String(process.env.MICROSIP_VENTAS_AMPLIO_EXCLUIR_T || '1').trim() !== '0';
   const estatusOk = excluirT ? `${e} NOT IN ('C', 'T')` : `${e} <> 'C'`;
   const extraCsv = String(process.env.MICROSIP_VENTAS_AMPLIO_EXCLUIR_TIPOS || '')
@@ -669,14 +670,15 @@ function sqlWhereVentasAmplio(alias = 'd', opts = {}) {
     .map((s) => s.trim())
     .filter(Boolean);
   const extraNotIn = extraCsv.length
-    ? ` AND TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(40))) NOT IN (${extraCsv.map((x) => `'${String(x).replace(/'/g, "''")}'`).join(', ')})`
+    ? ` AND ${tipoStr} NOT IN (${extraCsv.map((x) => `'${String(x).replace(/'/g, "''")}'`).join(', ')})`
     : '';
   const sinR = opts.omitRemision
     ? ` AND NOT ((${a}.TIPO_DOCTO = 'R' OR ${t0} = 'R'))`
     : '';
+  // Solo códigos de un carácter C/O/Q como cotización; no filtrar por primer letra (evita matar CON/COT/CRED/FAC…).
   return `(
     ${estatusOk}
-    AND NOT ((${a}.TIPO_DOCTO IN ('C', 'O', 'Q') OR ${t0} IN ('C', 'O', 'Q')))
+    AND NOT (${tipoStr} IN ('C', 'O', 'Q'))
     ${extraNotIn}
     ${sinR}
   )`;
