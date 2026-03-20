@@ -102,8 +102,12 @@ El usuario está frustrado porque los ceros parecen un bug de código cuando a m
 
 ## Fix crítico (por-vendedor)
 
-**`/api/ventas/por-vendedor`** tenía en el `WHERE` el mes/año del **servidor** (`CURRENT_DATE`) **y** el filtro de la barra (`buildFiltros`). Eso es imposible salvo que el periodo seleccionado sea exactamente el mes calendario actual → tabla de vendedores **siempre vacía** al elegir “Mes anterior”, otro año, etc. **Corregido:** solo `WHERE 1=1 ${f.sql}` y agregados totales del periodo (`SUM` / `COUNT(*)`), con el mismo default `anio`/`mes` que `/api/ventas/resumen`.
+**`/api/ventas/por-vendedor`** tenía en el `WHERE` el mes/año del **servidor** (`CURRENT_DATE`) **y** el filtro de la barra (`buildFiltros`). **Corregido:** solo `WHERE 1=1 ${f.sql}` y totales del periodo.
+
+## Alineación con carpeta Beto (ventas / cotizaciones)
+
+Criterio de **`ventasSub`** y **`consumosSub`**: como en `microsip-api_Beto/.../server_corregido.js` — solo **F y V**, `ESTATUS` clásico, **`IMPORTE_NETO` de cabecera sin dividir**. Cotizaciones: **`TIPO_DOCTO IN ('C','O')`** y `COALESCE(ESTATUS,'') <> 'C'`. Se mantienen en el proyecto actual: `DOCTO_VE_ID`/`DOCTO_PV_ID` en el UNION, `por-vendedor` por periodo, `_queryError` en resumen, `/api/debug/ventas`, y el divisor `.env` solo aplica a **margen por renglón** (`margen-lineas`), no al KPI de ventas por documento.
 
 ---
 
-*Última actualización: ventasSub + debug ventas; fix por-vendedor; resumen devuelve `_queryError` si falla la query; banner en `ventas.html` y aviso en `index.html`.*
+*Última actualización: criterio Beto en ventasSub/consumos/cotizaciones; fix por-vendedor; debug ventas; `_queryError` + banners UI.*

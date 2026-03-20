@@ -322,7 +322,7 @@ function sqlWhereVentasDocumentoValido(alias = 'd', opts = {}) {
 }
 
 /**
- * UNION ALL VE+PV — una fila por documento, **importe de cabecera** (IMPORTE_NETO + divisor IVA si aplica).
+ * UNION ALL VE+PV — una fila por documento; importe cabecera vía `sqlVentaImporteBaseExpr`.
  * @param {string} tipo - 'VE', 'PV' o '' (todos)
  */
 function ventasSub(tipo = '') {
