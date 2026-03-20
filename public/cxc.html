@@ -264,7 +264,7 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
     <div class="grid-32">
       <div class="card">
         <div class="card-title">Facturas vencidas <span class="badge" id="vBadge">&mdash;</span></div>
-        <p class="card-note">Facturas <strong>Contado</strong> / inmediato no se tratan como vencidas (sin atraso a cr&eacute;dito). Resto: estatus por d&iacute;as como Power BI. Saldo = neto por documento (cargo &minus; cobro).</p>
+        <p class="card-note">Facturas <strong>Contado</strong> / inmediato no se tratan como vencidas (sin atraso a cr&eacute;dito). Resto: estatus por d&iacute;as como Power BI. Saldo = neto por documento (cargo &minus; cobro). <strong>No aparecen facturas ya liquidadas</strong> (saldo pendiente 0).</p>
         <div class="tbl-wrap">
           <table>
             <thead><tr><th>Folio</th><th>Cliente</th><th>Condici&oacute;n</th><th>Estatus</th><th>Saldo</th><th>Atraso</th><th>F. Vencimiento</th></tr></thead>
@@ -348,6 +348,13 @@ const API = (window.__API_BASE != null ? String(window.__API_BASE).replace(/\/+$
 const MES_NOM = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
 const fmtK = v => { const n=+v||0; return n>=1e6 ? '$'+(n/1e6).toFixed(1)+'M' : n>=1e3 ? '$'+(n/1e3).toFixed(0)+'K' : '$'+n.toLocaleString('es-MX',{maximumFractionDigits:0}); };
+/** Saldo documento CxC: siempre con centavos bajo 1K para no mostrar $0 en montos pequeños. */
+const fmtSaldoDoc = v => {
+  const n = +v || 0;
+  if (n >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
+  return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
 const fmtM = v => '$'+(+v||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});
 const setText = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
 
@@ -504,7 +511,8 @@ async function loadVencidas() {
   const qs = '?limit=60'+(cf?'&cliente='+cf:'');
   const tb = document.getElementById('tbVenc');
   try {
-    const rows = await apiFetch('/api/cxc/vencidas'+qs);
+    const raw = await apiFetch('/api/cxc/vencidas'+qs);
+    const rows = (Array.isArray(raw) ? raw : []).filter(r => (+r.SALDO || 0) > 0.005);
     setText('vBadge', rows.length+' docs');
     if(!rows.length){ tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--txt3);padding:20px">Sin facturas vencidas</td></tr>'; return; }
     function estatusRango(d){
@@ -522,7 +530,7 @@ async function loadVencidas() {
       <td style="color:var(--txt)">${(r.CLIENTE||'').substring(0,28)}</td>
       <td style="color:var(--txt3)">${r.CONDICION_PAGO||'S/D'}</td>
       <td><span class="aging-lbl estatus-bkt ${estatusCl}">${estatus}</span></td>
-      <td style="color:var(--red)">${fmtK(r.SALDO)}</td>
+      <td style="color:var(--red)">${fmtSaldoDoc(r.SALDO)}</td>
       <td><span style="background:rgba(239,68,68,.15);color:var(--red);padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700">+${d}d</span></td>
       <td style="color:var(--txt3)">${r.FECHA_VENCIMIENTO?new Date(r.FECHA_VENCIMIENTO).toLocaleDateString('es-MX'):'\u2014'}</td>
     </tr>`;

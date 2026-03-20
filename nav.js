@@ -23,7 +23,7 @@
     return p === '' ? 'index.html' : p;
   }
 
-  /** Mantiene ?db= al cambiar de mùdulo (Inicio ? CxC, etc.). */
+  /** Mantiene ?db= al cambiar de m?dulo (Inicio ? CxC, etc.). */
   function navHref(href) {
     let db = '';
     try {
@@ -72,7 +72,7 @@
     <div class="nav-aux-wrap" id="nav-aux-wrap">
       <button type="button" class="nav-aux-btn" id="app-theme-toggle" aria-label="Tema claro u oscuro" title="Tema">${icSun}</button>
       <button type="button" class="nav-aux-btn" id="app-shortcuts-open" aria-label="Atajos de teclado" title="Atajos (? )">?</button>
-      <button type="button" class="nav-aux-btn" id="app-tour-start" aria-label="Tour guiado por mùdulos" title="Tour">${icMap}</button>
+      <button type="button" class="nav-aux-btn" id="app-tour-start" aria-label="Tour guiado por m?dulos" title="Tour">${icMap}</button>
       <button type="button" class="nav-aux-btn" id="app-notif-toggle" aria-label="Avisos" aria-expanded="false" title="Avisos">${icBell}<span id="app-notif-badge" class="app-notif-badge hidden">0</span></button>
     </div>
     <div class="header-right">
@@ -173,8 +173,8 @@ header#app-header {
 }
 .header-inner {
   max-width:1900px;margin:0 auto;min-height:64px;height:auto;min-width:0;
-  display:flex;align-items:center;justify-content:space-between;
-  gap:1rem;padding:.55rem 1.5rem;
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto minmax(11.25rem,max-content);
+  align-items:center;gap:1rem;padding:.55rem 1.5rem;
 }
 .logo {
   display:flex;align-items:center;gap:.75rem;text-decoration:none;flex-shrink:0;
@@ -226,7 +226,10 @@ nav#main-nav::-webkit-scrollbar { display:none; }
 }
 .nav-link svg { width:14px;height:14px;flex-shrink:0;opacity:.9; }
 
-.header-right { display:flex;align-items:center;gap:.75rem;flex-shrink:0; }
+.header-right {
+  display:flex;align-items:center;justify-content:flex-end;gap:.75rem;flex-shrink:0;
+  justify-self:end;min-width:11.25rem;
+}
 .live-pill {
   display:flex;align-items:center;gap:.45rem;
   background:linear-gradient(135deg,rgba(245,124,0,.18),rgba(245,124,0,.06));
@@ -242,10 +245,12 @@ nav#main-nav::-webkit-scrollbar { display:none; }
 }
 @keyframes livepulse{0%,100%{opacity:1}50%{opacity:.35}}
 .clock {
-  font-family:'JetBrains Mono',ui-monospace,monospace;font-size:.74rem;color:var(--muted);
-  letter-spacing:.04em;font-weight:500;
-  padding:.35rem .65rem;border-radius:10px;background:rgba(255,255,255,.04);
+  font-family:'JetBrains Mono',ui-monospace,monospace,'Courier New',Courier,monospace;font-size:.74rem;color:var(--muted);
+  letter-spacing:0;font-weight:500;font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1;
+  padding:.35rem .5rem;border-radius:10px;background:rgba(255,255,255,.04);
   border:1px solid rgba(255,255,255,.06);
+  box-sizing:border-box;flex-shrink:0;
+  min-width:7.35rem;width:7.35rem;text-align:center;white-space:nowrap;
 }
 
 .nav-aux-wrap{display:flex;align-items:center;gap:.4rem;flex-shrink:0;margin-left:.25rem;padding-left:.5rem;border-left:1px solid rgba(255,255,255,.08)}
@@ -350,7 +355,7 @@ html[data-theme="light"] .microsip-skip-link:focus{background:#0f172a;color:#fff
     }
   }
 
-  /** Widget IA: mismos IDs que sistema-cotizacion-web (#ai-widget-wrap, #ai-fab, ù). */
+  /** Widget IA: mismos IDs que sistema-cotizacion-web (#ai-widget-wrap, #ai-fab, ?). */
   function injectAiAssistant() {
     if (document.getElementById('ai-widget-wrap')) return;
 

@@ -416,7 +416,8 @@ function get(routePath, handler) {
 // Retorna { sql, params, lookbackOverride }
 // lookbackOverride: días desde 'desde' hasta hoy — para que los endpoints
 //   con ventana fija (CURRENT_DATE - N) no corten los datos pedidos.
-function buildFiltros(req, alias = 'd') {
+function buildFiltros(req, alias = 'd', options = {}) {
+  const omitVC = options.omitVendedorCliente === true;
   const conds  = [];
   const params = [];
   const { anio, mes, dia, vendedor, cliente } = req.query;
@@ -435,9 +436,9 @@ function buildFiltros(req, alias = 'd') {
     if (anio) { conds.push(`EXTRACT(YEAR  FROM ${alias}.FECHA) = ?`); params.push(parseInt(anio)); }
     if (mes)  { conds.push(`EXTRACT(MONTH FROM ${alias}.FECHA) = ?`); params.push(parseInt(mes)); }
   }
-  if (dia)      { conds.push(`CAST(${alias}.FECHA AS DATE) = CAST(? AS DATE)`); params.push(dia); }
-  if (vendedor) { conds.push(`${alias}.VENDEDOR_ID = ?`);  params.push(parseInt(vendedor)); }
-  if (cliente)  { conds.push(`${alias}.CLIENTE_ID  = ?`);  params.push(parseInt(cliente)); }
+  if (dia) { conds.push(`CAST(${alias}.FECHA AS DATE) = CAST(? AS DATE)`); params.push(dia); }
+  if (!omitVC && vendedor) { conds.push(`${alias}.VENDEDOR_ID = ?`); params.push(parseInt(vendedor)); }
+  if (!omitVC && cliente) { conds.push(`${alias}.CLIENTE_ID  = ?`); params.push(parseInt(cliente)); }
 
   // Si hay desde, calcular cuántos días de lookback necesitamos
   let lookbackOverride = null;
@@ -447,6 +448,46 @@ function buildFiltros(req, alias = 'd') {
   }
 
   return { sql: conds.length ? ' AND ' + conds.join(' AND ') : '', params, lookbackOverride };
+}
+
+/**
+ * Filtro de fechas sobre IMPORTES_DOCTOS_CC + vendedor/cliente vía documento CC aplicado
+ * (COALESCE(DOCTO_CC_ACR_ID, DOCTO_CC_ID) → DOCTOS_CC → VE/PV).
+ */
+function filtrosImporteCobro(req, importAlias = 'i') {
+  const base = buildFiltros(req, importAlias, { omitVendedorCliente: true });
+  let sql = base.sql;
+  const params = [...base.params];
+  const a = importAlias;
+  const vid = req.query.vendedor ? parseInt(req.query.vendedor, 10) : NaN;
+  if (!isNaN(vid) && vid > 0) {
+    sql += ` AND EXISTS (
+      SELECT 1 FROM DOCTOS_CC _fc
+      LEFT JOIN DOCTOS_VE _ve ON _ve.DOCTO_VE_ID = _fc.DOCTO_VE_ID
+      LEFT JOIN DOCTOS_PV _pv ON _pv.DOCTO_PV_ID = _fc.DOCTO_PV_ID
+      WHERE _fc.DOCTO_CC_ID = COALESCE(${a}.DOCTO_CC_ACR_ID, ${a}.DOCTO_CC_ID)
+        AND COALESCE(_ve.VENDEDOR_ID, _pv.VENDEDOR_ID, 0) = ?
+    )`;
+    params.push(vid);
+  }
+  const cid = req.query.cliente ? parseInt(req.query.cliente, 10) : NaN;
+  if (!isNaN(cid) && cid > 0) {
+    sql += ` AND EXISTS (
+      SELECT 1 FROM DOCTOS_CC _fc2
+      WHERE _fc2.DOCTO_CC_ID = COALESCE(${a}.DOCTO_CC_ACR_ID, ${a}.DOCTO_CC_ID)
+        AND _fc2.CLIENTE_ID = ?
+    )`;
+    params.push(cid);
+  }
+  return { sql, params, lookbackOverride: base.lookbackOverride };
+}
+
+/** Restringe filas a CC ligado a factura VE y/o PV (según panel tipo). */
+function sqlTipoFacLinkCc(aliasFac = 'fac', tipo = '') {
+  const f = aliasFac;
+  if (tipo === 'VE') return ` AND ${f}.DOCTO_VE_ID IS NOT NULL `;
+  if (tipo === 'PV') return ` AND ${f}.DOCTO_PV_ID IS NOT NULL `;
+  return ` AND (${f}.DOCTO_VE_ID IS NOT NULL OR ${f}.DOCTO_PV_ID IS NOT NULL) `;
 }
 
 /** Días calendario del periodo del filtro (para consumo diario promedio y cobertura). */
@@ -578,6 +619,8 @@ function ventasSub(tipo = '') {
       d.FOLIO,
       d.TIPO_DOCTO,
       d.ESTATUS,
+      d.DOCTO_VE_ID,
+      CAST(NULL AS INTEGER) AS DOCTO_PV_ID,
       'VE' AS TIPO_SRC
     FROM DOCTOS_VE d
     WHERE (
@@ -594,6 +637,8 @@ function ventasSub(tipo = '') {
       d.FOLIO,
       d.TIPO_DOCTO,
       d.ESTATUS,
+      CAST(NULL AS INTEGER) AS DOCTO_VE_ID,
+      d.DOCTO_PV_ID,
       'PV' AS TIPO_SRC
     FROM DOCTOS_PV d
     WHERE (
@@ -1129,7 +1174,7 @@ get('/api/ventas/ranking-clientes', async (req) => {
   `, f.params, 12000, dbo).catch(() => []);
 });
 
-// Cobradas: respeta filtros de tiempo (desde/hasta o anio/mes) y vendedor; por defecto mes actual
+// Cobradas: ventas en periodo (d.FECHA) + cobro real por vendedor (IMPORTES_DOCTOS_CC tipo R, i.FECHA).
 get('/api/ventas/cobradas', async (req) => {
   const dbo = getReqDbOpts(req);
   if (!req.query.desde && !req.query.hasta && !req.query.anio) {
@@ -1138,10 +1183,21 @@ get('/api/ventas/cobradas', async (req) => {
     req.query.mes = now.getMonth() + 1;
   }
   const f = buildFiltros(req, 'd');
-  const fCc = buildFiltros(req, 'dc');
+  const fi = filtrosImporteCobro(req, 'i');
   const tipo = getTipo(req);
-  const vendedorQ = req.query.vendedor ? ` AND d.VENDEDOR_ID = ${parseInt(req.query.vendedor)}` : '';
-  const [rows, cobrosRow] = await Promise.all([
+  const tipoFac = sqlTipoFacLinkCc('fac', tipo);
+  const vendedorQ = req.query.vendedor ? ` AND d.VENDEDOR_ID = ${parseInt(req.query.vendedor, 10)}` : '';
+
+  const cobroSqlBase = `
+    FROM IMPORTES_DOCTOS_CC i
+    JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = i.DOCTO_CC_ID
+    LEFT JOIN DOCTOS_CC fac ON fac.DOCTO_CC_ID = COALESCE(i.DOCTO_CC_ACR_ID, i.DOCTO_CC_ID)
+    LEFT JOIN DOCTOS_VE ve ON ve.DOCTO_VE_ID = fac.DOCTO_VE_ID
+    LEFT JOIN DOCTOS_PV pv ON pv.DOCTO_PV_ID = fac.DOCTO_PV_ID
+    LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = COALESCE(ve.VENDEDOR_ID, pv.VENDEDOR_ID)
+    WHERE i.TIPO_IMPTE = 'R' AND COALESCE(i.CANCELADO, 'N') = 'N' ${tipoFac} ${fi.sql}`;
+
+  const [rows, cobroPorVend, cobrosRow] = await Promise.all([
     query(`
       SELECT d.VENDEDOR_ID, v.NOMBRE AS VENDEDOR, COUNT(DISTINCT d.FOLIO) AS NUM_FACTURAS, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL_VENTA
       FROM ${ventasSub(tipo)} d
@@ -1150,27 +1206,53 @@ get('/api/ventas/cobradas', async (req) => {
       GROUP BY d.VENDEDOR_ID, v.NOMBRE
     `, f.params, 12000, dbo).catch(() => []),
     query(`
+      SELECT
+        COALESCE(ve.VENDEDOR_ID, pv.VENDEDOR_ID, 0) AS VENDEDOR_ID,
+        MAX(COALESCE(v.NOMBRE, '')) AS VENDEDOR,
+        COALESCE(SUM(CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END), 0) AS TOTAL_COBRADO
+      ${cobroSqlBase}
+      GROUP BY COALESCE(ve.VENDEDOR_ID, pv.VENDEDOR_ID, 0)
+    `, fi.params, 12000, dbo).catch(() => []),
+    query(`
       SELECT COALESCE(SUM(CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END), 0) AS TOTAL_COBRADO
-      FROM IMPORTES_DOCTOS_CC i
-      JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = i.DOCTO_CC_ID
-      WHERE i.TIPO_IMPTE = 'R' AND COALESCE(i.CANCELADO, 'N') = 'N' ${fCc.sql}
-    `, fCc.params, 12000, dbo).catch(() => [{ TOTAL_COBRADO: 0 }]),
+      ${cobroSqlBase}
+    `, fi.params, 12000, dbo).catch(() => [{ TOTAL_COBRADO: 0 }]),
   ]);
+
   const totalCobradoReal = +(cobrosRow && cobrosRow[0] && cobrosRow[0].TOTAL_COBRADO) || 0;
   const totalFacturado = (rows || []).reduce((s, r) => s + (+r.TOTAL_VENTA || 0), 0);
-  const mapped = (rows || []).map(r => ({
-    VENDEDOR_ID: r.VENDEDOR_ID,
-    VENDEDOR: r.VENDEDOR,
-    NOMBRE: r.VENDEDOR,
-    NUM_FACTURAS: r.NUM_FACTURAS,
-    FACTURAS_COBRADAS: r.NUM_FACTURAS,
-    TOTAL_VENTA: +r.TOTAL_VENTA || 0,
-    TOTAL_COBRADO: totalCobradoReal > 0 && totalFacturado > 0 ? Math.round((+r.TOTAL_VENTA || 0) / totalFacturado * totalCobradoReal * 100) / 100 : +r.TOTAL_VENTA || 0,
-  }));
+  const cobMap = Object.fromEntries((cobroPorVend || []).map(r => [r.VENDEDOR_ID, +r.TOTAL_COBRADO || 0]));
+  const seen = new Set();
+  const mapped = (rows || []).map(r => {
+    seen.add(r.VENDEDOR_ID);
+    return {
+      VENDEDOR_ID: r.VENDEDOR_ID,
+      VENDEDOR: r.VENDEDOR,
+      NOMBRE: r.VENDEDOR,
+      NUM_FACTURAS: r.NUM_FACTURAS,
+      FACTURAS_COBRADAS: r.NUM_FACTURAS,
+      TOTAL_VENTA: +r.TOTAL_VENTA || 0,
+      TOTAL_COBRADO: cobMap[r.VENDEDOR_ID] != null ? cobMap[r.VENDEDOR_ID] : 0,
+    };
+  });
+  for (const c of cobroPorVend || []) {
+    const vid = +c.VENDEDOR_ID || 0;
+    if (vid <= 0 || seen.has(vid)) continue;
+    seen.add(vid);
+    mapped.push({
+      VENDEDOR_ID: vid,
+      VENDEDOR: c.VENDEDOR,
+      NOMBRE: c.VENDEDOR,
+      NUM_FACTURAS: 0,
+      FACTURAS_COBRADAS: 0,
+      TOTAL_VENTA: 0,
+      TOTAL_COBRADO: +c.TOTAL_COBRADO || 0,
+    });
+  }
   return { vendedores: mapped, totalFacturado, totalCobrado: totalCobradoReal };
 });
 
-// Líneas de cobro (tipo R) en el periodo del filtro — mismo criterio de fechas que /api/ventas/cobradas (alias dc).
+// Líneas de cobro (tipo R): fecha del movimiento en IMPORTES_DOCTOS_CC; vendedor/cliente vía CC aplicado.
 get('/api/ventas/cobradas-detalle', async (req) => {
   const dbo = getReqDbOpts(req);
   if (!req.query.desde && !req.query.hasta && !req.query.anio) {
@@ -1178,22 +1260,82 @@ get('/api/ventas/cobradas-detalle', async (req) => {
     req.query.anio = now.getFullYear();
     req.query.mes = now.getMonth() + 1;
   }
-  const fCc = buildFiltros(req, 'dc');
-  const limit = Math.min(parseInt(req.query.limit) || 400, 800);
+  const fi = filtrosImporteCobro(req, 'i');
+  const tipo = getTipo(req);
+  const tipoFac = sqlTipoFacLinkCc('fac', tipo);
+  const limit = Math.min(parseInt(req.query.limit, 10) || 400, 800);
   return query(`
     SELECT FIRST ${limit}
       CAST(i.FECHA AS DATE) AS FECHA_COBRO,
-      dc.FOLIO,
+      dc.FOLIO AS FOLIO_CC,
+      COALESCE(fac.FOLIO, dc.FOLIO) AS FOLIO,
       cl.NOMBRE AS CLIENTE,
       CASE WHEN COALESCE(i.IMPUESTO, 0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END AS MONTO_COBRADO,
       COALESCE(v.NOMBRE, '') AS VENDEDOR
     FROM IMPORTES_DOCTOS_CC i
     JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = i.DOCTO_CC_ID
-    JOIN CLIENTES cl ON cl.CLIENTE_ID = dc.CLIENTE_ID
-    LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = dc.VENDEDOR_ID
-    WHERE i.TIPO_IMPTE = 'R' AND COALESCE(i.CANCELADO, 'N') = 'N' ${fCc.sql}
+    LEFT JOIN DOCTOS_CC fac ON fac.DOCTO_CC_ID = COALESCE(i.DOCTO_CC_ACR_ID, i.DOCTO_CC_ID)
+    LEFT JOIN CLIENTES cl ON cl.CLIENTE_ID = COALESCE(fac.CLIENTE_ID, dc.CLIENTE_ID)
+    LEFT JOIN DOCTOS_VE ve ON ve.DOCTO_VE_ID = fac.DOCTO_VE_ID
+    LEFT JOIN DOCTOS_PV pv ON pv.DOCTO_PV_ID = fac.DOCTO_PV_ID
+    LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = COALESCE(ve.VENDEDOR_ID, pv.VENDEDOR_ID)
+    WHERE i.TIPO_IMPTE = 'R' AND COALESCE(i.CANCELADO, 'N') = 'N' ${tipoFac} ${fi.sql}
     ORDER BY i.FECHA DESC, dc.FOLIO DESC
-  `, fCc.params, 15000, dbo).catch(() => []);
+  `, fi.params, 15000, dbo).catch(() => []);
+});
+
+// Facturas del periodo de ventas con cobro acumulado en periodo de cobros (misma query string de filtro).
+get('/api/ventas/cobradas-por-factura', async (req) => {
+  const dbo = getReqDbOpts(req);
+  if (!req.query.desde && !req.query.hasta && !req.query.anio) {
+    const now = new Date();
+    req.query.anio = now.getFullYear();
+    req.query.mes = now.getMonth() + 1;
+  }
+  const f = buildFiltros(req, 'd');
+  const fiIr = filtrosImporteCobro(req, 'ir');
+  const tipo = getTipo(req);
+  const limit = Math.min(parseInt(req.query.limit, 10) || 600, 2000);
+  const sql = `
+    SELECT FIRST ${limit}
+      q.VENDEDOR_ID,
+      q.VENDEDOR,
+      q.TIPO_SRC,
+      q.FOLIO_VE,
+      q.FECHA_FACTURA,
+      q.TOTAL_VENTA,
+      q.COBRADO_PERIODO
+    FROM (
+      SELECT
+        d.VENDEDOR_ID,
+        COALESCE(v.NOMBRE, '') AS VENDEDOR,
+        d.TIPO_SRC,
+        d.FOLIO AS FOLIO_VE,
+        CAST(d.FECHA AS DATE) AS FECHA_FACTURA,
+        d.IMPORTE_NETO AS TOTAL_VENTA,
+        COALESCE((
+          SELECT SUM(CASE WHEN COALESCE(ir.IMPUESTO, 0) > 0 THEN ir.IMPORTE ELSE ir.IMPORTE / 1.16 END)
+          FROM IMPORTES_DOCTOS_CC ir
+          WHERE ir.TIPO_IMPTE = 'R' AND COALESCE(ir.CANCELADO, 'N') = 'N'
+            AND EXISTS (
+              SELECT 1 FROM DOCTOS_CC ccf
+              WHERE ccf.DOCTO_CC_ID = COALESCE(ir.DOCTO_CC_ACR_ID, ir.DOCTO_CC_ID)
+                AND (
+                  (d.TIPO_SRC = 'VE' AND ccf.DOCTO_VE_ID = d.DOCTO_VE_ID)
+                  OR (d.TIPO_SRC = 'PV' AND ccf.DOCTO_PV_ID = d.DOCTO_PV_ID)
+                )
+            )
+            ${fiIr.sql}
+        ), 0) AS COBRADO_PERIODO
+      FROM ${ventasSub(tipo)} d
+      LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
+      WHERE d.VENDEDOR_ID > 0 ${f.sql}
+    ) q
+    WHERE q.COBRADO_PERIODO > 0.005
+    ORDER BY q.VENDEDOR_ID, q.COBRADO_PERIODO DESC, q.FECHA_FACTURA DESC
+  `;
+  const params = [...f.params, ...fiIr.params];
+  return query(sql, params, 20000, dbo).catch(() => []);
 });
 
 get('/api/ventas/margen', async (req) => {
@@ -1644,42 +1786,47 @@ get('/api/cxc/aging', async (req) => {
 });
 
 // Facturas vencidas: una fila por documento, SALDO = saldo neto (Cargo − Cobro) como Power BI Saldo_Documento.
+// Solo saldo pendiente real: filtro sobre el mismo CAST que se devuelve (evita filas ya liquidadas o polvo numérico).
 get('/api/cxc/vencidas', async (req) => {
   const dbo = getReqDbOpts(req);
   const limit = Math.min(parseInt(req.query.limit) || 100, 500);
   const cf = req.query.cliente ? ` AND d.CLIENTE_ID = ${parseInt(req.query.cliente)}` : '';
   return query(`
     SELECT FIRST ${limit}
-      d.FOLIO,
-      c.NOMBRE AS CLIENTE,
-      COALESCE(cp.NOMBRE, 'S/D') AS CONDICION_PAGO,
-      CAST((
-        COALESCE((SELECT SUM(i.IMPORTE) FROM IMPORTES_DOCTOS_CC i
-          WHERE i.DOCTO_CC_ID = d.DOCTO_CC_ID AND i.TIPO_IMPTE = 'C' AND COALESCE(i.CANCELADO,'N') = 'N'), 0)
-        - COALESCE((SELECT SUM(CASE WHEN COALESCE(i2.IMPUESTO,0) > 0 THEN i2.IMPORTE ELSE i2.IMPORTE / 1.16 END)
-          FROM IMPORTES_DOCTOS_CC i2
-          WHERE i2.DOCTO_CC_ACR_ID = d.DOCTO_CC_ID AND i2.TIPO_IMPTE = 'R' AND COALESCE(i2.CANCELADO,'N') = 'N'), 0)
-      ) AS DECIMAL(18,2)) AS SALDO,
-      d.DIAS_VENCIDO AS ATRASO,
-      d.DIAS_VENCIDO AS DIAS_ATRASO,
-      d.FECHA_VENCIMIENTO
+      q.FOLIO,
+      q.CLIENTE,
+      q.CONDICION_PAGO,
+      q.SALDO,
+      q.ATRASO,
+      q.DIAS_ATRASO,
+      q.FECHA_VENCIMIENTO
     FROM (
-      SELECT cd.DOCTO_CC_ID, cd.CLIENTE_ID, cd.FOLIO, cd.FECHA_VENCIMIENTO, cd.DIAS_VENCIDO
-      FROM ${cxcCargosSQL()} cd
-      WHERE cd.DIAS_VENCIDO > 0 ${cf}
-      GROUP BY cd.DOCTO_CC_ID, cd.CLIENTE_ID, cd.FOLIO, cd.FECHA_VENCIMIENTO, cd.DIAS_VENCIDO
-    ) d
-    JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
-    LEFT JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = d.DOCTO_CC_ID
-    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = dc.COND_PAGO_ID
-    WHERE (
-      COALESCE((SELECT SUM(i.IMPORTE) FROM IMPORTES_DOCTOS_CC i
-        WHERE i.DOCTO_CC_ID = d.DOCTO_CC_ID AND i.TIPO_IMPTE = 'C' AND COALESCE(i.CANCELADO,'N') = 'N'), 0)
-      - COALESCE((SELECT SUM(CASE WHEN COALESCE(i2.IMPUESTO,0) > 0 THEN i2.IMPORTE ELSE i2.IMPORTE / 1.16 END)
-        FROM IMPORTES_DOCTOS_CC i2
-        WHERE i2.DOCTO_CC_ACR_ID = d.DOCTO_CC_ID AND i2.TIPO_IMPTE = 'R' AND COALESCE(i2.CANCELADO,'N') = 'N'), 0)
-    ) > 0
-    ORDER BY d.DIAS_VENCIDO DESC, 4 DESC
+      SELECT
+        d.FOLIO,
+        c.NOMBRE AS CLIENTE,
+        COALESCE(cp.NOMBRE, 'S/D') AS CONDICION_PAGO,
+        CAST((
+          COALESCE((SELECT SUM(i.IMPORTE) FROM IMPORTES_DOCTOS_CC i
+            WHERE i.DOCTO_CC_ID = d.DOCTO_CC_ID AND i.TIPO_IMPTE = 'C' AND COALESCE(i.CANCELADO,'N') = 'N'), 0)
+          - COALESCE((SELECT SUM(CASE WHEN COALESCE(i2.IMPUESTO,0) > 0 THEN i2.IMPORTE ELSE i2.IMPORTE / 1.16 END)
+            FROM IMPORTES_DOCTOS_CC i2
+            WHERE i2.DOCTO_CC_ACR_ID = d.DOCTO_CC_ID AND i2.TIPO_IMPTE = 'R' AND COALESCE(i2.CANCELADO,'N') = 'N'), 0)
+        ) AS DECIMAL(18,2)) AS SALDO,
+        d.DIAS_VENCIDO AS ATRASO,
+        d.DIAS_VENCIDO AS DIAS_ATRASO,
+        d.FECHA_VENCIMIENTO
+      FROM (
+        SELECT cd.DOCTO_CC_ID, cd.CLIENTE_ID, cd.FOLIO, cd.FECHA_VENCIMIENTO, cd.DIAS_VENCIDO
+        FROM ${cxcCargosSQL()} cd
+        WHERE cd.DIAS_VENCIDO > 0 ${cf}
+        GROUP BY cd.DOCTO_CC_ID, cd.CLIENTE_ID, cd.FOLIO, cd.FECHA_VENCIMIENTO, cd.DIAS_VENCIDO
+      ) d
+      JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
+      LEFT JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = d.DOCTO_CC_ID
+      LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = dc.COND_PAGO_ID
+    ) q
+    WHERE q.SALDO > 0.005
+    ORDER BY q.DIAS_ATRASO DESC, q.SALDO DESC
   `, [], 12000, dbo).catch(() => []);
 });
 
@@ -3363,7 +3510,7 @@ app.post('/api/ai/chat', async (req, res) => {
         const ticketSobreFac = nFac > 0 ? totC / nFac : null;
         const y = new Date().getFullYear();
         const m = new Date().getMonth() + 1;
-        systemContent += `\n\n**Cobradas (mes en curso ${y}-${String(m).padStart(2, '0')}, misma lógica que el panel Cobradas: cobros IMPORTES_DOCTOS_CC tipo R, importe normalizado ex-IVA; filtro por año/mes de FECHA del DOCTOS_CC):**
+        systemContent += `\n\n**Cobradas (mes en curso ${y}-${String(m).padStart(2, '0')}, misma lógica que el panel Cobradas: cobros IMPORTES_DOCTOS_CC tipo R, importe normalizado ex-IVA; filtro por año/mes de FECHA del movimiento (i.FECHA); vendedor vía CC aplicado COALESCE(DOCTO_CC_ACR_ID, DOCTO_CC_ID) → DOCTOS_VE/PV):**
 - Total cobrado en el periodo: $${totC.toFixed(2)}.
 - Número de movimientos de cobro (líneas R) en ese periodo: ${nMov}.
 - **Ticket promedio por movimiento de cobro** (total cobrado ÷ movimientos): ${ticketPorMov != null ? '$' + ticketPorMov.toFixed(2) : 'No aplica (0 movimientos).'}.
