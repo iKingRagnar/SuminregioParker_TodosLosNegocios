@@ -1005,11 +1005,24 @@ function renderTabla(meses,tot,hasCosto){
     <td><span style="color:${(+tot.MARGEN_BRUTO_PCT||0)>=30?'var(--green)':(+tot.MARGEN_BRUTO_PCT||0)>=15?'var(--yellow)':'var(--red)'};font-weight:600">${hasCosto?fmtPct(+tot.MARGEN_BRUTO_PCT||0):'—'}</span></td>
   </tr>
 
-  <tr class="pnl-section-header"><td colspan="${meses.length+2}">GASTOS OPERATIVOS (Módulo Contabilidad Microsip)</td></tr>
+  <tr class="pnl-section-header"><td colspan="${meses.length+2}">GASTOS OPERATIVOS (Módulo Contabilidad Microsip &mdash; subgrupos tipo P&amp;L)</td></tr>
+  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">A1. Nómina vendedores</td>${meses.map(()=>'<td style="color:var(--muted);font-size:.62rem">N/D</td>').join('')}<td style="color:var(--muted);font-size:.62rem">—</td></tr>
+  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">A2. Comisiones vendedores</td>${meses.map(()=>'<td style="color:var(--muted);font-size:.62rem">N/D</td>').join('')}<td style="color:var(--muted);font-size:.62rem">—</td></tr>
+  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">A3. Unidades vendedores</td>${meses.map(()=>'<td style="color:var(--muted);font-size:.62rem">N/D</td>').join('')}<td style="color:var(--muted);font-size:.62rem">—</td></tr>
+  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">A4. Marketing</td>${meses.map(()=>'<td style="color:var(--muted);font-size:.62rem">N/D</td>').join('')}<td style="color:var(--muted);font-size:.62rem">—</td></tr>
+  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">A5. Publicidad</td>${meses.map(()=>'<td style="color:var(--muted);font-size:.62rem">N/D</td>').join('')}<td style="color:var(--muted);font-size:.62rem">—</td></tr>
+  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">A6. Otros gastos de ventas</td>${meses.map(()=>'<td style="color:var(--muted);font-size:.62rem">N/D</td>').join('')}<td style="color:var(--muted);font-size:.62rem">—</td></tr>
+  <tr class="subtotal-row"><td>▶ A. Gastos de ventas</td>${meses.map(()=>'<td style="color:var(--yellow);font-size:.65rem">N/D</td>').join('')}<td style="color:var(--yellow);font-size:.65rem">—</td></tr>
+  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">B1. Sueldos administración</td>${meses.map(()=>'<td style="color:var(--muted);font-size:.62rem">N/D</td>').join('')}<td style="color:var(--muted);font-size:.62rem">—</td></tr>
+  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">B2. Rentas</td>${meses.map(()=>'<td style="color:var(--muted);font-size:.62rem">N/D</td>').join('')}<td style="color:var(--muted);font-size:.62rem">—</td></tr>
+  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">B3. Autos</td>${meses.map(()=>'<td style="color:var(--muted);font-size:.62rem">N/D</td>').join('')}<td style="color:var(--muted);font-size:.62rem">—</td></tr>
+  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">B4. Fijos</td>${meses.map(()=>'<td style="color:var(--muted);font-size:.62rem">N/D</td>').join('')}<td style="color:var(--muted);font-size:.62rem">—</td></tr>
+  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">B5. Otros gastos generales</td>${meses.map(()=>'<td style="color:var(--muted);font-size:.62rem">N/D</td>').join('')}<td style="color:var(--muted);font-size:.62rem">—</td></tr>
+  <tr class="subtotal-row"><td>▶ B. Gastos de operación</td>${meses.map(()=>'<td style="color:var(--yellow);font-size:.65rem">N/D</td>').join('')}<td style="color:var(--yellow);font-size:.65rem">—</td></tr>
   <tr class="data-row">
-    <td style="color:var(--muted)">Gastos de Operación</td>
+    <td style="color:var(--orange);font-weight:600">Gastos operativos (OPEX) total</td>
     ${meses.map(()=>'<td style="color:var(--muted);font-size:.65rem">N/D</td>').join('')}
-    <td style="color:var(--muted);font-size:.65rem">No disponible</td>
+    <td style="color:var(--muted);font-size:.65rem">Conexión contabilidad Microsip pendiente</td>
   </tr>
 
   <tr class="pnl-section-header"><td colspan="${meses.length+2}">COBROS Y LIQUIDEZ</td></tr>

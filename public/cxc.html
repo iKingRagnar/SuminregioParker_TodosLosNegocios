@@ -122,6 +122,9 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
 
 .chart-wrap{position:relative;height:250px}
 
+.cond-pc-banner{display:none;margin-bottom:12px;padding:12px 14px;border-radius:12px;border:1px solid rgba(6,182,212,.28);
+  background:linear-gradient(135deg,rgba(6,182,212,.12),rgba(17,34,51,.85));font-family:var(--mono);font-size:11px;color:var(--txt2);line-height:1.45}
+.cond-pc-banner b{color:var(--cyn)}
 .cond-list{display:flex;flex-direction:column;gap:10px}
 .cond-row{display:grid;grid-template-columns:minmax(140px,1.1fr) minmax(120px,1.4fr) auto;align-items:center;gap:14px;padding:14px 16px;
           background:linear-gradient(90deg,rgba(23,45,66,.9),rgba(17,34,51,.75));border-radius:12px;border:1px solid var(--brd);transition:background .15s,border-color .15s}
@@ -294,6 +297,8 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
     <div class="grid-2">
       <div class="card">
         <div class="card-title">Por Condici&oacute;n de Pago</div>
+        <p class="card-note">Agrupado por la <strong>condici&oacute;n del documento</strong> (Microsip <code>DOCTOS_CC.COND_PAGO_ID</code>). El pendiente en contado no entra al cr&eacute;dito.</p>
+        <div class="cond-pc-banner" id="condPendContado" style="display:none"></div>
         <div class="cond-list" id="condList"><div class="loading"><div class="spin"></div>Cargando...</div></div>
       </div>
       <div class="card">
@@ -548,8 +553,21 @@ async function loadTop() {
 // -- Por Condicion -------------------------------------------------------------
 async function loadCond() {
   const cl = document.getElementById('condList');
+  const ban = document.getElementById('condPendContado');
   try {
-    const rows = await apiFetch('/api/cxc/por-condicion');
+    const raw = await apiFetch('/api/cxc/por-condicion');
+    const rows = Array.isArray(raw) ? raw : (raw && raw.grupos) ? raw.grupos : [];
+    const pend = raw && !Array.isArray(raw) ? raw.pendiente_contado : null;
+    if (ban) {
+      if (pend && +pend.SALDO_TOTAL > 0) {
+        ban.style.display = 'block';
+        ban.innerHTML = '<b>Pendiente contado / inmediato</b> (fuera del desglose crediticio): ' + fmtK(pend.SALDO_TOTAL) +
+          ' &middot; ' + (pend.NUM_DOCUMENTOS||0) + ' docs &middot; ' + (pend.NUM_CLIENTES||0) + ' clientes. No aplica morosidad por plazo.';
+      } else {
+        ban.style.display = 'none';
+        ban.innerHTML = '';
+      }
+    }
     if(!rows.length){ cl.innerHTML='<div style="color:var(--txt3);padding:20px;text-align:center">Sin datos</div>'; return; }
     const max = Math.max(...rows.map(r=>+r.SALDO_TOTAL||0));
     cl.innerHTML = rows.map(r=>{

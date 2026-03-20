@@ -94,6 +94,12 @@ nav{display:flex;align-items:center;gap:.2rem}
 .comision-table td{font-size:.8rem;padding:.7rem .75rem;border-bottom:1px solid rgba(255,255,255,.04);color:var(--text2);transition:background .15s}
 .comision-table tr:hover td{background:var(--s2)}
 .comision-table .num{text-align:right;font-family:'DM Mono',monospace;font-size:.78rem}
+.detalle-wrap{max-height:340px;overflow:auto;border-radius:12px;border:1px solid var(--border);margin-top:.5rem}
+.detalle-table{width:100%;border-collapse:collapse;font-size:.76rem}
+.detalle-table th{position:sticky;top:0;background:var(--s2);font-family:'DM Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:.55rem .65rem;text-align:left;border-bottom:1px solid var(--border);z-index:1}
+.detalle-table td{padding:.5rem .65rem;border-bottom:1px solid rgba(255,255,255,.04);font-family:'DM Mono',monospace;color:var(--text2)}
+.detalle-table tr:hover td{background:var(--s2)}
+.detalle-table .num{text-align:right}
 .rank-badge{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:.65rem;font-weight:700;font-family:'DM Mono',monospace}
 .rank-1{background:linear-gradient(135deg,#FFB800,#FF8C42);color:#050B14}
 .rank-2{background:linear-gradient(135deg,#B0BECE,#7A9ABE);color:#050B14}
@@ -308,6 +314,26 @@ nav{display:flex;align-items:center;gap:.2rem}
     </div>
   </div>
 
+  <div class="sd"><div class="sd-label">Detalle de cobros</div><div class="sd-line"></div></div>
+  <div class="card" style="margin-bottom:2rem">
+    <div class="card-head">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Cobros registrados (CC tipo R)
+      </div>
+      <div class="card-badge" id="detalleCobrosBadge">Mismo periodo que el filtro</div>
+    </div>
+    <p style="font:.65rem 'DM Mono',monospace;color:var(--muted);margin-bottom:.6rem;line-height:1.45">
+      Cada fila es un pago/cobro en <strong>IMPORTES_DOCTOS_CC</strong> (tipo R), con importe sin IVA cuando aplica. Respeta a&ntilde;o/mes o rango del filtro y vendedor si el campo existe en <code>DOCTOS_CC</code>.
+    </p>
+    <div class="detalle-wrap">
+      <table class="detalle-table">
+        <thead><tr><th>Fecha cobro</th><th>Folio CC</th><th>Cliente</th><th class="num">Monto</th><th>Vendedor</th></tr></thead>
+        <tbody id="detalleCobrosBody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px">Cargando&hellip;</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- Section: Evolucion mensual -->
   <div class="sd"><div class="sd-label">Evoluci&oacute;n Mensual de Cobros</div><div class="sd-line"></div></div>
   <div class="card" style="margin-bottom:2rem">
@@ -323,7 +349,6 @@ nav{display:flex;align-items:center;gap:.2rem}
 
 <script>
 const API = (window.__API_BASE != null ? String(window.__API_BASE).replace(/\/+$/, '') : (window.location.protocol === 'file:' ? 'http://localhost:7000' : (window.location.origin || '')));
-function fwt(url,fallback,ms=10000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
 const COMISION_PCT = 0.08;
 let allData = [];
 let currentPeriod = 'mes';
@@ -387,13 +412,40 @@ async function loadData(){
       totalFacturadoGlobal = null;
     }
     renderAll();
+    await loadDetalleCobros();
     const ev = await fwt(buildApiUrl('/api/ventas/mensuales', 'meses=13'), []);
     renderEvolucion(Array.isArray(ev) ? ev : []);
   }catch(e){
     allData = []; totalCobradoGlobal = null; totalFacturadoGlobal = null;
     renderAll();
+    renderDetalleCobrosError(e.message);
     if(heroSub) heroSub.textContent = 'Error conectando con el servidor';
   }
+}
+
+async function loadDetalleCobros(){
+  try{
+    const rows = await fwt(buildApiUrl('/api/ventas/cobradas-detalle', 'limit=500'), [], 14000);
+    renderDetalleCobrosTable(Array.isArray(rows) ? rows : []);
+  }catch(e){ renderDetalleCobrosError(e.message); }
+}
+
+function renderDetalleCobrosError(msg){
+  const tb = document.getElementById('detalleCobrosBody');
+  if(tb) tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--red);padding:16px">'+(msg||'Error')+'</td></tr>';
+}
+
+function renderDetalleCobrosTable(rows){
+  const tb = document.getElementById('detalleCobrosBody');
+  const bd = document.getElementById('detalleCobrosBadge');
+  if(bd) bd.textContent = rows.length+' movimientos';
+  if(!tb) return;
+  if(!rows.length){ tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px">Sin cobros en este periodo</td></tr>'; return; }
+  const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  tb.innerHTML = rows.map(r=>{
+    const f = r.FECHA_COBRO ? new Date(r.FECHA_COBRO).toLocaleDateString('es-MX') : '\u2014';
+    return '<tr><td>'+esc(f)+'</td><td>'+esc(r.FOLIO)+'</td><td>'+esc((r.CLIENTE||'').substring(0,36))+'</td><td class="num">'+fmtM(+r.MONTO_COBRADO||0)+'</td><td>'+esc((r.VENDEDOR||'\u2014').split(' ').slice(0,2).join(' '))+'</td></tr>';
+  }).join('');
 }
 
 let totalCobradoGlobal = null;

@@ -70,6 +70,11 @@ nav{display:flex;gap:4px;flex-wrap:wrap}
 .ins-tbl th,.ins-tbl td{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:left}
 .ins-tbl th{color:var(--muted);font-size:.58rem;text-transform:uppercase}
 .ins-tbl .num{text-align:right}
+.ins-tbl td.cov-cell{font-weight:600;border-radius:6px}
+.cov-crit{background:rgba(255,69,102,.18);color:#FF7A8F;box-shadow:inset 0 0 0 1px rgba(255,69,102,.25)}
+.cov-low{background:rgba(255,184,0,.14);color:var(--yellow);box-shadow:inset 0 0 0 1px rgba(255,184,0,.22)}
+.cov-ok{background:rgba(0,229,160,.12);color:var(--green);box-shadow:inset 0 0 0 1px rgba(0,229,160,.2)}
+.cov-high{background:rgba(77,166,255,.12);color:var(--blue);box-shadow:inset 0 0 0 1px rgba(77,166,255,.2)}
 .ins-empty{color:var(--muted);font:.74rem 'DM Mono',monospace;padding:8px 0}
 .mission{border-radius:16px;border:1px solid var(--brd);background:linear-gradient(145deg,rgba(77,166,255,.08),rgba(0,229,160,.06));padding:1rem 1.15rem;margin-bottom:1rem}
 .mission h2{font-size:.95rem;font-weight:800;color:var(--suminregio);margin-bottom:.35rem}
@@ -244,6 +249,16 @@ async function loadTop(){
 function esc(s){
   return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
 }
+/** Semáforo días de cobertura: consumo diario = periodo / días calendario del filtro. */
+function coberturaDiasClass(dc){
+  const n = parseFloat(dc);
+  if (isNaN(n)) return { cls: '', title: '' };
+  if (n <= 0) return { cls: 'cov-crit', title: 'Sin cobertura (existencia 0 o sin consumo)' };
+  if (n < 7) return { cls: 'cov-low', title: 'Quiebre inminente: menos de 7 días' };
+  if (n < 21) return { cls: 'cov-ok', title: 'Aceptable: reponer en la siguiente compra' };
+  if (n < 60) return { cls: 'cov-high', title: 'Holgura moderada' };
+  return { cls: 'cov-high', title: 'Alto inventario relativo al ritmo actual' };
+}
 function renderInsights(d){
   const box = document.getElementById('insightsBody');
   if(!box)return;
@@ -272,8 +287,10 @@ function renderInsights(d){
   let tbl = '<table class="ins-tbl"><thead><tr><th>Art&iacute;culo</th><th class="num">Cons. periodo</th><th class="num">Exist.</th><th class="num">D&iacute;as cob.</th></tr></thead><tbody>';
   if(!rowsCov.length) tbl += '<tr><td colspan="4" class="ins-empty">Sin art&iacute;culos en el periodo</td></tr>';
   else rowsCov.forEach(r => {
-    const dc = r.DIAS_COBERTURA != null && r.DIAS_COBERTURA !== '' ? fmtF(r.DIAS_COBERTURA) : '\u2014';
-    tbl += '<tr><td title="'+esc(r.ARTICULO)+'">'+esc((r.ARTICULO||'').substring(0,28))+(String(r.ARTICULO||'').length>28?'…':'')+'</td><td class="num">'+fmtN(r.CONSUMO_PERIODO)+'</td><td class="num">'+fmtN(r.EXISTENCIA)+'</td><td class="num">'+dc+'</td></tr>';
+    const rawDc = r.DIAS_COBERTURA;
+    const dc = rawDc != null && rawDc !== '' ? fmtF(rawDc) : '\u2014';
+    const sem = coberturaDiasClass(rawDc);
+    tbl += '<tr><td title="'+esc(r.ARTICULO)+'">'+esc((r.ARTICULO||'').substring(0,28))+(String(r.ARTICULO||'').length>28?'…':'')+'</td><td class="num">'+fmtN(r.CONSUMO_PERIODO)+'</td><td class="num">'+fmtN(r.EXISTENCIA)+'</td><td class="num cov-cell '+sem.cls+'" title="'+esc(sem.title)+'">'+dc+'</td></tr>';
   });
   tbl += '</tbody></table>';
   box.innerHTML =
@@ -286,7 +303,7 @@ function renderInsights(d){
       '<div class="ins-pill"><div class="t">Concentraci&oacute;n Top 5</div><div class="n">'+fmtF(conc.porcentaje||0)+'%</div><div class="h">'+fmtN(conc.unidades_top5||0)+' u. de '+fmtN(conc.unidades_periodo||0)+' u. del periodo</div></div>'+
       '<div class="ins-pill"><div class="t">Vs periodo anterior</div><div class="n">'+varPrev+'</div><div class="h">Actual '+fmtN(vs.unidades_periodo||0)+' u. &middot; Previo '+fmtN(vs.unidades_periodo_previo||0)+' u.</div></div>'+
     '</div>'+
-    '<div class="t" style="margin-bottom:4px;font:.6rem \'DM Mono\',monospace;color:var(--muted);text-transform:uppercase">Cobertura inventario (top consumo del periodo; d&iacute;as = existencia / consumo diario seg&uacute;n '+fmtN(d.dias_calendario_periodo||0)+' d&iacute;as calendario del filtro)</div>'+
+    '<div class="t" style="margin-bottom:4px;font:.6rem \'DM Mono\',monospace;color:var(--muted);text-transform:uppercase">Cobertura inventario (top consumo del periodo; d&iacute;as = existencia / consumo diario seg&uacute;n '+fmtN(d.dias_calendario_periodo||0)+' d&iacute;as calendario del filtro). <span style="opacity:.85">Sem&aacute;foro D&iacute;as cob.: &le;0 rojo, &lt;7 &aacute;mbar, 7&ndash;20 verde, 21+ azul (exceso relativo).</span></div>'+
     tbl;
   applyConsumoKpiSem(lastConsumoRes, d);
 }

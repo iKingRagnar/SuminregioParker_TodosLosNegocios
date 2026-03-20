@@ -3,6 +3,14 @@
 /**
  * Suminregio Parker — API Server v9.0
  * ─────────────────────────────────────────────────────────────────────────────
+ * Microsip — referencia de tablas (alineado a catálogo tipo “CUENTAS CONTABLES_FUENTES.xlsx”, hoja 1):
+ *  • CXC cabecera: DOCTOS_CC (Mov / Por Cobrar).
+ *  • CXC importes línea a línea: IMPORTES_DOCTOS_CC (Detalle / Por Cobrar) — aquí van cargos y cobros;
+ *    TIPO_IMPTE típico 'C' = cargo, 'R' = recibo/cobro (no confundir con nombre singular “IMPORTE_…”).
+ *  • Relacionados: CONDICIONES_PAGO, CONCEPTOS_CC, DEPOSITOS_CC + DEPOSITOS_CC_DET, VENCIMIENTOS_CARGOS_CC.
+ *  • Contabilidad / P&L futuro: CUENTAS_CO (catálogo), DOCTOS_CO + DOCTOS_CO_DET (pólizas y movimientos).
+ *  • CXP análogo: IMPORTES_DOCTOS_CP sobre DOCTOS_CP.
+ * ─────────────────────────────────────────────────────────────────────────────
  * FIXES v9 sobre v8:
  *  • cxcClienteSQL() — REVERTIDO a IMPORTES_DOCTOS_CC (user rechazó SALDOS_CC)
  *                      Ahora suma IMPORTE + COALESCE(IMPUESTO,0) para incluir IVA
@@ -17,7 +25,7 @@
  *  • cxcCargosSQL() = docs cargo de clientes con saldo pendiente (para aging)
  *  • /api/cxc/top-deudores  → usa cxcClienteSQL + cxcCargosSQL combinados
  *  • /api/cxc/historial     → usa cxcCargosSQL (CLIENTE_ID directo)
- *  • /api/cxc/por-condicion → usa cxcCargosSQL + CLIENTES.COND_PAGO_ID
+ *  • /api/cxc/por-condicion → saldo neto por DOCTO_CC y condición del documento (dc.COND_PAGO_ID); contado aparte
  *  • /api/director/resumen  → CXC: cxcClienteSQL (saldo) + cxcCargosSQL (aging)
  *  • Static: express.static(__dirname) con charset=utf-8 (corrige ñ, á, etc.)
  * FIXES v5 sobre v4:
@@ -1162,6 +1170,32 @@ get('/api/ventas/cobradas', async (req) => {
   return { vendedores: mapped, totalFacturado, totalCobrado: totalCobradoReal };
 });
 
+// Líneas de cobro (tipo R) en el periodo del filtro — mismo criterio de fechas que /api/ventas/cobradas (alias dc).
+get('/api/ventas/cobradas-detalle', async (req) => {
+  const dbo = getReqDbOpts(req);
+  if (!req.query.desde && !req.query.hasta && !req.query.anio) {
+    const now = new Date();
+    req.query.anio = now.getFullYear();
+    req.query.mes = now.getMonth() + 1;
+  }
+  const fCc = buildFiltros(req, 'dc');
+  const limit = Math.min(parseInt(req.query.limit) || 400, 800);
+  return query(`
+    SELECT FIRST ${limit}
+      CAST(i.FECHA AS DATE) AS FECHA_COBRO,
+      dc.FOLIO,
+      cl.NOMBRE AS CLIENTE,
+      CASE WHEN COALESCE(i.IMPUESTO, 0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END AS MONTO_COBRADO,
+      COALESCE(v.NOMBRE, '') AS VENDEDOR
+    FROM IMPORTES_DOCTOS_CC i
+    JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = i.DOCTO_CC_ID
+    JOIN CLIENTES cl ON cl.CLIENTE_ID = dc.CLIENTE_ID
+    LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = dc.VENDEDOR_ID
+    WHERE i.TIPO_IMPTE = 'R' AND COALESCE(i.CANCELADO, 'N') = 'N' ${fCc.sql}
+    ORDER BY i.FECHA DESC, dc.FOLIO DESC
+  `, fCc.params, 15000, dbo).catch(() => []);
+});
+
 get('/api/ventas/margen', async (req) => {
   const dbo = getReqDbOpts(req);
   const f = buildFiltros(req, 'd');
@@ -1716,81 +1750,119 @@ get('/api/cxc/historial', async (req) => {
   `, [cliente], 12000, dbo).catch(() => []);
 });
 
-// Por Condición: saldo NETO por cliente (cargos − cobros), no suma de cargos. Cuadra con SALDO_TOTAL del resumen.
+// Por condición: saldo neto por documento CC (IMPORTES C/R), agrupado por COND_PAGO del documento (no del cliente).
+// "Contado" no aparece en el desglose crediticio; el pendiente de esos docs va en pendiente_contado.
 get('/api/cxc/por-condicion', async (req) => {
   const dbo = getReqDbOpts(req);
-  const [saldos, aging, cargosCond] = await Promise.all([
-    query(`SELECT cs.CLIENTE_ID, cs.SALDO FROM ${cxcClienteSQL()} cs`, [], 12000, dbo).catch(() => []),
-    query(`
-      SELECT cd.CLIENTE_ID,
-        SUM(cd.SALDO) AS TOTAL_C,
-        SUM(CASE WHEN cd.DIAS_VENCIDO > 0 THEN cd.SALDO ELSE 0 END) AS VENC_C
-      FROM ${cxcCargosSQL()} cd
-      GROUP BY cd.CLIENTE_ID
-    `, [], 12000, dbo).catch(() => []),
-    query(`
-      SELECT cd.CLIENTE_ID, COUNT(DISTINCT cd.DOCTO_CC_ID) AS NUM_DOCS
-      FROM ${cxcCargosSQL()} cd
-      GROUP BY cd.CLIENTE_ID
-    `, [], 12000, dbo).catch(() => []),
-  ]);
-  const agMap = {}; aging.forEach(r => { agMap[r.CLIENTE_ID] = r; });
-  const docMap = {}; cargosCond.forEach(r => { docMap[r.CLIENTE_ID] = +r.NUM_DOCS || 0; });
-  const clienteIds = saldos.map(s => s.CLIENTE_ID).filter(Boolean);
-  if (!clienteIds.length) return [];
-  const clientes = await query(`
-    SELECT cl.CLIENTE_ID, COALESCE(cp.NOMBRE, 'Sin condición') AS CONDICION_PAGO, COALESCE(cp.DIAS_PPAG, 0) AS DIAS_CREDITO
-    FROM CLIENTES cl
-    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = cl.COND_PAGO_ID
-    WHERE cl.CLIENTE_ID IN (${clienteIds.join(',')})
-  `, [], 12000, dbo).catch(() => []);
+  const cargosSub = cxcCargosSQL();
+  const innerSQL = `
+    SELECT
+      dc.DOCTO_CC_ID,
+      dc.CLIENTE_ID,
+      TRIM(COALESCE(cp.NOMBRE, 'Sin condición')) AS CONDICION_PAGO,
+      COALESCE(cp.DIAS_PPAG, 0) AS DIAS_CREDITO,
+      MAX(CASE WHEN ${CXC_SQL_ES_CONTADO} THEN 1 ELSE 0 END) AS ES_CONTADO,
+      COALESCE(MAX(venc.DIAS_VENCIDO), 0) AS DIAS_VENCIDO,
+      SUM(CASE
+        WHEN i.TIPO_IMPTE = 'C' THEN i.IMPORTE
+        WHEN i.TIPO_IMPTE = 'R' THEN -(CASE WHEN COALESCE(i.IMPUESTO, 0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END)
+        ELSE 0
+      END) AS SALDO_NETO
+    FROM IMPORTES_DOCTOS_CC i
+    JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = i.DOCTO_CC_ID
+    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = dc.COND_PAGO_ID
+    LEFT JOIN (
+      SELECT z.DOCTO_CC_ID, MAX(z.DIAS_VENCIDO) AS DIAS_VENCIDO
+      FROM ${cargosSub} z
+      GROUP BY z.DOCTO_CC_ID
+    ) venc ON venc.DOCTO_CC_ID = dc.DOCTO_CC_ID
+    WHERE COALESCE(i.CANCELADO, 'N') = 'N' ${CXC_EXCLUIR_CONTADO}
+    GROUP BY dc.DOCTO_CC_ID, dc.CLIENTE_ID, cp.NOMBRE, cp.DIAS_PPAG
+    HAVING SUM(CASE
+      WHEN i.TIPO_IMPTE = 'C' THEN i.IMPORTE
+      WHEN i.TIPO_IMPTE = 'R' THEN -(CASE WHEN COALESCE(i.IMPUESTO, 0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END)
+      ELSE 0
+    END) > 0.005
+  `;
+  const docs = await query(innerSQL, [], 15000, dbo).catch(() => []);
   const byCond = {};
-  saldos.forEach(r => {
-    const saldo = +r.SALDO || 0;
-    const ag = agMap[r.CLIENTE_ID] || {};
-    const totalC = +ag.TOTAL_C || 0;
-    const vencC = +ag.VENC_C || 0;
-    const cl = clientes.find(c => c.CLIENTE_ID === r.CLIENTE_ID) || {};
-    const condNom = String(cl.CONDICION_PAGO || '');
-    const esContado = /CONTADO|EFECT\.?\s*INMEDIATO|^EFECTIVO$/i.test(condNom);
-    const pct = totalC > 0 ? Math.min(vencC / totalC, 1) : 0;
-    let vencido = saldo * pct;
-    let corriente = saldo - vencido;
+  let pendContado = {
+    CONDICION_PAGO: 'Pendiente de cobro (documentos contado / sin crédito)',
+    DIAS_CREDITO: 0,
+    NUM_CLIENTES: new Set(),
+    NUM_DOCUMENTOS: 0,
+    SALDO_TOTAL: 0,
+    VENCIDO: 0,
+    CORRIENTE: 0,
+    ES_CONTADO: true,
+  };
+  for (const r of docs || []) {
+    const saldo = Math.round((+r.SALDO_NETO || 0) * 100) / 100;
+    if (saldo <= 0) continue;
+    const esContado = +r.ES_CONTADO === 1;
+    const dv = +r.DIAS_VENCIDO || 0;
+    let venc = 0;
+    let cor = 0;
     if (esContado) {
-      vencido = 0;
-      corriente = saldo;
+      venc = 0;
+      cor = saldo;
+    } else {
+      venc = dv > 0 ? saldo : 0;
+      cor = dv > 0 ? 0 : saldo;
     }
-    const key = (cl.CONDICION_PAGO || 'Sin condición') + '|' + (cl.DIAS_CREDITO ?? 0);
+    if (esContado) {
+      pendContado.NUM_CLIENTES.add(r.CLIENTE_ID);
+      pendContado.NUM_DOCUMENTOS += 1;
+      pendContado.SALDO_TOTAL += saldo;
+      pendContado.CORRIENTE += cor;
+      continue;
+    }
+    const key = `${r.CONDICION_PAGO}|${+r.DIAS_CREDITO || 0}`;
     if (!byCond[key]) {
-      byCond[key] = { CONDICION_PAGO: cl.CONDICION_PAGO || 'Sin condición', DIAS_CREDITO: +cl.DIAS_CREDITO || 0, NUM_CLIENTES: 0, NUM_DOCUMENTOS: 0, SALDO_TOTAL: 0, VENCIDO: 0, CORRIENTE: 0 };
-    }
-    byCond[key].NUM_CLIENTES += 1;
-    byCond[key].NUM_DOCUMENTOS += docMap[r.CLIENTE_ID] || 0;
-    byCond[key].SALDO_TOTAL += saldo;
-    byCond[key].VENCIDO += vencido;
-    byCond[key].CORRIENTE += corriente;
-  });
-  return Object.values(byCond)
-    .map(r => {
-      const esContadoRow = /CONTADO|EFECT\.?\s*INMEDIATO|^EFECTIVO$/i.test(String(r.CONDICION_PAGO || ''));
-      let v = Math.round(r.VENCIDO * 100) / 100;
-      let c = Math.round(r.CORRIENTE * 100) / 100;
-      if (esContadoRow) {
-        v = 0;
-        c = Math.round(r.SALDO_TOTAL * 100) / 100;
-      }
-      return {
+      byCond[key] = {
         CONDICION_PAGO: r.CONDICION_PAGO,
-        DIAS_CREDITO: r.DIAS_CREDITO,
-        NUM_CLIENTES: r.NUM_CLIENTES,
-        NUM_DOCUMENTOS: r.NUM_DOCUMENTOS,
-        SALDO_TOTAL: Math.round(r.SALDO_TOTAL * 100) / 100,
-        VENCIDO: v,
-        CORRIENTE: c,
-        ES_CONTADO: esContadoRow,
+        DIAS_CREDITO: +r.DIAS_CREDITO || 0,
+        NUM_CLIENTES: new Set(),
+        NUM_DOCUMENTOS: 0,
+        SALDO_TOTAL: 0,
+        VENCIDO: 0,
+        CORRIENTE: 0,
+        ES_CONTADO: false,
       };
-    })
+    }
+    const b = byCond[key];
+    b.NUM_CLIENTES.add(r.CLIENTE_ID);
+    b.NUM_DOCUMENTOS += 1;
+    b.SALDO_TOTAL += saldo;
+    b.VENCIDO += venc;
+    b.CORRIENTE += cor;
+  }
+  const grupos = Object.values(byCond)
+    .map(r => ({
+      CONDICION_PAGO: r.CONDICION_PAGO,
+      DIAS_CREDITO: r.DIAS_CREDITO,
+      NUM_CLIENTES: r.NUM_CLIENTES.size,
+      NUM_DOCUMENTOS: r.NUM_DOCUMENTOS,
+      SALDO_TOTAL: Math.round(r.SALDO_TOTAL * 100) / 100,
+      VENCIDO: Math.round(r.VENCIDO * 100) / 100,
+      CORRIENTE: Math.round(r.CORRIENTE * 100) / 100,
+      ES_CONTADO: false,
+    }))
     .sort((a, b) => b.SALDO_TOTAL - a.SALDO_TOTAL);
+  const pendiente_contado =
+    pendContado.NUM_DOCUMENTOS > 0
+      ? {
+          CONDICION_PAGO: pendContado.CONDICION_PAGO,
+          DIAS_CREDITO: 0,
+          NUM_CLIENTES: pendContado.NUM_CLIENTES.size,
+          NUM_DOCUMENTOS: pendContado.NUM_DOCUMENTOS,
+          SALDO_TOTAL: Math.round(pendContado.SALDO_TOTAL * 100) / 100,
+          VENCIDO: 0,
+          CORRIENTE: Math.round(pendContado.CORRIENTE * 100) / 100,
+          ES_CONTADO: true,
+        }
+      : null;
+  return { grupos, pendiente_contado };
 });
 
 // Calendario Pagos / Buro: por documento, con CLIENTE, ANIO, MES_EMISION, saldo restante, fechas. Sin ?cliente= devuelve todos.
@@ -2002,25 +2074,95 @@ get('/api/clientes/riesgo', async (req) => {
   const dbo = getReqDbOpts(req);
   const limit = Math.min(parseInt(req.query.limit) || 100, 500);
   return query(`
-    SELECT cd.CLIENTE_ID, c.NOMBRE, SUM(cd.SALDO) AS SALDO, MAX(cd.DIAS_VENCIDO) AS MAX_DIAS_VENCIDO
+    SELECT FIRST ${limit}
+      cd.CLIENTE_ID,
+      c.NOMBRE,
+      COALESCE(cp.NOMBRE, 'S/D') AS CONDICION_PAGO,
+      SUM(cd.SALDO) AS SALDO,
+      MAX(cd.DIAS_VENCIDO) AS MAX_DIAS_VENCIDO,
+      COUNT(*) AS NUM_DOCS_VENCIDOS
     FROM ${cxcCargosSQL()} cd
     LEFT JOIN CLIENTES c ON c.CLIENTE_ID = cd.CLIENTE_ID
+    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = c.COND_PAGO_ID
     WHERE cd.DIAS_VENCIDO > 0
-    GROUP BY cd.CLIENTE_ID, c.NOMBRE ORDER BY MAX_DIAS_VENCIDO DESC
+    GROUP BY cd.CLIENTE_ID, c.NOMBRE, cp.NOMBRE
+    ORDER BY MAX_DIAS_VENCIDO DESC
   `, [], 12000, dbo).catch(() => []);
 });
 
+/** Sin compra >180 días (≈6 meses). Ticket mensual = promedio simple últimos 12 meses de historial. */
 get('/api/clientes/inactivos', async (req) => {
   const dbo = getReqDbOpts(req);
-  const meses = Math.min(parseInt(req.query.meses) || 12, 24);
+  const limit = Math.min(parseInt(req.query.limit) || 200, 500);
   return query(`
-    SELECT c.CLIENTE_ID, c.NOMBRE
+    SELECT FIRST ${limit}
+      c.CLIENTE_ID,
+      c.NOMBRE,
+      ult.ULTIMA AS ULTIMA_COMPRA,
+      (CURRENT_DATE - ult.ULTIMA) AS DIAS_SIN_COMPRA,
+      COALESCE(h.TOT, 0) AS TOTAL_COMPRADO_HISTORIAL,
+      CAST(COALESCE(h.TOT, 0) / 12.0 AS DECIMAL(18, 2)) AS TICKET_PROMEDIO_MES,
+      'INACTIVO' AS NIVEL,
+      COALESCE(cp.NOMBRE, 'S/D') AS CONDICION_PAGO,
+      'Sin compra >6 meses: reactivar o depurar cartera' AS REACTIVACION
     FROM CLIENTES c
-    WHERE NOT EXISTS (
-      SELECT 1 FROM DOCTOS_VE d
-      WHERE d.CLIENTE_ID = c.CLIENTE_ID AND d.FECHA >= (CURRENT_DATE - ?)
-    )
-  `, [meses * 31], 12000, dbo).catch(() => []);
+    JOIN (
+      SELECT CLIENTE_ID, MAX(CAST(FECHA AS DATE)) AS ULTIMA
+      FROM DOCTOS_VE
+      WHERE CLIENTE_ID > 0
+        AND ((TIPO_DOCTO = 'F' AND ESTATUS <> 'C') OR (TIPO_DOCTO = 'V' AND ESTATUS NOT IN ('C', 'T')))
+      GROUP BY CLIENTE_ID
+    ) ult ON ult.CLIENTE_ID = c.CLIENTE_ID
+    LEFT JOIN (
+      SELECT CLIENTE_ID, COALESCE(SUM(IMPORTE_NETO), 0) AS TOT
+      FROM DOCTOS_VE
+      WHERE CLIENTE_ID > 0
+        AND ((TIPO_DOCTO = 'F' AND ESTATUS <> 'C') OR (TIPO_DOCTO = 'V' AND ESTATUS NOT IN ('C', 'T')))
+        AND CAST(FECHA AS DATE) >= (CURRENT_DATE - 365)
+      GROUP BY CLIENTE_ID
+    ) h ON h.CLIENTE_ID = c.CLIENTE_ID
+    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = c.COND_PAGO_ID
+    WHERE (CURRENT_DATE - ult.ULTIMA) > 180
+    ORDER BY 4 DESC
+  `, [], 15000, dbo).catch(() => []);
+});
+
+/** Comercial: sin compra en los últimos 60 días pero sí en los últimos 6 meses (61–180 días). */
+get('/api/clientes/comercial-atraso', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const limit = Math.min(parseInt(req.query.limit) || 200, 500);
+  return query(`
+    SELECT FIRST ${limit}
+      c.CLIENTE_ID,
+      c.NOMBRE,
+      ult.ULTIMA AS ULTIMA_COMPRA,
+      (CURRENT_DATE - ult.ULTIMA) AS DIAS_SIN_COMPRA,
+      COALESCE(h.TOT, 0) AS TOTAL_COMPRADO_HISTORIAL,
+      CAST(COALESCE(h.TOT, 0) / 6.0 AS DECIMAL(18, 2)) AS TICKET_PROMEDIO_MES,
+      'ATRASO_COMERCIAL' AS NIVEL,
+      COALESCE(cp.NOMBRE, 'S/D') AS CONDICION_PAGO,
+      'Seguimiento: llevaba comprando; cortar racha >60d' AS REACTIVACION
+    FROM CLIENTES c
+    JOIN (
+      SELECT CLIENTE_ID, MAX(CAST(FECHA AS DATE)) AS ULTIMA
+      FROM DOCTOS_VE
+      WHERE CLIENTE_ID > 0
+        AND ((TIPO_DOCTO = 'F' AND ESTATUS <> 'C') OR (TIPO_DOCTO = 'V' AND ESTATUS NOT IN ('C', 'T')))
+      GROUP BY CLIENTE_ID
+    ) ult ON ult.CLIENTE_ID = c.CLIENTE_ID
+    LEFT JOIN (
+      SELECT CLIENTE_ID, COALESCE(SUM(IMPORTE_NETO), 0) AS TOT
+      FROM DOCTOS_VE
+      WHERE CLIENTE_ID > 0
+        AND ((TIPO_DOCTO = 'F' AND ESTATUS <> 'C') OR (TIPO_DOCTO = 'V' AND ESTATUS NOT IN ('C', 'T')))
+        AND CAST(FECHA AS DATE) >= (CURRENT_DATE - 180)
+      GROUP BY CLIENTE_ID
+    ) h ON h.CLIENTE_ID = c.CLIENTE_ID
+    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = c.COND_PAGO_ID
+    WHERE (CURRENT_DATE - ult.ULTIMA) > 60
+      AND (CURRENT_DATE - ult.ULTIMA) <= 180
+    ORDER BY 4 DESC
+  `, [], 15000, dbo).catch(() => []);
 });
 
 get('/api/clientes/resumen-riesgo', async (req) => {
