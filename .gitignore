@@ -9,3 +9,15 @@ Thumbs.db
 
 # Binario local (descargar de ngrok.com); el arranque vía PM2 está en ecosystem-ngrok.config.cjs
 ngrok.exe
+
+# ── Evita "Filename too long" en Windows y basura que no debe ir a GitHub ──
+.cursor/
+Cerebro Cursor/
+ARCHIVO__referencia_pbix/
+ARCHIVO__principal_viejo/
+Recordatorio para Cursor/
+**/*_extracted/
+bitacora_fila_pegar.txt
+
+# Repo anidado (si no quieres versionarlo aquí; quita esta línea si sí)
+# microsip-api_Beto/
