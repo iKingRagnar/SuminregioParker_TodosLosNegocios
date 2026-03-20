@@ -629,15 +629,6 @@ function consumosVendedorClienteSql(req, alias = 'd') {
 //  tipo: 'VE'=Industrial, 'PV'=Mostrador, ''=Todos
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/** Lista de códigos separados por coma (solo dígitos) — para TIPO_DOCTO numérico en Microsip. */
-function parseCommaNumericCodes(s) {
-  if (!s || typeof s !== 'string') return [];
-  return s
-    .split(',')
-    .map((x) => String(x).trim())
-    .filter((x) => /^[0-9]+$/.test(x));
-}
-
 /** Primer carácter alfanumérico de TIPO_DOCTO (p. ej. 'FAC' → 'F'); evita perder filas si el CHAR viene relleno o el código es largo. */
 function sqlExprTipoDoctoChar1(alias = 'd') {
   const a = alias;
@@ -653,42 +644,19 @@ function sqlExprEstatusNorm(alias = 'd') {
 /**
  * Documento de venta válido para KPIs — remoto/BI: comparación directa F/V en TIPO_DOCTO **o** primer carácter (sqlExprTipoDoctoChar1).
  * Tipo R solo si MICROSIP_VENTAS_INCLUIR_REM=1.
- *
- * Muchas instalaciones guardan TIPO_DOCTO como **entero** (1,2,3…) en lugar de 'F'/'V':
- * entonces `TIPO_DOCTO = 'F'` no coincide y todas las ventas quedan en $0 mientras CxC sí muestra datos.
- * Por defecto se incluyen filas cuyo tipo es **solo dígitos** (tras TRIM), con estatus válido.
- * Excluir códigos que en tu BD sean cotización u otros no-venta:
- *   MICROSIP_VENTAS_EXCLUIR_TIPOS_NUMERICOS=2,3
- * Desactivar rama numérica:
- *   MICROSIP_VENTAS_INCLUIR_TIPO_NUMERICO=0
- * @param {{ omitRemision?: boolean }} [opts] — `omitRemision: true` = sin tipo R (p. ej. consumos por unidades).
  */
-function sqlWhereVentasDocumentoValido(alias = 'd', opts = {}) {
+function sqlWhereVentasDocumentoValido(alias = 'd') {
   const a = alias;
   const e = sqlExprEstatusNorm(a);
   const t0 = sqlExprTipoDoctoChar1(a);
-  const incluirR =
-    !opts.omitRemision && String(process.env.MICROSIP_VENTAS_INCLUIR_REM || '').trim() === '1';
+  const incluirR = String(process.env.MICROSIP_VENTAS_INCLUIR_REM || '').trim() === '1';
   const partR = incluirR
     ? ` OR ((${a}.TIPO_DOCTO = 'R' OR ${t0} = 'R') AND ${e} <> 'C')`
-    : '';
-  const incluirNum = String(process.env.MICROSIP_VENTAS_INCLUIR_TIPO_NUMERICO ?? '1').trim() !== '0';
-  const exclNum = parseCommaNumericCodes(process.env.MICROSIP_VENTAS_EXCLUIR_TIPOS_NUMERICOS || '');
-  const exclSql = exclNum.length
-    ? ` AND TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(40))) NOT IN (${exclNum.map((x) => `'${x}'`).join(', ')})`
-    : '';
-  const partNum = incluirNum
-    ? ` OR (
-    TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(40))) SIMILAR TO '[0-9]+'
-    AND ${e} NOT IN ('C', 'T')
-    ${exclSql}
-  )`
     : '';
   return `(
     ((${a}.TIPO_DOCTO = 'F' OR ${t0} = 'F') AND ${e} <> 'C')
     OR ((${a}.TIPO_DOCTO = 'V' OR ${t0} = 'V') AND ${e} NOT IN ('C', 'T'))
     ${partR}
-    ${partNum}
   )`;
 }
 
@@ -742,12 +710,7 @@ function sqlWhereCotizacionActiva(alias = 'd') {
   const a = alias;
   const t0 = sqlExprTipoDoctoChar1(a);
   const e = sqlExprEstatusNorm(a);
-  const extraNum = parseCommaNumericCodes(process.env.MICROSIP_COTIZACION_TIPOS_NUMERICOS || '');
-  const numPart = extraNum.length
-    ? ` OR TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(40))) IN (${extraNum.map((x) => `'${x}'`).join(', ')})`
-    : '';
-  // C, O, Q, P — alineado con variantes Microsip / remoto
-  return `((${a}.TIPO_DOCTO IN ('C', 'O', 'Q', 'P') OR ${t0} IN ('C', 'O', 'Q', 'P')${numPart}) AND (${e} <> 'C'))`;
+  return `((${a}.TIPO_DOCTO IN ('C', 'O', 'Q') OR ${t0} IN ('C', 'O', 'Q')) AND (${e} <> 'C'))`;
 }
 
 function normalizeCotizacionResumenRow(row) {
@@ -765,8 +728,13 @@ function normalizeCotizacionResumenRow(row) {
  * tipo: 'VE' | 'PV' | '' (ambos)
  */
 function consumosSub(tipo = '') {
-  // Sin remisiones (R); mismo criterio F/V + numérico que ventasSub.
-  const wVeCons = sqlWhereVentasDocumentoValido('d', { omitRemision: true });
+  // F/V únicamente (sin R); misma base que ventasSub.
+  const e = sqlExprEstatusNorm('d');
+  const t0 = sqlExprTipoDoctoChar1('d');
+  const wVeCons = `(
+    ((d.TIPO_DOCTO = 'F' OR ${t0} = 'F') AND ${e} <> 'C')
+    OR ((d.TIPO_DOCTO = 'V' OR ${t0} = 'V') AND ${e} NOT IN ('C', 'T'))
+  )`;
   const ve = `
     SELECT
       d.FECHA,
