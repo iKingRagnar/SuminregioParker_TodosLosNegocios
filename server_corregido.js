@@ -365,7 +365,8 @@ function getReqDbOpts(req) {
   if (!req || !req.query) return null;
   const id = req.query.db != null ? String(req.query.db).trim() : '';
   if (!id || id.toLowerCase() === 'default') return null;
-  const hit = DATABASE_REGISTRY.find(d => d.id === id);
+  const idLc = id.toLowerCase();
+  const hit = DATABASE_REGISTRY.find(d => String(d.id).toLowerCase() === idLc);
   if (!hit) {
     console.warn('[db] Parámetro db desconocido (se usa FB_DATABASE por defecto):', id);
     return null;
@@ -438,6 +439,115 @@ function buildFiltros(req, alias = 'd') {
   }
 
   return { sql: conds.length ? ' AND ' + conds.join(' AND ') : '', params, lookbackOverride };
+}
+
+/** Días calendario del periodo del filtro (para consumo diario promedio y cobertura). */
+function consumosPeriodCalendarDays(q) {
+  const reDate = /^\d{4}-\d{2}-\d{2}$/;
+  let { desde, hasta, anio, mes } = q || {};
+  if (desde && !reDate.test(String(desde))) desde = null;
+  if (hasta && !reDate.test(String(hasta))) hasta = null;
+  if (desde && hasta) {
+    const d0 = new Date(String(desde) + 'T12:00:00');
+    const d1 = new Date(String(hasta) + 'T12:00:00');
+    return Math.max(1, Math.round((d1 - d0) / 86400000) + 1);
+  }
+  const y = anio != null && String(anio).trim() !== '' ? parseInt(anio, 10) : NaN;
+  const m = mes != null && String(mes).trim() !== '' ? parseInt(mes, 10) : NaN;
+  if (!isNaN(y) && !isNaN(m)) return new Date(y, m, 0).getDate();
+  if (!isNaN(y) && isNaN(m)) return 365;
+  return 30;
+}
+
+/**
+ * Clona query string y aplica el periodo inmediatamente anterior (mismo tipo de filtro).
+ * Conserva vendedor, cliente, tipo, db.
+ */
+function consumosPrevPeriodQuery(baseQ) {
+  const q = Object.assign({}, baseQ || {});
+  const reDate = /^\d{4}-\d{2}-\d{2}$/;
+  let { desde, hasta, anio, mes, dia } = q;
+  if (desde && !reDate.test(String(desde))) desde = null;
+  if (hasta && !reDate.test(String(hasta))) hasta = null;
+  const iso = dt =>
+    dt.getFullYear() +
+    '-' +
+    String(dt.getMonth() + 1).padStart(2, '0') +
+    '-' +
+    String(dt.getDate()).padStart(2, '0');
+  if (desde && hasta) {
+    if (String(desde) === String(hasta)) {
+      const d = new Date(String(desde) + 'T12:00:00');
+      d.setDate(d.getDate() - 1);
+      const s = iso(d);
+      return Object.assign({}, q, { desde: s, hasta: s, anio: undefined, mes: undefined, dia: undefined });
+    }
+    const d0 = new Date(String(desde) + 'T12:00:00');
+    const d1 = new Date(String(hasta) + 'T12:00:00');
+    const days = Math.max(1, Math.round((d1 - d0) / 86400000) + 1);
+    const prevEnd = new Date(d0.getTime() - 86400000);
+    const prevStart = new Date(prevEnd.getTime() - (days - 1) * 86400000);
+    return Object.assign({}, q, {
+      desde: iso(prevStart),
+      hasta: iso(prevEnd),
+      anio: undefined,
+      mes: undefined,
+      dia: undefined,
+    });
+  }
+  const y = anio != null && String(anio).trim() !== '' ? parseInt(anio, 10) : NaN;
+  const m = mes != null && String(mes).trim() !== '' ? parseInt(mes, 10) : NaN;
+  if (!isNaN(y) && !isNaN(m)) {
+    let pm = m - 1;
+    let py = y;
+    if (pm < 1) {
+      pm = 12;
+      py--;
+    }
+    return Object.assign({}, q, {
+      anio: String(py),
+      mes: String(pm),
+      desde: undefined,
+      hasta: undefined,
+      dia: undefined,
+    });
+  }
+  if (!isNaN(y) && isNaN(m)) {
+    return Object.assign({}, q, {
+      anio: String(y - 1),
+      mes: undefined,
+      desde: undefined,
+      hasta: undefined,
+      dia: undefined,
+    });
+  }
+  if (dia && reDate.test(String(dia))) {
+    const d = new Date(String(dia) + 'T12:00:00');
+    d.setDate(d.getDate() - 1);
+    return Object.assign({}, q, {
+      dia: iso(d),
+      desde: undefined,
+      hasta: undefined,
+      anio: undefined,
+      mes: undefined,
+    });
+  }
+  return null;
+}
+
+function consumosVendedorClienteSql(req, alias = 'd') {
+  const conds = [];
+  const params = [];
+  const { vendedor, cliente } = req.query || {};
+  if (vendedor) {
+    conds.push(`${alias}.VENDEDOR_ID = ?`);
+    params.push(parseInt(vendedor, 10));
+  }
+  if (cliente) {
+    conds.push(`${alias}.CLIENTE_ID = ?`);
+    params.push(parseInt(cliente, 10));
+  }
+  return { sql: conds.length ? ' AND ' + conds.join(' AND ') : '', params };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -572,6 +682,12 @@ function getTipo(req) {
 // const CXC_EXCLUIR_CONTADO_SUB = ` AND (cp2.NOMBRE IS NULL OR UPPER(TRIM(cp2.NOMBRE)) <> 'CONTADO') `;
 const CXC_EXCLUIR_CONTADO = '';
 const CXC_EXCLUIR_CONTADO_SUB = '';
+/** Condición de pago tipo contado / inmediato: no debe computar atraso ni buckets de morosidad. */
+const CXC_SQL_ES_CONTADO = `(
+      POSITION('CONTADO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) > 0
+      OR POSITION('EFECTIVO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) > 0
+      OR POSITION('INMEDIATO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) > 0
+    )`;
 /** Días desde FECHA_EMISION hasta vencimiento si no hay fila en VENCIMIENTOS_CARGOS_CC (0 = contado / mismo día). */
 const CXC_DIAS_SUM_INT = `CAST((
       CASE
@@ -621,14 +737,19 @@ function cxcCargosSQL() {
       dc.CLIENTE_ID,
       dc.FOLIO,
       i.IMPORTE                                                       AS SALDO,
-      CAST(COALESCE(
-        MIN(vc.FECHA_VENCIMIENTO),
-        CAST(dc.FECHA AS DATE) + ${CXC_DIAS_SUM_INT}
-      ) AS DATE)                                                      AS FECHA_VENCIMIENTO,
-      (CURRENT_DATE - CAST(COALESCE(
-        MIN(vc.FECHA_VENCIMIENTO),
-        CAST(dc.FECHA AS DATE) + ${CXC_DIAS_SUM_INT}
-      ) AS DATE))                                                     AS DIAS_VENCIDO
+      CAST(
+        CASE
+          WHEN ${CXC_SQL_ES_CONTADO} THEN CAST(dc.FECHA AS DATE)
+          ELSE COALESCE(MIN(vc.FECHA_VENCIMIENTO), CAST(dc.FECHA AS DATE) + ${CXC_DIAS_SUM_INT})
+        END
+      AS DATE)                                                        AS FECHA_VENCIMIENTO,
+      CASE
+        WHEN ${CXC_SQL_ES_CONTADO} THEN 0
+        ELSE (CURRENT_DATE - CAST(COALESCE(
+          MIN(vc.FECHA_VENCIMIENTO),
+          CAST(dc.FECHA AS DATE) + ${CXC_DIAS_SUM_INT}
+        ) AS DATE))
+      END                                                             AS DIAS_VENCIDO
     FROM IMPORTES_DOCTOS_CC i
     JOIN  DOCTOS_CC dc         ON dc.DOCTO_CC_ID  = i.DOCTO_CC_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = dc.COND_PAGO_ID
@@ -1413,7 +1534,7 @@ get('/api/director/recientes', async (req) => {
 // ═══════════════════════════════════════════════════════════
 
 // Subconsulta: una fila por documento con DIAS_VENCIDO y SALDO_NETO (Cargo − Cobro), como Power BI Saldo_Documento.
-// Incluye Contado (igual que Power BI). Solo documentos con saldo > 0.
+// Contado / efectivo inmediato: DIAS_VENCIDO = 0 (no entra a morosidad aunque haya FECHA_VENCIMIENTO en tabla). Solo saldo > 0.
 function cxcDocSaldosSQL(cfSql) {
   return `(
     SELECT d.CLIENTE_ID, d.DIAS_VENCIDO,
@@ -1433,7 +1554,7 @@ function cxcDocSaldosSQL(cfSql) {
   ) doc WHERE doc.SALDO_NETO > 0`;
 }
 
-// Resumen CxC: Vencido y No vencido como Power BI (suma de Saldo_Documento por doc vencido/vigente). Incluye Contado.
+// Resumen CxC: Vencido y No vencido (suma Saldo_Documento). Contado cuenta como vigente (sin días de atraso).
 get('/api/cxc/resumen', async (req) => {
   const dbo = getReqDbOpts(req);
   const cf = req.query.cliente ? parseInt(req.query.cliente) : null;
@@ -2243,6 +2364,7 @@ get('/api/debug/schema', async () => {
 // ═══════════════════════════════════════════════════════════
 
 get('/api/consumos/resumen', async (req) => {
+  const dbo = getReqDbOpts(req);
   if (!req.query.desde && !req.query.hasta && !req.query.anio) {
     const now = new Date();
     req.query.anio = now.getFullYear();
@@ -2260,7 +2382,7 @@ get('/api/consumos/resumen', async (req) => {
         COUNT(DISTINCT d.ARTICULO_ID) AS ARTICULOS_CONSUMIDOS
       FROM ${consumosSub(tipo)} d
       WHERE d.UNIDADES > 0 ${f.sql}
-    `, f.params).catch(() => []),
+    `, f.params, 12000, dbo).catch(() => []),
     query(`
       SELECT FIRST 1
         CAST(d.FECHA AS DATE) AS DIA_MAXIMO,
@@ -2269,7 +2391,7 @@ get('/api/consumos/resumen', async (req) => {
       WHERE d.UNIDADES > 0 ${f.sql}
       GROUP BY CAST(d.FECHA AS DATE)
       ORDER BY MAXIMO_DIARIO DESC, DIA_MAXIMO DESC
-    `, f.params).catch(() => [])
+    `, f.params, 12000, dbo).catch(() => [])
   ]);
   const t = totRows[0] || {};
   const m = maxRows[0] || {};
@@ -2288,6 +2410,7 @@ get('/api/consumos/resumen', async (req) => {
 });
 
 get('/api/consumos/diarias', async (req) => {
+  const dbo = getReqDbOpts(req);
   const tipo = getTipo(req);
   const dias = Math.min(parseInt(req.query.dias) || 30, 366);
   const desde = new Date();
@@ -2303,11 +2426,12 @@ get('/api/consumos/diarias', async (req) => {
     WHERE d.UNIDADES > 0 AND CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
     GROUP BY CAST(d.FECHA AS DATE)
     ORDER BY 1
-  `, [desdeStr]).catch(() => []);
+  `, [desdeStr], 12000, dbo).catch(() => []);
   return rows || [];
 });
 
 get('/api/consumos/top-articulos', async (req) => {
+  const dbo = getReqDbOpts(req);
   const f = buildFiltros(req, 'd');
   const tipo = getTipo(req);
   const limit = Math.min(parseInt(req.query.limit) || 15, 100);
@@ -2322,10 +2446,11 @@ get('/api/consumos/top-articulos', async (req) => {
     WHERE d.UNIDADES > 0 ${f.sql}
     GROUP BY d.ARTICULO_ID, a.NOMBRE, a.UNIDAD_VENTA
     ORDER BY UNIDADES DESC
-  `, f.params).catch(() => []);
+  `, f.params, 12000, dbo).catch(() => []);
 });
 
 get('/api/consumos/por-vendedor', async (req) => {
+  const dbo = getReqDbOpts(req);
   const f = buildFiltros(req, 'd');
   const tipo = getTipo(req);
   const rows = await query(`
@@ -2338,12 +2463,241 @@ get('/api/consumos/por-vendedor', async (req) => {
     WHERE d.UNIDADES > 0 AND d.VENDEDOR_ID > 0 ${f.sql}
     GROUP BY d.VENDEDOR_ID, v.NOMBRE
     ORDER BY UNIDADES DESC
-  `, f.params).catch(() => []);
+  `, f.params, 12000, dbo).catch(() => []);
   const total = (rows || []).reduce((s, r) => s + (+r.UNIDADES || 0), 0);
   return (rows || []).map(r => ({
     ...r,
     PARTICIPACION: total > 0 ? Math.round((+r.UNIDADES || 0) / total * 10000) / 100 : 0
   }));
+});
+
+/**
+ * KPIs extra consumos: variación semanal (7 vs 7), concentración Top 5, vs periodo anterior,
+ * cobertura inventario sobre top artículos y alertas de quiebre.
+ */
+get('/api/consumos/insights', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const tipo = getTipo(req);
+  const sub = consumosSub(tipo);
+  if (!req.query.desde && !req.query.hasta && !req.query.anio) {
+    const now = new Date();
+    req.query.anio = now.getFullYear();
+    req.query.mes = now.getMonth() + 1;
+  }
+  const f = buildFiltros(req, 'd');
+  const diasCal = consumosPeriodCalendarDays(req.query);
+  const vc = consumosVendedorClienteSql(req, 'd');
+
+  const today = new Date();
+  const isoD = d =>
+    d.getFullYear() +
+    '-' +
+    String(d.getMonth() + 1).padStart(2, '0') +
+    '-' +
+    String(d.getDate()).padStart(2, '0');
+  const ultStart = new Date(today);
+  ultStart.setDate(ultStart.getDate() - 6);
+  const prevEnd = new Date(today);
+  prevEnd.setDate(prevEnd.getDate() - 7);
+  const prevStart = new Date(prevEnd);
+  prevStart.setDate(prevStart.getDate() - 6);
+
+  const wowParams = [
+    isoD(ultStart),
+    isoD(today),
+    isoD(prevStart),
+    isoD(prevEnd),
+    isoD(prevStart),
+    isoD(today),
+    ...vc.params,
+  ];
+
+  const prevQ = consumosPrevPeriodQuery(req.query);
+  const fakePrev = prevQ ? { query: prevQ } : null;
+  const fp = fakePrev ? buildFiltros(fakePrev, 'd') : null;
+
+  const [
+    wowRows,
+    top5Rows,
+    currTotRows,
+    prevTotRows,
+    covRows,
+  ] = await Promise.all([
+    query(
+      `
+      SELECT
+        COALESCE(SUM(CASE
+          WHEN CAST(d.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(d.FECHA AS DATE) <= CAST(? AS DATE)
+          THEN d.UNIDADES ELSE 0 END), 0) AS ULT_7,
+        COALESCE(SUM(CASE
+          WHEN CAST(d.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(d.FECHA AS DATE) <= CAST(? AS DATE)
+          THEN d.UNIDADES ELSE 0 END), 0) AS PREV_7
+      FROM ${sub} d
+      WHERE d.UNIDADES > 0
+        AND CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
+        AND CAST(d.FECHA AS DATE) <= CAST(? AS DATE)
+        ${vc.sql}
+    `,
+      wowParams,
+      15000,
+      dbo
+    ).catch(() => []),
+    query(
+      `
+      SELECT COALESCE(SUM(UNIDADES), 0) AS TOP5_UNIDADES
+      FROM (
+        SELECT FIRST 5 SUM(d.UNIDADES) AS UNIDADES
+        FROM ${sub} d
+        WHERE d.UNIDADES > 0 ${f.sql}
+        GROUP BY d.ARTICULO_ID
+        ORDER BY 1 DESC
+      ) t5
+    `,
+      f.params,
+      15000,
+      dbo
+    ).catch(() => []),
+    query(
+      `
+      SELECT COALESCE(SUM(d.UNIDADES), 0) AS U
+      FROM ${sub} d
+      WHERE d.UNIDADES > 0 ${f.sql}
+    `,
+      f.params,
+      15000,
+      dbo
+    ).catch(() => []),
+    fp
+      ? query(
+          `
+      SELECT COALESCE(SUM(d.UNIDADES), 0) AS U
+      FROM ${sub} d
+      WHERE d.UNIDADES > 0 ${fp.sql}
+    `,
+          fp.params,
+          15000,
+          dbo
+        ).catch(() => [])
+      : Promise.resolve([]),
+    query(
+      `
+      SELECT FIRST 10
+        agg.ARTICULO_ID,
+        COALESCE(a.NOMBRE, 'Art. ' || CAST(agg.ARTICULO_ID AS VARCHAR(12))) AS ARTICULO,
+        agg.UNIDADES AS CONSUMO_PERIODO,
+        COALESCE(ex.EXISTENCIA, 0) AS EXISTENCIA,
+        COALESCE(mn.INVENTARIO_MINIMO, 0) AS INVENTARIO_MINIMO
+      FROM (
+        SELECT d.ARTICULO_ID, COALESCE(SUM(d.UNIDADES), 0) AS UNIDADES
+        FROM ${sub} d
+        WHERE d.UNIDADES > 0 ${f.sql}
+        GROUP BY d.ARTICULO_ID
+        ORDER BY 2 DESC
+      ) agg
+      LEFT JOIN ARTICULOS a ON a.ARTICULO_ID = agg.ARTICULO_ID
+      LEFT JOIN ${SQL_EXIST_SUB} ex ON ex.ARTICULO_ID = agg.ARTICULO_ID
+      LEFT JOIN ${SQL_MINIMO_SUB} mn ON mn.ARTICULO_ID = agg.ARTICULO_ID
+      ORDER BY agg.UNIDADES DESC
+    `,
+      f.params,
+      18000,
+      dbo
+    ).catch(() => []),
+  ]);
+
+  const ult7 = +(wowRows[0] && wowRows[0].ULT_7) || 0;
+  const prev7 = +(wowRows[0] && wowRows[0].PREV_7) || 0;
+  let wowPct = null;
+  if (prev7 > 0) wowPct = Math.round(((ult7 - prev7) / prev7) * 10000) / 100;
+  else if (ult7 > 0) wowPct = 100;
+  else wowPct = 0;
+
+  let semaforoSemanal = 'amarillo';
+  if (wowPct > 5) semaforoSemanal = 'verde';
+  else if (wowPct < -5) semaforoSemanal = 'rojo';
+
+  const top5Unidades = +(top5Rows[0] && top5Rows[0].TOP5_UNIDADES) || 0;
+  const unidadesPeriodo = +(currTotRows[0] && currTotRows[0].U) || 0;
+  const unidadesPrev = +(prevTotRows[0] && prevTotRows[0].U) || 0;
+  const pctTop5 =
+    unidadesPeriodo > 0 ? Math.round((top5Unidades / unidadesPeriodo) * 10000) / 100 : 0;
+  let varVsPrevPct = null;
+  if (unidadesPrev > 0) {
+    varVsPrevPct = Math.round(((unidadesPeriodo - unidadesPrev) / unidadesPrev) * 10000) / 100;
+  } else if (unidadesPeriodo > 0) {
+    varVsPrevPct = 100;
+  } else {
+    varVsPrevPct = 0;
+  }
+
+  const cobertura = (covRows || []).map(r => {
+    const cons = +r.CONSUMO_PERIODO || 0;
+    const ex = +r.EXISTENCIA || 0;
+    const minimo = +r.INVENTARIO_MINIMO || 0;
+    const daily = cons / Math.max(1, diasCal);
+    const diasCov = daily > 0 ? Math.round((ex / daily) * 100) / 100 : ex > 0 ? null : 0;
+    return {
+      ARTICULO_ID: r.ARTICULO_ID,
+      ARTICULO: r.ARTICULO,
+      CONSUMO_PERIODO: cons,
+      EXISTENCIA: ex,
+      INVENTARIO_MINIMO: minimo,
+      CONSUMO_DIARIO_PROM: Math.round(daily * 100) / 100,
+      DIAS_COBERTURA: diasCov,
+    };
+  });
+
+  const alertas = [];
+  for (const row of cobertura) {
+    const daily = row.CONSUMO_DIARIO_PROM || 0;
+    const ex = row.EXISTENCIA;
+    const minimo = row.INVENTARIO_MINIMO;
+    const diasCov = row.DIAS_COBERTURA;
+    if (row.CONSUMO_PERIODO <= 0) continue;
+    const bajoStock = minimo > 0 && ex <= minimo;
+    const coberturaBaja = daily > 0 && diasCov != null && diasCov < 14;
+    const sinEx = daily > 0 && ex === 0;
+    if (sinEx || bajoStock || coberturaBaja) {
+      alertas.push({
+        tipo: 'quiebre',
+        ARTICULO_ID: row.ARTICULO_ID,
+        ARTICULO: row.ARTICULO,
+        CONSUMO_PERIODO: row.CONSUMO_PERIODO,
+        EXISTENCIA: ex,
+        INVENTARIO_MINIMO: minimo,
+        DIAS_COBERTURA: diasCov,
+        mensaje: sinEx
+          ? 'Sin existencia con consumo activo en el periodo'
+          : bajoStock
+            ? 'Existencia en o bajo el mínimo de inventario'
+            : 'Cobertura estimada bajo 14 días al ritmo del periodo',
+      });
+    }
+  }
+
+  return {
+    variacion_semanal: {
+      unidades_ultimos_7: ult7,
+      unidades_previos_7: prev7,
+      variacion_pct: wowPct,
+      semaforo: semaforoSemanal,
+      nota: 'Comparativo de calendario: últimos 7 días vs los 7 días anteriores (respeta vendedor/cliente y tipo VE/PV).',
+    },
+    concentracion_top5: {
+      unidades_top5: top5Unidades,
+      unidades_periodo: unidadesPeriodo,
+      porcentaje: pctTop5,
+    },
+    vs_periodo_anterior: {
+      unidades_periodo: unidadesPeriodo,
+      unidades_periodo_previo: unidadesPrev,
+      variacion_pct: varVsPrevPct,
+      tiene_previo: !!prevQ,
+    },
+    cobertura_top: cobertura,
+    alertas_quiebre: alertas,
+    dias_calendario_periodo: diasCal,
+  };
 });
 
 get('/api/debug/costo', async () => {
@@ -2674,7 +3028,8 @@ function aiResolveDbOpts(req) {
   let dbId = (body.db != null && String(body.db).trim() !== '' ? String(body.db).trim() : '') ||
     (req.query && req.query.db ? String(req.query.db).trim() : '');
   if (!dbId || dbId.toLowerCase() === 'default') return { opts: null, id: '', label: '' };
-  const hit = DATABASE_REGISTRY.find(d => d.id === dbId);
+  const idLc = dbId.toLowerCase();
+  const hit = DATABASE_REGISTRY.find(d => String(d.id).toLowerCase() === idLc);
   if (!hit) {
     return {
       error: `Parámetro db desconocido: ${dbId}. Ver GET /api/universe/databases`,

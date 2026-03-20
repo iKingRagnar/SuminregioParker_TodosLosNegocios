@@ -91,6 +91,15 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     }
   }
 
+  /** Al cambiar de .fdb el VENDEDOR_ID de otra empresa no aplica: vac?a filtro y el &lt;select&gt;. */
+  function clearVendedorSilent() {
+    _state.vendedor = '';
+    try {
+      var sel = document.getElementById('fb-vendedor');
+      if (sel) sel.value = '';
+    } catch (_) {}
+  }
+
   function getParams() {
     const p = { preset: _state.preset || 'mes' };
     if (_state.desde && _state.hasta) {
@@ -165,6 +174,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
         } catch (_) {}
         container.querySelectorAll('.biz-tile').forEach(function (b) { b.classList.remove('active'); });
         btn.classList.add('active');
+        clearVendedorSilent();
         if (onChange) onChange(raw);
       });
     });
@@ -181,8 +191,8 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   async function initGlobalDbBarAfterNav(headerEl) {
     if (document.getElementById('bizChips')) return;
     if (document.getElementById('navDbBarWrap')) return;
-    // Páginas sin initFilters() (CxC, Clientes, Inventario, etc.) nunca llamaban injectCSS:
-    // los .biz-tile / .biz-chips-grid quedaban sin reglas y se veían como texto amontonado.
+    // P?ginas sin initFilters() (CxC, Clientes, Inventario, etc.) nunca llamaban injectCSS:
+    // los .biz-tile / .biz-chips-grid quedaban sin reglas y se ve?an como texto amontonado.
     injectCSS();
     const header = headerEl || document.getElementById('app-header');
     if (!header || !header.parentNode) return;
@@ -702,6 +712,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   window.initFilters              = initFilters;
   window.filterBuildQS            = buildQS;
   window.filterGetParams          = getParams;
+  window.filterClearVendedorSilent = clearVendedorSilent;
   window.getSelectedDbId          = getSelectedDbId;
   window.renderDbChipsInto        = renderDbChipsInto;
   window.apiPathWithDb            = apiPathWithDb;

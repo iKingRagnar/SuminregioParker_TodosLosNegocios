@@ -54,8 +54,28 @@ nav{display:flex;gap:4px;flex-wrap:wrap}
 .tbl td{padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.04);font:.78rem 'DM Mono',monospace}
 .tbl tr:hover td{background:var(--s2)}
 .num{text-align:right}
-.note{margin-top:14px;background:var(--s1);border:1px dashed var(--brd);border-radius:12px;padding:12px}
-.note b{color:var(--suminregio)}
+.insights-body{padding:14px;font-size:.78rem}
+.ins-row{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px;align-items:flex-start}
+.ins-pill{flex:1;min-width:140px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--brd)}
+.ins-pill .t{font:.58rem 'DM Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.ins-pill .n{margin-top:6px;font:600 1.05rem 'DM Mono',monospace}
+.ins-pill .h{margin-top:4px;font:.65rem 'DM Mono',monospace;color:var(--muted);line-height:1.35}
+.sem{display:inline-flex;align-items:center;gap:8px;margin-top:8px}
+.sem-i{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.sem-i.verde{background:var(--green);box-shadow:0 0 12px rgba(0,229,160,.45)}
+.sem-i.amarillo{background:var(--yellow);box-shadow:0 0 12px rgba(255,184,0,.4)}
+.sem-i.rojo{background:#FF4566;box-shadow:0 0 12px rgba(255,69,102,.45)}
+.ins-sub{font:.62rem 'DM Mono',monospace;color:var(--muted);margin-top:6px;line-height:1.4}
+.ins-tbl{width:100%;border-collapse:collapse;font:.72rem 'DM Mono',monospace;margin-top:6px}
+.ins-tbl th,.ins-tbl td{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:left}
+.ins-tbl th{color:var(--muted);font-size:.58rem;text-transform:uppercase}
+.ins-tbl .num{text-align:right}
+.ins-alerts{margin-top:14px;padding-top:12px;border-top:1px solid var(--brd)}
+.ins-alerts .t{font:.6rem 'DM Mono',monospace;color:var(--orange);text-transform:uppercase;margin-bottom:8px}
+.ins-al{font:.74rem 'DM Mono',monospace;color:var(--txt);padding:8px 10px;border-radius:10px;background:rgba(255,69,102,.1);border:1px solid rgba(255,69,102,.25);margin-bottom:8px;line-height:1.45}
+.ins-al:last-child{margin-bottom:0}
+.ins-al strong{color:var(--orange)}
+.ins-empty{color:var(--muted);font:.74rem 'DM Mono',monospace;padding:8px 0}
 @media(max-width:1200px){.kpis{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.g2{grid-template-columns:1fr}}
 </style>
@@ -117,13 +137,11 @@ nav{display:flex;gap:4px;flex-wrap:wrap}
         </table>
       </div>
     </article>
-    <article class="note">
-      <b>Recomendaciones visuales y m&eacute;tricas para esta pesta&ntilde;a</b><br><br>
-      1) Agrega sem&aacute;foro por variaci&oacute;n semanal: Verde (&gt; +5%), Amarillo (-5% a +5%), Rojo (&lt; -5%).<br>
-      2) M&eacute;trica de concentraci&oacute;n: % que aporta Top 5 art&iacute;culos del total consumido.<br>
-      3) Tendencia comparativa: Consumo de este periodo vs periodo anterior (unidades y %).<br>
-      4) Combina con inventario: d&iacute;as de cobertura para los art&iacute;culos de mayor consumo.<br>
-      5) Alertas: art&iacute;culo de alto consumo con baja existencia (&ldquo;riesgo de quiebre&rdquo;).
+    <article class="card" id="insightsCard">
+      <div class="ch"><div class="ct">Inteligencia de consumo</div><div class="cb">Semanal &middot; concentraci&oacute;n &middot; vs periodo previo &middot; cobertura</div></div>
+      <div class="bd insights-body" id="insightsBody">
+        <div class="ins-empty">Cargando&hellip;</div>
+      </div>
     </article>
   </section>
 </main>
@@ -148,8 +166,11 @@ function setTipo(t){
   loadAll();
 }
 function initCharts(){
-  const c1 = document.getElementById('chDiario').getContext('2d');
-  const c2 = document.getElementById('chTop').getContext('2d');
+  const el1 = document.getElementById('chDiario');
+  const el2 = document.getElementById('chTop');
+  if(!el1||!el2)return;
+  const c1 = el1.getContext('2d');
+  const c2 = el2.getContext('2d');
   chartDiario = new Chart(c1,{type:'line',data:{labels:[],datasets:[{label:'Unidades',data:[],borderColor:'#4DA6FF',backgroundColor:'rgba(77,166,255,.15)',fill:true,tension:.28,pointRadius:2}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{color:'#8DA2BF'}}},scales:{x:{ticks:{color:'#8DA2BF'}},y:{ticks:{color:'#8DA2BF'}}}}});
   chartTop = new Chart(c2,{type:'bar',data:{labels:[],datasets:[{label:'Unidades',data:[],backgroundColor:'rgba(0,229,160,.65)',borderRadius:6}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8DA2BF'}}},scales:{x:{ticks:{color:'#8DA2BF'}},y:{ticks:{color:'#8DA2BF'}}}}});
 }
@@ -166,15 +187,75 @@ async function loadResumen(){
 }
 async function loadDiario(){
   const rows = await api('/api/consumos/diarias?' + getQS({ dias: 30 }));
+  if(!chartDiario)return;
   chartDiario.data.labels = rows.map(r => new Date(r.DIA).toLocaleDateString('es-MX',{day:'2-digit',month:'short'}));
   chartDiario.data.datasets[0].data = rows.map(r => +r.CONSUMO_TOTAL || 0);
   chartDiario.update();
 }
 async function loadTop(){
   const rows = await api('/api/consumos/top-articulos?' + getQS({ limit: 10 }));
+  if(!chartTop)return;
   chartTop.data.labels = rows.map(r => (r.ARTICULO || '').substring(0, 24));
   chartTop.data.datasets[0].data = rows.map(r => +r.UNIDADES || 0);
   chartTop.update();
+}
+function esc(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+}
+function renderInsights(d){
+  const box = document.getElementById('insightsBody');
+  if(!box)return;
+  if(!d||typeof d!=='object'){
+    box.innerHTML = '<div class="ins-empty">Sin datos de insights.</div>';
+    return;
+  }
+  const vs = d.vs_periodo_anterior || {};
+  const conc = d.concentracion_top5 || {};
+  const w = d.variacion_semanal || {};
+  const sem = (w.semaforo || 'amarillo').toLowerCase();
+  const semLabel = sem === 'verde' ? 'Fuerte' : sem === 'rojo' ? 'D\u00e9bil' : 'Estable';
+  const pctWow = w.variacion_pct != null ? (w.variacion_pct >= 0 ? '+' : '') + fmtF(w.variacion_pct) + '%' : '\u2014';
+  const varPrev = vs.variacion_pct != null ? (vs.variacion_pct >= 0 ? '+' : '') + fmtF(vs.variacion_pct) + '%' : '\u2014';
+  const rowsCov = Array.isArray(d.cobertura_top) ? d.cobertura_top : [];
+  const al = Array.isArray(d.alertas_quiebre) ? d.alertas_quiebre : [];
+  let tbl = '<table class="ins-tbl"><thead><tr><th>Art&iacute;culo</th><th class="num">Cons. periodo</th><th class="num">Exist.</th><th class="num">D&iacute;as cob.</th></tr></thead><tbody>';
+  if(!rowsCov.length) tbl += '<tr><td colspan="4" class="ins-empty">Sin art&iacute;culos en el periodo</td></tr>';
+  else rowsCov.forEach(r => {
+    const dc = r.DIAS_COBERTURA != null && r.DIAS_COBERTURA !== '' ? fmtF(r.DIAS_COBERTURA) : '\u2014';
+    tbl += '<tr><td title="'+esc(r.ARTICULO)+'">'+esc((r.ARTICULO||'').substring(0,28))+(String(r.ARTICULO||'').length>28?'…':'')+'</td><td class="num">'+fmtN(r.CONSUMO_PERIODO)+'</td><td class="num">'+fmtN(r.EXISTENCIA)+'</td><td class="num">'+dc+'</td></tr>';
+  });
+  tbl += '</tbody></table>';
+  let alertsHtml = '';
+  if(al.length){
+    alertsHtml = '<div class="ins-alerts"><div class="t">Riesgo de quiebre</div>';
+    al.forEach(a => {
+      alertsHtml += '<div class="ins-al"><strong>'+esc(a.ARTICULO||'')+'</strong> &mdash; '+esc(a.mensaje||'')+
+        ' <span style="opacity:.85">('+fmtN(a.CONSUMO_PERIODO)+' u. / exist. '+fmtN(a.EXISTENCIA)+')</span></div>';
+    });
+    alertsHtml += '</div>';
+  }
+  box.innerHTML =
+    '<div class="ins-row">'+
+      '<div class="ins-pill" style="min-width:200px">'+
+        '<div class="t">Variaci&oacute;n semanal (7 vs 7 d&iacute;as)</div>'+
+        '<div class="sem"><span class="sem-i '+sem+'"></span><span>'+semLabel+' &middot; '+pctWow+'</span></div>'+
+        '<div class="ins-sub">'+fmtN(w.unidades_ultimos_7)+' u. vs '+fmtN(w.unidades_previos_7)+' u. anteriores. Umbrales: &gt;+5% verde, &plusmn;5% amarillo, &lt;&minus;5% rojo.</div>'+
+      '</div>'+
+      '<div class="ins-pill"><div class="t">Concentraci&oacute;n Top 5</div><div class="n">'+fmtF(conc.porcentaje||0)+'%</div><div class="h">'+fmtN(conc.unidades_top5||0)+' u. de '+fmtN(conc.unidades_periodo||0)+' u. del periodo</div></div>'+
+      '<div class="ins-pill"><div class="t">Vs periodo anterior</div><div class="n">'+varPrev+'</div><div class="h">Actual '+fmtN(vs.unidades_periodo||0)+' u. &middot; Previo '+fmtN(vs.unidades_periodo_previo||0)+' u.</div></div>'+
+    '</div>'+
+    '<div class="t" style="margin-bottom:4px;font:.6rem \'DM Mono\',monospace;color:var(--muted);text-transform:uppercase">Cobertura inventario (top consumo del periodo; d&iacute;as = existencia / consumo diario seg&uacute;n '+fmtN(d.dias_calendario_periodo||0)+' d&iacute;as calendario del filtro)</div>'+
+    tbl+
+    alertsHtml;
+}
+async function loadInsights(){
+  const box = document.getElementById('insightsBody');
+  try{
+    const d = await api('/api/consumos/insights?' + getQS());
+    renderInsights(d);
+  }catch(_){
+    if(box) box.innerHTML = '<div class="ins-empty">No se pudieron calcular insights (revisa consola del servidor).</div>';
+  }
 }
 async function loadVendedores(){
   const rows = await api('/api/consumos/por-vendedor?' + getQS());
@@ -184,7 +265,7 @@ async function loadVendedores(){
 }
 async function loadAll(){
   try{
-    await Promise.all([loadResumen(), loadDiario(), loadTop(), loadVendedores()]);
+    await Promise.all([loadResumen(), loadDiario(), loadTop(), loadVendedores(), loadInsights()]);
     document.getElementById('pageSub').textContent = 'Cantidad vendida (unidades) alineada al filtro activo.';
   }catch(e){
     document.getElementById('pageSub').textContent = 'Error al cargar consumos: ' + e.message;

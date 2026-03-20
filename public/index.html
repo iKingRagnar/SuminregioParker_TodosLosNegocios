@@ -123,6 +123,7 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 .hero-eyebrow::before{content:'';display:inline-block;width:18px;height:1px;background:var(--suminregio);opacity:.8}
 .hero-title{font-size:2.6rem;font-weight:800;line-height:.95;letter-spacing:-.035em;background:linear-gradient(135deg,var(--suminregio) 0%,var(--yellow) 50%,var(--orange) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .hero-sub{font-size:.82rem;color:var(--text2);margin-top:.55rem;font-family:'DM Mono',monospace;letter-spacing:.02em;line-height:1.6}
+.hero-data-hint{margin-top:.5rem;max-width:72ch;padding:.55rem .75rem;border-radius:10px;border:1px solid rgba(255,184,0,.28);background:rgba(255,184,0,.08);font-family:'DM Mono',monospace;font-size:.72rem;color:var(--yellow);line-height:1.5}
 .hero-right{text-align:right}
 .hero-date{font-family:'DM Mono',monospace;font-size:.76rem;color:var(--muted);display:flex;align-items:center;justify-content:flex-end;gap:.45rem;margin-bottom:.4rem}
 .hero-date-val{color:var(--text2);font-weight:500}
@@ -321,6 +322,7 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
       <div class="hero-eyebrow">Executive Overview</div>
       <div class="hero-title">Command Center</div>
       <div class="hero-sub" id="heroSub">Cargando inteligencia del sistema...</div>
+      <div class="hero-data-hint" id="heroDataHint" hidden></div>
     </div>
     <div class="hero-right">
       <div class="hero-date">
@@ -777,6 +779,7 @@ async function initBizBar(){
         const raw=btn.getAttribute('data-db')||'';
         try{ const u=new URL(location.href); if(raw)u.searchParams.set('db',raw); else u.searchParams.delete('db'); history.replaceState({},'',u);}catch(_){}
         try{ if(raw)sessionStorage.setItem('microsip_erp_db',raw); else sessionStorage.removeItem('microsip_erp_db');}catch(_){}
+        try{ if(window.filterClearVendedorSilent) filterClearVendedorSilent(); }catch(_){}
         chips.querySelectorAll('.biz-chip').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); loadAll();
       });
     });
@@ -1105,6 +1108,25 @@ async function loadAll(){
         ? `${numVend} vendedores activos \u00b7 Meta diaria ${fmtM(metaDia)} \u00b7 CxC ${fmtM(cxcTotal)} \u00b7 Sin alertas cr\u00edticas`
         : `${numVend} vendedores \u00b7 Meta ${fmtM(metaDia)} \u00b7 CxC ${fmtM(cxcTotal)} \u00b7 Alertas: ${issues.join(', ')}`
     );
+
+    const hintEl=document.getElementById('heroDataHint');
+    if(hintEl){
+      hintEl.hidden=true;
+      hintEl.textContent='';
+      const ySel=parseInt(params.anio,10);
+      const mSel=parseInt(params.mes,10);
+      const periodYm=(preset==='mes'||preset==='mes_ant')&&!isNaN(ySel)&&!isNaN(mSel)&&ySel>0&&mSel>0?ySel*100+mSel:null;
+      const nowYm=now.getFullYear()*100+(now.getMonth()+1);
+      const vendFilt=String(params.vendedor||'').trim();
+      const looksEmpty=ventaMes===0&&valorVenta1===0&&cxcTotal===0&&invTotal===0&&cotiMes===0;
+      if(looksEmpty&&vendFilt){
+        hintEl.hidden=false;
+        hintEl.textContent='Filtro por vendedor activo: en otra base el mismo ID puede no aplicar o no tener ventas en este periodo. Prueba sin vendedor (todos) u otro mes.';
+      }else if(looksEmpty&&periodYm!=null&&periodYm<nowYm){
+        hintEl.hidden=false;
+        hintEl.textContent='Periodo '+periodLabel+': sin movimiento visible en esta base. Usa \u201cEste mes\u201d o \u201cEste a\u00f1o\u201d arriba si buscas operaci\u00f3n actual.';
+      }
+    }
 
     // Module cards (valores según preset; texto meta según periodo)
     const metaPeriodo = isVistaHoy ? 'hoy' : isSemana ? 'semana' : isMes ? 'mes' : 'a\u00f1o';

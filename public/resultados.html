@@ -140,14 +140,29 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 .skel{background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 50%,var(--s2) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;height:1.2rem;width:80%}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 
-/* Multi-empresa P&L (drill-down) */
-.biz-context-bar{background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:1rem 1.25rem;margin-bottom:1.25rem;display:flex;flex-wrap:wrap;align-items:center;gap:.85rem 1.25rem}
-.biz-context-label{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
-.biz-chips{display:flex;flex-wrap:wrap;gap:.45rem}
-.biz-chip{font-family:'DM Mono',monospace;font-size:.68rem;padding:.32rem .85rem;border-radius:99px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;transition:all .2s}
-.biz-chip:hover{color:var(--text);border-color:rgba(230,168,0,.35)}
-.biz-chip.active{color:var(--suminregio);border-color:rgba(230,168,0,.45);background:var(--suminregio-dim)}
-.biz-context-hint{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);flex:1;min-width:200px;line-height:1.45}
+/* Multi-empresa P&L — selector compacto (#id gana a .biz-context-bar inyectado en filters.js) */
+#bizContextBar.biz-context-bar--compact{
+  background:linear-gradient(165deg,rgba(17,34,51,.96),rgba(12,22,38,.92));
+  border:1px solid rgba(255,255,255,.09);border-radius:14px;padding:.75rem 1.1rem 1rem;margin-bottom:1.15rem;
+  display:flex;flex-direction:column;align-items:stretch;flex-wrap:nowrap;gap:.5rem;
+  box-shadow:0 12px 40px rgba(0,0,0,.22);
+}
+.biz-toolbar-row{display:flex;align-items:center;gap:.75rem 1rem;flex-wrap:wrap;width:100%}
+.biz-context-label{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;flex-shrink:0}
+.biz-select-wrap{flex:1;min-width:min(100%,200px);max-width:560px}
+.biz-select{
+  width:100%;box-sizing:border-box;
+  font-family:'DM Mono',monospace;font-size:.78rem;font-weight:500;
+  padding:.55rem 2.35rem .55rem .9rem;border-radius:10px;
+  border:1px solid var(--border2);background-color:var(--s2);color:var(--text);
+  cursor:pointer;transition:border-color .2s,box-shadow .2s;
+  appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236A85A6' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right .75rem center;
+}
+.biz-select:hover{border-color:rgba(230,168,0,.28)}
+.biz-select:focus{outline:none;border-color:rgba(230,168,0,.5);box-shadow:0 0 0 3px var(--suminregio-dim)}
+.biz-context-hint--compact{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);line-height:1.45;margin:0;padding:0;opacity:.88;max-width:72ch}
 .pl-score-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem;margin-bottom:1.25rem}
 @media(max-width:900px){.pl-score-grid{grid-template-columns:repeat(2,1fr)}}
 .pl-sc-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:.95rem 1rem;position:relative;overflow:hidden}
@@ -217,10 +232,14 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
   <div id="filter-bar"></div>
 
   <!-- Multi-empresa: chips + scorecard (inspirado en complemento MTD/YTD; aquí periodo = filtros + meses) -->
-  <div id="bizContextBar" class="biz-context-bar" style="display:none">
-    <span class="biz-context-label">Negocio</span>
-    <div class="biz-chips biz-chips-grid" id="bizChips"></div>
-    <div class="biz-context-hint" id="bizHint">Consolidado suma el P&amp;L del periodo de cada .fdb registrada. Elige una empresa para ver tablas y gráficas mensuales.</div>
+  <div id="bizContextBar" class="biz-context-bar biz-context-bar--compact" style="display:none">
+    <div class="biz-toolbar-row">
+      <span class="biz-context-label">Negocio</span>
+      <div class="biz-select-wrap">
+        <select id="bizSelect" class="biz-select" aria-label="Vista consolidada o empresa"></select>
+      </div>
+    </div>
+    <p class="biz-context-hint biz-context-hint--compact" id="bizHint">Consolidado suma el P&amp;L del periodo de cada base registrada. Elige una empresa para el detalle mes a mes y gr&aacute;ficas.</p>
   </div>
   <div id="plScoreStrip" style="display:none">
     <div class="pl-score-grid" id="plScoreGrid"></div>
@@ -461,23 +480,32 @@ function setDbUrl(id){
 function selectBusiness(id){
   selectedBizId=id;
   setDbUrl(id);
+  const sel=document.getElementById('bizSelect');
+  if(sel&&[...sel.options].some(o=>String(o.value)===String(id)))sel.value=id;
   loadData();
 }
 
 function renderBizChips(empresas){
   const bar=document.getElementById('bizContextBar');
-  const chips=document.getElementById('bizChips');
-  if(!bar||!chips)return;
+  const sel=document.getElementById('bizSelect');
+  if(!bar||!sel)return;
   const ok=(empresas||[]).filter(e=>e.ok);
   if(ok.length<=1){ bar.style.display='none'; return; }
   bar.style.display='flex';
   if(!selectedBizId||selectedBizId==='')selectedBizId='__ALL__';
-  const parts=['<button type="button" class="biz-chip'+(selectedBizId==='__ALL__'?' active':'')+'" data-biz="__ALL__">Grupo consolidado</button>'];
-  ok.forEach(e=>{ parts.push(`<button type="button" class="biz-chip${selectedBizId===e.id?' active':''}" data-biz="${e.id.replace(/"/g,'')}">${(e.label||e.id).replace(/</g,'')}</button>`); });
-  chips.innerHTML=parts.join('');
-  chips.querySelectorAll('.biz-chip').forEach(btn=>{
-    btn.addEventListener('click',()=>selectBusiness(btn.getAttribute('data-biz')));
+  sel.replaceChildren();
+  const optAll=document.createElement('option');
+  optAll.value='__ALL__';
+  optAll.textContent='Grupo consolidado (\u03a3 todas las empresas)';
+  sel.appendChild(optAll);
+  ok.forEach(e=>{
+    const o=document.createElement('option');
+    o.value=String(e.id);
+    o.textContent=String(e.label||e.id);
+    sel.appendChild(o);
   });
+  sel.value=[...sel.options].some(o=>o.value===selectedBizId)?selectedBizId:'__ALL__';
+  sel.onchange=function(){ selectBusiness(sel.value); };
 }
 
 function renderPlScoreFromTotals(tot, hasCosto, label){
