@@ -733,7 +733,17 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 <script>
 // Mismo origen si se sirve desde el servidor; si abres por file:// usa localhost:7000
 const API = (window.__API_BASE != null ? String(window.__API_BASE).replace(/\/+$/, '') : (window.location.protocol === 'file:' ? 'http://localhost:7000' : (window.location.origin || '')));
-function fwt(url,fallback,ms=10000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
+/** Cliente: 60s por defecto (alineado con FB_QUERY_DEFAULT_MS). Antes 10s → KPI vacíos. */
+function fwt(url,fallback,ms){
+  const msU = ms != null ? ms : 60000;
+  const u = String(url).startsWith('http') ? url : (API + url);
+  const ng = /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/i.test(u);
+  const h = ng ? { headers: { 'ngrok-skip-browser-warning': '1' } } : {};
+  return Promise.race([
+    fetch(u, h).then(r => r.json().then(d => (r.ok ? d : fallback)).catch(() => fallback)).catch(() => fallback),
+    new Promise(r => setTimeout(() => r(fallback), msU))
+  ]);
+}
 
 /** Lista de {id,label,database} desde GET /api/universe/databases (initBizBar). */
 let indexDbList = [];
@@ -746,7 +756,7 @@ function buildApiUrl(path,extra){
 /** Scorecard multi-empresa: no envía ?db= (recorre el registro completo). */
 function universeScorecardUrl(){
   const fqs=window.filterBuildQS?filterBuildQS(null,{omitDb:true}):'';
-  const uni='concurrency=3&queryMs=120000';
+  const uni='concurrency=3&queryMs=60000';
   const parts=[fqs,uni].filter(Boolean).join('&');
   return API+'/api/universe/scorecard'+(parts?'?'+parts:'');
 }
@@ -963,19 +973,18 @@ let chartTend=null;
 // -- Main load ------------------------------------------------------------------
 async function loadAll(){
   try{
-    const tKpi = 35000;
-    const tVentas = 120000;
+    const tApi = 60000;
     const [v,m,c,inv,dir,vends,cot,cumpl,cliRes,pnlData]=await Promise.all([
-      fwt(buildApiUrl('/api/ventas/resumen'),{},tVentas),
-      fwt(buildApiUrl('/api/config/metas'),{},tKpi),
-      fwt(buildApiUrl('/api/cxc/resumen'),{},tKpi),
-      fwt(buildApiUrl('/api/inv/resumen'),{},tKpi),
-      fwt(buildApiUrl('/api/director/resumen'),{},tVentas),
-      fwt(buildApiUrl('/api/director/vendedores'),[],tKpi),
-      fwt(buildApiUrl('/api/ventas/cotizaciones/resumen'),{},tKpi),
-      fwt(buildApiUrl('/api/ventas/cumplimiento'),[],tKpi),
-      fwt(buildApiUrl('/api/clientes/resumen-riesgo'),{},tKpi),
-      fwt(buildApiUrl('/api/resultados/pnl','meses=1'),{},tKpi),
+      fwt(buildApiUrl('/api/ventas/resumen'),{},tApi),
+      fwt(buildApiUrl('/api/config/metas'),{},tApi),
+      fwt(buildApiUrl('/api/cxc/resumen'),{},tApi),
+      fwt(buildApiUrl('/api/inv/resumen'),{},tApi),
+      fwt(buildApiUrl('/api/director/resumen'),{},tApi),
+      fwt(buildApiUrl('/api/director/vendedores'),[],tApi),
+      fwt(buildApiUrl('/api/ventas/cotizaciones/resumen'),{},tApi),
+      fwt(buildApiUrl('/api/ventas/cumplimiento'),[],tApi),
+      fwt(buildApiUrl('/api/clientes/resumen-riesgo'),{},tApi),
+      fwt(buildApiUrl('/api/resultados/pnl','meses=1'),{},tApi),
     ]);
     // fwt ya retorna el fallback directamente; no necesita .value
 
@@ -1249,7 +1258,7 @@ async function loadAll(){
       {name:'Margen Bruto',area:'Resultados - P&amp;L',actual:resMargen,meta:30,actualFmt:resMargen.toFixed(1)+'%',metaFmt:'\u2265 30%',valColor:resMargen>=30?'var(--green)':resMargen>=15?'var(--yellow)':'var(--red)'},
     ]);
 
-    fwt(universeScorecardUrl(),{ empresas: [], consolidado: {} },45000).then(function(uniData){
+    fwt(universeScorecardUrl(),{ empresas: [], consolidado: {} },tApi).then(function(uniData){
       try{ renderUniversePortfolio(uniData); }catch(_){}
     });
 

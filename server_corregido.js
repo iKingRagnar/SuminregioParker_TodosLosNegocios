@@ -118,9 +118,16 @@ const DB_OPTIONS = {
 
 console.log('DB path:', DB_OPTIONS.database);
 
+/** Timeout por consulta Firebird (antes 12s → casi todo el dashboard fallaba en producción). .env: FB_QUERY_DEFAULT_MS= */
+const FB_QUERY_DEFAULT_MS = Math.min(
+  Math.max(parseInt(process.env.FB_QUERY_DEFAULT_MS || '60000', 10) || 60000, 5000),
+  180000
+);
+console.log('[Firebird] timeout por defecto por query:', FB_QUERY_DEFAULT_MS, 'ms');
+
 // ── Helper: ejecuta query → promesa ──────────────────────────────────────────
 // dbOptsOverride: si se pasa, usa esa conexión (multi-empresa / scorecard universo).
-function query(sql, params = [], timeoutMs = 12000, dbOptsOverride = null) {
+function query(sql, params = [], timeoutMs = FB_QUERY_DEFAULT_MS, dbOptsOverride = null) {
   const attachOpts = dbOptsOverride || DB_OPTIONS;
   const queryPromise = new Promise((resolve, reject) => {
     Firebird.attach(attachOpts, (err, db) => {
@@ -964,7 +971,7 @@ get('/api/config/metas', async (req) => {
     )
     AND EXTRACT(YEAR  FROM FECHA) = EXTRACT(YEAR  FROM CURRENT_DATE)
     AND EXTRACT(MONTH FROM FECHA) = EXTRACT(MONTH FROM CURRENT_DATE)
-  `, [], 12000, dbo);
+  `, [], FB_QUERY_DEFAULT_MS, dbo);
   const numV = (rows[0] && rows[0].NUM_VENDEDORES) ? Number(rows[0].NUM_VENDEDORES) : 1;
 
   const META_DIA_V   = 5650;
@@ -989,8 +996,8 @@ get('/api/config/metas', async (req) => {
 get('/api/config/filtros', async (req) => {
   const dbo = getReqDbOpts(req);
   const [vendedores, clientes, anios] = await Promise.all([
-    query(`SELECT VENDEDOR_ID, NOMBRE FROM VENDEDORES WHERE COALESCE(ESTATUS,'A') NOT IN ('I','B','0','N') ORDER BY NOMBRE`, [], 12000, dbo)
-      .catch(() => query(`SELECT VENDEDOR_ID, NOMBRE FROM VENDEDORES ORDER BY NOMBRE`, [], 12000, dbo)),
+    query(`SELECT VENDEDOR_ID, NOMBRE FROM VENDEDORES WHERE COALESCE(ESTATUS,'A') NOT IN ('I','B','0','N') ORDER BY NOMBRE`, [], FB_QUERY_DEFAULT_MS, dbo)
+      .catch(() => query(`SELECT VENDEDOR_ID, NOMBRE FROM VENDEDORES ORDER BY NOMBRE`, [], FB_QUERY_DEFAULT_MS, dbo)),
     query(`
       SELECT FIRST 500 d.CLIENTE_ID, c.NOMBRE
       FROM (
@@ -1000,13 +1007,13 @@ get('/api/config/filtros', async (req) => {
       ) d
       JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
       ORDER BY c.NOMBRE
-    `, [], 12000, dbo),
+    `, [], FB_QUERY_DEFAULT_MS, dbo),
     query(`
       SELECT DISTINCT EXTRACT(YEAR FROM FECHA) AS ANIO
       FROM DOCTOS_VE
       WHERE (TIPO_DOCTO='F' OR TIPO_DOCTO='V') AND ESTATUS <> 'C'
       ORDER BY ANIO DESC
-    `, [], 12000, dbo),
+    `, [], FB_QUERY_DEFAULT_MS, dbo),
   ]);
   return { vendedores, clientes, anios };
 });
@@ -1015,7 +1022,7 @@ get('/api/config/filtros', async (req) => {
  * Agregados de ventas sin UNION (VE y PV en paralelo). El UNION ALL sobre tablas grandes en Firebird
  * suele agotar timeout; dos SELECT con índice por tabla suele ser más rápido.
  */
-async function queryVentasResumenAgregado(dbo, tipo, f, timeoutMs = 120000) {
+async function queryVentasResumenAgregado(dbo, tipo, f, timeoutMs = FB_QUERY_DEFAULT_MS) {
   const imp = sqlVentaImporteBaseExpr('d');
   const wVe = sqlWhereVentasDocumentoValido('d');
   const wPv = sqlWhereVentasDocumentoValido('d');
@@ -1048,7 +1055,7 @@ async function queryVentasResumenAgregado(dbo, tipo, f, timeoutMs = 120000) {
 }
 
 /** Diagnóstico resumen: contar/sumar sin filtro de mes — mismo criterio que queryVentasResumenAgregado pero sin UNION. */
-async function queryVentasDiagnosticoSinFecha(dbo, tipo, f2, timeoutMs = 120000) {
+async function queryVentasDiagnosticoSinFecha(dbo, tipo, f2, timeoutMs = FB_QUERY_DEFAULT_MS) {
   const imp = sqlVentaImporteBaseExpr('d');
   const wVe = sqlWhereVentasDocumentoValido('d');
   const wPv = sqlWhereVentasDocumentoValido('d');
@@ -1094,7 +1101,7 @@ get('/api/ventas/resumen', async (req) => {
   const tipo = getTipo(req);
   let rows;
   try {
-    rows = await queryVentasResumenAgregado(dbo, tipo, f, 120000);
+    rows = await queryVentasResumenAgregado(dbo, tipo, f, FB_QUERY_DEFAULT_MS);
   } catch (err) {
     console.error('[ventas/resumen]', err && err.message, err);
     return {
@@ -1116,7 +1123,7 @@ get('/api/ventas/resumen', async (req) => {
         if (rq2.query && Object.prototype.hasOwnProperty.call(rq2.query, k)) delete rq2.query[k];
       });
       const f2 = buildFiltros(rq2, 'd');
-      const rows2 = await queryVentasDiagnosticoSinFecha(dbo, tipo, f2, 120000);
+      const rows2 = await queryVentasDiagnosticoSinFecha(dbo, tipo, f2, FB_QUERY_DEFAULT_MS);
       const r2 = rows2[0] || {};
       const nTot = +(r2.N || 0);
       if (nTot > 0) {
@@ -1130,8 +1137,8 @@ get('/api/ventas/resumen', async (req) => {
         };
       } else {
         const [cVe, cPv] = await Promise.all([
-          query(`SELECT COUNT(*) AS N FROM DOCTOS_VE`, [], 8000, dbo).catch(() => [{ N: 0 }]),
-          query(`SELECT COUNT(*) AS N FROM DOCTOS_PV`, [], 8000, dbo).catch(() => [{ N: 0 }]),
+          query(`SELECT COUNT(*) AS N FROM DOCTOS_VE`, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => [{ N: 0 }]),
+          query(`SELECT COUNT(*) AS N FROM DOCTOS_PV`, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => [{ N: 0 }]),
         ]);
         const nVe = +(cVe[0] && cVe[0].N);
         const nPv = +(cPv[0] && cPv[0].N);
@@ -1176,7 +1183,7 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
     FROM DOCTOS_VE d
     WHERE ${sqlWhereCotizacionActiva('d')}
       ${f.sql}
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
   return normalizeCotizacionResumenRow(rows[0]);
 });
 
@@ -1204,7 +1211,7 @@ get('/api/ventas/diarias', async (req) => {
     WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
     GROUP BY CAST(d.FECHA AS DATE) ORDER BY 1
     `;
-  const rows = await query(sql, [desdeStr], 12000, dbo).catch(() => []);
+  const rows = await query(sql, [desdeStr], FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
   if (tipo !== '') return (rows || []).map(r => ({ DIA: r.DIA, VENTAS_VE: tipo === 'VE' ? (r.TOTAL_VENTAS || 0) : 0, VENTAS_PV: tipo === 'PV' ? (r.TOTAL_VENTAS || 0) : 0, TOTAL_VENTAS: r.TOTAL_VENTAS || 0 }));
   return rows || [];
 });
@@ -1218,7 +1225,7 @@ get('/api/ventas/semanales', async (req) => {
       COUNT(*) AS FACTURAS, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL
     FROM ${ventasSub(tipo)} d WHERE 1=1 ${f.sql}
     GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(WEEK FROM d.FECHA) ORDER BY 1, 2
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 get('/api/ventas/mensuales', async (req) => {
@@ -1238,7 +1245,7 @@ get('/api/ventas/mensuales', async (req) => {
         COALESCE(SUM(d.IMPORTE_NETO), 0) AS TOTAL
       FROM ${ventasSub()} d WHERE 1=1 ${f.sql}
       GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
-    `, f.params, 12000, dbo).catch(() => []);
+    `, f.params, FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
     return (rows || []).map(r => ({ ANIO: r.ANIO, MES: r.MES, FACTURAS: r.FACTURAS, VENTAS_VE: r.VENTAS_VE, VENTAS_PV: r.VENTAS_PV, TOTAL: r.TOTAL }));
   }
   return query(`
@@ -1246,7 +1253,7 @@ get('/api/ventas/mensuales', async (req) => {
       COUNT(*) AS FACTURAS, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL
     FROM ${ventasSub(tipo)} d WHERE 1=1 ${f.sql}
     GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
-  `, f.params, 12000, dbo).catch(() => []).then(rows => (rows || []).map(r => ({ ANIO: r.ANIO, MES: r.MES, FACTURAS: r.FACTURAS, VENTAS_VE: tipo === 'VE' ? r.TOTAL : 0, VENTAS_PV: tipo === 'PV' ? r.TOTAL : 0, TOTAL: r.TOTAL })));
+  `, f.params, FB_QUERY_DEFAULT_MS, dbo).catch(() => []).then(rows => (rows || []).map(r => ({ ANIO: r.ANIO, MES: r.MES, FACTURAS: r.FACTURAS, VENTAS_VE: tipo === 'VE' ? r.TOTAL : 0, VENTAS_PV: tipo === 'PV' ? r.TOTAL : 0, TOTAL: r.TOTAL })));
 });
 
 get('/api/ventas/cotizaciones/diarias', async (req) => {
@@ -1262,7 +1269,7 @@ get('/api/ventas/cotizaciones/diarias', async (req) => {
     WHERE ${sqlWhereCotizacionActiva('d')}
       AND CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
     GROUP BY CAST(d.FECHA AS DATE) ORDER BY 1
-  `, [desdeStr], 12000, dbo).catch(() => []);
+  `, [desdeStr], FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
   return (rows || []).map(r => ({ DIA: r.DIA, COTIZACIONES: r.COTIZACIONES, TOTAL_COTIZACIONES: r.TOTAL_COTIZACIONES || 0 }));
 });
 
@@ -1275,7 +1282,7 @@ get('/api/ventas/cotizaciones/semanales', async (req) => {
       COUNT(*) AS COTIZACIONES, COALESCE(SUM(${ci}),0) AS TOTAL
     FROM DOCTOS_VE d WHERE ${sqlWhereCotizacionActiva('d')} ${f.sql}
     GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(WEEK FROM d.FECHA) ORDER BY 1, 2
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 get('/api/ventas/cotizaciones/mensuales', async (req) => {
@@ -1287,7 +1294,7 @@ get('/api/ventas/cotizaciones/mensuales', async (req) => {
       COUNT(*) AS COTIZACIONES, COALESCE(SUM(${ci}),0) AS TOTAL
     FROM DOCTOS_VE d WHERE ${sqlWhereCotizacionActiva('d')} ${f.sql}
     GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 get('/api/ventas/top-clientes', async (req) => {
@@ -1302,7 +1309,7 @@ get('/api/ventas/top-clientes', async (req) => {
     LEFT JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
     WHERE d.CLIENTE_ID > 0 ${f.sql}
     GROUP BY d.CLIENTE_ID, c.NOMBRE ORDER BY TOTAL DESC
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 // ventas.html / vendedores: totales del **periodo filtrado** (anio/mes, año, o desde-hasta), no forzados al mes calendario del servidor.
@@ -1331,7 +1338,7 @@ get('/api/ventas/por-vendedor', async (req) => {
     GROUP BY COALESCE(d.VENDEDOR_ID, 0), COALESCE(v.NOMBRE, 'Sin vendedor') ORDER BY VENTAS_MES DESC
   `,
     f.params,
-    12000,
+    FB_QUERY_DEFAULT_MS,
     dbo
   ).catch((err) => {
     console.error('[ventas/por-vendedor]', err && err.message, err);
@@ -1364,7 +1371,7 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
     WHERE ${sqlWhereCotizacionActiva('d')} AND d.VENDEDOR_ID > 0 ${f.sql} ${vendSql}
     GROUP BY v.NOMBRE, d.VENDEDOR_ID
     ORDER BY COTIZACIONES_MES DESC
-  `, params, 12000, dbo).catch(() => []);
+  `, params, FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 get('/api/ventas/recientes', async (req) => {
@@ -1381,7 +1388,7 @@ get('/api/ventas/recientes', async (req) => {
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
     WHERE 1=1 ${f.sql}
     ORDER BY d.FECHA DESC, d.FOLIO DESC
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 get('/api/ventas/vs-cotizaciones', async (req) => {
@@ -1396,7 +1403,7 @@ get('/api/ventas/vs-cotizaciones', async (req) => {
         COALESCE(SUM(d.IMPORTE_NETO), 0) AS TOTAL_VENTAS, COUNT(*) AS NUM_DOCS
       FROM ${ventasSub()} d WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
       GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
-    `, [desdeStr], 12000, dbo).catch(() => []),
+    `, [desdeStr], FB_QUERY_DEFAULT_MS, dbo).catch(() => []),
     query(`
       SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
         COALESCE(SUM(${sqlCotiImporteExpr('d')}), 0) AS TOTAL_COTI, COUNT(*) AS NUM_COTI
@@ -1404,7 +1411,7 @@ get('/api/ventas/vs-cotizaciones', async (req) => {
       WHERE ${sqlWhereCotizacionActiva('d')}
         AND CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
       GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
-    `, [desdeStr], 12000, dbo).catch(() => []),
+    `, [desdeStr], FB_QUERY_DEFAULT_MS, dbo).catch(() => []),
   ]);
   return { ventas: ventasMes || [], cotizaciones: cotizMes || [] };
 });
@@ -1419,7 +1426,7 @@ get('/api/ventas/ranking-clientes', async (req) => {
     LEFT JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
     WHERE d.CLIENTE_ID > 0 ${f.sql}
     GROUP BY d.CLIENTE_ID, c.NOMBRE ORDER BY VENTA DESC
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 // Cobradas: ventas en periodo (d.FECHA) + cobro real por vendedor (IMPORTES_DOCTOS_CC tipo R). Fecha de periodo: COALESCE(i.FECHA, dc.FECHA) si i.FECHA viene nula.
@@ -1460,7 +1467,7 @@ get('/api/ventas/cobradas', async (req) => {
       LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
       WHERE 1=1 ${f.sql} ${vendedorQ}
       GROUP BY COALESCE(d.VENDEDOR_ID, 0), COALESCE(v.NOMBRE, 'Sin vendedor')
-    `, f.params, 12000, dbo).catch(() => []),
+    `, f.params, FB_QUERY_DEFAULT_MS, dbo).catch(() => []),
     query(`
       SELECT
         COALESCE(ve.VENDEDOR_ID, pv.VENDEDOR_ID, 0) AS VENDEDOR_ID,
@@ -1468,15 +1475,15 @@ get('/api/ventas/cobradas', async (req) => {
         COALESCE(SUM(CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END), 0) AS TOTAL_COBRADO
       ${cobroSqlAtrib}
       GROUP BY COALESCE(ve.VENDEDOR_ID, pv.VENDEDOR_ID, 0)
-    `, fi.params, 12000, dbo).catch(() => []),
+    `, fi.params, FB_QUERY_DEFAULT_MS, dbo).catch(() => []),
     query(`
       SELECT COALESCE(SUM(CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END), 0) AS TOTAL_COBRADO
       ${cobroSqlFull}
-    `, fi.params, 12000, dbo).catch(() => [{ TOTAL_COBRADO: 0 }]),
+    `, fi.params, FB_QUERY_DEFAULT_MS, dbo).catch(() => [{ TOTAL_COBRADO: 0 }]),
     query(`
       SELECT COALESCE(SUM(CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END), 0) AS TOTAL_COBRADO
       ${cobroSqlAtrib}
-    `, fi.params, 12000, dbo).catch(() => [{ TOTAL_COBRADO: 0 }]),
+    `, fi.params, FB_QUERY_DEFAULT_MS, dbo).catch(() => [{ TOTAL_COBRADO: 0 }]),
   ]);
 
   const totalCobradoReal = +(cobrosRow && cobrosRow[0] && cobrosRow[0].TOTAL_COBRADO) || 0;
@@ -1562,7 +1569,7 @@ get('/api/ventas/cobradas-detalle', async (req) => {
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = COALESCE(ve.VENDEDOR_ID, pv.VENDEDOR_ID)
     WHERE i.TIPO_IMPTE = 'R' AND COALESCE(i.CANCELADO, 'N') = 'N' ${fi.sql}
     ORDER BY COALESCE(i.FECHA, dc.FECHA) DESC, dc.FOLIO DESC
-  `, fi.params, 15000, dbo).catch(() => []);
+  `, fi.params, FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 // Margen por renglón: DOCTOS_VE_DET / DOCTOS_PV_DET (venta sin campo importe: PRECIO_T o UNIDADES×PRECIO_U).
@@ -1641,7 +1648,7 @@ get('/api/ventas/margen-lineas', async (req) => {
     const rows = await query(
       `SELECT FIRST ${limit} * FROM (${sql}) u ORDER BY u.FECHA DESC, u.FOLIO DESC`,
       params,
-      20000,
+      FB_QUERY_DEFAULT_MS,
       dbo
     );
     return mapRows(rows);
@@ -1652,7 +1659,7 @@ get('/api/ventas/margen-lineas', async (req) => {
       const rows = await query(
         `SELECT FIRST ${limit} * FROM (${sql}) u ORDER BY u.FECHA DESC, u.FOLIO DESC`,
         params,
-        20000,
+        FB_QUERY_DEFAULT_MS,
         dbo
       );
       return mapRows(rows);
@@ -1663,7 +1670,7 @@ get('/api/ventas/margen-lineas', async (req) => {
         const rows = await query(
           `SELECT FIRST ${limit} * FROM (${sql}) u ORDER BY u.FECHA DESC, u.FOLIO DESC`,
           params,
-          20000,
+          FB_QUERY_DEFAULT_MS,
           dbo
         );
         return mapRows(rows);
@@ -1727,7 +1734,7 @@ get('/api/ventas/cobradas-por-factura', async (req) => {
     ORDER BY q.VENDEDOR_ID, q.COBRADO_PERIODO DESC, q.FECHA_FACTURA DESC
   `;
   const params = [...f.params, ...fiIr.params];
-  return query(sql, params, 20000, dbo).catch(() => []);
+  return query(sql, params, FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 get('/api/ventas/margen', async (req) => {
@@ -1742,7 +1749,7 @@ get('/api/ventas/margen', async (req) => {
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
     WHERE ${sqlWhereVentasDocumentoValido('d')} ${f.sql}
     GROUP BY d.VENDEDOR_ID, v.NOMBRE, EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA)
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 get('/api/ventas/margen-articulos', async (req) => {
@@ -1756,7 +1763,7 @@ get('/api/ventas/margen-articulos', async (req) => {
     LEFT JOIN ARTICULOS a ON a.ARTICULO_ID = det.ARTICULO_ID
     WHERE ${sqlWhereVentasDocumentoValido('d')} ${f.sql}
     GROUP BY a.ARTICULO_ID, a.DESCRIPCION ORDER BY MARGEN DESC
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 get('/api/ventas/cotizaciones', async (req) => {
@@ -1774,12 +1781,12 @@ get('/api/ventas/cotizaciones', async (req) => {
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
     WHERE ${sqlWhereCotizacionActiva('d')} ${f.sql}
     ORDER BY d.FECHA DESC, d.FOLIO DESC
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 get('/api/ventas/vendedores', async (req) => {
   const dbo = getReqDbOpts(req);
-  return query(`SELECT VENDEDOR_ID, NOMBRE FROM VENDEDORES WHERE COALESCE(ESTATUS,'A') NOT IN ('I','B','0','N') ORDER BY NOMBRE`, [], 12000, dbo).catch(() => []);
+  return query(`SELECT VENDEDOR_ID, NOMBRE FROM VENDEDORES WHERE COALESCE(ESTATUS,'A') NOT IN ('I','B','0','N') ORDER BY NOMBRE`, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 get('/api/ventas/diario', async (req) => {
@@ -1790,7 +1797,7 @@ get('/api/ventas/diario', async (req) => {
     SELECT CAST(d.FECHA AS DATE) AS FECHA, COUNT(*) AS FACTURAS, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL
     FROM ${ventasSub(tipo)} d WHERE 1=1 ${f.sql}
     GROUP BY CAST(d.FECHA AS DATE) ORDER BY 1
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -1806,7 +1813,7 @@ get('/api/ventas/cumplimiento', async (req) => {
   const desde = req.query.desde;
   const hasta = req.query.hasta;
 
-  const [metas] = await query(`SELECT COALESCE(MAX(META_DIARIA_POR_VENDEDOR),0) AS META_DIA, COALESCE(MAX(META_IDEAL_POR_VENDEDOR),0) AS META_IDEAL FROM CONFIGURACIONES_GEN`, [], 12000, dbo).catch(() => [{ META_DIA: 5650, META_IDEAL: 6500 }]);
+  const [metas] = await query(`SELECT COALESCE(MAX(META_DIARIA_POR_VENDEDOR),0) AS META_DIA, COALESCE(MAX(META_IDEAL_POR_VENDEDOR),0) AS META_IDEAL FROM CONFIGURACIONES_GEN`, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => [{ META_DIA: 5650, META_IDEAL: 6500 }]);
   const metaDia = +(metas && metas.META_DIA) || 5650;
   const metaIdeal = +(metas && metas.META_IDEAL) || 6500;
 
@@ -1842,7 +1849,7 @@ get('/api/ventas/cumplimiento', async (req) => {
     FROM ${ventasSub()} d
     WHERE ${condAnioMes} ${condVendedor}
     GROUP BY COALESCE(d.VENDEDOR_ID, 0)
-  `, [], 12000, dbo).catch(() => []);
+  `, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 
   const ventaMap = {};
   (ventas || []).forEach(v => { ventaMap[v.VENDEDOR_ID] = v; });
@@ -1853,7 +1860,7 @@ get('/api/ventas/cumplimiento', async (req) => {
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
     WHERE ${condAnioMes} ${condVendedor}
     ORDER BY 2
-  `, [], 12000, dbo).catch(() => []);
+  `, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 
   const metaMes = metaDia * Math.max(diasTranscurridos, 1);
   const rowsMapped = (rows || []).map(v => {
@@ -1888,7 +1895,7 @@ get('/api/ventas/cumplimiento', async (req) => {
 
 // director.html espera: dir.ventas (HOY, MES_ACTUAL, FACTURAS_MES, MES_VE, MES_PV), dir.cxc, dir.cotizaciones
 async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
-  const qms = perQueryMs != null ? perQueryMs : 60000;
+  const qms = perQueryMs != null ? perQueryMs : FB_QUERY_DEFAULT_MS;
   const rq = { query: { ...req.query } };
   if (!rq.query.desde && !rq.query.hasta && !rq.query.anio) {
     const now = new Date();
@@ -1955,7 +1962,7 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
   };
 }
 
-get('/api/director/resumen', async (req) => directorResumenSnapshot(req, getReqDbOpts(req), 60000));
+get('/api/director/resumen', async (req) => directorResumenSnapshot(req, getReqDbOpts(req), FB_QUERY_DEFAULT_MS));
 
 // Catálogo de bases (sin credenciales) + scorecard multi-empresa (misma lógica que director, concurrencia acotada).
 get('/api/universe/databases', async () =>
@@ -1964,7 +1971,7 @@ get('/api/universe/databases', async () =>
 
 get('/api/universe/scorecard', async (req) => {
   const conc = Math.min(Math.max(parseInt(req.query.concurrency, 10) || 2, 1), 5);
-  const qms = Math.min(Math.max(parseInt(req.query.queryMs, 10) || 10000, 3000), 180000);
+  const qms = Math.min(Math.max(parseInt(req.query.queryMs, 10) || FB_QUERY_DEFAULT_MS, 3000), 180000);
   const rows = await mapPoolLimit(DATABASE_REGISTRY, conc, async (entry) => {
     try {
       const data = await directorResumenSnapshot(req, entry.options, qms);
@@ -2028,12 +2035,12 @@ get('/api/director/ventas-diarias', async (req) => {
     FROM ${ventasSub()} d
     WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE) ${vendSql}
     GROUP BY CAST(d.FECHA AS DATE) ORDER BY 1
-  `, paramsDiarias, 12000, dbo).catch(() => []);
+  `, paramsDiarias, FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 
-  const numVRow = await query(`SELECT COUNT(*) AS N FROM VENDEDORES WHERE COALESCE(ESTATUS,'A') NOT IN ('I','B','0','N')`, [], 12000, dbo).catch(() => [{ N: 1 }]);
+  const numVRow = await query(`SELECT COUNT(*) AS N FROM VENDEDORES WHERE COALESCE(ESTATUS,'A') NOT IN ('I','B','0','N')`, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => [{ N: 1 }]);
   let numV = (numVRow[0] && numVRow[0].N != null) ? Math.max(Number(numVRow[0].N), 1) : 1;
   if (Number.isFinite(vid)) numV = 1;
-  const cfgRow = await query(`SELECT COALESCE(MAX(META_DIARIA_POR_VENDEDOR), 0) AS M FROM CONFIGURACIONES_GEN`, [], 12000, dbo).catch(() => [{ M: 0 }]);
+  const cfgRow = await query(`SELECT COALESCE(MAX(META_DIARIA_POR_VENDEDOR), 0) AS M FROM CONFIGURACIONES_GEN`, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => [{ M: 0 }]);
   const META_POR_VENDEDOR = +(cfgRow[0] && cfgRow[0].M) > 0 ? +(cfgRow[0].M) : 5650;
   const FACTOR_IDEAL = 1.30;
 
@@ -2066,7 +2073,7 @@ get('/api/director/top-clientes', async (req) => {
     LEFT JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
     WHERE d.CLIENTE_ID > 0 ${f.sql}
     GROUP BY d.CLIENTE_ID, c.NOMBRE ORDER BY TOTAL_VENTAS DESC
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 // director.html e index.html (Inicio): listado de vendedores con ventas en el periodo.
@@ -2086,7 +2093,7 @@ get('/api/director/vendedores', async (req) => {
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
     WHERE 1=1 ${f.sql}
     GROUP BY COALESCE(d.VENDEDOR_ID, 0), COALESCE(v.NOMBRE, 'Sin vendedor') ORDER BY VENTAS_MES DESC
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
   return rows;
 });
 
@@ -2107,7 +2114,7 @@ get('/api/director/recientes', async (req) => {
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
     WHERE 1=1 ${f.sql}
     ORDER BY d.FECHA DESC, d.FOLIO DESC
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -2153,9 +2160,9 @@ get('/api/cxc/resumen', async (req) => {
         SUM(CASE WHEN doc.DIAS_VENCIDO >= 1 THEN doc.SALDO_NETO ELSE 0 END) AS VENCIDO,
         SUM(CASE WHEN doc.DIAS_VENCIDO <= 0 THEN doc.SALDO_NETO ELSE 0 END) AS POR_VENCER
       FROM ${docSal}
-    `, [], 12000, dbo).catch(() => [{ VENCIDO: 0, POR_VENCER: 0 }]),
-    query(`SELECT COUNT(DISTINCT doc.CLIENTE_ID) AS N FROM ${docSal}`, [], 12000, dbo).catch(() => [{ N: 0 }]),
-    query(`SELECT COUNT(DISTINCT doc.CLIENTE_ID) AS N FROM ${docSalVencCli}`, [], 12000, dbo).catch(() => [{ N: 0 }]),
+    `, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => [{ VENCIDO: 0, POR_VENCER: 0 }]),
+    query(`SELECT COUNT(DISTINCT doc.CLIENTE_ID) AS N FROM ${docSal}`, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => [{ N: 0 }]),
+    query(`SELECT COUNT(DISTINCT doc.CLIENTE_ID) AS N FROM ${docSalVencCli}`, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => [{ N: 0 }]),
   ]);
   const vencido = +(totales[0] && totales[0].VENCIDO) || 0;
   const porVencer = +(totales[0] && totales[0].POR_VENCER) || 0;
@@ -2182,7 +2189,7 @@ get('/api/cxc/aging', async (req) => {
       SUM(CASE WHEN doc.DIAS_VENCIDO BETWEEN 61 AND  90 THEN doc.SALDO_NETO ELSE 0 END) AS DIAS_61_90,
       SUM(CASE WHEN doc.DIAS_VENCIDO > 90               THEN doc.SALDO_NETO ELSE 0 END) AS DIAS_MAS_90
     FROM ${cxcDocSaldosSQL(cfSql)}
-  `, [], 12000, dbo).catch(() => [{ CORRIENTE: 0, DIAS_1_30: 0, DIAS_31_60: 0, DIAS_61_90: 0, DIAS_MAS_90: 0 }]);
+  `, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => [{ CORRIENTE: 0, DIAS_1_30: 0, DIAS_31_60: 0, DIAS_61_90: 0, DIAS_MAS_90: 0 }]);
   const r = rows[0] || {};
   return {
     CORRIENTE  : Math.round((+r.CORRIENTE   || 0) * 100) / 100,
@@ -2225,7 +2232,7 @@ get('/api/cxc/vencidas', async (req) => {
     JOIN CLIENTES c ON c.CLIENTE_ID = x.CLIENTE_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = dc.COND_PAGO_ID
     ORDER BY x.SALDO_NETO DESC, x.DIAS_ATRASO DESC
-  `, [], 12000, dbo).catch(() => []);
+  `, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 // Top Deudores: saldo neto + condición + vencido proporcional al saldo (igual que /api/cxc/resumen). Acepta ?cliente= para filtrar.
@@ -2236,7 +2243,7 @@ get('/api/cxc/top-deudores', async (req) => {
   const cfSql = cf ? ` WHERE s.CLIENTE_ID = ${cf}` : '';
   const cfSql2 = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
   const [saldos, aging] = await Promise.all([
-    query(`SELECT s.CLIENTE_ID, s.SALDO FROM ${cxcClienteSQL()} s ${cfSql}`, [], 12000, dbo).catch(() => []),
+    query(`SELECT s.CLIENTE_ID, s.SALDO FROM ${cxcClienteSQL()} s ${cfSql}`, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => []),
     query(`
       SELECT cd.CLIENTE_ID,
         SUM(cd.SALDO) AS TOTAL_C,
@@ -2246,7 +2253,7 @@ get('/api/cxc/top-deudores', async (req) => {
       FROM ${cxcCargosSQL()} cd
       WHERE 1=1 ${cfSql2}
       GROUP BY cd.CLIENTE_ID
-    `, [], 12000, dbo).catch(() => []),
+    `, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => []),
   ]);
   const agingMap = {};
   aging.forEach(a => { agingMap[a.CLIENTE_ID] = a; });
@@ -2257,7 +2264,7 @@ get('/api/cxc/top-deudores', async (req) => {
     FROM CLIENTES cl
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = cl.COND_PAGO_ID
     WHERE cl.CLIENTE_ID IN (${clienteIds.join(',')})
-  `, [], 12000, dbo).catch(() => []);
+  `, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
   const clMap = {};
   clientes.forEach(c => { clMap[c.CLIENTE_ID] = c; });
   const result = saldos
@@ -2293,7 +2300,7 @@ get('/api/cxc/historial', async (req) => {
     SELECT cd.CLIENTE_ID, cd.FOLIO, cd.FECHA_VENCIMIENTO, cd.DIAS_VENCIDO, cd.SALDO
     FROM ${cxcCargosSQL()} cd WHERE cd.CLIENTE_ID = ?
     ORDER BY cd.FECHA_VENCIMIENTO
-  `, [cliente], 12000, dbo).catch(() => []);
+  `, [cliente], FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 // Por condición: mismo saldo documento que aging (cargo en DOCTO_CC_ID − cobros en DOCTO_CC_ACR_ID); una fila por DOCTO_CC_ID.
@@ -2320,7 +2327,7 @@ get('/api/cxc/por-condicion', async (req) => {
     JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = x.DOCTO_CC_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = dc.COND_PAGO_ID
   `;
-  const docs = await query(innerSQL, [], 15000, dbo).catch(() => []);
+  const docs = await query(innerSQL, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
   const byCond = {};
   let pendContado = {
     CONDICION_PAGO: 'Pendiente de cobro (documentos contado / sin crédito)',
@@ -2435,13 +2442,13 @@ get('/api/cxc/historial-pagos', async (req) => {
     GROUP BY dc.DOCTO_CC_ID, dc.FOLIO, cl.NOMBRE, cl.CLIENTE_ID, cp.NOMBRE, cp.DIAS_PPAG, dc.FECHA
     HAVING SUM(CASE WHEN i.TIPO_IMPTE = 'C' THEN i.IMPORTE ELSE 0 END) > 0
     ORDER BY dc.FECHA DESC
-  `, [], 12000, dbo).catch(() => []);
+  `, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
   if (!saldosActuales || !rows || !rows.length) return rows || [];
   const ids = [...new Set((rows || []).map(r => r.CLIENTE_ID).filter(Boolean))];
   if (!ids.length) return { rows, saldosPorCliente: {} };
   let saldosPorCliente = {};
   try {
-    const saldosRows = await query(`SELECT cs.CLIENTE_ID, cs.SALDO FROM ${cxcClienteSQL()} cs WHERE cs.CLIENTE_ID IN (${ids.join(',')})`, [], 12000, dbo).catch(() => []);
+    const saldosRows = await query(`SELECT cs.CLIENTE_ID, cs.SALDO FROM ${cxcClienteSQL()} cs WHERE cs.CLIENTE_ID IN (${ids.join(',')})`, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
     (saldosRows || []).forEach(r => { saldosPorCliente[r.CLIENTE_ID] = +r.SALDO || 0; });
   } catch (_) { /* si falla saldos, igual devolver rows */ }
   return { rows, saldosPorCliente };
@@ -2455,7 +2462,7 @@ get('/api/cxc/comportamiento-pago', async (req) => {
     SELECT cd.CLIENTE_ID, AVG(cd.DIAS_VENCIDO) AS PROMEDIO_DIAS_VENCIDO, COUNT(*) AS DOCS_VENCIDOS
     FROM ${cxcCargosSQL()} cd WHERE cd.CLIENTE_ID = ? AND cd.DIAS_VENCIDO > 0
     GROUP BY cd.CLIENTE_ID
-  `, [cliente], 12000, dbo).catch(() => []);
+  `, [cliente], FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -2479,7 +2486,7 @@ get('/api/inv/resumen', async (req) => {
     LEFT JOIN ${SQL_MINIMO_SUB} n ON n.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${SQL_PRECIO_SUB} pr ON pr.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A'
-  `, [], 12000, dbo).catch(() => [{}]);
+  `, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => [{}]);
   const r = rows[0] || {};
   return { TOTAL_ARTICULOS: +(r.TOTAL_ARTICULOS||0), VALOR_INVENTARIO: +(r.VALOR_INVENTARIO||0), BAJO_MINIMO: +(r.BAJO_MINIMO||0), SIN_STOCK: +(r.SIN_STOCK||0) };
 });
@@ -2498,7 +2505,7 @@ get('/api/inv/bajo-minimo', async (req) => {
     LEFT JOIN ${SQL_EXIST_SUB} s ON s.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND COALESCE(s.EXISTENCIA, 0) < n.INVENTARIO_MINIMO ${extra}
     ORDER BY FALTANTE DESC
-  `, [], 12000, dbo).catch(() => []);
+  `, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 get('/api/inv/existencias', async (req) => {
@@ -2515,7 +2522,7 @@ get('/api/inv/existencias', async (req) => {
     LEFT JOIN ${SQL_PRECIO_SUB} pr ON pr.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND (UPPER(a.NOMBRE) LIKE ? OR UPPER(CAST(a.ARTICULO_ID AS VARCHAR(50))) LIKE ?)
     ORDER BY a.NOMBRE
-  `, [like, like], 12000, dbo).catch(() => []);
+  `, [like, like], FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 get('/api/inv/top-stock', async (req) => {
@@ -2529,7 +2536,7 @@ get('/api/inv/top-stock', async (req) => {
     LEFT JOIN ${SQL_PRECIO_SUB} pr ON pr.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND COALESCE(s.EXISTENCIA, 0) > 0
     ORDER BY VALOR_TOTAL DESC
-  `, [], 12000, dbo).catch(() => []);
+  `, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 // Consumo semanal desde ventas (DOCTOS_VE_DET) — inventario.html espera DESCRIPCION, EXISTENCIA, CONSUMO_SEMANAL_PROM, SEMANAS_STOCK
@@ -2549,7 +2556,7 @@ get('/api/inv/consumo-semanal', async (req) => {
     GROUP BY a.NOMBRE, a.ARTICULO_ID, s.EXISTENCIA
     HAVING SUM(det.UNIDADES) > 0
     ORDER BY SEMANAS_STOCK ASC
-  `, [], 12000, dbo).catch(() => []);
+  `, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 // Forecast consumo — inventario.html espera DESCRIPCION, UNIDAD, EXISTENCIA_ACTUAL, CONSUMO_DIARIO, DIAS_STOCK, STOCK_MINIMO_RECOMENDADO, ALERTA, CANTIDAD_REPONER
@@ -2573,7 +2580,7 @@ get('/api/inv/consumo', async (req) => {
     GROUP BY a.NOMBRE, a.ARTICULO_ID, a.UNIDAD_VENTA, ex.EXISTENCIA, mn.INVENTARIO_MINIMO
     HAVING SUM(det.UNIDADES) > 0
     ORDER BY DIAS_STOCK ASC
-  `, [], 12000, dbo).catch(() => []);
+  `, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
   return rows.map(r => ({
     ...r,
     ALERTA: +r.DIAS_STOCK < lead ? 'CRITICO' : +r.DIAS_STOCK < lead * 2 ? 'BAJO' : +r.EXISTENCIA_ACTUAL <= +r.MIN_ACTUAL ? 'BAJO_MINIMO' : 'OK',
@@ -2599,7 +2606,7 @@ get('/api/inv/sin-movimiento', async (req) => {
     GROUP BY a.NOMBRE, a.ARTICULO_ID, a.UNIDAD_VENTA, ex.EXISTENCIA, mn.INVENTARIO_MINIMO
     HAVING (MAX(CAST(d.FECHA AS DATE)) IS NULL) OR ((CURRENT_DATE - MAX(CAST(d.FECHA AS DATE))) > ${dias})
     ORDER BY 7 DESC NULLS FIRST, ex.EXISTENCIA DESC
-  `, [], 12000, dbo).catch(() => []);
+  `, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -2686,7 +2693,7 @@ get('/api/clientes/riesgo', async (req) => {
       GROUP BY t.CLIENTE_ID
     ) buy ON buy.CLIENTE_ID = agg.CLIENTE_ID
     ORDER BY agg.MONTO_VENCIDO DESC, COALESCE(buy.TICKET_PROMEDIO_MES, 0) DESC
-  `, [], 12000, dbo).catch(() => []);
+  `, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 /** Sin compra >180 días (≈6 meses). Ticket mensual = promedio simple últimos 12 meses de historial. */
@@ -2731,7 +2738,7 @@ get('/api/clientes/inactivos', async (req) => {
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = c.COND_PAGO_ID
     WHERE (CURRENT_DATE - ult.ULTIMA) > 180
     ORDER BY 4 DESC
-  `, [], 15000, dbo).catch(() => []);
+  `, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 /** Comercial: sin compra en los últimos 60 días pero sí en los últimos 6 meses (61–180 días). */
@@ -2777,7 +2784,7 @@ get('/api/clientes/comercial-atraso', async (req) => {
     WHERE (CURRENT_DATE - ult.ULTIMA) > 60
       AND (CURRENT_DATE - ult.ULTIMA) <= 180
     ORDER BY 4 DESC
-  `, [], 15000, dbo).catch(() => []);
+  `, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 get('/api/clientes/resumen-riesgo', async (req) => {
@@ -2791,7 +2798,7 @@ get('/api/clientes/resumen-riesgo', async (req) => {
         SUM(CASE WHEN cd.DIAS_VENCIDO > 30 AND cd.DIAS_VENCIDO <= 60 THEN cd.SALDO ELSE 0 END) AS MONTO_MEDIO,
         SUM(CASE WHEN cd.DIAS_VENCIDO <= 30 THEN cd.SALDO ELSE 0 END) AS MONTO_LEVE
       FROM ${cxcCargosSQL()} cd WHERE cd.DIAS_VENCIDO > 0
-    `, [], 12000, dbo).catch(() => [null]);
+    `, [], FB_QUERY_DEFAULT_MS, dbo).catch(() => [null]);
     return { ...defaultRes, ...(totales || {}) };
   } catch (e) {
     return defaultRes;
@@ -2804,7 +2811,7 @@ get('/api/clientes/resumen-riesgo', async (req) => {
 // ═══════════════════════════════════════════════════════════
 
 async function resultadosPnlCore(req, dbOpts) {
-  const q = (sql, params, timeoutMs = 12000) => query(sql, params, timeoutMs, dbOpts);
+  const q = (sql, params, timeoutMs = FB_QUERY_DEFAULT_MS) => query(sql, params, timeoutMs, dbOpts);
   const reDate = /^\d{4}-\d{2}-\d{2}$/;
   let desdeStr, hastaStr;
   const { desde, hasta, anio, mes } = req.query;
@@ -2983,7 +2990,7 @@ async function resultadosPnlCore(req, dbOpts) {
         AND NOT (s.ANO = ? AND s.MES > ?)
       GROUP BY s.ANO, s.MES
       ORDER BY 1, 2
-    `, [sy, ey, sy, sm, ey, em], 15000).catch(() => []),
+    `, [sy, ey, sy, sm, ey, em], FB_QUERY_DEFAULT_MS).catch(() => []),
     q(`
       SELECT s.ANO AS ANIO, s.MES AS MES,
         SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5201' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_A1,
@@ -3014,7 +3021,7 @@ async function resultadosPnlCore(req, dbOpts) {
         AND NOT (s.ANO = ? AND s.MES > ?)
       GROUP BY s.ANO, s.MES
       ORDER BY 1, 2
-    `, [sy, ey, sy, sm, ey, em], 15000).catch(() => []),
+    `, [sy, ey, sy, sm, ey, em], FB_QUERY_DEFAULT_MS).catch(() => []),
   ]);
 
   const key = (a, m) => `${a}-${m}`;
@@ -3181,7 +3188,7 @@ get('/api/debug/ventas', async (req) => {
   const anio = parseInt(req.query.anio, 10) || now.getFullYear();
   const mes = parseInt(req.query.mes, 10) || now.getMonth() + 1;
 
-  const QMS_DEBUG = 90000;
+  const QMS_DEBUG = FB_QUERY_DEFAULT_MS;
   async function safeQ(sql, params = []) {
     try {
       return { ok: true, rows: await query(sql, params, QMS_DEBUG, dbo) };
@@ -3284,7 +3291,7 @@ get('/api/debug/ventas-muestra', async (req) => {
   const lim = Math.min(30, Math.max(1, parseInt(req.query.limit, 10) || 12));
   const tryQ = async (sql, params = []) => {
     try {
-      return { ok: true, rows: await query(sql, params, 90000, dbo) };
+      return { ok: true, rows: await query(sql, params, FB_QUERY_DEFAULT_MS, dbo) };
     } catch (e) {
       return { ok: false, error: e.message || String(e) };
     }
@@ -3376,7 +3383,7 @@ get('/api/consumos/resumen', async (req) => {
         COUNT(DISTINCT d.ARTICULO_ID) AS ARTICULOS_CONSUMIDOS
       FROM ${consumosSub(tipo)} d
       WHERE d.UNIDADES > 0 ${f.sql}
-    `, f.params, 12000, dbo).catch(() => []),
+    `, f.params, FB_QUERY_DEFAULT_MS, dbo).catch(() => []),
     query(`
       SELECT FIRST 1
         CAST(d.FECHA AS DATE) AS DIA_MAXIMO,
@@ -3385,7 +3392,7 @@ get('/api/consumos/resumen', async (req) => {
       WHERE d.UNIDADES > 0 ${f.sql}
       GROUP BY CAST(d.FECHA AS DATE)
       ORDER BY MAXIMO_DIARIO DESC, DIA_MAXIMO DESC
-    `, f.params, 12000, dbo).catch(() => [])
+    `, f.params, FB_QUERY_DEFAULT_MS, dbo).catch(() => [])
   ]);
   const t = totRows[0] || {};
   const m = maxRows[0] || {};
@@ -3420,7 +3427,7 @@ get('/api/consumos/diarias', async (req) => {
     WHERE d.UNIDADES > 0 AND CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
     GROUP BY CAST(d.FECHA AS DATE)
     ORDER BY 1
-  `, [desdeStr], 12000, dbo).catch(() => []);
+  `, [desdeStr], FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
   return rows || [];
 });
 
@@ -3440,7 +3447,7 @@ get('/api/consumos/top-articulos', async (req) => {
     WHERE d.UNIDADES > 0 ${f.sql}
     GROUP BY d.ARTICULO_ID, a.NOMBRE, a.UNIDAD_VENTA
     ORDER BY UNIDADES DESC
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
 });
 
 get('/api/consumos/por-vendedor', async (req) => {
@@ -3457,7 +3464,7 @@ get('/api/consumos/por-vendedor', async (req) => {
     WHERE d.UNIDADES > 0 AND d.VENDEDOR_ID > 0 ${f.sql}
     GROUP BY d.VENDEDOR_ID, v.NOMBRE
     ORDER BY UNIDADES DESC
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, FB_QUERY_DEFAULT_MS, dbo).catch(() => []);
   const total = (rows || []).reduce((s, r) => s + (+r.UNIDADES || 0), 0);
   return (rows || []).map(r => ({
     ...r,
@@ -3533,7 +3540,7 @@ get('/api/consumos/insights', async (req) => {
         ${vc.sql}
     `,
       wowParams,
-      15000,
+      FB_QUERY_DEFAULT_MS,
       dbo
     ).catch(() => []),
     query(
@@ -3548,7 +3555,7 @@ get('/api/consumos/insights', async (req) => {
       ) t5
     `,
       f.params,
-      15000,
+      FB_QUERY_DEFAULT_MS,
       dbo
     ).catch(() => []),
     query(
@@ -3558,7 +3565,7 @@ get('/api/consumos/insights', async (req) => {
       WHERE d.UNIDADES > 0 ${f.sql}
     `,
       f.params,
-      15000,
+      FB_QUERY_DEFAULT_MS,
       dbo
     ).catch(() => []),
     fp
@@ -3569,7 +3576,7 @@ get('/api/consumos/insights', async (req) => {
       WHERE d.UNIDADES > 0 ${fp.sql}
     `,
           fp.params,
-          15000,
+          FB_QUERY_DEFAULT_MS,
           dbo
         ).catch(() => [])
       : Promise.resolve([]),
@@ -3594,7 +3601,7 @@ get('/api/consumos/insights', async (req) => {
       ORDER BY agg.UNIDADES DESC
     `,
       f.params,
-      18000,
+      FB_QUERY_DEFAULT_MS,
       dbo
     ).catch(() => []),
   ]);
@@ -4107,7 +4114,7 @@ app.post('/api/ai/chat', async (req, res) => {
           WHERE ${sqlWhereCotizacionActiva('d')}
             AND EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE)
             AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE)
-        `, [], 12000, dbOpts).catch(() => [{}]);
+        `, [], FB_QUERY_DEFAULT_MS, dbOpts).catch(() => [{}]);
         const r0 = resumen || {};
         const rows = await query(`
           SELECT FIRST 18
@@ -4120,7 +4127,7 @@ app.post('/api/ai/chat', async (req, res) => {
           LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
           WHERE ${sqlWhereCotizacionActiva('d')}
           ORDER BY d.FECHA DESC, d.FOLIO DESC
-        `, [], 12000, dbOpts).catch(() => []);
+        `, [], FB_QUERY_DEFAULT_MS, dbOpts).catch(() => []);
         const hoyStr = new Date().toISOString().slice(0, 10);
         const paraHoy = (rows || []).filter(row => row.FECHA && String(row.FECHA).slice(0, 10) === hoyStr);
         const listHoy = paraHoy.length
@@ -4140,14 +4147,14 @@ app.post('/api/ai/chat', async (req, res) => {
     const wantsCxc = /\b(cxc|cuentas?\s+por\s+cobrar|saldo\s+clientes?|cobranza)\b/i.test(lowerPool);
     if (wantsCxc) {
       try {
-        const [t] = await query(`SELECT COALESCE(SUM(s.SALDO), 0) AS T FROM ${cxcClienteSQL()} s`, [], 12000, dbOpts).catch(() => [{ T: 0 }]);
+        const [t] = await query(`SELECT COALESCE(SUM(s.SALDO), 0) AS T FROM ${cxcClienteSQL()} s`, [], FB_QUERY_DEFAULT_MS, dbOpts).catch(() => [{ T: 0 }]);
         const top = await query(`
           SELECT FIRST 8 cs.CLIENTE_ID, COALESCE(cl.NOMBRE, '') AS NOMBRE, cs.SALDO
           FROM ${cxcClienteSQL()} cs
           LEFT JOIN CLIENTES cl ON cl.CLIENTE_ID = cs.CLIENTE_ID
           WHERE cs.SALDO > 0.5
           ORDER BY cs.SALDO DESC
-        `, [], 12000, dbOpts).catch(() => []);
+        `, [], FB_QUERY_DEFAULT_MS, dbOpts).catch(() => []);
         systemContent += `\n\n**CxC (resumen del panel):**
 - Saldo total cartera (suma por cliente): $${Number((t && t.T) || 0).toFixed(2)}.
 - Principales saldos: ${(top || []).map(x => `${x.NOMBRE || x.CLIENTE_ID}: $${Number(x.SALDO || 0).toFixed(2)}`).join('; ') || 'Sin datos.'}`;
@@ -4164,7 +4171,7 @@ app.post('/api/ai/chat', async (req, res) => {
             COALESCE(SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE)
               AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE) THEN d.IMPORTE_NETO ELSE 0 END), 0) AS MES
           FROM ${ventasSub(tipo)} d
-        `, [], 12000, dbOpts).catch(() => [{}]);
+        `, [], FB_QUERY_DEFAULT_MS, dbOpts).catch(() => [{}]);
         systemContent += `\n\n**Ventas (VE+PV, facturas válidas):**
 - Hoy: $${Number((vr && vr.HOY) || 0).toFixed(2)}.
 - Mes en curso: $${Number((vr && vr.MES) || 0).toFixed(2)}.`;
@@ -4190,7 +4197,7 @@ app.post('/api/ai/chat', async (req, res) => {
             AND EXTRACT(MONTH FROM dc.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE)
         `,
           [],
-          12000,
+          FB_QUERY_DEFAULT_MS,
           dbOpts
         ).catch(() => [{}]);
         const [fv] = await query(
@@ -4202,7 +4209,7 @@ app.post('/api/ai/chat', async (req, res) => {
             AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE)
         `,
           [],
-          12000,
+          FB_QUERY_DEFAULT_MS,
           dbOpts
         ).catch(() => [{}]);
         const totC = Number((cb && cb.TOTAL_COBRADO) || 0);

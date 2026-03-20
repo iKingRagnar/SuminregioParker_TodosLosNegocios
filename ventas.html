@@ -333,11 +333,10 @@ nav{display:flex;align-items:center;gap:.25rem}
 
 <script>
 const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : '';
-function fwt(url,fallback,ms=45000){
+function fwt(url,fallback,ms=60000){
   const urlFull = (String(url).startsWith('http') ? url : (API + url));
   const isNgrok = /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/i.test(urlFull);
-  if (ms < 120000 && /\/api\/(ventas\/resumen|director\/resumen)/.test(urlFull)) ms = 120000;
-  else if (ms < 60000 && isNgrok) ms = 60000;
+  if (ms < 60000 && isNgrok) ms = 60000;
   const opts = isNgrok ? { headers: { 'ngrok-skip-browser-warning': '1' } } : {};
   return Promise.race([
     fetch(urlFull, opts).then(r => r.json().then(data => (r.ok ? data : fallback)).catch(() => fallback)).catch(() => fallback),
@@ -517,7 +516,7 @@ async function loadResumen() {
       if (sinRespuesta) {
         banner.style.display = 'block';
         banner.textContent =
-          'No se recibió respuesta del servidor a tiempo (timeout). Las consultas pueden tardar hasta 2 min; actualiza la página.';
+          'No se recibió respuesta a tiempo (60s). Comprueba el API y actualiza la página.';
       } else if (d && d._queryError) {
         banner.style.display = 'block';
         banner.textContent = 'Error servidor: ' + d._queryError;
