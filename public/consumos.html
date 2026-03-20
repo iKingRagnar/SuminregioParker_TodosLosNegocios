@@ -70,11 +70,6 @@ nav{display:flex;gap:4px;flex-wrap:wrap}
 .ins-tbl th,.ins-tbl td{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:left}
 .ins-tbl th{color:var(--muted);font-size:.58rem;text-transform:uppercase}
 .ins-tbl .num{text-align:right}
-.ins-alerts{margin-top:14px;padding-top:12px;border-top:1px solid var(--brd)}
-.ins-alerts .t{font:.6rem 'DM Mono',monospace;color:var(--orange);text-transform:uppercase;margin-bottom:8px}
-.ins-al{font:.74rem 'DM Mono',monospace;color:var(--txt);padding:8px 10px;border-radius:10px;background:rgba(255,69,102,.1);border:1px solid rgba(255,69,102,.25);margin-bottom:8px;line-height:1.45}
-.ins-al:last-child{margin-bottom:0}
-.ins-al strong{color:var(--orange)}
 .ins-empty{color:var(--muted);font:.74rem 'DM Mono',monospace;padding:8px 0}
 @media(max-width:1200px){.kpis{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.g2{grid-template-columns:1fr}}
@@ -217,7 +212,6 @@ function renderInsights(d){
   const pctWow = w.variacion_pct != null ? (w.variacion_pct >= 0 ? '+' : '') + fmtF(w.variacion_pct) + '%' : '\u2014';
   const varPrev = vs.variacion_pct != null ? (vs.variacion_pct >= 0 ? '+' : '') + fmtF(vs.variacion_pct) + '%' : '\u2014';
   const rowsCov = Array.isArray(d.cobertura_top) ? d.cobertura_top : [];
-  const al = Array.isArray(d.alertas_quiebre) ? d.alertas_quiebre : [];
   let tbl = '<table class="ins-tbl"><thead><tr><th>Art&iacute;culo</th><th class="num">Cons. periodo</th><th class="num">Exist.</th><th class="num">D&iacute;as cob.</th></tr></thead><tbody>';
   if(!rowsCov.length) tbl += '<tr><td colspan="4" class="ins-empty">Sin art&iacute;culos en el periodo</td></tr>';
   else rowsCov.forEach(r => {
@@ -225,15 +219,6 @@ function renderInsights(d){
     tbl += '<tr><td title="'+esc(r.ARTICULO)+'">'+esc((r.ARTICULO||'').substring(0,28))+(String(r.ARTICULO||'').length>28?'…':'')+'</td><td class="num">'+fmtN(r.CONSUMO_PERIODO)+'</td><td class="num">'+fmtN(r.EXISTENCIA)+'</td><td class="num">'+dc+'</td></tr>';
   });
   tbl += '</tbody></table>';
-  let alertsHtml = '';
-  if(al.length){
-    alertsHtml = '<div class="ins-alerts"><div class="t">Riesgo de quiebre</div>';
-    al.forEach(a => {
-      alertsHtml += '<div class="ins-al"><strong>'+esc(a.ARTICULO||'')+'</strong> &mdash; '+esc(a.mensaje||'')+
-        ' <span style="opacity:.85">('+fmtN(a.CONSUMO_PERIODO)+' u. / exist. '+fmtN(a.EXISTENCIA)+')</span></div>';
-    });
-    alertsHtml += '</div>';
-  }
   box.innerHTML =
     '<div class="ins-row">'+
       '<div class="ins-pill" style="min-width:200px">'+
@@ -245,8 +230,7 @@ function renderInsights(d){
       '<div class="ins-pill"><div class="t">Vs periodo anterior</div><div class="n">'+varPrev+'</div><div class="h">Actual '+fmtN(vs.unidades_periodo||0)+' u. &middot; Previo '+fmtN(vs.unidades_periodo_previo||0)+' u.</div></div>'+
     '</div>'+
     '<div class="t" style="margin-bottom:4px;font:.6rem \'DM Mono\',monospace;color:var(--muted);text-transform:uppercase">Cobertura inventario (top consumo del periodo; d&iacute;as = existencia / consumo diario seg&uacute;n '+fmtN(d.dias_calendario_periodo||0)+' d&iacute;as calendario del filtro)</div>'+
-    tbl+
-    alertsHtml;
+    tbl;
 }
 async function loadInsights(){
   const box = document.getElementById('insightsBody');

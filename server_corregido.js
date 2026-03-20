@@ -2473,7 +2473,7 @@ get('/api/consumos/por-vendedor', async (req) => {
 
 /**
  * KPIs extra consumos: variación semanal (7 vs 7), concentración Top 5, vs periodo anterior,
- * cobertura inventario sobre top artículos y alertas de quiebre.
+ * cobertura inventario sobre top artículos.
  */
 get('/api/consumos/insights', async (req) => {
   const dbo = getReqDbOpts(req);
@@ -2695,7 +2695,6 @@ get('/api/consumos/insights', async (req) => {
       tiene_previo: !!prevQ,
     },
     cobertura_top: cobertura,
-    alertas_quiebre: alertas,
     dias_calendario_periodo: diasCal,
   };
 });
@@ -3044,14 +3043,15 @@ REGLAS:
 - Responde en español, claro y conciso. No repitas saludos genéricos en cada mensaje.
 - No inventes cifras: si el contexto trae datos del sistema, úsalos; si no hay datos, dilo en una frase.
 - Estos dashboards **no modifican** Microsip; para altas o cambios operativos el usuario debe usar Microsip.
-- Puedes explicar: ventas VE/PV, cotizaciones en DOCTOS_VE (TIPO C/O, no canceladas), CxC y aging, inventario, resultados/P&L, scorecard multi-empresa cuando aplique.
+- Puedes explicar: ventas VE/PV, cotizaciones en DOCTOS_VE (TIPO C/O, no canceladas), **Cobradas** (cobros tipo R en CC, alineado con /api/ventas/cobradas), CxC y aging, inventario, resultados/P&L, scorecard multi-empresa cuando aplique.
+- Si el contexto trae un bloque **Cobradas** o **Cotizaciones** con cifras, **respóndele al usuario con esos números** (importes, conteos, promedios). No digas que no tienes acceso a los datos del sistema si esas cifras están en el contexto.
 - Si el contexto indica **empresa seleccionada**, céntrate en esa base; si hay una sola, no confundas al usuario.`;
 
 const AI_WELCOME_MICROSIP = `¡Hola! 👋 Soy tu **Agente de Soporte** (Suminregio Parker · Microsip).
 
 Puedo ayudarte a **interpretar** ventas, cotizaciones, cuentas por cobrar, inventario y resultados. Todo es **solo lectura** frente a la base.
 
-Ejemplos: "¿Cuántas cotizaciones van hoy?" · "¿Qué es el saldo de CxC?" · "Explícame el margen bruto en Resultados."`;
+Ejemplos: "¿Cuántas cotizaciones van hoy?" · "¿Qué es el saldo de CxC?" · "¿Cuál es el ticket promedio cobrado este mes?" · "Explícame el margen bruto en Resultados."`;
 
 get('/api/ai/welcome', async () => ({ message: AI_WELCOME_MICROSIP }));
 
@@ -3175,6 +3175,60 @@ app.post('/api/ai/chat', async (req, res) => {
 - Hoy: $${Number((vr && vr.HOY) || 0).toFixed(2)}.
 - Mes en curso: $${Number((vr && vr.MES) || 0).toFixed(2)}.`;
       } catch (_) {}
+    }
+
+    const wantsCobradas =
+      /\b(cobrad[ao]s?|cobrado|pagos?\s+recibidos|ticket\s+promedio|abonos?\s+a\s+cc|total\s+cobrado|comisi[oó]n\s+8|facturas?\s+cobradas?)\b/i.test(
+        lowerPool
+      ) && !/\bincidentes?\b/i.test(lowerPool);
+    if (wantsCobradas) {
+      try {
+        const tipo = '';
+        const [cb] = await query(
+          `
+          SELECT
+            COALESCE(SUM(CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END), 0) AS TOTAL_COBRADO,
+            COUNT(*) AS NUM_MOV_COBRO
+          FROM IMPORTES_DOCTOS_CC i
+          JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = i.DOCTO_CC_ID
+          WHERE i.TIPO_IMPTE = 'R' AND COALESCE(i.CANCELADO, 'N') = 'N'
+            AND EXTRACT(YEAR FROM dc.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE)
+            AND EXTRACT(MONTH FROM dc.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE)
+        `,
+          [],
+          12000,
+          dbOpts
+        ).catch(() => [{}]);
+        const [fv] = await query(
+          `
+          SELECT COUNT(DISTINCT d.FOLIO) AS N_FACT, COALESCE(SUM(d.IMPORTE_NETO), 0) AS TOTAL_FAC
+          FROM ${ventasSub(tipo)} d
+          WHERE d.VENDEDOR_ID > 0
+            AND EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE)
+            AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE)
+        `,
+          [],
+          12000,
+          dbOpts
+        ).catch(() => [{}]);
+        const totC = Number((cb && cb.TOTAL_COBRADO) || 0);
+        const nMov = Number((cb && cb.NUM_MOV_COBRO) || 0);
+        const ticketPorMov = nMov > 0 ? totC / nMov : null;
+        const nFac = Number((fv && fv.N_FACT) || 0);
+        const totFac = Number((fv && fv.TOTAL_FAC) || 0);
+        const ticketSobreFac = nFac > 0 ? totC / nFac : null;
+        const y = new Date().getFullYear();
+        const m = new Date().getMonth() + 1;
+        systemContent += `\n\n**Cobradas (mes en curso ${y}-${String(m).padStart(2, '0')}, misma lógica que el panel Cobradas: cobros IMPORTES_DOCTOS_CC tipo R, importe normalizado ex-IVA; filtro por año/mes de FECHA del DOCTOS_CC):**
+- Total cobrado en el periodo: $${totC.toFixed(2)}.
+- Número de movimientos de cobro (líneas R) en ese periodo: ${nMov}.
+- **Ticket promedio por movimiento de cobro** (total cobrado ÷ movimientos): ${ticketPorMov != null ? '$' + ticketPorMov.toFixed(2) : 'No aplica (0 movimientos).'}.
+- Referencia facturación mismo mes (VE+PV, con vendedor): ${nFac} facturas (folios distintos), total facturado $${totFac.toFixed(2)}.
+- **Cobrado medio por factura del mes** (total cobrado ÷ esas facturas; aproximación si el cobro del mes se repartiera entre ellas): ${ticketSobreFac != null ? '$' + ticketSobreFac.toFixed(2) : 'No aplica.'}.
+- Explica en una frase que el desglose por vendedor está en la vista Cobradas del dashboard; aquí son totales de la base activa.`;
+      } catch (_) {
+        /* sin contexto cobradas */
+      }
     }
 
     const apiMessages = [{ role: 'system', content: systemContent }];
