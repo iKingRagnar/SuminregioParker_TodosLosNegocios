@@ -812,11 +812,23 @@ function getTipo(req) {
 //   · Si IMPUESTO > 0 el IMPORTE ya es ex-IVA   → usar IMPORTE
 //   · Si IMPUESTO = 0 el pago incluye IVA 16%   → dividir entre 1.16
 // Referencia DAX: Cobro = IF(IMPUESTO>0, IMPORTE, IMPORTE/1.16)
-// Incluir Contado para que totales coincidan con Power BI. Para excluir Contado otra vez: usar las dos líneas siguientes y poner las actuales en ''.
-// const CXC_EXCLUIR_CONTADO = ` AND (cp.NOMBRE IS NULL OR UPPER(TRIM(cp.NOMBRE)) <> 'CONTADO') `;
-// const CXC_EXCLUIR_CONTADO_SUB = ` AND (cp2.NOMBRE IS NULL OR UPPER(TRIM(cp2.NOMBRE)) <> 'CONTADO') `;
-const CXC_EXCLUIR_CONTADO = '';
-const CXC_EXCLUIR_CONTADO_SUB = '';
+// Excluir contado/inmediato de CxC por requerimiento operativo.
+const CXC_EXCLUIR_CONTADO = ` AND (
+  cp.COND_PAGO_ID IS NULL OR (
+    COALESCE(cp.DIAS_PPAG, 1) > 0
+    AND POSITION('CONTADO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) = 0
+    AND POSITION('EFECTIVO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) = 0
+    AND POSITION('INMEDIATO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) = 0
+  )
+) `;
+const CXC_EXCLUIR_CONTADO_SUB = ` AND (
+  cp2.COND_PAGO_ID IS NULL OR (
+    COALESCE(cp2.DIAS_PPAG, 1) > 0
+    AND POSITION('CONTADO' IN UPPER(COALESCE(TRIM(cp2.NOMBRE), ''))) = 0
+    AND POSITION('EFECTIVO' IN UPPER(COALESCE(TRIM(cp2.NOMBRE), ''))) = 0
+    AND POSITION('INMEDIATO' IN UPPER(COALESCE(TRIM(cp2.NOMBRE), ''))) = 0
+  )
+) `;
 /** Condición de pago tipo contado / inmediato: no debe computar atraso ni buckets de morosidad. */
 const CXC_SQL_ES_CONTADO = `(
       POSITION('CONTADO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) > 0
@@ -1416,13 +1428,14 @@ get('/api/ventas/margen-lineas', async (req) => {
   const f = buildFiltros(req, 'd');
   const tipo = getTipo(req);
   const limit = Math.min(parseInt(req.query.limit, 10) || 3000, 12000);
-  const [veCols, pvCols, veDetCols, pvDetCols, inCols, inDetCols] = await Promise.all([
+  const [veCols, pvCols, veDetCols, pvDetCols, inCols, inDetCols, artCols] = await Promise.all([
     getTableColumns('DOCTOS_VE', dbo),
     getTableColumns('DOCTOS_PV', dbo),
     getTableColumns('DOCTOS_VE_DET', dbo),
     getTableColumns('DOCTOS_PV_DET', dbo),
     getTableColumns('DOCTOS_IN', dbo),
     getTableColumns('DOCTOS_IN_DET', dbo),
+    getTableColumns('ARTICULOS', dbo),
   ]);
   const inDetIdCol = firstExistingColumn(inDetCols, ['DOCTO_IN_DET_ID', 'RENGLON', 'POSICION']);
   const inCostoUnitCol = firstExistingColumn(inDetCols, ['COSTO_UNITARIO', 'COSTO_U']);
@@ -1480,6 +1493,15 @@ get('/api/ventas/margen-lineas', async (req) => {
   }
   const veExpr = buildExpr(veDetCols);
   const pvExpr = buildExpr(pvDetCols);
+  const artClaveCol = firstExistingColumn(artCols, ['CLAVE', 'CLAVE_ARTICULO']);
+  const veDetClaveCol = firstExistingColumn(veDetCols, ['CLAVE_ARTICULO']);
+  const pvDetClaveCol = firstExistingColumn(pvDetCols, ['CLAVE_ARTICULO']);
+  const veClaveExpr = artClaveCol
+    ? `COALESCE(a.${artClaveCol}, ${veDetClaveCol ? `det.${veDetClaveCol}` : "''"}, CAST(det.ARTICULO_ID AS VARCHAR(40)))`
+    : (veDetClaveCol ? `COALESCE(det.${veDetClaveCol}, CAST(det.ARTICULO_ID AS VARCHAR(40)))` : `CAST(det.ARTICULO_ID AS VARCHAR(40))`);
+  const pvClaveExpr = artClaveCol
+    ? `COALESCE(a.${artClaveCol}, ${pvDetClaveCol ? `det.${pvDetClaveCol}` : "''"}, CAST(det.ARTICULO_ID AS VARCHAR(40)))`
+    : (pvDetClaveCol ? `COALESCE(det.${pvDetClaveCol}, CAST(det.ARTICULO_ID AS VARCHAR(40)))` : `CAST(det.ARTICULO_ID AS VARCHAR(40))`);
   const mapRows = (rows) =>
     (rows || []).map((r) => {
       const venta = +r.VENTA || 0;
@@ -1500,7 +1522,7 @@ get('/api/ventas/margen-lineas', async (req) => {
           'VE' AS TIPO_SRC,
           c.NOMBRE AS CLIENTE,
           COALESCE(v.NOMBRE, '') AS VENDEDOR,
-          COALESCE(a.CLAVE, CAST(det.ARTICULO_ID AS VARCHAR(40))) AS CLAVE_ARTICULO,
+          ${veClaveExpr} AS CLAVE_ARTICULO,
           COALESCE(a.NOMBRE, '') AS DESC_ARTICULO,
           COALESCE(det.${veExpr.qtyCol}, 0) AS CANTIDAD,
           CAST(COALESCE(det.${veExpr.precioUnitCol}, 0) AS DECIMAL(18, 4)) AS PRECIO_U,
@@ -1519,7 +1541,7 @@ get('/api/ventas/margen-lineas', async (req) => {
           'PV' AS TIPO_SRC,
           c.NOMBRE AS CLIENTE,
           COALESCE(v.NOMBRE, '') AS VENDEDOR,
-          COALESCE(a.CLAVE, CAST(det.ARTICULO_ID AS VARCHAR(40))) AS CLAVE_ARTICULO,
+          ${pvClaveExpr} AS CLAVE_ARTICULO,
           COALESCE(a.NOMBRE, '') AS DESC_ARTICULO,
           COALESCE(det.${pvExpr.qtyCol}, 0) AS CANTIDAD,
           CAST(COALESCE(det.${pvExpr.precioUnitCol}, 0) AS DECIMAL(18, 4)) AS PRECIO_U,
@@ -2154,7 +2176,7 @@ get('/api/cxc/historial', async (req) => {
   `, [cliente], 12000, dbo).catch(() => []);
 });
 
-// Por condición: saldo neto por documento CC, agrupado por COND_PAGO del documento (incluye contado).
+// Por condición: saldo neto por documento CC, agrupado por COND_PAGO (excluye contado/inmediato).
 get('/api/cxc/por-condicion', async (req) => {
   const dbo = getReqDbOpts(req);
   const docs = await query(`
@@ -2170,6 +2192,7 @@ get('/api/cxc/por-condicion', async (req) => {
     JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = doc.DOCTO_CC_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = dc.COND_PAGO_ID
     WHERE doc.SALDO_NETO > 0.005
+      AND NOT (${CXC_SQL_ES_CONTADO})
   `, [], 15000, dbo).catch(() => []);
   if (!(docs || []).length) {
     const altRows = await query(`
@@ -2182,6 +2205,12 @@ get('/api/cxc/por-condicion', async (req) => {
       LEFT JOIN CLIENTES cl ON cl.CLIENTE_ID = c.CLIENTE_ID
       LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = cl.COND_PAGO_ID
       WHERE c.SALDO > 0.005
+        AND (cp.COND_PAGO_ID IS NULL OR (
+          COALESCE(cp.DIAS_PPAG, 1) > 0
+          AND POSITION('CONTADO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) = 0
+          AND POSITION('EFECTIVO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) = 0
+          AND POSITION('INMEDIATO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) = 0
+        ))
       ORDER BY c.SALDO DESC
     `, [], 12000, dbo).catch(() => []);
     const agg = {};
@@ -2219,13 +2248,8 @@ get('/api/cxc/por-condicion', async (req) => {
       CORRIENTE: Math.round(g.CORRIENTE * 100) / 100,
       ES_CONTADO: !!g.ES_CONTADO,
     })).sort((a, b) => b.SALDO_TOTAL - a.SALDO_TOTAL);
-    const contadoAlt = gruposAlt.filter(g => g.ES_CONTADO);
-    const pendienteContadoAlt = contadoAlt.length ? {
-      SALDO_TOTAL: Math.round(contadoAlt.reduce((s, g) => s + (+g.SALDO_TOTAL || 0), 0) * 100) / 100,
-      NUM_DOCUMENTOS: contadoAlt.reduce((s, g) => s + (+g.NUM_DOCUMENTOS || 0), 0),
-      NUM_CLIENTES: contadoAlt.reduce((s, g) => s + (+g.NUM_CLIENTES || 0), 0)
-    } : null;
-    return { grupos: gruposAlt, pendiente_contado: pendienteContadoAlt };
+    const gruposNoContado = gruposAlt.filter(g => !g.ES_CONTADO);
+    return { grupos: gruposNoContado, pendiente_contado: null };
   }
   const byCond = {};
   for (const r of docs || []) {
@@ -2266,14 +2290,9 @@ get('/api/cxc/por-condicion', async (req) => {
       CORRIENTE: Math.round(r.CORRIENTE * 100) / 100,
       ES_CONTADO: !!r.ES_CONTADO,
     }))
+    .filter(g => !g.ES_CONTADO)
     .sort((a, b) => b.SALDO_TOTAL - a.SALDO_TOTAL);
-  const contado = grupos.filter(g => g.ES_CONTADO);
-  const pendiente_contado = contado.length ? {
-    SALDO_TOTAL: Math.round(contado.reduce((s, g) => s + (+g.SALDO_TOTAL || 0), 0) * 100) / 100,
-    NUM_DOCUMENTOS: contado.reduce((s, g) => s + (+g.NUM_DOCUMENTOS || 0), 0),
-    NUM_CLIENTES: contado.reduce((s, g) => s + (+g.NUM_CLIENTES || 0), 0)
-  } : null;
-  return { grupos, pendiente_contado };
+  return { grupos, pendiente_contado: null };
 });
 
 // Calendario Pagos / Buro: por documento, con CLIENTE, ANIO, MES_EMISION, saldo restante, fechas. Sin ?cliente= devuelve todos.
@@ -2305,7 +2324,7 @@ get('/api/cxc/historial-pagos', async (req) => {
     JOIN CLIENTES cl ON cl.CLIENTE_ID = dc.CLIENTE_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = dc.COND_PAGO_ID
     LEFT JOIN VENCIMIENTOS_CARGOS_CC vc ON vc.DOCTO_CC_ID = i.DOCTO_CC_ID
-    WHERE COALESCE(i.CANCELADO, 'N') = 'N'
+    WHERE COALESCE(i.CANCELADO, 'N') = 'N' ${CXC_EXCLUIR_CONTADO}
       ${fechaSql}
       ${clienteFiltro}
     GROUP BY dc.DOCTO_CC_ID, dc.FOLIO, cl.NOMBRE, cl.CLIENTE_ID, cp.NOMBRE, cp.DIAS_PPAG, dc.FECHA

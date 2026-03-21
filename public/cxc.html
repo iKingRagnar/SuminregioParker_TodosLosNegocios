@@ -196,7 +196,7 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
   <div class="cxc-hero">
     <div>
       <h1>Cuentas por cobrar</h1>
-      <p>Saldo neto por cliente (cargos &minus; cobros), aging y riesgo. <strong>Contado</strong> no usa plazo de cr&eacute;dito: el saldo pendiente se muestra como <em>cobranza inmediata</em>, no como &laquo;vencido crediticio&raquo;.</p>
+      <p>Saldo neto por cliente (cargos &minus; cobros), aging y riesgo para cartera a cr&eacute;dito.</p>
     </div>
     <div class="cxc-hero-meta" id="cxcDbHint" title="Negocio activo">Cargando contexto&hellip;</div>
   </div>
@@ -209,8 +209,8 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
       </select>
     </div>
     <button class="btn" onclick="loadAll()">Aplicar</button>
-    <span style="font-size:11px;color:var(--txt3);font-family:var(--mono);margin-left:auto" title="Igual que Power BI: Deuda total = cargos − cobros. Incluye Contado para que las cifras coincidan con el reporte.">
-      Deuda total = cargos − pagos por cliente. Incluye Contado (alineado con Power BI). Cuadra con buckets.
+    <span style="font-size:11px;color:var(--txt3);font-family:var(--mono);margin-left:auto" title="Deuda total = cargos − cobros de cartera a cr&eacute;dito.">
+      Deuda total = cargos − pagos por cliente (solo cr&eacute;dito). Cuadra con buckets.
     </span>
   </div>
 
@@ -265,7 +265,7 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
     <div class="grid-32">
       <div class="card">
         <div class="card-title">Facturas vencidas <span class="badge" id="vBadge">&mdash;</span></div>
-        <p class="card-note">Facturas <strong>Contado</strong> / inmediato no se tratan como vencidas (sin atraso a cr&eacute;dito). Resto: estatus por d&iacute;as como Power BI. Saldo = neto por documento (cargo &minus; cobro). <strong>No aparecen facturas ya liquidadas</strong> (saldo pendiente 0).</p>
+        <p class="card-note">Estatus por d&iacute;as como Power BI para documentos de cr&eacute;dito. Saldo = neto por documento (cargo &minus; cobro). <strong>No aparecen facturas ya liquidadas</strong> (saldo pendiente 0).</p>
         <div class="tbl-wrap">
           <table>
             <thead><tr><th>Folio</th><th>Cliente</th><th>Condici&oacute;n</th><th>Estatus</th><th>Saldo</th><th>F. Venta</th><th>Venc. (plazo)</th><th>Atraso</th><th>Sin pagar</th><th>F. Venc. (sist.)</th></tr></thead>
@@ -298,7 +298,7 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
     <div class="grid-2">
       <div class="card">
         <div class="card-title">Por Condici&oacute;n de Pago</div>
-        <p class="card-note">Agrupado por la <strong>condici&oacute;n del documento</strong> (Microsip <code>DOCTOS_CC.COND_PAGO_ID</code>). El pendiente en contado no entra al cr&eacute;dito.</p>
+        <p class="card-note">Agrupado por la <strong>condici&oacute;n del documento</strong> (Microsip <code>DOCTOS_CC.COND_PAGO_ID</code>) para cartera a cr&eacute;dito.</p>
         <div class="cond-pc-banner" id="condPendContado" style="display:none"></div>
         <div class="cond-list" id="condList"><div class="loading"><div class="spin"></div>Cargando...</div></div>
       </div>
@@ -576,17 +576,7 @@ async function loadCond() {
   try {
     const raw = await apiFetch('/api/cxc/por-condicion' + buildCxcQuery());
     const rows = Array.isArray(raw) ? raw : (raw && raw.grupos) ? raw.grupos : [];
-    const pend = raw && !Array.isArray(raw) ? raw.pendiente_contado : null;
-    if (ban) {
-      if (pend && +pend.SALDO_TOTAL > 0) {
-        ban.style.display = 'block';
-        ban.innerHTML = '<b>Pendiente contado / inmediato</b> (fuera del desglose crediticio): ' + fmtK(pend.SALDO_TOTAL) +
-          ' &middot; ' + (pend.NUM_DOCUMENTOS||0) + ' docs &middot; ' + (pend.NUM_CLIENTES||0) + ' clientes. No aplica morosidad por plazo.';
-      } else {
-        ban.style.display = 'none';
-        ban.innerHTML = '';
-      }
-    }
+    if (ban) { ban.style.display = 'none'; ban.innerHTML = ''; }
     if(!rows.length){ cl.innerHTML='<div style="color:var(--txt3);padding:20px;text-align:center">Sin datos</div>'; return; }
     const max = Math.max(...rows.map(r=>+r.SALDO_TOTAL||0));
     cl.innerHTML = rows.map(r=>{
@@ -595,17 +585,14 @@ async function loadCond() {
       const ven = +r.VENCIDO||0;
       const pctOk = tot > 0 ? Math.min(100, Math.round((cor / tot) * 1000) / 10) : 0;
       const pctLate = tot > 0 ? Math.min(100, Math.round((ven / tot) * 1000) / 10) : 0;
-      const contado = !!(r.ES_CONTADO);
-      const rowCls = 'cond-row' + (contado ? ' cond-row--contado' : '');
-      const subLate = contado
-        ? '<div class="cond-amt-sub cond-amt-sub--muted">Pendiente cobro &middot; sin plazo cr&eacute;dito</div>'
-        : '<div class="cond-amt-sub '+(ven>0?'cond-amt-sub--late':'cond-amt-sub--ok')+'">'+(ven>0?fmtK(ven)+' venc. (cr&eacute;dito)':'Sin vencido crediticio')+'</div>';
+      const rowCls = 'cond-row';
+      const subLate = '<div class="cond-amt-sub '+(ven>0?'cond-amt-sub--late':'cond-amt-sub--ok')+'">'+(ven>0?fmtK(ven)+' venc. (cr&eacute;dito)':'Sin vencido crediticio')+'</div>';
       return `
       <div class="${rowCls}">
         <div style="min-width:0">
           <div class="cond-name">${r.CONDICION_PAGO}</div>
           <div class="cond-meta">${r.NUM_CLIENTES} clientes &middot; ${r.NUM_DOCUMENTOS} docs &middot; ${r.DIAS_CREDITO} d&iacute;as t&eacute;rmino</div>
-          ${contado ? '<span class="cond-badge">Contado &middot; no aplica venc. cr&eacute;dito</span>' : ''}
+          
         </div>
         <div class="cond-bars" title="Verde = corriente &middot; Rojo = vencido crediticio">
           <div class="cond-bar-seg cond-bar-seg--ok" style="width:${pctOk}%"></div>

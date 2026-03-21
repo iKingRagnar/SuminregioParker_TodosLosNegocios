@@ -32,7 +32,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
 
   let _cfg        = {};
   let _vendedores = [];
-  let _state      = { preset: 'anio', anio: null, mes: null, desde: '', hasta: '', vendedor: '' };
+  let _state      = { preset: 'mes', anio: null, mes: null, desde: '', hasta: '', vendedor: '' };
 
   function pad2(n) { return String(n).padStart(2, '0'); }
   function isoDate(d) {
@@ -92,7 +92,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   }
 
   function getParams() {
-    const p = { preset: _state.preset || 'anio' };
+    const p = { preset: _state.preset || 'mes' };
     if (_state.desde && _state.hasta) {
       p.desde = _state.desde;
       p.hasta = _state.hasta;
@@ -368,9 +368,9 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   async function initFilters(config) {
     try {
       _cfg   = config || {};
-      _state = { preset: 'anio', anio: null, mes: null, desde: '', hasta: '', vendedor: '' };
+      _state = { preset: 'mes', anio: null, mes: null, desde: '', hasta: '', vendedor: '' };
 
-      applyPreset(_cfg.defaultPreset || 'anio');
+      applyPreset(_cfg.defaultPreset || 'mes');
 
       if (_cfg.showVendedor !== false) {
         await loadVendedores();

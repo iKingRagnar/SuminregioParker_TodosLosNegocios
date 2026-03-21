@@ -159,7 +159,7 @@ const fmtDay = s => {
   const d = new Date(String(s).split('T')[0] + 'T12:00:00');
   return isNaN(d) ? String(s).slice(0, 10) : d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
 };
-function renderKpis(list) {
+function renderKpis(list, pnlTot) {
   const venta = list.reduce((s, r) => s + (+r.VENTA || 0), 0);
   const costo = list.reduce((s, r) => s + (+r.COSTO || 0), 0);
   const util = venta - costo;
@@ -167,11 +167,21 @@ function renderKpis(list) {
   const docs = new Set(list.map(r => `${r.TIPO_SRC || ''}-${r.FOLIO || ''}`)).size;
   const arts = new Set(list.map(r => r.CLAVE_ARTICULO || r.ARTICULO_ID || '')).size;
   const clientes = new Set(list.map(r => r.CLIENTE || '')).size;
+  const usePnl = !tipoSel && pnlTot && typeof pnlTot === 'object';
+  const ventaK = usePnl ? (+pnlTot.VENTAS_NETAS || 0) : venta;
+  const costoK = usePnl ? (+pnlTot.COSTO_VENTAS || 0) : costo;
+  const utilK = usePnl ? (+pnlTot.UTILIDAD_BRUTA || 0) : util;
+  const margenK = usePnl
+    ? (pnlTot.MARGEN_BRUTO_PCT != null ? +pnlTot.MARGEN_BRUTO_PCT : (ventaK > 0 ? (utilK / ventaK) * 100 : null))
+    : margen;
+  const docsK = usePnl ? (+pnlTot.NUM_FACTURAS || 0) : docs;
+  const costoVentaPct = ventaK > 0 ? (costoK / ventaK) * 100 : null;
+  const utilSub = usePnl ? 'Utilidad bruta (Resultados)' : 'Venta - costo';
   document.getElementById('kpiGrid').innerHTML = [
-    ['Venta total', fmtM(venta), `${docs} documentos`],
-    ['Costo total', fmtM(costo), `Costo/venta: ${fmtPct(venta > 0 ? (costo / venta) * 100 : null)}`],
-    ['Utilidad bruta', fmtM(util), 'Venta - costo'],
-    ['Margen promedio', fmtPct(margen), margen == null ? 'Sin venta' : (margen >= 30 ? 'Alto' : (margen >= 15 ? 'Medio' : 'Bajo'))],
+    ['Venta total', fmtM(ventaK), `${docsK} documentos`],
+    ['Costo total', fmtM(costoK), `Costo/venta: ${fmtPct(costoVentaPct)}`],
+    ['Utilidad bruta', fmtM(utilK), utilSub],
+    ['Margen promedio', fmtPct(margenK), margenK == null ? 'Sin venta' : (margenK >= 30 ? 'Alto' : (margenK >= 15 ? 'Medio' : 'Bajo'))],
     ['Clientes', String(clientes), `${list.length} renglones`],
     ['Artículos', String(arts), 'Productos vendidos']
   ].map(k => `<div class="kpi"><div class="kpi-l">${k[0]}</div><div class="kpi-v">${k[1]}</div><div class="kpi-s">${k[2]}</div></div>`).join('');
@@ -296,9 +306,18 @@ async function loadMargen(keepRows) {
   }
   const tq = tipoSel ? '&tipo=' + encodeURIComponent(tipoSel) : '';
   const url = buildApiUrl('/api/ventas/margen-lineas', 'limit=5000' + tq);
+  const pnlUrl = buildApiUrl('/api/resultados/pnl');
   try {
-    const r = await fetch(url, { cache: 'no-store' });
-    const rows = r.ok ? await r.json() : [];
+    const [r, rp] = await Promise.all([
+      fetch(url, { cache: 'no-store' }),
+      fetch(pnlUrl, { cache: 'no-store' }).catch(() => null)
+    ]);
+    const rows = r && r.ok ? await r.json() : [];
+    let pnlTot = null;
+    if (rp && rp.ok) {
+      const pnlData = await rp.json().catch(() => null);
+      pnlTot = pnlData && pnlData.totales ? pnlData.totales : null;
+    }
     let list = Array.isArray(rows) ? rows : [];
     if (!list.length) {
       const fallbackUrl = buildApiUrl('/api/ventas/margen-lineas', 'limit=5000&meses=12' + tq);
@@ -307,7 +326,7 @@ async function loadMargen(keepRows) {
       list = Array.isArray(rowsF) ? rowsF : [];
     }
     allRows = list.sort((a,b)=>(+b.VENTA||0)-(+a.VENTA||0));
-    renderKpis(allRows);
+    renderKpis(allRows, pnlTot);
     renderTopClientes(allRows);
     renderArtChart(allRows);
     renderTable(allRows);
