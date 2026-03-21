@@ -13,6 +13,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   window.fetch = function(u, o) { o = o || {}; o.headers = Object.assign({}, o.headers, { 'ngrok-skip-browser-warning': '1' }); return _f.call(this, u, o); };
 }
 </script>
+<script src="filters.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -61,9 +62,7 @@ nav{display:flex;align-items:center;gap:.2rem}
 .hero-sub{font-size:.85rem;color:var(--muted);margin-top:.5rem;font-family:'DM Mono',monospace}
 
 /* KPIs */
-.kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:1rem;margin-bottom:1.5rem}
-@media(max-width:1300px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:700px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:1rem;margin-bottom:1.5rem}
 .kpi{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:1.1rem 1.3rem;position:relative;overflow:hidden}
 .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--kc),transparent)}
 .kpi.red{--kc:var(--red)}.kpi.orange{--kc:var(--orange)}.kpi.yellow{--kc:var(--yellow)}.kpi.blue{--kc:var(--blue)}.kpi.green{--kc:var(--green)}.kpi.purple{--kc:var(--purple)}
@@ -77,6 +76,7 @@ nav{display:flex;align-items:center;gap:.2rem}
 .main-tab{font-family:'DM Mono',monospace;font-size:.72rem;padding:.5rem 1.2rem;border-radius:10px;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:none;transition:all .2s;letter-spacing:.04em;font-weight:500}
 .main-tab.active-red{color:var(--red);border-color:rgba(255,69,102,.3);background:var(--red-dim)}
 .main-tab.active-yellow{color:var(--yellow);border-color:rgba(255,184,0,.3);background:var(--yellow-dim)}
+.main-tab.active-orange{color:var(--orange);border-color:rgba(255,140,66,.35);background:var(--orange-dim)}
 
 /* Section */
 .sd{display:flex;align-items:center;gap:1rem;margin:1.5rem 0 1.2rem}
@@ -101,6 +101,8 @@ nav{display:flex;align-items:center;gap:.2rem}
 .th-sort-icon::before{content:'';display:block;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent}
 .th-sort-icon.asc::before{border-bottom:5px solid rgba(255,255,255,.9);border-top:none}
 .th-sort-icon.desc::before{border-top:5px solid rgba(255,255,255,.9);border-bottom:none}
+.th-sort-icon.muted{opacity:.35}
+.th-sort-icon.muted::before{display:none}
 .num{text-align:right;font-family:'DM Mono',monospace;font-size:.78rem}
 
 /* Risk level badges */
@@ -170,12 +172,13 @@ nav{display:flex;align-items:center;gap:.2rem}
 
   <!-- KPIs globales -->
   <div class="kpi-grid">
-    <div class="kpi red"><div class="kpi-lbl">Clientes en riesgo</div><div class="kpi-val" id="kpiEnRiesgo">--</div><div class="kpi-sub">con cartera vencida</div></div>
-    <div class="kpi red"><div class="kpi-lbl">Monto cr&iacute;tico</div><div class="kpi-val" id="kpiMontoCritico">--</div><div class="kpi-sub">&gt;90 d&iacute;as vencido</div></div>
-    <div class="kpi orange"><div class="kpi-lbl">Monto alto</div><div class="kpi-val" id="kpiMontoAlto">--</div><div class="kpi-sub">61&ndash;90 d&iacute;as</div></div>
-    <div class="kpi yellow"><div class="kpi-lbl">Clientes inactivos</div><div class="kpi-val" id="kpiInactivos">--</div><div class="kpi-sub">&gt;90 d&iacute;as sin compra</div></div>
-    <div class="kpi yellow"><div class="kpi-lbl">Pot. reactivaci&oacute;n</div><div class="kpi-val" id="kpiReactivacion">--</div><div class="kpi-sub">revenue recuperable /mes</div></div>
-    <div class="kpi blue"><div class="kpi-lbl">Exposici&oacute;n total</div><div class="kpi-val" id="kpiExposicion">--</div><div class="kpi-sub">saldo vencido acumulado</div></div>
+    <div class="kpi red"><div class="kpi-lbl">Clientes en riesgo (CxC)</div><div class="kpi-val" id="kpiEnRiesgo">--</div><div class="kpi-sub">Con saldo en documentos vencidos</div></div>
+    <div class="kpi red"><div class="kpi-lbl">Monto cr&iacute;tico</div><div class="kpi-val" id="kpiMontoCritico">--</div><div class="kpi-sub">Saldo &gt;90 d&iacute;as vencido (antig&uuml;edad)</div></div>
+    <div class="kpi orange"><div class="kpi-lbl">Monto alto</div><div class="kpi-val" id="kpiMontoAlto">--</div><div class="kpi-sub">Saldo 61&ndash;90 d&iacute;as vencido</div></div>
+    <div class="kpi orange"><div class="kpi-lbl">Atraso comercial</div><div class="kpi-val" id="kpiAtrasoCom">--</div><div class="kpi-sub">Sin compra 60d&ndash;6m (a&uacute;n compraron antes)</div></div>
+    <div class="kpi yellow"><div class="kpi-lbl">Inactivos ventas</div><div class="kpi-val" id="kpiInactivos">--</div><div class="kpi-sub">Sin compra &gt;6 meses (180 d)</div></div>
+    <div class="kpi yellow"><div class="kpi-lbl">Pot. reactivaci&oacute;n</div><div class="kpi-val" id="kpiReactivacion">--</div><div class="kpi-sub">Suma estimada mensual si inactivos volvieran al ritmo 12m</div></div>
+    <div class="kpi blue"><div class="kpi-lbl">Exposici&oacute;n vencida</div><div class="kpi-val" id="kpiExposicion">--</div><div class="kpi-sub">Suma buckets leve+medio+alto+cr&iacute;tico (solo moroso)</div></div>
   </div>
 
   <!-- Par&aacute;metros explicativos -->
@@ -185,14 +188,15 @@ nav{display:flex;align-items:center;gap:.2rem}
     <div class="param-item"><div class="param-dot" style="background:var(--orange)"></div><span>ALTO:</span><span class="param-desc">61&ndash;90 d&iacute;as</span></div>
     <div class="param-item"><div class="param-dot" style="background:var(--yellow)"></div><span>MEDIO:</span><span class="param-desc">31&ndash;60 d&iacute;as</span></div>
     <div class="param-item"><div class="param-dot" style="background:var(--blue)"></div><span>LEVE:</span><span class="param-desc">1&ndash;30 d&iacute;as</span></div>
-    <div class="param-item"><div class="param-dot" style="background:var(--yellow)"></div><span>INACTIVO:</span><span class="param-desc">&gt;90 d&iacute;as sin compra</span></div>
-    <div class="param-item"><div class="param-dot" style="background:var(--red)"></div><span>MUY INACTIVO:</span><span class="param-desc">&gt;180 d&iacute;as</span></div>
+    <div class="param-item"><div class="param-dot" style="background:var(--orange)"></div><span>ATRASO COM.:</span><span class="param-desc">sin compra &gt;60d y &le;180d</span></div>
+    <div class="param-item"><div class="param-dot" style="background:var(--yellow)"></div><span>INACTIVO VTAS:</span><span class="param-desc">sin compra &gt;180d</span></div>
   </div>
 
   <!-- Tabs -->
   <div class="main-tabs">
     <button class="main-tab active-red" onclick="showTab('riesgo',this)">&#128680; Clientes en Riesgo</button>
-    <button class="main-tab" onclick="showTab('inactivos',this)">&#128274; Clientes Inactivos</button>
+    <button class="main-tab" onclick="showTab('comercial',this)">&#9201; Atraso comercial</button>
+    <button class="main-tab" onclick="showTab('inactivos',this)">&#128274; Inactivos ventas</button>
   </div>
 
   <!-- Panel Riesgo -->
@@ -233,18 +237,50 @@ nav{display:flex;align-items:center;gap:.2rem}
         <thead>
           <tr>
             <th>Cliente</th>
-            <th class="th-sort" id="thNivelSort" title="Clic para ordenar por nivel (Cr&#237;tico / Alto / Medio / Leve)">
+            <th class="th-sort" id="thNivelSort" title="Clic: Nivel cr&#237;tico &rarr; leve &rarr; volver a orden por monto vencido">
               Nivel <span class="th-sort-icon desc" id="nivelSortIcon" aria-hidden="true"></span>
             </th>
             <th class="num">Saldo Total</th>
-            <th class="num">Monto Vencido</th>
+            <th class="num" title="Parte de la cartera con documentos ya fuera de plazo (suma de saldos de cargos con d&#237;as de atraso &gt; 0). No es el monto de la &#250;ltima compra.">Monto vencido (cartera)</th>
             <th class="num">% Vencido</th>
             <th class="num">Max D&iacute;as</th>
             <th class="num">Docs</th>
+            <th class="num">Compras</th>
+            <th class="num">&Uacute;ltima compra</th>
+            <th class="num" title="Importe neto del documento de venta m&#225;s reciente (VE o PV), seg&#250;n FECHA.">Monto &#250;lt. compra</th>
+            <th class="num" title="Aproximaci&#243;n: ticket promedio mensual (&#250;ltimos 12 meses) &#215; 12. Si el cliente dejara de comprar al ritmo reciente, es el volumen anual que dejar&#237;as de facturar.">Venta anual est. en riesgo</th>
             <th>Condici&oacute;n</th>
           </tr>
         </thead>
         <tbody id="riesgoBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Panel Atraso comercial -->
+  <div id="panelComercial" class="section-panel">
+    <div class="card" style="margin-bottom:1.5rem">
+      <div class="card-head">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Atraso comercial (60 d&iacute;as &ndash; 6 meses)
+        </div>
+        <div class="card-badge" id="comercialCount">-- registros</div>
+      </div>
+      <table class="risk-table">
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th>Estado</th>
+            <th class="num">D&iacute;as sin compra</th>
+            <th class="num">&Uacute;ltima compra</th>
+            <th class="num">Hist&oacute;rico 6m</th>
+            <th class="num">Ticket prom. /mes</th>
+            <th>Nota</th>
+            <th>Condici&oacute;n</th>
+          </tr>
+        </thead>
+        <tbody id="comercialBody"></tbody>
       </table>
     </div>
   </div>
@@ -281,9 +317,15 @@ nav{display:flex;align-items:center;gap:.2rem}
 <script>
 // Misma regla que CxC/Inventario: file:// → localhost:7000; si no → mismo origen (remoto/ngrok)
 const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : '';
+function apiDb(rel){
+  const p = rel.startsWith('/') ? rel : '/' + rel;
+  return API + (typeof apiPathWithDb === 'function' ? apiPathWithDb(p) : p);
+}
 let chartRiesgoInst = null, chartBucketsInst = null;
-let riesgoData = [], inactivosData = [];
-let sortNivelDirection = 1; // 1 = Crítico primero (desc), -1 = Leve primero (asc)
+let riesgoData = [], inactivosData = [], comercialData = [];
+const clientesSemCtx = { riesgo: [], inactivos: [], comercial: [], res: {} };
+/** 0 = orden por monto vencido; 1 / -1 = por nivel de atraso (clic en Nivel) */
+let sortNivelDirection = 0;
 
 setInterval(()=>{const n=new Date();document.getElementById('reloj').textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');},1000);
 
@@ -292,18 +334,16 @@ const fmtD=s=>s?String(s).split('T')[0]:'--';
 
 function showTab(tab, btn){
   document.getElementById('panelRiesgo').classList.toggle('active',tab==='riesgo');
+  document.getElementById('panelComercial').classList.toggle('active',tab==='comercial');
   document.getElementById('panelInactivos').classList.toggle('active',tab==='inactivos');
   document.querySelectorAll('.main-tab').forEach(b=>b.className='main-tab');
-  btn.className='main-tab '+(tab==='riesgo'?'active-red':'active-yellow');
+  const cls = tab==='riesgo'?'active-red':tab==='comercial'?'active-orange':'active-yellow';
+  btn.className='main-tab '+cls;
 }
 
-function fwt(url, fallback, ms=60000){
-  const u=String(url);
-  const isNgrok=/ngrok-free\.app|ngrok\.io|ngrok-free\.dev/i.test(u);
-  if(ms<60000&&isNgrok)ms=60000;
-  const opts=isNgrok?{headers:{'ngrok-skip-browser-warning':'1'}}:{};
+function fwt(url, fallback, ms=10000){
   return Promise.race([
-    fetch(u,opts).then(r=>r.json().then(d=>(r.ok?d:fallback)).catch(()=>fallback)).catch(()=>fallback),
+    fetch(url).then(r=>r.json()).catch(()=>fallback),
     new Promise(r=>setTimeout(()=>r(fallback),ms))
   ]);
 }
@@ -312,13 +352,16 @@ async function loadData(){
   const heroSub = document.getElementById('heroSub');
   try{
     if(heroSub) heroSub.textContent = 'Conectando con el servidor…';
-    const [riesgo, resumen] = await Promise.all([
-      fwt(API+'/api/clientes/riesgo?limit=100', [], 60000),
-      fwt(API+'/api/clientes/resumen-riesgo', {}, 60000),
+    const [riesgo, resumen, comercial] = await Promise.all([
+      fwt(apiDb('/api/clientes/riesgo?limit=100'), [], 12000),
+      fwt(apiDb('/api/clientes/resumen-riesgo'), {}, 8000),
+      fwt(apiDb('/api/clientes/comercial-atraso?limit=300'), [], 12000),
     ]);
     riesgoData = Array.isArray(riesgo) ? riesgo : [];
+    comercialData = Array.isArray(comercial) ? comercial : [];
     const res = resumen && typeof resumen==='object' ? resumen : {};
-    renderKPIs(riesgoData, inactivosData, res);
+    renderComercial(comercialData);
+    renderKPIs(riesgoData, inactivosData, res, comercialData);
     renderRiesgo(riesgoData);
     renderChartRiesgo(res);
     renderChartBuckets(res);
@@ -330,7 +373,7 @@ async function loadData(){
     loadInactivos();
   }catch(e){
     if(heroSub) heroSub.textContent = 'Error de conexión. Abre desde http://localhost:7000/clientes.html y revisa que el servidor esté corriendo (npm start).';
-    renderKPIs([], inactivosData, {});
+    renderKPIs([], inactivosData, {}, []);
     renderRiesgo([]);
     renderChartRiesgo({});
     renderChartBuckets({});
@@ -339,17 +382,46 @@ async function loadData(){
 
 async function loadInactivos(){
   try{
-    const inactivos = await fwt(API+'/api/clientes/inactivos?limit=100', [], 60000);
+    const inactivos = await fwt(apiDb('/api/clientes/inactivos?limit=300'), [], 15000);
     inactivosData = Array.isArray(inactivos) ? inactivos : [];
+    clientesSemCtx.inactivos = inactivosData;
     renderInactivos(inactivosData);
-    document.getElementById('kpiInactivos').textContent = inactivosData.length;
-    const potReact = inactivosData.reduce((s,c)=>s+(+c.TICKET_PROMEDIO_MES||0),0);
-    document.getElementById('kpiReactivacion').textContent = fmtM(potReact);
+    renderKPIs(riesgoData, inactivosData, clientesSemCtx.res || {}, comercialData);
   }catch(e){ console.warn('inactivos',e); }
 }
 
-function renderKPIs(r,in_,res){
+function applyClientesDashSem(){
+  if (typeof dashboardApplySem !== 'function') return;
+  const res = clientesSemCtx.res || {};
+  const r = clientesSemCtx.riesgo || [];
+  const in_ = clientesSemCtx.inactivos || [];
+  const montoCritico = +res.MONTO_CRITICO || 0;
+  const montoAlto = +res.MONTO_ALTO || 0;
+  const exposicion = montoCritico + montoAlto + (+res.MONTO_MEDIO || 0) + (+res.MONTO_LEVE || 0);
+  const potReact = in_.reduce((s, c) => s + (+c.TICKET_PROMEDIO_MES || 0), 0);
+  const nRiesgo = +res.TOTAL_EN_RIESGO || r.length;
+  const nin = in_.length;
+  const ring = (id, lvl) => {
+    const el = document.getElementById(id);
+    const box = el && el.closest('.kpi');
+    if (box) dashboardApplySem(box, lvl);
+  };
+  ring('kpiEnRiesgo', nRiesgo === 0 ? 'ok' : nRiesgo <= 8 ? 'warn' : 'danger');
+  ring('kpiMontoCritico', montoCritico <= 0 ? 'ok' : montoCritico >= 250000 ? 'danger' : 'warn');
+  ring('kpiMontoAlto', montoAlto <= 0 ? 'ok' : montoAlto >= 150000 ? 'danger' : 'warn');
+  const nCom = (clientesSemCtx.comercial || []).length;
+  ring('kpiAtrasoCom', nCom === 0 ? 'ok' : nCom <= 15 ? 'warn' : 'danger');
+  ring('kpiInactivos', nin === 0 ? 'ok' : nin <= 12 ? 'warn' : 'danger');
+  ring('kpiReactivacion', potReact > 0 ? 'info' : 'neutral');
+  ring('kpiExposicion', exposicion <= 0 ? 'ok' : exposicion >= 400000 ? 'danger' : 'warn');
+}
+
+function renderKPIs(r,in_,res,com_){
   if(!res) res={};
+  clientesSemCtx.riesgo = r || [];
+  clientesSemCtx.inactivos = in_ || [];
+  clientesSemCtx.comercial = com_ || [];
+  clientesSemCtx.res = res;
   const montoCritico = +res.MONTO_CRITICO||0;
   const montoAlto    = +res.MONTO_ALTO||0;
   const exposicion   = (montoCritico)+(montoAlto)+(+res.MONTO_MEDIO||0)+(+res.MONTO_LEVE||0);
@@ -360,12 +432,15 @@ function renderKPIs(r,in_,res){
   if(kpiMontoCritico) kpiMontoCritico.textContent = fmtM(montoCritico);
   const kpiMontoAlto = document.getElementById('kpiMontoAlto');
   if(kpiMontoAlto) kpiMontoAlto.textContent = fmtM(montoAlto);
+  const kpiAtrasoCom = document.getElementById('kpiAtrasoCom');
+  if(kpiAtrasoCom) kpiAtrasoCom.textContent = (com_||[]).length;
   const kpiInactivos = document.getElementById('kpiInactivos');
   if(kpiInactivos) kpiInactivos.textContent = (in_||[]).length;
   const kpiReactivacion = document.getElementById('kpiReactivacion');
   if(kpiReactivacion) kpiReactivacion.textContent = fmtM(potReact);
   const kpiExposicion = document.getElementById('kpiExposicion');
   if(kpiExposicion) kpiExposicion.textContent = fmtM(exposicion);
+  applyClientesDashSem();
 }
 
 function nivelFromDias(maxDias){
@@ -378,15 +453,27 @@ function nivelOrder(nivelStr){
 }
 function renderRiesgo(data){
   const iconEl = document.getElementById('nivelSortIcon');
-  if(iconEl){ iconEl.className = 'th-sort-icon ' + (sortNivelDirection===1?'desc':'asc'); iconEl.setAttribute('title', sortNivelDirection===1?'Cr\u00edtico primero (clic: Leve primero)':'Leve primero (clic: Cr\u00edtico primero)'); }
+  if(iconEl){
+    if(sortNivelDirection===0){
+      iconEl.className = 'th-sort-icon muted';
+      iconEl.setAttribute('title','Orden: monto vencido (clic para ordenar por nivel)');
+    }else{
+      iconEl.className = 'th-sort-icon ' + (sortNivelDirection===1?'desc':'asc');
+      iconEl.setAttribute('title', sortNivelDirection===1?'Cr\u00edtico primero (clic: leve primero)':'Leve primero (clic: volver a monto vencido)');
+    }
+  }
   let dataToRender = data;
-  if(sortNivelDirection!==0 && data.length>0){
-    dataToRender = [...data].sort((a,b)=>{
-      const na = (a.NIVEL_RIESGO||nivelFromDias(a.MAX_DIAS_VENCIDO)).toUpperCase();
-      const nb = (b.NIVEL_RIESGO||nivelFromDias(b.MAX_DIAS_VENCIDO)).toUpperCase();
-      const diff = nivelOrder(nb) - nivelOrder(na);
-      return sortNivelDirection===1 ? diff : -diff;
-    });
+  if(data.length>0){
+    if(sortNivelDirection===0){
+      dataToRender = [...data].sort((a,b)=>(+b.MONTO_VENCIDO||0)-(+a.MONTO_VENCIDO||0));
+    }else{
+      dataToRender = [...data].sort((a,b)=>{
+        const na = (a.NIVEL_RIESGO||nivelFromDias(a.MAX_DIAS_VENCIDO)).toUpperCase();
+        const nb = (b.NIVEL_RIESGO||nivelFromDias(b.MAX_DIAS_VENCIDO)).toUpperCase();
+        const diff = nivelOrder(nb) - nivelOrder(na);
+        return sortNivelDirection===1 ? diff : -diff;
+      });
+    }
   }
   document.getElementById('riesgoCount').textContent = dataToRender.length+' registros';
   const rows = dataToRender.map(r=>{
@@ -395,8 +482,13 @@ function renderRiesgo(data){
     const badgeClass = nivel==='CRITICO'?'badge-critico':nivel==='ALTO'?'badge-alto':nivel==='MEDIO'?'badge-medio':'badge-leve';
     const saldoTotal = +r.SALDO_TOTAL||+r.SALDO||0;
     const montoVencido = +r.MONTO_VENCIDO||+r.MONTO_VENCIDO_BRUTO||+r.SALDO||0;
-    const pctV = saldoTotal>0 ? Math.round((montoVencido/saldoTotal)*100) : (+r.PCT_VENCIDO||0);
+    let pctV = 0;
+    if (saldoTotal > 0) pctV = Math.min(100, Math.round((montoVencido / saldoTotal) * 100));
+    else if (montoVencido > 0) pctV = 100;
     const col  = nivel==='CRITICO'?'var(--red)':nivel==='ALTO'?'var(--orange)':nivel==='MEDIO'?'var(--yellow)':'var(--blue)';
+    const ultImp = +r.ULTIMA_COMPRA_IMPORTE || 0;
+    const riesgoAnual = +r.PERDIDA_VENTA_ANUAL_EST || 0;
+    const nCom = +r.NUM_COMPRAS_VIDA||0;
     return `<tr>
       <td style="padding:.65rem .75rem;color:var(--text);font-weight:600">${r.NOMBRE||'--'}</td>
       <td style="padding:.65rem .75rem"><span class="badge ${badgeClass}">${nivel}</span></td>
@@ -408,10 +500,38 @@ function renderRiesgo(data){
       </td>
       <td class="num" style="color:${col}">${maxD} d&iacute;as</td>
       <td class="num" style="color:var(--text2)">${+r.NUM_DOCS_VENCIDOS||'--'}</td>
+      <td class="num" style="color:var(--text2)">${nCom||'\u2014'}</td>
+      <td class="num" style="color:var(--text2);font-size:.78rem">${fmtD(r.ULTIMA_COMPRA)}</td>
+      <td class="num" style="color:var(--green)">${fmtM(ultImp)}</td>
+      <td class="num" style="color:var(--orange)">${fmtM(riesgoAnual)}</td>
       <td style="padding:.65rem .75rem;font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted)">${r.CONDICION_PAGO||'--'}</td>
     </tr>`;
   }).join('');
-  document.getElementById('riesgoBody').innerHTML = rows || `<tr><td colspan="8" class="empty">Sin clientes en riesgo</td></tr>`;
+  document.getElementById('riesgoBody').innerHTML = rows || `<tr><td colspan="12" class="empty">Sin clientes en riesgo</td></tr>`;
+}
+
+function renderComercial(data){
+  const tb = document.getElementById('comercialBody');
+  const cnt = document.getElementById('comercialCount');
+  if(cnt) cnt.textContent = (data||[]).length+' registros';
+  if(!tb) return;
+  if(!(data&&data.length)){
+    tb.innerHTML = '<tr><td colspan="8" class="empty">Sin clientes en esta ventana</td></tr>';
+    return;
+  }
+  const rows = data.map(r=>{
+    return `<tr>
+      <td style="padding:.65rem .75rem;color:var(--text);font-weight:600">${r.NOMBRE||'--'}</td>
+      <td style="padding:.65rem .75rem"><span class="badge badge-riesgo">ATRASO</span></td>
+      <td class="num" style="color:var(--orange)">${+r.DIAS_SIN_COMPRA||0} d&iacute;as</td>
+      <td class="num" style="color:var(--text2)">${fmtD(r.ULTIMA_COMPRA)}</td>
+      <td class="num" style="color:var(--blue)">${fmtM(+r.TOTAL_COMPRADO_HISTORIAL||0)}</td>
+      <td class="num" style="color:var(--green)">${fmtM(+r.TICKET_PROMEDIO_MES||0)}</td>
+      <td style="padding:.65rem .75rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--muted)">${r.REACTIVACION||'--'}</td>
+      <td style="padding:.65rem .75rem;font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted)">${r.CONDICION_PAGO||'--'}</td>
+    </tr>`;
+  }).join('');
+  tb.innerHTML = rows;
 }
 
 function renderInactivos(data){
@@ -468,7 +588,9 @@ function renderChartBuckets(res){
 }
 
 document.getElementById('thNivelSort')?.addEventListener('click', function(){
-  sortNivelDirection = sortNivelDirection===1 ? -1 : 1;
+  if(sortNivelDirection===0) sortNivelDirection = 1;
+  else if(sortNivelDirection===1) sortNivelDirection = -1;
+  else sortNivelDirection = 0;
   renderRiesgo(riesgoData);
 });
 loadData();

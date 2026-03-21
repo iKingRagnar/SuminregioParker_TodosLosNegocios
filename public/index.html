@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Suminregio Parker &mdash; Command Center</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
@@ -52,6 +53,9 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 .live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);box-shadow:0 0 7px var(--green);animation:pulse 2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 .clock{font-family:'DM Mono',monospace;font-size:.76rem;color:var(--muted);letter-spacing:.05em}
+
+/* PAGE */
+.page{position:relative;z-index:1;max-width:1900px;margin:0 auto;padding:1.75rem 2rem 2.5rem}
 
 /* Selector multi-empresa (misma lógica que resultados.html) */
 .biz-context-bar{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin:0 0 1.25rem;padding:.65rem 1rem;background:var(--s1);border:1px solid var(--border);border-radius:12px}
@@ -113,15 +117,13 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 .uni-setup-callout{margin-top:1rem;padding:.92rem 1.05rem;border-radius:14px;border:1px dashed rgba(230,168,0,.4);background:rgba(230,168,0,.09);font-size:.74rem;color:var(--text2);line-height:1.55;font-family:'DM Mono',monospace}
 .uni-setup-callout code{color:var(--suminregio);font-size:.68rem}
 
-/* PAGE */
-.page{position:relative;z-index:1;max-width:1900px;margin:0 auto;padding:1.75rem 2rem 2.5rem}
-
 /* HERO */
 .hero{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1.75rem}
 .hero-eyebrow{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;margin-bottom:.45rem;display:flex;align-items:center;gap:.55rem}
 .hero-eyebrow::before{content:'';display:inline-block;width:18px;height:1px;background:var(--suminregio);opacity:.8}
 .hero-title{font-size:2.6rem;font-weight:800;line-height:.95;letter-spacing:-.035em;background:linear-gradient(135deg,var(--suminregio) 0%,var(--yellow) 50%,var(--orange) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .hero-sub{font-size:.82rem;color:var(--text2);margin-top:.55rem;font-family:'DM Mono',monospace;letter-spacing:.02em;line-height:1.6}
+.hero-data-hint{margin-top:.5rem;max-width:72ch;padding:.55rem .75rem;border-radius:10px;border:1px solid rgba(255,184,0,.28);background:rgba(255,184,0,.08);font-family:'DM Mono',monospace;font-size:.72rem;color:var(--yellow);line-height:1.5}
 .hero-right{text-align:right}
 .hero-date{font-family:'DM Mono',monospace;font-size:.76rem;color:var(--muted);display:flex;align-items:center;justify-content:flex-end;gap:.45rem;margin-bottom:.4rem}
 .hero-date-val{color:var(--text2);font-weight:500}
@@ -159,7 +161,7 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 .meta-pct{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);margin-top:.3rem;display:flex;align-items:center;gap:.4rem}
 
 /* SCORECARD TABLE */
-.scorecard-wrap{background:var(--s1);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:1.5rem}
+.scorecard-wrap{background:linear-gradient(180deg,rgba(12,27,41,.96),rgba(10,22,35,.94));border:1px solid rgba(255,255,255,.09);border-radius:18px;overflow:hidden;margin-bottom:1.5rem;box-shadow:0 12px 48px rgba(0,0,0,.32)}
 .scorecard-head{padding:1rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
 .scorecard-title{font-size:.88rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:.6rem;letter-spacing:-.01em}
 .scorecard-title svg{width:15px;height:15px;fill:var(--muted)}
@@ -320,6 +322,7 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
       <div class="hero-eyebrow">Executive Overview</div>
       <div class="hero-title">Command Center</div>
       <div class="hero-sub" id="heroSub">Cargando inteligencia del sistema...</div>
+      <div class="hero-data-hint" id="heroDataHint" hidden></div>
     </div>
     <div class="hero-right">
       <div class="hero-date">
@@ -328,7 +331,7 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
       </div>
       <div id="situationBadge" class="situation-badge neutral">
         <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-        Evaluando?
+        Evaluando&hellip;
       </div>
     </div>
   </div>
@@ -339,7 +342,7 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
   <!-- Empresa (contexto operativo; siempre que el API registre al menos una base) -->
   <div class="biz-context-bar" id="bizContextBar" style="display:none" aria-label="Base de datos">
     <span class="biz-context-label" id="bizContextLabel">Base de datos (.fdb)</span>
-    <div class="biz-chips" id="bizChips"></div>
+    <div class="biz-chips biz-chips-grid" id="bizChips"></div>
   </div>
 
   <!-- Universo de negocios — panel BI (todas las .fdb del registro) -->
@@ -385,10 +388,10 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
     <div class="kpi-card green">
       <div class="kpi-top">
         <div class="kpi-module" id="kpiModuleVentaHoy">Ventas &#183; D&#237;a</div>
-        <div class="sem neutral" id="semVentaHoy"><div class="sem-dot"></div>?</div>
+        <div class="sem neutral" id="semVentaHoy"><div class="sem-dot"></div><span class="sem-txt-pend">--</span></div>
       </div>
       <div class="kpi-label" id="kpiLabelVentaHoy">Venta del D&#237;a</div>
-      <div class="kpi-value" id="kpiVentaHoy">?</div>
+      <div class="kpi-value" id="kpiVentaHoy">$0</div>
       <div class="kpi-sub" id="kpiVentaHoySub">vs meta diaria</div>
       <div class="meta-bar-wrap">
         <div class="meta-bar-bg"><div class="meta-bar-fill" id="barVentaHoy" style="width:0%"></div></div>
@@ -398,10 +401,10 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
     <div class="kpi-card blue">
       <div class="kpi-top">
         <div class="kpi-module" id="kpiModuleVentaMes">Ventas &#183; Acum.</div>
-        <div class="sem neutral" id="semVentaMes"><div class="sem-dot"></div>?</div>
+        <div class="sem neutral" id="semVentaMes"><div class="sem-dot"></div><span class="sem-txt-pend">--</span></div>
       </div>
       <div class="kpi-label" id="kpiLabelVentaMes">Venta del Mes</div>
-      <div class="kpi-value" id="kpiVentaMes">?</div>
+      <div class="kpi-value" id="kpiVentaMes">$0</div>
       <div class="kpi-sub" id="kpiVentaMesSub">vs meta mensual</div>
       <div class="meta-bar-wrap">
         <div class="meta-bar-bg"><div class="meta-bar-fill" id="barVentaMes" style="width:0%"></div></div>
@@ -411,10 +414,10 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
     <div class="kpi-card yellow">
       <div class="kpi-top">
         <div class="kpi-module" id="kpiModuleCotiHoy">Cotiz. &#183; D&#237;a</div>
-        <div class="sem neutral" id="semCotiHoy"><div class="sem-dot"></div>?</div>
+        <div class="sem neutral" id="semCotiHoy"><div class="sem-dot"></div><span class="sem-txt-pend">--</span></div>
       </div>
       <div class="kpi-label" id="kpiLabelCotiHoy">Cotiz. del D&#237;a</div>
-      <div class="kpi-value" id="kpiCotiHoy">?</div>
+      <div class="kpi-value" id="kpiCotiHoy">$0</div>
       <div class="kpi-sub" id="kpiCotiHoySub">vs meta cotizaci&#243;n</div>
       <div class="meta-bar-wrap">
         <div class="meta-bar-bg"><div class="meta-bar-fill" id="barCotiHoy" style="width:0%"></div></div>
@@ -424,19 +427,19 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
     <div class="kpi-card orange">
       <div class="kpi-top">
         <div class="kpi-module">CxC &#8211; Cartera</div>
-        <div class="sem neutral" id="semCxcTotal"><div class="sem-dot"></div>?</div>
+        <div class="sem neutral" id="semCxcTotal"><div class="sem-dot"></div><span class="sem-txt-pend">--</span></div>
       </div>
       <div class="kpi-label">Saldo Total CxC</div>
-      <div class="kpi-value" id="kpiCxcTotal">?</div>
+      <div class="kpi-value" id="kpiCxcTotal">$0</div>
       <div class="kpi-sub" id="kpiCxcSub">cartera activa</div>
     </div>
     <div class="kpi-card red">
       <div class="kpi-top">
         <div class="kpi-module">CxC &#8211; Vencido</div>
-        <div class="sem neutral" id="semCxcVenc"><div class="sem-dot"></div>?</div>
+        <div class="sem neutral" id="semCxcVenc"><div class="sem-dot"></div><span class="sem-txt-pend">--</span></div>
       </div>
       <div class="kpi-label">Vencido</div>
-      <div class="kpi-value" id="kpiCxcVencido">?</div>
+      <div class="kpi-value" id="kpiCxcVencido">$0</div>
       <div class="kpi-sub" id="kpiCxcVencSub">% de cartera</div>
       <div class="meta-bar-wrap">
         <div class="meta-bar-bg"><div class="meta-bar-fill" id="barCxcVenc" style="width:0%;background:var(--red)"></div></div>
@@ -446,10 +449,10 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
     <div class="kpi-card purple">
       <div class="kpi-top">
         <div class="kpi-module">Inventario</div>
-        <div class="sem neutral" id="semInvBajo"><div class="sem-dot"></div>?</div>
+        <div class="sem neutral" id="semInvBajo"><div class="sem-dot"></div><span class="sem-txt-pend">--</span></div>
       </div>
       <div class="kpi-label">Bajo M&#237;nimo</div>
-      <div class="kpi-value" id="kpiInvBajo">?</div>
+      <div class="kpi-value" id="kpiInvBajo">0</div>
       <div class="kpi-sub" id="kpiInvSub">art&#237;culos en alerta</div>
     </div>
   </div>
@@ -461,7 +464,7 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
         <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
         Scorecard Ejecutivo &#8211; Metas vs Actual
       </div>
-      <div class="scorecard-badge" id="scFecha">?</div>
+      <div class="scorecard-badge" id="scFecha">&mdash;</div>
     </div>
     <table class="sc-table">
       <thead>
@@ -499,13 +502,13 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
         </div>
       </div>
       <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Venta Hoy</span><span class="mod-kpi-val" id="modVentaHoy">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Venta Mes</span><span class="mod-kpi-val" id="modVentaMes">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Cotiz. Hoy</span><span class="mod-kpi-val" id="modCotiHoy">?</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Venta Hoy</span><span class="mod-kpi-val" id="modVentaHoy">$0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Venta Mes</span><span class="mod-kpi-val" id="modVentaMes">$0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Cotiz. Hoy</span><span class="mod-kpi-val" id="modCotiHoy">$0</span></div>
       </div>
       <div class="mod-footer">
         <span class="mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
-        <span class="mod-status" id="modVentaStatus">?</span>
+        <span class="mod-status" id="modVentaStatus">&mdash;</span>
       </div>
     </a>
 
@@ -519,13 +522,13 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
         </div>
       </div>
       <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Cobrado Mes</span><span class="mod-kpi-val" id="modCobradoMes">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Comisi&#243;n Est.</span><span class="mod-kpi-val" id="modComision">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Facturas</span><span class="mod-kpi-val" id="modCobFacts">?</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Cobrado Mes</span><span class="mod-kpi-val" id="modCobradoMes">$0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Comisi&#243;n Est.</span><span class="mod-kpi-val" id="modComision">$0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Facturas</span><span class="mod-kpi-val" id="modCobFacts">0</span></div>
       </div>
       <div class="mod-footer">
         <span class="mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
-        <span class="mod-status" id="modCobStatus">?</span>
+        <span class="mod-status" id="modCobStatus">&mdash;</span>
       </div>
     </a>
 
@@ -539,13 +542,13 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
         </div>
       </div>
       <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">En Meta Hoy</span><span class="mod-kpi-val" id="modVendEnMeta">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">% Equipo Mes</span><span class="mod-kpi-val" id="modVendPctMes">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Activos</span><span class="mod-kpi-val" id="modVendActivos">?</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">En Meta Hoy</span><span class="mod-kpi-val" id="modVendEnMeta">0/0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">% Equipo Mes</span><span class="mod-kpi-val" id="modVendPctMes">0%</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Activos</span><span class="mod-kpi-val" id="modVendActivos">0</span></div>
       </div>
       <div class="mod-footer">
         <span class="mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
-        <span class="mod-status" id="modVendStatus">?</span>
+        <span class="mod-status" id="modVendStatus">&mdash;</span>
       </div>
     </a>
 
@@ -559,13 +562,13 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
         </div>
       </div>
       <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Saldo Total</span><span class="mod-kpi-val" id="modCxcTotal">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Vencido</span><span class="mod-kpi-val" id="modCxcVenc">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Clientes</span><span class="mod-kpi-val" id="modCxcClientes">?</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Saldo Total</span><span class="mod-kpi-val" id="modCxcTotal">$0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Vencido</span><span class="mod-kpi-val" id="modCxcVenc">$0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Clientes</span><span class="mod-kpi-val" id="modCxcClientes">0</span></div>
       </div>
       <div class="mod-footer">
         <span class="mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
-        <span class="mod-status" id="modCxcStatus">?</span>
+        <span class="mod-status" id="modCxcStatus">&mdash;</span>
       </div>
     </a>
 
@@ -579,13 +582,13 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
         </div>
       </div>
       <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">En Riesgo</span><span class="mod-kpi-val" id="modCliRiesgo">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Monto Cr&#237;tico</span><span class="mod-kpi-val" id="modCliCritico">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Inactivos</span><span class="mod-kpi-val" id="modCliInactivos">?</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">En Riesgo</span><span class="mod-kpi-val" id="modCliRiesgo">0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Monto Cr&#237;tico</span><span class="mod-kpi-val" id="modCliCritico">$0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Inactivos</span><span class="mod-kpi-val" id="modCliInactivos">0</span></div>
       </div>
       <div class="mod-footer">
         <span class="mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
-        <span class="mod-status" id="modCliStatus">?</span>
+        <span class="mod-status" id="modCliStatus">&mdash;</span>
       </div>
     </a>
 
@@ -599,13 +602,13 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
         </div>
       </div>
       <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Total Art&#237;culos</span><span class="mod-kpi-val" id="modInvTotal">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Bajo M&#237;nimo</span><span class="mod-kpi-val" id="modInvBajo">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Sin Stock</span><span class="mod-kpi-val" id="modInvCero">?</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Total Art&#237;culos</span><span class="mod-kpi-val" id="modInvTotal">0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Bajo M&#237;nimo</span><span class="mod-kpi-val" id="modInvBajo">0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Sin Stock</span><span class="mod-kpi-val" id="modInvCero">0</span></div>
       </div>
       <div class="mod-footer">
         <span class="mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
-        <span class="mod-status" id="modInvStatus">?</span>
+        <span class="mod-status" id="modInvStatus">&mdash;</span>
       </div>
     </a>
 
@@ -619,9 +622,9 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
         </div>
       </div>
       <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Venta Mes</span><span class="mod-kpi-val" id="modDirVenta">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Margen</span><span class="mod-kpi-val" id="modDirMargen">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Salud Cartera</span><span class="mod-kpi-val" id="modDirSalud">?</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Venta Mes</span><span class="mod-kpi-val" id="modDirVenta">$0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Margen</span><span class="mod-kpi-val" id="modDirMargen">0%</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Salud Cartera</span><span class="mod-kpi-val" id="modDirSalud">0%</span></div>
       </div>
       <div class="mod-footer">
         <span class="mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
@@ -639,13 +642,13 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
         </div>
       </div>
       <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Ventas Netas</span><span class="mod-kpi-val" id="modResVentas">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Margen Bruto</span><span class="mod-kpi-val" id="modResMargen">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Cobros Mes</span><span class="mod-kpi-val" id="modResCobros">?</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Ventas Netas</span><span class="mod-kpi-val" id="modResVentas">$0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Margen Bruto</span><span class="mod-kpi-val" id="modResMargen">0%</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Cobros Mes</span><span class="mod-kpi-val" id="modResCobros">$0</span></div>
       </div>
       <div class="mod-footer">
         <span class="mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
-        <span class="mod-status" id="modResStatus">?</span>
+        <span class="mod-status" id="modResStatus">&mdash;</span>
       </div>
     </a>
 
@@ -659,13 +662,13 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
         </div>
       </div>
       <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Meta Diaria</span><span class="mod-kpi-val" id="modMetaDiaria">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Meta Cotiz.</span><span class="mod-kpi-val" id="modMetaCoti">?</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Vendedores</span><span class="mod-kpi-val" id="modMetaVend">?</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Meta Diaria</span><span class="mod-kpi-val" id="modMetaDiaria">$0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Meta Cotiz.</span><span class="mod-kpi-val" id="modMetaCoti">$0</span></div>
+        <div class="mod-kpi-row"><span class="mod-kpi-label">Vendedores</span><span class="mod-kpi-val" id="modMetaVend">0</span></div>
       </div>
       <div class="mod-footer">
         <span class="mod-open" style="color:var(--yellow)">Config. activa <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></span>
-        <span class="mod-status" id="modMetaStatus">?</span>
+        <span class="mod-status" id="modMetaStatus">&mdash;</span>
       </div>
     </div>
 
@@ -679,7 +682,7 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
           <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
           <span id="rankTitle">Ranking Vendedores</span>
         </div>
-        <div class="card-badge" id="rankFecha">?</div>
+        <div class="card-badge" id="rankFecha">&mdash;</div>
       </div>
       <div class="card-body">
         <div id="vendedoresContainer">
@@ -730,16 +733,8 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 <script>
 // Mismo origen si se sirve desde el servidor; si abres por file:// usa localhost:7000
 const API = (window.__API_BASE != null ? String(window.__API_BASE).replace(/\/+$/, '') : (window.location.protocol === 'file:' ? 'http://localhost:7000' : (window.location.origin || '')));
-function fwt(url,fallback,ms=60000){
-  const u=String(url);
-  const isNgrok=/ngrok-free\.app|ngrok\.io|ngrok-free\.dev/i.test(u);
-  if(ms<60000&&isNgrok)ms=60000;
-  const opts=isNgrok?{headers:{'ngrok-skip-browser-warning':'1'}}:{};
-  return Promise.race([
-    fetch(u,opts).then(r=>r.json().then(d=>(r.ok?d:fallback)).catch(()=>fallback)).catch(()=>fallback),
-    new Promise(r=>setTimeout(()=>r(fallback),ms))
-  ]);
-}
+function fwt(url,fallback,ms=10000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
+
 /** Lista de {id,label,database} desde GET /api/universe/databases (initBizBar). */
 let indexDbList = [];
 function buildApiUrl(path,extra){
@@ -784,18 +779,17 @@ async function initBizBar(){
         const raw=btn.getAttribute('data-db')||'';
         try{ const u=new URL(location.href); if(raw)u.searchParams.set('db',raw); else u.searchParams.delete('db'); history.replaceState({},'',u);}catch(_){}
         try{ if(raw)sessionStorage.setItem('microsip_erp_db',raw); else sessionStorage.removeItem('microsip_erp_db');}catch(_){}
+        try{ if(window.filterClearVendedorSilent) filterClearVendedorSilent(); }catch(_){}
         chips.querySelectorAll('.biz-chip').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); loadAll();
       });
     });
   }
 }
 
-// -- Reloj ----------------------------------------------------------------------
+// -- Reloj (nav.js reemplaza el header y usa #reloj; si no existe, #clock del HTML estático)
 function tick(){
-  const clk = document.getElementById('clock') || document.getElementById('reloj');
-  if (!clk) return;
-  const n = new Date();
-  clk.textContent = String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');
+  const el=document.getElementById('reloj')||document.getElementById('clock');
+  if(el) el.textContent=new Date().toLocaleTimeString('es-MX');
 }
 setInterval(tick,1000);tick();
 
@@ -815,7 +809,7 @@ function setEl(id,val){const e=document.getElementById(id);if(e)e.textContent=va
 function setHtml(id,val){const e=document.getElementById(id);if(e)e.innerHTML=val}
 
 // -- Semaphore helper -----------------------------------------------------------
-function sem(id,pct,{invert=false,labels=['Cumplido','En riesgo','Critico']}={}){
+function sem(id,pct,{invert=false,labels=['Cumplido','En riesgo','Cr\u00edtico']}={}){
   const el=document.getElementById(id);if(!el)return;
   const ok=invert?pct<25:pct>=100;
   const warn=invert?(pct>=25&&pct<50):(pct>=70&&pct<100);
@@ -947,15 +941,15 @@ function renderScorecard(rows){
     const barW=pct!==null?Math.min(r.invert?Math.max(0,100-(r.statusCxc!=null?pct:pct*2)):pct,100):0;
     const deltaStr=delta!==null
       ?`<span class="${delta>=0&&!r.invert||delta<0&&r.invert?'delta-up':'delta-down'}">${delta>=0?'+':''}${delta.toFixed(1)}%</span>`
-      :'<span class="delta-flat">?</span>';
+      :'<span class="delta-flat">\u2014</span>';
     return `<tr>
       <td><div class="sc-kpi-name">${r.name}</div><div class="sc-kpi-area">${r.area}</div></td>
       <td class="sc-val" style="color:${r.valColor||'var(--text)'}">${r.actualFmt}</td>
-      <td class="sc-meta">${r.metaFmt||'?'}</td>
+      <td class="sc-meta">${r.metaFmt!=null&&r.metaFmt!==''?r.metaFmt:'\u2014'}</td>
       <td class="sc-delta">${deltaStr}</td>
       <td class="sc-bar-wrap">
         ${pct!==null?`<div class="sc-bar-bg"><div class="sc-bar-fill" style="width:${barW}%;background:${barColor}"></div></div>
-        <div class="sc-pct" style="color:${barColor}">${pct}%</div>`:'?'}
+        <div class="sc-pct" style="color:${barColor}">${pct}%</div>`:'<span class="sc-pct" style="color:var(--muted)">\u2014</span>'}
       </td>
       <td class="sc-sem"><span style="font-family:'DM Mono',monospace;font-size:.62rem;color:${semColor}">${semTxt}</span></td>
     </tr>`;
@@ -969,25 +963,23 @@ let chartTend=null;
 // -- Main load ------------------------------------------------------------------
 async function loadAll(){
   try{
-    // Sin /api/director/resumen aquí: duplicaba ventas+CXC+cotiz y saturaba Firebird (Inicio tardaba el doble y fwt 10s dejaba cards vacías).
-    const [v,m,c,inv,vends,cot,cumpl,cliRes,pnlData,uniData]=await Promise.all([
-      fwt(buildApiUrl('/api/ventas/resumen'),{},60000),
-      fwt(API+'/api/config/metas',{},25000),
-      fwt(buildApiUrl('/api/cxc/resumen'),{},60000),
-      fwt(API+'/api/inv/resumen',{},60000),
-      fwt(buildApiUrl('/api/director/vendedores'),[],60000),
-      fwt(buildApiUrl('/api/ventas/cotizaciones/resumen'),{},60000),
-      fwt(buildApiUrl('/api/ventas/cumplimiento'),[],60000),
-      fwt(API+'/api/clientes/resumen-riesgo',{},60000),
-      fwt(buildApiUrl('/api/resultados/pnl','meses=1'),{},60000),
-      fwt(universeScorecardUrl(),{ empresas: [], consolidado: {} },130000),
+    const tKpi = 35000;
+    const [v,m,c,inv,dir,vends,cot,cumpl,cliRes,pnlData]=await Promise.all([
+      fwt(buildApiUrl('/api/ventas/resumen'),{},tKpi),
+      fwt(buildApiUrl('/api/config/metas'),{},tKpi),
+      fwt(buildApiUrl('/api/cxc/resumen'),{},tKpi),
+      fwt(buildApiUrl('/api/inv/resumen'),{},tKpi),
+      fwt(buildApiUrl('/api/director/resumen'),{},tKpi),
+      fwt(buildApiUrl('/api/director/vendedores'),[],tKpi),
+      fwt(buildApiUrl('/api/ventas/cotizaciones/resumen'),{},tKpi),
+      fwt(buildApiUrl('/api/ventas/cumplimiento'),[],tKpi),
+      fwt(buildApiUrl('/api/clientes/resumen-riesgo'),{},tKpi),
+      fwt(buildApiUrl('/api/resultados/pnl','meses=1'),{},tKpi),
     ]);
-    const cumplArr = Array.isArray(cumpl) ? cumpl : [];
-    const vendsArr = Array.isArray(vends) ? vends : [];
-    // fwt ya retorna el fallback directamente ? no necesita .value
+    // fwt ya retorna el fallback directamente; no necesita .value
 
     // Metas
-    const numVend=+m.NUM_VENDEDORES||vendsArr.length||1;
+    const numVend=+m.NUM_VENDEDORES||vends.length||1;
     const metaDia=+m.META_TOTAL_DIARIA||(+m.META_DIARIA_POR_VENDEDOR||5650)*numVend;
     const metaCotiDia=+m.META_COTI_TOTAL||(+m.META_COTI_POR_VENDEDOR||10000)*numVend;
     const diasHabil=+m.DIAS_HABILES_MES||22;
@@ -1003,10 +995,8 @@ async function loadAll(){
     // Ventas y cotiz (valores crudos)
     const ventaHoy=+v.HOY||0;
     const ventaMes=+v.MES_ACTUAL||0;
-    const ventasResumenErr = v && v._queryError ? String(v._queryError) : '';
-    const ventasDiagMsg = v && v._diagnostico && v._diagnostico.mensaje ? String(v._diagnostico.mensaje) : '';
-    const cotiHoy=+cot.HOY||0;
-    const cotiMes=+cot.MES_ACTUAL||0;
+    const cotiHoy=+cot.HOY||+(dir.cotizaciones?.IMPORTE_COTI_HOY)||0;
+    const cotiMes=+cot.MES_ACTUAL||+(dir.cotizaciones?.IMPORTE_COTI_MES)||0;
     const pHoy=pctOf(ventaHoy,metaDia);
     const pMes=pctOf(ventaMes,metaMes);
     const pCotiHoy=pctOf(cotiHoy,metaCotiDia);
@@ -1059,12 +1049,7 @@ async function loadAll(){
     sem('semVentaHoy', pVenta1, {labels:['Cumplido','En riesgo','Critico']});
     setEl('kpiLabelVentaMes', labelVenta2);
     setEl('kpiVentaMes', fmtM(ventaMes));
-    setEl(
-      'kpiVentaMesSub',
-      ventasResumenErr
-        ? ('Error resumen ventas: ' + ventasResumenErr.slice(0, 100) + (ventasDiagMsg ? ' · ' + ventasDiagMsg.slice(0, 80) : ''))
-        : 'Meta: '+fmtM(metaMes)
-    );
+    setEl('kpiVentaMesSub', 'Meta: '+fmtM(metaMes));
     setBar('barVentaMes','pctVentaMes', pMes);
     sem('semVentaMes', pMes, {labels:['Cumplido','En riesgo','Critico']});
 
@@ -1100,6 +1085,21 @@ async function loadAll(){
     const pBajoInv=metaBajoMin>0?Math.min(100,Math.round(invBajo/metaBajoMin*100)):0;
     sem('semInvBajo',pBajoInv,{invert:true,labels:['OK','Revisar','Alerta']});
 
+    if (typeof dashboardApplySem === 'function') {
+      const ringMega = (valueId, lvl) => {
+        const el = document.getElementById(valueId);
+        const card = el && el.closest('.kpi-card');
+        if (card) dashboardApplySem(card, lvl);
+      };
+      ringMega('kpiVentaHoy', pVenta1 >= 100 ? 'ok' : pVenta1 >= 70 ? 'warn' : 'danger');
+      ringMega('kpiVentaMes', pMes >= 100 ? 'ok' : pMes >= 70 ? 'warn' : 'danger');
+      const pCotiBar = isVistaHoy ? pCotiHoy : pCotiMes;
+      ringMega('kpiCotiHoy', pCotiBar >= 100 ? 'ok' : pCotiBar >= 70 ? 'warn' : 'danger');
+      ringMega('kpiCxcTotal', cxcTotal > 0 ? 'info' : 'neutral');
+      ringMega('kpiCxcVencido', pVenc <= 25 ? 'ok' : pVenc <= 50 ? 'warn' : 'danger');
+      ringMega('kpiInvBajo', invBajo === 0 ? 'ok' : invBajo <= 10 ? 'warn' : 'danger');
+    }
+
     // Hero subtitle & situation badge
     const issues=[];
     if(pHoy<70)issues.push('venta del d\u00eda al '+pHoy+'%');
@@ -1109,10 +1109,10 @@ async function loadAll(){
     if(badgeEl){
       if(issues.length===0){
         badgeEl.className='situation-badge ok';
-        badgeEl.innerHTML=`<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>Operaci?n Normal`;
+        badgeEl.innerHTML=`<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>Operaci\u00f3n Normal`;
       }else if(issues.length<=1){
         badgeEl.className='situation-badge warn';
-        badgeEl.innerHTML=`<svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>Atenci&#243;n requerida`;
+        badgeEl.innerHTML=`<svg viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>Atenci\u00f3n requerida`;
       }else{
         badgeEl.className='situation-badge danger';
         badgeEl.innerHTML=`<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>Alertas activas`;
@@ -1120,9 +1120,28 @@ async function loadAll(){
     }
     setEl('heroSub',
       issues.length===0
-        ? `${numVend} vendedores activos ? Meta diaria ${fmtM(metaDia)} ? CxC ${fmtM(cxcTotal)} ? Sin alertas criticas`
-        : `${numVend} vendedores ? Meta ${fmtM(metaDia)} ? CxC ${fmtM(cxcTotal)} ? Alertas: ${issues.join(', ')}`
+        ? `${numVend} vendedores activos \u00b7 Meta diaria ${fmtM(metaDia)} \u00b7 CxC ${fmtM(cxcTotal)} \u00b7 Sin alertas cr\u00edticas`
+        : `${numVend} vendedores \u00b7 Meta ${fmtM(metaDia)} \u00b7 CxC ${fmtM(cxcTotal)} \u00b7 Alertas: ${issues.join(', ')}`
     );
+
+    const hintEl=document.getElementById('heroDataHint');
+    if(hintEl){
+      hintEl.hidden=true;
+      hintEl.textContent='';
+      const ySel=parseInt(params.anio,10);
+      const mSel=parseInt(params.mes,10);
+      const periodYm=(preset==='mes'||preset==='mes_ant')&&!isNaN(ySel)&&!isNaN(mSel)&&ySel>0&&mSel>0?ySel*100+mSel:null;
+      const nowYm=now.getFullYear()*100+(now.getMonth()+1);
+      const vendFilt=String(params.vendedor||'').trim();
+      const looksEmpty=ventaMes===0&&valorVenta1===0&&cxcTotal===0&&invTotal===0&&cotiMes===0;
+      if(looksEmpty&&vendFilt){
+        hintEl.hidden=false;
+        hintEl.textContent='Filtro por vendedor activo: en otra base el mismo ID puede no aplicar o no tener ventas en este periodo. Prueba sin vendedor (todos) u otro mes.';
+      }else if(looksEmpty&&periodYm!=null&&periodYm<nowYm){
+        hintEl.hidden=false;
+        hintEl.textContent='Periodo '+periodLabel+': sin movimiento visible en esta base. Usa \u201cEste mes\u201d o \u201cEste a\u00f1o\u201d arriba si buscas operaci\u00f3n actual.';
+      }
+    }
 
     // Module cards (valores según preset; texto meta según periodo)
     const metaPeriodo = isVistaHoy ? 'hoy' : isSemana ? 'semana' : isMes ? 'mes' : 'a\u00f1o';
@@ -1157,12 +1176,12 @@ async function loadAll(){
     setEl('modCobStatus','Ver detalle');
 
     // Vendedores cumplimiento
-    if(cumplArr.length>0){
-      const enMeta=cumplArr.filter(r=>+r.PCT_HOY>=100||r.STATUS==='OK').length;
-      const totalPctMes=cumplArr.reduce((s,r)=>s+(+r.PCT_MES||0),0)/cumplArr.length;
-      setEl('modVendEnMeta',enMeta+'/'+cumplArr.length);
+    if(cumpl.length>0){
+      const enMeta=cumpl.filter(r=>+r.PCT_HOY>=100||r.STATUS==='OK').length;
+      const totalPctMes=cumpl.reduce((s,r)=>s+(+r.PCT_MES||0),0)/cumpl.length;
+      setEl('modVendEnMeta',enMeta+'/'+cumpl.length);
       setEl('modVendPctMes',totalPctMes.toFixed(0)+'%');
-      setEl('modVendActivos',cumplArr.length+' vend.');
+      setEl('modVendActivos',cumpl.length+' vend.');
       const vColor2=totalPctMes>=100?'var(--green)':totalPctMes>=75?'var(--yellow)':'var(--red)';
       setHtml('modVendStatus',`<span style="color:${vColor2}">${totalPctMes.toFixed(0)}% meta mes</span>`);
     }
@@ -1183,7 +1202,7 @@ async function loadAll(){
     if(pnlMeses.length>0){
       const last=pnlMeses[pnlMeses.length-1];
       resVentas=+last.VENTAS_NETAS||ventaMes;
-      resMargen=+last.MARGEN_PCT||0;
+      resMargen=+last.MARGEN_BRUTO_PCT||+last.MARGEN_PCT||0;
       resCobros=+last.COBROS||0;
     }
     setEl('modResVentas',fmtM(resVentas));
@@ -1192,16 +1211,16 @@ async function loadAll(){
     const mColor=resMargen>=30?'var(--green)':resMargen>=15?'var(--yellow)':'var(--red)';
     setHtml('modResStatus',`<span style="color:${mColor}">Margen ${resMargen.toFixed(1)}%</span>`);
 
-    // Módulo "Director" en Inicio: sin segundo fetch a /api/director/resumen (usa mismos datos de venta/CxC)
-    const dirVenta=ventaMes;
-    const dirMargen=0;
-    const dirSalud=(cxcTotal>0?Math.round((1-cxcVenc/cxcTotal)*100):100);
+    // Director
+    const dirVenta=+dir.VENTAS_MES||ventaMes;
+    const dirMargen=+dir.MARGEN_BRUTO_PCT||+dir.MARGEN_PCT||0;
+    const dirSalud=+dir.SALUD_CARTERA||(cxcTotal>0?Math.round((1-cxcVenc/cxcTotal)*100):100);
     setEl('modDirVenta',fmtM(dirVenta));
-    setEl('modDirMargen',dirMargen?dirMargen.toFixed(1)+'%':'?');
+    setEl('modDirMargen',dirMargen?dirMargen.toFixed(1)+'%':'0%');
     setEl('modDirSalud',dirSalud+'%');
 
     // Vendedores ranking
-    renderVendedores(vendsArr);
+    renderVendedores(vends);
     // Alertas
     renderAlertas({ventaHoy,metaDia,cxcVenc,cxcTotal,pVenc,invBajo,invCero});
     // Tendencia
@@ -1213,14 +1232,16 @@ async function loadAll(){
       {name:labelVenta1,area:'Ventas - Tiempo Real',actual:valorVenta1,meta:metaVenta1,actualFmt:fmtM(valorVenta1),metaFmt:fmtM(metaVenta1),valColor:'var(--green)'},
       {name:labelVenta2,area:areaPeriodLabel,actual:ventaMes,meta:metaMes,actualFmt:fmtM(ventaMes),metaFmt:fmtM(metaMes),valColor:'var(--blue)'},
       {name:scCotiName,area:'Ventas - Oportunidades',actual:valorCoti,meta:metaCotiDia,actualFmt:fmtM(valorCoti),metaFmt:fmtM(metaCotiDia),valColor:'var(--yellow)'},
-      {name:'Cartera Total CxC',area:'Cobranza - Saldo',actual:cxcTotal,meta:null,actualFmt:fmtM(cxcTotal),metaFmt:'?',valColor:'var(--orange)',statusCxc:pVenc},
+      {name:'Cartera Total CxC',area:'Cobranza - Saldo',actual:cxcTotal,meta:null,actualFmt:fmtM(cxcTotal),metaFmt:'Ref. % vencido',valColor:'var(--orange)',statusCxc:pVenc},
       {name:'Cartera Vencida',area:'Cobranza - Riesgo',actual:pVenc,meta:20,actualFmt:pVenc+'%',metaFmt:'<20%',valColor:pVenc>50?'var(--red)':pVenc>25?'var(--yellow)':'var(--green)',invert:true},
-      {name:'Articulos Bajo M&#237;nimo',area:'Inventario - Alerta',actual:invBajo,meta:metaBajoMin,actualFmt:invBajo.toLocaleString(),metaFmt:'<'+metaBajoMin,valColor:invBajo>10?'var(--red)':invBajo>0?'var(--yellow)':'var(--green)',invert:true},
-      {name:'Vendedores en Meta',area:'Ventas - Equipo',actual:cumplArr.filter(r=>+r.PCT_HOY>=100).length,meta:numVend,actualFmt:cumplArr.filter(r=>+r.PCT_HOY>=100).length+'/'+numVend,metaFmt:numVend+' vend.',valColor:'var(--purple)'},
-      {name:'Margen Bruto',area:'Resultados - P&amp;L',actual:resMargen,meta:30,actualFmt:resMargen.toFixed(1)+'%',metaFmt:'?30%',valColor:resMargen>=30?'var(--green)':resMargen>=15?'var(--yellow)':'var(--red)'},
+      {name:'Art\u00edculos bajo m\u00ednimo',area:'Inventario - Alerta',actual:invBajo,meta:metaBajoMin,actualFmt:invBajo.toLocaleString(),metaFmt:'<'+metaBajoMin,valColor:invBajo>10?'var(--red)':invBajo>0?'var(--yellow)':'var(--green)',invert:true},
+      {name:'Vendedores en Meta',area:'Ventas - Equipo',actual:cumpl.filter(r=>+r.PCT_HOY>=100).length,meta:numVend,actualFmt:cumpl.filter(r=>+r.PCT_HOY>=100).length+'/'+numVend,metaFmt:numVend+' vend.',valColor:'var(--purple)'},
+      {name:'Margen Bruto',area:'Resultados - P&amp;L',actual:resMargen,meta:30,actualFmt:resMargen.toFixed(1)+'%',metaFmt:'\u2265 30%',valColor:resMargen>=30?'var(--green)':resMargen>=15?'var(--yellow)':'var(--red)'},
     ]);
 
-    try{ renderUniversePortfolio(uniData); }catch(e2){ console.warn('renderUniversePortfolio', e2); }
+    fwt(universeScorecardUrl(),{ empresas: [], consolidado: {} },45000).then(function(uniData){
+      try{ renderUniversePortfolio(uniData); }catch(_){}
+    });
 
   }catch(e){
     console.error('loadAll error:',e);
@@ -1332,7 +1353,7 @@ function renderChart(data){
   if(window.initFilters){ initFilters({ containerId:'filter-bar', showVendedor:true, onReady:()=>loadAll(), onChange:()=>loadAll() }); }
   else loadAll();
 })();
-setInterval(loadAll,300000);
+setInterval(loadAll,60000);
 </script>
 <script src="nav.js"></script>
 </body>
