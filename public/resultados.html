@@ -451,6 +451,15 @@ function buildPnlApiUrl(path, extra, opts) {
   const q = buildPnlQuery(extra, opts);
   return API + path + (q ? '?' + q : '');
 }
+function getPinnedDbId(){
+  try{
+    const qdb=(new URLSearchParams(location.search).get('db')||'').trim();
+    if(qdb&&qdb.toLowerCase()!=='default')return qdb;
+    const sdb=(sessionStorage.getItem('microsip_erp_db')||'').trim();
+    if(sdb&&sdb.toLowerCase()!=='default')return sdb;
+  }catch(_){}
+  return '';
+}
 
 // ── Reloj ──────────────────────────────────────────────────────────────────────
 setInterval(()=>{const n=new Date();document.getElementById('reloj').textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');},1000);
@@ -612,6 +621,8 @@ async function loadData(){
   const heroEl=document.getElementById('heroSub');
     let url=buildPnlApiUrl('/api/resultados/pnl','meses='+currentMeses)+'&_='+Date.now();
   let data={};
+  const pinnedDb=getPinnedDbId();
+  if(pinnedDb) selectedBizId=pinnedDb;
   function getBase(){
     const a=typeof API!=='undefined'&&API?String(API).replace(/\/+$/,''):'';
     if(a)return a;
@@ -645,13 +656,18 @@ async function loadData(){
       document.getElementById('bizContextBar')&&(document.getElementById('bizContextBar').style.display='none');
       document.getElementById('plScoreStrip')&&(document.getElementById('plScoreStrip').style.display='none');
       document.getElementById('plMiniTableWrap')&&(document.getElementById('plMiniTableWrap').style.display='none');
-      selectedBizId=null;
-      setDbUrl('');
+      if(pinnedDb){
+        selectedBizId=pinnedDb;
+        setDbUrl(pinnedDb);
+      }else{
+        selectedBizId=null;
+        setDbUrl('');
+      }
     }else{
       renderBizChips(empresas);
       if(!selectedBizId||selectedBizId===''){
         try{
-          const saved=(sessionStorage.getItem('microsip_erp_db')||'').trim();
+          const saved=(pinnedDb||(sessionStorage.getItem('microsip_erp_db')||'')).trim();
           if(saved&&okEmp.some(e=>String(e.id)===String(saved)))selectedBizId=saved;
           else selectedBizId='__ALL__';
         }catch(_){ selectedBizId='__ALL__'; }
