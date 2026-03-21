@@ -169,6 +169,7 @@ nav{display:flex;align-items:center;gap:.2rem}
     <div class="hero-title">Intel. de Clientes</div>
     <div class="hero-sub" id="heroSub">Conectando con el servidor…</div>
   </div>
+  <div id="filter-bar"></div>
 
   <!-- KPIs globales -->
   <div class="kpi-grid">
@@ -593,7 +594,11 @@ document.getElementById('thNivelSort')?.addEventListener('click', function(){
   else sortNivelDirection = 0;
   renderRiesgo(riesgoData);
 });
-loadData();
+if (typeof initFilters === 'function') {
+  initFilters({ containerId:'filter-bar', showVendedor:false, onReady:()=>loadData(), onChange:()=>loadData() });
+} else {
+  loadData();
+}
 setInterval(loadData,120000);
 </script>
 <script src="nav.js"></script>

@@ -125,7 +125,8 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     if (!p) return '';
     const s = String(p).replace(/\\/g, '/');
     const i = s.lastIndexOf('/');
-    return i >= 0 ? s.slice(i + 1) : s;
+    const base = i >= 0 ? s.slice(i + 1) : s;
+    return base.replace(/\.fdb$/i, '');
   }
 
   function renderDbChipsInto(container, list, onChange) {
@@ -137,7 +138,9 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       const id = String(e.id || '');
       const fname = fdbBasename(e.database);
       const main = fname || id;
-      const sub = (e.label && e.label !== fname && e.label !== id) ? e.label : id;
+      const idClean = String(id).replace(/\.fdb$/i, '');
+      const labelClean = String(e.label || '').replace(/\.fdb$/i, '');
+      const sub = (labelClean && labelClean !== fname && labelClean !== idClean) ? labelClean : idClean;
       const active = urlDb === id ? ' active' : '';
       const title = escChip((e.database || '') + (e.host ? ' \u00b7 ' + e.host : ''));
       html += '<button type="button" class="biz-chip db-chip' + active + '" data-db="' + escChip(id) + '" title="' + title + '">' +

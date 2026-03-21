@@ -341,7 +341,7 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 
   <!-- Empresa (contexto operativo; siempre que el API registre al menos una base) -->
   <div class="biz-context-bar" id="bizContextBar" style="display:none" aria-label="Base de datos">
-    <span class="biz-context-label" id="bizContextLabel">Base de datos (.fdb)</span>
+    <span class="biz-context-label" id="bizContextLabel">Base de datos</span>
     <div class="biz-chips biz-chips-grid" id="bizChips"></div>
   </div>
 
@@ -765,13 +765,13 @@ async function initBizBar(){
   if(!bar||!chips)return;
   if(indexDbList.length===0){ bar.style.display='none'; return; }
   bar.style.display='flex';
-  if(lbl) lbl.textContent='Base de datos (.fdb)';
+  if(lbl) lbl.textContent='Base de datos';
   if(window.renderDbChipsInto){
     renderDbChipsInto(chips,indexDbList,()=>loadAll());
   }else{
     const urlDb=(new URLSearchParams(location.search).get('db')||'').trim();
     chips.innerHTML='<button type="button" class="biz-chip'+(urlDb?'':' active')+'" data-db="">Por defecto</button>'+indexDbList.map(e=>{
-      const id=String(e.id||''); const fn=String(e.database||'').replace(/\\/g,'/').split('/').filter(Boolean).pop()||id;
+      const id=String(e.id||''); const fn=(String(e.database||'').replace(/\\/g,'/').split('/').filter(Boolean).pop()||id).replace(/\.fdb$/i,'');
       return '<button type="button" class="biz-chip'+(urlDb===id?' active':'')+'" data-db="'+id.replace(/"/g,'&quot;')+'">'+fn.replace(/</g,'')+'</button>';
     }).join('');
     chips.querySelectorAll('.biz-chip').forEach(btn=>{
@@ -867,7 +867,7 @@ function renderUniversePortfolio(uni){
     const pathEsc=escHtml((p&&p.database)||'');
     const fdb=fdbBasenameIndex(p&&p.database);
     const headLine=escHtml(fdb||p.label||p.id||'Principal');
-    sub.innerHTML='Est\u00e1s viendo <strong>'+headLine+'</strong> <span style="opacity:.75">('+escHtml(p.id)+')</span>. Los KPI de abajo siguen el filtro de fechas. Para listar <strong>varias</strong> .fdb, en el <code>.env</code> del servidor define <code>FB_DATABASE_DIR</code> (carpeta donde est\u00e1n todas las bases) y/o <code>FB_DATABASES_JSON</code>; el archivo <code>.env</code> debe ser solo l\u00edneas <code>VAR=valor</code> (sin pegar c\u00f3digo .js). Reinicia Node y revisa en consola del servidor la l\u00ednea <code>[Firebird] bases registradas</code>.'+(pathEsc?'<br><span style="opacity:.85">Ruta: <code>'+pathEsc+'</code></span>':'');
+    sub.innerHTML='Est\u00e1s viendo <strong>'+headLine+'</strong> <span style="opacity:.75">('+escHtml(p.id)+')</span>. Los KPI de abajo siguen el filtro de fechas. Para listar <strong>varias</strong> bases, en el <code>.env</code> del servidor define <code>FB_DATABASE_DIR</code> (carpeta donde est\u00e1n todas las bases) y/o <code>FB_DATABASES_JSON</code>; el archivo <code>.env</code> debe ser solo l\u00edneas <code>VAR=valor</code> (sin pegar c\u00f3digo .js). Reinicia Node y revisa en consola del servidor la l\u00ednea <code>[Firebird] bases registradas</code>.'+(pathEsc?'<br><span style="opacity:.85">Ruta: <code>'+pathEsc+'</code></span>':'');
   }else{
     sub.textContent='Vista consolidada del mismo periodo que el filtro superior. Cada tarjeta es una base Firebird registrada; el detalle operativo (KPI) lo controlan los chips de empresa.';
   }

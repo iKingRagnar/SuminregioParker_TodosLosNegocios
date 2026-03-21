@@ -1955,38 +1955,21 @@ function cxcDocSaldosSQL(cfSql) {
   return `${cxcDocSaldosInnerSQL(cfSql)} doc WHERE doc.SALDO_NETO > 0`;
 }
 
-function cxcFechaFiltro(req, alias = 'dc') {
-  return buildFiltros(req, alias, { omitVendedorCliente: true });
-}
-
 // Resumen CxC: Vencido y No vencido (suma Saldo_Documento). Contado cuenta como vigente (sin días de atraso).
 get('/api/cxc/resumen', async (req) => {
   const dbo = getReqDbOpts(req);
   const cf = req.query.cliente ? parseInt(req.query.cliente) : null;
   const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
   const docSal = cxcDocSaldosSQL(cfSql);
-  const ff = cxcFechaFiltro(req, 'dc');
   const [totales, numCli, numCliVenc] = await Promise.all([
     query(`
       SELECT
         SUM(CASE WHEN doc.DIAS_VENCIDO >= 1 THEN doc.SALDO_NETO ELSE 0 END) AS VENCIDO,
         SUM(CASE WHEN doc.DIAS_VENCIDO <= 0 THEN doc.SALDO_NETO ELSE 0 END) AS POR_VENCER
       FROM ${docSal}
-      JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = doc.DOCTO_CC_ID
-      WHERE 1=1 ${ff.sql}
-    `, ff.params, 12000, dbo).catch(() => [{ VENCIDO: 0, POR_VENCER: 0 }]),
-    query(`
-      SELECT COUNT(DISTINCT doc.CLIENTE_ID) AS N
-      FROM ${docSal}
-      JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = doc.DOCTO_CC_ID
-      WHERE 1=1 ${ff.sql}
-    `, ff.params, 12000, dbo).catch(() => [{ N: 0 }]),
-    query(`
-      SELECT COUNT(DISTINCT doc.CLIENTE_ID) AS N
-      FROM ${docSal}
-      JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = doc.DOCTO_CC_ID
-      WHERE doc.DIAS_VENCIDO >= 1 ${ff.sql}
-    `, ff.params, 12000, dbo).catch(() => [{ N: 0 }]),
+    `, [], 12000, dbo).catch(() => [{ VENCIDO: 0, POR_VENCER: 0 }]),
+    query(`SELECT COUNT(DISTINCT doc.CLIENTE_ID) AS N FROM ${docSal}`, [], 12000, dbo).catch(() => [{ N: 0 }]),
+    query(`SELECT COUNT(DISTINCT doc.CLIENTE_ID) AS N FROM ${docSal.replace(/WHERE doc\.SALDO_NETO > 0\s*$/i, 'WHERE doc.SALDO_NETO > 0 AND doc.DIAS_VENCIDO >= 1')}`, [], 12000, dbo).catch(() => [{ N: 0 }]),
   ]);
   const vencido = +(totales[0] && totales[0].VENCIDO) || 0;
   const porVencer = +(totales[0] && totales[0].POR_VENCER) || 0;
@@ -2005,7 +1988,6 @@ get('/api/cxc/aging', async (req) => {
   const dbo = getReqDbOpts(req);
   const cf = req.query.cliente ? parseInt(req.query.cliente) : null;
   const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
-  const ff = cxcFechaFiltro(req, 'dc');
   const rows = await query(`
     SELECT
       SUM(CASE WHEN doc.DIAS_VENCIDO <= 0               THEN doc.SALDO_NETO ELSE 0 END) AS CORRIENTE,
@@ -2014,9 +1996,7 @@ get('/api/cxc/aging', async (req) => {
       SUM(CASE WHEN doc.DIAS_VENCIDO BETWEEN 61 AND  90 THEN doc.SALDO_NETO ELSE 0 END) AS DIAS_61_90,
       SUM(CASE WHEN doc.DIAS_VENCIDO > 90               THEN doc.SALDO_NETO ELSE 0 END) AS DIAS_MAS_90
     FROM ${cxcDocSaldosSQL(cfSql)}
-    JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = doc.DOCTO_CC_ID
-    WHERE 1=1 ${ff.sql}
-  `, ff.params, 12000, dbo).catch(() => [{ CORRIENTE: 0, DIAS_1_30: 0, DIAS_31_60: 0, DIAS_61_90: 0, DIAS_MAS_90: 0 }]);
+  `, [], 12000, dbo).catch(() => [{ CORRIENTE: 0, DIAS_1_30: 0, DIAS_31_60: 0, DIAS_61_90: 0, DIAS_MAS_90: 0 }]);
   const r = rows[0] || {};
   return {
     CORRIENTE  : Math.round((+r.CORRIENTE   || 0) * 100) / 100,
@@ -2033,7 +2013,6 @@ get('/api/cxc/vencidas', async (req) => {
   const limit = Math.min(parseInt(req.query.limit) || 100, 500);
   const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
   const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
-  const ff = cxcFechaFiltro(req, 'dc');
   return query(`
     SELECT FIRST ${limit}
       dc.FOLIO,
@@ -2059,9 +2038,8 @@ get('/api/cxc/vencidas', async (req) => {
     JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = x.DOCTO_CC_ID
     JOIN CLIENTES c ON c.CLIENTE_ID = x.CLIENTE_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = dc.COND_PAGO_ID
-    WHERE 1=1 ${ff.sql}
     ORDER BY x.SALDO_NETO DESC, x.DIAS_ATRASO DESC
-  `, ff.params, 12000, dbo).catch(() => []);
+  `, [], 12000, dbo).catch(() => []);
 });
 
 // Top Deudores: saldo neto + condición + vencido proporcional al saldo (igual que /api/cxc/resumen). Acepta ?cliente= para filtrar.
@@ -2070,7 +2048,6 @@ get('/api/cxc/top-deudores', async (req) => {
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
   const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
   const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
-  const ff = cxcFechaFiltro(req, 'dc');
   return query(`
     SELECT FIRST ${limit}
       doc.CLIENTE_ID,
@@ -2081,14 +2058,11 @@ get('/api/cxc/top-deudores', async (req) => {
       MAX(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.DIAS_VENCIDO ELSE 0 END) AS MAX_DIAS_ATRASO,
       COUNT(*) AS NUM_DOCUMENTOS
     FROM ${cxcDocSaldosSQL(cfSql)}
-    JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = doc.DOCTO_CC_ID
     LEFT JOIN CLIENTES cl ON cl.CLIENTE_ID = doc.CLIENTE_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = cl.COND_PAGO_ID
-    WHERE 1=1 ${ff.sql}
     GROUP BY doc.CLIENTE_ID, cl.NOMBRE, cp.NOMBRE
-    HAVING SUM(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.SALDO_NETO ELSE 0 END) > 0.005
     ORDER BY SALDO_TOTAL DESC, VENCIDO DESC
-  `, ff.params, 12000, dbo).catch(() => []);
+  `, [], 12000, dbo).catch(() => []);
 });
 
 get('/api/cxc/historial', async (req) => {
@@ -2102,10 +2076,9 @@ get('/api/cxc/historial', async (req) => {
   `, [cliente], 12000, dbo).catch(() => []);
 });
 
-// Por condición: saldo neto por documento CC, agrupado por COND_PAGO del documento (sin contado).
+// Por condición: saldo neto por documento CC, agrupado por COND_PAGO del documento (incluye contado).
 get('/api/cxc/por-condicion', async (req) => {
   const dbo = getReqDbOpts(req);
-  const ff = cxcFechaFiltro(req, 'dc');
   const docs = await query(`
     SELECT
       doc.DOCTO_CC_ID,
@@ -2113,14 +2086,13 @@ get('/api/cxc/por-condicion', async (req) => {
       TRIM(COALESCE(cp.NOMBRE, 'Sin condición')) AS CONDICION_PAGO,
       COALESCE(cp.DIAS_PPAG, 0) AS DIAS_CREDITO,
       doc.DIAS_VENCIDO AS DIAS_VENCIDO,
-      doc.SALDO_NETO
+      doc.SALDO_NETO,
+      CASE WHEN (${CXC_SQL_ES_CONTADO}) THEN 1 ELSE 0 END AS ES_CONTADO
     FROM ${cxcDocSaldosInnerSQL('')}
     JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = doc.DOCTO_CC_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = dc.COND_PAGO_ID
     WHERE doc.SALDO_NETO > 0.005
-      AND NOT (${CXC_SQL_ES_CONTADO})
-      ${ff.sql}
-  `, ff.params, 15000, dbo).catch(() => []);
+  `, [], 15000, dbo).catch(() => []);
   const byCond = {};
   for (const r of docs || []) {
     const saldo = Math.round((+r.SALDO_NETO || 0) * 100) / 100;
@@ -2128,7 +2100,8 @@ get('/api/cxc/por-condicion', async (req) => {
     const dv = +r.DIAS_VENCIDO || 0;
     const venc = dv > 0 ? saldo : 0;
     const cor = dv > 0 ? 0 : saldo;
-    const key = `${r.CONDICION_PAGO}|${+r.DIAS_CREDITO || 0}`;
+    const esContado = +r.ES_CONTADO === 1;
+    const key = `${r.CONDICION_PAGO}|${+r.DIAS_CREDITO || 0}|${esContado ? 1 : 0}`;
     if (!byCond[key]) {
       byCond[key] = {
         CONDICION_PAGO: r.CONDICION_PAGO,
@@ -2138,7 +2111,7 @@ get('/api/cxc/por-condicion', async (req) => {
         SALDO_TOTAL: 0,
         VENCIDO: 0,
         CORRIENTE: 0,
-        ES_CONTADO: false,
+        ES_CONTADO: esContado,
       };
     }
     const b = byCond[key];
@@ -2157,10 +2130,16 @@ get('/api/cxc/por-condicion', async (req) => {
       SALDO_TOTAL: Math.round(r.SALDO_TOTAL * 100) / 100,
       VENCIDO: Math.round(r.VENCIDO * 100) / 100,
       CORRIENTE: Math.round(r.CORRIENTE * 100) / 100,
-      ES_CONTADO: false,
+      ES_CONTADO: !!r.ES_CONTADO,
     }))
     .sort((a, b) => b.SALDO_TOTAL - a.SALDO_TOTAL);
-  return { grupos, pendiente_contado: null };
+  const contado = grupos.filter(g => g.ES_CONTADO);
+  const pendiente_contado = contado.length ? {
+    SALDO_TOTAL: Math.round(contado.reduce((s, g) => s + (+g.SALDO_TOTAL || 0), 0) * 100) / 100,
+    NUM_DOCUMENTOS: contado.reduce((s, g) => s + (+g.NUM_DOCUMENTOS || 0), 0),
+    NUM_CLIENTES: contado.reduce((s, g) => s + (+g.NUM_CLIENTES || 0), 0)
+  } : null;
+  return { grupos, pendiente_contado };
 });
 
 // Calendario Pagos / Buro: por documento, con CLIENTE, ANIO, MES_EMISION, saldo restante, fechas. Sin ?cliente= devuelve todos.
@@ -2169,11 +2148,9 @@ get('/api/cxc/historial-pagos', async (req) => {
   const dbo = getReqDbOpts(req);
   const limit = Math.min(parseInt(req.query.limit) || 300, 500);
   const meses = Math.min(parseInt(req.query.meses) || 12, 24);
-  const ff = cxcFechaFiltro(req, 'dc');
   const saldosActuales = req.query.saldos_actuales === '1' || req.query.saldos_actuales === 'true';
   const clienteFiltro = req.query.cliente ? ` AND cl.CLIENTE_ID = ${parseInt(req.query.cliente)}` : '';
-  const fechaSql = ff.sql || ` AND dc.FECHA >= (CURRENT_DATE - ${meses * 31})`;
-  const fechaParams = ff.params || [];
+  const fechaSql = ` AND dc.FECHA >= (CURRENT_DATE - ${meses * 31})`;
   const rows = await query(`
     SELECT FIRST ${limit}
       dc.DOCTO_CC_ID,
@@ -2200,7 +2177,7 @@ get('/api/cxc/historial-pagos', async (req) => {
     GROUP BY dc.DOCTO_CC_ID, dc.FOLIO, cl.NOMBRE, cl.CLIENTE_ID, cp.NOMBRE, cp.DIAS_PPAG, dc.FECHA
     HAVING SUM(CASE WHEN i.TIPO_IMPTE = 'C' THEN i.IMPORTE ELSE 0 END) > 0
     ORDER BY dc.FECHA DESC
-  `, fechaParams, 12000, dbo).catch(() => []);
+  `, [], 12000, dbo).catch(() => []);
   if (!saldosActuales || !rows || !rows.length) return rows || [];
   const ids = [...new Set((rows || []).map(r => r.CLIENTE_ID).filter(Boolean))];
   if (!ids.length) return { rows, saldosPorCliente: {} };

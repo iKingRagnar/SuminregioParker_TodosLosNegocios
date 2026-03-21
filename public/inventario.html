@@ -118,6 +118,7 @@ nav{display:flex;align-items:center;gap:.25rem}
       <div class="page-sub" id="page-sub">Cargando datos...</div>
     </div>
   </div>
+  <div id="filter-bar"></div>
 
   <div class="kpi-grid">
     <div class="kpi-card blue"><div class="kpi-label">Total Art&iacute;culos</div><div class="kpi-value" id="kpi-total">&mdash;</div><div class="kpi-sub">Activos en cat&aacute;logo</div></div>
@@ -380,7 +381,11 @@ async function loadSinMovimiento(){
   }catch(e){console.error('sin-movimiento',e);}
 }
 
-loadAll();
+if (typeof initFilters === 'function') {
+  initFilters({ containerId:'filter-bar', showVendedor:false, onReady:()=>loadAll(), onChange:()=>loadAll() });
+} else {
+  loadAll();
+}
 setInterval(loadAll, 120000);
 </script>
 <script src="nav.js"></script>
