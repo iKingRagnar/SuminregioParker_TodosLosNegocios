@@ -139,6 +139,34 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 /* Loader skeleton */
 .skel{background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 50%,var(--s2) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:6px;height:1.2rem;width:80%}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* Multi-empresa P&L (drill-down) */
+.biz-context-bar{background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:1rem 1.25rem;margin-bottom:1.25rem;display:flex;flex-wrap:wrap;align-items:center;gap:.85rem 1.25rem}
+.biz-context-label{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+.biz-chips{display:flex;flex-wrap:wrap;gap:.45rem}
+.biz-chip{font-family:'DM Mono',monospace;font-size:.68rem;padding:.32rem .85rem;border-radius:99px;border:1px solid var(--border2);background:transparent;color:var(--text2);cursor:pointer;transition:all .2s}
+.biz-chip:hover{color:var(--text);border-color:rgba(230,168,0,.35)}
+.biz-chip.active{color:var(--suminregio);border-color:rgba(230,168,0,.45);background:var(--suminregio-dim)}
+.biz-context-hint{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);flex:1;min-width:200px;line-height:1.45}
+.pl-score-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem;margin-bottom:1.25rem}
+@media(max-width:900px){.pl-score-grid{grid-template-columns:repeat(2,1fr)}}
+.pl-sc-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:.95rem 1rem;position:relative;overflow:hidden}
+.pl-sc-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--suminregio),transparent);opacity:.7}
+.pl-sc-lbl{font-family:'DM Mono',monospace;font-size:.56rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.35rem}
+.pl-sc-val{font-family:'DM Mono',monospace;font-size:1.35rem;font-weight:600;color:var(--text);letter-spacing:-.02em}
+.pl-sc-sub{font-family:'DM Mono',monospace;font-size:.6rem;margin-top:.28rem;line-height:1.35}
+.pl-sc-sub.ok{color:var(--green)}.pl-sc-sub.warn{color:var(--yellow)}.pl-sc-sub.bad{color:var(--red)}
+.pl-mini-wrap{background:var(--s1);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:1.25rem}
+.pl-mini-head{padding:.85rem 1.2rem;border-bottom:1px solid var(--border);font-size:.8rem;font-weight:700;color:var(--text);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+.pl-mini-head span{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted);font-weight:500}
+.pl-mini-table{width:100%;border-collapse:collapse;font-size:.74rem}
+.pl-mini-table th{font-family:'DM Mono',monospace;font-size:.56rem;color:var(--muted);text-align:left;padding:.55rem 1rem;border-bottom:1px solid var(--border);background:var(--s2)}
+.pl-mini-table th:nth-child(n+2){text-align:right}
+.pl-mini-table td{padding:.65rem 1rem;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle}
+.pl-mini-table td:nth-child(n+2){font-family:'DM Mono',monospace;text-align:right}
+.pl-mini-table tr:hover td{background:rgba(255,255,255,.02)}
+.pl-mini-table .err{color:var(--red);font-size:.72rem}
+
 .footer{text-align:center;padding:1.75rem;font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.06em;border-top:1px solid var(--border);margin-top:2rem}
 </style>
 </head>
@@ -187,6 +215,34 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 
   <!-- Barra de filtros compartida -->
   <div id="filter-bar"></div>
+
+  <!-- Multi-empresa: chips + scorecard (inspirado en complemento MTD/YTD; aquí periodo = filtros + meses) -->
+  <div id="bizContextBar" class="biz-context-bar" style="display:none">
+    <span class="biz-context-label">Negocio</span>
+    <div class="biz-chips" id="bizChips"></div>
+    <div class="biz-context-hint" id="bizHint">Consolidado suma el P&amp;L del periodo de cada .fdb registrada. Elige una empresa para ver tablas y gráficas mensuales.</div>
+  </div>
+  <div id="plScoreStrip" style="display:none">
+    <div class="pl-score-grid" id="plScoreGrid"></div>
+  </div>
+  <div id="plMiniTableWrap" class="pl-mini-wrap" style="display:none">
+    <div class="pl-mini-head">Scorecard P&amp;L por empresa <span id="plMiniMeta"></span></div>
+    <div style="overflow-x:auto">
+      <table class="pl-mini-table">
+        <thead>
+          <tr>
+            <th>Empresa</th>
+            <th>Ventas netas</th>
+            <th>Util. bruta</th>
+            <th>Margen %</th>
+            <th>Cobros</th>
+            <th>Facts</th>
+          </tr>
+        </thead>
+        <tbody id="plMiniBody"></tbody>
+      </table>
+    </div>
+  </div>
 
   <!-- KPIs -->
   <div class="kpi-grid">
@@ -247,8 +303,8 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
     Para ver <strong>Utilidad Neta</strong> (despu&#233;s de gastos e ISR) se necesita integrar m&#225;s cuentas del m&#243;dulo de Contabilidad.
   </div>
 
-  <!-- Charts grid -->
-  <div class="grid-2" style="margin-bottom:1rem">
+  <!-- Charts grid (vista por empresa) -->
+  <div id="chartsNormal" class="grid-2" style="margin-bottom:1rem">
     <div class="card">
       <div class="card-head">
         <div class="card-title">
@@ -288,6 +344,19 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
     </div>
   </div>
 
+  <div id="chartEmpresasWrap" class="card" style="display:none;margin-bottom:1.2rem">
+    <div class="card-head">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+        Ventas netas por empresa (periodo seleccionado)
+      </div>
+      <div class="card-badge">Vista consolidado</div>
+    </div>
+    <div class="card-body">
+      <div class="chart-h220"><canvas id="chartPorEmpresa"></canvas></div>
+    </div>
+  </div>
+
   <!-- P&L Estructurado -->
   <div class="sd"><div class="sd-label">Estado de Resultados Detallado por Mes</div><div class="sd-line"></div></div>
 
@@ -315,18 +384,12 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 
 <script>
 const API = (window.__API_BASE != null ? String(window.__API_BASE).replace(/\/+$/, '') : (window.location.protocol === 'file:' ? 'http://localhost:7000' : (window.location.origin || '')));
-function fwt(url,fallback,ms=60000){
-  const u=String(url);
-  const isNgrok=/ngrok-free\.app|ngrok\.io|ngrok-free\.dev/i.test(u);
-  if(ms<60000&&isNgrok)ms=60000;
-  const opts=isNgrok?{headers:{'ngrok-skip-browser-warning':'1'}}:{};
-  return Promise.race([
-    fetch(u,opts).then(r=>r.json().then(d=>(r.ok?d:fallback)).catch(()=>fallback)).catch(()=>fallback),
-    new Promise(r=>setTimeout(()=>r(fallback),ms))
-  ]);
-}
-let chartVC=null, chartMg=null, chartCob=null;
+function fwt(url,fallback,ms=10000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
+let chartVC=null, chartMg=null, chartCob=null, chartEmp=null;
 let currentMeses=3;
+/** null = una sola base por defecto; '__ALL__' = consolidado multi-empresa; string = id en FB_DATABASES_JSON */
+let selectedBizId=(function(){try{const p=new URLSearchParams(location.search).get('db');return p||null;}catch(_){return null;}})();
+let lastUniversePayload=null;
 
 // ── Helper: URL con filtros ────────────────────────────────────────────────
 function buildApiUrl(path, extra) {
@@ -354,9 +417,105 @@ function momPct(cur,prev){return prev>0?Math.round((cur-prev)/prev*100):null}
 
 function setMeses(m,btn){
   currentMeses=m;
-  document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.hero .period-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   loadData();
+}
+
+function setDbUrl(id){
+  try{
+    const u=new URL(location.href);
+    if(id==null||id==='')u.searchParams.delete('db');
+    else u.searchParams.set('db',id);
+    history.replaceState({},'',u);
+  }catch(_){}
+}
+
+function selectBusiness(id){
+  selectedBizId=id;
+  setDbUrl(id);
+  loadData();
+}
+
+function renderBizChips(empresas){
+  const bar=document.getElementById('bizContextBar');
+  const chips=document.getElementById('bizChips');
+  if(!bar||!chips)return;
+  const ok=(empresas||[]).filter(e=>e.ok);
+  if(ok.length<=1){ bar.style.display='none'; return; }
+  bar.style.display='flex';
+  if(!selectedBizId||selectedBizId==='')selectedBizId='__ALL__';
+  const parts=['<button type="button" class="biz-chip'+(selectedBizId==='__ALL__'?' active':'')+'" data-biz="__ALL__">Grupo consolidado</button>'];
+  ok.forEach(e=>{ parts.push(`<button type="button" class="biz-chip${selectedBizId===e.id?' active':''}" data-biz="${e.id.replace(/"/g,'')}">${(e.label||e.id).replace(/</g,'')}</button>`); });
+  chips.innerHTML=parts.join('');
+  chips.querySelectorAll('.biz-chip').forEach(btn=>{
+    btn.addEventListener('click',()=>selectBusiness(btn.getAttribute('data-biz')));
+  });
+}
+
+function renderPlScoreFromTotals(tot, hasCosto, label){
+  const grid=document.getElementById('plScoreGrid');
+  const strip=document.getElementById('plScoreStrip');
+  if(!grid||!strip)return;
+  const vn=+tot.VENTAS_NETAS||0, ub=+tot.UTILIDAD_BRUTA||0, mg=+tot.MARGEN_BRUTO_PCT||0;
+  const opx=+tot.COSTO_VENTAS||0, cob=+tot.COBROS||0;
+  const efic=vn>0?Math.round(cob/vn*100):0;
+  const cards=[
+    {l:'Ventas netas',v:fmtM(vn),s:label||'Periodo',cls:'ok'},
+    {l:'Utilidad bruta',v:fmtM(hasCosto?ub:vn),s:hasCosto?fmtPct(mg)+' margen':'Sin costo en BD',cls:hasCosto?(mg>=30?'ok':mg>=15?'warn':'bad'):'warn'},
+    {l:'Costo / Cobros',v:fmtM(opx)+' / '+fmtM(cob),s:efic+'% cobro vs fact.',cls:efic>=80?'ok':efic>=50?'warn':'bad'},
+    {l:'Facturas',v:String(+tot.NUM_FACTURAS||0),s:'Documentos periodo',cls:'ok'},
+  ];
+  grid.innerHTML=cards.map(c=>`<div class="pl-sc-card"><div class="pl-sc-lbl">${c.l}</div><div class="pl-sc-val">${c.v}</div><div class="pl-sc-sub ${c.cls}">${c.s}</div></div>`).join('');
+  strip.style.display='grid';
+}
+
+function renderPlMiniTable(empresas, meta){
+  const wrap=document.getElementById('plMiniTableWrap');
+  const body=document.getElementById('plMiniBody');
+  const m=document.getElementById('plMiniMeta');
+  if(!wrap||!body)return;
+  const rows=(empresas||[]).map(e=>{
+    if(!e.ok)return`<tr><td colspan="6" class="err">${(e.label||e.id)+': '+(e.error||'Error')}</td></tr>`;
+    const t=e.totales||{};
+    const mg=+t.MARGEN_BRUTO_PCT||0;
+    const mgc=mg>=30?'var(--green)':mg>=15?'var(--yellow)':'var(--red)';
+    return`<tr style="cursor:pointer" data-biz-row="${e.id}">
+      <td><strong>${(e.label||e.id).replace(/</g,'')}</strong></td>
+      <td>${fmtM(+t.VENTAS_NETAS||0)}</td>
+      <td>${e.tiene_costo?fmtM(+t.UTILIDAD_BRUTA||0):'—'}</td>
+      <td style="color:${e.tiene_costo?mgc:'var(--muted)'}">${e.tiene_costo?fmtPct(mg):'—'}</td>
+      <td>${fmtM(+t.COBROS||0)}</td>
+      <td>${+t.NUM_FACTURAS||0}</td>
+    </tr>`;
+  }).join('');
+  body.innerHTML=rows;
+  if(m)m.textContent=meta||'';
+  wrap.style.display='block';
+  body.querySelectorAll('tr[data-biz-row]').forEach(tr=>{
+    tr.addEventListener('click',()=>selectBusiness(tr.getAttribute('data-biz-row')));
+  });
+}
+
+function renderEmpresaVentasChart(empresas){
+  const wrap=document.getElementById('chartEmpresasWrap');
+  const el=document.getElementById('chartPorEmpresa');
+  if(!wrap||!el)return;
+  const ok=(empresas||[]).filter(e=>e.ok).sort((a,b)=>(+b.totales.VENTAS_NETAS||0)-(+a.totales.VENTAS_NETAS||0));
+  if(!ok.length){ wrap.style.display='none'; return; }
+  wrap.style.display='block';
+  const labels=ok.map(e=>(e.label||e.id).slice(0,22));
+  const vals=ok.map(e=>+e.totales.VENTAS_NETAS||0);
+  const ctx=el.getContext('2d');
+  if(chartEmp)chartEmp.destroy();
+  chartEmp=new Chart(ctx,{
+    type:'bar',
+    data:{labels,datasets:[{label:'Ventas netas',data:vals,backgroundColor:'rgba(77,166,255,.45)',borderColor:'#4DA6FF',borderWidth:1,borderRadius:6}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+fmtM(c.raw)}}},
+      scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6A85A6',callback:v=>fmtM(v)}},
+        y:{grid:{display:false},ticks:{color:'#C8D8EC',font:{size:10}}}}},
+  });
 }
 
 // Limpiar cards de inmediato al cambiar filtro (evita que se queden datos del periodo anterior)
@@ -375,7 +534,7 @@ function clearResultadosUI(){
 // ── Load ───────────────────────────────────────────────────────────────────────
 async function loadData(){
   const heroEl=document.getElementById('heroSub');
-  const url=buildApiUrl('/api/resultados/pnl','meses='+currentMeses)+'&_='+Date.now();
+  let url=buildApiUrl('/api/resultados/pnl','meses='+currentMeses)+'&_='+Date.now();
   let data={};
   function getBase(){
     const a=typeof API!=='undefined'&&API?String(API).replace(/\/+$/,''):'';
@@ -390,11 +549,81 @@ async function loadData(){
     try{ return await r.json(); }catch(_){ return null; }
   }
   clearResultadosUI();
+  document.getElementById('plScoreStrip')&&(document.getElementById('plScoreStrip').style.display='none');
+  document.getElementById('plMiniTableWrap')&&(document.getElementById('plMiniTableWrap').style.display='none');
+  document.getElementById('chartEmpresasWrap')&&(document.getElementById('chartEmpresasWrap').style.display='none');
   try{
-    data=await tryFetch(url)||{};
+    const uniUrl=buildApiUrl('/api/resultados/pnl-universe','meses='+currentMeses+'&concurrency=2')+'&_='+Date.now();
+    let uni=await tryFetch(uniUrl)||{};
     const base=getBase();
+    if((!uni.empresas||!uni.empresas.length)&&base.indexOf(':7000')===-1&&window.location.protocol!=='file:'){
+      const altU=uniUrl.replace(/^(https?:\/\/[^\/]+)/,(window.location.origin||'').replace(/:\d+$/,'')+':7000');
+      uni=await tryFetch(altU)||uni;
+    }
+    lastUniversePayload=uni;
+    const empresas=Array.isArray(uni.empresas)?uni.empresas:[];
+    const okEmp=empresas.filter(e=>e.ok);
+    const multi=okEmp.length>1;
+
+    if(!multi){
+      document.getElementById('bizContextBar')&&(document.getElementById('bizContextBar').style.display='none');
+      document.getElementById('plScoreStrip')&&(document.getElementById('plScoreStrip').style.display='none');
+      document.getElementById('plMiniTableWrap')&&(document.getElementById('plMiniTableWrap').style.display='none');
+      selectedBizId=null;
+      setDbUrl('');
+    }else{
+      renderBizChips(empresas);
+      if(!selectedBizId)selectedBizId='__ALL__';
+      if(selectedBizId!=='__ALL__'){
+        const exists=okEmp.some(e=>e.id===selectedBizId);
+        if(!exists)selectedBizId='__ALL__';
+      }
+      setDbUrl(selectedBizId);
+      renderPlMiniTable(empresas,'c='+(uni.concurrency||2)+' · '+okEmp.length+' empresas');
+    }
+
+    const vistaConsolidado=multi&&selectedBizId==='__ALL__';
+
+    if(vistaConsolidado){
+      document.getElementById('chartsNormal')&&(document.getElementById('chartsNormal').style.display='none');
+      const cons=uni.consolidado||{};
+      const tot={
+        VENTAS_NETAS:+(cons.VENTAS_NETAS||0),
+        COSTO_VENTAS:+(cons.COSTO_VENTAS||0),
+        UTILIDAD_BRUTA:+(cons.UTILIDAD_BRUTA||0),
+        MARGEN_BRUTO_PCT:+(cons.MARGEN_BRUTO_PCT||0),
+        COBROS:+(cons.COBROS||0),
+        NUM_FACTURAS:+(cons.NUM_FACTURAS||0),
+        VENTAS_VE:+(cons.VENTAS_VE||0),
+        VENTAS_PV:+(cons.VENTAS_PV||0),
+      };
+      const hasCosto=!!cons.tiene_costo&&tot.COSTO_VENTAS>0;
+      renderPlScoreFromTotals(tot,hasCosto,'Σ '+okEmp.length+' negocios');
+      renderEmpresaVentasChart(empresas);
+      renderKPIs(tot,[],hasCosto);
+      renderInsight(tot,[],hasCosto);
+      if(chartVC){ chartVC.destroy(); chartVC=null; }
+      if(chartMg){ chartMg.destroy(); chartMg=null; }
+      if(chartCob){ chartCob.destroy(); chartCob=null; }
+      const note=document.getElementById('pnlBody');
+      const foot=document.getElementById('pnlFoot');
+      if(note)note.innerHTML='<tr><td colspan="99" style="text-align:center;padding:2rem;font-family:DM Mono,monospace;font-size:.78rem;color:var(--muted)">Selecciona una <strong>empresa</strong> arriba para ver el estado de resultados <strong>mes a mes</strong> y las gráficas de tendencia.</td></tr>';
+      if(foot)foot.innerHTML='';
+      const costNotice=document.getElementById('costNotice');
+      if(costNotice)costNotice.style.display=hasCosto?'none':'block';
+      const gastosNotice=document.getElementById('gastosNotice');
+      if(gastosNotice)gastosNotice.style.display='block';
+      if(heroEl)heroEl.textContent='Vista consolidada · '+currentMeses+' meses · '+fmtM(tot.VENTAS_NETAS)+' ventas netas (suma empresas)';
+      return;
+    }
+
+    document.getElementById('chartsNormal')&&(document.getElementById('chartsNormal').style.display='grid');
+    document.getElementById('plScoreStrip')&&(document.getElementById('plScoreStrip').style.display='none');
+
+    if(selectedBizId&&selectedBizId!=='__ALL__')url+='&db='+encodeURIComponent(selectedBizId);
+    data=await tryFetch(url)||{};
     if((!data.meses||!data.meses.length)&&base.indexOf(':7000')===-1&&window.location.protocol!=='file:'){
-      const altUrl=url.replace(/^(https?:\/\/[^\/]+)/, (window.location.origin||'').replace(/:\d+$/,'')+':7000');
+      const altUrl=url.replace(/^(https?:\/\/[^\/]+)/,(window.location.origin||'').replace(/:\d+$/,'')+':7000');
       data=await tryFetch(altUrl)||data;
     }
     const meses=Array.isArray(data.meses)?data.meses:[];
@@ -419,7 +648,7 @@ async function loadData(){
     const gastosNotice=document.getElementById('gastosNotice');
     if(gastosNotice)gastosNotice.style.display='block';
     if(heroEl)heroEl.textContent=meses.length||tot.VENTAS_NETAS
-      ?(currentMeses+' meses · '+fmtM(+tot.VENTAS_NETAS||0)+' ventas netas · '+(hasCosto?fmtPct(+tot.MARGEN_BRUTO_PCT||0)+' margen bruto':'Costo no en BD')+' · '+fmtM(+tot.COBROS||0)+' cobrado')
+      ?((multi?(okEmp.find(e=>e.id===selectedBizId)||{}).label+' · ':'')+currentMeses+' meses · '+fmtM(+tot.VENTAS_NETAS||0)+' ventas netas · '+(hasCosto?fmtPct(+tot.MARGEN_BRUTO_PCT||0)+' margen bruto':'Costo no en BD')+' · '+fmtM(+tot.COBROS||0)+' cobrado')
       :'Sin datos. ¿Servidor Node en marcha? Probar: '+url;
   }catch(e){
     if(heroEl)heroEl.textContent='Error: '+e.message+'. Revisar consola (F12).';
