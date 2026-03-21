@@ -2585,17 +2585,17 @@ get('/api/clientes/riesgo', async (req) => {
       CAST(COALESCE(buy.TICKET_PROMEDIO_MES, 0) * 12 AS DECIMAL(18, 2)) AS PERDIDA_VENTA_ANUAL_EST
     FROM (
       SELECT
-        cd.CLIENTE_ID,
+        doc.CLIENTE_ID,
         c.NOMBRE,
         COALESCE(cp.NOMBRE, 'S/D') AS CONDICION_PAGO,
-        SUM(cd.SALDO) AS MONTO_VENCIDO,
-        MAX(cd.DIAS_VENCIDO) AS MAX_DIAS_VENCIDO,
+        SUM(doc.SALDO_NETO) AS MONTO_VENCIDO,
+        MAX(doc.DIAS_VENCIDO) AS MAX_DIAS_VENCIDO,
         COUNT(*) AS NUM_DOCS_VENCIDOS
-      FROM ${cxcCargosSQL()} cd
-      LEFT JOIN CLIENTES c ON c.CLIENTE_ID = cd.CLIENTE_ID
+      FROM ${cxcDocSaldosInnerSQL('')} doc
+      LEFT JOIN CLIENTES c ON c.CLIENTE_ID = doc.CLIENTE_ID
       LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = c.COND_PAGO_ID
-      WHERE cd.DIAS_VENCIDO > 0
-      GROUP BY cd.CLIENTE_ID, c.NOMBRE, cp.NOMBRE
+      WHERE doc.SALDO_NETO > 0 AND doc.DIAS_VENCIDO > 0
+      GROUP BY doc.CLIENTE_ID, c.NOMBRE, cp.NOMBRE
     ) agg
     JOIN ${cxcClienteSQL()} st ON st.CLIENTE_ID = agg.CLIENTE_ID
     LEFT JOIN (
@@ -2725,12 +2725,13 @@ get('/api/clientes/resumen-riesgo', async (req) => {
   const defaultRes = { TOTAL_EN_RIESGO: 0, MONTO_CRITICO: 0, MONTO_ALTO: 0, MONTO_MEDIO: 0, MONTO_LEVE: 0 };
   try {
     const [totales] = await query(`
-      SELECT COUNT(DISTINCT cd.CLIENTE_ID) AS TOTAL_EN_RIESGO,
-        SUM(CASE WHEN cd.DIAS_VENCIDO > 90 THEN cd.SALDO ELSE 0 END) AS MONTO_CRITICO,
-        SUM(CASE WHEN cd.DIAS_VENCIDO > 60 AND cd.DIAS_VENCIDO <= 90 THEN cd.SALDO ELSE 0 END) AS MONTO_ALTO,
-        SUM(CASE WHEN cd.DIAS_VENCIDO > 30 AND cd.DIAS_VENCIDO <= 60 THEN cd.SALDO ELSE 0 END) AS MONTO_MEDIO,
-        SUM(CASE WHEN cd.DIAS_VENCIDO <= 30 THEN cd.SALDO ELSE 0 END) AS MONTO_LEVE
-      FROM ${cxcCargosSQL()} cd WHERE cd.DIAS_VENCIDO > 0
+      SELECT COUNT(DISTINCT doc.CLIENTE_ID) AS TOTAL_EN_RIESGO,
+        SUM(CASE WHEN doc.DIAS_VENCIDO > 90 THEN doc.SALDO_NETO ELSE 0 END) AS MONTO_CRITICO,
+        SUM(CASE WHEN doc.DIAS_VENCIDO > 60 AND doc.DIAS_VENCIDO <= 90 THEN doc.SALDO_NETO ELSE 0 END) AS MONTO_ALTO,
+        SUM(CASE WHEN doc.DIAS_VENCIDO > 30 AND doc.DIAS_VENCIDO <= 60 THEN doc.SALDO_NETO ELSE 0 END) AS MONTO_MEDIO,
+        SUM(CASE WHEN doc.DIAS_VENCIDO <= 30 THEN doc.SALDO_NETO ELSE 0 END) AS MONTO_LEVE
+      FROM ${cxcDocSaldosInnerSQL('')} doc
+      WHERE doc.SALDO_NETO > 0 AND doc.DIAS_VENCIDO > 0
     `, [], 12000, dbo).catch(() => [null]);
     return { ...defaultRes, ...(totales || {}) };
   } catch (e) {

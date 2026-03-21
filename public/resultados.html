@@ -428,6 +428,8 @@ function buildApiUrl(path, extra) {
 function buildPnlQuery(extra, opts) {
   opts = opts || {};
   const parts = [];
+  const filtros = window.filterBuildQS ? String(filterBuildQS() || '').replace(/^[?&]+/, '') : '';
+  if (filtros) parts.push(filtros);
   if (extra) {
     const e = String(extra).replace(/^[?&]+/, '');
     if (e) parts.push(e);
