@@ -857,7 +857,8 @@ function cxcClienteSQL() {
       END) AS SALDO
     FROM IMPORTES_DOCTOS_CC i
     JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = i.DOCTO_CC_ID
-    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = dc.COND_PAGO_ID
+    LEFT JOIN CLIENTES clx ON clx.CLIENTE_ID = dc.CLIENTE_ID
+    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, clx.COND_PAGO_ID)
     WHERE COALESCE(i.CANCELADO, 'N') = 'N' ${CXC_EXCLUIR_CONTADO}
     GROUP BY dc.CLIENTE_ID
     HAVING SUM(CASE
@@ -898,7 +899,8 @@ function cxcCargosSQL() {
       END                                                             AS DIAS_VENCIDO
     FROM IMPORTES_DOCTOS_CC i
     JOIN  DOCTOS_CC dc         ON dc.DOCTO_CC_ID  = i.DOCTO_CC_ID
-    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = dc.COND_PAGO_ID
+    LEFT JOIN CLIENTES clx ON clx.CLIENTE_ID = dc.CLIENTE_ID
+    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, clx.COND_PAGO_ID)
     LEFT JOIN VENCIMIENTOS_CARGOS_CC vc ON vc.DOCTO_CC_ID = i.DOCTO_CC_ID
     WHERE i.TIPO_IMPTE = 'C'
       AND COALESCE(i.CANCELADO, 'N') = 'N' ${CXC_EXCLUIR_CONTADO}
@@ -906,7 +908,8 @@ function cxcCargosSQL() {
         SELECT dc2.CLIENTE_ID
         FROM IMPORTES_DOCTOS_CC i2
         JOIN DOCTOS_CC dc2 ON dc2.DOCTO_CC_ID = i2.DOCTO_CC_ID
-        LEFT JOIN CONDICIONES_PAGO cp2 ON cp2.COND_PAGO_ID = dc2.COND_PAGO_ID
+        LEFT JOIN CLIENTES clx2 ON clx2.CLIENTE_ID = dc2.CLIENTE_ID
+        LEFT JOIN CONDICIONES_PAGO cp2 ON cp2.COND_PAGO_ID = COALESCE(dc2.COND_PAGO_ID, clx2.COND_PAGO_ID)
         WHERE COALESCE(i2.CANCELADO, 'N') = 'N' ${CXC_EXCLUIR_CONTADO_SUB}
         GROUP BY dc2.CLIENTE_ID
         HAVING SUM(CASE
@@ -2137,7 +2140,7 @@ get('/api/cxc/vencidas', async (req) => {
     ) x
     JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = x.DOCTO_CC_ID
     JOIN CLIENTES c ON c.CLIENTE_ID = x.CLIENTE_ID
-    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = dc.COND_PAGO_ID
+    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, c.COND_PAGO_ID)
     ORDER BY x.SALDO_NETO DESC, x.DIAS_ATRASO DESC
   `, [], 12000, dbo).catch(() => []);
 });
@@ -2220,7 +2223,8 @@ get('/api/cxc/por-condicion', async (req) => {
           END) AS SALDO_NETO
     FROM IMPORTES_DOCTOS_CC i
     JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = i.DOCTO_CC_ID
-    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = dc.COND_PAGO_ID
+    LEFT JOIN CLIENTES clx ON clx.CLIENTE_ID = dc.CLIENTE_ID
+    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, clx.COND_PAGO_ID)
     LEFT JOIN VENCIMIENTOS_CARGOS_CC vc ON vc.DOCTO_CC_ID = dc.DOCTO_CC_ID
     WHERE COALESCE(i.CANCELADO, 'N') = 'N'
       AND (
@@ -2352,18 +2356,18 @@ get('/api/cxc/historial-pagos', async (req) => {
       cl.NOMBRE                                                         AS CLIENTE,
       cl.CLIENTE_ID,
       COALESCE(cp.NOMBRE, 'S/D')                                        AS CONDICION_PAGO,
-      CAST(dc.FECHA AS DATE)                                            AS FECHA_EMISION,
+      CAST(COALESCE(MIN(CASE WHEN i.TIPO_IMPTE = 'C' THEN COALESCE(i.FECHA, dc.FECHA) END), CAST(dc.FECHA AS DATE)) AS DATE) AS FECHA_EMISION,
       CAST(COALESCE(MIN(vc.FECHA_VENCIMIENTO), CAST(dc.FECHA AS DATE) + ${CXC_DIAS_SUM_INT}) AS DATE) AS FECHA_VENCIMIENTO,
       SUM(CASE WHEN i.TIPO_IMPTE = 'C' THEN i.IMPORTE ELSE 0 END)       AS CARGO_ORIGINAL,
       SUM(CASE WHEN i.TIPO_IMPTE = 'R' THEN i.IMPORTE ELSE 0 END)       AS TOTAL_COBRADO,
       SUM(CASE WHEN i.TIPO_IMPTE = 'C' THEN i.IMPORTE WHEN i.TIPO_IMPTE = 'R' THEN -i.IMPORTE ELSE 0 END) AS SALDO_RESTANTE,
-      MAX(CASE WHEN i.TIPO_IMPTE = 'R' THEN CAST(i.FECHA AS DATE) END)   AS FECHA_ULTIMO_PAGO,
-      EXTRACT(YEAR FROM dc.FECHA)                                       AS ANIO,
-      EXTRACT(MONTH FROM dc.FECHA)                                      AS MES_EMISION
+      MAX(CASE WHEN i.TIPO_IMPTE = 'R' THEN CAST(COALESCE(i.FECHA, dc.FECHA) AS DATE) END)   AS FECHA_ULTIMO_PAGO,
+      EXTRACT(YEAR FROM COALESCE(MIN(CASE WHEN i.TIPO_IMPTE = 'C' THEN COALESCE(i.FECHA, dc.FECHA) END), CAST(dc.FECHA AS DATE))) AS ANIO,
+      EXTRACT(MONTH FROM COALESCE(MIN(CASE WHEN i.TIPO_IMPTE = 'C' THEN COALESCE(i.FECHA, dc.FECHA) END), CAST(dc.FECHA AS DATE))) AS MES_EMISION
     FROM IMPORTES_DOCTOS_CC i
     JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = i.DOCTO_CC_ID
     JOIN CLIENTES cl ON cl.CLIENTE_ID = dc.CLIENTE_ID
-    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = dc.COND_PAGO_ID
+    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, cl.COND_PAGO_ID)
     LEFT JOIN VENCIMIENTOS_CARGOS_CC vc ON vc.DOCTO_CC_ID = i.DOCTO_CC_ID
     WHERE COALESCE(i.CANCELADO, 'N') = 'N' ${CXC_EXCLUIR_CONTADO}
       ${fechaSql}
@@ -2745,8 +2749,10 @@ async function resultadosPnlCore(req, dbOpts) {
   let desdeStr, hastaStr;
   const { desde, hasta, anio, mes } = req.query;
   const mesesParam = parseInt(req.query.meses, 10);
-  const useMesesRolling = !isNaN(mesesParam) && mesesParam > 0;
-  if (desde && reDate.test(desde) && hasta && reDate.test(hasta)) {
+  const hasRangoExplicito = !!(desde && reDate.test(desde) && hasta && reDate.test(hasta));
+  const hasPeriodoExplicito = hasRangoExplicito || !!anio;
+  const useMesesRolling = !hasPeriodoExplicito && !isNaN(mesesParam) && mesesParam > 0;
+  if (hasRangoExplicito) {
     desdeStr = desde;
     hastaStr = hasta;
   } else if (useMesesRolling) {
