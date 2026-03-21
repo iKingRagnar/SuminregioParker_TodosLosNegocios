@@ -53,11 +53,11 @@ main{padding-top:24px;padding-bottom:48px;max-width:1520px;margin:0 auto;
 .cxc-hero p{margin:6px 0 0;font-size:12px;color:var(--txt2);max-width:52ch;line-height:1.45}
 .cxc-hero-meta{font-family:var(--mono);font-size:11px;color:var(--suminregio);opacity:.9}
 
-.filter-bar{background:var(--s1);border:1px solid var(--brd);border-radius:12px;
+.client-filter-bar{background:var(--s1);border:1px solid var(--brd);border-radius:12px;
             padding:14px 20px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:24px}
-.filter-bar select{background:var(--s2);border:1px solid var(--brd);color:var(--txt);
+.client-filter-bar select{background:var(--s2);border:1px solid var(--brd);color:var(--txt);
   border-radius:8px;padding:7px 12px;font-family:var(--font);font-size:12px;outline:none;transition:.2s;min-width:200px}
-.filter-bar select:focus{border-color:var(--accent)}
+.client-filter-bar select:focus{border-color:var(--accent)}
 .filter-group{display:flex;flex-direction:column;gap:4px}
 .filter-label{font-size:10px;color:var(--txt3);font-weight:700;letter-spacing:.5px}
 .btn{background:var(--accent);color:#050B14;border:none;border-radius:8px;padding:8px 18px;
@@ -200,7 +200,8 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
     </div>
     <div class="cxc-hero-meta" id="cxcDbHint" title="Negocio activo">Cargando contexto&hellip;</div>
   </div>
-  <div class="filter-bar">
+  <div id="filter-bar"></div>
+  <div class="client-filter-bar">
     <div class="filter-group">
       <span class="filter-label">CLIENTE</span>
       <select id="fCliente">
@@ -358,6 +359,14 @@ const fmtSaldoDoc = v => {
 const fmtM = v => '$'+(+v||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});
 const setText = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
 
+function buildCxcQuery(extra){
+  const qBase = (typeof filterBuildQS === 'function') ? filterBuildQS() : '';
+  const cf = (document.getElementById('fCliente')?.value || '').trim();
+  const e = extra ? String(extra).replace(/^[?&]+/, '') : '';
+  const parts = [qBase, cf ? ('cliente=' + encodeURIComponent(cf)) : '', e].filter(Boolean).join('&');
+  return parts ? ('?' + parts) : '';
+}
+
 function cxcEffectiveDb(){
   let db='';
   try{
@@ -426,14 +435,12 @@ function initCharts() {
 
 // -- Resumen + Aging -----------------------------------------------------------
 async function loadResumen() {
-  const cf = document.getElementById('fCliente')?.value||'';
-  const qs = cf ? '?cliente='+cf : '';
   const salEl = document.getElementById('kSalud');
   const salSub = document.getElementById('kSaludSub');
   try {
     const [res, ageRaw] = await Promise.all([
-      apiFetch('/api/cxc/resumen'+qs),
-      apiFetch('/api/cxc/aging'+qs)
+      apiFetch('/api/cxc/resumen' + buildCxcQuery()),
+      apiFetch('/api/cxc/aging' + buildCxcQuery())
     ]);
     const age = ageRaw && typeof ageRaw === 'object' && !Array.isArray(ageRaw) ? ageRaw : (Array.isArray(ageRaw) && ageRaw[0]) ? ageRaw[0] : {};
     const saldo = +res.SALDO_TOTAL||0;
@@ -507,11 +514,9 @@ async function loadResumen() {
 
 // -- Vencidas ------------------------------------------------------------------
 async function loadVencidas() {
-  const cf = document.getElementById('fCliente')?.value||'';
-  const qs = '?limit=60'+(cf?'&cliente='+cf:'');
   const tb = document.getElementById('tbVenc');
   try {
-    const raw = await apiFetch('/api/cxc/vencidas'+qs);
+    const raw = await apiFetch('/api/cxc/vencidas' + buildCxcQuery('limit=60'));
     const rows = (Array.isArray(raw) ? raw : []).filter(r => (+r.SALDO || 0) > 0.005);
     setText('vBadge', rows.length+' docs');
     if(!rows.length){ tb.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--txt3);padding:20px">Sin facturas vencidas</td></tr>'; return; }
@@ -546,10 +551,8 @@ async function loadVencidas() {
 // -- Top Deudores --------------------------------------------------------------
 async function loadTop() {
   const tb = document.getElementById('tbTop');
-  const cf = document.getElementById('fCliente')?.value || '';
-  const qs = '?limit=20' + (cf ? '&cliente=' + cf : '');
   try {
-    const rows = await apiFetch('/api/cxc/top-deudores' + qs);
+    const rows = await apiFetch('/api/cxc/top-deudores' + buildCxcQuery('limit=20'));
     if(!rows.length){ tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--txt3);padding:20px">Sin deudores</td></tr>'; return; }
     tb.innerHTML = rows.map((r,i)=>`<tr>
       <td style="color:var(--txt3)">${i+1}</td>
@@ -568,7 +571,7 @@ async function loadCond() {
   const cl = document.getElementById('condList');
   const ban = document.getElementById('condPendContado');
   try {
-    const raw = await apiFetch('/api/cxc/por-condicion');
+    const raw = await apiFetch('/api/cxc/por-condicion' + buildCxcQuery());
     const rows = Array.isArray(raw) ? raw : (raw && raw.grupos) ? raw.grupos : [];
     const pend = raw && !Array.isArray(raw) ? raw.pendiente_contado : null;
     if (ban) {
@@ -646,13 +649,11 @@ function getEstadoPago(row) {
 async function loadBuro() {
   const meses = document.getElementById('buroMeses')?.value||12;
   const srch  = (document.getElementById('buroSearch')?.value||'').toLowerCase();
-  const cf    = document.getElementById('fCliente')?.value||'';
   const cont  = document.getElementById('buroContent');
   if(!cont) return;
   cont.innerHTML='<div class="loading"><div class="spin"></div>Cargando historial...</div>';
   try {
-    let url='/api/cxc/historial-pagos?meses='+meses+'&limit=300';
-    if(cf) url+='&cliente='+cf;
+    let url='/api/cxc/historial-pagos' + buildCxcQuery('meses=' + encodeURIComponent(meses) + '&limit=300');
     const raw = await apiFetch(url);
     const rows = Array.isArray(raw) ? raw : (raw && raw.rows ? raw.rows : []);
     const saldosPorCliente = (raw && !Array.isArray(raw) && raw.saldosPorCliente) ? raw.saldosPorCliente : {};
@@ -724,15 +725,18 @@ function switchTab(name){
 // -- Clientes filtro -----------------------------------------------------------
 async function loadClientesFiltro(){
   try{
-    const rows = await apiFetch('/api/cxc/top-deudores?limit=100');
+    const rows = await apiFetch('/api/cxc/top-deudores' + buildCxcQuery('limit=100'));
     const sel = document.getElementById('fCliente');
     if(!sel) return;
+    const selected = sel.value || '';
+    sel.innerHTML = '<option value="">Todos los clientes</option>';
     for(const r of rows){
       const o=document.createElement('option');
       o.value=r.CLIENTE_ID;
       o.textContent=(r.CLIENTE||'').substring(0,35);
       sel.appendChild(o);
     }
+    if (selected) sel.value = selected;
   }catch{}
 }
 
@@ -755,6 +759,14 @@ async function refreshCxcDbHint(){
 
 (async function init(){
   initCharts();
+  if (typeof initFilters === 'function') {
+    initFilters({
+      containerId:'filter-bar',
+      showVendedor:false,
+      onReady:()=>{},
+      onChange: async () => { await loadClientesFiltro(); await loadAll(); }
+    });
+  }
   await checkStatus();
   await refreshCxcDbHint();
   await loadClientesFiltro();

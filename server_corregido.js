@@ -1381,9 +1381,9 @@ get('/api/ventas/margen-lineas', async (req) => {
   const tipo = getTipo(req);
   const limit = Math.min(parseInt(req.query.limit, 10) || 3000, 12000);
   const docOk = `(
-      (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
-      OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
-      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS <> 'C')
+      d.TIPO_DOCTO IN ('F', 'V')
+      AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
+      AND COALESCE(d.APLICADO, 'N') = 'S'
     )`;
   const ventaBruta = 'COALESCE(NULLIF(det.PRECIO_TOTAL, 0), NULLIF(det.PRECIO_T, 0), COALESCE(det.UNIDADES, 0) * COALESCE(det.PRECIO_U, det.PRECIO_UNITARIO, 0), 0)';
   const ventaSql =
@@ -1409,6 +1409,7 @@ get('/api/ventas/margen-lineas', async (req) => {
           CAST(d.FECHA AS DATE) AS FECHA,
           'VE' AS TIPO_SRC,
           c.NOMBRE AS CLIENTE,
+          COALESCE(v.NOMBRE, '') AS VENDEDOR,
           COALESCE(a.CLAVE, CAST(det.ARTICULO_ID AS VARCHAR(40))) AS CLAVE_ARTICULO,
           COALESCE(a.NOMBRE, '') AS DESC_ARTICULO,
           COALESCE(det.UNIDADES, 0) AS CANTIDAD,
@@ -1419,6 +1420,7 @@ get('/api/ventas/margen-lineas', async (req) => {
         JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
         LEFT JOIN ARTICULOS a ON a.ARTICULO_ID = det.ARTICULO_ID
         LEFT JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
+        LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
         WHERE ${docOk} ${f.sql}`;
     const pvPart = `
         SELECT
@@ -1426,6 +1428,7 @@ get('/api/ventas/margen-lineas', async (req) => {
           CAST(d.FECHA AS DATE) AS FECHA,
           'PV' AS TIPO_SRC,
           c.NOMBRE AS CLIENTE,
+          COALESCE(v.NOMBRE, '') AS VENDEDOR,
           COALESCE(a.CLAVE, CAST(det.ARTICULO_ID AS VARCHAR(40))) AS CLAVE_ARTICULO,
           COALESCE(a.NOMBRE, '') AS DESC_ARTICULO,
           COALESCE(det.UNIDADES, 0) AS CANTIDAD,
@@ -1436,6 +1439,7 @@ get('/api/ventas/margen-lineas', async (req) => {
         JOIN DOCTOS_PV_DET det ON det.DOCTO_PV_ID = d.DOCTO_PV_ID
         LEFT JOIN ARTICULOS a ON a.ARTICULO_ID = det.ARTICULO_ID
         LEFT JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
+        LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
         WHERE ${docOk} ${f.sql}`;
     if (tipo === 'VE') return { sql: vePart, params: f.params };
     if (tipo === 'PV') return { sql: pvPart, params: f.params };
@@ -1946,22 +1950,38 @@ function cxcDocSaldosSQL(cfSql) {
   return `${cxcDocSaldosInnerSQL(cfSql)} doc WHERE doc.SALDO_NETO > 0`;
 }
 
+function cxcFechaFiltro(req, alias = 'dc') {
+  return buildFiltros(req, alias, { omitVendedorCliente: true });
+}
+
 // Resumen CxC: Vencido y No vencido (suma Saldo_Documento). Contado cuenta como vigente (sin días de atraso).
 get('/api/cxc/resumen', async (req) => {
   const dbo = getReqDbOpts(req);
   const cf = req.query.cliente ? parseInt(req.query.cliente) : null;
   const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
   const docSal = cxcDocSaldosSQL(cfSql);
-  const docSalVencCli = docSal.replace(/WHERE doc\.SALDO_NETO > 0\s*$/i, 'WHERE doc.SALDO_NETO > 0 AND doc.DIAS_VENCIDO >= 1');
+  const ff = cxcFechaFiltro(req, 'dc');
   const [totales, numCli, numCliVenc] = await Promise.all([
     query(`
       SELECT
         SUM(CASE WHEN doc.DIAS_VENCIDO >= 1 THEN doc.SALDO_NETO ELSE 0 END) AS VENCIDO,
         SUM(CASE WHEN doc.DIAS_VENCIDO <= 0 THEN doc.SALDO_NETO ELSE 0 END) AS POR_VENCER
       FROM ${docSal}
-    `, [], 12000, dbo).catch(() => [{ VENCIDO: 0, POR_VENCER: 0 }]),
-    query(`SELECT COUNT(DISTINCT doc.CLIENTE_ID) AS N FROM ${docSal}`, [], 12000, dbo).catch(() => [{ N: 0 }]),
-    query(`SELECT COUNT(DISTINCT doc.CLIENTE_ID) AS N FROM ${docSalVencCli}`, [], 12000, dbo).catch(() => [{ N: 0 }]),
+      JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = doc.DOCTO_CC_ID
+      WHERE 1=1 ${ff.sql}
+    `, ff.params, 12000, dbo).catch(() => [{ VENCIDO: 0, POR_VENCER: 0 }]),
+    query(`
+      SELECT COUNT(DISTINCT doc.CLIENTE_ID) AS N
+      FROM ${docSal}
+      JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = doc.DOCTO_CC_ID
+      WHERE 1=1 ${ff.sql}
+    `, ff.params, 12000, dbo).catch(() => [{ N: 0 }]),
+    query(`
+      SELECT COUNT(DISTINCT doc.CLIENTE_ID) AS N
+      FROM ${docSal}
+      JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = doc.DOCTO_CC_ID
+      WHERE doc.DIAS_VENCIDO >= 1 ${ff.sql}
+    `, ff.params, 12000, dbo).catch(() => [{ N: 0 }]),
   ]);
   const vencido = +(totales[0] && totales[0].VENCIDO) || 0;
   const porVencer = +(totales[0] && totales[0].POR_VENCER) || 0;
@@ -1980,6 +2000,7 @@ get('/api/cxc/aging', async (req) => {
   const dbo = getReqDbOpts(req);
   const cf = req.query.cliente ? parseInt(req.query.cliente) : null;
   const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
+  const ff = cxcFechaFiltro(req, 'dc');
   const rows = await query(`
     SELECT
       SUM(CASE WHEN doc.DIAS_VENCIDO <= 0               THEN doc.SALDO_NETO ELSE 0 END) AS CORRIENTE,
@@ -1988,7 +2009,9 @@ get('/api/cxc/aging', async (req) => {
       SUM(CASE WHEN doc.DIAS_VENCIDO BETWEEN 61 AND  90 THEN doc.SALDO_NETO ELSE 0 END) AS DIAS_61_90,
       SUM(CASE WHEN doc.DIAS_VENCIDO > 90               THEN doc.SALDO_NETO ELSE 0 END) AS DIAS_MAS_90
     FROM ${cxcDocSaldosSQL(cfSql)}
-  `, [], 12000, dbo).catch(() => [{ CORRIENTE: 0, DIAS_1_30: 0, DIAS_31_60: 0, DIAS_61_90: 0, DIAS_MAS_90: 0 }]);
+    JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = doc.DOCTO_CC_ID
+    WHERE 1=1 ${ff.sql}
+  `, ff.params, 12000, dbo).catch(() => [{ CORRIENTE: 0, DIAS_1_30: 0, DIAS_31_60: 0, DIAS_61_90: 0, DIAS_MAS_90: 0 }]);
   const r = rows[0] || {};
   return {
     CORRIENTE  : Math.round((+r.CORRIENTE   || 0) * 100) / 100,
@@ -2005,6 +2028,7 @@ get('/api/cxc/vencidas', async (req) => {
   const limit = Math.min(parseInt(req.query.limit) || 100, 500);
   const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
   const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
+  const ff = cxcFechaFiltro(req, 'dc');
   return query(`
     SELECT FIRST ${limit}
       dc.FOLIO,
@@ -2030,65 +2054,36 @@ get('/api/cxc/vencidas', async (req) => {
     JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = x.DOCTO_CC_ID
     JOIN CLIENTES c ON c.CLIENTE_ID = x.CLIENTE_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = dc.COND_PAGO_ID
+    WHERE 1=1 ${ff.sql}
     ORDER BY x.SALDO_NETO DESC, x.DIAS_ATRASO DESC
-  `, [], 12000, dbo).catch(() => []);
+  `, ff.params, 12000, dbo).catch(() => []);
 });
 
 // Top Deudores: saldo neto + condición + vencido proporcional al saldo (igual que /api/cxc/resumen). Acepta ?cliente= para filtrar.
 get('/api/cxc/top-deudores', async (req) => {
   const dbo = getReqDbOpts(req);
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-  const cf = req.query.cliente ? parseInt(req.query.cliente) : null;
-  const cfSql = cf ? ` WHERE s.CLIENTE_ID = ${cf}` : '';
-  const cfSql2 = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
-  const [saldos, aging] = await Promise.all([
-    query(`SELECT s.CLIENTE_ID, s.SALDO FROM ${cxcClienteSQL()} s ${cfSql}`, [], 12000, dbo).catch(() => []),
-    query(`
-      SELECT cd.CLIENTE_ID,
-        SUM(cd.SALDO) AS TOTAL_C,
-        SUM(CASE WHEN cd.DIAS_VENCIDO > 0 THEN cd.SALDO ELSE 0 END) AS VENC_C,
-        MAX(CASE WHEN cd.DIAS_VENCIDO > 0 THEN cd.DIAS_VENCIDO ELSE 0 END) AS MAX_DIAS,
-        COUNT(*) AS NUM_DOCS
-      FROM ${cxcCargosSQL()} cd
-      WHERE 1=1 ${cfSql2}
-      GROUP BY cd.CLIENTE_ID
-    `, [], 12000, dbo).catch(() => []),
-  ]);
-  const agingMap = {};
-  aging.forEach(a => { agingMap[a.CLIENTE_ID] = a; });
-  const clienteIds = saldos.map(s => s.CLIENTE_ID).filter(Boolean);
-  if (!clienteIds.length) return [];
-  const clientes = await query(`
-    SELECT cl.CLIENTE_ID, cl.NOMBRE AS CLIENTE, COALESCE(cp.NOMBRE, 'S/D') AS CONDICION_PAGO
-    FROM CLIENTES cl
+  const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
+  const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
+  const ff = cxcFechaFiltro(req, 'dc');
+  return query(`
+    SELECT FIRST ${limit}
+      doc.CLIENTE_ID,
+      COALESCE(cl.NOMBRE, 'Cliente ' || CAST(doc.CLIENTE_ID AS VARCHAR(12))) AS CLIENTE,
+      COALESCE(cp.NOMBRE, 'S/D') AS CONDICION_PAGO,
+      SUM(doc.SALDO_NETO) AS SALDO_TOTAL,
+      SUM(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.SALDO_NETO ELSE 0 END) AS VENCIDO,
+      MAX(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.DIAS_VENCIDO ELSE 0 END) AS MAX_DIAS_ATRASO,
+      COUNT(*) AS NUM_DOCUMENTOS
+    FROM ${cxcDocSaldosSQL(cfSql)}
+    JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = doc.DOCTO_CC_ID
+    LEFT JOIN CLIENTES cl ON cl.CLIENTE_ID = doc.CLIENTE_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = cl.COND_PAGO_ID
-    WHERE cl.CLIENTE_ID IN (${clienteIds.join(',')})
-  `, [], 12000, dbo).catch(() => []);
-  const clMap = {};
-  clientes.forEach(c => { clMap[c.CLIENTE_ID] = c; });
-  const result = saldos
-    .map(s => {
-      const cl = clMap[s.CLIENTE_ID] || {};
-      const ag = agingMap[s.CLIENTE_ID] || {};
-      const saldo = +s.SALDO || 0;
-      const totalC = +ag.TOTAL_C || 0;
-      const vencC = +ag.VENC_C || 0;
-      const pct = totalC > 0 ? Math.min(vencC / totalC, 1) : 0;
-      const vencido = Math.round(saldo * pct * 100) / 100;
-      return {
-        CLIENTE_ID     : s.CLIENTE_ID,
-        CLIENTE        : cl.CLIENTE || ('Cliente ' + s.CLIENTE_ID),
-        CONDICION_PAGO : cl.CONDICION_PAGO || 'S/D',
-        SALDO_TOTAL    : saldo,
-        VENCIDO        : vencido,
-        MAX_DIAS_ATRASO: +ag.MAX_DIAS || 0,
-        NUM_DOCUMENTOS : +ag.NUM_DOCS || 0,
-      };
-    })
-    .filter(r => (+r.VENCIDO || 0) > 0.005)
-    .sort((a, b) => (+b.VENCIDO || 0) - (+a.VENCIDO || 0))
-    .slice(0, limit);
-  return result;
+    WHERE 1=1 ${ff.sql}
+    GROUP BY doc.CLIENTE_ID, cl.NOMBRE, cp.NOMBRE
+    HAVING SUM(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.SALDO_NETO ELSE 0 END) > 0.005
+    ORDER BY VENCIDO DESC, SALDO_TOTAL DESC
+  `, ff.params, 12000, dbo).catch(() => []);
 });
 
 get('/api/cxc/historial', async (req) => {
@@ -2105,6 +2100,7 @@ get('/api/cxc/historial', async (req) => {
 // Por condición: saldo neto por documento CC, agrupado por COND_PAGO del documento (sin contado).
 get('/api/cxc/por-condicion', async (req) => {
   const dbo = getReqDbOpts(req);
+  const ff = cxcFechaFiltro(req, 'dc');
   const docs = await query(`
     SELECT
       doc.DOCTO_CC_ID,
@@ -2118,7 +2114,8 @@ get('/api/cxc/por-condicion', async (req) => {
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = dc.COND_PAGO_ID
     WHERE doc.SALDO_NETO > 0.005
       AND NOT (${CXC_SQL_ES_CONTADO})
-  `, [], 15000, dbo).catch(() => []);
+      ${ff.sql}
+  `, ff.params, 15000, dbo).catch(() => []);
   const byCond = {};
   for (const r of docs || []) {
     const saldo = Math.round((+r.SALDO_NETO || 0) * 100) / 100;
@@ -2167,8 +2164,11 @@ get('/api/cxc/historial-pagos', async (req) => {
   const dbo = getReqDbOpts(req);
   const limit = Math.min(parseInt(req.query.limit) || 300, 500);
   const meses = Math.min(parseInt(req.query.meses) || 12, 24);
+  const ff = cxcFechaFiltro(req, 'dc');
   const saldosActuales = req.query.saldos_actuales === '1' || req.query.saldos_actuales === 'true';
   const clienteFiltro = req.query.cliente ? ` AND cl.CLIENTE_ID = ${parseInt(req.query.cliente)}` : '';
+  const fechaSql = ff.sql || ` AND dc.FECHA >= (CURRENT_DATE - ${meses * 31})`;
+  const fechaParams = ff.params || [];
   const rows = await query(`
     SELECT FIRST ${limit}
       dc.DOCTO_CC_ID,
@@ -2190,12 +2190,12 @@ get('/api/cxc/historial-pagos', async (req) => {
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = dc.COND_PAGO_ID
     LEFT JOIN VENCIMIENTOS_CARGOS_CC vc ON vc.DOCTO_CC_ID = i.DOCTO_CC_ID
     WHERE COALESCE(i.CANCELADO, 'N') = 'N'
-      AND dc.FECHA >= (CURRENT_DATE - ${meses * 31})
+      ${fechaSql}
       ${clienteFiltro}
     GROUP BY dc.DOCTO_CC_ID, dc.FOLIO, cl.NOMBRE, cl.CLIENTE_ID, cp.NOMBRE, cp.DIAS_PPAG, dc.FECHA
     HAVING SUM(CASE WHEN i.TIPO_IMPTE = 'C' THEN i.IMPORTE ELSE 0 END) > 0
     ORDER BY dc.FECHA DESC
-  `, [], 12000, dbo).catch(() => []);
+  `, fechaParams, 12000, dbo).catch(() => []);
   if (!saldosActuales || !rows || !rows.length) return rows || [];
   const ids = [...new Set((rows || []).map(r => r.CLIENTE_ID).filter(Boolean))];
   if (!ids.length) return { rows, saldosPorCliente: {} };
