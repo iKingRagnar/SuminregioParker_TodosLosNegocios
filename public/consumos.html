@@ -276,6 +276,10 @@ function renderInsights(d){
   const semLabel = sem === 'verde' ? 'Fuerte' : sem === 'rojo' ? 'D\u00e9bil' : 'Estable';
   const pctWow = w.variacion_pct != null ? (w.variacion_pct >= 0 ? '+' : '') + fmtF(w.variacion_pct) + '%' : '\u2014';
   const varPrev = vs.variacion_pct != null ? (vs.variacion_pct >= 0 ? '+' : '') + fmtF(vs.variacion_pct) + '%' : '\u2014';
+  const op = d.operacion_minima || {};
+  const al = Array.isArray(d.alertas_criticas) ? d.alertas_criticas : [];
+  const diasOp = op.dias_operacion_estimados_top != null ? fmtF(op.dias_operacion_estimados_top) + ' días' : '—';
+  const faltanteTxt = (+op.faltante_operativo || 0) > 0 ? fmtN(op.faltante_operativo) + ' u.' : '0 u.';
   const rowsCov = Array.isArray(d.cobertura_top) ? d.cobertura_top.slice() : [];
   rowsCov.sort((a,b)=>{
     const da = parseFloat(a.DIAS_COBERTURA);
@@ -293,6 +297,11 @@ function renderInsights(d){
     tbl += '<tr><td title="'+esc(r.ARTICULO)+'">'+esc((r.ARTICULO||'').substring(0,28))+(String(r.ARTICULO||'').length>28?'…':'')+'</td><td class="num">'+fmtN(r.CONSUMO_PERIODO)+'</td><td class="num">'+fmtN(r.EXISTENCIA)+'</td><td class="num cov-cell '+sem.cls+'" title="'+esc(sem.title)+'">'+dc+'</td></tr>';
   });
   tbl += '</tbody></table>';
+  const alertasHtml = !al.length
+    ? '<div class="ins-empty" style="padding:6px 0">Sin focos rojos en top consumo.</div>'
+    : '<table class="ins-tbl" style="margin-top:8px"><thead><tr><th>Art&iacute;culo cr&iacute;tico</th><th class="num">D&iacute;as cob.</th><th class="num">Exist.</th><th class="num">M&iacute;nimo</th></tr></thead><tbody>' +
+      al.map(r => '<tr><td title="' + esc(r.ARTICULO) + '">' + esc((r.ARTICULO || '').substring(0, 30)) + ((String(r.ARTICULO || '').length > 30) ? '…' : '') + '</td><td class="num cov-cell ' + coberturaDiasClass(r.DIAS_COBERTURA).cls + '">' + (r.DIAS_COBERTURA != null ? fmtF(r.DIAS_COBERTURA) : '—') + '</td><td class="num">' + fmtN(r.EXISTENCIA) + '</td><td class="num">' + fmtN(r.INVENTARIO_MINIMO) + '</td></tr>').join('') +
+      '</tbody></table>';
   box.innerHTML =
     '<div class="ins-row">'+
       '<div class="ins-pill" style="min-width:200px">'+
@@ -302,9 +311,12 @@ function renderInsights(d){
       '</div>'+
       '<div class="ins-pill"><div class="t">Concentraci&oacute;n Top 5</div><div class="n">'+fmtF(conc.porcentaje||0)+'%</div><div class="h">'+fmtN(conc.unidades_top5||0)+' u. de '+fmtN(conc.unidades_periodo||0)+' u. del periodo</div></div>'+
       '<div class="ins-pill"><div class="t">Vs periodo anterior</div><div class="n">'+varPrev+'</div><div class="h">Actual '+fmtN(vs.unidades_periodo||0)+' u. &middot; Previo '+fmtN(vs.unidades_periodo_previo||0)+' u.</div></div>'+
+      '<div class="ins-pill"><div class="t">M&iacute;nimo para operar (top consumo)</div><div class="n">'+diasOp+'</div><div class="h">Objetivo 14 d&iacute;as: '+fmtN(op.inventario_operativo_objetivo||0)+' u. &middot; faltante: '+faltanteTxt+'</div></div>'+
     '</div>'+
     '<div class="t" style="margin-bottom:4px;font:.6rem \'DM Mono\',monospace;color:var(--muted);text-transform:uppercase">Cobertura inventario (top consumo del periodo; d&iacute;as = existencia / consumo diario seg&uacute;n '+fmtN(d.dias_calendario_periodo||0)+' d&iacute;as calendario del filtro). <span style="opacity:.85">Sem&aacute;foro D&iacute;as cob.: &le;0 rojo, &lt;7 &aacute;mbar, 7&ndash;20 verde, 21+ azul (exceso relativo).</span></div>'+
-    tbl;
+    tbl+
+    '<div class="t" style="margin:10px 0 4px;font:.6rem \'DM Mono\',monospace;color:var(--muted);text-transform:uppercase">Alertas cr&iacute;ticas para compra inmediata (quiebre / bajo m&iacute;nimo / cobertura &lt; 10 d&iacute;as)</div>'+
+    alertasHtml;
   applyConsumoKpiSem(lastConsumoRes, d);
 }
 async function loadInsights(){

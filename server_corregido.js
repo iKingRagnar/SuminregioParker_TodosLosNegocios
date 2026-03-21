@@ -133,6 +133,37 @@ function query(sql, params = [], timeoutMs = 12000, dbOptsOverride = null) {
   return Promise.race([queryPromise, timeoutPromise]);
 }
 
+const tableColumnsCache = new Map();
+function dbCacheKey(dbOptsOverride = null) {
+  const o = dbOptsOverride || DB_OPTIONS;
+  return `${o.host || ''}|${o.port || ''}|${o.database || ''}|${o.user || ''}`;
+}
+async function getTableColumns(tableName, dbOptsOverride = null) {
+  const table = String(tableName || '').trim().toUpperCase();
+  if (!table) return new Set();
+  const key = `${dbCacheKey(dbOptsOverride)}::${table}`;
+  if (tableColumnsCache.has(key)) return tableColumnsCache.get(key);
+  const rows = await query(
+    `SELECT TRIM(rf.RDB$FIELD_NAME) AS N
+     FROM RDB$RELATION_FIELDS rf
+     WHERE rf.RDB$RELATION_NAME = ?
+     ORDER BY rf.RDB$FIELD_POSITION`,
+    [table],
+    12000,
+    dbOptsOverride
+  ).catch(() => []);
+  const cols = new Set((rows || []).map((r) => String(r.N || '').trim().toUpperCase()).filter(Boolean));
+  tableColumnsCache.set(key, cols);
+  return cols;
+}
+function firstExistingColumn(colsSet, candidates) {
+  for (const c of candidates || []) {
+    const cc = String(c || '').trim().toUpperCase();
+    if (cc && colsSet.has(cc)) return cc;
+  }
+  return null;
+}
+
 // ── Multi-FDB: FB_DATABASES_JSON + FB_DATABASE_DIR (escaneo *.fdb) ────────────
 function normalizeDatabasePathKey(dbPath) {
   const s = String(dbPath || '').trim();
@@ -1390,11 +1421,69 @@ get('/api/ventas/margen-lineas', async (req) => {
       AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
       AND COALESCE(d.APLICADO, 'N') = 'S'
     )`;
-  const ventaBruta = 'COALESCE(NULLIF(det.PRECIO_TOTAL, 0), NULLIF(det.PRECIO_T, 0), COALESCE(det.UNIDADES, 0) * COALESCE(det.PRECIO_U, det.PRECIO_UNITARIO, 0), 0)';
-  const ventaSql =
-    VENTAS_SIN_IVA_DIVISOR <= 1.00001
-      ? ventaBruta
-      : `((${ventaBruta}) / CAST(${VENTAS_SIN_IVA_DIVISOR} AS DOUBLE PRECISION))`;
+  const [veDetCols, pvDetCols, artCols, inDetCols] = await Promise.all([
+    getTableColumns('DOCTOS_VE_DET', dbo),
+    getTableColumns('DOCTOS_PV_DET', dbo),
+    getTableColumns('ARTICULOS', dbo),
+    getTableColumns('DOCTOS_IN_DET', dbo),
+  ]);
+  const artCostoCol = firstExistingColumn(artCols, ['COSTO_PROMEDIO', 'ULTIMO_COSTO', 'COSTO_ULTIMO', 'COSTO_STD']);
+  const inCostoUnitCol = firstExistingColumn(inDetCols, ['COSTO_UNITARIO', 'COSTO_U', 'PRECIO_UNITARIO', 'PRECIO_U']);
+  const inCostoTotalCol = firstExistingColumn(inDetCols, ['COSTO_TOTAL', 'IMPORTE']);
+  const inQtyCol = firstExistingColumn(inDetCols, ['CANTIDAD', 'UNIDADES']);
+
+  function buildExpr(colsSet) {
+    const qtyCol = firstExistingColumn(colsSet, ['UNIDADES', 'CANTIDAD']) || 'UNIDADES';
+    const ventaTotalCol = firstExistingColumn(colsSet, ['PRECIO_TOTAL_NETO', 'PRECIO_TOTAL', 'PRECIO_T', 'IMPORTE_NETO', 'IMPORTE']);
+    const precioUnitCol = firstExistingColumn(colsSet, ['PRECIO_UNITARIO', 'PRECIO_U', 'PRECIO']);
+    const costoTotalCol = firstExistingColumn(colsSet, ['COSTO_TOTAL', 'IMPORTE_COSTO']);
+    const costoUnitCol = firstExistingColumn(colsSet, ['COSTO_UNITARIO', 'COSTO_U']);
+
+    const ventaBrutaParts = [];
+    if (ventaTotalCol) ventaBrutaParts.push(`NULLIF(det.${ventaTotalCol}, 0)`);
+    if (precioUnitCol) ventaBrutaParts.push(`COALESCE(det.${qtyCol}, 0) * COALESCE(det.${precioUnitCol}, 0)`);
+    const ventaBruta = ventaBrutaParts.length ? `COALESCE(${ventaBrutaParts.join(', ')}, 0)` : 'CAST(0 AS DOUBLE PRECISION)';
+    const ventaSql =
+      VENTAS_SIN_IVA_DIVISOR <= 1.00001
+        ? ventaBruta
+        : `((${ventaBruta}) / CAST(${VENTAS_SIN_IVA_DIVISOR} AS DOUBLE PRECISION))`;
+
+    const costParts = [];
+    if (costoTotalCol) costParts.push(`NULLIF(det.${costoTotalCol}, 0)`);
+    if (costoUnitCol) costParts.push(`COALESCE(det.${qtyCol}, 0) * COALESCE(det.${costoUnitCol}, 0)`);
+    if (inCostoUnitCol || (inCostoTotalCol && inQtyCol)) {
+      const inUnitExpr = inCostoUnitCol
+        ? `COALESCE(NULLIF(ind.${inCostoUnitCol}, 0), 0)`
+        : `CASE WHEN COALESCE(ind.${inQtyCol}, 0) <> 0
+              THEN COALESCE(ind.${inCostoTotalCol}, 0) / COALESCE(ind.${inQtyCol}, 1)
+              ELSE 0 END`;
+      const inFallbackExpr = (inCostoTotalCol && inQtyCol)
+        ? `CASE
+             WHEN COALESCE(ind.${inQtyCol}, 0) <> 0
+               THEN COALESCE(ind.${inCostoTotalCol}, 0) / COALESCE(ind.${inQtyCol}, 1)
+             ELSE 0
+           END`
+        : '0';
+      const unitFromIn = `COALESCE((
+        SELECT FIRST 1 COALESCE(${inUnitExpr}, ${inFallbackExpr}, 0)
+        FROM DOCTOS_IN di
+        JOIN DOCTOS_IN_DET ind ON ind.DOCTO_IN_ID = di.DOCTO_IN_ID
+        WHERE ind.ARTICULO_ID = det.ARTICULO_ID
+          AND COALESCE(di.CANCELADO, 'N') = 'N'
+          AND COALESCE(di.APLICADO, 'S') = 'S'
+          AND CAST(di.FECHA AS DATE) <= CAST(d.FECHA AS DATE)
+        ORDER BY di.FECHA DESC, di.DOCTO_IN_ID DESC
+      ), 0)`;
+      costParts.push(`COALESCE(det.${qtyCol}, 0) * (${unitFromIn})`);
+    }
+    if (artCostoCol) costParts.push(`COALESCE(det.${qtyCol}, 0) * COALESCE(a.${artCostoCol}, 0)`);
+    const costSql = costParts.length ? `COALESCE(${costParts.join(', ')}, 0)` : 'CAST(0 AS DOUBLE PRECISION)';
+
+    const precioUSql = `CASE WHEN COALESCE(det.${qtyCol}, 0) <> 0 THEN (${ventaBruta}) / det.${qtyCol} ELSE 0 END`;
+    return { qtyCol, ventaSql, costSql, precioUSql };
+  }
+  const veExpr = buildExpr(veDetCols);
+  const pvExpr = buildExpr(pvDetCols);
   const mapRows = (rows) =>
     (rows || []).map((r) => {
       const venta = +r.VENTA || 0;
@@ -1407,7 +1496,7 @@ get('/api/ventas/margen-lineas', async (req) => {
         MARGEN_PCT: pct == null ? null : Math.round(pct * 100) / 100,
       };
     });
-  const buildUnion = (costExpr) => {
+  const buildUnion = () => {
     const vePart = `
         SELECT
           d.FOLIO,
@@ -1417,10 +1506,10 @@ get('/api/ventas/margen-lineas', async (req) => {
           COALESCE(v.NOMBRE, '') AS VENDEDOR,
           COALESCE(a.CLAVE, CAST(det.ARTICULO_ID AS VARCHAR(40))) AS CLAVE_ARTICULO,
           COALESCE(a.NOMBRE, '') AS DESC_ARTICULO,
-          COALESCE(det.UNIDADES, 0) AS CANTIDAD,
-          CAST(CASE WHEN COALESCE(det.UNIDADES, 0) <> 0 THEN (${ventaBruta}) / det.UNIDADES ELSE 0 END AS DECIMAL(18, 4)) AS PRECIO_U,
-          CAST(${costExpr} AS DECIMAL(18, 4)) AS COSTO,
-          CAST(${ventaSql} AS DECIMAL(18, 4)) AS VENTA
+          COALESCE(det.${veExpr.qtyCol}, 0) AS CANTIDAD,
+          CAST(${veExpr.precioUSql} AS DECIMAL(18, 4)) AS PRECIO_U,
+          CAST(${veExpr.costSql} AS DECIMAL(18, 4)) AS COSTO,
+          CAST(${veExpr.ventaSql} AS DECIMAL(18, 4)) AS VENTA
         FROM DOCTOS_VE d
         JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
         LEFT JOIN ARTICULOS a ON a.ARTICULO_ID = det.ARTICULO_ID
@@ -1436,10 +1525,10 @@ get('/api/ventas/margen-lineas', async (req) => {
           COALESCE(v.NOMBRE, '') AS VENDEDOR,
           COALESCE(a.CLAVE, CAST(det.ARTICULO_ID AS VARCHAR(40))) AS CLAVE_ARTICULO,
           COALESCE(a.NOMBRE, '') AS DESC_ARTICULO,
-          COALESCE(det.UNIDADES, 0) AS CANTIDAD,
-          CAST(CASE WHEN COALESCE(det.UNIDADES, 0) <> 0 THEN (${ventaBruta}) / det.UNIDADES ELSE 0 END AS DECIMAL(18, 4)) AS PRECIO_U,
-          CAST(${costExpr} AS DECIMAL(18, 4)) AS COSTO,
-          CAST(${ventaSql} AS DECIMAL(18, 4)) AS VENTA
+          COALESCE(det.${pvExpr.qtyCol}, 0) AS CANTIDAD,
+          CAST(${pvExpr.precioUSql} AS DECIMAL(18, 4)) AS PRECIO_U,
+          CAST(${pvExpr.costSql} AS DECIMAL(18, 4)) AS COSTO,
+          CAST(${pvExpr.ventaSql} AS DECIMAL(18, 4)) AS VENTA
         FROM DOCTOS_PV d
         JOIN DOCTOS_PV_DET det ON det.DOCTO_PV_ID = d.DOCTO_PV_ID
         LEFT JOIN ARTICULOS a ON a.ARTICULO_ID = det.ARTICULO_ID
@@ -1450,11 +1539,8 @@ get('/api/ventas/margen-lineas', async (req) => {
     if (tipo === 'PV') return { sql: pvPart, params: f.params };
     return { sql: `${vePart} UNION ALL ${pvPart}`, params: [...f.params, ...f.params] };
   };
-  const costFull =
-    'COALESCE(NULLIF(det.COSTO_TOTAL, 0), COALESCE(det.UNIDADES, 0) * COALESCE(det.COSTO_UNITARIO, 0), COALESCE(det.UNIDADES, 0) * COALESCE(a.COSTO_PROMEDIO, 0), 0)';
-  const costFallback = 'COALESCE(NULLIF(det.COSTO_TOTAL, 0), COALESCE(det.UNIDADES, 0) * COALESCE(a.COSTO_PROMEDIO, 0), 0)';
   try {
-    const { sql, params } = buildUnion(costFull);
+    const { sql, params } = buildUnion();
     const rows = await query(
       `SELECT FIRST ${limit} * FROM (${sql}) u ORDER BY u.VENTA DESC, u.FECHA DESC, u.FOLIO DESC`,
       params,
@@ -1463,32 +1549,8 @@ get('/api/ventas/margen-lineas', async (req) => {
     );
     return mapRows(rows);
   } catch (e1) {
-    console.error('[margen-lineas] intento 1:', e1.message);
-    try {
-      const { sql, params } = buildUnion(costFallback);
-      const rows = await query(
-        `SELECT FIRST ${limit} * FROM (${sql}) u ORDER BY u.VENTA DESC, u.FECHA DESC, u.FOLIO DESC`,
-        params,
-        20000,
-        dbo
-      );
-      return mapRows(rows);
-    } catch (e2) {
-      console.error('[margen-lineas] intento 2:', e2.message);
-      try {
-        const { sql, params } = buildUnion('CAST(0 AS DECIMAL(18,4))');
-        const rows = await query(
-          `SELECT FIRST ${limit} * FROM (${sql}) u ORDER BY u.VENTA DESC, u.FECHA DESC, u.FOLIO DESC`,
-          params,
-          20000,
-          dbo
-        );
-        return mapRows(rows);
-      } catch (e3) {
-        console.error('[margen-lineas] intento 3:', e3.message);
-        return [];
-      }
-    }
+    console.error('[margen-lineas] error:', e1.message);
+    return [];
   }
 });
 
@@ -2048,7 +2110,7 @@ get('/api/cxc/top-deudores', async (req) => {
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
   const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
   const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
-  return query(`
+  const rows = await query(`
     SELECT FIRST ${limit}
       doc.CLIENTE_ID,
       COALESCE(cl.NOMBRE, 'Cliente ' || CAST(doc.CLIENTE_ID AS VARCHAR(12))) AS CLIENTE,
@@ -2057,11 +2119,28 @@ get('/api/cxc/top-deudores', async (req) => {
       SUM(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.SALDO_NETO ELSE 0 END) AS VENCIDO,
       MAX(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.DIAS_VENCIDO ELSE 0 END) AS MAX_DIAS_ATRASO,
       COUNT(*) AS NUM_DOCUMENTOS
-    FROM ${cxcDocSaldosSQL(cfSql)}
+    FROM ${cxcDocSaldosInnerSQL(cfSql)} doc
     LEFT JOIN CLIENTES cl ON cl.CLIENTE_ID = doc.CLIENTE_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = cl.COND_PAGO_ID
+    WHERE doc.SALDO_NETO > 0.005
     GROUP BY doc.CLIENTE_ID, cl.NOMBRE, cp.NOMBRE
     ORDER BY SALDO_TOTAL DESC, VENCIDO DESC
+  `, [], 12000, dbo).catch(() => []);
+  if ((rows || []).length) return rows;
+  return query(`
+    SELECT FIRST ${limit}
+      c.CLIENTE_ID,
+      COALESCE(cl.NOMBRE, 'Cliente ' || CAST(c.CLIENTE_ID AS VARCHAR(12))) AS CLIENTE,
+      COALESCE(cp.NOMBRE, 'S/D') AS CONDICION_PAGO,
+      c.SALDO AS SALDO_TOTAL,
+      CAST(0 AS DOUBLE PRECISION) AS VENCIDO,
+      CAST(0 AS INTEGER) AS MAX_DIAS_ATRASO,
+      CAST(0 AS INTEGER) AS NUM_DOCUMENTOS
+    FROM ${cxcClienteSQL()}
+    LEFT JOIN CLIENTES cl ON cl.CLIENTE_ID = c.CLIENTE_ID
+    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = cl.COND_PAGO_ID
+    WHERE c.SALDO > 0.005 ${cf ? `AND c.CLIENTE_ID = ${cf}` : ''}
+    ORDER BY c.SALDO DESC
   `, [], 12000, dbo).catch(() => []);
 });
 
@@ -2088,11 +2167,67 @@ get('/api/cxc/por-condicion', async (req) => {
       doc.DIAS_VENCIDO AS DIAS_VENCIDO,
       doc.SALDO_NETO,
       CASE WHEN (${CXC_SQL_ES_CONTADO}) THEN 1 ELSE 0 END AS ES_CONTADO
-    FROM ${cxcDocSaldosInnerSQL('')}
+    FROM ${cxcDocSaldosInnerSQL('')} doc
     JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = doc.DOCTO_CC_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = dc.COND_PAGO_ID
     WHERE doc.SALDO_NETO > 0.005
   `, [], 15000, dbo).catch(() => []);
+  if (!(docs || []).length) {
+    const altRows = await query(`
+      SELECT FIRST 800
+        c.CLIENTE_ID,
+        TRIM(COALESCE(cp.NOMBRE, 'Sin condición')) AS CONDICION_PAGO,
+        COALESCE(cp.DIAS_PPAG, 0) AS DIAS_CREDITO,
+        c.SALDO AS SALDO_TOTAL
+      FROM ${cxcClienteSQL()} c
+      LEFT JOIN CLIENTES cl ON cl.CLIENTE_ID = c.CLIENTE_ID
+      LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = cl.COND_PAGO_ID
+      WHERE c.SALDO > 0.005
+      ORDER BY c.SALDO DESC
+    `, [], 12000, dbo).catch(() => []);
+    const agg = {};
+    for (const r of altRows || []) {
+      const saldo = +r.SALDO_TOTAL || 0;
+      if (saldo <= 0) continue;
+      const dias = +r.DIAS_CREDITO || 0;
+      const cond = r.CONDICION_PAGO || 'Sin condición';
+      const esContado = dias <= 0 || /contad/i.test(cond);
+      const key = `${cond}|${dias}|${esContado ? 1 : 0}`;
+      if (!agg[key]) {
+        agg[key] = {
+          CONDICION_PAGO: cond,
+          DIAS_CREDITO: dias,
+          NUM_CLIENTES: new Set(),
+          NUM_DOCUMENTOS: 0,
+          SALDO_TOTAL: 0,
+          VENCIDO: 0,
+          CORRIENTE: 0,
+          ES_CONTADO: esContado,
+        };
+      }
+      const a = agg[key];
+      a.NUM_CLIENTES.add(r.CLIENTE_ID);
+      a.SALDO_TOTAL += saldo;
+      a.CORRIENTE += saldo;
+    }
+    const gruposAlt = Object.values(agg).map(g => ({
+      CONDICION_PAGO: g.CONDICION_PAGO,
+      DIAS_CREDITO: g.DIAS_CREDITO,
+      NUM_CLIENTES: g.NUM_CLIENTES.size,
+      NUM_DOCUMENTOS: g.NUM_DOCUMENTOS,
+      SALDO_TOTAL: Math.round(g.SALDO_TOTAL * 100) / 100,
+      VENCIDO: 0,
+      CORRIENTE: Math.round(g.CORRIENTE * 100) / 100,
+      ES_CONTADO: !!g.ES_CONTADO,
+    })).sort((a, b) => b.SALDO_TOTAL - a.SALDO_TOTAL);
+    const contadoAlt = gruposAlt.filter(g => g.ES_CONTADO);
+    const pendienteContadoAlt = contadoAlt.length ? {
+      SALDO_TOTAL: Math.round(contadoAlt.reduce((s, g) => s + (+g.SALDO_TOTAL || 0), 0) * 100) / 100,
+      NUM_DOCUMENTOS: contadoAlt.reduce((s, g) => s + (+g.NUM_DOCUMENTOS || 0), 0),
+      NUM_CLIENTES: contadoAlt.reduce((s, g) => s + (+g.NUM_CLIENTES || 0), 0)
+    } : null;
+    return { grupos: gruposAlt, pendiente_contado: pendienteContadoAlt };
+  }
   const byCond = {};
   for (const r of docs || []) {
     const saldo = Math.round((+r.SALDO_NETO || 0) * 100) / 100;
@@ -2838,8 +2973,94 @@ async function resultadosPnlCore(req, dbOpts) {
   const sumGastoCo = ['CO_A1', 'CO_A2', 'CO_A3', 'CO_A4', 'CO_A5', 'CO_A6', 'CO_B1', 'CO_B2', 'CO_B3', 'CO_B4', 'CO_B5']
     .reduce((s, k) => s + (+totales[k] || 0), 0);
   const tiene_gastos_co = sumGastoCo > 0.01;
+  let prefijos_rows = [];
+  try {
+    prefijos_rows = await q(`
+      SELECT
+        TRIM(COALESCE(cu.CUENTA_PT, '')) AS CUENTA_PT,
+        TRIM(COALESCE(cu.NOMBRE, '')) AS ETIQUETA
+      FROM CUENTAS_CO cu
+      WHERE (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53')
+      ORDER BY cu.CUENTA_PT
+    `, [], 10000);
+  } catch (_) {
+    try {
+      prefijos_rows = await q(`
+        SELECT
+          TRIM(COALESCE(cu.CUENTA_PT, '')) AS CUENTA_PT,
+          TRIM(COALESCE(cu.CUENTA_JT, '')) AS ETIQUETA
+        FROM CUENTAS_CO cu
+        WHERE (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53')
+        ORDER BY cu.CUENTA_PT
+      `, [], 10000);
+    } catch (__) {
+      prefijos_rows = [];
+    }
+  }
+  const prefijos_labels = {};
+  let prefijos_top_rows = [];
+  try {
+    prefijos_top_rows = await q(`
+      SELECT
+        CASE
+          WHEN cu.CUENTA_PT STARTING WITH '5201' THEN 'CO_A1'
+          WHEN cu.CUENTA_PT STARTING WITH '5202' THEN 'CO_A2'
+          WHEN cu.CUENTA_PT STARTING WITH '5203' THEN 'CO_A3'
+          WHEN cu.CUENTA_PT STARTING WITH '5204' THEN 'CO_A4'
+          WHEN cu.CUENTA_PT STARTING WITH '5205' THEN 'CO_A5'
+          WHEN cu.CUENTA_PT STARTING WITH '52' THEN 'CO_A6'
+          WHEN cu.CUENTA_PT STARTING WITH '5301' THEN 'CO_B1'
+          WHEN cu.CUENTA_PT STARTING WITH '5302' THEN 'CO_B2'
+          WHEN cu.CUENTA_PT STARTING WITH '5303' THEN 'CO_B3'
+          WHEN cu.CUENTA_PT STARTING WITH '5304' THEN 'CO_B4'
+          WHEN cu.CUENTA_PT STARTING WITH '53' THEN 'CO_B5'
+          ELSE NULL
+        END AS BUCKET,
+        TRIM(COALESCE(NULLIF(cu.NOMBRE, ''), NULLIF(cu.CUENTA_JT, ''), cu.CUENTA_PT)) AS ETIQUETA,
+        SUM(ABS(COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0))) AS IMP
+      FROM SALDOS_CO s
+      JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
+      WHERE (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53')
+        AND s.ANO >= ? AND s.ANO <= ?
+        AND NOT (s.ANO = ? AND s.MES < ?)
+        AND NOT (s.ANO = ? AND s.MES > ?)
+      GROUP BY 1, 2
+      ORDER BY 1, 3 DESC
+    `, [sy, ey, sy, sm, ey, em], 12000);
+  } catch (_) {
+    prefijos_top_rows = [];
+  }
+  for (const r of (prefijos_top_rows || [])) {
+    const b = String(r.BUCKET || '').trim();
+    const et = String(r.ETIQUETA || '').trim();
+    if (!b || !et) continue;
+    if (!prefijos_labels[b]) prefijos_labels[b] = et;
+  }
+  const pRows = Array.isArray(prefijos_rows) ? prefijos_rows : [];
+  const pickPref = (prefix, exceptList) => {
+    for (const r of pRows) {
+      const cp = String(r.CUENTA_PT || '').trim();
+      const et = String(r.ETIQUETA || '').trim();
+      if (!cp || !et) continue;
+      if (!cp.startsWith(prefix)) continue;
+      if (Array.isArray(exceptList) && exceptList.some(x => cp.startsWith(x))) continue;
+      return et;
+    }
+    return null;
+  };
+  if (!prefijos_labels.CO_A1) prefijos_labels.CO_A1 = pickPref('5201');
+  if (!prefijos_labels.CO_A2) prefijos_labels.CO_A2 = pickPref('5202');
+  if (!prefijos_labels.CO_A3) prefijos_labels.CO_A3 = pickPref('5203');
+  if (!prefijos_labels.CO_A4) prefijos_labels.CO_A4 = pickPref('5204');
+  if (!prefijos_labels.CO_A5) prefijos_labels.CO_A5 = pickPref('5205');
+  if (!prefijos_labels.CO_A6) prefijos_labels.CO_A6 = pickPref('52', ['5201', '5202', '5203', '5204', '5205']);
+  if (!prefijos_labels.CO_B1) prefijos_labels.CO_B1 = pickPref('5301');
+  if (!prefijos_labels.CO_B2) prefijos_labels.CO_B2 = pickPref('5302');
+  if (!prefijos_labels.CO_B3) prefijos_labels.CO_B3 = pickPref('5303');
+  if (!prefijos_labels.CO_B4) prefijos_labels.CO_B4 = pickPref('5304');
+  if (!prefijos_labels.CO_B5) prefijos_labels.CO_B5 = pickPref('53', ['5301', '5302', '5303', '5304']);
 
-  return { meses, totales, tiene_costo, tiene_gastos_co };
+  return { meses, totales, tiene_costo, tiene_gastos_co, prefijos_labels };
 }
 
 get('/api/resultados/pnl', async (req) => {
@@ -3272,6 +3493,28 @@ get('/api/consumos/insights', async (req) => {
       });
     }
   }
+  const consumoDiarioTop = cobertura.reduce((s, r) => s + (+r.CONSUMO_DIARIO_PROM || 0), 0);
+  const existenciaTop = cobertura.reduce((s, r) => s + (+r.EXISTENCIA || 0), 0);
+  const inventarioMinTop = cobertura.reduce((s, r) => s + (+r.INVENTARIO_MINIMO || 0), 0);
+  const inventarioOperativo14 = cobertura.reduce((s, r) => {
+    const diario = +r.CONSUMO_DIARIO_PROM || 0;
+    const minimo = +r.INVENTARIO_MINIMO || 0;
+    return s + Math.max(minimo, diario * 14);
+  }, 0);
+  const faltanteOperativo = Math.max(0, inventarioOperativo14 - existenciaTop);
+  const diasOperacionTop = consumoDiarioTop > 0
+    ? Math.round((existenciaTop / consumoDiarioTop) * 100) / 100
+    : null;
+  const criticos = cobertura
+    .filter(r => {
+      const dc = +r.DIAS_COBERTURA;
+      const ex = +r.EXISTENCIA || 0;
+      const min = +r.INVENTARIO_MINIMO || 0;
+      const diario = +r.CONSUMO_DIARIO_PROM || 0;
+      return (diario > 0 && ex <= 0) || (min > 0 && ex <= min) || (diario > 0 && Number.isFinite(dc) && dc < 10);
+    })
+    .sort((a, b) => (+a.DIAS_COBERTURA || 0) - (+b.DIAS_COBERTURA || 0))
+    .slice(0, 5);
 
   return {
     variacion_semanal: {
@@ -3293,6 +3536,16 @@ get('/api/consumos/insights', async (req) => {
       tiene_previo: !!prevQ,
     },
     cobertura_top: cobertura,
+    operacion_minima: {
+      dias_objetivo: 14,
+      consumo_diario_top: Math.round(consumoDiarioTop * 100) / 100,
+      existencia_top: Math.round(existenciaTop * 100) / 100,
+      inventario_minimo_top: Math.round(inventarioMinTop * 100) / 100,
+      inventario_operativo_objetivo: Math.round(inventarioOperativo14 * 100) / 100,
+      faltante_operativo: Math.round(faltanteOperativo * 100) / 100,
+      dias_operacion_estimados_top: diasOperacionTop,
+    },
+    alertas_criticas: criticos,
     dias_calendario_periodo: diasCal,
   };
 });

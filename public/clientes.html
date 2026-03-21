@@ -237,20 +237,20 @@ nav{display:flex;align-items:center;gap:.2rem}
       <table class="risk-table">
         <thead>
           <tr>
-            <th>Cliente</th>
-            <th class="th-sort" id="thNivelSort" title="Clic: Nivel cr&#237;tico &rarr; leve &rarr; volver a orden por monto vencido">
-              Nivel <span class="th-sort-icon desc" id="nivelSortIcon" aria-hidden="true"></span>
+            <th class="th-sort" data-sort="NOMBRE" data-default-dir="1">Cliente <span class="th-sort-icon muted" data-sort-icon="NOMBRE" aria-hidden="true"></span></th>
+            <th class="th-sort" data-sort="NIVEL_RIESGO" data-default-dir="-1" title="Ordena por nivel de atraso">
+              Nivel <span class="th-sort-icon muted" data-sort-icon="NIVEL_RIESGO" aria-hidden="true"></span>
             </th>
-            <th class="num">Saldo Total</th>
-            <th class="num" title="Parte de la cartera con documentos ya fuera de plazo (suma de saldos de cargos con d&#237;as de atraso &gt; 0). No es el monto de la &#250;ltima compra.">Monto vencido (cartera)</th>
-            <th class="num">% Vencido</th>
-            <th class="num">Max D&iacute;as</th>
-            <th class="num">Docs</th>
-            <th class="num">Compras</th>
-            <th class="num">&Uacute;ltima compra</th>
-            <th class="num" title="Importe neto del documento de venta m&#225;s reciente (VE o PV), seg&#250;n FECHA.">Monto &#250;lt. compra</th>
-            <th class="num" title="Aproximaci&#243;n: ticket promedio mensual (&#250;ltimos 12 meses) &#215; 12. Si el cliente dejara de comprar al ritmo reciente, es el volumen anual que dejar&#237;as de facturar.">Venta anual est. en riesgo</th>
-            <th>Condici&oacute;n</th>
+            <th class="num th-sort" data-sort="SALDO_TOTAL" data-default-dir="-1">Saldo Total <span class="th-sort-icon muted" data-sort-icon="SALDO_TOTAL" aria-hidden="true"></span></th>
+            <th class="num th-sort" data-sort="MONTO_VENCIDO" data-default-dir="-1" title="Parte de la cartera con documentos ya fuera de plazo (suma de saldos de cargos con d&#237;as de atraso &gt; 0). No es el monto de la &#250;ltima compra.">Monto vencido (cartera) <span class="th-sort-icon muted" data-sort-icon="MONTO_VENCIDO" aria-hidden="true"></span></th>
+            <th class="num th-sort" data-sort="PCT_VENCIDO" data-default-dir="-1">% Vencido <span class="th-sort-icon muted" data-sort-icon="PCT_VENCIDO" aria-hidden="true"></span></th>
+            <th class="num th-sort" data-sort="MAX_DIAS_VENCIDO" data-default-dir="-1">Max D&iacute;as <span class="th-sort-icon muted" data-sort-icon="MAX_DIAS_VENCIDO" aria-hidden="true"></span></th>
+            <th class="num th-sort" data-sort="NUM_DOCS_VENCIDOS" data-default-dir="-1">Docs <span class="th-sort-icon muted" data-sort-icon="NUM_DOCS_VENCIDOS" aria-hidden="true"></span></th>
+            <th class="num th-sort" data-sort="NUM_COMPRAS_VIDA" data-default-dir="-1">Compras <span class="th-sort-icon muted" data-sort-icon="NUM_COMPRAS_VIDA" aria-hidden="true"></span></th>
+            <th class="num th-sort" data-sort="ULTIMA_COMPRA" data-default-dir="-1">&Uacute;ltima compra <span class="th-sort-icon muted" data-sort-icon="ULTIMA_COMPRA" aria-hidden="true"></span></th>
+            <th class="num th-sort" data-sort="ULTIMA_COMPRA_IMPORTE" data-default-dir="-1" title="Importe neto del documento de venta m&#225;s reciente (VE o PV), seg&#250;n FECHA.">Monto &#250;lt. compra <span class="th-sort-icon muted" data-sort-icon="ULTIMA_COMPRA_IMPORTE" aria-hidden="true"></span></th>
+            <th class="num th-sort" data-sort="PERDIDA_VENTA_ANUAL_EST" data-default-dir="-1" title="Aproximaci&#243;n: ticket promedio mensual (&#250;ltimos 12 meses) &#215; 12. Si el cliente dejara de comprar al ritmo reciente, es el volumen anual que dejar&#237;as de facturar.">Venta anual est. en riesgo <span class="th-sort-icon muted" data-sort-icon="PERDIDA_VENTA_ANUAL_EST" aria-hidden="true"></span></th>
+            <th class="th-sort" data-sort="CONDICION_PAGO" data-default-dir="1">Condici&oacute;n <span class="th-sort-icon muted" data-sort-icon="CONDICION_PAGO" aria-hidden="true"></span></th>
           </tr>
         </thead>
         <tbody id="riesgoBody"></tbody>
@@ -325,8 +325,7 @@ function apiDb(rel){
 let chartRiesgoInst = null, chartBucketsInst = null;
 let riesgoData = [], inactivosData = [], comercialData = [];
 const clientesSemCtx = { riesgo: [], inactivos: [], comercial: [], res: {} };
-/** 0 = orden por monto vencido; 1 / -1 = por nivel de atraso (clic en Nivel) */
-let sortNivelDirection = 0;
+let riesgoSort = { key: 'MONTO_VENCIDO', dir: -1 };
 
 setInterval(()=>{const n=new Date();document.getElementById('reloj').textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');},1000);
 
@@ -452,30 +451,42 @@ function nivelOrder(nivelStr){
   const n = (nivelStr||'').toUpperCase();
   return n==='CRITICO'?4:n==='ALTO'?3:n==='MEDIO'?2:1;
 }
+function riesgoSortValue(r, key){
+  const saldoTotal = +r.SALDO_TOTAL||+r.SALDO||0;
+  const montoVencido = +r.MONTO_VENCIDO||+r.MONTO_VENCIDO_BRUTO||+r.SALDO||0;
+  if (key === 'NIVEL_RIESGO') return nivelOrder(r.NIVEL_RIESGO||nivelFromDias(r.MAX_DIAS_VENCIDO));
+  if (key === 'PCT_VENCIDO') return saldoTotal > 0 ? (montoVencido / saldoTotal) * 100 : (montoVencido > 0 ? 100 : 0);
+  if (key === 'MONTO_VENCIDO') return montoVencido;
+  if (key === 'SALDO_TOTAL') return saldoTotal;
+  if (key === 'ULTIMA_COMPRA') return r.ULTIMA_COMPRA ? new Date(String(r.ULTIMA_COMPRA)).getTime() : 0;
+  if (key === 'NOMBRE' || key === 'CONDICION_PAGO') return String(r[key] || '').toUpperCase();
+  return +r[key] || 0;
+}
+function applyRiesgoSort(rows){
+  const { key, dir } = riesgoSort;
+  return [...rows].sort((a,b)=>{
+    const va = riesgoSortValue(a, key);
+    const vb = riesgoSortValue(b, key);
+    if (typeof va === 'string' || typeof vb === 'string') {
+      return String(va).localeCompare(String(vb), 'es', { sensitivity: 'base' }) * dir;
+    }
+    if (vb === va) return (+b.MONTO_VENCIDO||0) - (+a.MONTO_VENCIDO||0);
+    return (va > vb ? 1 : -1) * dir;
+  });
+}
+function syncRiesgoSortIcons(){
+  document.querySelectorAll('[data-sort-icon]').forEach(el=>{
+    const k = el.getAttribute('data-sort-icon');
+    if (k === riesgoSort.key) {
+      el.className = 'th-sort-icon ' + (riesgoSort.dir === 1 ? 'asc' : 'desc');
+    } else {
+      el.className = 'th-sort-icon muted';
+    }
+  });
+}
 function renderRiesgo(data){
-  const iconEl = document.getElementById('nivelSortIcon');
-  if(iconEl){
-    if(sortNivelDirection===0){
-      iconEl.className = 'th-sort-icon muted';
-      iconEl.setAttribute('title','Orden: monto vencido (clic para ordenar por nivel)');
-    }else{
-      iconEl.className = 'th-sort-icon ' + (sortNivelDirection===1?'desc':'asc');
-      iconEl.setAttribute('title', sortNivelDirection===1?'Cr\u00edtico primero (clic: leve primero)':'Leve primero (clic: volver a monto vencido)');
-    }
-  }
-  let dataToRender = data;
-  if(data.length>0){
-    if(sortNivelDirection===0){
-      dataToRender = [...data].sort((a,b)=>(+b.MONTO_VENCIDO||0)-(+a.MONTO_VENCIDO||0));
-    }else{
-      dataToRender = [...data].sort((a,b)=>{
-        const na = (a.NIVEL_RIESGO||nivelFromDias(a.MAX_DIAS_VENCIDO)).toUpperCase();
-        const nb = (b.NIVEL_RIESGO||nivelFromDias(b.MAX_DIAS_VENCIDO)).toUpperCase();
-        const diff = nivelOrder(nb) - nivelOrder(na);
-        return sortNivelDirection===1 ? diff : -diff;
-      });
-    }
-  }
+  syncRiesgoSortIcons();
+  const dataToRender = data.length > 0 ? applyRiesgoSort(data) : data;
   document.getElementById('riesgoCount').textContent = dataToRender.length+' registros';
   const rows = dataToRender.map(r=>{
     const maxD = +r.MAX_DIAS_VENCIDO||0;
@@ -588,11 +599,17 @@ function renderChartBuckets(res){
   });
 }
 
-document.getElementById('thNivelSort')?.addEventListener('click', function(){
-  if(sortNivelDirection===0) sortNivelDirection = 1;
-  else if(sortNivelDirection===1) sortNivelDirection = -1;
-  else sortNivelDirection = 0;
-  renderRiesgo(riesgoData);
+document.querySelectorAll('#panelRiesgo thead .th-sort[data-sort]').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const key = th.getAttribute('data-sort');
+    const def = parseInt(th.getAttribute('data-default-dir') || '-1', 10) || -1;
+    if (riesgoSort.key === key) {
+      riesgoSort.dir = riesgoSort.dir === -1 ? 1 : -1;
+    } else {
+      riesgoSort = { key, dir: def };
+    }
+    renderRiesgo(riesgoData);
+  });
 });
 if (typeof initFilters === 'function') {
   initFilters({ containerId:'filter-bar', showVendedor:false, onReady:()=>loadData(), onChange:()=>loadData() });

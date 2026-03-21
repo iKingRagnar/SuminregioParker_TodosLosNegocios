@@ -300,8 +300,82 @@ html[data-theme="light"] .nav-aux-wrap{border-left-color:rgba(15,23,42,.1)}
 html[data-theme="light"] .orb{opacity:.06!important}
 html[data-theme="light"] .nav-aux-btn{background:rgba(15,23,42,.04);color:var(--text2);border-color:rgba(15,23,42,.1)}
 html[data-theme="light"] .microsip-skip-link:focus{background:#0f172a;color:#fff}
+
+/* --- Sortable tables (global) --------------------------------------- */
+.ms-sortable-th{cursor:pointer;user-select:none;position:relative;padding-right:1.1rem!important}
+.ms-sortable-th:hover{color:var(--text)}
+.ms-sortable-th::after{
+  content:'↕';
+  position:absolute;right:.3rem;top:50%;transform:translateY(-50%);
+  font-size:.65rem;opacity:.45;color:var(--muted);
+}
+.ms-sortable-th[data-ms-sort-dir="asc"]::after{content:'↑';opacity:.9;color:var(--text2)}
+.ms-sortable-th[data-ms-sort-dir="desc"]::after{content:'↓';opacity:.9;color:var(--text2)}
 `;
     document.head.appendChild(style); // Append last so brand vars override page vars
+  }
+
+  function parseTableValue(raw) {
+    const s = String(raw || '').replace(/\s+/g, ' ').trim();
+    if (!s) return { type: 'str', val: '' };
+    const iso = Date.parse(s);
+    if (!isNaN(iso) && /^\d{4}-\d{2}-\d{2}/.test(s)) return { type: 'num', val: iso };
+    const mx = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})$/);
+    if (mx) {
+      const y = Number(mx[3].length === 2 ? ('20' + mx[3]) : mx[3]);
+      const m = Number(mx[2]) - 1;
+      const d = Number(mx[1]);
+      const dt = new Date(y, m, d).getTime();
+      if (!isNaN(dt)) return { type: 'num', val: dt };
+    }
+    const compact = s.replace(/[$,%\s,]/g, '');
+    const km = compact.match(/^(-?\d+(?:\.\d+)?)([KkMm])$/);
+    if (km) {
+      const base = Number(km[1]);
+      if (!isNaN(base)) return { type: 'num', val: base * (/[Mm]/.test(km[2]) ? 1000000 : 1000) };
+    }
+    const n = Number(compact);
+    if (!isNaN(n)) return { type: 'num', val: n };
+    return { type: 'str', val: s.toUpperCase() };
+  }
+
+  function makeTableSortable(table) {
+    if (!table || table.dataset.msSortReady === '1') return;
+    const thead = table.querySelector('thead');
+    const tbody = table.querySelector('tbody');
+    if (!thead || !tbody) return;
+    if (thead.querySelector('th[data-sort]')) return; // tabla con sorting custom
+    const headers = Array.from(thead.querySelectorAll('th'));
+    if (!headers.length) return;
+    headers.forEach((th, idx) => {
+      if (th.getAttribute('colspan') && Number(th.getAttribute('colspan')) > 1) return;
+      th.classList.add('ms-sortable-th');
+      th.addEventListener('click', () => {
+        const currentCol = Number(table.dataset.msSortCol || -1);
+        const nextDir = (currentCol === idx && table.dataset.msSortDir === 'desc') ? 'asc' : 'desc';
+        table.dataset.msSortCol = String(idx);
+        table.dataset.msSortDir = nextDir;
+        headers.forEach(h => h.removeAttribute('data-ms-sort-dir'));
+        th.setAttribute('data-ms-sort-dir', nextDir);
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        rows.sort((ra, rb) => {
+          const ca = ra.children[idx];
+          const cb = rb.children[idx];
+          const va = parseTableValue(ca ? ca.textContent : '');
+          const vb = parseTableValue(cb ? cb.textContent : '');
+          let cmp = 0;
+          if (va.type === 'num' && vb.type === 'num') cmp = va.val - vb.val;
+          else cmp = String(va.val).localeCompare(String(vb.val), 'es', { sensitivity: 'base' });
+          return nextDir === 'asc' ? cmp : -cmp;
+        });
+        rows.forEach(r => tbody.appendChild(r));
+      });
+    });
+    table.dataset.msSortReady = '1';
+  }
+
+  function initGlobalTableSort() {
+    document.querySelectorAll('table').forEach(makeTableSortable);
   }
 
   /* Replace or inject header */
@@ -354,6 +428,11 @@ html[data-theme="light"] .microsip-skip-link:focus{background:#0f172a;color:#fff
     if (typeof window.initGlobalDbBarAfterNav === 'function') {
       window.initGlobalDbBarAfterNav(document.getElementById('app-header'));
     }
+    initGlobalTableSort();
+    try {
+      const mo = new MutationObserver(() => initGlobalTableSort());
+      mo.observe(document.body, { childList: true, subtree: true });
+    } catch (_) {}
   }
 
   /** Widget IA: mismos IDs que sistema-cotizacion-web (#ai-widget-wrap, #ai-fab, ?). */

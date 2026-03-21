@@ -299,7 +299,14 @@ async function loadMargen(keepRows) {
   try {
     const r = await fetch(url, { cache: 'no-store' });
     const rows = r.ok ? await r.json() : [];
-    allRows = (Array.isArray(rows) ? rows : []).sort((a,b)=>(+b.VENTA||0)-(+a.VENTA||0));
+    let list = Array.isArray(rows) ? rows : [];
+    if (!list.length) {
+      const fallbackUrl = buildApiUrl('/api/ventas/margen-lineas', 'limit=5000&meses=12' + tq);
+      const rf = await fetch(fallbackUrl, { cache: 'no-store' });
+      const rowsF = rf.ok ? await rf.json() : [];
+      list = Array.isArray(rowsF) ? rowsF : [];
+    }
+    allRows = list.sort((a,b)=>(+b.VENTA||0)-(+a.VENTA||0));
     renderKpis(allRows);
     renderTopClientes(allRows);
     renderArtChart(allRows);

@@ -464,7 +464,21 @@ async function loadData(){
 async function loadDetalleCobros(){
   try{
     const rows = await fwt(buildApiUrl('/api/ventas/cobradas-detalle', 'limit=500'), [], 14000);
-    renderDetalleCobrosTable(Array.isArray(rows) ? rows : []);
+    let detalle = Array.isArray(rows) ? rows : [];
+    let modo = 'detalle';
+    if (!detalle.length) {
+      const fac = await fwt(buildApiUrl('/api/ventas/cobradas-por-factura', 'limit=500'), [], 16000);
+      detalle = (Array.isArray(fac) ? fac : []).map(x => ({
+        FECHA_COBRO: x.FECHA_FACTURA || x.FECHA,
+        FOLIO_CC: x.FOLIO_VE || x.FOLIO || '',
+        FOLIO: x.FOLIO_VE || x.FOLIO || '',
+        CLIENTE: x.CLIENTE || '',
+        MONTO_COBRADO: +x.COBRADO_PERIODO || 0,
+        VENDEDOR: x.VENDEDOR || ''
+      })).filter(x => (+x.MONTO_COBRADO || 0) > 0);
+      modo = 'factura';
+    }
+    renderDetalleCobrosTable(detalle, modo);
   }catch(e){ renderDetalleCobrosError(e.message); }
 }
 
@@ -473,11 +487,11 @@ function renderDetalleCobrosError(msg){
   if(tb) tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--red);padding:16px">'+(msg||'Error')+'</td></tr>';
 }
 
-function renderDetalleCobrosTable(rows){
+function renderDetalleCobrosTable(rows, mode){
   const tb = document.getElementById('detalleCobrosBody');
   const bd = document.getElementById('detalleCobrosBadge');
   const ordered = [...(rows||[])].sort((a,b)=>(+b.MONTO_COBRADO||0)-(+a.MONTO_COBRADO||0));
-  if(bd) bd.textContent = ordered.length+' movimientos';
+  if(bd) bd.textContent = ordered.length + (mode === 'factura' ? ' facturas con cobro' : ' movimientos');
   if(!tb) return;
   if(!ordered.length){ tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px">Sin cobros en este periodo</td></tr>'; return; }
   const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
