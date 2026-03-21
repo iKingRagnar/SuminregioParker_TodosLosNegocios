@@ -633,7 +633,7 @@ function ventasSub(tipo = '') {
   const ve = `
     SELECT
       d.FECHA,
-      COALESCE(SUM(COALESCE(det.UNIDADES, 0) * COALESCE(det.PRECIO_U, 0)), 0) AS IMPORTE_NETO,
+      COALESCE(SUM(COALESCE(det.PRECIO_TOTAL, 0)), 0) AS IMPORTE_NETO,
       COALESCE(d.VENDEDOR_ID, 0)  AS VENDEDOR_ID,
       COALESCE(d.CLIENTE_ID,  0)  AS CLIENTE_ID,
       d.FOLIO,
@@ -653,7 +653,7 @@ function ventasSub(tipo = '') {
   const pv = `
     SELECT
       d.FECHA,
-      COALESCE(SUM(COALESCE(det.UNIDADES, 0) * COALESCE(det.PRECIO_U, 0)), 0) AS IMPORTE_NETO,
+      COALESCE(SUM(COALESCE(det.PRECIO_TOTAL, 0)), 0) AS IMPORTE_NETO,
       COALESCE(d.VENDEDOR_ID, 0)  AS VENDEDOR_ID,
       COALESCE(d.CLIENTE_ID,  0)  AS CLIENTE_ID,
       d.FOLIO,
@@ -698,7 +698,7 @@ function normalizeCotizacionResumenRow(row) {
   };
 }
 
-/** Importe cotización en misma base que ventas (sin IVA según MICROSIP_VENTAS_SIN_IVA_DIVISOR). */
+/** Importe cotización: suma de líneas - descuento encabezado (alineado a DAX Power BI). */
 function sqlCotiImporteExpr(alias = 'd') {
   const a = alias;
   return `(COALESCE(${a}.IMPORTE_NETO, 0) - COALESCE(${a}.DSCTO_IMPORTE, 0))`;
@@ -715,7 +715,7 @@ function cotizacionesSub() {
       d.CLIENTE_ID,
       d.VENDEDOR_ID,
       COALESCE(d.DSCTO_IMPORTE, 0) AS DSCTO_IMPORTE,
-      COALESCE(SUM(COALESCE(det.UNIDADES, 0) * COALESCE(det.PRECIO_U, 0)), 0) AS IMPORTE_NETO
+      COALESCE(SUM(COALESCE(det.PRECIO_TOTAL, 0)), 0) AS IMPORTE_NETO
     FROM DOCTOS_VE d
     JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
     WHERE ${sqlWhereCotizacionActiva('d')}
@@ -1387,7 +1387,7 @@ get('/api/ventas/margen-lineas', async (req) => {
       OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
       OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS <> 'C')
     )`;
-  const ventaBruta = 'COALESCE(NULLIF(det.PRECIO_T, 0), COALESCE(det.UNIDADES, 0) * COALESCE(det.PRECIO_U, 0))';
+  const ventaBruta = 'COALESCE(NULLIF(det.PRECIO_TOTAL, 0), 0)';
   const ventaSql =
     VENTAS_SIN_IVA_DIVISOR <= 1.00001
       ? ventaBruta
@@ -1414,7 +1414,7 @@ get('/api/ventas/margen-lineas', async (req) => {
           COALESCE(a.CLAVE, CAST(det.ARTICULO_ID AS VARCHAR(40))) AS CLAVE_ARTICULO,
           COALESCE(a.NOMBRE, '') AS DESC_ARTICULO,
           COALESCE(det.UNIDADES, 0) AS CANTIDAD,
-          COALESCE(det.PRECIO_U, 0) AS PRECIO_U,
+          CAST(CASE WHEN COALESCE(det.UNIDADES, 0) <> 0 THEN COALESCE(det.PRECIO_TOTAL, 0) / det.UNIDADES ELSE 0 END AS DECIMAL(18, 4)) AS PRECIO_U,
           CAST(${costExpr} AS DECIMAL(18, 4)) AS COSTO,
           CAST(${ventaSql} AS DECIMAL(18, 4)) AS VENTA
         FROM DOCTOS_VE d
@@ -1431,7 +1431,7 @@ get('/api/ventas/margen-lineas', async (req) => {
           COALESCE(a.CLAVE, CAST(det.ARTICULO_ID AS VARCHAR(40))) AS CLAVE_ARTICULO,
           COALESCE(a.NOMBRE, '') AS DESC_ARTICULO,
           COALESCE(det.UNIDADES, 0) AS CANTIDAD,
-          COALESCE(det.PRECIO_U, 0) AS PRECIO_U,
+          CAST(CASE WHEN COALESCE(det.UNIDADES, 0) <> 0 THEN COALESCE(det.PRECIO_TOTAL, 0) / det.UNIDADES ELSE 0 END AS DECIMAL(18, 4)) AS PRECIO_U,
           CAST(${costExpr} AS DECIMAL(18, 4)) AS COSTO,
           CAST(${ventaSql} AS DECIMAL(18, 4)) AS VENTA
         FROM DOCTOS_PV d

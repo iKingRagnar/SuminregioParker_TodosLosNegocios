@@ -145,6 +145,10 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
 
   function renderDbChipsInto(container, list, onChange) {
     if (!container) return;
+    // Fallback visual por si algún CSS no cargó todavía.
+    container.style.display = 'grid';
+    container.style.gridTemplateColumns = 'repeat(auto-fill, minmax(220px, 1fr))';
+    container.style.gap = '12px';
     const urlDb = getSelectedDbId();
     const searchDefault = 'por defecto servidor env fb_database';
     let html = '<button type="button" class="biz-tile db-chip' + (!urlDb ? ' active' : '') + '" data-db="" data-search="' + searchDefault + '" title="Conexi\u00f3n por defecto del servidor (FB_DATABASE)">' +
@@ -166,6 +170,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     });
     container.innerHTML = html;
     container.querySelectorAll('.biz-tile').forEach(function (btn) {
+      if (!btn.style.minHeight) btn.style.minHeight = '88px';
       btn.addEventListener('click', function () {
         const raw = btn.getAttribute('data-db') || '';
         try {
@@ -257,7 +262,8 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     var toggleBtn = document.getElementById('bizDbToggle');
     var bodyEl = document.getElementById('bizDbBody');
     try {
-      var collapsed = sessionStorage.getItem('microsip_db_panel_collapsed') === '1';
+      var val = sessionStorage.getItem('microsip_db_panel_collapsed');
+      var collapsed = (val == null) ? true : val === '1';
       if (collapsed && bodyEl && toggleBtn) {
         bodyEl.hidden = true;
         toggleBtn.setAttribute('aria-expanded', 'false');
