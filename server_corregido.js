@@ -630,10 +630,11 @@ function consumosVendedorClienteSql(req, alias = 'd') {
  * @param {string} tipo - 'VE', 'PV' o '' (todos)
  */
 function ventasSub(tipo = '') {
+  const imp = sqlVentaImporteBaseExpr('d');
   const ve = `
     SELECT
       d.FECHA,
-      COALESCE(SUM(COALESCE(det.PRECIO_TOTAL, 0)), 0) AS IMPORTE_NETO,
+      ${imp} AS IMPORTE_NETO,
       COALESCE(d.VENDEDOR_ID, 0)  AS VENDEDOR_ID,
       COALESCE(d.CLIENTE_ID,  0)  AS CLIENTE_ID,
       d.FOLIO,
@@ -643,17 +644,16 @@ function ventasSub(tipo = '') {
       CAST(NULL AS INTEGER) AS DOCTO_PV_ID,
       'VE' AS TIPO_SRC
     FROM DOCTOS_VE d
-    JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
     WHERE (
       d.TIPO_DOCTO IN ('V', 'F')
       AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
-    )
-    GROUP BY d.FECHA, d.VENDEDOR_ID, d.CLIENTE_ID, d.FOLIO, d.TIPO_DOCTO, d.ESTATUS, d.DOCTO_VE_ID`;
+      AND COALESCE(d.APLICADO, 'N') = 'S'
+    )`;
 
   const pv = `
     SELECT
       d.FECHA,
-      COALESCE(SUM(COALESCE(det.PRECIO_TOTAL, 0)), 0) AS IMPORTE_NETO,
+      ${imp} AS IMPORTE_NETO,
       COALESCE(d.VENDEDOR_ID, 0)  AS VENDEDOR_ID,
       COALESCE(d.CLIENTE_ID,  0)  AS CLIENTE_ID,
       d.FOLIO,
@@ -663,12 +663,11 @@ function ventasSub(tipo = '') {
       d.DOCTO_PV_ID,
       'PV' AS TIPO_SRC
     FROM DOCTOS_PV d
-    JOIN DOCTOS_PV_DET det ON det.DOCTO_PV_ID = d.DOCTO_PV_ID
     WHERE (
       d.TIPO_DOCTO IN ('V', 'F')
       AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
-    )
-    GROUP BY d.FECHA, d.VENDEDOR_ID, d.CLIENTE_ID, d.FOLIO, d.TIPO_DOCTO, d.ESTATUS, d.DOCTO_PV_ID`;
+      AND COALESCE(d.APLICADO, 'N') = 'S'
+    )`;
 
   if (tipo === 'VE') return `(${ve})`;
   if (tipo === 'PV') return `(${pv})`;
@@ -685,7 +684,8 @@ function sqlWhereCotizacionActiva(alias = 'd') {
   // Cotización alineada a DAX de Power BI: tipo C y no cancelada.
   return `(
     UPPER(TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(4)))) = 'C'
-  ) AND COALESCE(${a}.ESTATUS, 'N') <> 'C'`;
+  ) AND COALESCE(${a}.ESTATUS, 'N') <> 'C'
+    AND COALESCE(${a}.APLICADO, 'N') = 'S'`;
 }
 
 function normalizeCotizacionResumenRow(row) {
@@ -698,13 +698,14 @@ function normalizeCotizacionResumenRow(row) {
   };
 }
 
-/** Importe cotización: suma de líneas - descuento encabezado (alineado a DAX Power BI). */
+/** Importe cotización de la subconsulta (ya normalizado): usar IMPORTE_NETO. */
 function sqlCotiImporteExpr(alias = 'd') {
   const a = alias;
-  return `(COALESCE(${a}.IMPORTE_NETO, 0) - COALESCE(${a}.DSCTO_IMPORTE, 0))`;
+  return `COALESCE(${a}.IMPORTE_NETO, 0)`;
 }
 
 function cotizacionesSub() {
+  const ci = sqlVentaImporteBaseExpr('d');
   return `(
     SELECT
       d.DOCTO_VE_ID,
@@ -714,12 +715,9 @@ function cotizacionesSub() {
       d.ESTATUS,
       d.CLIENTE_ID,
       d.VENDEDOR_ID,
-      COALESCE(d.DSCTO_IMPORTE, 0) AS DSCTO_IMPORTE,
-      COALESCE(SUM(COALESCE(det.PRECIO_TOTAL, 0)), 0) AS IMPORTE_NETO
+      ${ci} AS IMPORTE_NETO
     FROM DOCTOS_VE d
-    JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
     WHERE ${sqlWhereCotizacionActiva('d')}
-    GROUP BY d.DOCTO_VE_ID, d.FECHA, d.FOLIO, d.TIPO_DOCTO, d.ESTATUS, d.CLIENTE_ID, d.VENDEDOR_ID, d.DSCTO_IMPORTE
   )`;
 }
 
@@ -1387,7 +1385,7 @@ get('/api/ventas/margen-lineas', async (req) => {
       OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
       OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS <> 'C')
     )`;
-  const ventaBruta = 'COALESCE(NULLIF(det.PRECIO_TOTAL, 0), 0)';
+  const ventaBruta = 'COALESCE(NULLIF(det.PRECIO_TOTAL, 0), NULLIF(det.PRECIO_T, 0), COALESCE(det.UNIDADES, 0) * COALESCE(det.PRECIO_U, det.PRECIO_UNITARIO, 0), 0)';
   const ventaSql =
     VENTAS_SIN_IVA_DIVISOR <= 1.00001
       ? ventaBruta
@@ -1414,7 +1412,7 @@ get('/api/ventas/margen-lineas', async (req) => {
           COALESCE(a.CLAVE, CAST(det.ARTICULO_ID AS VARCHAR(40))) AS CLAVE_ARTICULO,
           COALESCE(a.NOMBRE, '') AS DESC_ARTICULO,
           COALESCE(det.UNIDADES, 0) AS CANTIDAD,
-          CAST(CASE WHEN COALESCE(det.UNIDADES, 0) <> 0 THEN COALESCE(det.PRECIO_TOTAL, 0) / det.UNIDADES ELSE 0 END AS DECIMAL(18, 4)) AS PRECIO_U,
+          CAST(CASE WHEN COALESCE(det.UNIDADES, 0) <> 0 THEN (${ventaBruta}) / det.UNIDADES ELSE 0 END AS DECIMAL(18, 4)) AS PRECIO_U,
           CAST(${costExpr} AS DECIMAL(18, 4)) AS COSTO,
           CAST(${ventaSql} AS DECIMAL(18, 4)) AS VENTA
         FROM DOCTOS_VE d
@@ -1431,7 +1429,7 @@ get('/api/ventas/margen-lineas', async (req) => {
           COALESCE(a.CLAVE, CAST(det.ARTICULO_ID AS VARCHAR(40))) AS CLAVE_ARTICULO,
           COALESCE(a.NOMBRE, '') AS DESC_ARTICULO,
           COALESCE(det.UNIDADES, 0) AS CANTIDAD,
-          CAST(CASE WHEN COALESCE(det.UNIDADES, 0) <> 0 THEN COALESCE(det.PRECIO_TOTAL, 0) / det.UNIDADES ELSE 0 END AS DECIMAL(18, 4)) AS PRECIO_U,
+          CAST(CASE WHEN COALESCE(det.UNIDADES, 0) <> 0 THEN (${ventaBruta}) / det.UNIDADES ELSE 0 END AS DECIMAL(18, 4)) AS PRECIO_U,
           CAST(${costExpr} AS DECIMAL(18, 4)) AS COSTO,
           CAST(${ventaSql} AS DECIMAL(18, 4)) AS VENTA
         FROM DOCTOS_PV d

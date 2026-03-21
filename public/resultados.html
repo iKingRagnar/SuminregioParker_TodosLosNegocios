@@ -356,7 +356,7 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
     <div class="card-head">
       <div class="card-title">
         <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        Ventas vs Cobros · Industrial (VE) vs Mostrador (PV)
+        Ventas vs Cobros · Venta Industrial (VE) vs Ventas de Mostrador (PV)
       </div>
       <div class="card-badge">Comparativo de canales</div>
     </div>
@@ -915,8 +915,8 @@ function renderCharts(meses,hasCosto){
   const yMax = Math.max(maxStack,maxCob)*1.12;
   chartCob=new Chart(ctx3,{
     data:{labels,datasets:[
-      {type:'bar',label:'Industrial (VE)',data:ve,stack:'ventas',yAxisID:'y',backgroundColor:'rgba(77,166,255,.55)',borderColor:'#4DA6FF',borderWidth:1.5,borderRadius:4},
-      {type:'bar',label:'Mostrador (PV)',data:pv,stack:'ventas',yAxisID:'y',backgroundColor:'rgba(155,109,255,.5)',borderColor:'#9B6DFF',borderWidth:1.5,borderRadius:4},
+      {type:'bar',label:'Venta Industrial (VE)',data:ve,stack:'ventas',yAxisID:'y',backgroundColor:'rgba(77,166,255,.55)',borderColor:'#4DA6FF',borderWidth:1.5,borderRadius:4},
+      {type:'bar',label:'Ventas de Mostrador (PV)',data:pv,stack:'ventas',yAxisID:'y',backgroundColor:'rgba(155,109,255,.5)',borderColor:'#9B6DFF',borderWidth:1.5,borderRadius:4},
       {type:'line',label:'Cobros',data:cobros,yAxisID:'y1',borderColor:'#00E5A0',backgroundColor:'rgba(0,229,160,.12)',borderWidth:2.5,pointRadius:4,pointHoverRadius:6,pointBackgroundColor:'#00E5A0',tension:.35,fill:true}
     ]},
     options:{
@@ -989,12 +989,12 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   const pnl=`
   <tr class="pnl-section-header"><td colspan="${meses.length+2}">INGRESOS</td></tr>
   <tr class="data-row">
-    <td>Ventas Industrial (VE)</td>
+    <td>Venta Industrial (VE)</td>
     ${meses.map(m=>`<td style="color:var(--text2)">${fmtM(+m.VENTAS_VE||0)}</td>`).join('')}
     <td style="color:var(--text2)">${fmtM(sumOf('VENTAS_VE'))}</td>
   </tr>
   <tr class="data-row">
-    <td>Ventas Mostrador (PV)</td>
+    <td>Ventas de Mostrador (PV)</td>
     ${meses.map(m=>`<td style="color:var(--text2)">${fmtM(+m.VENTAS_PV||0)}</td>`).join('')}
     <td style="color:var(--text2)">${fmtM(sumOf('VENTAS_PV'))}</td>
   </tr>

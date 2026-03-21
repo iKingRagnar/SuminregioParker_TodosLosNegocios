@@ -149,6 +149,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     container.style.display = 'grid';
     container.style.gridTemplateColumns = 'repeat(auto-fill, minmax(220px, 1fr))';
     container.style.gap = '12px';
+    container.style.alignContent = 'start';
     const urlDb = getSelectedDbId();
     const searchDefault = 'por defecto servidor env fb_database';
     let html = '<button type="button" class="biz-tile db-chip' + (!urlDb ? ' active' : '') + '" data-db="" data-search="' + searchDefault + '" title="Conexi\u00f3n por defecto del servidor (FB_DATABASE)">' +
@@ -169,8 +170,25 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
         '<span class="biz-tile-meta">' + escChip(sub) + '</span></button>';
     });
     container.innerHTML = html;
+    function applyTileState(tile, isActive) {
+      if (!tile) return;
+      tile.style.borderColor = isActive ? 'rgba(245,124,0,.55)' : 'rgba(255,255,255,.12)';
+      tile.style.background = isActive ? 'linear-gradient(145deg, rgba(245,124,0,.18), rgba(245,124,0,.06))' : 'rgba(255,255,255,.04)';
+      tile.style.color = isActive ? '#fff' : '#cbd5e1';
+    }
     container.querySelectorAll('.biz-tile').forEach(function (btn) {
       if (!btn.style.minHeight) btn.style.minHeight = '88px';
+      btn.style.border = '1px solid rgba(255,255,255,.12)';
+      btn.style.borderRadius = '14px';
+      btn.style.background = 'rgba(255,255,255,.04)';
+      btn.style.padding = '12px 14px';
+      btn.style.display = 'flex';
+      btn.style.flexDirection = 'column';
+      btn.style.alignItems = 'flex-start';
+      btn.style.gap = '4px';
+      btn.style.textAlign = 'left';
+      btn.style.cursor = 'pointer';
+      applyTileState(btn, btn.classList.contains('active'));
       btn.addEventListener('click', function () {
         const raw = btn.getAttribute('data-db') || '';
         try {
@@ -183,8 +201,9 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
           if (raw) sessionStorage.setItem('microsip_erp_db', raw);
           else sessionStorage.removeItem('microsip_erp_db');
         } catch (_) {}
-        container.querySelectorAll('.biz-tile').forEach(function (b) { b.classList.remove('active'); });
+        container.querySelectorAll('.biz-tile').forEach(function (b) { b.classList.remove('active'); applyTileState(b, false); });
         btn.classList.add('active');
+        applyTileState(btn, true);
         clearVendedorSilent();
         if (onChange) onChange(raw);
       });
