@@ -1187,7 +1187,7 @@ get('/api/ventas/recientes', async (req) => {
     LEFT JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
     WHERE 1=1 ${f.sql}
-    ORDER BY d.FECHA DESC, d.FOLIO DESC
+    ORDER BY d.IMPORTE_NETO DESC, d.FECHA DESC, d.FOLIO DESC
   `, f.params, 12000, dbo).catch(() => []);
 });
 
@@ -1335,6 +1335,11 @@ get('/api/ventas/cobradas', async (req) => {
       TOTAL_COBRADO: rem,
     });
   }
+  mapped.sort((a, b) => {
+    const dc = (+b.TOTAL_COBRADO || 0) - (+a.TOTAL_COBRADO || 0);
+    if (Math.abs(dc) > 0.0001) return dc;
+    return (+b.TOTAL_VENTA || 0) - (+a.TOTAL_VENTA || 0);
+  });
   return { vendedores: mapped, totalFacturado, totalCobrado: totalCobradoReal };
 });
 
@@ -1365,7 +1370,7 @@ get('/api/ventas/cobradas-detalle', async (req) => {
     LEFT JOIN DOCTOS_PV pv ON pv.DOCTO_PV_ID = fac.DOCTO_PV_ID
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = COALESCE(ve.VENDEDOR_ID, pv.VENDEDOR_ID)
     WHERE i.TIPO_IMPTE = 'R' AND COALESCE(i.CANCELADO, 'N') = 'N' ${fi.sql}
-    ORDER BY COALESCE(i.FECHA, dc.FECHA) DESC, dc.FOLIO DESC
+    ORDER BY MONTO_COBRADO DESC, COALESCE(i.FECHA, dc.FECHA) DESC, dc.FOLIO DESC
   `, fi.params, 15000, dbo).catch(() => []);
 });
 
@@ -1451,7 +1456,7 @@ get('/api/ventas/margen-lineas', async (req) => {
   try {
     const { sql, params } = buildUnion(costFull);
     const rows = await query(
-      `SELECT FIRST ${limit} * FROM (${sql}) u ORDER BY u.FECHA DESC, u.FOLIO DESC`,
+      `SELECT FIRST ${limit} * FROM (${sql}) u ORDER BY u.VENTA DESC, u.FECHA DESC, u.FOLIO DESC`,
       params,
       20000,
       dbo
@@ -1462,7 +1467,7 @@ get('/api/ventas/margen-lineas', async (req) => {
     try {
       const { sql, params } = buildUnion(costFallback);
       const rows = await query(
-        `SELECT FIRST ${limit} * FROM (${sql}) u ORDER BY u.FECHA DESC, u.FOLIO DESC`,
+        `SELECT FIRST ${limit} * FROM (${sql}) u ORDER BY u.VENTA DESC, u.FECHA DESC, u.FOLIO DESC`,
         params,
         20000,
         dbo
@@ -1473,7 +1478,7 @@ get('/api/ventas/margen-lineas', async (req) => {
       try {
         const { sql, params } = buildUnion('CAST(0 AS DECIMAL(18,4))');
         const rows = await query(
-          `SELECT FIRST ${limit} * FROM (${sql}) u ORDER BY u.FECHA DESC, u.FOLIO DESC`,
+          `SELECT FIRST ${limit} * FROM (${sql}) u ORDER BY u.VENTA DESC, u.FECHA DESC, u.FOLIO DESC`,
           params,
           20000,
           dbo
@@ -1536,7 +1541,7 @@ get('/api/ventas/cobradas-por-factura', async (req) => {
       WHERE d.VENDEDOR_ID > 0 ${f.sql}
     ) q
     WHERE q.COBRADO_PERIODO > 0.005
-    ORDER BY q.VENDEDOR_ID, q.COBRADO_PERIODO DESC, q.FECHA_FACTURA DESC
+    ORDER BY q.COBRADO_PERIODO DESC, q.TOTAL_VENTA DESC, q.FECHA_FACTURA DESC
   `;
   const params = [...f.params, ...fiIr.params];
   return query(sql, params, 20000, dbo).catch(() => []);
@@ -1593,7 +1598,7 @@ get('/api/ventas/cotizaciones', async (req) => {
     LEFT JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
     WHERE 1=1 ${f.sql}
-    ORDER BY d.FECHA DESC, d.FOLIO DESC
+    ORDER BY ${ci} DESC, d.FECHA DESC, d.FOLIO DESC
   `, f.params, 12000, dbo).catch(() => []);
 });
 
@@ -2082,7 +2087,7 @@ get('/api/cxc/top-deudores', async (req) => {
     WHERE 1=1 ${ff.sql}
     GROUP BY doc.CLIENTE_ID, cl.NOMBRE, cp.NOMBRE
     HAVING SUM(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.SALDO_NETO ELSE 0 END) > 0.005
-    ORDER BY VENCIDO DESC, SALDO_TOTAL DESC
+    ORDER BY SALDO_TOTAL DESC, VENCIDO DESC
   `, ff.params, 12000, dbo).catch(() => []);
 });
 
@@ -2093,7 +2098,7 @@ get('/api/cxc/historial', async (req) => {
   return query(`
     SELECT cd.CLIENTE_ID, cd.FOLIO, cd.FECHA_VENCIMIENTO, cd.DIAS_VENCIDO, cd.SALDO
     FROM ${cxcCargosSQL()} cd WHERE cd.CLIENTE_ID = ?
-    ORDER BY cd.FECHA_VENCIMIENTO
+    ORDER BY cd.SALDO DESC, cd.DIAS_VENCIDO DESC, cd.FECHA_VENCIMIENTO
   `, [cliente], 12000, dbo).catch(() => []);
 });
 

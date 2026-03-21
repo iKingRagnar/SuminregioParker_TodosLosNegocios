@@ -517,7 +517,9 @@ async function loadVencidas() {
   const tb = document.getElementById('tbVenc');
   try {
     const raw = await apiFetch('/api/cxc/vencidas' + buildCxcQuery('limit=60'));
-    const rows = (Array.isArray(raw) ? raw : []).filter(r => (+r.SALDO || 0) > 0.005);
+    const rows = (Array.isArray(raw) ? raw : [])
+      .filter(r => (+r.SALDO || 0) > 0.005)
+      .sort((a,b)=>(+b.SALDO||0)-(+a.SALDO||0));
     setText('vBadge', rows.length+' docs');
     if(!rows.length){ tb.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--txt3);padding:20px">Sin facturas vencidas</td></tr>'; return; }
     function estatusRango(d){
@@ -552,7 +554,8 @@ async function loadVencidas() {
 async function loadTop() {
   const tb = document.getElementById('tbTop');
   try {
-    const rows = await apiFetch('/api/cxc/top-deudores' + buildCxcQuery('limit=20'));
+    const rowsRaw = await apiFetch('/api/cxc/top-deudores' + buildCxcQuery('limit=20'));
+    const rows = [...(rowsRaw||[])].sort((a,b)=>(+b.SALDO_TOTAL||0)-(+a.SALDO_TOTAL||0));
     if(!rows.length){ tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--txt3);padding:20px">Sin deudores</td></tr>'; return; }
     tb.innerHTML = rows.map((r,i)=>`<tr>
       <td style="color:var(--txt3)">${i+1}</td>

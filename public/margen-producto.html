@@ -299,7 +299,7 @@ async function loadMargen(keepRows) {
   try {
     const r = await fetch(url, { cache: 'no-store' });
     const rows = r.ok ? await r.json() : [];
-    allRows = Array.isArray(rows) ? rows : [];
+    allRows = (Array.isArray(rows) ? rows : []).sort((a,b)=>(+b.VENTA||0)-(+a.VENTA||0));
     renderKpis(allRows);
     renderTopClientes(allRows);
     renderArtChart(allRows);

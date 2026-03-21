@@ -476,11 +476,12 @@ function renderDetalleCobrosError(msg){
 function renderDetalleCobrosTable(rows){
   const tb = document.getElementById('detalleCobrosBody');
   const bd = document.getElementById('detalleCobrosBadge');
-  if(bd) bd.textContent = rows.length+' movimientos';
+  const ordered = [...(rows||[])].sort((a,b)=>(+b.MONTO_COBRADO||0)-(+a.MONTO_COBRADO||0));
+  if(bd) bd.textContent = ordered.length+' movimientos';
   if(!tb) return;
-  if(!rows.length){ tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px">Sin cobros en este periodo</td></tr>'; return; }
+  if(!ordered.length){ tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px">Sin cobros en este periodo</td></tr>'; return; }
   const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
-  tb.innerHTML = rows.map(r=>{
+  tb.innerHTML = ordered.map(r=>{
     const f = r.FECHA_COBRO ? new Date(r.FECHA_COBRO).toLocaleDateString('es-MX') : '\u2014';
     const folioCc = r.FOLIO_CC != null && r.FOLIO_CC !== '' ? r.FOLIO_CC : r.FOLIO;
     const tip = (r.FOLIO && String(r.FOLIO) !== String(folioCc)) ? esc(String(r.FOLIO)) : '';

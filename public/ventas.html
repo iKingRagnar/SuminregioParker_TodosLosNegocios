@@ -990,7 +990,8 @@ document.getElementById('coti-reintentar')?.addEventListener('click', function()
 
 async function loadRecientes() {
   try {
-    const rows = await fwt(buildApiUrl('/api/ventas/recientes', `limit=20${tipoQ()}`), []);
+    const rowsRaw = await fwt(buildApiUrl('/api/ventas/recientes', `limit=20${tipoQ()}`), []);
+    const rows = [...(rowsRaw || [])].sort((a,b)=>(+(b.TOTAL!=null?b.TOTAL:b.IMPORTE_NETO)||0)-(+(a.TOTAL!=null?a.TOTAL:a.IMPORTE_NETO)||0));
     document.querySelector('#tbl-recientes tbody').innerHTML = rows.map(r=>{
       const src = r.TIPO_SRC==='PV'?'<span class="tipo-badge tipo-pv">PV</span>':'<span class="tipo-badge tipo-ve">VE</span>';
       const tipo = r.TIPO_DOCTO==='F'?'<span class="tag ok">Factura</span>':'<span class="tag warn">Venta</span>';
