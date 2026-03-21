@@ -2104,8 +2104,7 @@ get('/api/cxc/historial', async (req) => {
   `, [cliente], 12000, dbo).catch(() => []);
 });
 
-// Por condición: saldo neto por documento CC (IMPORTES C/R), agrupado por COND_PAGO del documento (no del cliente).
-// "Contado" no aparece en el desglose crediticio; el pendiente de esos docs va en pendiente_contado.
+// Por condición: saldo neto por documento CC, agrupado por COND_PAGO del documento (sin contado).
 get('/api/cxc/por-condicion', async (req) => {
   const dbo = getReqDbOpts(req);
   const docs = await query(`

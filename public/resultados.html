@@ -60,7 +60,7 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 .period-btn.active{color:var(--suminregio);border-color:rgba(230,168,0,.35);background:var(--suminregio-dim)}
 
 /* KPI grid */
-.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:.9rem;margin-bottom:1.5rem}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:.9rem;margin-bottom:1.5rem}
 @media(max-width:1400px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:700px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
 .kpi{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:1.2rem 1.3rem;position:relative;overflow:hidden;transition:all .3s}
