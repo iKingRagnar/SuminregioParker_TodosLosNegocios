@@ -2210,23 +2210,23 @@ get('/api/cxc/por-condicion', async (req) => {
         ELSE (
           CURRENT_DATE - CAST(
             COALESCE(
-              MIN(vc.FECHA_VENCIMIENTO),
+              vcm.FECHA_VENCIMIENTO,
               CAST(dc.FECHA AS DATE) + CAST(COALESCE(cp.DIAS_PPAG, 30) AS INTEGER)
             ) AS DATE
           )
         )
       END AS DIAS_VENCIDO,
-      SUM(CASE
-            WHEN i.TIPO_IMPTE = 'C' THEN i.IMPORTE
-            WHEN i.TIPO_IMPTE = 'R' THEN -(CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE/1.16 END)
-            ELSE 0
-          END) AS SALDO_NETO
-    FROM IMPORTES_DOCTOS_CC i
-    JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = i.DOCTO_CC_ID
+      doc.SALDO_NETO AS SALDO_NETO
+    FROM ${cxcDocSaldosInnerSQL('')} doc
+    JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = doc.DOCTO_CC_ID
     LEFT JOIN CLIENTES clx ON clx.CLIENTE_ID = dc.CLIENTE_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, clx.COND_PAGO_ID)
-    LEFT JOIN VENCIMIENTOS_CARGOS_CC vc ON vc.DOCTO_CC_ID = dc.DOCTO_CC_ID
-    WHERE COALESCE(i.CANCELADO, 'N') = 'N'
+    LEFT JOIN (
+      SELECT DOCTO_CC_ID, MIN(FECHA_VENCIMIENTO) AS FECHA_VENCIMIENTO
+      FROM VENCIMIENTOS_CARGOS_CC
+      GROUP BY DOCTO_CC_ID
+    ) vcm ON vcm.DOCTO_CC_ID = dc.DOCTO_CC_ID
+    WHERE doc.SALDO_NETO > 0.005
       AND (
         cp.COND_PAGO_ID IS NULL OR (
           POSITION('CONTADO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) = 0
@@ -2234,13 +2234,7 @@ get('/api/cxc/por-condicion', async (req) => {
           AND POSITION('INMEDIATO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) = 0
         )
       )
-    GROUP BY
-      dc.DOCTO_CC_ID, dc.CLIENTE_ID, dc.FECHA, cp.NOMBRE, cp.DIAS_PPAG
-    HAVING SUM(CASE
-            WHEN i.TIPO_IMPTE = 'C' THEN i.IMPORTE
-            WHEN i.TIPO_IMPTE = 'R' THEN -(CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE/1.16 END)
-            ELSE 0
-          END) > 0.005
+    GROUP BY dc.DOCTO_CC_ID, dc.CLIENTE_ID, dc.FECHA, cp.NOMBRE, cp.DIAS_PPAG, vcm.FECHA_VENCIMIENTO, doc.SALDO_NETO
   `, [], 15000, dbo).catch(() => []);
   if (!(docs || []).length) {
     const altRows = await query(`
