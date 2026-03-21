@@ -889,10 +889,25 @@ function renderCharts(meses,hasCosto){
   if(!el2)return;
   const ctx2=el2.getContext('2d');
   if(chartMg)chartMg.destroy();
-  chartMg=new Chart(ctx2,{type:'line',data:{labels,datasets:[
-    {label:'Margen %',data:margen,borderColor:'#FFB800',backgroundColor:'rgba(255,184,0,.08)',borderWidth:2,pointRadius:4,pointBackgroundColor:'#FFB800',fill:true,tension:.38},
-    {label:'Meta 30%',data:Array(labels.length).fill(30),borderColor:'rgba(0,229,160,.3)',borderDash:[4,4],borderWidth:1,pointRadius:0,fill:false}
-  ]},options:chartOpts(v=>v+'%')});
+  const marginLabels = labels.length >= 2 ? labels : (labels.length === 1 ? [labels[0], 'Actual'] : ['Sin datos']);
+  const marginVals = labels.length >= 2 ? margen : (labels.length === 1 ? [margen[0], margen[0]] : [0]);
+  const yMaxMg = Math.max(40, ...marginVals.map(v => +v || 0), 30) + 10;
+  chartMg=new Chart(ctx2,{
+    type: labels.length >= 2 ? 'line' : 'bar',
+    data:{labels:marginLabels,datasets:[
+      labels.length >= 2
+        ? {label:'Margen %',data:marginVals,borderColor:'#FFB800',backgroundColor:'rgba(255,184,0,.08)',borderWidth:2,pointRadius:4,pointBackgroundColor:'#FFB800',fill:true,tension:.38}
+        : {label:'Margen % (mes actual)',data:marginVals,backgroundColor:'rgba(255,184,0,.45)',borderColor:'#FFB800',borderWidth:1.6,borderRadius:6},
+      {type:'line',label:'Meta 30%',data:Array(marginLabels.length).fill(30),borderColor:'rgba(0,229,160,.45)',borderDash:[4,4],borderWidth:1.4,pointRadius:0,fill:false}
+    ]},
+    options:{
+      ...chartOpts(v=>v+'%'),
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6A85A6',font:{size:10,family:"'DM Mono'"}}},
+        y:{min:0,max:yMaxMg,grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6A85A6',font:{size:10,family:"'DM Mono'"},callback:v=>v+'%'}}
+      }
+    }
+  });
 
   const el3=document.getElementById('chartCobros');
   if(!el3)return;
