@@ -2554,7 +2554,7 @@ get('/api/clientes/riesgo', async (req) => {
       agg.CLIENTE_ID,
       agg.NOMBRE,
       agg.CONDICION_PAGO,
-      st.SALDO AS SALDO_TOTAL,
+      agg.SALDO_TOTAL,
       agg.MONTO_VENCIDO,
       agg.MAX_DIAS_VENCIDO,
       agg.NUM_DOCS_VENCIDOS,
@@ -2588,16 +2588,16 @@ get('/api/clientes/riesgo', async (req) => {
         doc.CLIENTE_ID,
         c.NOMBRE,
         COALESCE(cp.NOMBRE, 'S/D') AS CONDICION_PAGO,
-        SUM(doc.SALDO_NETO) AS MONTO_VENCIDO,
-        MAX(doc.DIAS_VENCIDO) AS MAX_DIAS_VENCIDO,
-        COUNT(*) AS NUM_DOCS_VENCIDOS
+        SUM(doc.SALDO_NETO) AS SALDO_TOTAL,
+        SUM(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.SALDO_NETO ELSE 0 END) AS MONTO_VENCIDO,
+        MAX(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.DIAS_VENCIDO ELSE 0 END) AS MAX_DIAS_VENCIDO,
+        SUM(CASE WHEN doc.DIAS_VENCIDO > 0 THEN 1 ELSE 0 END) AS NUM_DOCS_VENCIDOS
       FROM ${cxcDocSaldosInnerSQL('')} doc
       LEFT JOIN CLIENTES c ON c.CLIENTE_ID = doc.CLIENTE_ID
       LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = c.COND_PAGO_ID
-      WHERE doc.SALDO_NETO > 0 AND doc.DIAS_VENCIDO > 0
+      WHERE doc.SALDO_NETO > 0
       GROUP BY doc.CLIENTE_ID, c.NOMBRE, cp.NOMBRE
     ) agg
-    JOIN ${cxcClienteSQL()} st ON st.CLIENTE_ID = agg.CLIENTE_ID
     LEFT JOIN (
       SELECT
         t.CLIENTE_ID,
@@ -2625,6 +2625,7 @@ get('/api/clientes/riesgo', async (req) => {
       ) t
       GROUP BY t.CLIENTE_ID
     ) buy ON buy.CLIENTE_ID = agg.CLIENTE_ID
+    WHERE agg.MONTO_VENCIDO > 0
     ORDER BY agg.MONTO_VENCIDO DESC, COALESCE(buy.TICKET_PROMEDIO_MES, 0) DESC
   `, [], 12000, dbo).catch(() => []);
 });
@@ -2784,6 +2785,92 @@ async function resultadosPnlCore(req, dbOpts) {
   const dateParams = [desdeStr, hastaStr];
   const dateCond = 'CAST(d.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(d.FECHA AS DATE) <= CAST(? AS DATE)';
   const dateCondCc = 'CAST(dc.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(dc.FECHA AS DATE) <= CAST(? AS DATE)';
+
+  // Costo principal: renglones VE/PV con costo unitario histórico desde entradas (misma base lógica que margen-producto).
+  let costosLineasMes = [];
+  try {
+    const [veCols, pvCols, veDetCols, pvDetCols, inCols, inDetCols] = await Promise.all([
+      getTableColumns('DOCTOS_VE', dbOpts),
+      getTableColumns('DOCTOS_PV', dbOpts),
+      getTableColumns('DOCTOS_VE_DET', dbOpts),
+      getTableColumns('DOCTOS_PV_DET', dbOpts),
+      getTableColumns('DOCTOS_IN', dbOpts),
+      getTableColumns('DOCTOS_IN_DET', dbOpts),
+    ]);
+    const inDetIdCol = firstExistingColumn(inDetCols, ['DOCTO_IN_DET_ID', 'RENGLON', 'POSICION']);
+    const inCostoUnitCol = firstExistingColumn(inDetCols, ['COSTO_UNITARIO', 'COSTO_U']);
+    const inCostoTotalCol = firstExistingColumn(inDetCols, ['COSTO_TOTAL', 'IMPORTE']);
+    const inQtyCol = firstExistingColumn(inDetCols, ['CANTIDAD', 'UNIDADES']);
+    const inClaveCol = firstExistingColumn(inDetCols, ['CLAVE_ARTICULO']);
+    const inHasCancel = inCols.has('CANCELADO');
+    const inHasAplicado = inCols.has('APLICADO');
+    const inHasFecha = inCols.has('FECHA');
+    const veDetQtyCol = firstExistingColumn(veDetCols, ['UNIDADES', 'CANTIDAD']) || 'UNIDADES';
+    const pvDetQtyCol = firstExistingColumn(pvDetCols, ['UNIDADES', 'CANTIDAD']) || 'UNIDADES';
+    const veDetClaveCol = firstExistingColumn(veDetCols, ['CLAVE_ARTICULO']);
+    const pvDetClaveCol = firstExistingColumn(pvDetCols, ['CLAVE_ARTICULO']);
+
+    const doDocOk = (hdrCols) => {
+      const conds = [];
+      if (hdrCols.has('TIPO_DOCTO')) conds.push(`d.TIPO_DOCTO IN ('F', 'V')`);
+      if (hdrCols.has('ESTATUS')) conds.push(`COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')`);
+      if (hdrCols.has('APLICADO')) conds.push(`COALESCE(d.APLICADO, 'S') = 'S'`);
+      return conds.length ? `(${conds.join(' AND ')})` : '(1=1)';
+    };
+
+    function costoUnitSubquery(detArticuloExpr, detClaveExpr, fechaDocExpr) {
+      const where = [`ind.ARTICULO_ID = ${detArticuloExpr}`];
+      if (inClaveCol && detClaveExpr) where.push(`COALESCE(ind.${inClaveCol}, '') = COALESCE(${detClaveExpr}, '')`);
+      if (inHasCancel) where.push(`COALESCE(di.CANCELADO, 'N') = 'N'`);
+      if (inHasAplicado) where.push(`COALESCE(di.APLICADO, 'S') = 'S'`);
+      if (inHasFecha) where.push(`CAST(di.FECHA AS DATE) <= CAST(${fechaDocExpr} AS DATE)`);
+
+      const unitExpr = inCostoUnitCol
+        ? `NULLIF(ind.${inCostoUnitCol}, 0)`
+        : ((inCostoTotalCol && inQtyCol)
+          ? `CASE WHEN COALESCE(ind.${inQtyCol}, 0) <> 0 THEN COALESCE(ind.${inCostoTotalCol}, 0) / COALESCE(ind.${inQtyCol}, 1) ELSE NULL END`
+          : 'NULL');
+      const orderParts = [];
+      if (inHasFecha) orderParts.push('di.FECHA DESC');
+      if (inDetIdCol) orderParts.push(`ind.${inDetIdCol} DESC`);
+      if (!orderParts.length) orderParts.push('di.DOCTO_IN_ID DESC');
+      return `COALESCE((SELECT FIRST 1 COALESCE(${unitExpr}, 0) FROM DOCTOS_IN di JOIN DOCTOS_IN_DET ind ON ind.DOCTO_IN_ID = di.DOCTO_IN_ID WHERE ${where.join(' AND ')} ORDER BY ${orderParts.join(', ')}), 0)`;
+    }
+
+    const veCostExpr = `COALESCE(det.${veDetQtyCol}, 0) * (${costoUnitSubquery('det.ARTICULO_ID', veDetClaveCol ? `det.${veDetClaveCol}` : null, 'd.FECHA')})`;
+    const pvCostExpr = `COALESCE(det.${pvDetQtyCol}, 0) * (${costoUnitSubquery('det.ARTICULO_ID', pvDetClaveCol ? `det.${pvDetClaveCol}` : null, 'd.FECHA')})`;
+    const [costVeRows, costPvRows] = await Promise.all([
+      q(`
+        SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
+          COALESCE(SUM(${veCostExpr}), 0) AS COSTO_VENTAS
+        FROM DOCTOS_VE d
+        JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
+        WHERE ${doDocOk(veCols)} AND ${dateCond}
+        GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA)
+        ORDER BY 1, 2
+      `, dateParams).catch(() => []),
+      q(`
+        SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
+          COALESCE(SUM(${pvCostExpr}), 0) AS COSTO_VENTAS
+        FROM DOCTOS_PV d
+        JOIN DOCTOS_PV_DET det ON det.DOCTO_PV_ID = d.DOCTO_PV_ID
+        WHERE ${doDocOk(pvCols)} AND ${dateCond}
+        GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA)
+        ORDER BY 1, 2
+      `, dateParams).catch(() => []),
+    ]);
+    const lineCostMap = {};
+    [...(costVeRows || []), ...(costPvRows || [])].forEach((r) => {
+      const k = `${r.ANIO}-${r.MES}`;
+      lineCostMap[k] = (lineCostMap[k] || 0) + (+r.COSTO_VENTAS || 0);
+    });
+    costosLineasMes = Object.entries(lineCostMap).map(([k, v]) => {
+      const [anioK, mesK] = k.split('-');
+      return { ANIO: +anioK, MES: +mesK, COSTO_VENTAS: v };
+    });
+  } catch (_) {
+    costosLineasMes = [];
+  }
 
   // Costo: en algunas instalaciones ARTICULOS tiene COSTO_PROMEDIO; en otras solo DOCTOS_VE_DET tiene COSTO_TOTAL. Si ninguno existe, queda 0.
   let costosVEMes = [];
@@ -2962,15 +3049,19 @@ async function resultadosPnlCore(req, dbOpts) {
 
   const key = (a, m) => `${a}-${m}`;
   const costMap = {};
-  (costosVEMes || []).forEach(r => { costMap[key(r.ANIO, r.MES)] = (costMap[key(r.ANIO, r.MES)] || 0) + (+r.COSTO_VENTAS || 0); });
-  (costosINMes || []).forEach(r => { costMap[key(r.ANIO, r.MES)] = (costMap[key(r.ANIO, r.MES)] || 0) + (+r.COSTO_VENTAS || 0); });
-  (costosINDirect || []).forEach(r => { costMap[key(r.ANIO, r.MES)] = (costMap[key(r.ANIO, r.MES)] || 0) + (+r.COSTO_VENTAS || 0); });
-  (costosSaldos5101 || []).forEach(r => {
-    const k = key(r.ANIO, r.MES);
-    const v = +r.COSTO_VENTAS || 0;
-    if (v <= 0) return;
-    if (!costMap[k] || costMap[k] === 0) costMap[k] = v;
-  });
+  const applyCostRows = (rows) => {
+    (rows || []).forEach((r) => {
+      const k = key(r.ANIO, r.MES);
+      const v = +r.COSTO_VENTAS || 0;
+      if (v <= 0) return;
+      if (!costMap[k] || costMap[k] <= 0) costMap[k] = v;
+    });
+  };
+  applyCostRows(costosLineasMes);
+  applyCostRows(costosVEMes);
+  applyCostRows(costosINMes);
+  applyCostRows(costosINDirect);
+  applyCostRows(costosSaldos5101);
   const cobMap = {}; (cobrosMes || []).forEach(r => { cobMap[key(r.ANIO, r.MES)] = +r.COBROS || 0; });
   const gasMap = {};
   (gastosSaldos52 || []).forEach(r => { gasMap[key(r.ANIO, r.MES)] = r; });
