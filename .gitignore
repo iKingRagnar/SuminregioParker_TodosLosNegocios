@@ -9,3 +9,4 @@ Thumbs.db
 
 # Binario local (descargar de ngrok.com); el arranque vía PM2 está en ecosystem-ngrok.config.cjs
 ngrok.exe
+backup/

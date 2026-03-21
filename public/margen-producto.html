@@ -90,6 +90,7 @@ tfoot td{font-weight:600;background:rgba(230,168,0,.08)}
         <table class="rank">
           <thead><tr><th>Cliente</th><th class="num">Venta</th><th class="num">Utilidad</th><th class="num">Margen %</th></tr></thead>
           <tbody id="topClientes"></tbody>
+          <tfoot id="topClientesFoot"></tfoot>
         </table>
       </div>
     </div>
@@ -169,17 +170,24 @@ function renderKpis(list, pnlTot) {
   const clientes = new Set(list.map(r => r.CLIENTE || '')).size;
   const usePnl = !tipoSel && pnlTot && typeof pnlTot === 'object';
   const ventaK = usePnl ? (+pnlTot.VENTAS_NETAS || 0) : venta;
-  const costoK = usePnl ? (+pnlTot.COSTO_VENTAS || 0) : costo;
-  const utilK = usePnl ? (+pnlTot.UTILIDAD_BRUTA || 0) : util;
-  const margenK = usePnl
-    ? (pnlTot.MARGEN_BRUTO_PCT != null ? +pnlTot.MARGEN_BRUTO_PCT : (ventaK > 0 ? (utilK / ventaK) * 100 : null))
-    : margen;
+  const pnlCosto = usePnl ? (+pnlTot.COSTO_VENTAS || 0) : 0;
+  const pnlHasCosto = pnlCosto > 0.005;
+  const costoK = usePnl ? (pnlHasCosto ? pnlCosto : costo) : costo;
+  const utilK = usePnl
+    ? (pnlHasCosto ? (+pnlTot.UTILIDAD_BRUTA || (ventaK - costoK)) : (ventaK - costoK))
+    : util;
+  const margenK = ventaK > 0 ? (utilK / ventaK) * 100 : null;
   const docsK = usePnl ? (+pnlTot.NUM_FACTURAS || 0) : docs;
   const costoVentaPct = ventaK > 0 ? (costoK / ventaK) * 100 : null;
-  const utilSub = usePnl ? 'Utilidad bruta (Resultados)' : 'Venta - costo';
+  const utilSub = usePnl
+    ? (pnlHasCosto ? 'Utilidad bruta (Resultados)' : 'Utilidad por renglones (fallback)')
+    : 'Venta - costo';
+  const costoSub = usePnl
+    ? (pnlHasCosto ? `Costo/venta: ${fmtPct(costoVentaPct)}` : `Costo/venta (renglones): ${fmtPct(costoVentaPct)}`)
+    : `Costo/venta: ${fmtPct(costoVentaPct)}`;
   document.getElementById('kpiGrid').innerHTML = [
     ['Venta total', fmtM(ventaK), `${docsK} documentos`],
-    ['Costo total', fmtM(costoK), `Costo/venta: ${fmtPct(costoVentaPct)}`],
+    ['Costo total', fmtM(costoK), costoSub],
     ['Utilidad bruta', fmtM(utilK), utilSub],
     ['Margen promedio', fmtPct(margenK), margenK == null ? 'Sin venta' : (margenK >= 30 ? 'Alto' : (margenK >= 15 ? 'Medio' : 'Bajo'))],
     ['Clientes', String(clientes), `${list.length} renglones`],
@@ -197,6 +205,8 @@ function groupBy(list, keyFn) {
   return m;
 }
 function renderTopClientes(list) {
+  const tb = document.getElementById('topClientes');
+  const tf = document.getElementById('topClientesFoot');
   const rows = Array.from(groupBy(list, r => r.CLIENTE || 'Sin nombre').entries()).map(([k, arr]) => {
     const venta = arr.reduce((s, r) => s + (+r.VENTA || 0), 0);
     const costo = arr.reduce((s, r) => s + (+r.COSTO || 0), 0);
@@ -204,12 +214,25 @@ function renderTopClientes(list) {
     return { cliente: k, venta, util, margen: venta > 0 ? (util / venta) * 100 : null };
   }).sort((a, b) => b.util - a.util).slice(0, 8);
   document.getElementById('cliBadge').textContent = rows.length + ' clientes';
-  document.getElementById('topClientes').innerHTML = rows.map(r => `<tr>
+  tb.innerHTML = rows.map(r => `<tr>
     <td>${r.cliente}</td>
     <td class="num">${fmtM(r.venta)}</td>
     <td class="num ${r.util >= 0 ? 'good' : 'bad'}">${fmtM(r.util)}</td>
     <td class="num">${fmtPct(r.margen)}</td>
   </tr>`).join('') || '<tr><td colspan="4" class="empty">Sin datos</td></tr>';
+  if (!rows.length) {
+    tf.innerHTML = '';
+    return;
+  }
+  const tVenta = rows.reduce((s, r) => s + (+r.venta || 0), 0);
+  const tUtil = rows.reduce((s, r) => s + (+r.util || 0), 0);
+  const tMargen = tVenta > 0 ? (tUtil / tVenta) * 100 : null;
+  tf.innerHTML = `<tr>
+    <td><strong>Total top ${rows.length}</strong></td>
+    <td class="num"><strong>${fmtM(tVenta)}</strong></td>
+    <td class="num ${tUtil >= 0 ? 'good' : 'bad'}"><strong>${fmtM(tUtil)}</strong></td>
+    <td class="num"><strong>${fmtPct(tMargen)}</strong></td>
+  </tr>`;
 }
 function renderArtChart(list) {
   const rows = Array.from(groupBy(list, r => r.DESC_ARTICULO || r.CLAVE_ARTICULO || 'S/D').entries()).map(([k, arr]) => {
