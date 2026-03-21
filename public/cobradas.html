@@ -478,6 +478,21 @@ async function loadDetalleCobros(){
       })).filter(x => (+x.MONTO_COBRADO || 0) > 0);
       modo = 'factura';
     }
+    if (!detalle.length) {
+      const sumCob = (allData || []).reduce((s, r) => s + (+r.TOTAL_COBRADO || 0), 0);
+      const vend = (allData && allData[0]) ? (allData[0].VENDEDOR || allData[0].NOMBRE || '') : '';
+      if (sumCob > 0.005) {
+        detalle = [{
+          FECHA_COBRO: null,
+          FOLIO_CC: 'ASIGNADO',
+          FOLIO: 'ASIGNADO',
+          CLIENTE: 'Cobro asignado proporcionalmente (sin enlace CC→factura)',
+          MONTO_COBRADO: sumCob,
+          VENDEDOR: vend
+        }];
+        modo = 'asignado';
+      }
+    }
     renderDetalleCobrosTable(detalle, modo);
   }catch(e){ renderDetalleCobrosError(e.message); }
 }
@@ -491,7 +506,7 @@ function renderDetalleCobrosTable(rows, mode){
   const tb = document.getElementById('detalleCobrosBody');
   const bd = document.getElementById('detalleCobrosBadge');
   const ordered = [...(rows||[])].sort((a,b)=>(+b.MONTO_COBRADO||0)-(+a.MONTO_COBRADO||0));
-  if(bd) bd.textContent = ordered.length + (mode === 'factura' ? ' facturas con cobro' : ' movimientos');
+  if(bd) bd.textContent = ordered.length + (mode === 'factura' ? ' facturas con cobro' : (mode === 'asignado' ? ' asignaciones' : ' movimientos'));
   if(!tb) return;
   if(!ordered.length){ tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px">Sin cobros en este periodo</td></tr>'; return; }
   const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');

@@ -712,11 +712,12 @@ function ventasSub(tipo = '') {
 // ═══════════════════════════════════════════════════════════════════════════════
 function sqlWhereCotizacionActiva(alias = 'd') {
   const a = alias;
-  // Cotización alineada a DAX de Power BI: tipo C y no cancelada.
+  // Cotización activa: tipo C (y O en plantas que lo usan), no cancelada.
+  // Importante: NO exigir APLICADO='S' porque en varias bases las cotizaciones quedan en 'N'
+  // aunque sean vigentes para análisis comercial.
   return `(
-    UPPER(TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(4)))) = 'C'
-  ) AND COALESCE(${a}.ESTATUS, 'N') <> 'C'
-    AND COALESCE(${a}.APLICADO, 'N') = 'S'`;
+    UPPER(TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(4)))) IN ('C', 'O')
+  ) AND COALESCE(${a}.ESTATUS, 'N') <> 'C'`;
 }
 
 function normalizeCotizacionResumenRow(row) {
@@ -1277,17 +1278,19 @@ get('/api/ventas/cobradas', async (req) => {
     req.query.anio = now.getFullYear();
     req.query.mes = now.getMonth() + 1;
   }
-  const f = buildFiltros(req, 'd');
-  const fi = filtrosImporteCobro(req, 'i', { coalesceDcFecha: true });
+  const vendedorReq = req.query.vendedor ? parseInt(req.query.vendedor, 10) : NaN;
+  const reqNoVend = { ...req, query: { ...(req.query || {}) } };
+  delete reqNoVend.query.vendedor;
+  const fAll = buildFiltros(reqNoVend, 'd');
+  const fiAll = filtrosImporteCobro(reqNoVend, 'i', { coalesceDcFecha: true });
   const tipo = getTipo(req);
   const tipoFac = sqlTipoFacLinkCc('fac', tipo);
-  const vendedorQ = req.query.vendedor ? ` AND d.VENDEDOR_ID = ${parseInt(req.query.vendedor, 10)}` : '';
 
   /** Cobros del periodo: total sin exigir enlace VE/PV (muchas bases no llenan DOCTO_* en CC). */
   const cobroSqlFull = `
     FROM IMPORTES_DOCTOS_CC i
     JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = i.DOCTO_CC_ID
-    WHERE i.TIPO_IMPTE = 'R' AND COALESCE(i.CANCELADO, 'N') = 'N' ${fi.sql}`;
+    WHERE i.TIPO_IMPTE = 'R' AND COALESCE(i.CANCELADO, 'N') = 'N' ${fiAll.sql}`;
   /** Misma join que antes para atribuir por vendedor cuando sí hay factura ligada. */
   const cobroSqlAtrib = `
     FROM IMPORTES_DOCTOS_CC i
@@ -1296,16 +1299,16 @@ get('/api/ventas/cobradas', async (req) => {
     LEFT JOIN DOCTOS_VE ve ON ve.DOCTO_VE_ID = fac.DOCTO_VE_ID
     LEFT JOIN DOCTOS_PV pv ON pv.DOCTO_PV_ID = fac.DOCTO_PV_ID
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = COALESCE(ve.VENDEDOR_ID, pv.VENDEDOR_ID)
-    WHERE i.TIPO_IMPTE = 'R' AND COALESCE(i.CANCELADO, 'N') = 'N' ${tipoFac} ${fi.sql}`;
+    WHERE i.TIPO_IMPTE = 'R' AND COALESCE(i.CANCELADO, 'N') = 'N' ${tipoFac} ${fiAll.sql}`;
 
   const [rows, cobroPorVend, cobrosRow, cobroLinkedRows] = await Promise.all([
     query(`
       SELECT d.VENDEDOR_ID, v.NOMBRE AS VENDEDOR, COUNT(DISTINCT d.FOLIO) AS NUM_FACTURAS, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL_VENTA
       FROM ${ventasSub(tipo)} d
       LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
-      WHERE d.VENDEDOR_ID > 0 ${f.sql} ${vendedorQ}
+      WHERE d.VENDEDOR_ID > 0 ${fAll.sql}
       GROUP BY d.VENDEDOR_ID, v.NOMBRE
-    `, f.params, 12000, dbo).catch(() => []),
+    `, fAll.params, 12000, dbo).catch(() => []),
     query(`
       SELECT
         COALESCE(ve.VENDEDOR_ID, pv.VENDEDOR_ID, 0) AS VENDEDOR_ID,
@@ -1313,15 +1316,15 @@ get('/api/ventas/cobradas', async (req) => {
         COALESCE(SUM(CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END), 0) AS TOTAL_COBRADO
       ${cobroSqlAtrib}
       GROUP BY COALESCE(ve.VENDEDOR_ID, pv.VENDEDOR_ID, 0)
-    `, fi.params, 12000, dbo).catch(() => []),
+    `, fiAll.params, 12000, dbo).catch(() => []),
     query(`
       SELECT COALESCE(SUM(CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END), 0) AS TOTAL_COBRADO
       ${cobroSqlFull}
-    `, fi.params, 12000, dbo).catch(() => [{ TOTAL_COBRADO: 0 }]),
+    `, fiAll.params, 12000, dbo).catch(() => [{ TOTAL_COBRADO: 0 }]),
     query(`
       SELECT COALESCE(SUM(CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END), 0) AS TOTAL_COBRADO
       ${cobroSqlAtrib}
-    `, fi.params, 12000, dbo).catch(() => [{ TOTAL_COBRADO: 0 }]),
+    `, fiAll.params, 12000, dbo).catch(() => [{ TOTAL_COBRADO: 0 }]),
   ]);
 
   const totalCobradoReal = +(cobrosRow && cobrosRow[0] && cobrosRow[0].TOTAL_COBRADO) || 0;
@@ -1381,7 +1384,13 @@ get('/api/ventas/cobradas', async (req) => {
     if (Math.abs(dc) > 0.0001) return dc;
     return (+b.TOTAL_VENTA || 0) - (+a.TOTAL_VENTA || 0);
   });
-  return { vendedores: mapped, totalFacturado, totalCobrado: totalCobradoReal };
+  let out = mapped;
+  if (!isNaN(vendedorReq) && vendedorReq > 0) {
+    out = mapped.filter(r => (+r.VENDEDOR_ID || 0) === vendedorReq);
+  }
+  const outFacturado = out.reduce((s, r) => s + (+r.TOTAL_VENTA || 0), 0);
+  const outCobrado = out.reduce((s, r) => s + (+r.TOTAL_COBRADO || 0), 0);
+  return { vendedores: out, totalFacturado: outFacturado, totalCobrado: outCobrado };
 });
 
 // Líneas de cobro (tipo R): fecha del movimiento en IMPORTES_DOCTOS_CC; vendedor/cliente vía CC aplicado.
@@ -2103,8 +2112,18 @@ get('/api/cxc/vencidas', async (req) => {
       x.DIAS_ATRASO AS ATRASO,
       x.DIAS_ATRASO AS DIAS_ATRASO,
       CAST(dc.FECHA AS DATE) AS FECHA_VENTA,
-      CAST(CAST(dc.FECHA AS DATE) + CAST(COALESCE(cp.DIAS_PPAG, 0) AS INTEGER) AS DATE) AS FECHA_VENC_PLAZO,
-      CAST(NULL AS DATE) AS FECHA_VENCIMIENTO,
+      CAST(
+        COALESCE(
+          (SELECT MIN(vx.FECHA_VENCIMIENTO) FROM VENCIMIENTOS_CARGOS_CC vx WHERE vx.DOCTO_CC_ID = dc.DOCTO_CC_ID),
+          CAST(dc.FECHA AS DATE) + ${CXC_DIAS_SUM_INT}
+        )
+      AS DATE) AS FECHA_VENC_PLAZO,
+      CAST(
+        COALESCE(
+          (SELECT MIN(vx2.FECHA_VENCIMIENTO) FROM VENCIMIENTOS_CARGOS_CC vx2 WHERE vx2.DOCTO_CC_ID = dc.DOCTO_CC_ID),
+          CAST(dc.FECHA AS DATE) + ${CXC_DIAS_SUM_INT}
+        )
+      AS DATE) AS FECHA_VENCIMIENTO,
       x.DIAS_ATRASO AS TIEMPO_SIN_PAGAR_DIAS
     FROM (
       SELECT
@@ -2174,23 +2193,50 @@ get('/api/cxc/historial', async (req) => {
   `, [cliente], 12000, dbo).catch(() => []);
 });
 
-// Por condición: saldo neto por documento CC, agrupado por COND_PAGO (excluye contado/inmediato).
+// Por condición: saldo neto por documento CC, agrupado por COND_PAGO del documento (excluye contado/inmediato).
 get('/api/cxc/por-condicion', async (req) => {
   const dbo = getReqDbOpts(req);
   const docs = await query(`
     SELECT
-      doc.DOCTO_CC_ID,
-      doc.CLIENTE_ID,
+      dc.DOCTO_CC_ID,
+      dc.CLIENTE_ID,
       TRIM(COALESCE(cp.NOMBRE, 'Sin condición')) AS CONDICION_PAGO,
       COALESCE(cp.DIAS_PPAG, 0) AS DIAS_CREDITO,
-      doc.DIAS_VENCIDO AS DIAS_VENCIDO,
-      doc.SALDO_NETO,
-      CASE WHEN (${CXC_SQL_ES_CONTADO}) THEN 1 ELSE 0 END AS ES_CONTADO
-    FROM ${cxcDocSaldosInnerSQL('')} doc
-    JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = doc.DOCTO_CC_ID
+      CASE
+        WHEN COALESCE(cp.DIAS_PPAG, 0) <= 0 THEN 0
+        ELSE (
+          CURRENT_DATE - CAST(
+            COALESCE(
+              MIN(vc.FECHA_VENCIMIENTO),
+              CAST(dc.FECHA AS DATE) + CAST(COALESCE(cp.DIAS_PPAG, 30) AS INTEGER)
+            ) AS DATE
+          )
+        )
+      END AS DIAS_VENCIDO,
+      SUM(CASE
+            WHEN i.TIPO_IMPTE = 'C' THEN i.IMPORTE
+            WHEN i.TIPO_IMPTE = 'R' THEN -(CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE/1.16 END)
+            ELSE 0
+          END) AS SALDO_NETO
+    FROM IMPORTES_DOCTOS_CC i
+    JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = i.DOCTO_CC_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = dc.COND_PAGO_ID
-    WHERE doc.SALDO_NETO > 0.005
-      AND NOT (${CXC_SQL_ES_CONTADO})
+    LEFT JOIN VENCIMIENTOS_CARGOS_CC vc ON vc.DOCTO_CC_ID = dc.DOCTO_CC_ID
+    WHERE COALESCE(i.CANCELADO, 'N') = 'N'
+      AND (
+        cp.COND_PAGO_ID IS NULL OR (
+          POSITION('CONTADO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) = 0
+          AND POSITION('EFECTIVO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) = 0
+          AND POSITION('INMEDIATO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) = 0
+        )
+      )
+    GROUP BY
+      dc.DOCTO_CC_ID, dc.CLIENTE_ID, dc.FECHA, cp.NOMBRE, cp.DIAS_PPAG
+    HAVING SUM(CASE
+            WHEN i.TIPO_IMPTE = 'C' THEN i.IMPORTE
+            WHEN i.TIPO_IMPTE = 'R' THEN -(CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE/1.16 END)
+            ELSE 0
+          END) > 0.005
   `, [], 15000, dbo).catch(() => []);
   if (!(docs || []).length) {
     const altRows = await query(`
@@ -2216,8 +2262,8 @@ get('/api/cxc/por-condicion', async (req) => {
       if (saldo <= 0) continue;
       const dias = +r.DIAS_CREDITO || 0;
       const cond = r.CONDICION_PAGO || 'Sin condición';
-      const esContado = dias <= 0 || /contad/i.test(cond);
-      const key = `${cond}|${dias}|${esContado ? 1 : 0}`;
+      const esContado = false;
+      const key = `${cond}|${dias}|0`;
       if (!agg[key]) {
         agg[key] = {
           CONDICION_PAGO: cond,
@@ -2245,8 +2291,7 @@ get('/api/cxc/por-condicion', async (req) => {
       CORRIENTE: Math.round(g.CORRIENTE * 100) / 100,
       ES_CONTADO: !!g.ES_CONTADO,
     })).sort((a, b) => b.SALDO_TOTAL - a.SALDO_TOTAL);
-    const gruposNoContado = gruposAlt.filter(g => !g.ES_CONTADO);
-    return { grupos: gruposNoContado, pendiente_contado: null };
+    return { grupos: gruposAlt, pendiente_contado: null };
   }
   const byCond = {};
   for (const r of docs || []) {
@@ -2255,8 +2300,8 @@ get('/api/cxc/por-condicion', async (req) => {
     const dv = +r.DIAS_VENCIDO || 0;
     const venc = dv > 0 ? saldo : 0;
     const cor = dv > 0 ? 0 : saldo;
-    const esContado = +r.ES_CONTADO === 1;
-    const key = `${r.CONDICION_PAGO}|${+r.DIAS_CREDITO || 0}|${esContado ? 1 : 0}`;
+    const esContado = false;
+    const key = `${r.CONDICION_PAGO}|${+r.DIAS_CREDITO || 0}|0`;
     if (!byCond[key]) {
       byCond[key] = {
         CONDICION_PAGO: r.CONDICION_PAGO,
@@ -2287,7 +2332,6 @@ get('/api/cxc/por-condicion', async (req) => {
       CORRIENTE: Math.round(r.CORRIENTE * 100) / 100,
       ES_CONTADO: !!r.ES_CONTADO,
     }))
-    .filter(g => !g.ES_CONTADO)
     .sort((a, b) => b.SALDO_TOTAL - a.SALDO_TOTAL);
   return { grupos, pendiente_contado: null };
 });
