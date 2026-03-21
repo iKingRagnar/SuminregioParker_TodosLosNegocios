@@ -1416,71 +1416,67 @@ get('/api/ventas/margen-lineas', async (req) => {
   const f = buildFiltros(req, 'd');
   const tipo = getTipo(req);
   const limit = Math.min(parseInt(req.query.limit, 10) || 3000, 12000);
-  const docOk = `(
-      d.TIPO_DOCTO IN ('F', 'V')
-      AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
-      AND COALESCE(d.APLICADO, 'N') = 'S'
-    )`;
-  const [veDetCols, pvDetCols, artCols, inDetCols] = await Promise.all([
+  const [veCols, pvCols, veDetCols, pvDetCols, inCols, inDetCols] = await Promise.all([
+    getTableColumns('DOCTOS_VE', dbo),
+    getTableColumns('DOCTOS_PV', dbo),
     getTableColumns('DOCTOS_VE_DET', dbo),
     getTableColumns('DOCTOS_PV_DET', dbo),
-    getTableColumns('ARTICULOS', dbo),
+    getTableColumns('DOCTOS_IN', dbo),
     getTableColumns('DOCTOS_IN_DET', dbo),
   ]);
-  const artCostoCol = firstExistingColumn(artCols, ['COSTO_PROMEDIO', 'ULTIMO_COSTO', 'COSTO_ULTIMO', 'COSTO_STD']);
-  const inCostoUnitCol = firstExistingColumn(inDetCols, ['COSTO_UNITARIO', 'COSTO_U', 'PRECIO_UNITARIO', 'PRECIO_U']);
+  const inDetIdCol = firstExistingColumn(inDetCols, ['DOCTO_IN_DET_ID', 'RENGLON', 'POSICION']);
+  const inCostoUnitCol = firstExistingColumn(inDetCols, ['COSTO_UNITARIO', 'COSTO_U']);
   const inCostoTotalCol = firstExistingColumn(inDetCols, ['COSTO_TOTAL', 'IMPORTE']);
   const inQtyCol = firstExistingColumn(inDetCols, ['CANTIDAD', 'UNIDADES']);
+  const inClaveCol = firstExistingColumn(inDetCols, ['CLAVE_ARTICULO']);
+  const inHasCancel = inCols.has('CANCELADO');
+  const inHasAplicado = inCols.has('APLICADO');
+  const inHasFecha = inCols.has('FECHA');
+
+  const doDocOk = (hdrCols) => {
+    const conds = [];
+    if (hdrCols.has('TIPO_DOCTO')) conds.push(`d.TIPO_DOCTO IN ('F', 'V')`);
+    if (hdrCols.has('ESTATUS')) conds.push(`COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')`);
+    if (hdrCols.has('APLICADO')) conds.push(`COALESCE(d.APLICADO, 'S') = 'S'`);
+    return conds.length ? `(${conds.join(' AND ')})` : '(1=1)';
+  };
+
+  function costoUnitSubquery(detArticuloExpr, detClaveExpr, fechaDocExpr) {
+    const w = [`ind.ARTICULO_ID = ${detArticuloExpr}`];
+    if (inClaveCol && detClaveExpr) w.push(`COALESCE(ind.${inClaveCol}, '') = COALESCE(${detClaveExpr}, '')`);
+    if (inHasCancel) w.push(`COALESCE(di.CANCELADO, 'N') = 'N'`);
+    if (inHasAplicado) w.push(`COALESCE(di.APLICADO, 'S') = 'S'`);
+    if (inHasFecha) w.push(`CAST(di.FECHA AS DATE) <= CAST(${fechaDocExpr} AS DATE)`);
+
+    const unitExpr = inCostoUnitCol
+      ? `NULLIF(ind.${inCostoUnitCol}, 0)`
+      : ((inCostoTotalCol && inQtyCol)
+        ? `CASE WHEN COALESCE(ind.${inQtyCol}, 0) <> 0 THEN COALESCE(ind.${inCostoTotalCol}, 0) / COALESCE(ind.${inQtyCol}, 1) ELSE NULL END`
+        : 'NULL');
+
+    const orderParts = [];
+    if (inHasFecha) orderParts.push('di.FECHA DESC');
+    if (inDetIdCol) orderParts.push(`ind.${inDetIdCol} DESC`);
+    if (!orderParts.length) orderParts.push('di.DOCTO_IN_ID DESC');
+
+    return `COALESCE((
+      SELECT FIRST 1 COALESCE(${unitExpr}, 0)
+      FROM DOCTOS_IN di
+      JOIN DOCTOS_IN_DET ind ON ind.DOCTO_IN_ID = di.DOCTO_IN_ID
+      WHERE ${w.join(' AND ')}
+      ORDER BY ${orderParts.join(', ')}
+    ), 0)`;
+  }
 
   function buildExpr(colsSet) {
     const qtyCol = firstExistingColumn(colsSet, ['UNIDADES', 'CANTIDAD']) || 'UNIDADES';
-    const ventaTotalCol = firstExistingColumn(colsSet, ['PRECIO_TOTAL_NETO', 'PRECIO_TOTAL', 'PRECIO_T', 'IMPORTE_NETO', 'IMPORTE']);
-    const precioUnitCol = firstExistingColumn(colsSet, ['PRECIO_UNITARIO', 'PRECIO_U', 'PRECIO']);
-    const costoTotalCol = firstExistingColumn(colsSet, ['COSTO_TOTAL', 'IMPORTE_COSTO']);
-    const costoUnitCol = firstExistingColumn(colsSet, ['COSTO_UNITARIO', 'COSTO_U']);
-
-    const ventaBrutaParts = [];
-    if (ventaTotalCol) ventaBrutaParts.push(`NULLIF(det.${ventaTotalCol}, 0)`);
-    if (precioUnitCol) ventaBrutaParts.push(`COALESCE(det.${qtyCol}, 0) * COALESCE(det.${precioUnitCol}, 0)`);
-    const ventaBruta = ventaBrutaParts.length ? `COALESCE(${ventaBrutaParts.join(', ')}, 0)` : 'CAST(0 AS DOUBLE PRECISION)';
-    const ventaSql =
-      VENTAS_SIN_IVA_DIVISOR <= 1.00001
-        ? ventaBruta
-        : `((${ventaBruta}) / CAST(${VENTAS_SIN_IVA_DIVISOR} AS DOUBLE PRECISION))`;
-
-    const costParts = [];
-    if (costoTotalCol) costParts.push(`NULLIF(det.${costoTotalCol}, 0)`);
-    if (costoUnitCol) costParts.push(`COALESCE(det.${qtyCol}, 0) * COALESCE(det.${costoUnitCol}, 0)`);
-    if (inCostoUnitCol || (inCostoTotalCol && inQtyCol)) {
-      const inUnitExpr = inCostoUnitCol
-        ? `COALESCE(NULLIF(ind.${inCostoUnitCol}, 0), 0)`
-        : `CASE WHEN COALESCE(ind.${inQtyCol}, 0) <> 0
-              THEN COALESCE(ind.${inCostoTotalCol}, 0) / COALESCE(ind.${inQtyCol}, 1)
-              ELSE 0 END`;
-      const inFallbackExpr = (inCostoTotalCol && inQtyCol)
-        ? `CASE
-             WHEN COALESCE(ind.${inQtyCol}, 0) <> 0
-               THEN COALESCE(ind.${inCostoTotalCol}, 0) / COALESCE(ind.${inQtyCol}, 1)
-             ELSE 0
-           END`
-        : '0';
-      const unitFromIn = `COALESCE((
-        SELECT FIRST 1 COALESCE(${inUnitExpr}, ${inFallbackExpr}, 0)
-        FROM DOCTOS_IN di
-        JOIN DOCTOS_IN_DET ind ON ind.DOCTO_IN_ID = di.DOCTO_IN_ID
-        WHERE ind.ARTICULO_ID = det.ARTICULO_ID
-          AND COALESCE(di.CANCELADO, 'N') = 'N'
-          AND COALESCE(di.APLICADO, 'S') = 'S'
-          AND CAST(di.FECHA AS DATE) <= CAST(d.FECHA AS DATE)
-        ORDER BY di.FECHA DESC, di.DOCTO_IN_ID DESC
-      ), 0)`;
-      costParts.push(`COALESCE(det.${qtyCol}, 0) * (${unitFromIn})`);
-    }
-    if (artCostoCol) costParts.push(`COALESCE(det.${qtyCol}, 0) * COALESCE(a.${artCostoCol}, 0)`);
-    const costSql = costParts.length ? `COALESCE(${costParts.join(', ')}, 0)` : 'CAST(0 AS DOUBLE PRECISION)';
-
-    const precioUSql = `CASE WHEN COALESCE(det.${qtyCol}, 0) <> 0 THEN (${ventaBruta}) / det.${qtyCol} ELSE 0 END`;
-    return { qtyCol, ventaSql, costSql, precioUSql };
+    const precioUnitCol = firstExistingColumn(colsSet, ['PRECIO_UNITARIO', 'PRECIO_U', 'PRECIO']) || 'PRECIO_UNITARIO';
+    const claveCol = firstExistingColumn(colsSet, ['CLAVE_ARTICULO']);
+    // DAX base: Importe_Neto = Unidades * Precio_Unitario
+    const ventaSql = `COALESCE(det.${qtyCol}, 0) * COALESCE(det.${precioUnitCol}, 0)`;
+    const unitCostoSql = costoUnitSubquery('det.ARTICULO_ID', claveCol ? `det.${claveCol}` : null, 'd.FECHA');
+    const costSql = `COALESCE(det.${qtyCol}, 0) * (${unitCostoSql})`;
+    return { qtyCol, precioUnitCol, ventaSql, costSql };
   }
   const veExpr = buildExpr(veDetCols);
   const pvExpr = buildExpr(pvDetCols);
@@ -1507,7 +1503,7 @@ get('/api/ventas/margen-lineas', async (req) => {
           COALESCE(a.CLAVE, CAST(det.ARTICULO_ID AS VARCHAR(40))) AS CLAVE_ARTICULO,
           COALESCE(a.NOMBRE, '') AS DESC_ARTICULO,
           COALESCE(det.${veExpr.qtyCol}, 0) AS CANTIDAD,
-          CAST(${veExpr.precioUSql} AS DECIMAL(18, 4)) AS PRECIO_U,
+          CAST(COALESCE(det.${veExpr.precioUnitCol}, 0) AS DECIMAL(18, 4)) AS PRECIO_U,
           CAST(${veExpr.costSql} AS DECIMAL(18, 4)) AS COSTO,
           CAST(${veExpr.ventaSql} AS DECIMAL(18, 4)) AS VENTA
         FROM DOCTOS_VE d
@@ -1515,7 +1511,7 @@ get('/api/ventas/margen-lineas', async (req) => {
         LEFT JOIN ARTICULOS a ON a.ARTICULO_ID = det.ARTICULO_ID
         LEFT JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
         LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
-        WHERE ${docOk} ${f.sql}`;
+        WHERE ${doDocOk(veCols)} ${f.sql}`;
     const pvPart = `
         SELECT
           d.FOLIO,
@@ -1526,7 +1522,7 @@ get('/api/ventas/margen-lineas', async (req) => {
           COALESCE(a.CLAVE, CAST(det.ARTICULO_ID AS VARCHAR(40))) AS CLAVE_ARTICULO,
           COALESCE(a.NOMBRE, '') AS DESC_ARTICULO,
           COALESCE(det.${pvExpr.qtyCol}, 0) AS CANTIDAD,
-          CAST(${pvExpr.precioUSql} AS DECIMAL(18, 4)) AS PRECIO_U,
+          CAST(COALESCE(det.${pvExpr.precioUnitCol}, 0) AS DECIMAL(18, 4)) AS PRECIO_U,
           CAST(${pvExpr.costSql} AS DECIMAL(18, 4)) AS COSTO,
           CAST(${pvExpr.ventaSql} AS DECIMAL(18, 4)) AS VENTA
         FROM DOCTOS_PV d
@@ -1534,7 +1530,7 @@ get('/api/ventas/margen-lineas', async (req) => {
         LEFT JOIN ARTICULOS a ON a.ARTICULO_ID = det.ARTICULO_ID
         LEFT JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
         LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
-        WHERE ${docOk} ${f.sql}`;
+        WHERE ${doDocOk(pvCols)} ${f.sql}`;
     if (tipo === 'VE') return { sql: vePart, params: f.params };
     if (tipo === 'PV') return { sql: pvPart, params: f.params };
     return { sql: `${vePart} UNION ALL ${pvPart}`, params: [...f.params, ...f.params] };
@@ -1550,6 +1546,9 @@ get('/api/ventas/margen-lineas', async (req) => {
     return mapRows(rows);
   } catch (e1) {
     console.error('[margen-lineas] error:', e1.message);
+    if (String(req.query.debug || '') === '1') {
+      return [{ ERROR: e1.message }];
+    }
     return [];
   }
 });
