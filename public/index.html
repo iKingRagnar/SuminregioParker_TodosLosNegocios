@@ -761,6 +761,8 @@ async function loadAll(){
     // Ventas y cotiz (valores crudos)
     const ventaHoy=+v.HOY||0;
     const ventaMes=+v.MES_ACTUAL||0;
+    const ventasResumenErr = v && v._queryError ? String(v._queryError) : '';
+    const ventasDiagMsg = v && v._diagnostico && v._diagnostico.mensaje ? String(v._diagnostico.mensaje) : '';
     const cotiHoy=+cot.HOY||0;
     const cotiMes=+cot.MES_ACTUAL||0;
     const pHoy=pctOf(ventaHoy,metaDia);
@@ -815,7 +817,12 @@ async function loadAll(){
     sem('semVentaHoy', pVenta1, {labels:['Cumplido','En riesgo','Critico']});
     setEl('kpiLabelVentaMes', labelVenta2);
     setEl('kpiVentaMes', fmtM(ventaMes));
-    setEl('kpiVentaMesSub', 'Meta: '+fmtM(metaMes));
+    setEl(
+      'kpiVentaMesSub',
+      ventasResumenErr
+        ? ('Error resumen ventas: ' + ventasResumenErr.slice(0, 100) + (ventasDiagMsg ? ' · ' + ventasDiagMsg.slice(0, 80) : ''))
+        : 'Meta: '+fmtM(metaMes)
+    );
     setBar('barVentaMes','pctVentaMes', pMes);
     sem('semVentaMes', pMes, {labels:['Cumplido','En riesgo','Critico']});
 

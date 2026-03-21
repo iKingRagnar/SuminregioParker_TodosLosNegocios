@@ -907,24 +907,36 @@ get('/api/ventas/top-clientes', async (req) => {
   `, f.params).catch(() => []);
 });
 
-// ventas (4).html y vendedores esperan: VENDEDOR, VENTAS_HOY, VENTAS_MES, VENTAS_MES_VE, VENTAS_MES_PV, FACTURAS_HOY, FACTURAS_MES
+// ventas.html / vendedores: totales del periodo filtrado (anio/mes o desde-hasta), no el mes calendario del servidor.
 get('/api/ventas/por-vendedor', async (req) => {
+  if (!req.query.desde && !req.query.hasta && !req.query.anio) {
+    const now = new Date();
+    req.query.anio = String(now.getFullYear());
+    req.query.mes = String(now.getMonth() + 1);
+  }
   const f = buildFiltros(req, 'd');
   const tipo = getTipo(req);
-  return query(`
-    SELECT d.VENDEDOR_ID,
-      COALESCE(v.NOMBRE, 'Vendedor ' || CAST(d.VENDEDOR_ID AS VARCHAR(10))) AS VENDEDOR,
+  return query(
+    `
+    SELECT COALESCE(d.VENDEDOR_ID, 0) AS VENDEDOR_ID,
+      COALESCE(v.NOMBRE, 'Sin vendedor') AS VENDEDOR,
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END) AS VENTAS_HOY,
-      SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE) THEN d.IMPORTE_NETO ELSE 0 END) AS VENTAS_MES,
-      SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE) AND d.TIPO_SRC = 'VE' THEN d.IMPORTE_NETO ELSE 0 END) AS VENTAS_MES_VE,
-      SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE) AND d.TIPO_SRC = 'PV' THEN d.IMPORTE_NETO ELSE 0 END) AS VENTAS_MES_PV,
+      COALESCE(SUM(d.IMPORTE_NETO), 0) AS VENTAS_MES,
+      COALESCE(SUM(CASE WHEN d.TIPO_SRC = 'VE' THEN d.IMPORTE_NETO ELSE 0 END), 0) AS VENTAS_MES_VE,
+      COALESCE(SUM(CASE WHEN d.TIPO_SRC = 'PV' THEN d.IMPORTE_NETO ELSE 0 END), 0) AS VENTAS_MES_PV,
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 ELSE 0 END) AS FACTURAS_HOY,
-      SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE) THEN 1 ELSE 0 END) AS FACTURAS_MES
+      COUNT(*) AS FACTURAS_MES
     FROM ${ventasSub(tipo)} d
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
-    WHERE EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE) AND d.VENDEDOR_ID > 0 ${f.sql}
-    GROUP BY d.VENDEDOR_ID, v.NOMBRE ORDER BY VENTAS_MES DESC
-  `, f.params).catch(() => []);
+    WHERE 1=1 ${f.sql}
+    GROUP BY COALESCE(d.VENDEDOR_ID, 0), COALESCE(v.NOMBRE, 'Sin vendedor') ORDER BY VENTAS_MES DESC
+  `,
+    f.params,
+    120000
+  ).catch((err) => {
+    console.error('[ventas/por-vendedor]', err && err.message, err);
+    return [];
+  });
 });
 
 get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
