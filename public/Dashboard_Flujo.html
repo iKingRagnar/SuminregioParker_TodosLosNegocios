@@ -1,0 +1,93 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Flujo de Efectivo — Suminregio</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+<style>
+:root { --bg:#f0f2f5; --card:#fff; --text:#212529; --muted:#6c757d; --light:#e9ecef;
+  --c1:#4C72B0; --c2:#DD8452; --c3:#55A868; --c4:#C44E52; --c5:#8172B3;
+  --c6:#937860; --c7:#DA8BC3; --c8:#CCB974; --c9:#64B5CD; --c10:#8C8C8C;
+  --pos:#28a745; --neg:#dc3545; --warn:#ffc107; --gap:14px; --rad:10px; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); line-height:1.5; }
+.dash { max-width:1400px; margin:0 auto; padding:var(--gap); }
+.hdr { background:linear-gradient(135deg,#1a2e1a,#164e20); color:#fff; padding:20px 24px; border-radius:var(--rad); margin-bottom:var(--gap); position:relative; }
+.hdr h1 { font-size:20px; font-weight:700; }
+.hdr .sub { font-size:12px; opacity:.6; margin-top:2px; }
+.hdr .nav { margin-top:10px; display:flex; gap:6px; flex-wrap:wrap; }
+.hdr .nav a { color:rgba(255,255,255,.7); text-decoration:none; font-size:11px; padding:4px 10px; border-radius:12px; border:1px solid rgba(255,255,255,.2); transition:all .15s; }
+.hdr .nav a:hover,.hdr .nav a.active { background:rgba(255,255,255,.2); color:#fff; }
+.krow { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:var(--gap); margin-bottom:var(--gap); }
+.kpi { background:var(--card); border-radius:var(--rad); padding:16px 18px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+.kpi:hover { transform:translateY(-1px); box-shadow:0 3px 10px rgba(0,0,0,.08); transition:.15s; }
+.kpi-l { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; }
+.kpi-v { font-size:22px; font-weight:700; margin-top:2px; }
+.kpi-s { font-size:11px; color:var(--muted); }
+.g2 { display:grid; grid-template-columns:repeat(2,1fr); gap:var(--gap); margin-bottom:var(--gap); }
+.cc { background:var(--card); border-radius:var(--rad); padding:16px 20px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+.cc.full { grid-column:1/-1; }
+.cc h3 { font-size:13px; font-weight:600; margin-bottom:10px; }
+.cc canvas { max-height:300px; }
+.tc { background:var(--card); border-radius:var(--rad); padding:16px 20px; box-shadow:0 1px 3px rgba(0,0,0,.06); margin-bottom:var(--gap); overflow-x:auto; }
+.tc h3 { font-size:13px; font-weight:600; margin-bottom:10px; }
+table { width:100%; border-collapse:collapse; font-size:12px; }
+thead th { text-align:left; padding:7px 8px; border-bottom:2px solid #dee2e6; color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; }
+tbody td { padding:7px 8px; border-bottom:1px solid #f0f0f0; }
+tbody tr:hover { background:#f8f9fa; }
+.tr { text-align:right; }
+.pos { color:var(--pos); } .neg { color:var(--neg); } .warn { color:var(--warn); }
+.footer { text-align:center; padding:12px; font-size:11px; color:var(--muted); }
+@media(max-width:900px) { .g2 { grid-template-columns:1fr; } .krow { grid-template-columns:repeat(2,1fr); } }
+@media print {
+  body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .hdr .nav { display:none; }
+  button { display:none !important; }
+  .dash, .page { max-width:100%; padding:0; }
+  .hdr { break-after:avoid; }
+  .cc, .tc, .kpi { break-inside:avoid; }
+  canvas { max-height:280px !important; }
+}
+</style></head><body>
+<div class="dash">
+<div class="hdr"><button onclick="window.print()" style="position:absolute;right:24px;top:20px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);padding:6px 16px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500;">Exportar PDF</button><h1>Flujo de Efectivo</h1><div class="sub">Suminregio Industrial — Movimientos bancarios (Depósitos y Retiros)</div><div class="nav">
+<a href="Dashboard_Index.html">Inicio</a>
+<a href="Dashboard_Ventas.html" >Ventas</a>
+<a href="Dashboard_CC.html" >Cartera CC</a>
+<a href="Dashboard_CP.html" >Cuentas x Pagar</a>
+<a href="Dashboard_ABC.html" >ABC Inventario</a>
+<a href="Dashboard_Compras.html" >Compras</a>
+<a href="Dashboard_Clientes.html" >Clientes</a>
+<a href="Dashboard_Comisiones.html" >Comisiones</a>
+<a href="Dashboard_Rotacion.html" >Rotación Resumen</a>
+<a href="Dashboard_Rotacion_Profundo.html" >Rotación Profundo</a>
+<a href="Dashboard_DSO.html" >Cobranza DSO</a>
+<a href="Dashboard_Rentabilidad.html" >Rentabilidad</a>
+<a href="Dashboard_Flujo.html" class="active">Flujo Efectivo</a>
+<a href="Dashboard_Estacionalidad.html" >Estacionalidad</a>
+<a href="Dashboard_Scorecard.html" >Scorecard</a>
+<a href="Dashboard_Alertas.html" >Alertas</a>
+</div></div>
+<section class="krow">
+<div class="kpi"><div class="kpi-l">Total Depósitos</div><div class="kpi-v pos">$16.3M</div></div>
+<div class="kpi"><div class="kpi-l">Total Retiros</div><div class="kpi-v neg">$7.4M</div></div>
+<div class="kpi"><div class="kpi-l">Flujo Neto</div><div class="kpi-v">$8.9M</div></div>
+</section>
+<section class="g2">
+<div class="cc full"><h3>Flujo de Efectivo Mensual</h3><canvas id="ch1" height="100"></canvas></div>
+<div class="cc full"><h3>Saldos Bancarios Mensuales</h3><canvas id="ch2" height="90"></canvas></div>
+</section>
+<div class="tc"><h3>Detalle Mensual</h3>
+<table><thead><tr><th>Mes</th><th class="tr">Depósitos</th><th class="tr">Retiros</th><th class="tr">Flujo Neto</th><th class="tr">Docs</th></tr></thead><tbody id="tbl1"></tbody></table></div>
+<div class="footer">Última actualización: 11 Mar 2026 — Datos MicroSIP ERP — Suminregio Industrial</div></div>
+<script>
+const C=['#4C72B0','#DD8452','#55A868','#C44E52','#8172B3','#937860','#DA8BC3','#CCB974','#64B5CD','#8C8C8C'];
+const MN=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+function fmt$(n){return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});}
+function fmtS(n){if(Math.abs(n)>=1e6)return '$'+(n/1e6).toFixed(1)+'M';if(Math.abs(n)>=1e3)return '$'+(n/1e3).toFixed(0)+'K';return '$'+n.toFixed(0);}
+function mesL(m){const[y,mo]=m.split('-');return MN[parseInt(mo)]+' '+y.slice(2);}
+
+const D={"total_ingresos": 16253434.18, "total_egresos": 7388658.38, "flujo_neto": 8864775.8, "monthly": [{"mes": "2025-01", "ingresos": 0.0, "egresos": 50293.97, "flujo_neto": -50293.97, "docs": 1}, {"mes": "2025-03", "ingresos": 0.0, "egresos": 6816.79, "flujo_neto": -6816.79, "docs": 1}, {"mes": "2025-04", "ingresos": 1278300.79, "egresos": 72187.61, "flujo_neto": 1206113.18, "docs": 8}, {"mes": "2025-05", "ingresos": 524433.97, "egresos": 5910.75, "flujo_neto": 518523.22, "docs": 4}, {"mes": "2025-06", "ingresos": 481372.72, "egresos": 17423.33, "flujo_neto": 463949.39, "docs": 10}, {"mes": "2025-07", "ingresos": 920739.48, "egresos": 40795.07, "flujo_neto": 879944.41, "docs": 20}, {"mes": "2025-08", "ingresos": 1551242.07, "egresos": 31495.11, "flujo_neto": 1519746.96, "docs": 24}, {"mes": "2025-09", "ingresos": 1641600.97, "egresos": 60879.94, "flujo_neto": 1580721.03, "docs": 34}, {"mes": "2025-10", "ingresos": 1537883.2, "egresos": 255550.24, "flujo_neto": 1282332.96, "docs": 35}, {"mes": "2025-11", "ingresos": 1255740.8, "egresos": 188146.45, "flujo_neto": 1067594.35, "docs": 34}, {"mes": "2025-12", "ingresos": 2913091.92, "egresos": 279126.94, "flujo_neto": 2633964.98, "docs": 36}, {"mes": "2026-01", "ingresos": 2452440.5, "egresos": 97264.12, "flujo_neto": 2355176.38, "docs": 24}, {"mes": "2026-02", "ingresos": 1563921.84, "egresos": 6158747.25, "flujo_neto": -4594825.41, "docs": 62}, {"mes": "2026-03", "ingresos": 132665.92, "egresos": 124020.81, "flujo_neto": 8645.11, "docs": 11}], "saldos": [{"mes": "2025-04", "retiros": 0.0, "depositos": 1277981.01, "neto": 1277981.01, "acumulado": 1277981.01}, {"mes": "2025-05", "retiros": 0.0, "depositos": 524433.97, "neto": 524433.97, "acumulado": 1802414.98}, {"mes": "2025-06", "retiros": 0.0, "depositos": 480138.72, "neto": 480138.72, "acumulado": 2282553.7}, {"mes": "2025-07", "retiros": 0.0, "depositos": 920739.48, "neto": 920739.48, "acumulado": 3203293.18}, {"mes": "2025-08", "retiros": 0.0, "depositos": 1551242.07, "neto": 1551242.07, "acumulado": 4754535.25}, {"mes": "2025-09", "retiros": 0.0, "depositos": 1641600.97, "neto": 1641600.97, "acumulado": 6396136.22}, {"mes": "2025-10", "retiros": 0.0, "depositos": 1537883.2, "neto": 1537883.2, "acumulado": 7934019.42}, {"mes": "2025-11", "retiros": 0.0, "depositos": 1255740.8, "neto": 1255740.8, "acumulado": 9189760.22}, {"mes": "2025-12", "retiros": 0.0, "depositos": 1413091.92, "neto": 1413091.92, "acumulado": 10602852.14}, {"mes": "2026-01", "retiros": 0.0, "depositos": 952440.5, "neto": 952440.5, "acumulado": 11555292.64}, {"mes": "2026-02", "retiros": 0.0, "depositos": 1435903.2, "neto": 1435903.2, "acumulado": 12991195.84}, {"mes": "2026-03", "retiros": 0.0, "depositos": 132665.92, "neto": 132665.92, "acumulado": 13123861.76}]};
+new Chart(document.getElementById('ch1'),{type:'bar',data:{labels:D.monthly.map(m=>mesL(m.mes)),datasets:[{label:'Depósitos',data:D.monthly.map(m=>m.ingresos),backgroundColor:'#55A868CC',borderRadius:4},{label:'Retiros',data:D.monthly.map(m=>-m.egresos),backgroundColor:'#C44E52CC',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+fmt$(Math.abs(ctx.parsed.y))}}},scales:{y:{ticks:{callback:v=>fmtS(Math.abs(v))}},x:{grid:{display:false}}}}});
+const sl=D.saldos;
+new Chart(document.getElementById('ch2'),{type:'line',data:{labels:sl.map(s=>mesL(s.mes)),datasets:[{label:'Depósitos',data:sl.map(s=>s.depositos),borderColor:'#55A868',borderWidth:2,tension:.3,pointRadius:3,fill:false},{label:'Retiros',data:sl.map(s=>s.retiros),borderColor:'#C44E52',borderWidth:2,tension:.3,pointRadius:3,fill:false},{label:'Neto',data:sl.map(s=>s.neto),borderColor:'#4C72B0',backgroundColor:'#4C72B020',borderWidth:2,tension:.3,fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{usePointStyle:true}},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+fmt$(ctx.parsed.y)}}},scales:{y:{ticks:{callback:v=>fmtS(v)}},x:{grid:{display:false}}}}});
+let h='';D.monthly.forEach(m=>{const cls=m.flujo_neto>=0?'pos':'neg';h+=`<tr><td>${mesL(m.mes)}</td><td class="tr pos">${fmt$(m.ingresos)}</td><td class="tr neg">${fmt$(m.egresos)}</td><td class="tr ${cls}">${fmt$(m.flujo_neto)}</td><td class="tr">${m.docs}</td></tr>`;});
+document.getElementById('tbl1').innerHTML=h;
+</script></body></html>

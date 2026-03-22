@@ -1,0 +1,109 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Clientes — Suminregio</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+<style>
+:root { --bg:#f0f2f5; --card:#fff; --text:#212529; --muted:#6c757d; --light:#e9ecef;
+  --c1:#4C72B0; --c2:#DD8452; --c3:#55A868; --c4:#C44E52; --c5:#8172B3;
+  --c6:#937860; --c7:#DA8BC3; --c8:#CCB974; --c9:#64B5CD; --c10:#8C8C8C;
+  --pos:#28a745; --neg:#dc3545; --warn:#ffc107; --gap:14px; --rad:10px; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); line-height:1.5; }
+.dash { max-width:1400px; margin:0 auto; padding:var(--gap); }
+.hdr { background:linear-gradient(135deg,#2e3a1a,#3e4e16); color:#fff; padding:20px 24px; border-radius:var(--rad); margin-bottom:var(--gap); position:relative; }
+.hdr h1 { font-size:20px; font-weight:700; }
+.hdr .sub { font-size:12px; opacity:.6; margin-top:2px; }
+.hdr .nav { margin-top:10px; display:flex; gap:6px; flex-wrap:wrap; }
+.hdr .nav a { color:rgba(255,255,255,.7); text-decoration:none; font-size:11px; padding:4px 10px; border-radius:12px; border:1px solid rgba(255,255,255,.2); transition:all .15s; }
+.hdr .nav a:hover, .hdr .nav a.active { background:rgba(255,255,255,.2); color:#fff; }
+.krow { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:var(--gap); margin-bottom:var(--gap); }
+.kpi { background:var(--card); border-radius:var(--rad); padding:16px 18px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+.kpi:hover { transform:translateY(-1px); box-shadow:0 3px 10px rgba(0,0,0,.08); transition:.15s; }
+.kpi-l { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; }
+.kpi-v { font-size:22px; font-weight:700; margin-top:2px; }
+.kpi-s { font-size:11px; color:var(--muted); }
+.g2 { display:grid; grid-template-columns:repeat(2,1fr); gap:var(--gap); margin-bottom:var(--gap); }
+.cc { background:var(--card); border-radius:var(--rad); padding:16px 20px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+.cc.full { grid-column:1/-1; }
+.cc h3 { font-size:13px; font-weight:600; margin-bottom:10px; }
+.cc canvas { max-height:300px; }
+.tc { background:var(--card); border-radius:var(--rad); padding:16px 20px; box-shadow:0 1px 3px rgba(0,0,0,.06); margin-bottom:var(--gap); overflow-x:auto; }
+.tc h3 { font-size:13px; font-weight:600; margin-bottom:10px; }
+table { width:100%; border-collapse:collapse; font-size:12px; }
+thead th { text-align:left; padding:7px 8px; border-bottom:2px solid #dee2e6; color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; }
+tbody td { padding:7px 8px; border-bottom:1px solid #f0f0f0; }
+tbody tr:hover { background:#f8f9fa; }
+.tr { text-align:right; }
+.pos { color:var(--pos); } .neg { color:var(--neg); } .warn { color:var(--warn); }
+.tip{position:relative;cursor:help;border-bottom:1px dotted var(--muted);}
+.tip:hover::after{content:attr(data-tip);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:6px 10px;border-radius:6px;font-size:11px;white-space:nowrap;z-index:999;pointer-events:none;}
+.tip:hover::before{content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#333;margin-bottom:-10px;z-index:999;}
+.footer { text-align:center; padding:12px; font-size:11px; color:var(--muted); }
+@media(max-width:900px) { .g2 { grid-template-columns:1fr; } .krow { grid-template-columns:repeat(2,1fr); } }
+@media print {
+  body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .hdr .nav { display:none; }
+  button { display:none !important; }
+  .dash, .page { max-width:100%; padding:0; }
+  .hdr { break-after:avoid; }
+  .cc, .tc, .ccard, .tcard, .kpi { break-inside:avoid; }
+  canvas { max-height:280px !important; }
+}
+</style></head><body>
+<div class="dash">
+<div class="hdr"><button onclick="window.print()" style="position:absolute;right:24px;top:20px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);padding:6px 16px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500;">Exportar PDF</button><h1>Análisis de Clientes — Dormidos y Concentración</h1><div class="sub">Suminregio Industrial — Corte: 10 Mar 2026</div><div class="nav">
+<a href="Dashboard_Index.html">Inicio</a>
+<a href="Dashboard_Ventas.html" >Ventas</a>
+<a href="Dashboard_CC.html" >Cartera CC</a>
+<a href="Dashboard_CP.html" >Cuentas x Pagar</a>
+<a href="Dashboard_ABC.html" >ABC Inventario</a>
+<a href="Dashboard_Compras.html" >Compras</a>
+<a href="Dashboard_Clientes.html" class="active">Clientes</a>
+<a href="Dashboard_Comisiones.html" >Comisiones</a>
+<a href="Dashboard_Rotacion.html" >Rotación Resumen</a>
+<a href="Dashboard_Rotacion_Profundo.html" >Rotación Profundo</a>
+<a href="Dashboard_DSO.html" >Cobranza DSO</a>
+<a href="Dashboard_Rentabilidad.html" >Rentabilidad</a>
+<a href="Dashboard_Flujo.html" >Flujo Efectivo</a>
+<a href="Dashboard_Estacionalidad.html" >Estacionalidad</a>
+<a href="Dashboard_Scorecard.html" >Scorecard</a>
+<a href="Dashboard_Alertas.html" >Alertas</a>
+</div></div>
+<section class="krow">
+<div class="kpi"><div class="kpi-l">Total Clientes</div><div class="kpi-v">325</div></div>
+<div class="kpi"><div class="kpi-l">Activos (&le;30d)</div><div class="kpi-v pos">73</div></div>
+<div class="kpi"><div class="kpi-l">En Riesgo (31-60d)</div><div class="kpi-v warn">38</div></div>
+<div class="kpi"><div class="kpi-l">Dormidos (61-90d)</div><div class="kpi-v" style="color:var(--c2)">25</div></div>
+<div class="kpi"><div class="kpi-l">Perdidos (90+d)</div><div class="kpi-v neg">189</div></div>
+<div class="kpi"><div class="kpi-l">Top10 = Venta</div><div class="kpi-v">77.5%</div><div class="kpi-s">Concentración</div></div>
+</section>
+<section class="g2">
+<div class="cc"><h3>Estado de Clientes</h3><canvas id="ch-status"></canvas></div>
+<div class="cc"><h3>Curva de Concentración (Pareto)</h3><canvas id="ch-pareto"></canvas></div>
+</section>
+<div class="tc"><h3>Métricas de Concentración</h3>
+<table><thead><tr><th>Métrica</th><th class="tr">Valor</th></tr></thead><tbody>
+<tr><td>Clientes que generan el 80% de venta</td><td class="tr"><strong>12</strong> (3.7%)</td></tr>
+<tr><td>Top 1 cliente</td><td class="tr">44.2% de la venta</td></tr>
+<tr><td>Top 5 clientes</td><td class="tr">67.6%</td></tr>
+<tr><td>Top 10 clientes</td><td class="tr">77.5%</td></tr>
+<tr><td><span class="tip" data-tip="Índice Herfindahl-Hirschman: concentración de ventas (0-10,000)">Índice HHI</span></td><td class="tr">2173.1</td></tr>
+</tbody></table></div>
+<div class="tc"><h3>Clientes Dormidos y Perdidos (Top 30 por venta histórica)</h3>
+<table><thead><tr><th>#</th><th>Cliente</th><th>Tipo</th><th class="tr">Venta Total</th><th>Última Compra</th><th class="tr">Días</th><th>Estado</th></tr></thead>
+<tbody id="tbl-dorm"></tbody></table></div>
+<div class="footer">Última actualización: 11 Mar 2026 — Datos MicroSIP ERP — Suminregio Industrial</div></div>
+<script>
+
+const C=['#4C72B0','#DD8452','#55A868','#C44E52','#8172B3','#937860','#DA8BC3','#CCB974','#64B5CD','#8C8C8C'];
+const MNAMES=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+function fmt$(n){return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});}
+function fmtS(n){if(Math.abs(n)>=1e6)return '$'+(n/1e6).toFixed(1)+'M';if(Math.abs(n)>=1e3)return '$'+(n/1e3).toFixed(0)+'K';return '$'+n.toFixed(0);}
+function mesL(m){const[y,mo]=m.split('-');return MNAMES[parseInt(mo)]+' '+y.slice(2);}
+
+const D={"total_clientes": 325, "status_summary": [{"status": "Activo", "clientes": 73, "venta": 16068380.19, "pct_clientes": 22.5}, {"status": "En riesgo", "clientes": 38, "venta": 588069.34, "pct_clientes": 11.7}, {"status": "Dormido", "clientes": 25, "venta": 135828.42, "pct_clientes": 7.7}, {"status": "Perdido", "clientes": 189, "venta": 1757215.62, "pct_clientes": 58.2}], "concentracion": {"clientes_80pct": 12, "pct_clientes_80pct": 3.7, "top1_pct": 44.2, "top5_pct": 67.6, "top10_pct": 77.5, "hhi": 2173.1}, "dormidos": [{"cliente": "FLEX-AUST DE MEXICO", "tipo": "Exclusivo", "venta": 410469.8, "ultima": "2025-08-25", "dias": 197, "status": "Perdido"}, {"cliente": "CONSTRUACEROS DEL FUERTE", "tipo": "Mostrador", "venta": 178485.65, "ultima": "2025-09-01", "dias": 190, "status": "Perdido"}, {"cliente": "WC MOVIL DE MONTERREY", "tipo": "Mostrador", "venta": 166969.98, "ultima": "2025-10-17", "dias": 144, "status": "Perdido"}, {"cliente": "COMERCIALIZADORA NEHIRO DE CHICAGO", "tipo": "Revendedor", "venta": 90070.11, "ultima": "2025-05-15", "dias": 299, "status": "Perdido"}, {"cliente": "SERVICIOS Y SUMINISTROS INDUSTRIALES MIV", "tipo": "Revendedor", "venta": 65727.02, "ultima": "2025-08-05", "dias": 217, "status": "Perdido"}, {"cliente": "MUNTER MANGUERAS Y CONEXIONES", "tipo": "Revendedor", "venta": 63455.31, "ultima": "2025-08-20", "dias": 202, "status": "Perdido"}, {"cliente": "ALAN ESAU RIVERA INOSTROZA", "tipo": "Revendedor", "venta": 50342.0, "ultima": "2025-08-18", "dias": 204, "status": "Perdido"}, {"cliente": "MAESE INGENIERIA EN POTENCIA ", "tipo": "Volumen", "venta": 41206.61, "ultima": "2025-05-26", "dias": 288, "status": "Perdido"}, {"cliente": "DIRENO ", "tipo": "Distribuidor", "venta": 39436.74, "ultima": "2025-09-04", "dias": 187, "status": "Perdido"}, {"cliente": "MAFRA SOLUCIONES INTEGRALES", "tipo": "Exclusivo", "venta": 38156.43, "ultima": "2025-07-02", "dias": 251, "status": "Perdido"}, {"cliente": "INNOVACION URBANA Y CONSTRUCCION JG", "tipo": "Mostrador", "venta": 32236.89, "ultima": "2026-01-06", "dias": 63, "status": "Dormido"}, {"cliente": "BOX-UP", "tipo": "Sin tipo", "venta": 31440.34, "ultima": "2025-12-16", "dias": 84, "status": "Dormido"}, {"cliente": "IMPORT & EXPORT AIII", "tipo": "Mostrador", "venta": 28398.99, "ultima": "2025-08-01", "dias": 221, "status": "Perdido"}, {"cliente": "REGINO SOLIS VICENCIO", "tipo": "Volumen", "venta": 26882.28, "ultima": "2025-07-17", "dias": 236, "status": "Perdido"}, {"cliente": "EQUIPOS WP", "tipo": "Mostrador", "venta": 22258.89, "ultima": "2025-08-26", "dias": 196, "status": "Perdido"}, {"cliente": "BATIZ CONTROL INCORPORATED", "tipo": "Mostrador", "venta": 21608.8, "ultima": "2025-10-06", "dias": 155, "status": "Perdido"}, {"cliente": "OCARTA", "tipo": "Mostrador", "venta": 18130.27, "ultima": "2025-05-14", "dias": 300, "status": "Perdido"}, {"cliente": "ALRA PLASTIC RECICLING", "tipo": "Mostrador", "venta": 17292.11, "ultima": "2025-10-13", "dias": 148, "status": "Perdido"}, {"cliente": "TXAT LATAM", "tipo": "Mostrador", "venta": 16589.22, "ultima": "2025-10-13", "dias": 148, "status": "Perdido"}, {"cliente": "MARIA DEL ROSARIO GARCIA MATA", "tipo": "Volumen", "venta": 15661.2, "ultima": "2025-09-13", "dias": 178, "status": "Perdido"}, {"cliente": "LIQUIDOS ESPECIALIZADOS MT", "tipo": "Mostrador", "venta": 15197.09, "ultima": "2025-12-16", "dias": 84, "status": "Dormido"}, {"cliente": "BOTANAS Y DERIVADOS", "tipo": "Mostrador", "venta": 15015.0, "ultima": "2025-10-28", "dias": 133, "status": "Perdido"}, {"cliente": "RENEE JULIA CAZARES CASAS", "tipo": "Sin tipo", "venta": 14282.64, "ultima": "2025-02-18", "dias": 385, "status": "Perdido"}, {"cliente": "COMERCIALIZADORA RODUL", "tipo": "Mostrador", "venta": 13361.26, "ultima": "2025-07-10", "dias": 243, "status": "Perdido"}, {"cliente": "CONSULTORIA INTEGRAL EN NUTRICION ANIMAL", "tipo": "Mostrador", "venta": 13329.23, "ultima": "2025-11-21", "dias": 109, "status": "Perdido"}, {"cliente": "JESUS HERNANDEZ CARRIZALES", "tipo": "Mostrador", "venta": 12054.82, "ultima": "2025-09-11", "dias": 180, "status": "Perdido"}, {"cliente": "CESAR JOSE NADER DE LA GARZA", "tipo": "Industrial", "venta": 11411.88, "ultima": "2025-09-01", "dias": 190, "status": "Perdido"}, {"cliente": "JONATHAN HERNAN AGUILAR FLORES", "tipo": "Industrial", "venta": 10540.83, "ultima": "2025-11-21", "dias": 109, "status": "Perdido"}, {"cliente": "INDUSTRIAS AUTOMOTRICES LODI", "tipo": "Volumen", "venta": 10218.0, "ultima": "2025-07-14", "dias": 239, "status": "Perdido"}, {"cliente": "ROMUALDO CHAPA GARCIA", "tipo": "Mostrador", "venta": 9216.3, "ultima": "2025-12-03", "dias": 97, "status": "Perdido"}], "pareto": [{"pct_clientes": 1, "pct_venta": 61.4}, {"pct_clientes": 5, "pct_venta": 83.7}, {"pct_clientes": 10, "pct_venta": 90.6}, {"pct_clientes": 20, "pct_venta": 95.6}, {"pct_clientes": 30, "pct_venta": 97.4}, {"pct_clientes": 50, "pct_venta": 99.0}, {"pct_clientes": 75, "pct_venta": 99.8}, {"pct_clientes": 100, "pct_venta": 100.0}]};
+const statColors={'Activo':'#28a745','En riesgo':'#ffc107','Dormido':'#DD8452','Perdido':'#dc3545'};
+new Chart(document.getElementById('ch-status'),{type:'doughnut',data:{labels:D.status_summary.map(s=>s.status+' ('+s.clientes+')'),datasets:[{data:D.status_summary.map(s=>s.clientes),backgroundColor:D.status_summary.map(s=>statColors[s.status]+'CC'),borderColor:'#fff',borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,cutout:'50%',plugins:{legend:{position:'right'},tooltip:{callbacks:{label:ctx=>ctx.label+' — '+fmt$(D.status_summary[ctx.dataIndex].venta)+' venta'}}}}});
+new Chart(document.getElementById('ch-pareto'),{type:'line',data:{labels:D.pareto.map(p=>p.pct_clientes+'%'),datasets:[{label:'% Venta acumulada',data:D.pareto.map(p=>p.pct_venta),borderColor:'#4C72B0',backgroundColor:'#4C72B020',borderWidth:2,tension:.3,fill:true,pointRadius:4},{label:'Línea 80%',data:D.pareto.map(()=>80),borderColor:'#dc3545',borderWidth:1,borderDash:[5,5],pointRadius:0,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{usePointStyle:true}},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+ctx.parsed.y+'%'}}},scales:{y:{beginAtZero:true,max:105,ticks:{callback:v=>v+'%'}},x:{title:{display:true,text:'% de Clientes'}}}}});
+let h='';D.dormidos.forEach((d,i)=>{const cls=d.status==='Perdido'?'neg':'warn';h+=`<tr><td>${i+1}</td><td>${d.cliente}</td><td>${d.tipo}</td><td class="tr">${fmt$(d.venta)}</td><td>${d.ultima}</td><td class="tr ${cls}">${d.dias}</td><td class="${cls}">${d.status}</td></tr>`;});
+document.getElementById('tbl-dorm').innerHTML=h;
+</script></body></html>

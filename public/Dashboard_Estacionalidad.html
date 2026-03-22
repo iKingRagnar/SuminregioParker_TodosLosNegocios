@@ -1,0 +1,97 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Estacionalidad — Suminregio</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+<style>
+:root { --bg:#f0f2f5; --card:#fff; --text:#212529; --muted:#6c757d; --light:#e9ecef;
+  --c1:#4C72B0; --c2:#DD8452; --c3:#55A868; --c4:#C44E52; --c5:#8172B3;
+  --c6:#937860; --c7:#DA8BC3; --c8:#CCB974; --c9:#64B5CD; --c10:#8C8C8C;
+  --pos:#28a745; --neg:#dc3545; --warn:#ffc107; --gap:14px; --rad:10px; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); line-height:1.5; }
+.dash { max-width:1400px; margin:0 auto; padding:var(--gap); }
+.hdr { background:linear-gradient(135deg,#2e1a2e,#46164e); color:#fff; padding:20px 24px; border-radius:var(--rad); margin-bottom:var(--gap); position:relative; }
+.hdr h1 { font-size:20px; font-weight:700; }
+.hdr .sub { font-size:12px; opacity:.6; margin-top:2px; }
+.hdr .nav { margin-top:10px; display:flex; gap:6px; flex-wrap:wrap; }
+.hdr .nav a { color:rgba(255,255,255,.7); text-decoration:none; font-size:11px; padding:4px 10px; border-radius:12px; border:1px solid rgba(255,255,255,.2); transition:all .15s; }
+.hdr .nav a:hover,.hdr .nav a.active { background:rgba(255,255,255,.2); color:#fff; }
+.krow { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:var(--gap); margin-bottom:var(--gap); }
+.kpi { background:var(--card); border-radius:var(--rad); padding:16px 18px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+.kpi:hover { transform:translateY(-1px); box-shadow:0 3px 10px rgba(0,0,0,.08); transition:.15s; }
+.kpi-l { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; }
+.kpi-v { font-size:22px; font-weight:700; margin-top:2px; }
+.kpi-s { font-size:11px; color:var(--muted); }
+.g2 { display:grid; grid-template-columns:repeat(2,1fr); gap:var(--gap); margin-bottom:var(--gap); }
+.cc { background:var(--card); border-radius:var(--rad); padding:16px 20px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+.cc.full { grid-column:1/-1; }
+.cc h3 { font-size:13px; font-weight:600; margin-bottom:10px; }
+.cc canvas { max-height:300px; }
+.tc { background:var(--card); border-radius:var(--rad); padding:16px 20px; box-shadow:0 1px 3px rgba(0,0,0,.06); margin-bottom:var(--gap); overflow-x:auto; }
+.tc h3 { font-size:13px; font-weight:600; margin-bottom:10px; }
+table { width:100%; border-collapse:collapse; font-size:12px; }
+thead th { text-align:left; padding:7px 8px; border-bottom:2px solid #dee2e6; color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; }
+tbody td { padding:7px 8px; border-bottom:1px solid #f0f0f0; }
+tbody tr:hover { background:#f8f9fa; }
+.tr { text-align:right; }
+.pos { color:var(--pos); } .neg { color:var(--neg); } .warn { color:var(--warn); }
+.footer { text-align:center; padding:12px; font-size:11px; color:var(--muted); }
+@media(max-width:900px) { .g2 { grid-template-columns:1fr; } .krow { grid-template-columns:repeat(2,1fr); } }
+@media print {
+  body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .hdr .nav { display:none; }
+  button { display:none !important; }
+  .dash, .page { max-width:100%; padding:0; }
+  .hdr { break-after:avoid; }
+  .cc, .tc, .kpi { break-inside:avoid; }
+  canvas { max-height:280px !important; }
+}
+</style></head><body>
+<div class="dash">
+<div class="hdr"><button onclick="window.print()" style="position:absolute;right:24px;top:20px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);padding:6px 16px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500;">Exportar PDF</button><h1>Análisis de Estacionalidad</h1><div class="sub">Suminregio Industrial — Patrones de venta por día de la semana, del mes y quincena</div><div class="nav">
+<a href="Dashboard_Index.html">Inicio</a>
+<a href="Dashboard_Ventas.html" >Ventas</a>
+<a href="Dashboard_CC.html" >Cartera CC</a>
+<a href="Dashboard_CP.html" >Cuentas x Pagar</a>
+<a href="Dashboard_ABC.html" >ABC Inventario</a>
+<a href="Dashboard_Compras.html" >Compras</a>
+<a href="Dashboard_Clientes.html" >Clientes</a>
+<a href="Dashboard_Comisiones.html" >Comisiones</a>
+<a href="Dashboard_Rotacion.html" >Rotación Resumen</a>
+<a href="Dashboard_Rotacion_Profundo.html" >Rotación Profundo</a>
+<a href="Dashboard_DSO.html" >Cobranza DSO</a>
+<a href="Dashboard_Rentabilidad.html" >Rentabilidad</a>
+<a href="Dashboard_Flujo.html" >Flujo Efectivo</a>
+<a href="Dashboard_Estacionalidad.html" class="active">Estacionalidad</a>
+<a href="Dashboard_Scorecard.html" >Scorecard</a>
+<a href="Dashboard_Alertas.html" >Alertas</a>
+</div></div>
+<section class="g2">
+<div class="cc"><h3>Venta Promedio por Día de la Semana</h3><canvas id="ch1"></canvas></div>
+<div class="cc"><h3>VE vs PV por Día de la Semana</h3><canvas id="ch2"></canvas></div>
+<div class="cc full"><h3>Venta por Día del Mes (acumulado)</h3><canvas id="ch3" height="85"></canvas></div>
+<div class="cc"><h3>Primera vs Segunda Quincena</h3><canvas id="ch4"></canvas></div>
+<div class="cc"><h3>Documentos por Día de la Semana</h3><canvas id="ch5"></canvas></div>
+</section>
+<div class="tc"><h3>Detalle por Día de la Semana</h3>
+<table><thead><tr><th>Día</th><th class="tr">Venta Total</th><th class="tr">Venta Prom/Día</th><th class="tr"># Documentos</th></tr></thead><tbody id="tbl1"></tbody></table></div>
+<div class="footer">Última actualización: 11 Mar 2026 — Datos MicroSIP ERP — Suminregio Industrial</div></div>
+<script>
+const C=['#4C72B0','#DD8452','#55A868','#C44E52','#8172B3','#937860','#DA8BC3','#CCB974','#64B5CD','#8C8C8C'];
+const MN=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+function fmt$(n){return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});}
+function fmtS(n){if(Math.abs(n)>=1e6)return '$'+(n/1e6).toFixed(1)+'M';if(Math.abs(n)>=1e3)return '$'+(n/1e3).toFixed(0)+'K';return '$'+n.toFixed(0);}
+function mesL(m){const[y,mo]=m.split('-');return MN[parseInt(mo)]+' '+y.slice(2);}
+
+const D={"by_dow": [{"dia": "Lunes", "dow": 0, "venta": 3617709.28, "docs": 651, "venta_prom": 65776.53}, {"dia": "Martes", "dow": 1, "venta": 2389431.59, "docs": 635, "venta_prom": 42668.42}, {"dia": "Miércoles", "dow": 2, "venta": 2819525.99, "docs": 643, "venta_prom": 51264.11}, {"dia": "Jueves", "dow": 3, "venta": 3281881.8, "docs": 640, "venta_prom": 59670.58}, {"dia": "Viernes", "dow": 4, "venta": 5753738.11, "docs": 647, "venta_prom": 104613.42}, {"dia": "Sábado", "dow": 5, "venta": 687206.8, "docs": 290, "venta_prom": 12494.67}], "by_dom": [{"dia": 1, "venta": 650114.7, "docs": 90}, {"dia": 2, "venta": 242476.35, "docs": 115}, {"dia": 3, "venta": 422497.15, "docs": 110}, {"dia": 4, "venta": 426326.86, "docs": 116}, {"dia": 5, "venta": 785429.07, "docs": 133}, {"dia": 6, "venta": 1784565.16, "docs": 122}, {"dia": 7, "venta": 268622.97, "docs": 101}, {"dia": 8, "venta": 318161.64, "docs": 120}, {"dia": 9, "venta": 726119.36, "docs": 133}, {"dia": 10, "venta": 794938.72, "docs": 124}, {"dia": 11, "venta": 599016.19, "docs": 147}, {"dia": 12, "venta": 1088467.95, "docs": 133}, {"dia": 13, "venta": 830394.13, "docs": 100}, {"dia": 14, "venta": 467272.45, "docs": 102}, {"dia": 15, "venta": 463716.86, "docs": 112}, {"dia": 16, "venta": 441972.01, "docs": 83}, {"dia": 17, "venta": 257553.98, "docs": 106}, {"dia": 18, "venta": 532277.55, "docs": 127}, {"dia": 19, "venta": 526512.76, "docs": 119}, {"dia": 20, "venta": 856091.83, "docs": 138}, {"dia": 21, "venta": 1627267.24, "docs": 150}, {"dia": 22, "venta": 535513.65, "docs": 115}, {"dia": 23, "venta": 356810.68, "docs": 128}, {"dia": 24, "venta": 315132.49, "docs": 93}, {"dia": 25, "venta": 417290.92, "docs": 98}, {"dia": 26, "venta": 498074.49, "docs": 126}, {"dia": 27, "venta": 626645.04, "docs": 108}, {"dia": 28, "venta": 593547.2, "docs": 99}, {"dia": 29, "venta": 464572.83, "docs": 95}, {"dia": 30, "venta": 389110.48, "docs": 109}, {"dia": 31, "venta": 243000.86, "docs": 54}], "by_quincena": [{"quincena": "1ra quincena", "venta": 9868119.56, "docs": 1758}, {"quincena": "2da quincena", "venta": 8681374.01, "docs": 1748}], "by_dow_canal": {"VE": [{"dow": 0, "dia": "Lunes", "venta": 2999529.58}, {"dow": 1, "dia": "Martes", "venta": 1753652.3}, {"dow": 2, "dia": "Miércoles", "venta": 1828312.68}, {"dow": 3, "dia": "Jueves", "venta": 2537518.14}, {"dow": 4, "dia": "Viernes", "venta": 4503551.8}, {"dow": 5, "dia": "Sábado", "venta": 264854.74}], "PV": [{"dow": 0, "dia": "Lunes", "venta": 618179.7}, {"dow": 1, "dia": "Martes", "venta": 635779.29}, {"dow": 2, "dia": "Miércoles", "venta": 991213.31}, {"dow": 3, "dia": "Jueves", "venta": 744363.66}, {"dow": 4, "dia": "Viernes", "venta": 1250186.31}, {"dow": 5, "dia": "Sábado", "venta": 422352.06}]}};
+const dowC=['#4C72B0','#DD8452','#55A868','#C44E52','#8172B3','#937860','#DA8BC3'];
+new Chart(document.getElementById('ch1'),{type:'bar',data:{labels:D.by_dow.map(d=>d.dia),datasets:[{label:'Venta Promedio/Día',data:D.by_dow.map(d=>d.venta_prom),backgroundColor:dowC.map(c=>c+'CC'),borderColor:dowC,borderWidth:1,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>fmt$(ctx.parsed.y)+' promedio por día'}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>fmtS(v)}},x:{grid:{display:false}}}}});
+const veD=D.by_dow_canal.VE||[];const pvD=D.by_dow_canal.PV||[];
+const allDays=D.by_dow.map(d=>d.dia);
+new Chart(document.getElementById('ch2'),{type:'bar',data:{labels:allDays,datasets:[{label:'VE',data:allDays.map((_,i)=>{const m=veD.find(d=>d.dow===i);return m?m.venta:0;}),backgroundColor:'#4C72B0CC',borderRadius:4},{label:'PV',data:allDays.map((_,i)=>{const m=pvD.find(d=>d.dow===i);return m?m.venta:0;}),backgroundColor:'#DD8452CC',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{usePointStyle:true}},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+fmt$(ctx.parsed.y)}}},scales:{y:{beginAtZero:true,stacked:true,ticks:{callback:v=>fmtS(v)}},x:{stacked:true,grid:{display:false}}}}});
+new Chart(document.getElementById('ch3'),{type:'bar',data:{labels:D.by_dom.map(d=>d.dia),datasets:[{label:'Venta',data:D.by_dom.map(d=>d.venta),backgroundColor:'#8172B3CC',borderRadius:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'Día '+D.by_dom[ctx.dataIndex].dia+': '+fmt$(ctx.parsed.y)}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>fmtS(v)}},x:{grid:{display:false},title:{display:true,text:'Día del mes'}}}}});
+const qd=D.by_quincena;
+new Chart(document.getElementById('ch4'),{type:'doughnut',data:{labels:qd.map(q=>q.quincena),datasets:[{data:qd.map(q=>q.venta),backgroundColor:['#4C72B0CC','#DD8452CC'],borderColor:'#fff',borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,cutout:'50%',plugins:{legend:{position:'right'},tooltip:{callbacks:{label:ctx=>ctx.label+': '+fmt$(ctx.parsed)}}}}});
+new Chart(document.getElementById('ch5'),{type:'bar',data:{labels:D.by_dow.map(d=>d.dia),datasets:[{label:'Documentos',data:D.by_dow.map(d=>d.docs),backgroundColor:dowC.map(c=>c+'66'),borderColor:dowC,borderWidth:1,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true},x:{grid:{display:false}}}}});
+let h='';D.by_dow.forEach(d=>{h+=`<tr><td>${d.dia}</td><td class="tr">${fmt$(d.venta)}</td><td class="tr">${fmt$(d.venta_prom)}</td><td class="tr">${d.docs}</td></tr>`;});
+document.getElementById('tbl1').innerHTML=h;
+</script></body></html>

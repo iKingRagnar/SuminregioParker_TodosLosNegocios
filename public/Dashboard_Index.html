@@ -1,0 +1,130 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Dashboards — Suminregio Industrial</title>
+<style>
+:root { --bg:#f0f2f5; --card:#fff; --text:#212529; --muted:#6c757d; --rad:12px; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); line-height:1.5; }
+.page { max-width:1000px; margin:0 auto; padding:30px 16px; }
+.hero { text-align:center; margin-bottom:28px; }
+.hero h1 { font-size:28px; font-weight:700; }
+.hero p { font-size:14px; color:var(--muted); margin-top:6px; }
+.section-title { font-size:13px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin:24px 0 12px; padding-left:4px; }
+.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; }
+.card { background:var(--card); border-radius:var(--rad); padding:20px; text-decoration:none; color:var(--text); box-shadow:0 1px 4px rgba(0,0,0,.06); transition:all .2s; display:block; border-left:4px solid transparent; }
+.card:hover { transform:translateY(-3px); box-shadow:0 6px 20px rgba(0,0,0,.1); }
+.card h2 { font-size:15px; font-weight:600; margin-bottom:4px; }
+.card p { font-size:11px; color:var(--muted); }
+.card .metric { font-size:20px; font-weight:700; margin:6px 0; }
+.c1 { border-color:#4C72B0; } .c1 .metric { color:#4C72B0; }
+.c2 { border-color:#DD8452; } .c2 .metric { color:#DD8452; }
+.c3 { border-color:#C44E52; } .c3 .metric { color:#C44E52; }
+.c4 { border-color:#55A868; } .c4 .metric { color:#55A868; }
+.c5 { border-color:#8172B3; } .c5 .metric { color:#8172B3; }
+.c6 { border-color:#937860; } .c6 .metric { color:#937860; }
+.c7 { border-color:#64B5CD; } .c7 .metric { color:#64B5CD; }
+.c8 { border-color:#2a9d8f; } .c8 .metric { color:#2a9d8f; }
+.c9 { border-color:#e76f51; } .c9 .metric { color:#e76f51; }
+.c10 { border-color:#6a4c93; } .c10 .metric { color:#6a4c93; }
+.c11 { border-color:#b5838d; } .c11 .metric { color:#b5838d; }
+.c12 { border-color:#457b9d; } .c12 .metric { color:#457b9d; }
+.c13 { border-color:#9b5de5; } .c13 .metric { color:#9b5de5; }
+.c14 { border-color:#0077b6; } .c14 .metric { color:#0077b6; }
+.c15 { border-color:#d62828; } .c15 .metric { color:#d62828; }
+.c16 { border-color:#606c38; } .c16 .metric { color:#606c38; }
+.footer { text-align:center; padding:24px; font-size:11px; color:var(--muted); }
+</style></head><body>
+<div class="page">
+<div class="hero"><h1>Suminregio Industrial</h1><p>Centro de Análisis — 16 Dashboards — Datos MicroSIP ERP (Almacén General)</p></div>
+
+<div class="section-title">Ventas y Comercial</div>
+<div class="grid">
+<a href="Dashboard_Ventas.html" class="card c1"><h2>Ventas</h2><div class="metric" id="kpi-ventas">$18.5M</div><p>Tendencias, vendedores, clientes, artículos. Filtros por periodo, mes, semana y canal.</p></a>
+<a href="Dashboard_Comisiones.html" class="card c7"><h2>Comisiones</h2><div class="metric" id="kpi-comisiones">$305K</div><p>8% de utilidad sobre cobros reales. Filtro por periodo, vendedor y fuente.</p></a>
+<a href="Dashboard_Scorecard.html" class="card c14"><h2>Scorecard Vendedores</h2><div class="metric" id="kpi-scorecard">8 vendedores</div><p>KPIs por vendedor: venta, margen, ticket, clientes nuevos/perdidos, conversión.</p></a>
+<a href="Dashboard_Estacionalidad.html" class="card c13"><h2>Estacionalidad</h2><div class="metric" id="kpi-estacionalidad">Patrones</div><p>Venta por día de semana, día del mes y quincena. VE vs PV.</p></a>
+</div>
+
+<div class="section-title">Clientes</div>
+<div class="grid">
+<a href="Dashboard_Clientes.html" class="card c6"><h2>Dormidos y Concentración</h2><div class="metric" id="kpi-clientes">214 inactivos</div><p>Clientes perdidos, en riesgo. Top 10 = 77.5% venta. Curva Pareto.</p></a>
+<a href="Dashboard_Alertas.html" class="card c15"><h2>Alertas Clientes en Riesgo</h2><div class="metric" id="kpi-alertas">94 en alerta</div><p>Detección por frecuencia de compra. $2.7M en riesgo. Score 0-100.</p></a>
+<a href="Dashboard_Rentabilidad.html" class="card c10"><h2>Rentabilidad por Cliente</h2><div class="metric" id="kpi-rentabilidad">29.2% margen</div><p>Margen ajustado por costo de capital (DSO). Clientes menos rentables.</p></a>
+<a href="Dashboard_DSO.html" class="card c9"><h2>Eficiencia de Cobranza</h2><div class="metric" id="kpi-dso">39 días DSO</div><p>Días de cobro por cliente. Peores pagadores. Tendencia mensual.</p></a>
+</div>
+
+<div class="section-title">Finanzas</div>
+<div class="grid">
+<a href="Dashboard_CC.html" class="card c2"><h2>Cartera por Cobrar</h2><div class="metric" id="kpi-cc">$2.2M</div><p>Antigüedad de cartera. Top deudores. Documentos pendientes.</p></a>
+<a href="Dashboard_CP.html" class="card c3"><h2>Cuentas por Pagar</h2><div class="metric" id="kpi-cp">$19.1M</div><p>Saldos reales (cargo - pagos). Vencido vs vigente por proveedor.</p></a>
+<a href="Dashboard_Flujo.html" class="card c12"><h2>Flujo de Efectivo</h2><div class="metric" id="kpi-flujo">$16.3M dep</div><p>Depósitos vs retiros. Saldos bancarios mensuales.</p></a>
+</div>
+
+<div class="section-title">Inventario y Compras</div>
+<div class="grid">
+<a href="Dashboard_ABC.html" class="card c4"><h2>ABC Inventario</h2><div class="metric" id="kpi-abc">2,639 arts</div><p>Clasificación Pareto: A, B, C por venta. Filtrado Almacén General.</p></a>
+<a href="Dashboard_Rotacion.html" class="card c8"><h2>Rotación de Inventario</h2><div class="metric" id="kpi-rotacion">$16.0M stock</div><p>Resumen: días de inventario, artículos lentos vs rápidos, capital inmovilizado.</p></a>
+<a href="Dashboard_Rotacion_Profundo.html" class="card c16"><h2>Rotación Profundo</h2><div class="metric" id="kpi-rotprof">3,377 arts</div><p>Análisis detallado: 42 líneas, 6 KPIs, búsqueda por artículo, paginación completa.</p></a>
+<a href="Dashboard_Compras.html" class="card c5"><h2>Compras</h2><div class="metric" id="kpi-compras">$55.8K</div><p>Módulo CM. Top proveedores y artículos. Tendencia mensual.</p></a>
+</div>
+
+<div class="footer">Última actualización: 11 Mar 2026 — Datos MicroSIP ERP — Suminregio Industrial</div>
+</div>
+
+<script>
+async function updateKPIs() {
+  const fmt = n => {
+    if (Math.abs(n) >= 1e6) return '$' + (n / 1e6).toFixed(1) + 'M';
+    if (Math.abs(n) >= 1e3) return '$' + (n / 1e3).toFixed(0) + 'K';
+    return '$' + n.toFixed(0);
+  };
+
+  const tasks = [
+    { id: 'kpi-ventas', file: 'Dashboard_Ventas.html', regex: /"total_venta":\s*([\d.]+)/, fmt: fmt },
+    { id: 'kpi-cc', file: 'Dashboard_CC.html', regex: /"cartera_total":\s*([\d.]+)|"total_saldo":\s*([\d.]+)/, fmt: fmt, fallback: '$2.2M' },
+    { id: 'kpi-cp', file: 'Dashboard_CP.html', regex: /"total_saldo":\s*([\d.]+)/, fmt: fmt, fallback: '$19.1M' },
+    { id: 'kpi-abc', file: 'Dashboard_ABC.html', regex: /"total_articulos_vendidos":\s*(\d+)/, fmt: n => n.toLocaleString('es-MX') + ' arts' },
+    { id: 'kpi-rotacion', file: 'Dashboard_Rotacion.html', regex: /"total_stock_valor":\s*([\d.]+)/, fmt: fmt },
+    { id: 'kpi-rotprof', file: 'Dashboard_Rotacion_Profundo.html', regex: /"total_articulos":\s*(\d+)/, fmt: n => n.toLocaleString('es-MX') + ' arts', fallback: '3,377 arts' },
+    { id: 'kpi-comisiones', file: 'Dashboard_Comisiones.html', regex: /"total_comisiones":\s*([\d.]+)/, fmt: fmt },
+    { id: 'kpi-clientes', file: 'Dashboard_Clientes.html', regex: /"total_clientes":\s*(\d+)/, fmt: n => (n - 136).toLocaleString('es-MX') + ' inactivos', fallback: '189 inactivos' },
+    { id: 'kpi-alertas', file: 'Dashboard_Alertas.html', regex: /"total_en_riesgo":\s*(\d+)/, fmt: n => n.toLocaleString('es-MX') + ' en alerta' },
+    { id: 'kpi-scorecard', file: 'Dashboard_Scorecard.html', regex: /"scorecards"/, fallback: '8 vendedores' },
+    { id: 'kpi-compras', file: 'Dashboard_Compras.html', regex: /"total_compras":\s*([\d.]+)/, fmt: fmt },
+    { id: 'kpi-flujo', file: 'Dashboard_Flujo.html', regex: /"total_ingresos":\s*([\d.]+)/, fmt: n => fmt(n) + ' dep' },
+    { id: 'kpi-dso', file: 'Dashboard_DSO.html', regex: /"dso_global":\s*([\d.]+)/, fmt: n => Math.round(n) + ' días DSO' },
+    { id: 'kpi-rentabilidad', file: 'Dashboard_Rentabilidad.html', regex: /"margen_global":\s*([\d.]+)/, fmt: n => n.toFixed(1) + '% margen' },
+    { id: 'kpi-estacionalidad', file: 'Dashboard_Estacionalidad.html', fallback: 'Patrones' }
+  ];
+
+  for (const t of tasks) {
+    try {
+      const resp = await fetch(t.file);
+      if (!resp.ok) throw new Error('File not found');
+      const text = await resp.text();
+      const match = text.match(t.regex);
+      if (match) {
+        const val = parseFloat(match[1] || match[2]) || parseInt(match[1] || match[2]);
+        const el = document.getElementById(t.id);
+        if (el && !isNaN(val)) {
+          el.textContent = t.fmt ? t.fmt(val) : match[0];
+        }
+      } else if (t.fallback) {
+        const el = document.getElementById(t.id);
+        if (el) el.textContent = t.fallback;
+      }
+    } catch(e) {
+      if (t.fallback) {
+        const el = document.getElementById(t.id);
+        if (el) el.textContent = t.fallback;
+      }
+    }
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', updateKPIs);
+} else {
+  updateKPIs();
+}
+</script>
+</body></html>

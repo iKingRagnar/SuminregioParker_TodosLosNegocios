@@ -2960,16 +2960,35 @@ async function resultadosPnlCore(req, dbOpts) {
   const ey = parseInt(String(hastaStr).slice(0, 4), 10);
   const em = parseInt(String(hastaStr).slice(5, 7), 10);
 
-  const [ventasMes, costosINMes, costosINDirect, cobrosMes, costosSaldos5101, gastosSaldos52] = await Promise.all([
+  const [ventasMes, descuentosMes, costosINMes, costosINDirect, cobrosMes, costosSaldos5101, gastosSaldos52] = await Promise.all([
     q(`
       SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
-        COALESCE(SUM(d.IMPORTE_NETO), 0) AS VENTAS_NETAS,
+        COALESCE(SUM(d.IMPORTE_NETO), 0) AS VENTAS_BRUTAS,
         COALESCE(SUM(CASE WHEN d.TIPO_SRC = 'VE' THEN d.IMPORTE_NETO ELSE 0 END), 0) AS VENTAS_VE,
         COALESCE(SUM(CASE WHEN d.TIPO_SRC = 'PV' THEN d.IMPORTE_NETO ELSE 0 END), 0) AS VENTAS_PV,
         COUNT(*) AS NUM_FACTURAS
       FROM ${ventasSub()} d
       WHERE ${dateCond}
       GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
+    `, dateParams).catch(() => []),
+    q(`
+      SELECT EXTRACT(YEAR FROM x.FECHA) AS ANIO, EXTRACT(MONTH FROM x.FECHA) AS MES,
+        COALESCE(SUM(x.IMPORTE), 0) AS DESCUENTOS_DEV
+      FROM (
+        SELECT d.FECHA, ${sqlVentaImporteBaseExpr('d')} AS IMPORTE
+        FROM DOCTOS_VE d
+        WHERE d.TIPO_DOCTO IN ('D', 'R')
+          AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
+          AND COALESCE(d.APLICADO, 'N') = 'S'
+        UNION ALL
+        SELECT d.FECHA, ${sqlVentaImporteBaseExpr('d')} AS IMPORTE
+        FROM DOCTOS_PV d
+        WHERE d.TIPO_DOCTO IN ('D', 'R')
+          AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
+          AND COALESCE(d.APLICADO, 'N') = 'S'
+      ) x
+      WHERE CAST(x.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(x.FECHA AS DATE) <= CAST(? AS DATE)
+      GROUP BY EXTRACT(YEAR FROM x.FECHA), EXTRACT(MONTH FROM x.FECHA) ORDER BY 1, 2
     `, dateParams).catch(() => []),
     q(`
       SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
@@ -3028,11 +3047,21 @@ async function resultadosPnlCore(req, dbOpts) {
           WHEN cu.CUENTA_PT STARTING WITH '53'
            AND NOT (cu.CUENTA_PT STARTING WITH '5301' OR cu.CUENTA_PT STARTING WITH '5302'
              OR cu.CUENTA_PT STARTING WITH '5303' OR cu.CUENTA_PT STARTING WITH '5304')
-          THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_B5
+          THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_B5,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5401' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_C1,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5402' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_C2,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5403' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_C3,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5404' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_C4,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5405' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_C5,
+        SUM(CASE
+          WHEN cu.CUENTA_PT STARTING WITH '54'
+           AND NOT (cu.CUENTA_PT STARTING WITH '5401' OR cu.CUENTA_PT STARTING WITH '5402'
+             OR cu.CUENTA_PT STARTING WITH '5403' OR cu.CUENTA_PT STARTING WITH '5404' OR cu.CUENTA_PT STARTING WITH '5405')
+          THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_C6
       FROM SALDOS_CO s
       JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
       WHERE (cu.TIPO = 'R' OR cu.TIPO IS NULL)
-        AND (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53')
+        AND (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53' OR cu.CUENTA_PT STARTING WITH '54')
         AND s.ANO >= ? AND s.ANO <= ?
         AND NOT (s.ANO = ? AND s.MES < ?)
         AND NOT (s.ANO = ? AND s.MES > ?)
@@ -3056,13 +3085,17 @@ async function resultadosPnlCore(req, dbOpts) {
   applyCostRows(costosINMes);
   applyCostRows(costosINDirect);
   applyCostRows(costosSaldos5101);
+  const descMap = {};
+  (descuentosMes || []).forEach(r => { descMap[key(r.ANIO, r.MES)] = +r.DESCUENTOS_DEV || 0; });
   const cobMap = {}; (cobrosMes || []).forEach(r => { cobMap[key(r.ANIO, r.MES)] = +r.COBROS || 0; });
   const gasMap = {};
   (gastosSaldos52 || []).forEach(r => { gasMap[key(r.ANIO, r.MES)] = r; });
   const gasAbs = (g, k) => Math.abs(+g[k] || 0);
 
   const meses = (ventasMes || []).map(r => {
-    const ventas = +r.VENTAS_NETAS || 0;
+    const ventasBrutas = +r.VENTAS_BRUTAS || 0;
+    const descuentosDev = descMap[key(r.ANIO, r.MES)] || 0;
+    const ventas = ventasBrutas - descuentosDev;
     const costo = costMap[key(r.ANIO, r.MES)] || 0;
     const cobros = cobMap[key(r.ANIO, r.MES)] || 0;
     const util = ventas - costo;
@@ -3071,6 +3104,8 @@ async function resultadosPnlCore(req, dbOpts) {
     return {
       ANIO: r.ANIO,
       MES: r.MES,
+      VENTAS_BRUTAS: ventasBrutas,
+      DESCUENTOS_DEV: descuentosDev,
       VENTAS_NETAS: ventas,
       VENTAS_VE: +r.VENTAS_VE || 0,
       VENTAS_PV: +r.VENTAS_PV || 0,
@@ -3090,10 +3125,18 @@ async function resultadosPnlCore(req, dbOpts) {
       CO_B3: gasAbs(g, 'CO_B3'),
       CO_B4: gasAbs(g, 'CO_B4'),
       CO_B5: gasAbs(g, 'CO_B5'),
+      CO_C1: gasAbs(g, 'CO_C1'),
+      CO_C2: gasAbs(g, 'CO_C2'),
+      CO_C3: gasAbs(g, 'CO_C3'),
+      CO_C4: gasAbs(g, 'CO_C4'),
+      CO_C5: gasAbs(g, 'CO_C5'),
+      CO_C6: gasAbs(g, 'CO_C6'),
     };
   });
 
   const totales = meses.reduce((acc, m) => {
+    acc.VENTAS_BRUTAS += m.VENTAS_BRUTAS || 0;
+    acc.DESCUENTOS_DEV += m.DESCUENTOS_DEV || 0;
     acc.VENTAS_NETAS += m.VENTAS_NETAS;
     acc.VENTAS_VE += m.VENTAS_VE;
     acc.VENTAS_PV += m.VENTAS_PV;
@@ -3112,16 +3155,22 @@ async function resultadosPnlCore(req, dbOpts) {
     acc.CO_B3 += m.CO_B3 || 0;
     acc.CO_B4 += m.CO_B4 || 0;
     acc.CO_B5 += m.CO_B5 || 0;
+    acc.CO_C1 += m.CO_C1 || 0;
+    acc.CO_C2 += m.CO_C2 || 0;
+    acc.CO_C3 += m.CO_C3 || 0;
+    acc.CO_C4 += m.CO_C4 || 0;
+    acc.CO_C5 += m.CO_C5 || 0;
+    acc.CO_C6 += m.CO_C6 || 0;
     return acc;
   }, {
-    VENTAS_NETAS: 0, VENTAS_VE: 0, VENTAS_PV: 0, COSTO_VENTAS: 0, UTILIDAD_BRUTA: 0, COBROS: 0, NUM_FACTURAS: 0,
-    CO_A1: 0, CO_A2: 0, CO_A3: 0, CO_A4: 0, CO_A5: 0, CO_A6: 0, CO_B1: 0, CO_B2: 0, CO_B3: 0, CO_B4: 0, CO_B5: 0,
+    VENTAS_BRUTAS: 0, DESCUENTOS_DEV: 0, VENTAS_NETAS: 0, VENTAS_VE: 0, VENTAS_PV: 0, COSTO_VENTAS: 0, UTILIDAD_BRUTA: 0, COBROS: 0, NUM_FACTURAS: 0,
+    CO_A1: 0, CO_A2: 0, CO_A3: 0, CO_A4: 0, CO_A5: 0, CO_A6: 0, CO_B1: 0, CO_B2: 0, CO_B3: 0, CO_B4: 0, CO_B5: 0, CO_C1: 0, CO_C2: 0, CO_C3: 0, CO_C4: 0, CO_C5: 0, CO_C6: 0,
   });
   totales.MARGEN_BRUTO_PCT = totales.VENTAS_NETAS > 0
     ? Math.round((totales.UTILIDAD_BRUTA / totales.VENTAS_NETAS) * 1000) / 10 : 0;
 
   const tiene_costo = totales.COSTO_VENTAS > 0;
-  const sumGastoCo = ['CO_A1', 'CO_A2', 'CO_A3', 'CO_A4', 'CO_A5', 'CO_A6', 'CO_B1', 'CO_B2', 'CO_B3', 'CO_B4', 'CO_B5']
+  const sumGastoCo = ['CO_A1', 'CO_A2', 'CO_A3', 'CO_A4', 'CO_A5', 'CO_A6', 'CO_B1', 'CO_B2', 'CO_B3', 'CO_B4', 'CO_B5', 'CO_C1', 'CO_C2', 'CO_C3', 'CO_C4', 'CO_C5', 'CO_C6']
     .reduce((s, k) => s + (+totales[k] || 0), 0);
   const tiene_gastos_co = sumGastoCo > 0.01;
   let prefijos_rows = [];
@@ -3131,7 +3180,7 @@ async function resultadosPnlCore(req, dbOpts) {
         TRIM(COALESCE(cu.CUENTA_PT, '')) AS CUENTA_PT,
         TRIM(COALESCE(cu.NOMBRE, '')) AS ETIQUETA
       FROM CUENTAS_CO cu
-      WHERE (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53')
+      WHERE (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53' OR cu.CUENTA_PT STARTING WITH '54')
       ORDER BY cu.CUENTA_PT
     `, [], 10000);
   } catch (_) {
@@ -3141,7 +3190,7 @@ async function resultadosPnlCore(req, dbOpts) {
           TRIM(COALESCE(cu.CUENTA_PT, '')) AS CUENTA_PT,
           TRIM(COALESCE(cu.CUENTA_JT, '')) AS ETIQUETA
         FROM CUENTAS_CO cu
-        WHERE (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53')
+        WHERE (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53' OR cu.CUENTA_PT STARTING WITH '54')
         ORDER BY cu.CUENTA_PT
       `, [], 10000);
     } catch (__) {
@@ -3165,13 +3214,19 @@ async function resultadosPnlCore(req, dbOpts) {
           WHEN cu.CUENTA_PT STARTING WITH '5303' THEN 'CO_B3'
           WHEN cu.CUENTA_PT STARTING WITH '5304' THEN 'CO_B4'
           WHEN cu.CUENTA_PT STARTING WITH '53' THEN 'CO_B5'
+          WHEN cu.CUENTA_PT STARTING WITH '5401' THEN 'CO_C1'
+          WHEN cu.CUENTA_PT STARTING WITH '5402' THEN 'CO_C2'
+          WHEN cu.CUENTA_PT STARTING WITH '5403' THEN 'CO_C3'
+          WHEN cu.CUENTA_PT STARTING WITH '5404' THEN 'CO_C4'
+          WHEN cu.CUENTA_PT STARTING WITH '5405' THEN 'CO_C5'
+          WHEN cu.CUENTA_PT STARTING WITH '54' THEN 'CO_C6'
           ELSE NULL
         END AS BUCKET,
         TRIM(COALESCE(NULLIF(cu.NOMBRE, ''), NULLIF(cu.CUENTA_JT, ''), cu.CUENTA_PT)) AS ETIQUETA,
         SUM(ABS(COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0))) AS IMP
       FROM SALDOS_CO s
       JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
-      WHERE (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53')
+      WHERE (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53' OR cu.CUENTA_PT STARTING WITH '54')
         AND s.ANO >= ? AND s.ANO <= ?
         AND NOT (s.ANO = ? AND s.MES < ?)
         AND NOT (s.ANO = ? AND s.MES > ?)
@@ -3210,6 +3265,12 @@ async function resultadosPnlCore(req, dbOpts) {
   if (!prefijos_labels.CO_B3) prefijos_labels.CO_B3 = pickPref('5303');
   if (!prefijos_labels.CO_B4) prefijos_labels.CO_B4 = pickPref('5304');
   if (!prefijos_labels.CO_B5) prefijos_labels.CO_B5 = pickPref('53', ['5301', '5302', '5303', '5304']);
+  if (!prefijos_labels.CO_C1) prefijos_labels.CO_C1 = pickPref('5401');
+  if (!prefijos_labels.CO_C2) prefijos_labels.CO_C2 = pickPref('5402');
+  if (!prefijos_labels.CO_C3) prefijos_labels.CO_C3 = pickPref('5403');
+  if (!prefijos_labels.CO_C4) prefijos_labels.CO_C4 = pickPref('5404');
+  if (!prefijos_labels.CO_C5) prefijos_labels.CO_C5 = pickPref('5405');
+  if (!prefijos_labels.CO_C6) prefijos_labels.CO_C6 = pickPref('54', ['5401', '5402', '5403', '5404', '5405']);
 
   return { meses, totales, tiene_costo, tiene_gastos_co, prefijos_labels };
 }
@@ -3241,6 +3302,8 @@ get('/api/resultados/pnl-universe', async (req) => {
         id: entry.id,
         label: entry.label,
         totales: {
+          VENTAS_BRUTAS: +t.VENTAS_BRUTAS || 0,
+          DESCUENTOS_DEV: +t.DESCUENTOS_DEV || 0,
           VENTAS_NETAS: +t.VENTAS_NETAS || 0,
           COSTO_VENTAS: +t.COSTO_VENTAS || 0,
           UTILIDAD_BRUTA: +t.UTILIDAD_BRUTA || 0,
@@ -3261,6 +3324,8 @@ get('/api/resultados/pnl-universe', async (req) => {
   const ok = rows.filter(r => r.ok);
   const cons = ok.reduce((a, r) => {
     const t = r.totales || {};
+    a.VENTAS_BRUTAS += +t.VENTAS_BRUTAS || 0;
+    a.DESCUENTOS_DEV += +t.DESCUENTOS_DEV || 0;
     a.VENTAS_NETAS += +t.VENTAS_NETAS || 0;
     a.COSTO_VENTAS += +t.COSTO_VENTAS || 0;
     a.UTILIDAD_BRUTA += +t.UTILIDAD_BRUTA || 0;
@@ -3269,7 +3334,7 @@ get('/api/resultados/pnl-universe', async (req) => {
     a.VENTAS_VE += +t.VENTAS_VE || 0;
     a.VENTAS_PV += +t.VENTAS_PV || 0;
     return a;
-  }, { VENTAS_NETAS: 0, COSTO_VENTAS: 0, UTILIDAD_BRUTA: 0, COBROS: 0, NUM_FACTURAS: 0, VENTAS_VE: 0, VENTAS_PV: 0 });
+  }, { VENTAS_BRUTAS: 0, DESCUENTOS_DEV: 0, VENTAS_NETAS: 0, COSTO_VENTAS: 0, UTILIDAD_BRUTA: 0, COBROS: 0, NUM_FACTURAS: 0, VENTAS_VE: 0, VENTAS_PV: 0 });
   cons.MARGEN_BRUTO_PCT = cons.VENTAS_NETAS > 0
     ? Math.round((cons.UTILIDAD_BRUTA / cons.VENTAS_NETAS) * 1000) / 10 : 0;
   cons.tiene_costo = cons.COSTO_VENTAS > 0;
@@ -4214,6 +4279,11 @@ function aiSvgEscape(v) {
     .replace(/'/g, '&#39;');
 }
 
+function aiFmtMoneyMx(v, min = 2, max = 2) {
+  const n = Number(v || 0);
+  return n.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', minimumFractionDigits: min, maximumFractionDigits: max });
+}
+
 function aiSvgDataUrl(svg) {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
@@ -4229,6 +4299,8 @@ function aiBuildScenarioSvg(payload) {
   const chartX = 70; const chartY = 245; const chartW = 1060; const chartH = 245;
   const vals = [...hist.map(Number), ...pred.map(Number)].filter(n => Number.isFinite(n));
   const maxV = Math.max(1, ...vals);
+  const maxVLabel = aiSvgEscape(aiFmtMoneyMx(maxV));
+  const minVLabel = aiSvgEscape(aiFmtMoneyMx(0));
   const toX = (i, n) => chartX + (n <= 1 ? 0 : (i * chartW / (n - 1)));
   const toY = (v) => chartY + chartH - ((Number(v || 0) / maxV) * chartH);
   const histPts = hist.map((v, i) => `${toX(i, hist.length)},${toY(v)}`).join(' ');
@@ -4238,7 +4310,7 @@ function aiBuildScenarioSvg(payload) {
     return `
       <rect x="${x}" y="90" width="265" height="120" rx="14" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.14)"/>
       <text x="${x + 16}" y="124" fill="#93B4CC" font-family="Inter,Arial" font-size="16">${aiSvgEscape(k.label || '')}</text>
-      <text x="${x + 16}" y="170" fill="#EDF4FF" font-family="Inter,Arial" font-size="34" font-weight="700">${aiSvgEscape(k.value || '')}</text>
+      <text x="${x + 16}" y="168" fill="#EDF4FF" font-family="Inter,Arial" font-size="30" font-weight="700">${aiSvgEscape(k.value || '')}</text>
     `;
   }).join('\n');
   const tableRows = rows.map((r, i) => `
@@ -4259,6 +4331,8 @@ function aiBuildScenarioSvg(payload) {
   ${cards}
   <text x="45" y="232" fill="#FFB800" font-family="Inter,Arial" font-size="18" font-weight="700">Tendencia histórica + pronóstico</text>
   <rect x="${chartX}" y="${chartY}" width="${chartW}" height="${chartH}" rx="12" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.12)"/>
+  <text x="${chartX + 10}" y="${chartY + 22}" fill="#93B4CC" font-family="Inter,Arial" font-size="12">${maxVLabel}</text>
+  <text x="${chartX + 10}" y="${chartY + chartH - 8}" fill="#93B4CC" font-family="Inter,Arial" font-size="12">${minVLabel}</text>
   <polyline fill="none" stroke="#4DA6FF" stroke-width="3" points="${histPts}"/>
   <polyline fill="none" stroke="#FFB800" stroke-width="3" stroke-dasharray="8 6" points="${predPts}"/>
   <line x1="${toX(Math.max(0, hist.length - 1), Math.max(1, hist.length - 1 + pred.length))}" y1="${chartY}" x2="${toX(Math.max(0, hist.length - 1), Math.max(1, hist.length - 1 + pred.length))}" y2="${chartY + chartH}" stroke="rgba(255,255,255,0.25)" stroke-dasharray="4 4"/>
@@ -4584,21 +4658,21 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
       `, fCobro.params, 12000, dbOpts).catch(() => [{ TOTAL_COBRADO: 0 }]);
 
       const rows = [
-        { name: 'Ventas netas periodo', value: `$${Number(tot.VENTAS_NETAS || 0).toFixed(2)}` },
-        { name: 'Costo de ventas', value: `$${Number(tot.COSTO_VENTAS || 0).toFixed(2)}` },
-        { name: 'Utilidad operativa', value: `$${Number(tot.UTILIDAD_OPERATIVA || 0).toFixed(2)}` },
-        { name: 'Cartera CxC', value: `$${Number((cxcT && cxcT.T) || 0).toFixed(2)}` },
-        { name: 'Cobros del periodo', value: `$${Number((cb && cb.TOTAL_COBRADO) || 0).toFixed(2)}` },
-        { name: 'Pronóstico 3m', value: `$${pred.reduce((a, b) => a + Number(b || 0), 0).toFixed(2)}` },
+        { name: 'Ventas netas periodo', value: aiFmtMoneyMx(tot.VENTAS_NETAS || 0) },
+        { name: 'Costo de ventas', value: aiFmtMoneyMx(tot.COSTO_VENTAS || 0) },
+        { name: 'Utilidad operativa', value: aiFmtMoneyMx(tot.UTILIDAD_OPERATIVA || 0) },
+        { name: 'Cartera CxC', value: aiFmtMoneyMx((cxcT && cxcT.T) || 0) },
+        { name: 'Cobros del periodo', value: aiFmtMoneyMx((cb && cb.TOTAL_COBRADO) || 0) },
+        { name: 'Pronóstico 3m', value: aiFmtMoneyMx(pred.reduce((a, b) => a + Number(b || 0), 0)) },
       ];
       const svg = aiBuildScenarioSvg({
         title: 'Escenario AI generado desde tu pregunta',
         subtitle: `Base activa · histórico ${histLabels[0] || '-'} a ${histLabels[histLabels.length - 1] || '-'} · proyección ${predLabels[0]} a ${predLabels[2]}`,
         kpis: [
-          { label: 'Ventas netas', value: `$${Number(tot.VENTAS_NETAS || 0).toFixed(0)}` },
+          { label: 'Ventas netas', value: aiFmtMoneyMx(tot.VENTAS_NETAS || 0) },
           { label: 'Margen bruto %', value: `${Number(tot.MARGEN_BRUTO_PCT || 0).toFixed(1)}%` },
-          { label: 'CxC cartera', value: `$${Number((cxcT && cxcT.T) || 0).toFixed(0)}` },
-          { label: 'Pronóstico 3m', value: `$${pred.reduce((a, b) => a + Number(b || 0), 0).toFixed(0)}` },
+          { label: 'CxC cartera', value: aiFmtMoneyMx((cxcT && cxcT.T) || 0) },
+          { label: 'Pronóstico 3m', value: aiFmtMoneyMx(pred.reduce((a, b) => a + Number(b || 0), 0)) },
         ],
         hist: hist,
         pred: pred,

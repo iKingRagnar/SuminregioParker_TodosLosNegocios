@@ -1,0 +1,133 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Rentabilidad por Cliente — Suminregio</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+<style>
+:root { --bg:#f0f2f5; --card:#fff; --text:#212529; --muted:#6c757d; --light:#e9ecef;
+  --c1:#4C72B0; --c2:#DD8452; --c3:#55A868; --c4:#C44E52; --c5:#8172B3;
+  --c6:#937860; --c7:#DA8BC3; --c8:#CCB974; --c9:#64B5CD; --c10:#8C8C8C;
+  --pos:#28a745; --neg:#dc3545; --warn:#ffc107; --gap:14px; --rad:10px; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); line-height:1.5; }
+.dash { max-width:1400px; margin:0 auto; padding:var(--gap); }
+.hdr { background:linear-gradient(135deg,#1a1a2e,#2e1646); color:#fff; padding:20px 24px; border-radius:var(--rad); margin-bottom:var(--gap); position:relative; }
+.hdr h1 { font-size:20px; font-weight:700; }
+.hdr .sub { font-size:12px; opacity:.6; margin-top:2px; }
+.hdr .nav { margin-top:10px; display:flex; gap:6px; flex-wrap:wrap; }
+.hdr .nav a { color:rgba(255,255,255,.7); text-decoration:none; font-size:11px; padding:4px 10px; border-radius:12px; border:1px solid rgba(255,255,255,.2); transition:all .15s; }
+.hdr .nav a:hover,.hdr .nav a.active { background:rgba(255,255,255,.2); color:#fff; }
+.krow { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:var(--gap); margin-bottom:var(--gap); }
+.kpi { background:var(--card); border-radius:var(--rad); padding:16px 18px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+.kpi:hover { transform:translateY(-1px); box-shadow:0 3px 10px rgba(0,0,0,.08); transition:.15s; }
+.kpi-l { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; }
+.kpi-v { font-size:22px; font-weight:700; margin-top:2px; }
+.kpi-s { font-size:11px; color:var(--muted); }
+.g2 { display:grid; grid-template-columns:repeat(2,1fr); gap:var(--gap); margin-bottom:var(--gap); }
+.cc { background:var(--card); border-radius:var(--rad); padding:16px 20px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+.cc.full { grid-column:1/-1; }
+.cc h3 { font-size:13px; font-weight:600; margin-bottom:10px; }
+.cc canvas { max-height:300px; }
+.tc { background:var(--card); border-radius:var(--rad); padding:16px 20px; box-shadow:0 1px 3px rgba(0,0,0,.06); margin-bottom:var(--gap); overflow-x:auto; }
+.tc h3 { font-size:13px; font-weight:600; margin-bottom:10px; }
+table { width:100%; border-collapse:collapse; font-size:12px; }
+thead th { text-align:left; padding:7px 8px; border-bottom:2px solid #dee2e6; color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; cursor:pointer; user-select:none; }
+thead th:hover { background:#e9ecef; }
+tbody td { padding:7px 8px; border-bottom:1px solid #f0f0f0; }
+tbody tr:hover { background:#f8f9fa; }
+.tr { text-align:right; }
+.pos { color:var(--pos); } .neg { color:var(--neg); } .warn { color:var(--warn); }
+.tip{position:relative;cursor:help;border-bottom:1px dotted var(--muted);}
+.tip:hover::after{content:attr(data-tip);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:6px 10px;border-radius:6px;font-size:11px;white-space:nowrap;z-index:999;pointer-events:none;}
+.tip:hover::before{content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#333;margin-bottom:-10px;z-index:999;}
+.footer { text-align:center; padding:12px; font-size:11px; color:var(--muted); }
+@media(max-width:900px) { .g2 { grid-template-columns:1fr; } .krow { grid-template-columns:repeat(2,1fr); } }
+@media print {
+  body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .hdr .nav { display:none; }
+  button { display:none !important; }
+  .dash, .page { max-width:100%; padding:0; }
+  .hdr { break-after:avoid; }
+  .cc, .tc, .ccard, .tcard, .kpi { break-inside:avoid; }
+  canvas { max-height:280px !important; }
+}
+</style></head><body>
+<div class="dash">
+<div class="hdr"><button onclick="window.print()" style="position:absolute;right:24px;top:20px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);padding:6px 16px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500;">Exportar PDF</button><h1>Rentabilidad Real por Cliente</h1><div class="sub">Suminregio Industrial — Margen bruto ajustado por costo de capital (12% anual sobre DSO)</div><div class="nav">
+<a href="Dashboard_Index.html">Inicio</a>
+<a href="Dashboard_Ventas.html" >Ventas</a>
+<a href="Dashboard_CC.html" >Cartera CC</a>
+<a href="Dashboard_CP.html" >Cuentas x Pagar</a>
+<a href="Dashboard_ABC.html" >ABC Inventario</a>
+<a href="Dashboard_Compras.html" >Compras</a>
+<a href="Dashboard_Clientes.html" >Clientes</a>
+<a href="Dashboard_Comisiones.html" >Comisiones</a>
+<a href="Dashboard_Rotacion.html" >Rotación Resumen</a>
+<a href="Dashboard_Rotacion_Profundo.html" >Rotación Profundo</a>
+<a href="Dashboard_DSO.html" >Cobranza DSO</a>
+<a href="Dashboard_Rentabilidad.html" class="active">Rentabilidad</a>
+<a href="Dashboard_Flujo.html" >Flujo Efectivo</a>
+<a href="Dashboard_Estacionalidad.html" >Estacionalidad</a>
+<a href="Dashboard_Scorecard.html" >Scorecard</a>
+<a href="Dashboard_Alertas.html" >Alertas</a>
+</div></div>
+<section class="krow">
+<div class="kpi"><div class="kpi-l">Margen Bruto</div><div class="kpi-v">29.2%</div></div>
+<div class="kpi"><div class="kpi-l"><span class="tip" data-tip="Margen bruto menos el costo financiero de esperar el cobro">Margen Ajustado</span></div><div class="kpi-v">29.2%</div></div>
+<div class="kpi"><div class="kpi-l">Utilidad Bruta</div><div class="kpi-v">$5.4M</div></div>
+<div class="kpi"><div class="kpi-l">Costo de Capital</div><div class="kpi-v neg" id="kpi-cc">$0</div></div>
+</section>
+<section class="g2">
+<div class="cc"><h3>Top Clientes: Venta vs Margen</h3><canvas id="ch1"></canvas></div>
+<div class="cc"><h3>Rentabilidad por Tipo de Cliente</h3><canvas id="ch2"></canvas></div>
+</section>
+<div class="tc"><h3>Top 25 Clientes por Venta — Rentabilidad Detallada</h3>
+<table><thead><tr><th>#</th><th>Cliente</th><th>Tipo</th><th class="tr">Venta</th><th class="tr">Margen</th><th class="tr"><span class="tip" data-tip="Days Sales Outstanding: promedio de días que tarda un cliente en pagar">DSO</span></th><th class="tr">Costo Capital</th><th class="tr"><span class="tip" data-tip="Margen bruto menos el costo financiero de esperar el cobro">Margen Ajust</span></th></tr></thead><tbody id="tbl1"></tbody></table></div>
+<div class="tc"><h3>Clientes Menos Rentables (venta >$10K)</h3>
+<table><thead><tr><th>#</th><th>Cliente</th><th class="tr">Venta</th><th class="tr">Margen Bruto</th><th class="tr"><span class="tip" data-tip="Days Sales Outstanding: promedio de días que tarda un cliente en pagar">DSO</span></th><th class="tr">Margen Ajustado</th></tr></thead><tbody id="tbl2"></tbody></table></div>
+<div class="footer">Última actualización: 11 Mar 2026 — Datos MicroSIP ERP — Suminregio Industrial</div></div>
+<script>
+const C=['#4C72B0','#DD8452','#55A868','#C44E52','#8172B3','#937860','#DA8BC3','#CCB974','#64B5CD','#8C8C8C'];
+const MN=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+function fmt$(n){return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});}
+function fmtS(n){if(Math.abs(n)>=1e6)return '$'+(n/1e6).toFixed(1)+'M';if(Math.abs(n)>=1e3)return '$'+(n/1e3).toFixed(0)+'K';return '$'+n.toFixed(0);}
+function mesL(m){const[y,mo]=m.split('-');return MN[parseInt(mo)]+' '+y.slice(2);}
+
+// Sortable table helper
+function makeTableSortable(tableId, dataArray, renderFn, numericCols=[]) {
+  const table = document.getElementById(tableId);
+  if (!table) return;
+  const headers = table.querySelectorAll('thead th');
+  let sortCol = -1, sortAsc = true;
+  headers.forEach((th, i) => {
+    th.addEventListener('click', () => {
+      if (sortCol === i) sortAsc = !sortAsc;
+      else { sortCol = i; sortAsc = true; }
+      headers.forEach(h => h.textContent = h.textContent.replace(/ [▲▼]/g, ''));
+      th.textContent += sortAsc ? ' ▲' : ' ▼';
+
+      // Sort data
+      const sorted = [...dataArray].sort((a, b) => {
+        let aVal = Object.values(a)[i];
+        let bVal = Object.values(b)[i];
+        if (numericCols.includes(i)) {
+          aVal = parseFloat(String(aVal).replace(/[^\d.-]/g, '')) || 0;
+          bVal = parseFloat(String(bVal).replace(/[^\d.-]/g, '')) || 0;
+        } else {
+          aVal = String(aVal).toLowerCase();
+          bVal = String(bVal).toLowerCase();
+        }
+        return sortAsc ? (aVal < bVal ? -1 : 1) : (aVal > bVal ? -1 : 1);
+      });
+      renderFn(sorted);
+    });
+  });
+}
+
+const D={"total_venta": 18549493.57, "total_utilidad": 5408692.7, "margen_global": 29.2, "total_costo_capital": 0.0, "margen_ajustado_global": 29.2, "top_clientes": [{"cliente": "ELIGETUPROFESIONAL.COM", "tipo": "Sin tipo", "venta": 8205587.09, "costo": 6765968.32, "utilidad": 1439618.77, "margen": 17.5, "dso": 45.0, "costo_capital": 121397.73, "utilidad_ajust": 1318221.04, "margen_ajust": 16.1}, {"cliente": "FASTENAL MEXICO", "tipo": "Mostrador", "venta": 2148289.8, "costo": 1073795.03, "utilidad": 1074494.77, "margen": 50.0, "dso": 10.0, "costo_capital": 7062.87, "utilidad_ajust": 1067431.9, "margen_ajust": 49.7}, {"cliente": "Venta mostrador", "tipo": "Sin tipo", "venta": 1042029.66, "costo": 659375.79, "utilidad": 382653.87, "margen": 36.7, "dso": 0.0, "costo_capital": 0.0, "utilidad_ajust": 382653.87, "margen_ajust": 36.7}, {"cliente": "AMERIKA MFG", "tipo": "Mostrador", "venta": 673878.33, "costo": 347348.34, "utilidad": 326529.99, "margen": 48.5, "dso": 35.0, "costo_capital": 7754.22, "utilidad_ajust": 318775.77, "margen_ajust": 47.3}, {"cliente": "REPRESENTACIONES Y EQUIPOS INDUSTRIALES ", "tipo": "Industrial", "venta": 465394.53, "costo": 312750.05, "utilidad": 152644.48, "margen": 32.8, "dso": 44.0, "costo_capital": 6732.28, "utilidad_ajust": 145912.2, "margen_ajust": 31.4}, {"cliente": "CROWN FAMOSA", "tipo": "Industrial", "venta": 411746.65, "costo": 345228.32, "utilidad": 66518.33, "margen": 16.2, "dso": 46.0, "costo_capital": 6226.96, "utilidad_ajust": 60291.37, "margen_ajust": 14.6}, {"cliente": "FLEX-AUST DE MEXICO", "tipo": "Exclusivo", "venta": 410469.8, "costo": 344949.28, "utilidad": 65520.52, "margen": 16.0, "dso": 38.0, "costo_capital": 5128.06, "utilidad_ajust": 60392.46, "margen_ajust": 14.7}, {"cliente": "TRANSPORTADORA INTEGRAL DE CARGA", "tipo": "Mostrador", "venta": 403817.98, "costo": 207484.52, "utilidad": 196333.46, "margen": 48.6, "dso": 0.0, "costo_capital": 0.0, "utilidad_ajust": 196333.46, "margen_ajust": 48.6}, {"cliente": "FUD TRAILERS MARTINEZ", "tipo": "Mostrador", "venta": 343276.8, "costo": 294459.14, "utilidad": 48817.66, "margen": 14.2, "dso": 1.0, "costo_capital": 112.86, "utilidad_ajust": 48704.8, "margen_ajust": 14.2}, {"cliente": "HI-LEX CONTROLS DE MEXICO", "tipo": "Mostrador", "venta": 274130.05, "costo": 197974.01, "utilidad": 76156.04, "margen": 27.8, "dso": 72.0, "costo_capital": 6489.0, "utilidad_ajust": 69667.04, "margen_ajust": 25.4}, {"cliente": "EFICA INGENIERIA Y MAQUINADOS SA DE CV", "tipo": "Mostrador", "venta": 252132.0, "costo": 173872.89, "utilidad": 78259.11, "margen": 31.0, "dso": 2.0, "costo_capital": 165.79, "utilidad_ajust": 78093.32, "margen_ajust": 31.0}, {"cliente": "LORENA GUADALUPE LEAL MONTEMAYOR", "tipo": "Revendedor", "venta": 239020.1, "costo": 146176.87, "utilidad": 92843.23, "margen": 38.8, "dso": 21.0, "costo_capital": 1650.22, "utilidad_ajust": 91193.01, "margen_ajust": 38.2}, {"cliente": "CONSTRUACEROS DEL FUERTE", "tipo": "Mostrador", "venta": 178485.65, "costo": 57712.48, "utilidad": 120773.17, "margen": 67.7, "dso": 0.0, "costo_capital": 0.0, "utilidad_ajust": 120773.17, "margen_ajust": 67.7}, {"cliente": "WC MOVIL DE MONTERREY", "tipo": "Mostrador", "venta": 166969.98, "costo": 119133.92, "utilidad": 47836.06, "margen": 28.6, "dso": 0.0, "costo_capital": 0.0, "utilidad_ajust": 47836.06, "margen_ajust": 28.6}, {"cliente": "SUMINISTROS Y SERVICIOS GENERALES RASO", "tipo": "Mostrador", "venta": 162468.41, "costo": 61552.1, "utilidad": 100916.31, "margen": 62.1, "dso": 0.0, "costo_capital": 0.0, "utilidad_ajust": 100916.31, "margen_ajust": 62.1}, {"cliente": "TRANSPORTES Y MAQUINARIA GARZA", "tipo": "Mostrador", "venta": 144369.46, "costo": 113025.54, "utilidad": 31343.92, "margen": 21.7, "dso": 0.0, "costo_capital": 0.0, "utilidad_ajust": 31343.92, "margen_ajust": 21.7}, {"cliente": "SUPPLY AVYA", "tipo": "Revendedor", "venta": 138907.86, "costo": 85080.03, "utilidad": 53827.83, "margen": 38.8, "dso": 34.0, "costo_capital": 1552.72, "utilidad_ajust": 52275.11, "margen_ajust": 37.6}, {"cliente": "SERVICIO MECANICA INTEGRAL A FLOTE", "tipo": "Mostrador", "venta": 128497.36, "costo": 65047.85, "utilidad": 63449.51, "margen": 49.4, "dso": 0.0, "costo_capital": 0.0, "utilidad_ajust": 63449.51, "margen_ajust": 49.4}, {"cliente": "ROBERTO CARLOS RAMIREZ MARTINEZ", "tipo": "Mostrador", "venta": 102454.16, "costo": 75680.73, "utilidad": 26773.43, "margen": 26.1, "dso": 0.0, "costo_capital": 0.0, "utilidad_ajust": 26773.43, "margen_ajust": 26.1}, {"cliente": "ADVANCED STEEL TECHNOLOGY DE MEXICO", "tipo": "Mostrador", "venta": 96772.41, "costo": 71188.1, "utilidad": 25584.31, "margen": 26.4, "dso": 18.0, "costo_capital": 572.68, "utilidad_ajust": 25011.63, "margen_ajust": 25.8}, {"cliente": "LIQESA", "tipo": "Mostrador", "venta": 90777.21, "costo": 35277.51, "utilidad": 55499.7, "margen": 61.1, "dso": 75.0, "costo_capital": 2238.34, "utilidad_ajust": 53261.36, "margen_ajust": 58.7}, {"cliente": "COMERCIALIZADORA NEHIRO DE CHICAGO", "tipo": "Revendedor", "venta": 90070.11, "costo": 65098.65, "utilidad": 24971.46, "margen": 27.7, "dso": 39.0, "costo_capital": 1154.87, "utilidad_ajust": 23816.59, "margen_ajust": 26.4}, {"cliente": "GRUPO ZANJADOR MEXICANO", "tipo": "Mostrador", "venta": 88651.3, "costo": 39396.53, "utilidad": 49254.77, "margen": 55.6, "dso": 0.0, "costo_capital": 0.0, "utilidad_ajust": 49254.77, "margen_ajust": 55.6}, {"cliente": "CEMENTOS ESPAÑOLES DE BOMBEO", "tipo": "Mostrador", "venta": 81150.73, "costo": 40301.5, "utilidad": 40849.23, "margen": 50.3, "dso": 0.0, "costo_capital": 0.0, "utilidad_ajust": 40849.23, "margen_ajust": 50.3}, {"cliente": "ATLAS EXPERTOS TECNICOS EN METROLOGIA", "tipo": "Mostrador", "venta": 70679.54, "costo": 44202.14, "utilidad": 26477.4, "margen": 37.5, "dso": 0.0, "costo_capital": 0.0, "utilidad_ajust": 26477.4, "margen_ajust": 37.5}], "least_profitable": [{"cliente": "MAFRA SOLUCIONES INTEGRALES", "venta": 38156.43, "margen": -1.3, "dso": 0.0, "margen_ajust": -1.3}, {"cliente": "INDUSTRIAS AUTOMOTRICES LODI", "venta": 10218.0, "margen": 11.7, "dso": 0.0, "margen_ajust": 11.7}, {"cliente": "SERVICIOS Y SUMINISTROS INDUSTRIALES MIV", "venta": 65727.02, "margen": 12.8, "dso": 0.0, "margen_ajust": 12.8}, {"cliente": "FUD TRAILERS MARTINEZ", "venta": 343276.8, "margen": 14.2, "dso": 0.0, "margen_ajust": 14.2}, {"cliente": "DIRENO ", "venta": 39436.74, "margen": 15.0, "dso": 0.0, "margen_ajust": 15.0}, {"cliente": "SERVICIOS INDUSTRIALES BYG", "venta": 50791.64, "margen": 15.1, "dso": 0.0, "margen_ajust": 15.1}, {"cliente": "FLEX-AUST DE MEXICO", "venta": 410469.8, "margen": 16.0, "dso": 0.0, "margen_ajust": 16.0}, {"cliente": "CROWN FAMOSA", "venta": 411746.65, "margen": 16.2, "dso": 0.0, "margen_ajust": 16.2}, {"cliente": "HECTOR DE LEON AMBRIZ", "venta": 49999.5, "margen": 17.5, "dso": 0.0, "margen_ajust": 17.5}, {"cliente": "ELIGETUPROFESIONAL.COM", "venta": 8205587.09, "margen": 17.5, "dso": 0.0, "margen_ajust": 17.5}, {"cliente": "IMPORT & EXPORT AIII", "venta": 28398.99, "margen": 17.7, "dso": 0.0, "margen_ajust": 17.7}, {"cliente": "INNOVACION URBANA Y CONSTRUCCION JG", "venta": 32236.89, "margen": 18.2, "dso": 0.0, "margen_ajust": 18.2}, {"cliente": "BATIZ CONTROL INCORPORATED", "venta": 21608.8, "margen": 18.8, "dso": 0.0, "margen_ajust": 18.8}, {"cliente": "MUNTER MANGUERAS Y CONEXIONES", "venta": 63455.31, "margen": 19.0, "dso": 0.0, "margen_ajust": 19.0}, {"cliente": "S&E TECHNOLOGY", "venta": 49931.85, "margen": 19.7, "dso": 0.0, "margen_ajust": 19.7}], "by_tipo": [{"tipo": "Sin tipo", "venta": 9352215.37, "margen": 19.9, "margen_ajust": 19.9, "dso_prom": 0.0, "clientes": 14}, {"tipo": "Mostrador", "venta": 6875543.66, "margen": 42.9, "margen_ajust": 42.9, "dso_prom": 0.0, "clientes": 274}, {"tipo": "Industrial", "venta": 1019252.12, "margen": 26.1, "margen_ajust": 26.1, "dso_prom": 0.0, "clientes": 15}, {"tipo": "Revendedor", "venta": 713923.9, "margen": 32.2, "margen_ajust": 32.2, "dso_prom": 0.0, "clientes": 12}, {"tipo": "Exclusivo", "venta": 448626.23, "margen": 14.5, "margen_ajust": 14.5, "dso_prom": 0.0, "clientes": 2}, {"tipo": "Volumen", "venta": 98277.4, "margen": 24.3, "margen_ajust": 24.3, "dso_prom": 0.0, "clientes": 6}, {"tipo": "Distribuidor", "venta": 41654.89, "margen": 14.3, "margen_ajust": 14.3, "dso_prom": 0.0, "clientes": 2}]};
+const totalCC=D.top_clientes.reduce((s,c)=>s+c.costo_capital,0);document.getElementById('kpi-cc').textContent=fmtS(totalCC);
+const tc=D.top_clientes.slice(0,15);
+new Chart(document.getElementById('ch1'),{type:'bar',data:{labels:tc.map(c=>c.cliente.split(' ').slice(0,2).join(' ')),datasets:[{label:'Venta',data:tc.map(c=>c.venta),backgroundColor:'#4C72B0CC',borderRadius:4},{label:'Utilidad',data:tc.map(c=>c.utilidad),backgroundColor:'#55A868CC',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+fmt$(ctx.parsed.x)}}},scales:{x:{beginAtZero:true,ticks:{callback:v=>fmtS(v)}},y:{grid:{display:false}}}}});
+new Chart(document.getElementById('ch2'),{type:'bar',data:{labels:D.by_tipo.map(t=>t.tipo),datasets:[{label:'Margen Bruto',data:D.by_tipo.map(t=>t.margen),backgroundColor:'#4C72B0CC',borderRadius:4},{label:'Margen Ajustado',data:D.by_tipo.map(t=>t.margen_ajust),backgroundColor:'#DD8452CC',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+ctx.parsed.y+'%'}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>v+'%'}},x:{grid:{display:false}}}}});
+function renderTable1(data){let h='';data.forEach((c,i)=>{const mc=c.margen_ajust>=25?'pos':c.margen_ajust<15?'neg':'';h+=`<tr><td>${i+1}</td><td>${c.cliente}</td><td>${c.tipo}</td><td class="tr">${fmt$(c.venta)}</td><td class="tr">${c.margen}%</td><td class="tr">${c.dso}</td><td class="tr">${fmt$(c.costo_capital)}</td><td class="tr ${mc}">${c.margen_ajust}%</td></tr>`;});document.getElementById('tbl1').innerHTML=h;}
+function renderTable2(data){let h='';data.forEach((c,i)=>{h+=`<tr><td>${i+1}</td><td>${c.cliente}</td><td class="tr">${fmt$(c.venta)}</td><td class="tr">${c.margen}%</td><td class="tr">${c.dso}</td><td class="tr neg">${c.margen_ajust}%</td></tr>`;});document.getElementById('tbl2').innerHTML=h;}
+renderTable1(D.top_clientes);renderTable2(D.least_profitable);makeTableSortable('tbl1',D.top_clientes,renderTable1,[0,3,4,5,6,7]);makeTableSortable('tbl2',D.least_profitable,renderTable2,[0,2,3,4,5]);
+</script></body></html>
