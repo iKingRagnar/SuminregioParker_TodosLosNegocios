@@ -84,6 +84,12 @@ function sqlVentaImporteBaseExpr(alias = 'd') {
   return `(COALESCE(${a}.IMPORTE_NETO, 0) / CAST(${VENTAS_SIN_IVA_DIVISOR} AS DOUBLE PRECISION))`;
 }
 
+// Estado de resultados (formato Microsip/PBI): usar IMPORTE_NETO tal cual (sin divisor global).
+function sqlVentaImporteResultadosExpr(alias = 'd') {
+  const a = alias;
+  return `COALESCE(${a}.IMPORTE_NETO, 0)`;
+}
+
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 app.use(express.json());
@@ -289,8 +295,24 @@ function parseDatabaseRegistry() {
     console.error('[fb-databases.registry.json]', e.message);
   }
 
-  const primaryPath =
+  let primaryPath =
     String(process.env.FB_DATABASE || '').trim() || String(DB_OPTIONS.database || '').trim();
+  const primaryExists = (p) => {
+    try { return !!(p && fs.existsSync(path.resolve(String(p)))); } catch (_) { return false; }
+  };
+  // Fallback automático para instalaciones locales típicas cuando C:/Microsip datos no existe.
+  if (!primaryExists(primaryPath)) {
+    const home = process.env.USERPROFILE || process.env.HOME || '';
+    const guess = [
+      path.join(home, 'Downloads', 'BI Ventas', 'SUMINREGIO-PARKER.FDB'),
+      path.join(home, 'Downloads', 'BI Ventas', 'SUMINREGIO-PARKER.fdb'),
+    ];
+    const hit = guess.find((p) => primaryExists(p));
+    if (hit) {
+      primaryPath = hit;
+      console.warn('[FB_DATABASE] Ruta principal no encontrada; usando fallback detectado:', path.resolve(hit));
+    }
+  }
 
   const scannedDirKeys = new Set();
   let fdbListedInScan = 0;
@@ -396,6 +418,15 @@ function parseDatabaseRegistry() {
   // FB_DATABASE: por si apunta a una .fdb fuera de todo lo escaneado (dedupe por ruta).
   if (primaryPath) {
     pushEntry(null, process.env.EMPRESA_NOMBRE || 'Principal', primaryPath, {});
+  }
+
+  // Si existe id "default", forzarlo a la base principal resuelta para que el panel no caiga en rutas muertas.
+  const defaultIdx = entries.findIndex(e => String(e.id || '').toLowerCase() === 'default');
+  if (defaultIdx >= 0 && primaryPath) {
+    entries[defaultIdx].options = { ...entries[defaultIdx].options, database: primaryPath };
+    if (!entries[defaultIdx].label || /principal/i.test(String(entries[defaultIdx].label))) {
+      entries[defaultIdx].label = process.env.EMPRESA_NOMBRE || 'Suminregio Parker (principal)';
+    }
   }
 
   if (!entries.length) {
@@ -2779,6 +2810,40 @@ async function resultadosPnlCore(req, dbOpts) {
   const dateParams = [desdeStr, hastaStr];
   const dateCond = 'CAST(d.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(d.FECHA AS DATE) <= CAST(? AS DATE)';
   const dateCondCc = 'CAST(dc.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(dc.FECHA AS DATE) <= CAST(? AS DATE)';
+  const impRes = sqlVentaImporteResultadosExpr('d');
+  const ventasSubRes = `(
+    SELECT
+      d.FECHA,
+      ${impRes} AS IMPORTE_NETO,
+      COALESCE(d.VENDEDOR_ID, 0) AS VENDEDOR_ID,
+      COALESCE(d.CLIENTE_ID, 0) AS CLIENTE_ID,
+      d.FOLIO,
+      d.TIPO_DOCTO,
+      d.ESTATUS,
+      d.DOCTO_VE_ID,
+      CAST(NULL AS INTEGER) AS DOCTO_PV_ID,
+      'VE' AS TIPO_SRC
+    FROM DOCTOS_VE d
+    WHERE d.TIPO_DOCTO IN ('V', 'F')
+      AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
+      AND COALESCE(d.APLICADO, 'N') = 'S'
+    UNION ALL
+    SELECT
+      d.FECHA,
+      ${impRes} AS IMPORTE_NETO,
+      COALESCE(d.VENDEDOR_ID, 0) AS VENDEDOR_ID,
+      COALESCE(d.CLIENTE_ID, 0) AS CLIENTE_ID,
+      d.FOLIO,
+      d.TIPO_DOCTO,
+      d.ESTATUS,
+      CAST(NULL AS INTEGER) AS DOCTO_VE_ID,
+      d.DOCTO_PV_ID,
+      'PV' AS TIPO_SRC
+    FROM DOCTOS_PV d
+    WHERE d.TIPO_DOCTO IN ('V', 'F')
+      AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
+      AND COALESCE(d.APLICADO, 'N') = 'S'
+  )`;
 
   // Costo principal: renglones VE/PV con costo unitario histórico desde entradas (misma base lógica que margen-producto).
   let costosLineasMes = [];
@@ -2967,7 +3032,7 @@ async function resultadosPnlCore(req, dbOpts) {
         COALESCE(SUM(CASE WHEN d.TIPO_SRC = 'VE' THEN d.IMPORTE_NETO ELSE 0 END), 0) AS VENTAS_VE,
         COALESCE(SUM(CASE WHEN d.TIPO_SRC = 'PV' THEN d.IMPORTE_NETO ELSE 0 END), 0) AS VENTAS_PV,
         COUNT(*) AS NUM_FACTURAS
-      FROM ${ventasSub()} d
+      FROM ${ventasSubRes} d
       WHERE ${dateCond}
       GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
     `, dateParams).catch(() => []),
@@ -2975,15 +3040,15 @@ async function resultadosPnlCore(req, dbOpts) {
       SELECT EXTRACT(YEAR FROM x.FECHA) AS ANIO, EXTRACT(MONTH FROM x.FECHA) AS MES,
         COALESCE(SUM(x.IMPORTE), 0) AS DESCUENTOS_DEV
       FROM (
-        SELECT d.FECHA, ${sqlVentaImporteBaseExpr('d')} AS IMPORTE
+        SELECT d.FECHA, ${sqlVentaImporteResultadosExpr('d')} AS IMPORTE
         FROM DOCTOS_VE d
-        WHERE d.TIPO_DOCTO IN ('D', 'R')
+        WHERE d.TIPO_DOCTO IN ('D')
           AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
           AND COALESCE(d.APLICADO, 'N') = 'S'
         UNION ALL
-        SELECT d.FECHA, ${sqlVentaImporteBaseExpr('d')} AS IMPORTE
+        SELECT d.FECHA, ${sqlVentaImporteResultadosExpr('d')} AS IMPORTE
         FROM DOCTOS_PV d
-        WHERE d.TIPO_DOCTO IN ('D', 'R')
+        WHERE d.TIPO_DOCTO IN ('D')
           AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
           AND COALESCE(d.APLICADO, 'N') = 'S'
       ) x
@@ -3019,8 +3084,7 @@ async function resultadosPnlCore(req, dbOpts) {
         COALESCE(SUM(COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0)), 0) AS COSTO_VENTAS
       FROM SALDOS_CO s
       JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
-      WHERE (cu.TIPO = 'R' OR cu.TIPO IS NULL)
-        AND cu.CUENTA_PT STARTING WITH '5101'
+      WHERE cu.CUENTA_PT STARTING WITH '5101'
         AND s.ANO >= ? AND s.ANO <= ?
         AND NOT (s.ANO = ? AND s.MES < ?)
         AND NOT (s.ANO = ? AND s.MES > ?)
@@ -3060,8 +3124,7 @@ async function resultadosPnlCore(req, dbOpts) {
           THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_C6
       FROM SALDOS_CO s
       JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
-      WHERE (cu.TIPO = 'R' OR cu.TIPO IS NULL)
-        AND (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53' OR cu.CUENTA_PT STARTING WITH '54')
+      WHERE (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53' OR cu.CUENTA_PT STARTING WITH '54')
         AND s.ANO >= ? AND s.ANO <= ?
         AND NOT (s.ANO = ? AND s.MES < ?)
         AND NOT (s.ANO = ? AND s.MES > ?)
@@ -4218,6 +4281,19 @@ function aiSelectTools({ text = '', lowerPool = '', page = '', requested = [] })
   return [...new Set(picks)];
 }
 
+function aiAnthropicModelCandidates() {
+  const envModel = String(process.env.ANTHROPIC_MODEL || '').trim();
+  const defaults = [
+    'claude-3-7-sonnet-latest',
+    'claude-3-5-sonnet-latest',
+    'claude-3-5-haiku-latest',
+  ];
+  const out = [];
+  if (envModel) out.push(envModel);
+  defaults.forEach((m) => { if (!out.includes(m)) out.push(m); });
+  return out;
+}
+
 function aiFmtYm(y, m) {
   return `${y}-${String(m).padStart(2, '0')}`;
 }
@@ -4902,7 +4978,7 @@ app.post('/api/ai/chat', async (req, res) => {
     let reply = 'Sin respuesta';
     if (provider === 'anthropic') {
       const apiUrl = process.env.ANTHROPIC_API_BASE || 'https://api.anthropic.com/v1/messages';
-      const model = process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-latest';
+      const models = aiAnthropicModelCandidates();
       const anthMessages = [];
       if (Array.isArray(body.messages) && body.messages.length) {
         body.messages.forEach((m) => {
@@ -4931,26 +5007,37 @@ app.post('/api/ai/chat', async (req, res) => {
       } else {
         anthMessages.push({ role: 'user', content: userText.slice(0, 2000) });
       }
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': anthropicKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model,
-          system: systemContent,
-          messages: anthMessages,
-          max_tokens: 900,
-        }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (data.error) {
+      let data = {};
+      let lastReason = '';
+      let usedModel = '';
+      for (const model of models) {
+        usedModel = model;
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': anthropicKey,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model,
+            system: systemContent,
+            messages: anthMessages,
+            max_tokens: 900,
+          }),
+        });
+        data = await response.json().catch(() => ({}));
+        if (!response.ok || data.error) {
+          lastReason = (data && data.error && (data.error.message || data.error.type)) || `HTTP ${response.status}`;
+          continue;
+        }
+        break;
+      }
+      if (!data || data.error || !Array.isArray(data.content)) {
         const joined = toolBlocks.join('\n').trim();
-        const reason = data.error.message || data.error.type || 'Error de la API de Claude';
+        const reason = lastReason || (data && data.error && (data.error.message || data.error.type)) || 'Error de la API de Claude';
         const fallback = joined
-          ? `Resumen ejecutivo\n- Claude no respondió correctamente (${reason}).\n- Se activa respuesta local con datos reales del sistema.\n\n${joined}\n\nAcción recomendada\n- Ajusta ANTHROPIC_MODEL o permisos de la cuenta.\n- Mientras tanto, esta respuesta ya usa tus KPIs reales.`
+          ? `Resumen ejecutivo\n- Claude no respondió correctamente (model: ${usedModel || 'n/a'} · ${reason}).\n- Se activa respuesta local con datos reales del sistema.\n\n${joined}\n\nAcción recomendada\n- Revisa ANTHROPIC_API_KEY/permisos y prueba ANTHROPIC_MODEL.\n- Modelos intentados: ${models.join(', ')}.`
           : `Claude no respondió correctamente (${reason}) y no hubo datos para esta consulta con los filtros actuales.`;
         return res.json({ reply: fallback, visuals });
       }
