@@ -4858,9 +4858,12 @@ app.post('/api/ai/chat', async (req, res) => {
       });
       const data = await response.json().catch(() => ({}));
       if (data.error) {
-        return res.status(response.ok ? 500 : response.status).json({
-          error: data.error.message || data.error.type || 'Error de la API de Claude',
-        });
+        const joined = toolBlocks.join('\n').trim();
+        const reason = data.error.message || data.error.type || 'Error de la API de Claude';
+        const fallback = joined
+          ? `Resumen ejecutivo\n- Claude no respondió correctamente (${reason}).\n- Se activa respuesta local con datos reales del sistema.\n\n${joined}\n\nAcción recomendada\n- Ajusta ANTHROPIC_MODEL o permisos de la cuenta.\n- Mientras tanto, esta respuesta ya usa tus KPIs reales.`
+          : `Claude no respondió correctamente (${reason}) y no hubo datos para esta consulta con los filtros actuales.`;
+        return res.json({ reply: fallback, visuals });
       }
       reply = Array.isArray(data.content)
         ? data.content.filter(c => c && c.type === 'text').map(c => c.text || '').join('\n').trim()
@@ -4886,9 +4889,12 @@ app.post('/api/ai/chat', async (req, res) => {
       });
       const data = await response.json().catch(() => ({}));
       if (data.error) {
-        return res.status(response.ok ? 500 : response.status).json({
-          error: data.error.message || 'Error de la API de IA',
-        });
+        const joined = toolBlocks.join('\n').trim();
+        const reason = data.error.message || 'Error de la API de IA';
+        const fallback = joined
+          ? `Resumen ejecutivo\n- El proveedor IA devolvió error (${reason}).\n- Se activa respuesta local con datos reales del sistema.\n\n${joined}\n\nAcción recomendada\n- Revisa credenciales/modelo del proveedor.\n- Esta respuesta ya está calculada con tus endpoints reales.`
+          : `El proveedor IA devolvió error (${reason}) y no hubo datos para esta consulta con los filtros actuales.`;
+        return res.json({ reply: fallback, visuals });
       }
       reply = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || 'Sin respuesta';
     }
