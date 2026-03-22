@@ -305,12 +305,84 @@ html[data-theme="light"] .microsip-skip-link:focus{background:#0f172a;color:#fff
 .ms-sortable-th{cursor:pointer;user-select:none;position:relative;padding-right:1.1rem!important}
 .ms-sortable-th:hover{color:var(--text)}
 .ms-sortable-th::after{
-  content:'↕';
+  content:'?';
   position:absolute;right:.3rem;top:50%;transform:translateY(-50%);
   font-size:.65rem;opacity:.45;color:var(--muted);
 }
-.ms-sortable-th[data-ms-sort-dir="asc"]::after{content:'↑';opacity:.9;color:var(--text2)}
-.ms-sortable-th[data-ms-sort-dir="desc"]::after{content:'↓';opacity:.9;color:var(--text2)}
+.ms-sortable-th[data-ms-sort-dir="asc"]::after{content:'?';opacity:.9;color:var(--text2)}
+.ms-sortable-th[data-ms-sort-dir="desc"]::after{content:'?';opacity:.9;color:var(--text2)}
+
+/* --- Global readability + storytelling layer -------------------------- */
+:where(main,.page){
+  max-width:1720px;
+}
+:where(main,.page) :where(h1,.hero-title){
+  letter-spacing:-.02em;
+}
+:where(main,.page) :where(.hero-sub,.notice,.card-note,.insight-text,.mod-desc,.alert-text,.biz-context-hint,.biz-context-hint--compact,.kpi-sub,.sd-label,.section-divider-label,.footer){
+  color:var(--text2)!important;
+  line-height:1.58;
+}
+:where(main,.page) :where(.card-title,.scorecard-title,.insight-title,.mod-name,.sc-kpi-name,.uni-ec-name,.pl-mini-head){
+  font-size:clamp(.9rem,1.1vw,.98rem)!important;
+}
+:where(main,.page) :where(.kpi-label,.kpi-module,.mod-kpi-label,.sc-kpi-area,.hero-eyebrow,.biz-context-label){
+  color:var(--text2)!important;
+  font-size:clamp(.62rem,.85vw,.72rem)!important;
+}
+:where(main,.page) :where(table thead th,.tbl th,.sc-table th,.pnl-structured th,.uni-table th,.pl-mini-table th){
+  color:var(--text2)!important;
+  font-size:clamp(.6rem,.8vw,.68rem)!important;
+}
+:where(main,.page) :where(table tbody td,.tbl td,.sc-table td,.pnl-structured td,.uni-table td,.pl-mini-table td){
+  color:var(--text)!important;
+  font-size:clamp(.74rem,.95vw,.83rem)!important;
+}
+:where(main,.page) :where(.card,.kpi,.module-card,.uni-entity-card,.pl-sc-card,.scorecard-wrap,.pl-mini-wrap){
+  border-color:rgba(255,255,255,.12)!important;
+}
+:where(main,.page) :where(.chart-wrap,.chart-h220,.chart-h200){
+  min-height:220px;
+}
+
+.ms-story{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:.8rem 1rem;
+  align-items:center;
+  margin:0 0 1rem;
+  padding:.85rem 1rem;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.14);
+  background:linear-gradient(150deg,rgba(255,184,0,.1),rgba(17,34,51,.9));
+}
+.ms-story-left{min-width:0}
+.ms-story-kicker{
+  font-family:'JetBrains Mono',ui-monospace,monospace;
+  font-size:.62rem;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--amber);
+}
+.ms-story-text{
+  margin-top:.28rem;
+  color:var(--text);
+  font-size:.82rem;
+  line-height:1.55;
+}
+.ms-story-pill{
+  font-family:'JetBrains Mono',ui-monospace,monospace;
+  font-size:.62rem;
+  padding:.28rem .62rem;
+  border-radius:999px;
+  color:var(--text2);
+  border:1px solid rgba(255,255,255,.2);
+  background:rgba(255,255,255,.04);
+  white-space:nowrap;
+}
+@media (max-width: 900px){
+  .ms-story{grid-template-columns:1fr}
+}
 `;
     document.head.appendChild(style); // Append last so brand vars override page vars
   }
@@ -378,6 +450,37 @@ html[data-theme="light"] .microsip-skip-link:focus{background:#0f172a;color:#fff
     document.querySelectorAll('table').forEach(makeTableSortable);
   }
 
+  function pageNarrative(page) {
+    const map = {
+      'index.html': { k: 'Storyline', t: 'Empieza por el resumen ejecutivo, luego revisa alertas y termina en los m\u00f3dulos con mayor desviaci\u00f3n.', p: 'Vista 360' },
+      'director.html': { k: 'Storyline', t: 'Lee de izquierda a derecha: cumplimiento del mes, riesgo de CxC y finalmente rotaci\u00f3n para decidir prioridad.', p: 'Decisi\u00f3n directiva' },
+      'ventas.html': { k: 'Storyline', t: 'Primero tendencia y total, despu\u00e9s vendedores y al final detalle por cliente/producto para acciones comerciales.', p: 'Embudo comercial' },
+      'margen-producto.html': { k: 'Storyline', t: 'Enf\u00f3cate en margen %, costo y volumen: identifica top utilidad y productos que venden mucho pero dejan poco.', p: 'Rentabilidad' },
+      'consumos.html': { k: 'Storyline', t: 'Valida d\u00edas de cobertura, luego quiebres potenciales y termina con compras sugeridas para no frenar operaci\u00f3n.', p: 'Continuidad operativa' },
+      'cobradas.html': { k: 'Storyline', t: 'Revisa total cobrado, ticket promedio y detalle de cobros por vendedor/factura para evaluar efectividad de cobranza.', p: 'Flujo de efectivo' },
+      'vendedores.html': { k: 'Storyline', t: 'Compara productividad por vendedor y baja al detalle para detectar cartera activa vs estancada.', p: 'Desempe\u00f1o comercial' },
+      'cxc.html': { k: 'Storyline', t: 'Empieza por deuda total, despu\u00e9s aging y finalmente top deudores/condiciones para priorizar gesti\u00f3n de cobro.', p: 'Riesgo de cartera' },
+      'clientes.html': { k: 'Storyline', t: 'Cruza saldo, vencido y \u00faltima compra para detectar clientes en riesgo y el impacto potencial en ventas.', p: 'Riesgo cliente' },
+      'inventario.html': { k: 'Storyline', t: 'Consulta cobertura y rotaci\u00f3n; luego aterriza en art\u00edculos cr\u00edticos con sobrestock o bajo stock.', p: 'Salud inventario' },
+      'resultados.html': { k: 'Storyline', t: 'Lee ventas netas, costo y margen bruto; luego gastos operativos y utilidad para explicar el resultado final.', p: 'P&L guiado' },
+    };
+    return map[page] || { k: 'Storyline', t: 'Revisa KPIs principales y luego baja al detalle para explicar causa y acci\u00f3n.', p: 'Vista guiada' };
+  }
+
+  function injectStoryStrip() {
+    const mainEl = document.querySelector('main') || document.querySelector('.page');
+    if (!mainEl || document.getElementById('ms-story-strip')) return;
+    const n = pageNarrative(currentPage());
+    const html = '<section id="ms-story-strip" class="ms-story" aria-label="Gu\u00eda de lectura del dashboard">' +
+      '<div class="ms-story-left">' +
+      `<div class="ms-story-kicker">${n.k}</div>` +
+      `<div class="ms-story-text">${n.t}</div>` +
+      '</div>' +
+      `<span class="ms-story-pill">${n.p}</span>` +
+      '</section>';
+    mainEl.insertAdjacentHTML('afterbegin', html);
+  }
+
   /* Replace or inject header */
   function inject() {
     injectSharedStyles();
@@ -400,6 +503,7 @@ html[data-theme="light"] .microsip-skip-link:focus{background:#0f172a;color:#fff
 
     const mainEl = document.querySelector('main') || document.querySelector('.page');
     if (mainEl && !mainEl.id) mainEl.id = 'app-main-content';
+    injectStoryStrip();
 
     // Start clock
     const clockEl = document.getElementById('reloj');

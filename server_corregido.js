@@ -4039,6 +4039,46 @@ function aiResolveDbOpts(req) {
   return { opts: hit.options, id: hit.id, label: hit.label };
 }
 
+function aiReqFromBody(body, req) {
+  const out = { query: {} };
+  const src = body && typeof body === 'object' ? body : {};
+  const ctx = src.context && typeof src.context === 'object' ? src.context : {};
+  const filters = ctx.filters && typeof ctx.filters === 'object' ? ctx.filters : {};
+  const pick = (k) => {
+    if (filters[k] != null && String(filters[k]).trim() !== '') return filters[k];
+    if (src[k] != null && String(src[k]).trim() !== '') return src[k];
+    if (req && req.query && req.query[k] != null && String(req.query[k]).trim() !== '') return req.query[k];
+    return '';
+  };
+  ['preset', 'anio', 'mes', 'desde', 'hasta', 'vendedor', 'cliente', 'tipo', 'meses'].forEach((k) => {
+    const v = pick(k);
+    if (v !== '') out.query[k] = v;
+  });
+  const msgPool = `${src.message || ''} ${(Array.isArray(src.messages) ? src.messages.map(m => (m && m.content) || '').join(' ') : '')}`.toLowerCase();
+  const asksWeek = /\b(semana|semanal|esta semana|esta\s+sem)\b/.test(msgPool);
+  if (!out.query.desde && !out.query.hasta && !out.query.anio) {
+    if ((String(out.query.preset || '').toLowerCase() === 'semana') || asksWeek) {
+      const now = new Date();
+      const dow = now.getDay(); // 0 domingo, 1 lunes
+      const diffToMonday = dow === 0 ? 6 : (dow - 1);
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - diffToMonday);
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      out.query.desde = iso(monday);
+      out.query.hasta = iso(sunday);
+      out.query.preset = 'semana';
+    }
+  }
+  if (!out.query.desde && !out.query.hasta && !out.query.anio) {
+    const now = new Date();
+    out.query.anio = now.getFullYear();
+    out.query.mes = now.getMonth() + 1;
+  }
+  return out;
+}
+
 const AI_SYSTEM_BASE_MICROSIP = `Eres el Agente de Soporte de **Suminregio Parker** — paneles que leen **Microsip (Firebird)** en solo lectura.
 
 REGLAS:
@@ -4047,7 +4087,9 @@ REGLAS:
 - Estos dashboards **no modifican** Microsip; para altas o cambios operativos el usuario debe usar Microsip.
 - Puedes explicar: ventas VE/PV, cotizaciones en DOCTOS_VE (TIPO C/O, no canceladas), **Cobradas** (cobros tipo R en CC, alineado con /api/ventas/cobradas), CxC y aging, inventario, resultados/P&L, scorecard multi-empresa cuando aplique.
 - Si el contexto trae un bloque **Cobradas** o **Cotizaciones** con cifras, **respóndele al usuario con esos números** (importes, conteos, promedios). No digas que no tienes acceso a los datos del sistema si esas cifras están en el contexto.
-- Si el contexto indica **empresa seleccionada**, céntrate en esa base; si hay una sola, no confundas al usuario.`;
+- Si el contexto indica **empresa seleccionada**, céntrate en esa base; si hay una sola, no confundas al usuario.
+- Si el contexto trae trazabilidad o bloques con cifras (ventas, cxc, resultados, cobradas, pronóstico), no respondas con frases tipo "no tengo acceso"; usa esas cifras.
+- En preguntas analíticas, estructura la salida en 4 bloques: "Resumen ejecutivo", "Tabla de métricas", "Interpretación" y "Acciones recomendadas".`;
 
 const AI_WELCOME_MICROSIP = `¡Hola! 👋 Soy tu **Agente de Soporte** (Suminregio Parker · Microsip).
 
@@ -4055,27 +4097,616 @@ Puedo ayudarte a **interpretar** ventas, cotizaciones, cuentas por cobrar, inven
 
 Ejemplos: "¿Cuántas cotizaciones van hoy?" · "¿Qué es el saldo de CxC?" · "¿Cuál es el ticket promedio cobrado este mes?" · "Explícame el margen bruto en Resultados."`;
 
+const AI_TOOL_CATALOG = [
+  { id: 'cotizaciones', label: 'Cotizaciones activas', area: 'ventas' },
+  { id: 'cxc', label: 'Cuentas por cobrar', area: 'cartera' },
+  { id: 'ventas', label: 'Ventas facturadas VE/PV', area: 'ventas' },
+  { id: 'cobradas', label: 'Cobros registrados', area: 'cobranza' },
+  { id: 'resultados', label: 'Estado de resultados / P&L', area: 'finanzas' },
+  { id: 'pronostico_ventas', label: 'Pronóstico ventas 3 meses', area: 'analitica' },
+  { id: 'escenario_visual', label: 'Dashboard visual generado', area: 'visual' },
+  { id: 'dashboard_screenshot', label: 'Screenshot dashboard real', area: 'visual' },
+];
+
+const AI_CONTEXT_CACHE = new Map();
+async function aiWithCache(key, ttlMs, computeFn) {
+  const hit = AI_CONTEXT_CACHE.get(key);
+  const now = Date.now();
+  if (hit && now - hit.ts < ttlMs) return hit.val;
+  const val = await computeFn();
+  AI_CONTEXT_CACHE.set(key, { ts: now, val });
+  return val;
+}
+
+function aiSelectTools({ text = '', lowerPool = '', page = '', requested = [] }) {
+  const forced = Array.isArray(requested)
+    ? requested.map(x => String(x || '').trim().toLowerCase()).filter(Boolean)
+    : [];
+  if (forced.length) {
+    return [...new Set(forced)].filter(id => AI_TOOL_CATALOG.some(t => t.id === id));
+  }
+  const picks = [];
+  const wantsCotizaciones = /\b(cotizaciones?|cotización|cotizacion)\b/i.test(lowerPool) ||
+    (/\bhoy\b|fecha|\d{1,2}\s+de\s+\w+/i.test(text) && !/\bincidentes?\b/i.test(lowerPool));
+  const wantsCxc = /\b(cxc|cuentas?\s+por\s+cobrar|saldo\s+clientes?|cobranza|deudores?|vencid[oa]s?)\b/i.test(lowerPool);
+  const wantsVentas = /\b(ventas?|facturaci[oó]n|facturas?|vendid[oa]s?|vend[ií]|ingresos?\s+por\s+venta)\b/i.test(lowerPool) && !wantsCotizaciones;
+  const wantsCobradas = /\b(cobrad[ao]s?|cobrado|pagos?\s+recibidos|ticket\s+promedio|abonos?\s+a\s+cc|total\s+cobrado|comisi[oó]n\s+8|facturas?\s+cobradas?)\b/i.test(lowerPool);
+  const wantsResultados = /\b(resultados?|pnl|estado\s+de\s+resultados|margen(?:\s+bruto)?|utilidad|costo(?:s)?\s+de\s+venta)\b/i.test(lowerPool);
+  const wantsForecast = /\b(pron[oó]stico|proyecci[oó]n|forecast|estimar|estimaci[oó]n|siguientes?\s+\d+\s+mes(es)?|pr[oó]ximos?\s+\d+\s+mes(es)?)\b/i.test(lowerPool) && /\b(ventas?|facturaci[oó]n|vendid[oa]s?)\b/i.test(lowerPool);
+  const wantsVisualScenario = /\b(screenshot|captura|visual(?:es)?|gr[aá]fica|grafica|tabla|dashboard|escenario|simulaci[oó]n)\b/i.test(lowerPool);
+  const wantsDashboardShot = /\b(screenshot|captura|pantalla|dashboard real|vista actual)\b/i.test(lowerPool);
+
+  if (wantsCotizaciones) picks.push('cotizaciones');
+  if (wantsCxc) picks.push('cxc');
+  if (wantsVentas) picks.push('ventas');
+  if (wantsCobradas) picks.push('cobradas');
+  if (wantsResultados) picks.push('resultados');
+  if (wantsForecast) picks.push('pronostico_ventas');
+  if (wantsVisualScenario) picks.push('escenario_visual');
+  if (wantsDashboardShot) picks.push('dashboard_screenshot');
+  if (!picks.length) {
+    if (/resultados\.html/i.test(page)) picks.push('resultados');
+    else if (/cxc\.html/i.test(page)) picks.push('cxc');
+    else if (/cobradas\.html/i.test(page)) picks.push('cobradas');
+    else if (/ventas\.html/i.test(page)) picks.push('ventas');
+  }
+  return [...new Set(picks)];
+}
+
+function aiFmtYm(y, m) {
+  return `${y}-${String(m).padStart(2, '0')}`;
+}
+
+function aiAddMonths(y, m, add) {
+  const d = new Date(y, m - 1 + add, 1);
+  return { y: d.getFullYear(), m: d.getMonth() + 1 };
+}
+
+function aiLinRegPredict(seriesY, horizon) {
+  const n = seriesY.length;
+  if (n < 2) return Array.from({ length: horizon }, () => (seriesY[n - 1] || 0));
+  let sx = 0; let sy = 0; let sxy = 0; let sx2 = 0;
+  for (let i = 0; i < n; i++) {
+    const x = i + 1;
+    const y = Number(seriesY[i] || 0);
+    sx += x; sy += y; sxy += x * y; sx2 += x * x;
+  }
+  const den = (n * sx2 - sx * sx) || 1;
+  const b = (n * sxy - sx * sy) / den;
+  const a = (sy - b * sx) / n;
+  const out = [];
+  for (let h = 1; h <= horizon; h++) {
+    out.push(Math.max(0, a + b * (n + h)));
+  }
+  return out;
+}
+
+function aiSnaivePredict(seriesY, horizon, season) {
+  const n = seriesY.length;
+  if (n < season) return Array.from({ length: horizon }, () => (seriesY[n - 1] || 0));
+  const out = [];
+  for (let h = 1; h <= horizon; h++) {
+    const idx = n - season + ((h - 1) % season);
+    out.push(Math.max(0, Number(seriesY[idx] || 0)));
+  }
+  return out;
+}
+
+function aiModelMae(seriesY, model) {
+  const n = seriesY.length;
+  const hold = Math.min(6, Math.max(2, n - 2));
+  let err = 0; let cnt = 0;
+  for (let i = n - hold; i < n; i++) {
+    const train = seriesY.slice(0, i);
+    const pred = model(train, 1)[0];
+    err += Math.abs((seriesY[i] || 0) - (pred || 0));
+    cnt++;
+  }
+  return cnt ? (err / cnt) : Number.POSITIVE_INFINITY;
+}
+
+function aiSvgEscape(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function aiSvgDataUrl(svg) {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+function aiBuildScenarioSvg(payload) {
+  const title = aiSvgEscape(payload.title || 'Escenario generado');
+  const subtitle = aiSvgEscape(payload.subtitle || '');
+  const kpis = Array.isArray(payload.kpis) ? payload.kpis.slice(0, 4) : [];
+  const hist = Array.isArray(payload.hist) ? payload.hist : [];
+  const pred = Array.isArray(payload.pred) ? payload.pred : [];
+  const rows = Array.isArray(payload.rows) ? payload.rows.slice(0, 6) : [];
+  const w = 1200; const h = 760;
+  const chartX = 70; const chartY = 245; const chartW = 1060; const chartH = 245;
+  const vals = [...hist.map(Number), ...pred.map(Number)].filter(n => Number.isFinite(n));
+  const maxV = Math.max(1, ...vals);
+  const toX = (i, n) => chartX + (n <= 1 ? 0 : (i * chartW / (n - 1)));
+  const toY = (v) => chartY + chartH - ((Number(v || 0) / maxV) * chartH);
+  const histPts = hist.map((v, i) => `${toX(i, hist.length)},${toY(v)}`).join(' ');
+  const predPts = pred.map((v, i) => `${toX(hist.length - 1 + i, hist.length - 1 + pred.length)},${toY(v)}`).join(' ');
+  const cards = kpis.map((k, i) => {
+    const x = 45 + i * 285;
+    return `
+      <rect x="${x}" y="90" width="265" height="120" rx="14" fill="rgba(255,255,255,0.04)" stroke="rgba(255,255,255,0.14)"/>
+      <text x="${x + 16}" y="124" fill="#93B4CC" font-family="Inter,Arial" font-size="16">${aiSvgEscape(k.label || '')}</text>
+      <text x="${x + 16}" y="170" fill="#EDF4FF" font-family="Inter,Arial" font-size="34" font-weight="700">${aiSvgEscape(k.value || '')}</text>
+    `;
+  }).join('\n');
+  const tableRows = rows.map((r, i) => `
+      <text x="68" y="${555 + i * 34}" fill="#C8D8EC" font-family="Inter,Arial" font-size="16">${aiSvgEscape(r.name || '')}</text>
+      <text x="1120" y="${555 + i * 34}" fill="#EDF4FF" text-anchor="end" font-family="Inter,Arial" font-size="16" font-weight="700">${aiSvgEscape(r.value || '')}</text>
+  `).join('\n');
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0B1B2D"/>
+      <stop offset="100%" stop-color="#07111E"/>
+    </linearGradient>
+  </defs>
+  <rect width="${w}" height="${h}" fill="url(#bg)"/>
+  <text x="45" y="48" fill="#EDF4FF" font-family="Inter,Arial" font-size="34" font-weight="800">${title}</text>
+  <text x="45" y="74" fill="#93B4CC" font-family="Inter,Arial" font-size="16">${subtitle}</text>
+  ${cards}
+  <text x="45" y="232" fill="#FFB800" font-family="Inter,Arial" font-size="18" font-weight="700">Tendencia histórica + pronóstico</text>
+  <rect x="${chartX}" y="${chartY}" width="${chartW}" height="${chartH}" rx="12" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.12)"/>
+  <polyline fill="none" stroke="#4DA6FF" stroke-width="3" points="${histPts}"/>
+  <polyline fill="none" stroke="#FFB800" stroke-width="3" stroke-dasharray="8 6" points="${predPts}"/>
+  <line x1="${toX(Math.max(0, hist.length - 1), Math.max(1, hist.length - 1 + pred.length))}" y1="${chartY}" x2="${toX(Math.max(0, hist.length - 1), Math.max(1, hist.length - 1 + pred.length))}" y2="${chartY + chartH}" stroke="rgba(255,255,255,0.25)" stroke-dasharray="4 4"/>
+  <text x="70" y="530" fill="#FFB800" font-family="Inter,Arial" font-size="18" font-weight="700">Top hallazgos</text>
+  ${tableRows}
+</svg>`;
+}
+
+function aiDetectDashboardPage(text, pageCtx) {
+  const t = String(text || '').toLowerCase();
+  const p = String(pageCtx || '').trim().toLowerCase();
+  if (/(resultados|pnl|estado de resultados)/i.test(t)) return 'resultados.html';
+  if (/\bcxc\b|cuentas?\s+por\s+cobrar|deudores|vencid/i.test(t)) return 'cxc.html';
+  if (/cobrad|cobranza|pagos?\s+recibidos/i.test(t)) return 'cobradas.html';
+  if (/margen|rentabilidad/i.test(t)) return 'margen-producto.html';
+  if (/inventario|stock|existencia/i.test(t)) return 'inventario.html';
+  if (/cliente|riesgo cliente/i.test(t)) return 'clientes.html';
+  if (/vendedor/i.test(t)) return 'vendedores.html';
+  if (/consumo/i.test(t)) return 'consumos.html';
+  if (/director|indice direccion|índice dirección/i.test(t)) return 'director.html';
+  if (/ventas?|facturaci[oó]n/i.test(t)) return 'ventas.html';
+  if (/\.html$/i.test(p)) return p;
+  return 'resultados.html';
+}
+
+function aiBuildDashboardUrl(baseUrl, pageFile, aiReq, dbId) {
+  const safeBase = String(baseUrl || '').trim().replace(/\/+$/, '');
+  const u = new URL(`${safeBase}/${pageFile}`);
+  const q = (aiReq && aiReq.query) || {};
+  if (dbId) u.searchParams.set('db', dbId);
+  ['preset', 'anio', 'mes', 'desde', 'hasta', 'vendedor', 'cliente', 'tipo', 'meses'].forEach((k) => {
+    const v = q[k];
+    if (v != null && String(v).trim() !== '') u.searchParams.set(k, String(v));
+  });
+  return u.toString();
+}
+
+async function aiCaptureDashboardPngDataUrl(targetUrl) {
+  const { chromium } = await import('playwright');
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({ viewport: { width: 1510, height: 980 } });
+    await page.goto(targetUrl, { waitUntil: 'networkidle', timeout: 45000 });
+    await page.waitForTimeout(1600);
+    const buf = await page.screenshot({ type: 'png', fullPage: true });
+    return `data:image/png;base64,${buf.toString('base64')}`;
+  } finally {
+    await browser.close();
+  }
+}
+
+async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
+  const qCtx = (aiReq && aiReq.query) || {};
+  const cacheKey = JSON.stringify({ toolId, db: dbOpts && dbOpts.database ? dbOpts.database : 'default', qCtx });
+  return aiWithCache(cacheKey, 15000, async () => {
+    if (toolId === 'cotizaciones') {
+      const fCot = buildFiltros(aiReq, 'd');
+      const [resumen] = await query(`
+        SELECT
+          COUNT(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 END) AS COT_HOY,
+          COALESCE(SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN ${sqlCotiImporteExpr('d')} ELSE 0 END), 0) AS IMPORTE_HOY,
+          COUNT(*) AS COT_PERIODO,
+          COALESCE(SUM(${sqlCotiImporteExpr('d')}), 0) AS IMPORTE_PERIODO
+        FROM ${cotizacionesSub()} d
+        WHERE 1=1 ${fCot.sql}
+      `, fCot.params, 12000, dbOpts).catch(() => [{}]);
+      const rows = await query(`
+        SELECT FIRST 12
+          CAST(d.FECHA AS DATE) AS FECHA, d.FOLIO,
+          COALESCE(c.NOMBRE, '') AS CLIENTE,
+          COALESCE(${sqlCotiImporteExpr('d')}, 0) AS IMPORTE_NETO
+        FROM ${cotizacionesSub()} d
+        LEFT JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
+        WHERE 1=1 ${fCot.sql}
+        ORDER BY d.FECHA DESC, d.FOLIO DESC
+      `, fCot.params, 12000, dbOpts).catch(() => []);
+      const r = resumen || {};
+      return {
+        toolId,
+        block: `\n\n**Cotizaciones (herramienta):**
+- Periodo filtrado: ${r.COT_PERIODO || 0} docs, importe ~$${Number(r.IMPORTE_PERIODO || 0).toFixed(2)}.
+- Hoy: ${r.COT_HOY || 0} docs, importe ~$${Number(r.IMPORTE_HOY || 0).toFixed(2)}.
+- Muestra reciente: ${(rows || []).map(x => `${x.FOLIO} ${String(x.FECHA || '').slice(0, 10)} $${Number(x.IMPORTE_NETO || 0).toFixed(2)}`).join('; ') || 'Sin filas.'}`,
+        source: '/api/ventas/cotizaciones',
+      };
+    }
+
+    if (toolId === 'cxc') {
+      const [t] = await query(`SELECT COALESCE(SUM(s.SALDO), 0) AS T FROM ${cxcClienteSQL()} s`, [], 12000, dbOpts).catch(() => [{ T: 0 }]);
+      const top = await query(`
+        SELECT FIRST 8 cs.CLIENTE_ID, COALESCE(cl.NOMBRE, '') AS NOMBRE, cs.SALDO
+        FROM ${cxcClienteSQL()} cs
+        LEFT JOIN CLIENTES cl ON cl.CLIENTE_ID = cs.CLIENTE_ID
+        WHERE cs.SALDO > 0.5
+        ORDER BY cs.SALDO DESC
+      `, [], 12000, dbOpts).catch(() => []);
+      const porCond = await query(`
+        SELECT FIRST 6
+          COALESCE(cp.NOMBRE, 'Sin condición') AS CONDICION,
+          COALESCE(SUM(doc.SALDO_NETO), 0) AS SALDO
+        FROM (${cxcDocSaldosInnerSQL()}) doc
+        LEFT JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = doc.DOCTO_CC_ID
+        LEFT JOIN CLIENTES c ON c.CLIENTE_ID = dc.CLIENTE_ID
+        LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, c.COND_PAGO_ID)
+        WHERE doc.SALDO_NETO > 0.5
+        GROUP BY COALESCE(cp.NOMBRE, 'Sin condición')
+        ORDER BY 2 DESC
+      `, [], 12000, dbOpts).catch(() => []);
+      return {
+        toolId,
+        block: `\n\n**CxC (herramienta):**
+- Saldo total cartera: $${Number((t && t.T) || 0).toFixed(2)}.
+- Top deudores: ${(top || []).map(x => `${x.NOMBRE || x.CLIENTE_ID}: $${Number(x.SALDO || 0).toFixed(2)}`).join('; ') || 'Sin datos.'}
+- Por condición: ${(porCond || []).map(x => `${x.CONDICION}: $${Number(x.SALDO || 0).toFixed(2)}`).join('; ') || 'Sin datos.'}`,
+        source: '/api/cxc/resumen + /api/cxc/por-condicion',
+      };
+    }
+
+    if (toolId === 'ventas') {
+      const tipo = getTipo(aiReq);
+      const fV = buildFiltros(aiReq, 'd');
+      const [vr] = await query(`
+        SELECT
+          SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END) AS HOY,
+          COALESCE(SUM(d.IMPORTE_NETO), 0) AS PERIODO
+        FROM ${ventasSub(tipo)} d
+        WHERE 1=1 ${fV.sql}
+      `, fV.params, 12000, dbOpts).catch(() => [{}]);
+      return {
+        toolId,
+        block: `\n\n**Ventas (herramienta):**
+- Hoy: $${Number((vr && vr.HOY) || 0).toFixed(2)}.
+- Total periodo filtrado: $${Number((vr && vr.PERIODO) || 0).toFixed(2)}.`,
+        source: '/api/ventas/resumen',
+      };
+    }
+
+    if (toolId === 'cobradas') {
+      const tipo = getTipo(aiReq);
+      const fi = filtrosImporteCobro(aiReq, 'i', { coalesceDcFecha: true });
+      const fV = buildFiltros(aiReq, 'd');
+      const [cb] = await query(`
+        SELECT
+          COALESCE(SUM(CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END), 0) AS TOTAL_COBRADO,
+          COUNT(*) AS NUM_MOV_COBRO
+        FROM IMPORTES_DOCTOS_CC i
+        JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = i.DOCTO_CC_ID
+        WHERE i.TIPO_IMPTE = 'R' AND COALESCE(i.CANCELADO, 'N') = 'N'
+          ${fi.sql}
+      `, fi.params, 12000, dbOpts).catch(() => [{}]);
+      const [fv] = await query(`
+        SELECT COUNT(DISTINCT d.FOLIO) AS N_FACT, COALESCE(SUM(d.IMPORTE_NETO), 0) AS TOTAL_FAC
+        FROM ${ventasSub(tipo)} d
+        WHERE d.VENDEDOR_ID > 0
+          ${fV.sql}
+      `, fV.params, 12000, dbOpts).catch(() => [{}]);
+      const totC = Number((cb && cb.TOTAL_COBRADO) || 0);
+      const nMov = Number((cb && cb.NUM_MOV_COBRO) || 0);
+      const nFac = Number((fv && fv.N_FACT) || 0);
+      return {
+        toolId,
+        block: `\n\n**Cobradas (herramienta):**
+- Total cobrado: $${totC.toFixed(2)}.
+- Movimientos de cobro: ${nMov}.
+- Ticket promedio por movimiento: ${nMov > 0 ? '$' + (totC / nMov).toFixed(2) : 'No aplica'}.
+- Facturas referencia del periodo: ${nFac}.`,
+        source: '/api/ventas/cobradas',
+      };
+    }
+
+    if (toolId === 'resultados') {
+      const pnl = await resultadosPnlCore(aiReq, dbOpts);
+      const meses = Array.isArray(pnl && pnl.meses) ? pnl.meses : [];
+      const tot = pnl && pnl.totales ? pnl.totales : {};
+      const ult = meses.slice(-3).map(m =>
+        `${m.PERIODO || `${m.ANIO}-${String(m.MES || '').padStart(2, '0')}`}: Vta $${Number(m.VENTAS || 0).toFixed(2)}, Costo $${Number(m.COSTO_VENTAS || 0).toFixed(2)}, Margen ${Number(m.MARGEN_PORCENTAJE || 0).toFixed(2)}%`
+      ).join(' | ');
+      return {
+        toolId,
+        block: `\n\n**Resultados / P&L (herramienta):**
+- Ventas netas: $${Number(tot.VENTAS_NETAS || 0).toFixed(2)}.
+- Costo de ventas: $${Number(tot.COSTO_VENTAS || 0).toFixed(2)}.
+- Utilidad bruta: $${Number(tot.UTILIDAD_BRUTA || 0).toFixed(2)} (${Number(tot.MARGEN_BRUTO_PCT || 0).toFixed(2)}%).
+- Gastos operativos: $${Number(tot.GASTOS_OPERATIVOS || 0).toFixed(2)}.
+- Utilidad operativa: $${Number(tot.UTILIDAD_OPERATIVA || 0).toFixed(2)}.
+- Últimos meses: ${ult || 'Sin meses para el filtro actual.'}`,
+        source: '/api/resultados/pnl',
+      };
+    }
+    if (toolId === 'pronostico_ventas') {
+      const q = (aiReq && aiReq.query) || {};
+      const tipo = getTipo(aiReq);
+      const params = [];
+      let extraWhere = '';
+      if (q.vendedor != null && String(q.vendedor).trim() !== '') {
+        extraWhere += ' AND d.VENDEDOR_ID = ?';
+        params.push(Number(q.vendedor));
+      }
+      if (q.cliente != null && String(q.cliente).trim() !== '') {
+        extraWhere += ' AND d.CLIENTE_ID = ?';
+        params.push(Number(q.cliente));
+      }
+
+      let endDate = new Date();
+      if (q.hasta && /^\d{4}-\d{2}-\d{2}$/.test(String(q.hasta))) {
+        endDate = new Date(String(q.hasta));
+      } else if (q.anio && q.mes) {
+        endDate = new Date(Number(q.anio), Number(q.mes), 0);
+      } else if (q.anio) {
+        endDate = new Date(Number(q.anio), 11, 31);
+      }
+      const endIso = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
+      const rows = await query(`
+        SELECT
+          EXTRACT(YEAR FROM d.FECHA) AS ANIO,
+          EXTRACT(MONTH FROM d.FECHA) AS MES,
+          COALESCE(SUM(d.IMPORTE_NETO), 0) AS VENTAS
+        FROM ${ventasSub(tipo)} d
+        WHERE CAST(d.FECHA AS DATE) <= ?
+          AND CAST(d.FECHA AS DATE) >= DATEADD(-36 MONTH TO ?)
+          ${extraWhere}
+        GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA)
+        ORDER BY 1,2
+      `, [endIso, endIso, ...params], 15000, dbOpts).catch(() => []);
+
+      const map = new Map();
+      (rows || []).forEach(r => map.set(aiFmtYm(Number(r.ANIO), Number(r.MES)), Number(r.VENTAS || 0)));
+      const start = rows && rows.length
+        ? { y: Number(rows[0].ANIO), m: Number(rows[0].MES) }
+        : { y: endDate.getFullYear(), m: endDate.getMonth() + 1 };
+      const end = { y: endDate.getFullYear(), m: endDate.getMonth() + 1 };
+      const labelsHist = [];
+      const yHist = [];
+      let cursor = { y: start.y, m: start.m };
+      while (cursor.y < end.y || (cursor.y === end.y && cursor.m <= end.m)) {
+        const k = aiFmtYm(cursor.y, cursor.m);
+        labelsHist.push(k);
+        yHist.push(Number(map.get(k) || 0));
+        cursor = aiAddMonths(cursor.y, cursor.m, 1);
+      }
+
+      const hasEnough = yHist.length >= 6;
+      const maeLin = hasEnough ? aiModelMae(yHist, aiLinRegPredict) : Number.POSITIVE_INFINITY;
+      const maeS12 = yHist.length >= 18 ? aiModelMae(yHist, (s, h) => aiSnaivePredict(s, h, 12)) : Number.POSITIVE_INFINITY;
+      const best = maeS12 < maeLin ? 'seasonal_naive_12' : 'linear_regression';
+      const pred = best === 'seasonal_naive_12' ? aiSnaivePredict(yHist, 3, 12) : aiLinRegPredict(yHist, 3);
+      const baseYm = end;
+      const labelsFc = [1, 2, 3].map(i => {
+        const d = aiAddMonths(baseYm.y, baseYm.m, i);
+        return aiFmtYm(d.y, d.m);
+      });
+      const total3 = pred.reduce((a, b) => a + Number(b || 0), 0);
+
+      const chartLabels = [...labelsHist, ...labelsFc];
+      const dsHist = [...yHist, null, null, null];
+      const dsPred = Array(yHist.length).fill(null).concat(pred.map(v => Number(v || 0)));
+      const qc = {
+        type: 'line',
+        data: {
+          labels: chartLabels,
+          datasets: [
+            { label: 'Ventas históricas', data: dsHist, borderColor: '#4DA6FF', backgroundColor: 'rgba(77,166,255,.12)', fill: false, tension: 0.25, pointRadius: 2 },
+            { label: 'Pronóstico 3 meses', data: dsPred, borderColor: '#FFB800', backgroundColor: 'rgba(255,184,0,.15)', fill: false, tension: 0.22, borderDash: [6, 4], pointRadius: 3 },
+          ],
+        },
+        options: {
+          plugins: { legend: { display: true } },
+          scales: { y: { beginAtZero: true } },
+        },
+      };
+      const qcUrl = `https://quickchart.io/chart?width=960&height=420&format=png&c=${encodeURIComponent(JSON.stringify(qc))}`;
+      const predRows = labelsFc.map((l, i) => `${l}: $${Number(pred[i] || 0).toFixed(2)}`).join(' | ');
+      return {
+        toolId,
+        block: `\n\n**Pronóstico de ventas (herramienta):**
+- Método elegido: ${best === 'seasonal_naive_12' ? 'Seasonal Naive (estacionalidad 12m)' : 'Regresión lineal'}.
+- Ventana histórica usada: ${labelsHist.length} meses hasta ${aiFmtYm(end.y, end.m)}.
+- Proyección próximos 3 meses: ${predRows}.
+- Total estimado 3 meses: $${total3.toFixed(2)}.
+- Soporte visual: gráfica de histórico + pronóstico adjunta.`,
+        source: '/api/resultados/pnl + series mensuales ventas',
+        visuals: [{ type: 'image', title: 'Pronóstico de ventas (3 meses)', url: qcUrl }],
+      };
+    }
+    if (toolId === 'escenario_visual') {
+      const pnl = await resultadosPnlCore(aiReq, dbOpts).catch(() => ({ meses: [], totales: {} }));
+      const meses = Array.isArray(pnl && pnl.meses) ? pnl.meses : [];
+      const tot = (pnl && pnl.totales) || {};
+      const hist = meses.slice(-8).map(m => Number(m.VENTAS || 0));
+      const histLabels = meses.slice(-8).map(m => String(m.PERIODO || aiFmtYm(Number(m.ANIO || 0), Number(m.MES || 1))));
+      const pred = hist.length >= 3 ? aiLinRegPredict(hist, 3) : [0, 0, 0];
+      const lastPeriod = meses.length ? meses[meses.length - 1] : {};
+      const lastY = Number(lastPeriod.ANIO || new Date().getFullYear());
+      const lastM = Number(lastPeriod.MES || (new Date().getMonth() + 1));
+      const predLabels = [1, 2, 3].map(i => {
+        const d = aiAddMonths(lastY, lastM, i);
+        return aiFmtYm(d.y, d.m);
+      });
+
+      const [cxcT] = await query(`SELECT COALESCE(SUM(s.SALDO), 0) AS T FROM ${cxcClienteSQL()} s`, [], 12000, dbOpts).catch(() => [{ T: 0 }]);
+      const fCobro = filtrosImporteCobro(aiReq, 'i', { coalesceDcFecha: true });
+      const [cb] = await query(`
+        SELECT COALESCE(SUM(CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END), 0) AS TOTAL_COBRADO
+        FROM IMPORTES_DOCTOS_CC i
+        JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = i.DOCTO_CC_ID
+        WHERE i.TIPO_IMPTE = 'R' AND COALESCE(i.CANCELADO, 'N') = 'N'
+          ${fCobro.sql}
+      `, fCobro.params, 12000, dbOpts).catch(() => [{ TOTAL_COBRADO: 0 }]);
+
+      const rows = [
+        { name: 'Ventas netas periodo', value: `$${Number(tot.VENTAS_NETAS || 0).toFixed(2)}` },
+        { name: 'Costo de ventas', value: `$${Number(tot.COSTO_VENTAS || 0).toFixed(2)}` },
+        { name: 'Utilidad operativa', value: `$${Number(tot.UTILIDAD_OPERATIVA || 0).toFixed(2)}` },
+        { name: 'Cartera CxC', value: `$${Number((cxcT && cxcT.T) || 0).toFixed(2)}` },
+        { name: 'Cobros del periodo', value: `$${Number((cb && cb.TOTAL_COBRADO) || 0).toFixed(2)}` },
+        { name: 'Pronóstico 3m', value: `$${pred.reduce((a, b) => a + Number(b || 0), 0).toFixed(2)}` },
+      ];
+      const svg = aiBuildScenarioSvg({
+        title: 'Escenario AI generado desde tu pregunta',
+        subtitle: `Base activa · histórico ${histLabels[0] || '-'} a ${histLabels[histLabels.length - 1] || '-'} · proyección ${predLabels[0]} a ${predLabels[2]}`,
+        kpis: [
+          { label: 'Ventas netas', value: `$${Number(tot.VENTAS_NETAS || 0).toFixed(0)}` },
+          { label: 'Margen bruto %', value: `${Number(tot.MARGEN_BRUTO_PCT || 0).toFixed(1)}%` },
+          { label: 'CxC cartera', value: `$${Number((cxcT && cxcT.T) || 0).toFixed(0)}` },
+          { label: 'Pronóstico 3m', value: `$${pred.reduce((a, b) => a + Number(b || 0), 0).toFixed(0)}` },
+        ],
+        hist: hist,
+        pred: pred,
+        rows,
+      });
+      return {
+        toolId,
+        block: `\n\n**Escenario visual AI (generado desde pregunta):**
+- Se construyó un mini-dashboard dinámico (KPIs + tendencia + hallazgos) para este contexto.
+- Histórico usado: ${histLabels.length} meses.
+- Proyección incluida: ${predLabels.join(', ')}.`,
+        source: 'render dinámico AI (SVG)',
+        visuals: [{ type: 'image', title: 'Escenario AI generado', url: aiSvgDataUrl(svg) }],
+      };
+    }
+    if (toolId === 'dashboard_screenshot') {
+      const pageFile = aiDetectDashboardPage(ctx.text || '', ctx.pageCtx || '');
+      const baseUrl = process.env.AI_SCREENSHOT_BASE_URL || `http://127.0.0.1:${PORT}`;
+      const targetUrl = aiBuildDashboardUrl(baseUrl, pageFile, aiReq, ctx.dbId || '');
+      try {
+        const img = await aiCaptureDashboardPngDataUrl(targetUrl);
+        return {
+          toolId,
+          block: `\n\n**Screenshot real de dashboard:**
+- Vista capturada: ${pageFile}
+- URL renderizada: ${targetUrl}`,
+          source: `playwright:${pageFile}`,
+          visuals: [{ type: 'image', title: `Screenshot ${pageFile}`, url: img }],
+        };
+      } catch (e) {
+        return {
+          toolId,
+          block: `\n\nNo pude capturar screenshot real (${String(e.message || e)}). Generé un escenario visual alterno.`,
+          source: `playwright-error:${pageFile}`,
+          visuals: [],
+        };
+      }
+    }
+    return { toolId, block: '', source: '' };
+  });
+}
+
 get('/api/ai/welcome', async () => ({ message: AI_WELCOME_MICROSIP }));
 
+get('/api/ai/tools/catalog', async () => ({ tools: AI_TOOL_CATALOG }));
+
+app.post('/api/ai/tools/run', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const dbResolved = aiResolveDbOpts(req);
+    if (dbResolved.error) return res.status(400).json({ error: dbResolved.error });
+    const aiReq = aiReqFromBody(body, req);
+    const text = String(body.message || '').trim();
+    const lowerPool = text.toLowerCase();
+    const pageCtx = body && body.context && body.context.page ? String(body.context.page) : '';
+    const requested = Array.isArray(body.tools) ? body.tools : [];
+    const selected = aiSelectTools({ text, lowerPool, page: pageCtx, requested });
+    const results = [];
+    for (const id of selected) {
+      const r = await aiRunContextTool(id, aiReq, dbResolved.opts, { dbId: dbResolved.id, text, pageCtx });
+      results.push({ toolId: id, source: r.source, block: r.block, visuals: Array.isArray(r.visuals) ? r.visuals : [] });
+    }
+    res.json({ selected, results });
+  } catch (e) {
+    console.error('[ERROR] /api/ai/tools/run', e.message);
+    res.status(500).json({ error: String(e.message) });
+  }
+});
+
+app.post('/api/ai/visuals/render', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const dbResolved = aiResolveDbOpts(req);
+    if (dbResolved.error) return res.status(400).json({ error: dbResolved.error });
+    const aiReq = aiReqFromBody(body, req);
+    const r = await aiRunContextTool('escenario_visual', aiReq, dbResolved.opts);
+    const first = r && Array.isArray(r.visuals) ? r.visuals[0] : null;
+    res.json({
+      ok: true,
+      title: first ? first.title : 'Escenario AI',
+      image: first ? first.url : '',
+      note: r && r.block ? r.block : '',
+    });
+  } catch (e) {
+    console.error('[ERROR] /api/ai/visuals/render', e.message);
+    res.status(500).json({ error: String(e.message) });
+  }
+});
+
+app.post('/api/ai/visuals/screenshot', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const dbResolved = aiResolveDbOpts(req);
+    if (dbResolved.error) return res.status(400).json({ error: dbResolved.error });
+    const aiReq = aiReqFromBody(body, req);
+    const text = String(body.message || '').trim();
+    const pageCtx = body && body.context && body.context.page ? String(body.context.page) : '';
+    const r = await aiRunContextTool('dashboard_screenshot', aiReq, dbResolved.opts, { dbId: dbResolved.id, text, pageCtx });
+    const first = r && Array.isArray(r.visuals) ? r.visuals[0] : null;
+    res.json({
+      ok: true,
+      title: first ? first.title : 'Screenshot dashboard',
+      image: first ? first.url : '',
+      note: r && r.block ? r.block : '',
+      source: r && r.source ? r.source : '',
+    });
+  } catch (e) {
+    console.error('[ERROR] /api/ai/visuals/screenshot', e.message);
+    res.status(500).json({ error: String(e.message) });
+  }
+});
+
 app.post('/api/ai/chat', async (req, res) => {
-  const apiKey = process.env.OPENAI_API_KEY || process.env.AI_API_KEY;
-  if (process.env.CURSOR_API_KEY && !apiKey) {
-    return res.status(400).json({
-      error: 'La API key de Cursor (crsr_...) es para el editor Cursor, no para este chat.',
-      hint: 'Añade OPENAI_API_KEY (OpenAI u otro endpoint compatible) en las variables de entorno del servicio.',
-    });
-  }
-  if (!apiKey) {
-    return res.status(503).json({
-      error: 'API de IA no configurada',
-      hint: 'Define OPENAI_API_KEY en el entorno (y opcionalmente OPENAI_API_BASE, OPENAI_MODEL).',
-    });
-  }
-  if (String(apiKey).startsWith('crsr_')) {
-    return res.status(400).json({
-      error: 'La key configurada es de Cursor (crsr_...). Para este chat se necesita una key de proveedor compatible con OpenAI.',
-    });
-  }
+  const providerEnv = String(process.env.AI_PROVIDER || '').trim().toLowerCase();
+  const openaiKey = process.env.OPENAI_API_KEY || process.env.AI_API_KEY;
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  const provider = providerEnv || ((anthropicKey && !openaiKey) ? 'anthropic' : 'openai');
+  const llmAvailable = provider === 'anthropic'
+    ? !!anthropicKey
+    : !!openaiKey && !String(openaiKey).startsWith('crsr_');
+  const llmUnavailableHint = provider === 'anthropic'
+    ? 'Define ANTHROPIC_API_KEY (y opcionalmente ANTHROPIC_API_BASE, ANTHROPIC_MODEL).'
+    : 'Define OPENAI_API_KEY (y opcionalmente OPENAI_API_BASE, OPENAI_MODEL).';
 
   try {
     const body = req.body || {};
@@ -4091,146 +4722,66 @@ app.post('/api/ai/chat', async (req, res) => {
       return res.status(400).json({ error: dbResolved.error });
     }
     const dbOpts = dbResolved.opts;
+    const aiReq = aiReqFromBody(body, req);
     const empresaCtx = dbResolved.label
       ? `\n\nEmpresa seleccionada en el panel: **${dbResolved.label}** (id: ${dbResolved.id}).`
       : '\n\nEmpresa: base por defecto del servidor (una sola .fdb o la principal).';
 
     let systemContent = AI_SYSTEM_BASE_MICROSIP + empresaCtx;
+    const pageCtx = body && body.context && body.context.page ? String(body.context.page) : '';
+    const q = (aiReq && aiReq.query) || {};
+    const filtrosCtx = [
+      q.preset ? `preset=${q.preset}` : '',
+      q.anio ? `anio=${q.anio}` : '',
+      q.mes ? `mes=${q.mes}` : '',
+      q.desde ? `desde=${q.desde}` : '',
+      q.hasta ? `hasta=${q.hasta}` : '',
+      q.vendedor ? `vendedor=${q.vendedor}` : '',
+      q.cliente ? `cliente=${q.cliente}` : '',
+      q.tipo ? `tipo=${q.tipo}` : '',
+    ].filter(Boolean).join(', ');
+    if (pageCtx || filtrosCtx) {
+      systemContent += `\n\nContexto actual del usuario: ${pageCtx || 'dashboard'}${filtrosCtx ? ` · filtros: ${filtrosCtx}` : ''}.`;
+    }
 
     const historyText = `${text} ${(Array.isArray(body.messages) ? body.messages : []).map(m => (m && m.content) || '').join(' ')}`;
     const lowerPool = (text + ' ' + historyText).toLowerCase();
-
-    const wantsCotizaciones = /\b(cotizaciones?|cotización|cotizacion)\b/i.test(lowerPool) ||
-      (/\bhoy\b|fecha|\d{1,2}\s+de\s+\w+/i.test(text) && !/\bincidentes?\b/i.test(lowerPool));
-
-    if (wantsCotizaciones) {
+    const requestedTools = Array.isArray(body.tools) ? body.tools : [];
+    const selectedTools = aiSelectTools({ text, lowerPool, page: pageCtx, requested: requestedTools });
+    const analyticAsk = /\b(ventas?|vendid[oa]s?|cxc|cobrad|resultado|pnl|margen|utilidad|pron[oó]stico|proyecci[oó]n|inventario|cliente|vendedor)\b/i.test(lowerPool);
+    const hasVisualTool = selectedTools.includes('dashboard_screenshot') || selectedTools.includes('escenario_visual') || selectedTools.includes('pronostico_ventas');
+    if (analyticAsk && !hasVisualTool) selectedTools.push('escenario_visual');
+    const toolSources = [];
+    const toolBlocks = [];
+    const visuals = [];
+    for (const toolId of selectedTools) {
       try {
-        const [resumen] = await query(`
-          SELECT
-            COUNT(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 END) AS COT_HOY,
-            COALESCE(SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN ${sqlCotiImporteExpr('d')} ELSE 0 END), 0) AS IMPORTE_HOY,
-            COUNT(*) AS COT_MES,
-            COALESCE(SUM(${sqlCotiImporteExpr('d')}), 0) AS IMPORTE_MES
-          FROM ${cotizacionesSub()} d
-          WHERE 1=1
-            AND EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE)
-            AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE)
-        `, [], 12000, dbOpts).catch(() => [{}]);
-        const r0 = resumen || {};
-        const rows = await query(`
-          SELECT FIRST 18
-            CAST(d.FECHA AS DATE) AS FECHA, d.FOLIO,
-            COALESCE(c.NOMBRE, '') AS CLIENTE,
-            COALESCE(${sqlCotiImporteExpr('d')}, 0) AS IMPORTE_NETO,
-            COALESCE(v.NOMBRE, '') AS VENDEDOR
-          FROM ${cotizacionesSub()} d
-          LEFT JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
-          LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
-          WHERE 1=1
-          ORDER BY d.FECHA DESC, d.FOLIO DESC
-        `, [], 12000, dbOpts).catch(() => []);
-        const hoyStr = new Date().toISOString().slice(0, 10);
-        const paraHoy = (rows || []).filter(row => row.FECHA && String(row.FECHA).slice(0, 10) === hoyStr);
-        const listHoy = paraHoy.length
-          ? paraHoy.map(c => `Folio ${c.FOLIO}, ${c.CLIENTE || 'Sin cliente'}, $${Number(c.IMPORTE_NETO || 0).toFixed(2)}`).join('; ')
-          : 'Ninguna con fecha de hoy en el listado reciente.';
-        const listRec = (rows || []).slice(0, 12).map(c =>
-          `${c.FOLIO} (${String(c.FECHA).slice(0, 10)}) ${c.CLIENTE || ''} $${Number(c.IMPORTE_NETO || 0).toFixed(2)} — ${c.VENDEDOR || ''}`
-        ).join('; ');
-        systemContent += `\n\n**Cotizaciones (Microsip DOCTOS_VE, activas):**
-- Mes en curso: ${r0.COT_MES || 0} docs, importe neto total ~$${Number(r0.IMPORTE_MES || 0).toFixed(2)}.
-- Hoy: ${r0.COT_HOY || 0} docs, importe neto ~$${Number(r0.IMPORTE_HOY || 0).toFixed(2)}.
-- Detalle hoy: ${listHoy}
-- Últimas (muestra): ${listRec || 'Sin filas.'}`;
-      } catch (_) { /* sin contexto si falla Firebird */ }
-    }
-
-    const wantsCxc = /\b(cxc|cuentas?\s+por\s+cobrar|saldo\s+clientes?|cobranza)\b/i.test(lowerPool);
-    if (wantsCxc) {
-      try {
-        const [t] = await query(`SELECT COALESCE(SUM(s.SALDO), 0) AS T FROM ${cxcClienteSQL()} s`, [], 12000, dbOpts).catch(() => [{ T: 0 }]);
-        const top = await query(`
-          SELECT FIRST 8 cs.CLIENTE_ID, COALESCE(cl.NOMBRE, '') AS NOMBRE, cs.SALDO
-          FROM ${cxcClienteSQL()} cs
-          LEFT JOIN CLIENTES cl ON cl.CLIENTE_ID = cs.CLIENTE_ID
-          WHERE cs.SALDO > 0.5
-          ORDER BY cs.SALDO DESC
-        `, [], 12000, dbOpts).catch(() => []);
-        systemContent += `\n\n**CxC (resumen del panel):**
-- Saldo total cartera (suma por cliente): $${Number((t && t.T) || 0).toFixed(2)}.
-- Principales saldos: ${(top || []).map(x => `${x.NOMBRE || x.CLIENTE_ID}: $${Number(x.SALDO || 0).toFixed(2)}`).join('; ') || 'Sin datos.'}`;
-      } catch (_) { /* sin contexto CxC */ }
-    }
-
-    const wantsVentas = /\b(ventas?|facturaci[oó]n|facturas?)\b/i.test(lowerPool) && !wantsCotizaciones;
-    if (wantsVentas) {
-      try {
-        const tipo = '';
-        const [vr] = await query(`
-          SELECT
-            SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END) AS HOY,
-            COALESCE(SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE)
-              AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE) THEN d.IMPORTE_NETO ELSE 0 END), 0) AS MES
-          FROM ${ventasSub(tipo)} d
-        `, [], 12000, dbOpts).catch(() => [{}]);
-        systemContent += `\n\n**Ventas (VE+PV, facturas válidas):**
-- Hoy: $${Number((vr && vr.HOY) || 0).toFixed(2)}.
-- Mes en curso: $${Number((vr && vr.MES) || 0).toFixed(2)}.`;
-      } catch (_) {}
-    }
-
-    const wantsCobradas =
-      /\b(cobrad[ao]s?|cobrado|pagos?\s+recibidos|ticket\s+promedio|abonos?\s+a\s+cc|total\s+cobrado|comisi[oó]n\s+8|facturas?\s+cobradas?)\b/i.test(
-        lowerPool
-      ) && !/\bincidentes?\b/i.test(lowerPool);
-    if (wantsCobradas) {
-      try {
-        const tipo = '';
-        const [cb] = await query(
-          `
-          SELECT
-            COALESCE(SUM(CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END), 0) AS TOTAL_COBRADO,
-            COUNT(*) AS NUM_MOV_COBRO
-          FROM IMPORTES_DOCTOS_CC i
-          JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = i.DOCTO_CC_ID
-          WHERE i.TIPO_IMPTE = 'R' AND COALESCE(i.CANCELADO, 'N') = 'N'
-            AND EXTRACT(YEAR FROM dc.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE)
-            AND EXTRACT(MONTH FROM dc.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE)
-        `,
-          [],
-          12000,
-          dbOpts
-        ).catch(() => [{}]);
-        const [fv] = await query(
-          `
-          SELECT COUNT(DISTINCT d.FOLIO) AS N_FACT, COALESCE(SUM(d.IMPORTE_NETO), 0) AS TOTAL_FAC
-          FROM ${ventasSub(tipo)} d
-          WHERE d.VENDEDOR_ID > 0
-            AND EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE)
-            AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE)
-        `,
-          [],
-          12000,
-          dbOpts
-        ).catch(() => [{}]);
-        const totC = Number((cb && cb.TOTAL_COBRADO) || 0);
-        const nMov = Number((cb && cb.NUM_MOV_COBRO) || 0);
-        const ticketPorMov = nMov > 0 ? totC / nMov : null;
-        const nFac = Number((fv && fv.N_FACT) || 0);
-        const totFac = Number((fv && fv.TOTAL_FAC) || 0);
-        const ticketSobreFac = nFac > 0 ? totC / nFac : null;
-        const y = new Date().getFullYear();
-        const m = new Date().getMonth() + 1;
-        systemContent += `\n\n**Cobradas (mes en curso ${y}-${String(m).padStart(2, '0')}, misma lógica que el panel Cobradas: cobros IMPORTES_DOCTOS_CC tipo R, importe normalizado ex-IVA; filtro por año/mes de FECHA del movimiento (i.FECHA); vendedor vía CC aplicado COALESCE(DOCTO_CC_ACR_ID, DOCTO_CC_ID) → DOCTOS_VE/PV):**
-- Total cobrado en el periodo: $${totC.toFixed(2)}.
-- Número de movimientos de cobro (líneas R) en ese periodo: ${nMov}.
-- **Ticket promedio por movimiento de cobro** (total cobrado ÷ movimientos): ${ticketPorMov != null ? '$' + ticketPorMov.toFixed(2) : 'No aplica (0 movimientos).'}.
-- Referencia facturación mismo mes (VE+PV, con vendedor): ${nFac} facturas (folios distintos), total facturado $${totFac.toFixed(2)}.
-- **Cobrado medio por factura del mes** (total cobrado ÷ esas facturas; aproximación si el cobro del mes se repartiera entre ellas): ${ticketSobreFac != null ? '$' + ticketSobreFac.toFixed(2) : 'No aplica.'}.
-- Explica en una frase que el desglose por vendedor está en la vista Cobradas del dashboard; aquí son totales de la base activa.`;
+        const t = await aiRunContextTool(toolId, aiReq, dbOpts, { dbId: dbResolved.id, text, pageCtx });
+        if (t && t.block) systemContent += t.block;
+        if (t && t.block) toolBlocks.push(String(t.block));
+        if (t && t.source) toolSources.push(`${toolId}: ${t.source}`);
+        if (t && Array.isArray(t.visuals) && t.visuals.length) visuals.push(...t.visuals);
       } catch (_) {
-        /* sin contexto cobradas */
+        // sigue con el resto de tools
       }
+    }
+    if (toolSources.length) {
+      systemContent += `\n\nTrazabilidad de datos: ${toolSources.join(' | ')}.`;
+    }
+    if (analyticAsk) {
+      systemContent += `\n\nFormato de respuesta obligatorio para esta consulta:
+1) Resumen ejecutivo (2-4 bullets con conclusión principal)
+2) Tabla de métricas (en markdown con 3-8 filas)
+3) Interpretación (causas probables y lectura del riesgo/oportunidad)
+4) Acciones recomendadas (3-5 acciones concretas, priorizadas).`;
+    }
+
+    if (!llmAvailable) {
+      const joined = toolBlocks.join('\n').trim();
+      const fallback = joined
+        ? `Resumen ejecutivo\n- Respuesta generada en modo local (sin LLM externo).\n- Datos obtenidos de tus endpoints reales y filtros activos.\n\n${joined}\n\nAcción recomendada\n- Para respuestas conversacionales más ricas, configura proveedor IA externo.\n- ${llmUnavailableHint}`
+        : `No hay proveedor IA configurado y tampoco hubo datos para esta consulta con los filtros actuales.\n\nConfigura IA externa para respuestas narrativas:\n- ${llmUnavailableHint}`;
+      return res.json({ reply: fallback, visuals });
     }
 
     const apiMessages = [{ role: 'system', content: systemContent }];
@@ -4259,32 +4810,89 @@ app.post('/api/ai/chat', async (req, res) => {
       apiMessages.push({ role: 'user', content: userText.slice(0, 2000) });
     }
 
-    const apiUrl = process.env.OPENAI_API_BASE || 'https://api.openai.com/v1/chat/completions';
-    let model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-    if (imageB64 && !/gpt-4|vision|o1|o3|o4/i.test(model)) {
-      model = 'gpt-4o-mini';
-    }
-
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: apiMessages,
-        max_tokens: 600,
-      }),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (data.error) {
-      return res.status(response.ok ? 500 : response.status).json({
-        error: data.error.message || 'Error de la API de IA',
+    let reply = 'Sin respuesta';
+    if (provider === 'anthropic') {
+      const apiUrl = process.env.ANTHROPIC_API_BASE || 'https://api.anthropic.com/v1/messages';
+      const model = process.env.ANTHROPIC_MODEL || 'claude-3-5-sonnet-latest';
+      const anthMessages = [];
+      if (Array.isArray(body.messages) && body.messages.length) {
+        body.messages.forEach((m) => {
+          if (!m || !m.content) return;
+          anthMessages.push({
+            role: m.role === 'assistant' ? 'assistant' : 'user',
+            content: String(m.content).slice(0, 2000),
+          });
+        });
+      }
+      if (imageB64 && /^image\/(jpeg|png|gif|webp)$/i.test(imageMime)) {
+        anthMessages.push({
+          role: 'user',
+          content: [
+            { type: 'text', text: userText.slice(0, 2000) },
+            {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: imageMime,
+                data: imageB64,
+              },
+            },
+          ],
+        });
+      } else {
+        anthMessages.push({ role: 'user', content: userText.slice(0, 2000) });
+      }
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': anthropicKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model,
+          system: systemContent,
+          messages: anthMessages,
+          max_tokens: 900,
+        }),
       });
+      const data = await response.json().catch(() => ({}));
+      if (data.error) {
+        return res.status(response.ok ? 500 : response.status).json({
+          error: data.error.message || data.error.type || 'Error de la API de Claude',
+        });
+      }
+      reply = Array.isArray(data.content)
+        ? data.content.filter(c => c && c.type === 'text').map(c => c.text || '').join('\n').trim()
+        : '';
+      if (!reply) reply = 'Sin respuesta';
+    } else {
+      const apiUrl = process.env.OPENAI_API_BASE || 'https://api.openai.com/v1/chat/completions';
+      let model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+      if (imageB64 && !/gpt-4|vision|o1|o3|o4/i.test(model)) {
+        model = 'gpt-4o-mini';
+      }
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${openaiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: apiMessages,
+          max_tokens: 600,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (data.error) {
+        return res.status(response.ok ? 500 : response.status).json({
+          error: data.error.message || 'Error de la API de IA',
+        });
+      }
+      reply = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || 'Sin respuesta';
     }
-    const reply = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || 'Sin respuesta';
-    res.json({ reply });
+    res.json({ reply, visuals });
   } catch (e) {
     console.error('[ERROR] /api/ai/chat', e.message);
     res.status(500).json({ error: String(e.message) });

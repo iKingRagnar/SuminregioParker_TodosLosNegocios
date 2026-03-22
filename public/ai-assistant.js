@@ -12,10 +12,26 @@
     try {
       const u = new URLSearchParams(window.location.search);
       const d = u.get('db');
-      return d && d.trim() ? d.trim() : '';
+      if (d && d.trim()) return d.trim();
+      const s = sessionStorage.getItem('microsip_erp_db');
+      return s && String(s).trim() ? String(s).trim() : '';
     } catch (_) {
       return '';
     }
+  }
+
+  function getRuntimeContext() {
+    let filters = null;
+    try {
+      if (typeof window.filterGetParams === 'function') {
+        filters = window.filterGetParams() || null;
+      }
+    } catch (_) {}
+    let page = '';
+    try {
+      page = (window.location.pathname.split('/').pop() || '').trim();
+    } catch (_) {}
+    return { page, filters };
   }
 
   function qs(sel, root) {
@@ -271,6 +287,41 @@
       }
     }
 
+    function appendVisuals(visuals) {
+      if (!Array.isArray(visuals) || !visuals.length) return;
+      visuals.forEach(function (v) {
+        if (!v || String(v.type || '').toLowerCase() !== 'image') return;
+        const url = String(v.url || '').trim();
+        if (!/^https?:\/\//i.test(url) && !/^data:image\//i.test(url)) return;
+        const div = document.createElement('div');
+        div.className = 'ai-msg ai-msg-bot';
+        div.style.display = 'grid';
+        div.style.gap = '8px';
+        div.style.whiteSpace = 'normal';
+        const cap = document.createElement('div');
+        cap.style.fontSize = '12px';
+        cap.style.opacity = '0.9';
+        cap.textContent = v.title ? String(v.title) : 'Visual';
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = cap.textContent;
+        img.loading = 'lazy';
+        img.style.width = '100%';
+        img.style.borderRadius = '10px';
+        img.style.border = '1px solid rgba(255,255,255,.15)';
+        img.style.background = 'rgba(255,255,255,.03)';
+        a.appendChild(img);
+        div.appendChild(cap);
+        div.appendChild(a);
+        messagesEl.appendChild(div);
+      });
+      messagesEl.scrollTo({ top: messagesEl.scrollHeight, behavior: 'smooth' });
+    }
+
     function speakReply(text) {
       if (!text || !window.speechSynthesis) return;
       window.speechSynthesis.cancel();
@@ -430,9 +481,11 @@
       pendingFileMime = null;
 
       const db = dbFromUrl();
+      const runtimeCtx = getRuntimeContext();
       const body = {
         message: messageToSend,
         messages: chatHistory.slice(0, -1),
+        context: runtimeCtx,
       };
       if (db) body.db = db;
       if (fileB64 && allowedImage.test(fileMime)) {
@@ -447,6 +500,7 @@
         });
         const reply = data.reply || 'Sin respuesta';
         append(reply, false);
+        appendVisuals(data.visuals || []);
         chatHistory.push({ role: 'assistant', content: reply });
         while (chatHistory.length > 20) chatHistory.splice(0, 2);
         if (reply && window.speechSynthesis) speakReply(reply);
