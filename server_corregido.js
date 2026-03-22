@@ -4355,7 +4355,8 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
         WHERE cs.SALDO > 0.5
         ORDER BY cs.SALDO DESC
       `, [], 12000, dbOpts).catch(() => []);
-      const porCond = await query(`
+      let porCondSource = 'documento';
+      let porCond = await query(`
         SELECT FIRST 6
           COALESCE(cp.NOMBRE, 'Sin condición') AS CONDICION,
           COALESCE(SUM(doc.SALDO_NETO), 0) AS SALDO
@@ -4367,12 +4368,26 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
         GROUP BY COALESCE(cp.NOMBRE, 'Sin condición')
         ORDER BY 2 DESC
       `, [], 12000, dbOpts).catch(() => []);
+      if (!Array.isArray(porCond) || !porCond.length) {
+        porCondSource = 'cliente';
+        porCond = await query(`
+          SELECT FIRST 6
+            COALESCE(cp.NOMBRE, 'Sin condición') AS CONDICION,
+            COALESCE(SUM(cs.SALDO), 0) AS SALDO
+          FROM ${cxcClienteSQL()} cs
+          LEFT JOIN CLIENTES c ON c.CLIENTE_ID = cs.CLIENTE_ID
+          LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = c.COND_PAGO_ID
+          WHERE cs.SALDO > 0.5
+          GROUP BY COALESCE(cp.NOMBRE, 'Sin condición')
+          ORDER BY 2 DESC
+        `, [], 12000, dbOpts).catch(() => []);
+      }
       return {
         toolId,
         block: `\n\n**CxC (herramienta):**
 - Saldo total cartera: $${Number((t && t.T) || 0).toFixed(2)}.
 - Top deudores: ${(top || []).map(x => `${x.NOMBRE || x.CLIENTE_ID}: $${Number(x.SALDO || 0).toFixed(2)}`).join('; ') || 'Sin datos.'}
-- Por condición: ${(porCond || []).map(x => `${x.CONDICION}: $${Number(x.SALDO || 0).toFixed(2)}`).join('; ') || 'Sin datos.'}`,
+- Por condición: ${(porCond || []).map(x => `${x.CONDICION}: $${Number(x.SALDO || 0).toFixed(2)}`).join('; ') || 'No disponible para esta base.'}${porCondSource === 'cliente' ? ' (clasificación fallback por condición de cliente)' : ''}`,
         source: '/api/cxc/resumen + /api/cxc/por-condicion',
       };
     }
