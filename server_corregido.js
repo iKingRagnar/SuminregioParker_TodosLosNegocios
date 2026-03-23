@@ -446,10 +446,21 @@ console.log(
   DATABASE_REGISTRY.map((d) => `${d.id} ← ${path.basename(d.options.database || '')}`).join(' | ')
 );
 
+function normalizeDbQueryId(raw) {
+  const src = raw != null ? String(raw).trim() : '';
+  if (!src) return '';
+  const parts = src.split(',').map(s => String(s || '').trim()).filter(Boolean);
+  if (!parts.length) return '';
+  // Caso frecuente: db=default,default o db=elige,elige
+  if (parts.every(p => p.toLowerCase() === parts[0].toLowerCase())) return parts[0];
+  // Si vienen múltiples valores distintos, usar el primero no vacío.
+  return parts[0];
+}
+
 /** null = FB_DATABASE por defecto; ?db=id debe existir en DATABASE_REGISTRY o lanza error. */
 function getReqDbOpts(req) {
   if (!req || !req.query) return null;
-  const id = req.query.db != null ? String(req.query.db).trim() : '';
+  const id = normalizeDbQueryId(req.query.db);
   if (!id || id.toLowerCase() === 'default') return null;
   const idLc = id.toLowerCase();
   const hit = DATABASE_REGISTRY.find(d => String(d.id).toLowerCase() === idLc);
@@ -964,7 +975,13 @@ function cxcSaldosSub() { return cxcCargosSQL(); }
 //  CONFIG / METAS  — ideal = +30% sobre meta diaria (Power BI / DAX)
 // ═══════════════════════════════════════════════════════════════════════════════
 
+const metasCache = new Map();
+
 get('/api/config/metas', async (req) => {
+  const dbKey = normalizeDbQueryId(req && req.query && req.query.db) || 'default';
+  const cacheHit = metasCache.get(dbKey);
+  if (cacheHit && cacheHit.expireAt > Date.now()) return cacheHit.payload;
+
   const dbo = getReqDbOpts(req);
   const rows = await query(`
     SELECT COUNT(DISTINCT VENDEDOR_ID) AS NUM_VENDEDORES
@@ -976,7 +993,7 @@ get('/api/config/metas', async (req) => {
     )
     AND EXTRACT(YEAR  FROM FECHA) = EXTRACT(YEAR  FROM CURRENT_DATE)
     AND EXTRACT(MONTH FROM FECHA) = EXTRACT(MONTH FROM CURRENT_DATE)
-  `, [], 12000, dbo);
+  `, [], 30000, dbo);
   const numV = (rows[0] && rows[0].NUM_VENDEDORES) ? Number(rows[0].NUM_VENDEDORES) : 1;
 
   const META_DIA_V   = 5650;
@@ -984,7 +1001,7 @@ get('/api/config/metas', async (req) => {
   const META_DIA_C   = 10000;
   const META_IDEAL_C = 10000 * 1.30;
 
-  return {
+  const payload = {
     META_DIARIA_POR_VENDEDOR : META_DIA_V,
     META_IDEAL_POR_VENDEDOR  : META_IDEAL_V,
     META_COTI_POR_VENDEDOR   : META_DIA_C,
@@ -996,13 +1013,15 @@ get('/api/config/metas', async (req) => {
     NUM_VENDEDORES           : numV,
     MARGEN_COMISION          : 0.08,
   };
+  metasCache.set(dbKey, { expireAt: Date.now() + 60 * 1000, payload });
+  return payload;
 });
 
 get('/api/config/filtros', async (req) => {
   const dbo = getReqDbOpts(req);
   const [vendedores, clientes, anios] = await Promise.all([
-    query(`SELECT VENDEDOR_ID, NOMBRE FROM VENDEDORES WHERE COALESCE(ESTATUS,'A') NOT IN ('I','B','0','N') ORDER BY NOMBRE`, [], 12000, dbo)
-      .catch(() => query(`SELECT VENDEDOR_ID, NOMBRE FROM VENDEDORES ORDER BY NOMBRE`, [], 12000, dbo)),
+    query(`SELECT VENDEDOR_ID, NOMBRE FROM VENDEDORES WHERE COALESCE(ESTATUS,'A') NOT IN ('I','B','0','N') ORDER BY NOMBRE`, [], 30000, dbo)
+      .catch(() => query(`SELECT VENDEDOR_ID, NOMBRE FROM VENDEDORES ORDER BY NOMBRE`, [], 30000, dbo)),
     query(`
       SELECT FIRST 500 d.CLIENTE_ID, c.NOMBRE
       FROM (
@@ -1012,13 +1031,13 @@ get('/api/config/filtros', async (req) => {
       ) d
       JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
       ORDER BY c.NOMBRE
-    `, [], 12000, dbo),
+    `, [], 30000, dbo),
     query(`
       SELECT DISTINCT EXTRACT(YEAR FROM FECHA) AS ANIO
       FROM DOCTOS_VE
       WHERE (TIPO_DOCTO='F' OR TIPO_DOCTO='V') AND ESTATUS <> 'C'
       ORDER BY ANIO DESC
-    `, [], 12000, dbo),
+    `, [], 30000, dbo),
   ]);
   return { vendedores, clientes, anios };
 });
