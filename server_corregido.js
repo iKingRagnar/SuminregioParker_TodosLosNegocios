@@ -5279,8 +5279,12 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
     }
 
     if (toolId === 'cxc') {
-      const snap = await cxcResumenAgingUnificado({ query: (aiReq && aiReq.query) || {} }, dbOpts, 12000).catch(() => ({ resumen: { SALDO_TOTAL: 0 } }));
-      const saldoTotal = +(((snap || {}).resumen || {}).SALDO_TOTAL || 0);
+      const snap = await cxcResumenAgingUnificado({ query: (aiReq && aiReq.query) || {} }, dbOpts, 30000).catch(() => ({ resumen: { SALDO_TOTAL: 0 }, aging: {} }));
+      let saldoTotal = +(((snap || {}).resumen || {}).SALDO_TOTAL || 0);
+      if (saldoTotal <= 0.005) {
+        const [sumRow] = await query(`SELECT COALESCE(SUM(cs.SALDO),0) AS TOTAL FROM ${cxcClienteSQL()} cs`, [], 15000, dbOpts).catch(() => [{ TOTAL: 0 }]);
+        saldoTotal = +((sumRow && sumRow.TOTAL) || 0);
+      }
       const top = await query(`
         SELECT FIRST 8 cs.CLIENTE_ID, COALESCE(cl.NOMBRE, '') AS NOMBRE, cs.SALDO
         FROM ${cxcClienteSQL()} cs
