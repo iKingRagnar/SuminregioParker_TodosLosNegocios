@@ -5292,7 +5292,7 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
         SELECT FIRST 6
           COALESCE(cp.NOMBRE, 'Sin condición') AS CONDICION,
           COALESCE(SUM(doc.SALDO_NETO), 0) AS SALDO
-        FROM (${cxcDocSaldosInnerSQL()}) doc
+        FROM (${cxcDocSaldosInnerSQL('')}) doc
         LEFT JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = doc.DOCTO_CC_ID
         LEFT JOIN CLIENTES c ON c.CLIENTE_ID = dc.CLIENTE_ID
         LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, c.COND_PAGO_ID)
@@ -5307,6 +5307,9 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
         GROUP BY COALESCE(cp.NOMBRE, 'Sin condición')
         ORDER BY 2 DESC
       `, [], 12000, dbOpts).catch(() => []);
+      // #region agent log
+      fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run19',hypothesisId:'H82',location:'server_corregido.js:aiRunContextTool:cxc',message:'ai cxc tool blocks',data:{saldoTotal,topCount:(top||[]).length,porCondCount:(porCond||[]).length,porCondSample:(porCond||[])[0]||null},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       return {
         toolId,
         block: `\n\n**CxC (herramienta):**
@@ -5373,17 +5376,23 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
       const pnl = await resultadosPnlCore(aiReq, dbOpts);
       const meses = Array.isArray(pnl && pnl.meses) ? pnl.meses : [];
       const tot = pnl && pnl.totales ? pnl.totales : {};
+      const sumGastos = ['CO_A1','CO_A2','CO_A3','CO_A4','CO_A5','CO_A6','CO_B1','CO_B2','CO_B3','CO_B4','CO_B5','CO_C1','CO_C2','CO_C3','CO_C4','CO_C5','CO_C6']
+        .reduce((s, k) => s + (+tot[k] || 0), 0);
+      const utilOp = (+tot.UTILIDAD_BRUTA || 0) - sumGastos;
       const ult = meses.slice(-3).map(m =>
-        `${m.PERIODO || `${m.ANIO}-${String(m.MES || '').padStart(2, '0')}`}: Vta $${Number(m.VENTAS || 0).toFixed(2)}, Costo $${Number(m.COSTO_VENTAS || 0).toFixed(2)}, Margen ${Number(m.MARGEN_PORCENTAJE || 0).toFixed(2)}%`
+        `${m.PERIODO || `${m.ANIO}-${String(m.MES || '').padStart(2, '0')}`}: Vta $${Number(m.VENTAS_NETAS || 0).toFixed(2)}, Costo $${Number(m.COSTO_VENTAS || 0).toFixed(2)}, Margen ${Number(m.MARGEN_BRUTO_PCT || 0).toFixed(2)}%`
       ).join(' | ');
+      // #region agent log
+      fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run19',hypothesisId:'H83',location:'server_corregido.js:aiRunContextTool:resultados',message:'ai resultados tool totals',data:{ventas:tot.VENTAS_NETAS||0,costo:tot.COSTO_VENTAS||0,utilBruta:tot.UTILIDAD_BRUTA||0,gastosOperativos:sumGastos,utilOperativa:utilOp,meses:meses.slice(-3)},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       return {
         toolId,
         block: `\n\n**Resultados / P&L (herramienta):**
 - Ventas netas: $${Number(tot.VENTAS_NETAS || 0).toFixed(2)}.
 - Costo de ventas: $${Number(tot.COSTO_VENTAS || 0).toFixed(2)}.
 - Utilidad bruta: $${Number(tot.UTILIDAD_BRUTA || 0).toFixed(2)} (${Number(tot.MARGEN_BRUTO_PCT || 0).toFixed(2)}%).
-- Gastos operativos: $${Number(tot.GASTOS_OPERATIVOS || 0).toFixed(2)}.
-- Utilidad operativa: $${Number(tot.UTILIDAD_OPERATIVA || 0).toFixed(2)}.
+- Gastos operativos: $${Number(sumGastos || 0).toFixed(2)}.
+- Utilidad operativa: $${Number(utilOp || 0).toFixed(2)}.
 - Últimos meses: ${ult || 'Sin meses para el filtro actual.'}`,
         source: '/api/resultados/pnl',
       };
