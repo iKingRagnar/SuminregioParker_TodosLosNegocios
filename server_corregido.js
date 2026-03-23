@@ -5307,6 +5307,13 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
         GROUP BY COALESCE(cp.NOMBRE, 'Sin condición')
         ORDER BY 2 DESC
       `, [], 12000, dbOpts).catch(() => []);
+      if ((!porCond || !porCond.length) && snap && snap.aging) {
+        const ag = snap.aging || {};
+        porCond = [
+          { CONDICION: 'Corriente', SALDO: +ag.CORRIENTE || 0 },
+          { CONDICION: 'Vencido', SALDO: +ag.VENCIDO || 0 },
+        ].filter(x => (+x.SALDO || 0) > 0.005);
+      }
       // #region agent log
       fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run19',hypothesisId:'H82',location:'server_corregido.js:aiRunContextTool:cxc',message:'ai cxc tool blocks',data:{saldoTotal,topCount:(top||[]).length,porCondCount:(porCond||[]).length,porCondSample:(porCond||[])[0]||null},timestamp:Date.now()})}).catch(()=>{});
       // #endregion
@@ -5822,6 +5829,36 @@ app.post('/api/ai/chat', async (req, res) => {
         break;
       }
       if (!data || data.error || !Array.isArray(data.content)) {
+        if (openaiKey && !String(openaiKey).startsWith('crsr_')) {
+          try {
+            const fallbackApiUrl = process.env.OPENAI_API_BASE || 'https://api.openai.com/v1/chat/completions';
+            const fallbackModel = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+            const openaiResp = await fetch(fallbackApiUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${openaiKey}`,
+              },
+              body: JSON.stringify({
+                model: fallbackModel,
+                messages: apiMessages,
+                max_tokens: 600,
+              }),
+            });
+            const openaiData = await openaiResp.json().catch(() => ({}));
+            const openaiReply = (openaiData && openaiData.choices && openaiData.choices[0] && openaiData.choices[0].message && openaiData.choices[0].message.content)
+              ? String(openaiData.choices[0].message.content).trim()
+              : '';
+            if (openaiResp.ok && openaiReply) {
+              // #region agent log
+              fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run19',hypothesisId:'H84',location:'server_corregido.js:/api/ai/chat',message:'anthropic failed, openai fallback succeeded',data:{openaiModel:fallbackModel,tools:selectedTools},timestamp:Date.now()})}).catch(()=>{});
+              // #endregion
+              return res.json({ reply: openaiReply, visuals });
+            }
+          } catch (_) {
+            // continúa a fallback local
+          }
+        }
         const joined = toolBlocks.join('\n').trim();
         const rawReason = lastReason || (data && data.error && (data.error.message || data.error.type)) || 'Error de la API de Claude';
         const reason = String(rawReason || '').trim();
