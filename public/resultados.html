@@ -1323,6 +1323,9 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   const pnlBodyEl=document.getElementById('pnlBody');
   const pnlFootEl=document.getElementById('pnlFoot');
   const thEl=document.getElementById('thMeses');
+  // #region agent log
+  debugLogResultados('run13','H66','resultados.html:renderTabla:entry','render tabla inputs',{mesesLen:meses.length,meses:meses.map(m=>({anio:+m.ANIO||0,mes:+m.MES||0,label:mesLabel(m),ventas:+m.VENTAS_NETAS||0,costo:+m.COSTO_VENTAS||0})),totalVentas:+tot.VENTAS_NETAS||0,totalCosto:+tot.COSTO_VENTAS||0,tieneGastos:tg});
+  // #endregion
   if(!meses.length){
     if(pnlBodyEl)pnlBodyEl.innerHTML='<tr><td colspan="99" style="text-align:center;padding:2rem;font-family:DM Mono,monospace;font-size:.78rem;color:var(--muted)">Sin datos para el periodo seleccionado</td></tr>';
     if(pnlFootEl)pnlFootEl.innerHTML='';
@@ -1340,6 +1343,12 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     }).join('');
     thEl.outerHTML=`<th style="width:22%;text-align:left;padding:.55rem 1.4rem">Concepto</th>${thHtml}<th>Total</th>`;
   }
+  // #region agent log
+  try{
+    const thTexts=[...document.querySelectorAll('.pnl-structured thead th')].map(x=>String((x&&x.textContent)||'').trim());
+    debugLogResultados('run13','H66','resultados.html:renderTabla:headers','rendered table headers',{thCount:thTexts.length,thTexts});
+  }catch(_){}
+  // #endregion
 
   // Rows
   const sumOf=key=>meses.reduce((s,m)=>s+(+m[key]||0),0);

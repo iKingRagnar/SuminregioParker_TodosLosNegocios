@@ -3992,6 +3992,54 @@ get('/api/debug/pnl-reconcile-ext', async (req) => {
         AND s.ANO = EXTRACT(YEAR FROM CAST(? AS DATE))
         AND s.MES = EXTRACT(MONTH FROM CAST(? AS DATE))
     `),
+    safeOne('gastos_abs_52', `
+      SELECT COALESCE(SUM(ABS(COALESCE(s.CARGOS,0)-COALESCE(s.ABONOS,0))),0) AS T
+      FROM SALDOS_CO s
+      JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
+      WHERE cu.CUENTA_PT STARTING WITH '52'
+        AND s.ANO = EXTRACT(YEAR FROM CAST(? AS DATE))
+        AND s.MES = EXTRACT(MONTH FROM CAST(? AS DATE))
+    `),
+    safeOne('gastos_abs_53', `
+      SELECT COALESCE(SUM(ABS(COALESCE(s.CARGOS,0)-COALESCE(s.ABONOS,0))),0) AS T
+      FROM SALDOS_CO s
+      JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
+      WHERE cu.CUENTA_PT STARTING WITH '53'
+        AND s.ANO = EXTRACT(YEAR FROM CAST(? AS DATE))
+        AND s.MES = EXTRACT(MONTH FROM CAST(? AS DATE))
+    `),
+    safeOne('gastos_abs_54', `
+      SELECT COALESCE(SUM(ABS(COALESCE(s.CARGOS,0)-COALESCE(s.ABONOS,0))),0) AS T
+      FROM SALDOS_CO s
+      JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
+      WHERE cu.CUENTA_PT STARTING WITH '54'
+        AND s.ANO = EXTRACT(YEAR FROM CAST(? AS DATE))
+        AND s.MES = EXTRACT(MONTH FROM CAST(? AS DATE))
+    `),
+    safeOne('ventas_ve_fv_menos_iva116', `
+      SELECT COALESCE(SUM(${sqlVentaImporteBaseExpr('d')} / 1.16),0) AS T
+      FROM DOCTOS_VE d
+      WHERE d.TIPO_DOCTO IN ('F','V')
+        AND COALESCE(d.ESTATUS,'N') NOT IN ('C','D','S')
+        AND COALESCE(d.APLICADO,'N')='S'
+        AND CAST(d.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(d.FECHA AS DATE) <= CAST(? AS DATE)
+    `),
+    safeOne('ventas_pv_fv_menos_iva116', `
+      SELECT COALESCE(SUM(${sqlVentaImporteBaseExpr('d')} / 1.16),0) AS T
+      FROM DOCTOS_PV d
+      WHERE d.TIPO_DOCTO IN ('F','V')
+        AND COALESCE(d.ESTATUS,'N') NOT IN ('C','D','S')
+        AND COALESCE(d.APLICADO,'N')='S'
+        AND CAST(d.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(d.FECHA AS DATE) <= CAST(? AS DATE)
+    `),
+    safeOne('ventas_conta_ingresos_4', `
+      SELECT COALESCE(SUM(COALESCE(s.ABONOS,0)-COALESCE(s.CARGOS,0)),0) AS T
+      FROM SALDOS_CO s
+      JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
+      WHERE cu.CUENTA_PT STARTING WITH '4'
+        AND s.ANO = EXTRACT(YEAR FROM CAST(? AS DATE))
+        AND s.MES = EXTRACT(MONTH FROM CAST(? AS DATE))
+    `),
   ]);
   const payload = { desdeStr, hastaStr, variantes: out };
   // #region agent log
