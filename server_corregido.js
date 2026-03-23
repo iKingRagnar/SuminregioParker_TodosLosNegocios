@@ -1251,8 +1251,12 @@ get('/api/ventas/por-vendedor', async (req) => {
   const f = buildFiltros(req, 'd');
   const tipo = getTipo(req);
   return query(`
-    SELECT d.VENDEDOR_ID,
-      COALESCE(v.NOMBRE, 'Vendedor ' || CAST(d.VENDEDOR_ID AS VARCHAR(10))) AS VENDEDOR,
+    SELECT
+      COALESCE(d.VENDEDOR_ID, 0) AS VENDEDOR_ID,
+      CASE
+        WHEN COALESCE(d.VENDEDOR_ID, 0) <= 0 THEN 'No asignado'
+        ELSE COALESCE(v.NOMBRE, 'Vendedor ' || CAST(d.VENDEDOR_ID AS VARCHAR(10)))
+      END AS VENDEDOR,
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END) AS VENTAS_HOY,
       SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE) THEN d.IMPORTE_NETO ELSE 0 END) AS VENTAS_MES,
       SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE) AND d.TIPO_SRC = 'VE' THEN d.IMPORTE_NETO ELSE 0 END) AS VENTAS_MES_VE,
@@ -1261,8 +1265,14 @@ get('/api/ventas/por-vendedor', async (req) => {
       SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE) THEN 1 ELSE 0 END) AS FACTURAS_MES
     FROM ${ventasSub(tipo)} d
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
-    WHERE EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE) AND d.VENDEDOR_ID > 0 ${f.sql}
-    GROUP BY d.VENDEDOR_ID, v.NOMBRE ORDER BY VENTAS_MES DESC
+    WHERE EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE) ${f.sql}
+    GROUP BY
+      COALESCE(d.VENDEDOR_ID, 0),
+      CASE
+        WHEN COALESCE(d.VENDEDOR_ID, 0) <= 0 THEN 'No asignado'
+        ELSE COALESCE(v.NOMBRE, 'Vendedor ' || CAST(d.VENDEDOR_ID AS VARCHAR(10)))
+      END
+    ORDER BY VENTAS_MES DESC
   `, f.params, 12000, dbo).catch(() => []);
 });
 
@@ -1822,29 +1832,34 @@ get('/api/ventas/cumplimiento', async (req) => {
     }
   }
 
-  const condVendedor = vendedorQ ? ` AND d.VENDEDOR_ID = ${vendedorQ}` : '';
+  const condVendedor = vendedorQ != null ? ` AND COALESCE(d.VENDEDOR_ID, 0) = ${vendedorQ}` : '';
   const anioExpr = anioQ || 'EXTRACT(YEAR FROM CURRENT_DATE)';
 
   const ventas = await query(`
-    SELECT d.VENDEDOR_ID,
+    SELECT COALESCE(d.VENDEDOR_ID, 0) AS VENDEDOR_ID,
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END) AS VENTA_HOY,
       SUM(CASE WHEN ${condAnioMes} THEN d.IMPORTE_NETO ELSE 0 END) AS VENTA_MES,
       SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA) = ${anioExpr} THEN d.IMPORTE_NETO ELSE 0 END) AS VENTA_YTD,
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 ELSE 0 END) AS FACTURAS_HOY,
       SUM(CASE WHEN ${condAnioMes} THEN 1 ELSE 0 END) AS FACTURAS_MES
     FROM ${ventasSub()} d
-    WHERE ${condAnioMes} AND d.VENDEDOR_ID > 0 ${condVendedor}
-    GROUP BY d.VENDEDOR_ID
+    WHERE ${condAnioMes} ${condVendedor}
+    GROUP BY COALESCE(d.VENDEDOR_ID, 0)
   `, [], 12000, dbo).catch(() => []);
 
   const ventaMap = {};
   (ventas || []).forEach(v => { ventaMap[v.VENDEDOR_ID] = v; });
 
   const rows = await query(`
-    SELECT DISTINCT d.VENDEDOR_ID, COALESCE(v.NOMBRE, 'Vendedor ' || CAST(d.VENDEDOR_ID AS VARCHAR(10))) AS NOMBRE
+    SELECT DISTINCT
+      COALESCE(d.VENDEDOR_ID, 0) AS VENDEDOR_ID,
+      CASE
+        WHEN COALESCE(d.VENDEDOR_ID, 0) <= 0 THEN 'No asignado'
+        ELSE COALESCE(v.NOMBRE, 'Vendedor ' || CAST(d.VENDEDOR_ID AS VARCHAR(10)))
+      END AS NOMBRE
     FROM ${ventasSub()} d
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
-    WHERE ${condAnioMes} AND d.VENDEDOR_ID > 0 ${condVendedor}
+    WHERE ${condAnioMes} ${condVendedor}
     ORDER BY 2
   `, [], 12000, dbo).catch(() => []);
 
@@ -1862,17 +1877,23 @@ get('/api/ventas/cumplimiento', async (req) => {
     };
   }).sort((a, b) => b.VENTA_MES - a.VENTA_MES);
 
-  return rowsMapped.map(r => ({
-    ...r,
-    META_DIA: metaDia,
-    META_MES: metaMes,
-    META_IDEAL: metaIdeal,
-    PCT_HOY: metaDia > 0 ? Math.round(+r.VENTA_HOY / metaDia * 100) : 0,
-    PCT_MES: metaMes > 0 ? Math.round(+r.VENTA_MES / metaMes * 100) : 0,
-    DIAS_TRANSCURRIDOS: diasTranscurridos,
-    STATUS_HOY: metaDia > 0 ? (+r.VENTA_HOY >= metaDia ? 'OK' : +r.VENTA_HOY >= metaDia * 0.7 ? 'PARCIAL' : 'BAJO') : 'SIN_META',
-    STATUS_MES: metaMes > 0 ? (+r.VENTA_MES >= metaMes ? 'OK' : +r.VENTA_MES >= metaMes * 0.7 ? 'PARCIAL' : 'BAJO') : 'SIN_META',
-  }));
+  return rowsMapped.map(r => {
+    const sinMeta = (+r.VENDEDOR_ID || 0) <= 0;
+    const mDia = sinMeta ? 0 : metaDia;
+    const mMes = sinMeta ? 0 : metaMes;
+    return {
+      ...r,
+      META_DIA: mDia,
+      META_MES: mMes,
+      META_IDEAL: sinMeta ? 0 : metaIdeal,
+      PCT_HOY: mDia > 0 ? Math.round(+r.VENTA_HOY / mDia * 100) : 0,
+      PCT_MES: mMes > 0 ? Math.round(+r.VENTA_MES / mMes * 100) : 0,
+      DIAS_TRANSCURRIDOS: diasTranscurridos,
+      STATUS_HOY: mDia > 0 ? (+r.VENTA_HOY >= mDia ? 'OK' : +r.VENTA_HOY >= mDia * 0.7 ? 'PARCIAL' : 'BAJO') : 'SIN_META',
+      STATUS_MES: mMes > 0 ? (+r.VENTA_MES >= mMes ? 'OK' : +r.VENTA_MES >= mMes * 0.7 ? 'PARCIAL' : 'BAJO') : 'SIN_META',
+      SIN_META: sinMeta,
+    };
+  });
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -2138,7 +2159,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
         SUM(CASE WHEN doc.DIAS_VENCIDO BETWEEN 61 AND 90 THEN doc.SALDO_NETO ELSE 0 END) AS B3_C,
         SUM(CASE WHEN doc.DIAS_VENCIDO > 90 THEN doc.SALDO_NETO ELSE 0 END) AS B4_C,
         SUM(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.SALDO_NETO ELSE 0 END) AS VENC_C
-      FROM ${cxcDocSaldosSQL('')} doc
+      FROM ${cxcDocSaldosInnerSQL('')} doc
       WHERE doc.SALDO_NETO > 0.005 ${whereCliDoc}
       GROUP BY doc.CLIENTE_ID
     `, [], qms, dbo).catch(() => []),
@@ -2162,7 +2183,10 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
   let saldoTotal = 0, vencido = 0, porVencer = 0;
   let agCorr = 0, ag1 = 0, ag2 = 0, ag3 = 0, ag4 = 0;
   let numCliVenc = 0;
-  (docAgingRows || []).forEach(r => {
+  const sourceRows = (Array.isArray(docAgingRows) && docAgingRows.length)
+    ? docAgingRows
+    : (Array.isArray(cxcAgingLegacy) ? cxcAgingLegacy : []);
+  sourceRows.forEach(r => {
     const total = +r.TOTAL_C || 0;
     if (total <= 0) return;
     saldoTotal += total;
@@ -2177,9 +2201,13 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
     ag4 += +r.B4_C || 0;
     if (venc > 0) numCliVenc += 1;
   });
+  if (saldoTotal <= 0.005 && Array.isArray(cxcSaldosLegacy) && cxcSaldosLegacy.length) {
+    const legacySaldo = (cxcSaldosLegacy || []).reduce((s, r) => s + (+r.SALDO || 0), 0);
+    if (legacySaldo > 0.005) saldoTotal = legacySaldo;
+  }
   const resumen = {
     SALDO_TOTAL: Math.round(saldoTotal * 100) / 100,
-    NUM_CLIENTES: (docAgingRows || []).length,
+    NUM_CLIENTES: sourceRows.length,
     NUM_CLIENTES_VENCIDOS: numCliVenc,
     VENCIDO: Math.round(vencido * 100) / 100,
     POR_VENCER: Math.round(porVencer * 100) / 100,
