@@ -57,15 +57,7 @@
     return `<header id="app-header">
   <div class="header-inner">
     <a href="${navHref('index.html')}" class="logo">
-      <div class="logo-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
-        </svg>
-      </div>
-      <div>
-        <div class="logo-text">Suminregio Parker</div>
-        <div class="logo-sub">Mangueras Industriales</div>
-      </div>
+      <img class="logo-mark" src="/assets/suminregio-industrial-logo.svg" alt="Suminregio Industrial">
     </a>
     <nav id="main-nav">
       ${buildNavLinks()}
@@ -178,23 +170,15 @@ header#app-header {
   align-items:center;gap:1rem;padding:.55rem 1.5rem;
 }
 .logo {
-  display:flex;align-items:center;gap:.75rem;text-decoration:none;flex-shrink:0;
+  display:flex;align-items:center;gap:.55rem;text-decoration:none;flex-shrink:0;
 }
-.logo-icon {
-  width:40px;height:40px;
-  background:linear-gradient(145deg,#ff8a1a 0%,var(--orange) 45%,#c2410c 100%);
-  border-radius:12px;display:grid;place-items:center;flex-shrink:0;
-  box-shadow:0 4px 16px var(--orange-glow), inset 0 1px 0 rgba(255,255,255,.2);
-}
-.logo-icon svg { width:20px;height:20px; }
-.logo-text {
-  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
-  font-size:.92rem;font-weight:800;color:var(--text);white-space:nowrap;
-  letter-spacing:-.02em;line-height:1.15;
-}
-.logo-sub  {
-  font-size:.58rem;font-family:'JetBrains Mono',ui-monospace,monospace;color:var(--muted);
-  letter-spacing:.12em;text-transform:uppercase;font-weight:500;
+.logo-mark {
+  display:block;
+  width:238px;
+  max-width:30vw;
+  height:auto;
+  color:var(--text);
+  filter:drop-shadow(0 2px 10px rgba(0,0,0,.35));
 }
 
 nav#main-nav {
@@ -284,7 +268,7 @@ html[data-theme="light"] header#app-header{
   border-bottom-color:var(--border2);
   box-shadow:0 4px 20px rgba(15,23,42,.06);
 }
-html[data-theme="light"] .logo-sub{color:var(--muted)}
+html[data-theme="light"] .logo-mark{color:#0f172a;filter:drop-shadow(0 1px 4px rgba(15,23,42,.12))}
 html[data-theme="light"] nav#main-nav{background:rgba(15,23,42,.04);border-color:rgba(15,23,42,.08)}
 html[data-theme="light"] .nav-link{color:var(--muted)}
 html[data-theme="light"] .nav-link:hover{color:var(--text2);background:rgba(15,23,42,.06)}
@@ -381,6 +365,7 @@ html[data-theme="light"] .microsip-skip-link:focus{background:#0f172a;color:#fff
   white-space:nowrap;
 }
 @media (max-width: 900px){
+  .logo-mark{width:182px;max-width:48vw}
   .ms-story{grid-template-columns:1fr}
 }
 

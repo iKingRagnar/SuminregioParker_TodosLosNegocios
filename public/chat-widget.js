@@ -234,7 +234,7 @@
         method : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body   : JSON.stringify(body),
-        signal : AbortSignal.timeout(60000),
+        signal : AbortSignal.timeout(90000),
       });
 
       removeTyping();
@@ -250,7 +250,12 @@
     } catch (e) {
       removeTyping();
       if (e.name === 'TimeoutError' || e.name === 'AbortError') {
-        addMessage('ai', '⏱ La consulta tardó demasiado. Intenta de nuevo o pregunta algo más específico.');
+        const fallback = await quickFallbackReply(text);
+        if (fallback) {
+          addMessage('ai', fallback + '\n\nNota: la capa conversacional tardó más de lo esperado; te mostré datos directos del sistema.');
+        } else {
+          addMessage('ai', '⏱ La capa conversacional tardó más de lo esperado. Intenta nuevamente; si quieres, te puedo responder directo con un módulo específico (ventas, CxC o resultados).');
+        }
       } else {
         addMessage('ai', `⚠️ No se pudo conectar al servidor: ${e.message}`);
         setStatus('Sin conexión', false);
@@ -434,6 +439,59 @@
     if (prev) prev.classList.remove('visible');
     const btn = $('cw-img-btn');
     if (btn) btn.classList.remove('active');
+  }
+
+  function fmtMoneyFull(v) {
+    const n = Number(v || 0);
+    return n.toLocaleString('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  async function quickFallbackReply(userText) {
+    const t = String(userText || '').toLowerCase();
+    const isVentas = /\b(ventas?|facturaci[oó]n|vendid[oa]s?)\b/i.test(t);
+    const isCxc = /\b(cxc|cuentas?\s+por\s+cobrar|deudores?|vencid[oa]s?)\b/i.test(t);
+    const isResultados = /\b(resultados?|pnl|estado\s+de\s+resultados|margen|utilidad)\b/i.test(t);
+    if (!isVentas && !isCxc && !isResultados) return null;
+
+    const qs = DB_PARAM ? `?db=${encodeURIComponent(DB_PARAM)}` : '';
+    try {
+      if (isVentas) {
+        const resp = await fetch(API + '/api/ventas/resumen' + qs, { signal: AbortSignal.timeout(20000) });
+        const data = await resp.json().catch(() => ({}));
+        if (resp.ok && data) {
+          const hoy = Number(data.TOTAL_HOY || data.VENTA_HOY || 0);
+          const mes = Number(data.TOTAL_MES || data.VENTA_MES || 0);
+          const fact = Number(data.NUM_FACTURAS_MES || data.FACTURAS_MES || 0);
+          return `Ventas (fallback rápido):\n- Hoy: ${fmtMoneyFull(hoy)}\n- Mes: ${fmtMoneyFull(mes)}\n- Facturas mes: ${fact.toLocaleString('es-MX')}`;
+        }
+      }
+      if (isCxc) {
+        const resp = await fetch(API + '/api/cxc/resumen' + qs, { signal: AbortSignal.timeout(20000) });
+        const data = await resp.json().catch(() => ({}));
+        if (resp.ok && data) {
+          const saldo = Number(data.SALDO_TOTAL || 0);
+          const venc = Number(data.VENCIDO || 0);
+          const corriente = Number(data.CORRIENTE || data.POR_VENCER || data.VIGENTE || 0);
+          return `CxC (fallback rápido):\n- Saldo total: ${fmtMoneyFull(saldo)}\n- Vencido: ${fmtMoneyFull(venc)}\n- Corriente/Por vencer: ${fmtMoneyFull(corriente)}`;
+        }
+      }
+      if (isResultados) {
+        const resp = await fetch(API + '/api/resultados/pnl' + qs, { signal: AbortSignal.timeout(25000) });
+        const data = await resp.json().catch(() => ({}));
+        const ttot = (data && data.totales) || {};
+        if (resp.ok && Object.keys(ttot).length) {
+          return `Resultados (fallback rápido):\n- Ventas netas: ${fmtMoneyFull(ttot.VENTAS_NETAS)}\n- Costo de ventas: ${fmtMoneyFull(ttot.COSTO_VENTAS)}\n- Utilidad bruta: ${fmtMoneyFull(ttot.UTILIDAD_BRUTA)}\n- Margen bruto: ${Number(ttot.MARGEN_BRUTO_PCT || 0).toFixed(2)}%`;
+        }
+      }
+    } catch (_) {
+      return null;
+    }
+    return null;
   }
 
   // ── Bienvenida ────────────────────────────────────────────────────────────

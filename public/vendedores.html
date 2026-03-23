@@ -435,7 +435,7 @@ function renderAll(vends, metas){
   const metaMes  = metaDia * (vends[0]?.DIAS_TRANSCURRIDOS||22);
   const totalHoy = vends.reduce((s,r)=>s+(+r.VENTA_HOY||0),0);
   const totalMes = vends.reduce((s,r)=>s+(+r.VENTA_MES||0),0);
-  const enMetaHoy = vends.filter(r=>(+r.VENTA_HOY||0)>=(+r.META_DIA||0)).length;
+  const enMetaHoy = vends.filter(r => (+r.META_DIA || 0) > 0 && (+r.VENTA_HOY || 0) >= (+r.META_DIA || 0)).length;
   const enMetaMes = vends.filter(r=>r.STATUS_MES==='OK').length;
   const bestHoy  = [...vends].sort((a,b)=>(+b.VENTA_HOY||0)-(+a.VENTA_HOY||0))[0];
   const bestMes  = [...vends].sort((a,b)=>(+b.VENTA_MES||0)-(+a.VENTA_MES||0))[0];
@@ -477,14 +477,15 @@ function renderScorecards(vends){
   const sorted=[...vends].sort((a,b)=>(+b.VENTA_MES||0)-(+a.VENTA_MES||0));
   const html=sorted.map((v,i)=>{
     const col=COLS[i%COLS.length];
-    const metaDia=+v.META_DIA||5650;
-    const metaMes=+v.META_MES||(metaDia*(v.DIAS_TRANSCURRIDOS||22));
-    const pHoy=Math.min(Math.round((+v.VENTA_HOY||0)/metaDia*100),200);
-    const pMes=Math.min(Math.round((+v.VENTA_MES||0)/metaMes*100),200);
-    const pYTD=Math.min(Math.round((+v.VENTA_YTD||0)/(metaMes*12)*100),200);
-    const st=v.STATUS_MES||'BAJO';
+    const metaDia = +v.META_DIA || 0;
+    const metaMes = +v.META_MES || 0;
+    const hasMeta = metaDia > 0 && metaMes > 0;
+    const pHoy = hasMeta ? Math.min(Math.round((+v.VENTA_HOY||0)/metaDia*100),200) : 0;
+    const pMes = hasMeta ? Math.min(Math.round((+v.VENTA_MES||0)/metaMes*100),200) : 0;
+    const pYTD = hasMeta ? Math.min(Math.round((+v.VENTA_YTD||0)/(metaMes*12)*100),200) : 0;
+    const st = hasMeta ? (v.STATUS_MES || 'BAJO') : 'SIN_META';
     const stCls=st==='OK'?'status-ok':st==='PARCIAL'?'status-parcial':st==='SIN_META'?'status-sm':'status-bajo';
-    const stTxt=st==='OK'?'&#10003; En meta':st==='PARCIAL'?'&#9432; Parcial':'&#9888; Bajo meta';
+    const stTxt=st==='OK'?'&#10003; En meta':st==='PARCIAL'?'&#9432; Parcial':st==='SIN_META'?'Sin meta':'&#9888; Bajo meta';
     const ini=((v.NOMBRE||'V').charAt(0)).toUpperCase();
     return `<div class="sc-card" style="--vc:${col}">
       <div class="sc-header">
@@ -523,16 +524,16 @@ function renderScorecards(vends){
         </div>
       </div>
       <div class="sc-meta-row" style="margin-top:.6rem">
-        <div class="sc-meta-lbl"><span>Meta D&iacute;a</span><span style="color:${col}">${pHoy}%</span></div>
-        <div class="sc-meta-bar"><div class="sc-meta-fill" style="width:${Math.min(pHoy,100)}%;background:${col}"></div></div>
+        <div class="sc-meta-lbl"><span>Meta D&iacute;a</span><span style="color:${col}">${hasMeta ? (pHoy + '%') : 'N/A'}</span></div>
+        <div class="sc-meta-bar"><div class="sc-meta-fill" style="width:${hasMeta ? Math.min(pHoy,100) : 0}%;background:${col}"></div></div>
       </div>
       <div class="sc-meta-row" style="margin-top:.4rem">
-        <div class="sc-meta-lbl"><span>Meta Mes</span><span style="color:${col}">${pMes}%</span></div>
-        <div class="sc-meta-bar"><div class="sc-meta-fill" style="width:${Math.min(pMes,100)}%;background:${col}"></div></div>
+        <div class="sc-meta-lbl"><span>Meta Mes</span><span style="color:${col}">${hasMeta ? (pMes + '%') : 'N/A'}</span></div>
+        <div class="sc-meta-bar"><div class="sc-meta-fill" style="width:${hasMeta ? Math.min(pMes,100) : 0}%;background:${col}"></div></div>
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-top:.6rem">
         <span class="sc-status ${stCls}">${stTxt}</span>
-        <span style="font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted)">${pYTD}% YTD</span>
+        <span style="font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted)">${hasMeta ? (pYTD + '% YTD') : 'No asignado'}</span>
       </div>
     </div>`;
   }).join('');
@@ -543,11 +544,12 @@ function renderRanking(vends){
   const sorted=[...vends].sort((a,b)=>(+b.VENTA_MES||0)-(+a.VENTA_MES||0));
   const rows=sorted.map((v,i)=>{
     const col=COLS[i%COLS.length];
-    const metaDia=+v.META_DIA||5650;
-    const metaMes=+v.META_MES||(metaDia*(v.DIAS_TRANSCURRIDOS||22));
-    const pHoy=Math.round((+v.VENTA_HOY||0)/metaDia*100);
-    const pMes=Math.round((+v.VENTA_MES||0)/metaMes*100);
-    const st=v.STATUS_MES||'BAJO';
+    const metaDia = +v.META_DIA || 0;
+    const metaMes = +v.META_MES || 0;
+    const hasMeta = metaDia > 0 && metaMes > 0;
+    const pHoy = hasMeta ? Math.round((+v.VENTA_HOY||0)/metaDia*100) : 0;
+    const pMes = hasMeta ? Math.round((+v.VENTA_MES||0)/metaMes*100) : 0;
+    const st = hasMeta ? (v.STATUS_MES || 'BAJO') : 'SIN_META';
     const stCls=st==='OK'?'status-ok':st==='PARCIAL'?'status-parcial':st==='SIN_META'?'status-sm':'status-bajo';
     const stTxt=st==='OK'?'En meta':st==='PARCIAL'?'Parcial':st==='SIN_META'?'Sin meta':'Bajo';
     const rankBg=i===0?'#FFB800':i===1?'#B0BECE':i===2?'#CD7F32':'var(--s3)';
@@ -557,13 +559,13 @@ function renderRanking(vends){
       <td style="padding:.65rem .75rem;color:var(--text);font-weight:600">${v.NOMBRE||'Vendedor '+(i+1)}</td>
       <td class="num" style="color:${col}">${fmtM(+v.VENTA_HOY||0)}</td>
       <td class="num">
-        <span style="color:${pHoy>=100?'var(--green)':pHoy>=70?'var(--yellow)':'var(--red)'}">${pHoy}%</span>
-        <div class="prog-wrap"><div class="prog-fill" style="width:${Math.min(pHoy,100)}%;background:${col}"></div></div>
+        <span style="color:${hasMeta ? (pHoy>=100?'var(--green)':pHoy>=70?'var(--yellow)':'var(--red)') : 'var(--muted)'}">${hasMeta ? (pHoy + '%') : 'N/A'}</span>
+        <div class="prog-wrap"><div class="prog-fill" style="width:${hasMeta ? Math.min(pHoy,100) : 0}%;background:${col}"></div></div>
       </td>
       <td class="num" style="color:${col}">${fmtM(+v.VENTA_MES||0)}</td>
       <td class="num">
-        <span style="color:${pMes>=100?'var(--green)':pMes>=70?'var(--yellow)':'var(--red)'}">${pMes}%</span>
-        <div class="prog-wrap"><div class="prog-fill" style="width:${Math.min(pMes,100)}%;background:${col}"></div></div>
+        <span style="color:${hasMeta ? (pMes>=100?'var(--green)':pMes>=70?'var(--yellow)':'var(--red)') : 'var(--muted)'}">${hasMeta ? (pMes + '%') : 'N/A'}</span>
+        <div class="prog-wrap"><div class="prog-fill" style="width:${hasMeta ? Math.min(pMes,100) : 0}%;background:${col}"></div></div>
       </td>
       <td class="num" style="color:var(--text2)">${fmtM(+v.VENTA_YTD||0)}</td>
       <td class="num" style="color:var(--text2)">${+v.FACTURAS_HOY||0}</td>
@@ -649,7 +651,8 @@ function renderChartCumpl(vends){
   const sorted=[...vends].sort((a,b)=>(+b.VENTA_MES||0)-(+a.VENTA_MES||0));
   const labels=sorted.map(v=>(v.NOMBRE||'V').split(' ')[0]);
   const pcts=sorted.map(v=>{
-    const m=+v.META_MES||(+v.META_DIA||5650)*(v.DIAS_TRANSCURRIDOS||22);
+    const m = +v.META_MES || 0;
+    if (m <= 0) return 0;
     return Math.round((+v.VENTA_MES||0)/m*100);
   });
   const bgs=sorted.map((v,i)=>{

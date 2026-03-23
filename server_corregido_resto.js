@@ -325,7 +325,9 @@ get('/api/director/resumen', async () => {
     query(`SELECT COALESCE(SUM(cd.SALDO),0) AS VENCIDO FROM ${cxcCargosSQL()} cd WHERE cd.DIAS_VENCIDO > 0`).catch(() => [{ VENCIDO: 0 }]),
   ]);
   const saldo = +(cxcSaldo[0] && cxcSaldo[0].SALDO_TOTAL) || 0;
-  const vencido = +(cxcAging[0] && cxcAging[0].VENCIDO) || 0;
+  // FIX: cap vencido al saldo real para que vigente >= 0 y el % sea coherente
+  const vencidoBruto = +(cxcAging[0] && cxcAging[0].VENCIDO) || 0;
+  const vencido = Math.min(vencidoBruto, saldo);
   return {
     ventas_mes: +(ventas[0] && ventas[0].TOTAL) || 0,
     facturas_mes: +(ventas[0] && ventas[0].FACTURAS) || 0,
@@ -386,8 +388,12 @@ get('/api/cxc/resumen', async () => {
     query(`SELECT COALESCE(SUM(cd.SALDO),0) AS VENCIDO FROM ${cxcCargosSQL()} cd WHERE cd.DIAS_VENCIDO > 0`).catch(() => [{ VENCIDO: 0 }]),
   ]);
   const st = +(total[0] && total[0].SALDO_TOTAL) || 0;
-  const v = +(vencido[0] && vencido[0].VENCIDO) || 0;
-  return { SALDO_TOTAL: st, VENCIDO: v, POR_VENCER: st - v };
+  // FIX: cxcCargosSQL suma el IMPORTE del cargo sin descontar cobros parciales,
+  // por lo que VENCIDO bruto puede exceder SALDO_TOTAL neto.
+  // Se limita al mínimo para que POR_VENCER ≥ 0 y el % vigente sea coherente.
+  const vBruto = +(vencido[0] && vencido[0].VENCIDO) || 0;
+  const v = Math.min(vBruto, st);
+  return { SALDO_TOTAL: st, VENCIDO: v, VENCIDO_BRUTO: vBruto, POR_VENCER: st - v };
 });
 
 get('/api/cxc/aging', async () => {
@@ -435,12 +441,22 @@ get('/api/cxc/historial', async (req) => {
 });
 
 get('/api/cxc/por-condicion', async () => {
+  // FIX: unir con DOCTOS_CC para obtener la condición de pago del DOCUMENTO
+  // (no del cliente, que puede diferir si se otorgó crédito especial por factura).
+  // cxcCargosSQL() expone DOCTO_CC_ID → join con DOCTOS_CC dc → dc.COND_PAGO_ID.
+  // Fallback: si el documento no tiene condición, se toma la del cliente (COALESCE).
   return query(`
-    SELECT cp.COND_PAGO_ID, cp.NOMBRE AS CONDICION, COUNT(DISTINCT cd.CLIENTE_ID) AS CLIENTES, SUM(cd.SALDO) AS SALDO
+    SELECT
+      COALESCE(cp.COND_PAGO_ID, 0)   AS COND_PAGO_ID,
+      COALESCE(cp.NOMBRE, 'Sin condición') AS CONDICION,
+      COUNT(DISTINCT cd.CLIENTE_ID)  AS CLIENTES,
+      COALESCE(SUM(cd.SALDO), 0)     AS SALDO
     FROM ${cxcCargosSQL()} cd
-    JOIN CLIENTES c ON c.CLIENTE_ID = cd.CLIENTE_ID
-    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = c.COND_PAGO_ID
-    GROUP BY cp.COND_PAGO_ID, cp.NOMBRE ORDER BY SALDO DESC
+    JOIN CLIENTES c   ON c.CLIENTE_ID   = cd.CLIENTE_ID
+    LEFT JOIN DOCTOS_CC dc  ON dc.DOCTO_CC_ID = cd.DOCTO_CC_ID
+    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, c.COND_PAGO_ID)
+    GROUP BY COALESCE(cp.COND_PAGO_ID, 0), COALESCE(cp.NOMBRE, 'Sin condición')
+    ORDER BY SALDO DESC
   `).catch(() => []);
 });
 
