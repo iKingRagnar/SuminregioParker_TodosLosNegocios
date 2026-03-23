@@ -441,12 +441,27 @@ function parseDatabaseRegistry() {
   // Mostrar solo familias de negocio permitidas por dirección:
   // suminregio, agua, medicos, madera, carton, empaque, especial y reciclaje.
   const allowedDbTerms = ['suminregio', 'agua', 'medicos', 'madera', 'carton', 'empaque', 'especial', 'reciclaje'];
+  const isSnapshotOrTempDb = (e) => {
+    const pool = [
+      e && e.id,
+      e && e.label,
+      e && e.options && e.options.database ? path.basename(String(e.options.database)) : '',
+    ].join(' ').toLowerCase();
+    if (!pool.includes('parker')) return false;
+    return (
+      /(^|[_\-\s])(ant|temp|msp)([_\-\s]|$)/.test(pool) ||
+      /parker[_\-\s]*23\s*jun|parker[_\-\s]*23jun/.test(pool) ||
+      /parker[_\-\s]*320/.test(pool) ||
+      /parker[_\-\s]*paso/.test(pool)
+    );
+  };
   const isAllowed = (e) => {
     const pool = [
       e && e.id,
       e && e.label,
       e && e.options && e.options.database ? path.basename(String(e.options.database)) : '',
     ].join(' ').toLowerCase();
+    if (isSnapshotOrTempDb(e)) return false;
     return allowedDbTerms.some((t) => pool.includes(t));
   };
   const filtered = entries.filter(isAllowed);
@@ -4988,10 +5003,12 @@ function aiResolveDbOpts(req) {
 function aiReqFromBody(body, req) {
   const out = { query: {} };
   const src = body && typeof body === 'object' ? body : {};
+  const bodyQuery = src.query && typeof src.query === 'object' ? src.query : {};
   const ctx = src.context && typeof src.context === 'object' ? src.context : {};
   const filters = ctx.filters && typeof ctx.filters === 'object' ? ctx.filters : {};
   const pick = (k) => {
     if (filters[k] != null && String(filters[k]).trim() !== '') return filters[k];
+    if (bodyQuery[k] != null && String(bodyQuery[k]).trim() !== '') return bodyQuery[k];
     if (src[k] != null && String(src[k]).trim() !== '') return src[k];
     if (req && req.query && req.query[k] != null && String(req.query[k]).trim() !== '') return req.query[k];
     return '';
@@ -5079,7 +5096,7 @@ function aiSelectTools({ text = '', lowerPool = '', page = '', requested = [] })
   const wantsCobradas = /\b(cobrad[ao]s?|cobrado|pagos?\s+recibidos|ticket\s+promedio|abonos?\s+a\s+cc|total\s+cobrado|comisi[oó]n\s+8|facturas?\s+cobradas?)\b/i.test(lowerPool);
   const wantsResultados = /\b(resultados?|pnl|estado\s+de\s+resultados|margen(?:\s+bruto)?|utilidad|costo(?:s)?\s+de\s+venta)\b/i.test(lowerPool);
   const wantsForecast = /\b(pron[oó]stico|proyecci[oó]n|forecast|estimar|estimaci[oó]n|siguientes?\s+\d+\s+mes(es)?|pr[oó]ximos?\s+\d+\s+mes(es)?)\b/i.test(lowerPool) && /\b(ventas?|facturaci[oó]n|vendid[oa]s?)\b/i.test(lowerPool);
-  const wantsVisualScenario = /\b(screenshot|captura|visual(?:es)?|gr[aá]fica|grafica|tabla|dashboard|escenario|simulaci[oó]n)\b/i.test(lowerPool);
+  const wantsVisualScenario = /\b(visual(?:es)?\s+ai|escenario|simulaci[oó]n)\b/i.test(lowerPool);
   const wantsDashboardShot = /\b(screenshot|captura|pantalla|dashboard real|vista actual)\b/i.test(lowerPool);
 
   if (wantsCotizaciones) picks.push('cotizaciones');
@@ -5265,18 +5282,57 @@ function aiBuildDashboardUrl(baseUrl, pageFile, aiReq, dbId) {
   return u.toString();
 }
 
+function aiPlaywrightExecutableCandidates() {
+  const out = [];
+  const push = (p) => {
+    const v = String(p || '').trim();
+    if (!v) return;
+    if (out.includes(v)) return;
+    if (fs.existsSync(v)) out.push(v);
+  };
+  push(process.env.PLAYWRIGHT_EXECUTABLE_PATH);
+  push(process.env.CHROME_BIN);
+  push(process.env.PUPPETEER_EXECUTABLE_PATH);
+  if (process.platform === 'win32') {
+    push(path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe'));
+    push(path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Google', 'Chrome', 'Application', 'chrome.exe'));
+    push(path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Microsoft', 'Edge', 'Application', 'msedge.exe'));
+    push(path.join(process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)', 'Microsoft', 'Edge', 'Application', 'msedge.exe'));
+  }
+  return out;
+}
+
 async function aiCaptureDashboardPngDataUrl(targetUrl) {
   const { chromium } = await import('playwright');
-  const browser = await chromium.launch({ headless: true });
-  try {
-    const page = await browser.newPage({ viewport: { width: 1510, height: 980 } });
-    await page.goto(targetUrl, { waitUntil: 'networkidle', timeout: 45000 });
-    await page.waitForTimeout(1600);
-    const buf = await page.screenshot({ type: 'png', fullPage: true });
-    return `data:image/png;base64,${buf.toString('base64')}`;
-  } finally {
-    await browser.close();
+  const launchAttempts = [
+    { name: 'bundled', opts: { headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] } },
+    { name: 'channel-chrome', opts: { headless: true, channel: 'chrome', args: ['--no-sandbox', '--disable-dev-shm-usage'] } },
+    { name: 'channel-msedge', opts: { headless: true, channel: 'msedge', args: ['--no-sandbox', '--disable-dev-shm-usage'] } },
+  ];
+  aiPlaywrightExecutableCandidates().forEach((exe, i) => {
+    launchAttempts.push({
+      name: `exe-${i + 1}`,
+      opts: { headless: true, executablePath: exe, args: ['--no-sandbox', '--disable-dev-shm-usage'] },
+    });
+  });
+
+  let lastErr = null;
+  for (const att of launchAttempts) {
+    let browser;
+    try {
+      browser = await chromium.launch(att.opts);
+      const page = await browser.newPage({ viewport: { width: 1600, height: 980 } });
+      await page.goto(targetUrl, { waitUntil: 'networkidle', timeout: 45000 });
+      await page.waitForTimeout(2200);
+      const buf = await page.screenshot({ type: 'png', fullPage: true });
+      return `data:image/png;base64,${buf.toString('base64')}`;
+    } catch (e) {
+      lastErr = e;
+    } finally {
+      if (browser) await browser.close().catch(() => {});
+    }
   }
+  throw lastErr || new Error('No fue posible abrir navegador para screenshot');
 }
 
 async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
@@ -5771,8 +5827,10 @@ app.post('/api/ai/chat', async (req, res) => {
     const requestedTools = Array.isArray(body.tools) ? body.tools : [];
     const selectedTools = aiSelectTools({ text, lowerPool, page: pageCtx, requested: requestedTools });
     const analyticAsk = /\b(ventas?|vendid[oa]s?|cxc|cobrad|resultado|pnl|margen|utilidad|pron[oó]stico|proyecci[oó]n|inventario|cliente|vendedor)\b/i.test(lowerPool);
-    const hasVisualTool = selectedTools.includes('dashboard_screenshot') || selectedTools.includes('escenario_visual') || selectedTools.includes('pronostico_ventas');
-    if (analyticAsk && !hasVisualTool) selectedTools.push('escenario_visual');
+    const asksShotInPrompt = /\b(screenshot|captura|pantalla)\b/i.test(lowerPool);
+    if (asksShotInPrompt && !selectedTools.includes('dashboard_screenshot')) {
+      selectedTools.push('dashboard_screenshot');
+    }
     const toolSources = [];
     const toolBlocks = [];
     const visuals = [];

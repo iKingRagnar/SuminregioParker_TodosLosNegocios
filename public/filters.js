@@ -132,6 +132,20 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   const ALLOWED_DB_TERMS = ['suminregio', 'agua', 'medicos', 'madera', 'carton', 'empaque', 'especial', 'reciclaje'];
   const DB_DISPLAY_STRIP_TERMS = ['suminregio', 'parker', 'grupo', 'suministros'];
   const DB_ALLOWED_SET = ALLOWED_DB_TERMS.reduce(function (acc, t) { acc[t] = 1; return acc; }, {});
+  function isSnapshotOrTempDb(e) {
+    const pool = normDbText([
+      e && e.id,
+      e && e.label,
+      fdbBasename(e && e.database)
+    ].join(' '));
+    if (pool.indexOf('parker') < 0) return false;
+    return (
+      /(^|[_\-\s])(ant|temp|msp)([_\-\s]|$)/.test(pool) ||
+      /parker[_\-\s]*23\s*jun|parker[_\-\s]*23jun/.test(pool) ||
+      /parker[_\-\s]*320/.test(pool) ||
+      /parker[_\-\s]*paso/.test(pool)
+    );
+  }
   function normDbText(v) {
     return String(v == null ? '' : v)
       .normalize('NFD')
@@ -152,6 +166,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   function filterAllowedDatabases(list) {
     const arr = Array.isArray(list) ? list : [];
     const out = arr.filter(function (e) {
+      if (isSnapshotOrTempDb(e)) return false;
       const mainFields = [
         e && e.id,
         e && e.label,

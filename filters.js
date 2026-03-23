@@ -143,6 +143,40 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     return String(fname).replace(/\.fdb$/i, '');
   }
 
+  const ALLOWED_DB_TERMS = ['suminregio', 'agua', 'medicos', 'madera', 'carton', 'empaque', 'especial', 'reciclaje'];
+  function normDbText(v) {
+    return String(v == null ? '' : v)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+  }
+  function isSnapshotOrTempDb(e) {
+    const pool = normDbText([
+      e && e.id,
+      e && e.label,
+      fdbBasename(e && e.database)
+    ].join(' '));
+    if (pool.indexOf('parker') < 0) return false;
+    return (
+      /(^|[_\-\s])(ant|temp|msp)([_\-\s]|$)/.test(pool) ||
+      /parker[_\-\s]*23\s*jun|parker[_\-\s]*23jun/.test(pool) ||
+      /parker[_\-\s]*320/.test(pool) ||
+      /parker[_\-\s]*paso/.test(pool)
+    );
+  }
+  function filterAllowedDatabases(list) {
+    const arr = Array.isArray(list) ? list : [];
+    return arr.filter(function (e) {
+      if (isSnapshotOrTempDb(e)) return false;
+      const pool = normDbText([
+        e && e.id,
+        e && e.label,
+        fdbBasename(e && e.database)
+      ].join(' '));
+      return ALLOWED_DB_TERMS.some(function (t) { return pool.indexOf(t) >= 0; });
+    });
+  }
+
   function renderDbChipsInto(container, list, onChange) {
     if (!container) return;
     // Fallback visual por si algún CSS no cargó todavía.
@@ -264,6 +298,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     } catch (e) {
       list = [];
     }
+    list = filterAllowedDatabases(list);
     if (!Array.isArray(list) || !list.length || !chips) return;
     bar.style.display = 'block';
     renderDbChipsInto(chips, list, function () { window.location.reload(); });
