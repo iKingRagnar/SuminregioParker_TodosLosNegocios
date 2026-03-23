@@ -439,6 +439,30 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
       </div>
     </div>
   </div>
+
+  <div class="sd"><div class="sd-label">Estado SR Contable (referencia mensual)</div><div class="sd-line"></div></div>
+  <div class="card" style="margin-bottom:2rem">
+    <div class="card-head">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h8M8 16h6"/></svg>
+        Estado SR
+      </div>
+      <div class="card-badge" id="srBadge">Cargando...</div>
+    </div>
+    <div class="card-body">
+      <div class="bg-grid">
+        <div class="bg-kpi"><div class="lbl">Ventas netas</div><div class="val" id="srVentas">—</div></div>
+        <div class="bg-kpi"><div class="lbl">Costo de ventas</div><div class="val" id="srCosto">—</div></div>
+        <div class="bg-kpi"><div class="lbl">Utilidad bruta</div><div class="val" id="srBruta">—</div></div>
+        <div class="bg-kpi"><div class="lbl">Utilidad antes de impuestos</div><div class="val" id="srUai">—</div></div>
+      </div>
+      <div class="bg-cols">
+        <div class="bg-box"><h4>Gastos de operación</h4><div class="bg-list" id="srGastosOp"><div class="bg-row"><span class="n">Cargando...</span><span class="v">—</span></div></div></div>
+        <div class="bg-box"><h4>Partidas extraordinarias</h4><div class="bg-list" id="srExtra"><div class="bg-row"><span class="n">Cargando...</span><span class="v">—</span></div></div></div>
+        <div class="bg-box"><h4>Resumen</h4><div class="bg-list" id="srResumen"><div class="bg-row"><span class="n">Cargando...</span><span class="v">—</span></div></div></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="footer">Suminregio Parker &mdash; Estado de Resultados v9.0 &mdash; Datos en tiempo real desde Microsip / Firebird DB</div>
@@ -590,6 +614,57 @@ async function loadBalanceGeneral(){
     renderList('bgListCapital',d.capital);
     // #region agent log
     debugLogResultados('run11','H64','resultados.html:loadBalanceGeneral','balance general rendered',{activo:+t.ACTIVO_TOTAL||0,pasivo:+t.PASIVO_TOTAL||0,capital:+t.CAPITAL_TOTAL||0,diff:+t.DIFERENCIA_BALANCE||0,cierre});
+    // #endregion
+  }catch(_){
+    if(badge) badge.textContent='Sin datos';
+  }
+}
+
+async function loadEstadoSrContable(){
+  const badge=document.getElementById('srBadge');
+  const listOp=document.getElementById('srGastosOp');
+  const listEx=document.getElementById('srExtra');
+  const listRs=document.getElementById('srResumen');
+  try{
+    const url=buildPnlApiUrl('/api/resultados/estado-sr','');
+    const ctrl=new AbortController();
+    const tid=setTimeout(()=>ctrl.abort(),25000);
+    let data={};
+    try{
+      const r=await fetch(url,{cache:'no-store',signal:ctrl.signal}).catch(()=>null);
+      data=(r&&r.ok)?(await r.json().catch(()=>({}))):{};
+    }finally{
+      clearTimeout(tid);
+    }
+    const s=(data&&data.estado)||{};
+    const p=(data&&data.periodo)||{};
+    document.getElementById('srVentas').textContent=fmtM(+s.ventas_netas||0);
+    document.getElementById('srCosto').textContent=fmtM(+s.costo_ventas||0);
+    document.getElementById('srBruta').textContent=fmtM(+s.utilidad_bruta||0);
+    document.getElementById('srUai').textContent=fmtM(+s.utilidad_antes_impuestos||0);
+    if(badge) badge.textContent=`Ref ${String(p.MES||'--').padStart(2,'0')}/${p.ANIO||'----'}`;
+    if(listOp){
+      listOp.innerHTML=[
+        ['Gastos de venta',+s.gastos_venta||0],
+        ['Gastos de operación',+s.gastos_operacion||0],
+        ['Gastos de administración',+s.gastos_administracion||0],
+        ['Total gastos operativos',+s.total_gastos_operativos||0],
+      ].map(x=>`<div class="bg-row"><span class="n">${x[0]}</span><span class="v">${fmtM(x[1])}</span></div>`).join('');
+    }
+    if(listEx){
+      listEx.innerHTML=[
+        ['Otros gastos',+s.otros_gastos||0],
+        ['Gastos financieros',+s.gastos_financieros||0],
+      ].map(x=>`<div class="bg-row"><span class="n">${x[0]}</span><span class="v">${fmtM(x[1])}</span></div>`).join('');
+    }
+    if(listRs){
+      listRs.innerHTML=[
+        ['Utilidad de operación',+s.utilidad_operacion||0],
+        ['Utilidad antes de impuestos',+s.utilidad_antes_impuestos||0],
+      ].map(x=>`<div class="bg-row"><span class="n">${x[0]}</span><span class="v">${fmtM(x[1])}</span></div>`).join('');
+    }
+    // #region agent log
+    debugLogResultados('run12','H65','resultados.html:loadEstadoSrContable','estado sr rendered',{periodo:p,estado:s});
     // #endregion
   }catch(_){
     if(badge) badge.textContent='Sin datos';
@@ -956,6 +1031,7 @@ async function loadData(){
     try{ renderCharts(tablaMeses,hasCosto); }catch(e){ console.warn('renderCharts',e); }
     try{ renderTabla(tablaMeses,tablaTot,hasCosto,tablaTieneGastos); }catch(e){ console.warn('renderTabla',e); }
     try{ await loadBalanceGeneral(); }catch(_){}
+    try{ await loadEstadoSrContable(); }catch(_){}
     const costNotice=document.getElementById('costNotice');
     if(costNotice)costNotice.style.display=hasCosto?'none':'block';
     const gastosNotice=document.getElementById('gastosNotice');

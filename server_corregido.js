@@ -3859,6 +3859,80 @@ get('/api/resultados/balance-general', async (req) => {
   return payload;
 });
 
+// Estado de resultados SR (contable): desglosa gastos operativos y extraordinarios por cuentas.
+get('/api/resultados/estado-sr', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const { desdeStr, hastaStr } = resolveDateRangeFromQuery(req.query || {});
+  const pnl = await resultadosPnlCore(req, dbo).catch(() => ({ meses: [], totales: {} }));
+  const ventas = +((pnl && pnl.totales && pnl.totales.VENTAS_NETAS) || 0);
+  const costo = +((pnl && pnl.totales && pnl.totales.COSTO_VENTAS) || 0);
+  const utilidadBruta = ventas - costo;
+
+  const y = parseInt(String(hastaStr).slice(0, 4), 10);
+  const m = parseInt(String(hastaStr).slice(5, 7), 10);
+  const rows = await query(`
+    SELECT
+      cu.CUENTA_PT,
+      TRIM(COALESCE(cu.NOMBRE, cu.CUENTA_PT)) AS NOMBRE,
+      COALESCE(SUM(ABS(COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0))), 0) AS IMP
+    FROM SALDOS_CO s
+    JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
+    WHERE s.ANO = ? AND s.MES = ?
+      AND (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53' OR cu.CUENTA_PT STARTING WITH '54')
+    GROUP BY cu.CUENTA_PT, cu.NOMBRE
+    ORDER BY cu.CUENTA_PT
+  `, [y, m], 15000, dbo).catch(() => []);
+
+  const isName = (r, re) => re.test(String((r && r.NOMBRE) || '').toUpperCase());
+  let gastoVenta = 0;
+  let gastoOperacion = 0;
+  let gastoAdmin = 0;
+  let otrosGastos = 0;
+  let gastosFinancieros = 0;
+  (rows || []).forEach((r) => {
+    const cuenta = String(r.CUENTA_PT || '').trim();
+    const imp = +r.IMP || 0;
+    if (imp <= 0) return;
+    if (isName(r, /FINAN/)) {
+      gastosFinancieros += imp;
+      return;
+    }
+    if (isName(r, /OTROS?\s+GAST/)) {
+      otrosGastos += imp;
+      return;
+    }
+    if (cuenta.startsWith('5201')) { gastoVenta += imp; return; }
+    if (cuenta.startsWith('5202')) { gastoOperacion += imp; return; }
+    if (cuenta.startsWith('52') || cuenta.startsWith('53') || cuenta.startsWith('54')) {
+      gastoAdmin += imp;
+    }
+  });
+  const totalGastosOperativos = gastoVenta + gastoOperacion + gastoAdmin;
+  const utilidadOperacion = utilidadBruta - totalGastosOperativos;
+  const utilidadAntesImpuestos = utilidadOperacion - otrosGastos - gastosFinancieros;
+  const payload = {
+    periodo: { desde: desdeStr, hasta: hastaStr, ANIO: y, MES: m },
+    estado: {
+      ventas_netas: Math.round(ventas * 100) / 100,
+      costo_ventas: Math.round(costo * 100) / 100,
+      utilidad_bruta: Math.round(utilidadBruta * 100) / 100,
+      gastos_venta: Math.round(gastoVenta * 100) / 100,
+      gastos_operacion: Math.round(gastoOperacion * 100) / 100,
+      gastos_administracion: Math.round(gastoAdmin * 100) / 100,
+      total_gastos_operativos: Math.round(totalGastosOperativos * 100) / 100,
+      utilidad_operacion: Math.round(utilidadOperacion * 100) / 100,
+      otros_gastos: Math.round(otrosGastos * 100) / 100,
+      gastos_financieros: Math.round(gastosFinancieros * 100) / 100,
+      utilidad_antes_impuestos: Math.round(utilidadAntesImpuestos * 100) / 100,
+    },
+    cuentas_muestra: (rows || []).slice(0, 50),
+  };
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run12',hypothesisId:'H65',location:'server_corregido.js:3829',message:'estado sr contable payload',data:{periodo:payload.periodo,estado:payload.estado},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  return payload;
+});
+
 // Reconciliación extendida para febrero u otros periodos: ventas/costo/gastos por variantes.
 get('/api/debug/pnl-reconcile-ext', async (req) => {
   const dbo = getReqDbOpts(req);
