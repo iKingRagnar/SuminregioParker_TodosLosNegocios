@@ -8,9 +8,18 @@
 const nodemailer = require('nodemailer');
 const twilio     = require('twilio');
 
+function normEnv(v) {
+  const raw = String(v == null ? '' : v).trim();
+  if (!raw) return '';
+  if ((raw.startsWith('"') && raw.endsWith('"')) || (raw.startsWith("'") && raw.endsWith("'"))) {
+    return raw.slice(1, -1).trim();
+  }
+  return raw;
+}
+
 function csvList(v) {
-  return String(v || '')
-    .split(',')
+  return String(normEnv(v) || '')
+    .split(/[;,]/)
     .map(s => s.trim())
     .filter(Boolean);
 }
@@ -23,39 +32,41 @@ function boolFromEnv(v, defVal = false) {
 
 function getNotifierConfig() {
   const email = {
-    host: process.env.SMTP_HOST || 'smtp.office365.com',
-    port: +(process.env.SMTP_PORT || 587),
+    host: normEnv(process.env.SMTP_HOST) || 'smtp.office365.com',
+    port: +(normEnv(process.env.SMTP_PORT) || 587),
     secure: boolFromEnv(process.env.SMTP_SECURE, false),
-    user: process.env.SMTP_USER || process.env.EMAIL_USER || '',
-    from: process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || '',
+    user: normEnv(process.env.SMTP_USER) || normEnv(process.env.EMAIL_USER) || '',
+    from: normEnv(process.env.EMAIL_FROM) || normEnv(process.env.SMTP_USER) || normEnv(process.env.EMAIL_USER) || '',
     to: csvList(process.env.EMAIL_TO),
   };
   const whatsapp = {
-    from: process.env.TWILIO_WA_FROM || '',
+    from: normEnv(process.env.TWILIO_WA_FROM) || '',
     to: csvList(process.env.ALERT_WA_TO),
-    accountSid: process.env.TWILIO_ACCOUNT_SID || '',
+    accountSid: normEnv(process.env.TWILIO_ACCOUNT_SID) || '',
   };
+  const pass = normEnv(process.env.SMTP_PASS) || normEnv(process.env.EMAIL_PASS);
+  const twilioToken = normEnv(process.env.TWILIO_AUTH_TOKEN);
   return {
     email: {
       ...email,
-      enabled: !!(email.user && (process.env.SMTP_PASS || process.env.EMAIL_PASS) && email.to.length),
+      enabled: !!(email.user && pass && email.to.length),
     },
     whatsapp: {
       ...whatsapp,
-      enabled: !!(whatsapp.accountSid && process.env.TWILIO_AUTH_TOKEN && whatsapp.from && whatsapp.to.length),
+      enabled: !!(whatsapp.accountSid && twilioToken && whatsapp.from && whatsapp.to.length),
     },
   };
 }
 
 // ── Transporte SMTP Outlook 365 ───────────────────────────────────────────────
 function getMailTransport() {
-  const user = process.env.SMTP_USER || process.env.EMAIL_USER;
-  const pass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
+  const user = normEnv(process.env.SMTP_USER) || normEnv(process.env.EMAIL_USER);
+  const pass = normEnv(process.env.SMTP_PASS) || normEnv(process.env.EMAIL_PASS);
   if (!user || !pass || pass.includes('xxxx xxxx')) {
     throw new Error('SMTP_USER/SMTP_PASS (o EMAIL_USER/EMAIL_PASS) no configurados en .env');
   }
-  const host = process.env.SMTP_HOST || 'smtp.office365.com';
-  const port = +(process.env.SMTP_PORT || 587);
+  const host = normEnv(process.env.SMTP_HOST) || 'smtp.office365.com';
+  const port = +(normEnv(process.env.SMTP_PORT) || 587);
   const secure = boolFromEnv(process.env.SMTP_SECURE, false);
   return nodemailer.createTransport({
     host,
@@ -68,8 +79,8 @@ function getMailTransport() {
 
 // ── Cliente Twilio WhatsApp ───────────────────────────────────────────────────
 function getTwilioClient() {
-  const sid   = process.env.TWILIO_ACCOUNT_SID;
-  const token = process.env.TWILIO_AUTH_TOKEN;
+  const sid   = normEnv(process.env.TWILIO_ACCOUNT_SID);
+  const token = normEnv(process.env.TWILIO_AUTH_TOKEN);
   if (!sid || !token || sid.startsWith('ACxxxxxxx')) {
     throw new Error('TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN no configurados en .env');
   }
@@ -264,7 +275,7 @@ async function sendEmail({ alertData, screenshotBuffers = [] }) {
   const hasAlerts = alertData.alertas && alertData.alertas.length > 0;
 
   const info = await transport.sendMail({
-    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+    from: normEnv(process.env.EMAIL_FROM) || normEnv(process.env.SMTP_USER) || normEnv(process.env.EMAIL_USER),
     to: recipients.join(', '),
     subject: `${hasAlerts ? '⚠️ ALERTA' : '✅ OK'} KPIs ${alertData.empresa} — ${today}`,
     html,
@@ -279,7 +290,7 @@ async function sendEmail({ alertData, screenshotBuffers = [] }) {
  */
 async function sendWhatsApp({ alertData }) {
   const client   = getTwilioClient();
-  const from     = process.env.TWILIO_WA_FROM;
+  const from     = normEnv(process.env.TWILIO_WA_FROM);
   const toList   = csvList(process.env.ALERT_WA_TO);
   if (!toList.length) throw new Error('ALERT_WA_TO no configurado en .env');
   if (!from) throw new Error('TWILIO_WA_FROM no configurado en .env');
@@ -291,6 +302,48 @@ async function sendWhatsApp({ alertData }) {
     results.push({ to, sid: msg.sid });
   }
   return results;
+}
+
+async function verifyChannels() {
+  const cfg = getNotifierConfig();
+  const out = {
+    email: {
+      configured: !!(cfg && cfg.email && cfg.email.enabled),
+      host: (cfg && cfg.email && cfg.email.host) || '',
+      port: (cfg && cfg.email && cfg.email.port) || 0,
+      secure: !!(cfg && cfg.email && cfg.email.secure),
+      user: (cfg && cfg.email && cfg.email.user) || '',
+      to: (cfg && cfg.email && cfg.email.to) || [],
+      ok: false,
+      error: null,
+    },
+    whatsapp: {
+      configured: !!(cfg && cfg.whatsapp && cfg.whatsapp.enabled),
+      from: (cfg && cfg.whatsapp && cfg.whatsapp.from) || '',
+      to: (cfg && cfg.whatsapp && cfg.whatsapp.to) || [],
+      ok: false,
+      error: null,
+    },
+  };
+  if (out.email.configured) {
+    try {
+      const tr = getMailTransport();
+      await tr.verify();
+      out.email.ok = true;
+    } catch (e) {
+      out.email.error = e && e.message ? e.message : String(e);
+    }
+  }
+  if (out.whatsapp.configured) {
+    try {
+      const cli = getTwilioClient();
+      await cli.api.accounts((cfg.whatsapp.accountSid || '')).fetch();
+      out.whatsapp.ok = true;
+    } catch (e) {
+      out.whatsapp.error = e && e.message ? e.message : String(e);
+    }
+  }
+  return out;
 }
 
 /**
@@ -330,4 +383,4 @@ async function sendAlert({ alertData, screenshotBuffers = [], channels = ['email
   return results;
 }
 
-module.exports = { sendAlert, sendEmail, sendWhatsApp, buildAlertEmailHtml, buildWhatsAppText, getNotifierConfig };
+module.exports = { sendAlert, sendEmail, sendWhatsApp, buildAlertEmailHtml, buildWhatsAppText, getNotifierConfig, verifyChannels };

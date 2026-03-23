@@ -5954,11 +5954,12 @@ app.post('/api/ai/chat', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 // ALERTAS Y SCHEDULER — módulos opcionales (se cargan solo si existen)
 // ═══════════════════════════════════════════════════════════════════════════════
-let _checkKpis, _sendAlert, _runAlertJob, _captureScreenshots, _getNotifierConfig;
+let _checkKpis, _sendAlert, _runAlertJob, _captureScreenshots, _getNotifierConfig, _verifyChannels;
 try {
   _checkKpis        = require('./modules/alerts').checkKpis;
   _sendAlert        = require('./modules/notifier').sendAlert;
   _getNotifierConfig = require('./modules/notifier').getNotifierConfig;
+  _verifyChannels   = require('./modules/notifier').verifyChannels;
   const sched       = require('./modules/scheduler');
   _runAlertJob      = sched.runAlertJob;
   _captureScreenshots = sched.captureScreenshots;
@@ -6042,6 +6043,19 @@ app.get('/api/alerts/config', async (_req, res) => {
           : '',
       },
     };
+    res.json(out);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/alerts/verify — Verificación activa SMTP/Twilio ──────────────────
+app.get('/api/alerts/verify', async (_req, res) => {
+  try {
+    if (!_verifyChannels) {
+      return res.status(503).json({ error: 'Módulo notifier no instalado' });
+    }
+    const out = await _verifyChannels();
     res.json(out);
   } catch (e) {
     res.status(500).json({ error: e.message });
