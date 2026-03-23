@@ -5348,6 +5348,26 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
         GROUP BY COALESCE(cp.NOMBRE, 'Sin condición')
         ORDER BY 2 DESC
       `, [], 12000, dbOpts).catch(() => []);
+      if (!porCond || !porCond.length) {
+        porCond = await query(`
+          SELECT FIRST 6
+            COALESCE(cp.NOMBRE, 'Sin condición') AS CONDICION,
+            COALESCE(SUM(c.SALDO), 0) AS SALDO
+          FROM ${cxcClienteSQL()} c
+          LEFT JOIN CLIENTES cl ON cl.CLIENTE_ID = c.CLIENTE_ID
+          LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = cl.COND_PAGO_ID
+          WHERE c.SALDO > 0.005
+            AND (
+              cp.COND_PAGO_ID IS NULL OR (
+                POSITION('CONTADO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) = 0
+                AND POSITION('EFECTIVO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) = 0
+                AND POSITION('INMEDIATO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) = 0
+              )
+            )
+          GROUP BY COALESCE(cp.NOMBRE, 'Sin condición')
+          ORDER BY 2 DESC
+        `, [], 12000, dbOpts).catch(() => []);
+      }
       if ((!porCond || !porCond.length) && snap && snap.aging) {
         const ag = snap.aging || {};
         porCond = [
@@ -5427,6 +5447,7 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
       const sumGastos = ['CO_A1','CO_A2','CO_A3','CO_A4','CO_A5','CO_A6','CO_B1','CO_B2','CO_B3','CO_B4','CO_B5','CO_C1','CO_C2','CO_C3','CO_C4','CO_C5','CO_C6']
         .reduce((s, k) => s + (+tot[k] || 0), 0);
       const utilOp = (+tot.UTILIDAD_BRUTA || 0) - sumGastos;
+      const hasGastosContables = sumGastos > 0.01;
       const ult = meses.slice(-3).map(m =>
         `${m.PERIODO || `${m.ANIO}-${String(m.MES || '').padStart(2, '0')}`}: Vta $${Number(m.VENTAS_NETAS || 0).toFixed(2)}, Costo $${Number(m.COSTO_VENTAS || 0).toFixed(2)}, Margen ${Number(m.MARGEN_BRUTO_PCT || 0).toFixed(2)}%`
       ).join(' | ');
@@ -5440,7 +5461,7 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
 - Costo de ventas: $${Number(tot.COSTO_VENTAS || 0).toFixed(2)}.
 - Utilidad bruta: $${Number(tot.UTILIDAD_BRUTA || 0).toFixed(2)} (${Number(tot.MARGEN_BRUTO_PCT || 0).toFixed(2)}%).
 - Gastos operativos: $${Number(sumGastos || 0).toFixed(2)}.
-- Utilidad operativa: $${Number(utilOp || 0).toFixed(2)}.
+- Utilidad operativa: ${hasGastosContables ? ('$' + Number(utilOp || 0).toFixed(2)) : 'No disponible (sin pólizas 52/53/54 en el periodo)'}.
 - Últimos meses: ${ult || 'Sin meses para el filtro actual.'}`,
         source: '/api/resultados/pnl',
       };
@@ -5617,7 +5638,7 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
         // #endregion
         return {
           toolId,
-          block: `\n\nNo pude capturar screenshot real en este servidor (motor de navegador no disponible).`,
+          block: '',
           source: `playwright-error:${pageFile}`,
           visuals: [],
         };
