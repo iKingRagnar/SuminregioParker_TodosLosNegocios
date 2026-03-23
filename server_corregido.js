@@ -3110,8 +3110,14 @@ async function resultadosPnlCore(req, dbOpts) {
         AND NOT (${salYearExpr} = ? AND ${salMonthExpr} > ?)
       GROUP BY ${salYearExpr}, ${salMonthExpr}
       ORDER BY 1, 2
-    `, [sy, ey, sy, sm, ey, em], 15000).catch(() => []),
-    q(`
+    `, [sy, ey, sy, sm, ey, em], 15000).catch(e => { console.error('[resultados/pnl] costosSaldos5101 error:', e.message); return []; }),
+  ]);
+
+  // ── Gastos CO (SALDOS_CO + DOCTOS_CO_DET) — queries separados del Promise.all ──
+  // Razón: con 257+ cuentas bajo prefijo 52*, estos queries son pesados y
+  // se estaban tragando errores silenciosamente al correr en paralelo.
+  // Ahora corren secuencialmente DESPUÉS de los queries principales, con timeout más alto.
+  const gastosSalSQL = `
       SELECT ${salYearExpr} AS ANIO, ${salMonthExpr} AS MES,
         SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5201' THEN ${salDeltaExpr} ELSE 0 END) AS CO_A1,
         SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5202' THEN ${salDeltaExpr} ELSE 0 END) AS CO_A2,
@@ -3149,47 +3155,65 @@ async function resultadosPnlCore(req, dbOpts) {
         AND NOT (${salYearExpr} = ? AND ${salMonthExpr} < ?)
         AND NOT (${salYearExpr} = ? AND ${salMonthExpr} > ?)
       GROUP BY ${salYearExpr}, ${salMonthExpr}
-      ORDER BY 1, 2
-    `, [sy, ey, sy, sm, ey, em], 15000).catch(() => []),
-    q(`
+      ORDER BY 1, 2`;
+  // DOCTOS_CO_DET: corrige signo usando TIPO_ASIENTO (C=Cargo/Debit, A=Abono/Credit)
+  const detSignedExpr = detCols.has('TIPO_ASIENTO')
+    ? `CASE WHEN d.TIPO_ASIENTO = 'C' THEN COALESCE(d.${detImporteCol || 'IMPORTE'}, 0) ELSE -COALESCE(d.${detImporteCol || 'IMPORTE'}, 0) END`
+    : detDeltaExpr;
+  const gastosDetSQL = `
       SELECT EXTRACT(YEAR FROM ${detDateExpr}) AS ANIO, EXTRACT(MONTH FROM ${detDateExpr}) AS MES,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5201' THEN ${detDeltaExpr} ELSE 0 END) AS CO_A1,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5202' THEN ${detDeltaExpr} ELSE 0 END) AS CO_A2,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5203' THEN ${detDeltaExpr} ELSE 0 END) AS CO_A3,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5204' THEN ${detDeltaExpr} ELSE 0 END) AS CO_A4,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5205' THEN ${detDeltaExpr} ELSE 0 END) AS CO_A5,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5201' THEN ${detSignedExpr} ELSE 0 END) AS CO_A1,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5202' THEN ${detSignedExpr} ELSE 0 END) AS CO_A2,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5203' THEN ${detSignedExpr} ELSE 0 END) AS CO_A3,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5204' THEN ${detSignedExpr} ELSE 0 END) AS CO_A4,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5205' THEN ${detSignedExpr} ELSE 0 END) AS CO_A5,
         SUM(CASE
           WHEN cu.CUENTA_PT STARTING WITH '52'
            AND NOT (cu.CUENTA_PT STARTING WITH '5201' OR cu.CUENTA_PT STARTING WITH '5202' OR cu.CUENTA_PT STARTING WITH '5203'
              OR cu.CUENTA_PT STARTING WITH '5204' OR cu.CUENTA_PT STARTING WITH '5205')
-         THEN ${detDeltaExpr} ELSE 0 END) AS CO_A6,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5301' THEN ${detDeltaExpr} ELSE 0 END) AS CO_B1,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5302' THEN ${detDeltaExpr} ELSE 0 END) AS CO_B2,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5303' THEN ${detDeltaExpr} ELSE 0 END) AS CO_B3,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5304' THEN ${detDeltaExpr} ELSE 0 END) AS CO_B4,
+         THEN ${detSignedExpr} ELSE 0 END) AS CO_A6,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5301' THEN ${detSignedExpr} ELSE 0 END) AS CO_B1,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5302' THEN ${detSignedExpr} ELSE 0 END) AS CO_B2,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5303' THEN ${detSignedExpr} ELSE 0 END) AS CO_B3,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5304' THEN ${detSignedExpr} ELSE 0 END) AS CO_B4,
         SUM(CASE
           WHEN cu.CUENTA_PT STARTING WITH '53'
            AND NOT (cu.CUENTA_PT STARTING WITH '5301' OR cu.CUENTA_PT STARTING WITH '5302'
              OR cu.CUENTA_PT STARTING WITH '5303' OR cu.CUENTA_PT STARTING WITH '5304')
-         THEN ${detDeltaExpr} ELSE 0 END) AS CO_B5,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5401' THEN ${detDeltaExpr} ELSE 0 END) AS CO_C1,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5402' THEN ${detDeltaExpr} ELSE 0 END) AS CO_C2,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5403' THEN ${detDeltaExpr} ELSE 0 END) AS CO_C3,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5404' THEN ${detDeltaExpr} ELSE 0 END) AS CO_C4,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5405' THEN ${detDeltaExpr} ELSE 0 END) AS CO_C5,
+         THEN ${detSignedExpr} ELSE 0 END) AS CO_B5,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5401' THEN ${detSignedExpr} ELSE 0 END) AS CO_C1,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5402' THEN ${detSignedExpr} ELSE 0 END) AS CO_C2,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5403' THEN ${detSignedExpr} ELSE 0 END) AS CO_C3,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5404' THEN ${detSignedExpr} ELSE 0 END) AS CO_C4,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5405' THEN ${detSignedExpr} ELSE 0 END) AS CO_C5,
         SUM(CASE
           WHEN cu.CUENTA_PT STARTING WITH '54'
            AND NOT (cu.CUENTA_PT STARTING WITH '5401' OR cu.CUENTA_PT STARTING WITH '5402'
              OR cu.CUENTA_PT STARTING WITH '5403' OR cu.CUENTA_PT STARTING WITH '5404' OR cu.CUENTA_PT STARTING WITH '5405')
-         THEN ${detDeltaExpr} ELSE 0 END) AS CO_C6
+         THEN ${detSignedExpr} ELSE 0 END) AS CO_C6
       FROM DOCTOS_CO_DET d
       ${detNeedsDoctoJoin ? 'JOIN DOCTOS_CO c ON c.DOCTO_CO_ID = d.DOCTO_CO_ID' : ''}
       JOIN CUENTAS_CO cu ON cu.CUENTA_ID = d.CUENTA_ID
       WHERE (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53' OR cu.CUENTA_PT STARTING WITH '54')
         AND CAST(${detDateExpr} AS DATE) >= CAST(? AS DATE) AND CAST(${detDateExpr} AS DATE) <= CAST(? AS DATE)
       GROUP BY EXTRACT(YEAR FROM ${detDateExpr}), EXTRACT(MONTH FROM ${detDateExpr})
-      ORDER BY 1, 2
-    `, dateParams, 15000).catch(() => []),
+      ORDER BY 1, 2`;
+  let gastosSaldos52 = [];
+  let gastosDoctos52 = [];
+  try {
+    gastosSaldos52 = await q(gastosSalSQL, [sy, ey, sy, sm, ey, em], 45000);
+    console.log('[resultados/pnl] gastosSaldos52 OK — rows:', (gastosSaldos52 || []).length);
+  } catch (e) {
+    console.error('[resultados/pnl] gastosSaldos52 FALLÓ:', e.message);
+    gastosSaldos52 = [];
+  }
+  try {
+    gastosDoctos52 = await q(gastosDetSQL, dateParams, 45000);
+    console.log('[resultados/pnl] gastosDoctos52 OK — rows:', (gastosDoctos52 || []).length);
+  } catch (e) {
+    console.error('[resultados/pnl] gastosDoctos52 FALLÓ:', e.message);
+    gastosDoctos52 = [];
+  }
   ]);
 
   const key = (a, m) => `${a}-${m}`;
