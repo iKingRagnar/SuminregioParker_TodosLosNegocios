@@ -383,6 +383,12 @@ html[data-theme="light"] .microsip-skip-link:focus{background:#0f172a;color:#fff
 @media (max-width: 900px){
   .ms-story{grid-template-columns:1fr}
 }
+
+/* --- Global semantic traffic-light ---------------------------------- */
+.ms-sem-good{color:var(--green)!important}
+.ms-sem-yellow{color:var(--yellow)!important}
+.ms-sem-orange{color:var(--orange)!important}
+.ms-sem-red{color:var(--red)!important}
 `;
     document.head.appendChild(style); // Append last so brand vars override page vars
   }
@@ -481,6 +487,82 @@ html[data-theme="light"] .microsip-skip-link:focus{background:#0f172a;color:#fff
     mainEl.insertAdjacentHTML('afterbegin', html);
   }
 
+  function parseSemNumber(raw) {
+    const txt = String(raw || '').replace(/\s+/g, ' ').trim();
+    if (!txt) return null;
+    if (!/[$%\d]/.test(txt) && !/\(\s*\$?\s*\d/.test(txt)) return null;
+    const hasPct = txt.indexOf('%') >= 0;
+    const parenNeg = /\(\s*\$?\s*[\d.,]+\s*\)/.test(txt);
+    const m = txt.match(/-?\$?\s*[\d,.]+(?:\.\d+)?/);
+    if (!m) return null;
+    let n = Number(String(m[0]).replace(/[$,\s]/g, ''));
+    if (isNaN(n)) return null;
+    if (parenNeg) n = -Math.abs(n);
+    return { value: n, abs: Math.abs(n), isPct: hasPct };
+  }
+
+  function getSemContext(el) {
+    if (!el) return '';
+    const row = el.closest('tr');
+    const rowHead = row && row.firstElementChild ? row.firstElementChild.textContent : '';
+    const cardTitle = (el.closest('.card') && el.closest('.card').querySelector('.card-title')) ? el.closest('.card').querySelector('.card-title').textContent : '';
+    const prev = el.previousElementSibling ? el.previousElementSibling.textContent : '';
+    return String([rowHead, cardTitle, prev].filter(Boolean).join(' ')).toLowerCase();
+  }
+
+  function semLevelByContext(parsed, ctx) {
+    if (!parsed) return '';
+    const badCtx = /(gasto|costo|venc|deuda|atras|moros|riesgo|cartera|descuento|devoluc|merma|dias)/i.test(ctx);
+    const goodCtx = /(venta|utilidad|margen|cobro|ingreso|eficiencia|cumplimiento|comision|vigente|salud)/i.test(ctx);
+
+    if (badCtx) {
+      if (parsed.isPct) {
+        if (parsed.abs <= 20) return 'ms-sem-good';
+        if (parsed.abs <= 40) return 'ms-sem-yellow';
+        if (parsed.abs <= 60) return 'ms-sem-orange';
+        return 'ms-sem-red';
+      }
+      if (parsed.abs <= 0) return 'ms-sem-good';
+      if (parsed.abs <= 50000) return 'ms-sem-yellow';
+      if (parsed.abs <= 200000) return 'ms-sem-orange';
+      return 'ms-sem-red';
+    }
+    if (goodCtx) {
+      if (parsed.isPct) {
+        if (parsed.value >= 60) return 'ms-sem-good';
+        if (parsed.value >= 40) return 'ms-sem-yellow';
+        if (parsed.value >= 20) return 'ms-sem-orange';
+        return 'ms-sem-red';
+      }
+      if (parsed.value < 0) return 'ms-sem-red';
+      if (parsed.value < 50000) return 'ms-sem-orange';
+      if (parsed.value < 200000) return 'ms-sem-yellow';
+      return 'ms-sem-good';
+    }
+    if (parsed.value < 0) return 'ms-sem-red';
+    return '';
+  }
+
+  function applyGlobalSemaforos() {
+    const targets = document.querySelectorAll('td, .kpi-val, .kpi-value, .val, .cond-amt-total, .cond-amt-sub, .metric-value');
+    let painted = 0;
+    let scanned = 0;
+    targets.forEach((el) => {
+      if (!el || !el.textContent) return;
+      scanned += 1;
+      el.classList.remove('ms-sem-good', 'ms-sem-yellow', 'ms-sem-orange', 'ms-sem-red');
+      const parsed = parseSemNumber(el.textContent);
+      if (!parsed) return;
+      const lvl = semLevelByContext(parsed, getSemContext(el));
+      if (!lvl) return;
+      el.classList.add(lvl);
+      painted += 1;
+    });
+    // #region agent log
+    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run18',hypothesisId:'H80',location:'nav.js:applyGlobalSemaforos',message:'global semantic coloring pass',data:{scanned,painted,page:currentPage()},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+  }
+
   /* Replace or inject header */
   function inject() {
     injectSharedStyles();
@@ -536,8 +618,20 @@ html[data-theme="light"] .microsip-skip-link:focus{background:#0f172a;color:#fff
       window.initGlobalDbBarAfterNav(document.getElementById('app-header'));
     }
     initGlobalTableSort();
+    applyGlobalSemaforos();
     try {
-      const mo = new MutationObserver(() => initGlobalTableSort());
+      let semTick = null;
+      const scheduleSemaforo = () => {
+        if (semTick) return;
+        semTick = requestAnimationFrame(() => {
+          semTick = null;
+          applyGlobalSemaforos();
+          // #region agent log
+          fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run18',hypothesisId:'H81',location:'nav.js:MutationObserver',message:'semantic recolor scheduled after DOM mutation',data:{page:currentPage()},timestamp:Date.now()})}).catch(()=>{});
+          // #endregion
+        });
+      };
+      const mo = new MutationObserver(() => { initGlobalTableSort(); scheduleSemaforo(); });
       mo.observe(document.body, { childList: true, subtree: true });
     } catch (_) {}
   }
