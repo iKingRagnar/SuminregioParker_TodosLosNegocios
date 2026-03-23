@@ -10,7 +10,7 @@
 const cron      = require('node-cron');
 const path      = require('path');
 const { checkKpis }  = require('./alerts');
-const { sendAlert }  = require('./notifier');
+const { sendAlert, getNotifierConfig }  = require('./notifier');
 
 const PORT = process.env.PORT || 7000;
 const CRON = process.env.ALERT_CRON || '0 7 * * 1-6'; // lun-sab 7am
@@ -117,9 +117,10 @@ function startScheduler() {
     return;
   }
 
-  // Verificar si hay credenciales antes de activar
-  const hasEmail = process.env.EMAIL_USER && !process.env.EMAIL_PASS?.includes('xxxx');
-  const hasTwilio = process.env.TWILIO_ACCOUNT_SID && !process.env.TWILIO_ACCOUNT_SID.startsWith('ACxxxxxxx');
+  // Verificar si hay credenciales y destinatarios antes de activar
+  const cfg = getNotifierConfig();
+  const hasEmail = !!(cfg && cfg.email && cfg.email.enabled);
+  const hasTwilio = !!(cfg && cfg.whatsapp && cfg.whatsapp.enabled);
 
   if (!hasEmail && !hasTwilio) {
     console.log('[scheduler] Sin credenciales de notificación configuradas. Configura EMAIL_USER/EMAIL_PASS o TWILIO_* en .env para activar alertas automáticas.');

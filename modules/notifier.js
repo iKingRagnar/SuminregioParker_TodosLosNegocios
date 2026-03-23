@@ -8,19 +8,61 @@
 const nodemailer = require('nodemailer');
 const twilio     = require('twilio');
 
+function csvList(v) {
+  return String(v || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
+function boolFromEnv(v, defVal = false) {
+  const s = String(v == null ? '' : v).trim().toLowerCase();
+  if (!s) return !!defVal;
+  return s === '1' || s === 'true' || s === 'yes' || s === 'on';
+}
+
+function getNotifierConfig() {
+  const email = {
+    host: process.env.SMTP_HOST || 'smtp.office365.com',
+    port: +(process.env.SMTP_PORT || 587),
+    secure: boolFromEnv(process.env.SMTP_SECURE, false),
+    user: process.env.SMTP_USER || process.env.EMAIL_USER || '',
+    from: process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || '',
+    to: csvList(process.env.EMAIL_TO),
+  };
+  const whatsapp = {
+    from: process.env.TWILIO_WA_FROM || '',
+    to: csvList(process.env.ALERT_WA_TO),
+    accountSid: process.env.TWILIO_ACCOUNT_SID || '',
+  };
+  return {
+    email: {
+      ...email,
+      enabled: !!(email.user && (process.env.SMTP_PASS || process.env.EMAIL_PASS) && email.to.length),
+    },
+    whatsapp: {
+      ...whatsapp,
+      enabled: !!(whatsapp.accountSid && process.env.TWILIO_AUTH_TOKEN && whatsapp.from && whatsapp.to.length),
+    },
+  };
+}
+
 // ── Transporte SMTP Outlook 365 ───────────────────────────────────────────────
 function getMailTransport() {
-  const user = process.env.EMAIL_USER;
-  const pass = process.env.EMAIL_PASS;
+  const user = process.env.SMTP_USER || process.env.EMAIL_USER;
+  const pass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
   if (!user || !pass || pass.includes('xxxx xxxx')) {
-    throw new Error('EMAIL_USER / EMAIL_PASS no configurados en .env');
+    throw new Error('SMTP_USER/SMTP_PASS (o EMAIL_USER/EMAIL_PASS) no configurados en .env');
   }
+  const host = process.env.SMTP_HOST || 'smtp.office365.com';
+  const port = +(process.env.SMTP_PORT || 587);
+  const secure = boolFromEnv(process.env.SMTP_SECURE, false);
   return nodemailer.createTransport({
-    host: 'smtp.office365.com',
-    port: 587,
-    secure: false,
+    host,
+    port,
+    secure,
     auth: { user, pass },
-    tls: { ciphers: 'SSLv3', rejectUnauthorized: false },
+    tls: { rejectUnauthorized: false },
   });
 }
 
@@ -205,7 +247,7 @@ function buildWhatsAppText(alertData) {
  */
 async function sendEmail({ alertData, screenshotBuffers = [] }) {
   const transport = getMailTransport();
-  const recipients = (process.env.EMAIL_TO || '').split(',').map(s => s.trim()).filter(Boolean);
+  const recipients = csvList(process.env.EMAIL_TO);
   if (!recipients.length) throw new Error('EMAIL_TO no configurado en .env');
 
   const cids = screenshotBuffers.map((_, i) => `screenshot${i}@dashboard`);
@@ -238,8 +280,9 @@ async function sendEmail({ alertData, screenshotBuffers = [] }) {
 async function sendWhatsApp({ alertData }) {
   const client   = getTwilioClient();
   const from     = process.env.TWILIO_WA_FROM;
-  const toList   = (process.env.ALERT_WA_TO || '').split(',').map(s => s.trim()).filter(Boolean);
+  const toList   = csvList(process.env.ALERT_WA_TO);
   if (!toList.length) throw new Error('ALERT_WA_TO no configurado en .env');
+  if (!from) throw new Error('TWILIO_WA_FROM no configurado en .env');
 
   const body = buildWhatsAppText(alertData);
   const results = [];
@@ -255,7 +298,16 @@ async function sendWhatsApp({ alertData }) {
  * channels: ['email', 'whatsapp'] (default: ambos)
  */
 async function sendAlert({ alertData, screenshotBuffers = [], channels = ['email', 'whatsapp'] }) {
-  const results = { email: null, whatsapp: null, errors: [] };
+  const cfg = getNotifierConfig();
+  const results = {
+    email: null,
+    whatsapp: null,
+    errors: [],
+    targets: {
+      email: cfg.email.to,
+      whatsapp: cfg.whatsapp.to,
+    },
+  };
 
   if (channels.includes('email')) {
     try {
@@ -278,4 +330,4 @@ async function sendAlert({ alertData, screenshotBuffers = [], channels = ['email
   return results;
 }
 
-module.exports = { sendAlert, sendEmail, sendWhatsApp, buildAlertEmailHtml, buildWhatsAppText };
+module.exports = { sendAlert, sendEmail, sendWhatsApp, buildAlertEmailHtml, buildWhatsAppText, getNotifierConfig };

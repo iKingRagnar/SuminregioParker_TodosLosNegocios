@@ -5954,10 +5954,11 @@ app.post('/api/ai/chat', async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 // ALERTAS Y SCHEDULER — módulos opcionales (se cargan solo si existen)
 // ═══════════════════════════════════════════════════════════════════════════════
-let _checkKpis, _sendAlert, _runAlertJob, _captureScreenshots;
+let _checkKpis, _sendAlert, _runAlertJob, _captureScreenshots, _getNotifierConfig;
 try {
   _checkKpis        = require('./modules/alerts').checkKpis;
   _sendAlert        = require('./modules/notifier').sendAlert;
+  _getNotifierConfig = require('./modules/notifier').getNotifierConfig;
   const sched       = require('./modules/scheduler');
   _runAlertJob      = sched.runAlertJob;
   _captureScreenshots = sched.captureScreenshots;
@@ -6012,6 +6013,37 @@ app.post('/api/alerts/send', async (req, res) => {
     res.json({ ok: true, alertData: { ...alertData, kpis: undefined }, result });
   } catch (e) {
     console.error('[/api/alerts/send]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── GET /api/alerts/config — Diagnóstico de canales y destinatarios ───────────
+app.get('/api/alerts/config', async (_req, res) => {
+  try {
+    if (!_getNotifierConfig) {
+      return res.status(503).json({ error: 'Módulo notifier no instalado' });
+    }
+    const cfg = _getNotifierConfig();
+    const out = {
+      email: {
+        enabled: !!(cfg && cfg.email && cfg.email.enabled),
+        host: (cfg && cfg.email && cfg.email.host) || '',
+        port: (cfg && cfg.email && cfg.email.port) || 0,
+        secure: !!(cfg && cfg.email && cfg.email.secure),
+        from: (cfg && cfg.email && cfg.email.from) || '',
+        to: (cfg && cfg.email && cfg.email.to) || [],
+      },
+      whatsapp: {
+        enabled: !!(cfg && cfg.whatsapp && cfg.whatsapp.enabled),
+        from: (cfg && cfg.whatsapp && cfg.whatsapp.from) || '',
+        to: (cfg && cfg.whatsapp && cfg.whatsapp.to) || [],
+        accountSidMasked: (cfg && cfg.whatsapp && cfg.whatsapp.accountSid)
+          ? String(cfg.whatsapp.accountSid).replace(/^(.{6}).*(.{4})$/, '$1...$2')
+          : '',
+      },
+    };
+    res.json(out);
+  } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
