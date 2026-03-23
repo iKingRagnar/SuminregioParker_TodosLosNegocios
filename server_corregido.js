@@ -2829,6 +2829,9 @@ async function resultadosPnlCore(req, dbOpts) {
   const dateParams = [desdeStr, hastaStr];
   const dateCond = 'CAST(d.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(d.FECHA AS DATE) <= CAST(? AS DATE)';
   const dateCondCc = 'CAST(dc.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(dc.FECHA AS DATE) <= CAST(? AS DATE)';
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run1',hypothesisId:'H1',location:'server_corregido.js:2829',message:'resultados range resolved',data:{db:normalizeDbQueryId(req?.query?.db)||'default',desdeStr,hastaStr,hasRangoExplicito,useMesesRolling,mesesParam:req?.query?.meses||null},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   const salCols = await getTableColumns('SALDOS_CO', dbOpts).catch(() => new Set());
   const salAnoCol = firstExistingColumn(salCols, ['ANO', 'ANIO', 'EJERCICIO']) || 'ANO';
   const salMesCol = firstExistingColumn(salCols, ['MES', 'PERIODO', 'NUM_MES']) || 'MES';
@@ -2852,6 +2855,9 @@ async function resultadosPnlCore(req, dbOpts) {
   const detGastoExpr = `ABS(${detDeltaExpr})`;
   const detDateExpr = detCols.has('FECHA') ? 'd.FECHA' : 'c.FECHA';
   const detNeedsDoctoJoin = !detCols.has('FECHA');
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run1',hypothesisId:'H2',location:'server_corregido.js:2854',message:'resultados column mapping',data:{salAnoCol,salMesCol,salCargoCol,salAbonoCol,detCargoCol:detCargoCol||null,detAbonoCol:detAbonoCol||null,detImporteCol:detImporteCol||null,detDateExpr,detNeedsDoctoJoin,salColsCount:salCols.size,detColsCount:detCols.size},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   // FIX: usar el mismo divisor IVA que ventasSub() para que resultados.html
   // sea consistente con ventas.html, director.html, vendedores.html, etc.
   // Antes usaba sqlVentaImporteResultadosExpr (sin divisor) → ventas 16% más altas.
@@ -3216,6 +3222,13 @@ async function resultadosPnlCore(req, dbOpts) {
       ORDER BY 1, 2
     `, dateParams, 15000).catch(() => []),
   ]);
+  const dbgSumRows = (rows) => (rows || []).reduce((acc, r) => {
+    const cols = ['CO_A1', 'CO_A2', 'CO_A3', 'CO_A4', 'CO_A5', 'CO_A6', 'CO_B1', 'CO_B2', 'CO_B3', 'CO_B4', 'CO_B5', 'CO_C1', 'CO_C2', 'CO_C3', 'CO_C4', 'CO_C5', 'CO_C6'];
+    return acc + cols.reduce((s, c) => s + Math.abs(+r[c] || 0), 0);
+  }, 0);
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run1',hypothesisId:'H3',location:'server_corregido.js:3220',message:'resultados query outputs',data:{ventasMesLen:(ventasMes||[]).length,descuentosMesLen:(descuentosMes||[]).length,gastosSaldos52Len:(gastosSaldos52||[]).length,gastosDoctos52Len:(gastosDoctos52||[]).length,gastosSaldos52Total:dbgSumRows(gastosSaldos52),gastosDoctos52Total:dbgSumRows(gastosDoctos52),sampleSaldos:(gastosSaldos52||[])[0]||null,sampleDoctos:(gastosDoctos52||[])[0]||null},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
 
   const key = (a, m) => `${a}-${m}`;
   const costMap = {};
@@ -3243,6 +3256,9 @@ async function resultadosPnlCore(req, dbOpts) {
   if (sumGastosRows(gastosRows) <= 0.01 && sumGastosRows(gastosDoctos52) > 0.01) {
     gastosRows = gastosDoctos52;
   }
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run1',hypothesisId:'H4',location:'server_corregido.js:3247',message:'resultados gastos source selected',data:{source:(gastosRows===gastosDoctos52)?'DOCTOS_CO_DET':'SALDOS_CO',sumSaldos:sumGastosRows(gastosSaldos52),sumDoctos:sumGastosRows(gastosDoctos52),selectedSum:sumGastosRows(gastosRows)},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   const gasMap = {};
   (gastosRows || []).forEach(r => { gasMap[key(r.ANIO, r.MES)] = r; });
   const gasAbs = (g, k) => Math.abs(+g[k] || 0);
@@ -3330,6 +3346,9 @@ async function resultadosPnlCore(req, dbOpts) {
   const sumGastoCo = ['CO_A1', 'CO_A2', 'CO_A3', 'CO_A4', 'CO_A5', 'CO_A6', 'CO_B1', 'CO_B2', 'CO_B3', 'CO_B4', 'CO_B5', 'CO_C1', 'CO_C2', 'CO_C3', 'CO_C4', 'CO_C5', 'CO_C6']
     .reduce((s, k) => s + (+totales[k] || 0), 0);
   const tiene_gastos_co = sumGastoCo > 0.01;
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run1',hypothesisId:'H5',location:'server_corregido.js:3333',message:'resultados totals built',data:{ventasNetas:totales.VENTAS_NETAS,costoVentas:totales.COSTO_VENTAS,sumGastoCo,tiene_gastos_co,mesesCount:meses.length,sampleMes:meses[0]||null},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   let prefijos_rows = [];
   try {
     prefijos_rows = await q(`

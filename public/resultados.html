@@ -638,6 +638,11 @@ function clearResultadosUI(){
   const insightEl=document.getElementById('insightText'); if(insightEl)insightEl.textContent='Cargando...';
   const body=document.getElementById('pnlBody'); if(body)body.innerHTML='<tr><td colspan="99" style="text-align:center;padding:1rem;color:var(--muted)">Cargando...</td></tr>';
 }
+// #region agent log
+function debugLogResultados(runId,hypothesisId,location,message,data){
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId,hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
+}
+// #endregion
 
 // ── Load ───────────────────────────────────────────────────────────────────────
 async function loadData(){
@@ -669,6 +674,9 @@ async function loadData(){
   document.getElementById('chartEmpresasWrap')&&(document.getElementById('chartEmpresasWrap').style.display='none');
   try{
     const uniUrl=buildPnlApiUrl('/api/resultados/pnl-universe','meses='+currentMeses+'&concurrency=2',{ omitDb:true })+'&_='+Date.now();
+    // #region agent log
+    debugLogResultados('run2','H6','resultados.html:671','frontend built universe url',{search:location.search||'',currentMeses,selectedBizId:selectedBizId||'',uniUrl});
+    // #endregion
     let uni=await tryFetch(uniUrl)||{};
     const base=getBase();
     if((!uni.empresas||!uni.empresas.length)&&base.indexOf(':7000')===-1&&window.location.protocol!=='file:'){
@@ -679,6 +687,9 @@ async function loadData(){
     const empresas=Array.isArray(uni.empresas)?uni.empresas:[];
     const okEmp=empresas.filter(e=>e.ok);
     const multi=okEmp.length>1;
+    // #region agent log
+    debugLogResultados('run2','H7','resultados.html:681','frontend universe payload',{empresasLen:empresas.length,okEmpLen:okEmp.length,multi,selectedBizId:selectedBizId||'',consolidadoVentas:+(uni.consolidado&&uni.consolidado.VENTAS_NETAS||0)});
+    // #endregion
 
     if(!multi){
       document.getElementById('bizContextBar')&&(document.getElementById('bizContextBar').style.display='none');
@@ -756,6 +767,9 @@ async function loadData(){
     document.getElementById('plScoreStrip')&&(document.getElementById('plScoreStrip').style.display='none');
 
     url=buildPnlApiUrl('/api/resultados/pnl','meses='+currentMeses)+'&_='+Date.now();
+    // #region agent log
+    debugLogResultados('run2','H8','resultados.html:758','frontend built pnl url',{url,currentMeses,selectedBizId:selectedBizId||''});
+    // #endregion
     data=await tryFetch(url)||{};
     if((!data.meses||!data.meses.length)&&base.indexOf(':7000')===-1&&window.location.protocol!=='file:'){
       const altUrl=url.replace(/^(https?:\/\/[^\/]+)/,(window.location.origin||'').replace(/:\d+$/,'')+':7000');
@@ -1247,7 +1261,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   </tr>`;
 }
 
-initFilters({ containerId:'filter-bar', showVendedor:false, onReady:()=>loadData(), onChange:()=>loadData() });
+initFilters({ containerId:'filter-bar', showVendedor:false, defaultPreset:'mes_ant', onReady:()=>loadData(), onChange:()=>loadData() });
 setInterval(loadData, 300000);
 </script>
 <script src="nav.js"></script>
