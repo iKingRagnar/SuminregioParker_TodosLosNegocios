@@ -5264,6 +5264,94 @@ app.post('/api/alerts/test', async (req, res) => {
   }
 });
 
+// ── DIAGNÓSTICO VENTAS: endpoint temporal para comparar métodos de cálculo ────
+app.get('/api/diagnostico/ventas', async (req, res) => {
+  const dbParam = req.query.db || null;
+  const dbOpts  = dbParam ? resolveDb(dbParam) : null;
+
+  // Periodo: mes actual por defecto, o ?desde=&hasta= en query string
+  const now   = new Date();
+  const y     = now.getFullYear();
+  const m     = String(now.getMonth() + 1).padStart(2, '0');
+  const lastD = new Date(y, now.getMonth() + 1, 0).getDate();
+  const DESDE = req.query.desde || `${y}-${m}-01`;
+  const HASTA = req.query.hasta || `${y}-${m}-${String(lastD).padStart(2, '0')}`;
+
+  const DIV = VENTAS_SIN_IVA_DIVISOR; // el divisor configurado en .env
+
+  try {
+    // 1. Método actual: IMPORTE_NETO / DIV, APLICADO='S', ESTATUS no C/D/S
+    const [r1ve, r1pv] = await Promise.all([
+      query(`SELECT COALESCE(SUM(d.IMPORTE_NETO / CAST(${DIV} AS DOUBLE PRECISION)),0) AS T FROM DOCTOS_VE d WHERE d.TIPO_DOCTO IN ('V','F') AND COALESCE(d.ESTATUS,'N') NOT IN ('C','D','S') AND COALESCE(d.APLICADO,'N')='S' AND d.FECHA_DOCUMENTO BETWEEN '${DESDE}' AND '${HASTA}'`, [], 30000, dbOpts),
+      query(`SELECT COALESCE(SUM(d.IMPORTE_NETO / CAST(${DIV} AS DOUBLE PRECISION)),0) AS T FROM DOCTOS_PV d WHERE d.TIPO_DOCTO IN ('V','F') AND COALESCE(d.ESTATUS,'N') NOT IN ('C','D','S') AND COALESCE(d.APLICADO,'N')='S' AND d.FECHA_DOCUMENTO BETWEEN '${DESDE}' AND '${HASTA}'`, [], 30000, dbOpts),
+    ]);
+    const m1 = (r1ve[0]?.T || 0) + (r1pv[0]?.T || 0);
+
+    // 2. Sin divisor: IMPORTE_NETO tal cual, APLICADO='S'
+    const [r2ve, r2pv] = await Promise.all([
+      query(`SELECT COALESCE(SUM(d.IMPORTE_NETO),0) AS T FROM DOCTOS_VE d WHERE d.TIPO_DOCTO IN ('V','F') AND COALESCE(d.ESTATUS,'N') NOT IN ('C','D','S') AND COALESCE(d.APLICADO,'N')='S' AND d.FECHA_DOCUMENTO BETWEEN '${DESDE}' AND '${HASTA}'`, [], 30000, dbOpts),
+      query(`SELECT COALESCE(SUM(d.IMPORTE_NETO),0) AS T FROM DOCTOS_PV d WHERE d.TIPO_DOCTO IN ('V','F') AND COALESCE(d.ESTATUS,'N') NOT IN ('C','D','S') AND COALESCE(d.APLICADO,'N')='S' AND d.FECHA_DOCUMENTO BETWEEN '${DESDE}' AND '${HASTA}'`, [], 30000, dbOpts),
+    ]);
+    const m2 = (r2ve[0]?.T || 0) + (r2pv[0]?.T || 0);
+
+    // 3. Power BI: UNIDADES * PRECIO_UNITARIO desde detalle, sin APLICADO, sin ESTATUS
+    const [r3ve, r3pv] = await Promise.all([
+      query(`SELECT COALESCE(SUM(dd.UNIDADES * dd.PRECIO_UNITARIO),0) AS T FROM DOCTOS_VE_DET dd JOIN DOCTOS_VE d ON d.DOCTO_VE_ID = dd.DOCTO_VE_ID WHERE d.TIPO_DOCTO IN ('V','F') AND d.FECHA_DOCUMENTO BETWEEN '${DESDE}' AND '${HASTA}'`, [], 30000, dbOpts),
+      query(`SELECT COALESCE(SUM(dd.UNIDADES * dd.PRECIO_UNITARIO),0) AS T FROM DOCTOS_PV_DET dd JOIN DOCTOS_PV d ON d.DOCTO_PV_ID = dd.DOCTO_PV_ID WHERE d.TIPO_DOCTO IN ('V','F') AND d.FECHA_DOCUMENTO BETWEEN '${DESDE}' AND '${HASTA}'`, [], 30000, dbOpts),
+    ]);
+    const m3 = (r3ve[0]?.T || 0) + (r3pv[0]?.T || 0);
+
+    // 4. Sin filtro APLICADO: IMPORTE_NETO / DIV, solo ESTATUS
+    const [r4ve, r4pv] = await Promise.all([
+      query(`SELECT COALESCE(SUM(d.IMPORTE_NETO / CAST(${DIV} AS DOUBLE PRECISION)),0) AS T FROM DOCTOS_VE d WHERE d.TIPO_DOCTO IN ('V','F') AND COALESCE(d.ESTATUS,'N') NOT IN ('C','D','S') AND d.FECHA_DOCUMENTO BETWEEN '${DESDE}' AND '${HASTA}'`, [], 30000, dbOpts),
+      query(`SELECT COALESCE(SUM(d.IMPORTE_NETO / CAST(${DIV} AS DOUBLE PRECISION)),0) AS T FROM DOCTOS_PV d WHERE d.TIPO_DOCTO IN ('V','F') AND COALESCE(d.ESTATUS,'N') NOT IN ('C','D','S') AND d.FECHA_DOCUMENTO BETWEEN '${DESDE}' AND '${HASTA}'`, [], 30000, dbOpts),
+    ]);
+    const m4 = (r4ve[0]?.T || 0) + (r4pv[0]?.T || 0);
+
+    // 5. Sin divisor Y sin filtro APLICADO
+    const [r5ve, r5pv] = await Promise.all([
+      query(`SELECT COALESCE(SUM(d.IMPORTE_NETO),0) AS T FROM DOCTOS_VE d WHERE d.TIPO_DOCTO IN ('V','F') AND COALESCE(d.ESTATUS,'N') NOT IN ('C','D','S') AND d.FECHA_DOCUMENTO BETWEEN '${DESDE}' AND '${HASTA}'`, [], 30000, dbOpts),
+      query(`SELECT COALESCE(SUM(d.IMPORTE_NETO),0) AS T FROM DOCTOS_PV d WHERE d.TIPO_DOCTO IN ('V','F') AND COALESCE(d.ESTATUS,'N') NOT IN ('C','D','S') AND d.FECHA_DOCUMENTO BETWEEN '${DESDE}' AND '${HASTA}'`, [], 30000, dbOpts),
+    ]);
+    const m5 = (r5ve[0]?.T || 0) + (r5pv[0]?.T || 0);
+
+    // 6. Docs excluidos por APLICADO
+    const [excVe, excPv] = await Promise.all([
+      query(`SELECT COUNT(*) AS CNT, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOT FROM DOCTOS_VE d WHERE d.TIPO_DOCTO IN ('V','F') AND COALESCE(d.ESTATUS,'N') NOT IN ('C','D','S') AND COALESCE(d.APLICADO,'N')<>'S' AND d.FECHA_DOCUMENTO BETWEEN '${DESDE}' AND '${HASTA}'`, [], 30000, dbOpts),
+      query(`SELECT COUNT(*) AS CNT, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOT FROM DOCTOS_PV d WHERE d.TIPO_DOCTO IN ('V','F') AND COALESCE(d.ESTATUS,'N') NOT IN ('C','D','S') AND COALESCE(d.APLICADO,'N')<>'S' AND d.FECHA_DOCUMENTO BETWEEN '${DESDE}' AND '${HASTA}'`, [], 30000, dbOpts),
+    ]);
+
+    // 7. Valores distintos de APLICADO
+    const aplVe = await query(`SELECT COALESCE(d.APLICADO,'NULL') AS APLY, COUNT(*) AS CNT FROM DOCTOS_VE d WHERE d.TIPO_DOCTO IN ('V','F') AND d.FECHA_DOCUMENTO BETWEEN '${DESDE}' AND '${HASTA}' GROUP BY 1 ORDER BY 2 DESC`, [], 30000, dbOpts).catch(() => []);
+
+    // 8. Muestra de 3 docs (para ver si IMPORTE_NETO ya viene sin IVA)
+    const muestra = await query(`SELECT FIRST 3 d.TIPO_DOCTO, d.IMPORTE_NETO, d.IMPORTE_NETO/1.16 AS NETO_DIV, d.APLICADO, d.ESTATUS FROM DOCTOS_VE d WHERE d.TIPO_DOCTO IN ('V','F') AND COALESCE(d.APLICADO,'N')='S' AND d.FECHA_DOCUMENTO BETWEEN '${DESDE}' AND '${HASTA}'`, [], 15000, dbOpts).catch(() => []);
+
+    const fmt = n => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(n || 0);
+
+    res.json({
+      periodo: { desde: DESDE, hasta: HASTA },
+      divisor_configurado: DIV,
+      metodos: {
+        m1_servidor_actual:       { label: `IMPORTE_NETO/${DIV}, APLICADO=S, ESTATUS ok`,      total: m1, formateado: fmt(m1) },
+        m2_sin_divisor:           { label: 'IMPORTE_NETO crudo, APLICADO=S, ESTATUS ok',       total: m2, formateado: fmt(m2) },
+        m3_power_bi:              { label: 'UNI×PRECIO desde detalle, sin APLICADO ni ESTATUS', total: m3, formateado: fmt(m3) },
+        m4_sin_aplicado_con_div:  { label: `IMPORTE_NETO/${DIV}, sin filtro APLICADO`,         total: m4, formateado: fmt(m4) },
+        m5_sin_divisor_sin_aplic: { label: 'IMPORTE_NETO crudo, sin filtro APLICADO',          total: m5, formateado: fmt(m5) },
+      },
+      excluidos_por_aplicado: {
+        doctos_ve: { count: excVe[0]?.CNT || 0, importe: excVe[0]?.TOT || 0, formateado: fmt(excVe[0]?.TOT) },
+        doctos_pv: { count: excPv[0]?.CNT || 0, importe: excPv[0]?.TOT || 0, formateado: fmt(excPv[0]?.TOT) },
+      },
+      valores_aplicado_este_mes: aplVe,
+      muestra_3_documentos: muestra,
+    });
+  } catch (e) {
+    console.error('[diagnostico/ventas]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Suminregio API escuchando en http://localhost:${PORT}`);
 });

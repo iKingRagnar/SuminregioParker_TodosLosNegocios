@@ -554,28 +554,51 @@ function renderPlMiniTable(empresas, meta){
   if(!wrap||!body)return;
   const list = (empresas||[]).slice();
   const errs = list.filter(e => !e.ok);
-  const oks = list.filter(e => e.ok).sort((a,b)=>{
-    const ma = +(a.totales && a.totales.MARGEN_BRUTO_PCT) || 0;
-    const mb = +(b.totales && b.totales.MARGEN_BRUTO_PCT) || 0;
-    return mb - ma;
-  });
-  const ordered = oks.concat(errs);
-  const rows=ordered.map(e=>{
-    if(!e.ok)return`<tr><td colspan="6" class="err">${(e.label||e.id)+': '+(e.error||'Error')}</td></tr>`;
+  const oks  = list.filter(e => e.ok);
+
+  // Separar con actividad vs sin actividad (0 facturas)
+  const conAct = oks.filter(e => (+((e.totales||{}).NUM_FACTURAS)||0) > 0)
+    .sort((a,b) => (+((b.totales||{}).VENTAS_NETAS)||0) - (+((a.totales||{}).VENTAS_NETAS)||0));
+  const sinAct = oks.filter(e => (+((e.totales||{}).NUM_FACTURAS)||0) === 0);
+
+  const mkRow = e => {
+    if(!e.ok) return`<tr><td colspan="6" class="err">${(e.label||e.id)+': '+(e.error||'Error')}</td></tr>`;
     const t=e.totales||{};
     const mg=+t.MARGEN_BRUTO_PCT||0;
     const mgc=mg>=30?'var(--green)':mg>=15?'var(--yellow)':'var(--red)';
+    const sinCosto=`<span title="No hay pólizas de costo (ctas 52*/53*/54*) en Microsip Contabilidad para este período" style="color:var(--muted);font-size:.78rem;cursor:help">Sin costo ℹ</span>`;
     return`<tr style="cursor:pointer" data-biz-row="${e.id}">
       <td><strong>${(e.label||e.id).replace(/</g,'')}</strong></td>
       <td>${fmtM(+t.VENTAS_NETAS||0)}</td>
-      <td>${e.tiene_costo?fmtM(+t.UTILIDAD_BRUTA||0):'—'}</td>
+      <td>${e.tiene_costo?fmtM(+t.UTILIDAD_BRUTA||0):sinCosto}</td>
       <td style="color:${e.tiene_costo?mgc:'var(--muted)'}">${e.tiene_costo?fmtPct(mg):'—'}</td>
       <td>${fmtM(+t.COBROS||0)}</td>
       <td>${+t.NUM_FACTURAS||0}</td>
     </tr>`;
-  }).join('');
-  body.innerHTML=rows;
-  if(m)m.textContent=meta||'';
+  };
+
+  let html = conAct.map(mkRow).join('') + errs.map(mkRow).join('');
+
+  // Fila colapsable para empresas sin actividad este período
+  if(sinAct.length > 0){
+    const toggleId = 'sinact-'+Math.random().toString(36).slice(2);
+    html += `<tr style="background:rgba(255,255,255,.03)">
+      <td colspan="6" style="padding:.4rem .75rem;font-size:.73rem;color:var(--muted);cursor:pointer;user-select:none"
+          onclick="var el=document.getElementById('${toggleId}');el.style.display=el.style.display==='none'?'table-row-group':'none'">
+        ▸ ${sinAct.length} empresa${sinAct.length>1?'s':''} sin actividad este período — clic para ver
+      </td>
+    </tr>`;
+    html += `<tbody id="${toggleId}" style="display:none">${sinAct.map(e=>`
+      <tr style="opacity:.4;font-size:.8rem;cursor:pointer" data-biz-row="${e.id}">
+        <td><strong>${(e.label||e.id).replace(/</g,'')}</strong></td>
+        <td style="color:var(--muted)">$0</td><td style="color:var(--muted)">—</td>
+        <td style="color:var(--muted)">—</td><td style="color:var(--muted)">$0</td>
+        <td style="color:var(--muted)">0</td>
+      </tr>`).join('')}</tbody>`;
+  }
+
+  body.innerHTML=html;
+  if(m) m.textContent=meta||'';
   wrap.style.display='block';
   body.querySelectorAll('tr[data-biz-row]').forEach(tr=>{
     tr.addEventListener('click',()=>selectBusiness(tr.getAttribute('data-biz-row')));
