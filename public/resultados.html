@@ -403,7 +403,7 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
     <div style="overflow-x:auto">
       <table class="pnl-structured">
         <thead>
-          <tr>
+          <tr id="pnlHeadRow">
             <th style="width:22%">Concepto / Mes</th>
             <th id="thMeses" colspan="99">— cargando —</th>
           </tr>
@@ -533,6 +533,16 @@ const fmtPct=v=>isNaN(+v)?'—':(+v).toFixed(1)+'%';
 const MESES_ES=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 const PNL_ROW_NUM_KEYS=['VENTAS_BRUTAS','DESCUENTOS_DEV','VENTAS_NETAS','VENTAS_VE','VENTAS_PV','COSTO_VENTAS','UTILIDAD_BRUTA','MARGEN_BRUTO_PCT','COBROS','NUM_FACTURAS','CO_A1','CO_A2','CO_A3','CO_A4','CO_A5','CO_A6','CO_B1','CO_B2','CO_B3','CO_B4','CO_B5','CO_C1','CO_C2','CO_C3','CO_C4','CO_C5','CO_C6'];
 function mesLabel(r){return (MESES_ES[+r.MES]||r.MES)+' '+(+r.ANIO||'')}
+function sortMesesByPeriodo(rows){
+  const arr=Array.isArray(rows)?rows.slice():[];
+  arr.sort((a,b)=>{
+    const ay=+a.ANIO||0, by=+b.ANIO||0;
+    if(ay!==by)return ay-by;
+    const am=+a.MES||0, bm=+b.MES||0;
+    return am-bm;
+  });
+  return arr;
+}
 function deltaTag(pct){
   if(isNaN(pct)||pct===null)return'';
   const cls=pct>0?'up':pct<0?'dn':'flat';
@@ -1046,6 +1056,7 @@ async function loadData(){
       debugLogResultados('run9','H41','resultados.html:855','ytd expansion result',{anioRef,mesesRender:tablaMeses.map(r=>`${r.ANIO}-${r.MES}`),ventasYtd:+(tablaTot.VENTAS_NETAS||0)});
       // #endregion
     }
+    tablaMeses=sortMesesByPeriodo(tablaMeses);
     const hasCosto=(+tot.COSTO_VENTAS>0)||(data.tiene_costo===true);
     try{ renderKPIs(tot,meses,hasCosto); }catch(e){ console.warn('renderKPIs',e); }
     try{ renderInsight(tablaTot,tablaMeses,hasCosto); }catch(e){ console.warn('renderInsight',e); }
@@ -1338,29 +1349,41 @@ function coLbl(k,fallback){
 
 // ── P&L Table — columnas por mes + fila de concepto ──────────────────────────
 function renderTabla(meses,tot,hasCosto,tieneGastosCo){
+  const mesesOrd=sortMesesByPeriodo(meses);
   const tg=tieneGastosCo===true;
   const pnlBodyEl=document.getElementById('pnlBody');
   const pnlFootEl=document.getElementById('pnlFoot');
   const thEl=document.getElementById('thMeses');
+  const thRowEl=document.getElementById('pnlHeadRow');
   // #region agent log
-  debugLogResultados('run13','H66','resultados.html:renderTabla:entry','render tabla inputs',{mesesLen:meses.length,meses:meses.map(m=>({anio:+m.ANIO||0,mes:+m.MES||0,label:mesLabel(m),ventas:+m.VENTAS_NETAS||0,costo:+m.COSTO_VENTAS||0})),totalVentas:+tot.VENTAS_NETAS||0,totalCosto:+tot.COSTO_VENTAS||0,tieneGastos:tg});
+  debugLogResultados('run13','H66','resultados.html:renderTabla:entry','render tabla inputs',{mesesLen:mesesOrd.length,meses:mesesOrd.map(m=>({anio:+m.ANIO||0,mes:+m.MES||0,label:mesLabel(m),ventas:+m.VENTAS_NETAS||0,costo:+m.COSTO_VENTAS||0})),totalVentas:+tot.VENTAS_NETAS||0,totalCosto:+tot.COSTO_VENTAS||0,tieneGastos:tg});
   // #endregion
-  if(!meses.length){
+  if(!mesesOrd.length){
     if(pnlBodyEl)pnlBodyEl.innerHTML='<tr><td colspan="99" style="text-align:center;padding:2rem;font-family:DM Mono,monospace;font-size:.78rem;color:var(--muted)">Sin datos para el periodo seleccionado</td></tr>';
     if(pnlFootEl)pnlFootEl.innerHTML='';
     return;
   }
-  // Build column headers (solo si existe el th)
-    if(thEl){
-    let thHtml=meses.map((m,i)=>{
+  // Build column headers (resistente a recargas sucesivas)
+  if(thRowEl){
+    let thHtml=mesesOrd.map((m,i)=>{
       let mom='';
       if(i>0){
-        const pct=momPct(+m.VENTAS_NETAS||0,+meses[i-1].VENTAS_NETAS||1);
+        const pct=momPct(+m.VENTAS_NETAS||0,+mesesOrd[i-1].VENTAS_NETAS||1);
         if(pct!==null){const cls=pct>=0?'mom-positive':'mom-negative';const arr=pct>=0?'↑':'↓';mom=` <span class="${cls}">${arr}${Math.abs(pct)}%</span>`;}
       }
       return`<th>${mesLabel(m)}${mom}</th>`;
     }).join('');
-      thEl.outerHTML=`${thHtml}<th>Total</th>`;
+    thRowEl.innerHTML=`<th style="width:22%">Concepto / Mes</th>${thHtml}<th>Total</th>`;
+  }else if(thEl){
+    let thHtml=mesesOrd.map((m,i)=>{
+      let mom='';
+      if(i>0){
+        const pct=momPct(+m.VENTAS_NETAS||0,+mesesOrd[i-1].VENTAS_NETAS||1);
+        if(pct!==null){const cls=pct>=0?'mom-positive':'mom-negative';const arr=pct>=0?'↑':'↓';mom=` <span class="${cls}">${arr}${Math.abs(pct)}%</span>`;}
+      }
+      return`<th>${mesLabel(m)}${mom}</th>`;
+    }).join('');
+    thEl.outerHTML=`${thHtml}<th>Total</th>`;
   }
   // #region agent log
   try{
@@ -1370,7 +1393,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   // #endregion
 
   // Rows
-  const sumOf=key=>meses.reduce((s,m)=>s+(+m[key]||0),0);
+  const sumOf=key=>mesesOrd.reduce((s,m)=>s+(+m[key]||0),0);
   function tdGasto(m,k){
     if(!tg)return`<td style="color:var(--text2)">${fmtM(0)}</td>`;
     const v=+m[k]||0;
@@ -1384,10 +1407,10 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   }
 
   const pnl=`
-  <tr class="pnl-section-header"><td colspan="${meses.length+2}">INGRESOS</td></tr>
+  <tr class="pnl-section-header"><td colspan="${mesesOrd.length+2}">INGRESOS</td></tr>
   <tr class="data-row">
     <td>Ventas netas (base dashboard ventas)</td>
-    ${meses.map(m=>{
+    ${mesesOrd.map(m=>{
       const vb=+m.VENTAS_BRUTAS||((+m.VENTAS_NETAS||0)+(+m.DESCUENTOS_DEV||0));
       return`<td style="color:var(--text2)">${fmtM(vb)}</td>`;
     }).join('')}
@@ -1395,7 +1418,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   </tr>
   <tr class="data-row">
     <td>Dsctos y devoluc s/ventas (informativo)</td>
-    ${meses.map(m=>{
+    ${mesesOrd.map(m=>{
       const d=+m.DESCUENTOS_DEV||0;
       return`<td style="color:${d>0?'var(--red)':'var(--text2)'}">${d>0?'('+fmtM(d)+')':fmtM(0)}</td>`;
     }).join('')}
@@ -1403,29 +1426,29 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   </tr>
   <tr class="data-row">
     <td>Venta Industrial (VE)</td>
-    ${meses.map(m=>`<td style="color:var(--text2)">${fmtM(+m.VENTAS_VE||0)}</td>`).join('')}
+    ${mesesOrd.map(m=>`<td style="color:var(--text2)">${fmtM(+m.VENTAS_VE||0)}</td>`).join('')}
     <td style="color:var(--text2)">${fmtM(sumOf('VENTAS_VE'))}</td>
   </tr>
   <tr class="data-row">
     <td>Ventas de Mostrador (PV)</td>
-    ${meses.map(m=>`<td style="color:var(--text2)">${fmtM(+m.VENTAS_PV||0)}</td>`).join('')}
+    ${mesesOrd.map(m=>`<td style="color:var(--text2)">${fmtM(+m.VENTAS_PV||0)}</td>`).join('')}
     <td style="color:var(--text2)">${fmtM(sumOf('VENTAS_PV'))}</td>
   </tr>
   <tr class="subtotal-row">
     <td>▶ Total Ventas Netas (base contable si existe)</td>
-    ${meses.map(m=>`<td style="color:var(--blue)">${fmtM(+m.VENTAS_NETAS||0)}</td>`).join('')}
+    ${mesesOrd.map(m=>`<td style="color:var(--blue)">${fmtM(+m.VENTAS_NETAS||0)}</td>`).join('')}
     <td style="color:var(--blue)">${fmtM(+tot.VENTAS_NETAS||0)}</td>
   </tr>
 
-  <tr class="pnl-section-header"><td colspan="${meses.length+2}">COSTO DE VENTAS</td></tr>
+  <tr class="pnl-section-header"><td colspan="${mesesOrd.length+2}">COSTO DE VENTAS</td></tr>
   <tr class="data-row">
     <td>Costo de Ventas</td>
-    ${meses.map(m=>`<td style="color:var(--orange)">${hasCosto?fmtM(+m.COSTO_VENTAS||0):'—'}</td>`).join('')}
+    ${mesesOrd.map(m=>`<td style="color:var(--orange)">${hasCosto?fmtM(+m.COSTO_VENTAS||0):'—'}</td>`).join('')}
     <td style="color:var(--orange)">${hasCosto?fmtM(+tot.COSTO_VENTAS||0):'—'}</td>
   </tr>
   <tr class="data-row">
     <td>% Costo / Ventas</td>
-    ${meses.map(m=>{
+    ${mesesOrd.map(m=>{
       const v=+m.VENTAS_NETAS||0;const c=+m.COSTO_VENTAS||0;
       const p=v>0?Math.round(c/v*100):0;
       const col=p>75?'var(--red)':p>60?'var(--yellow)':'var(--text2)';
@@ -1436,7 +1459,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
 
   <tr class="subtotal-row">
     <td>▶ Utilidad Bruta</td>
-    ${meses.map(m=>{
+    ${mesesOrd.map(m=>{
       const u=+m.UTILIDAD_BRUTA||(hasCosto?0:+m.VENTAS_NETAS||0);
       const mg=+m.MARGEN_BRUTO_PCT||0;
       const mgCol=mg>=30?'var(--green)':mg>=15?'var(--yellow)':'var(--red)';
@@ -1446,7 +1469,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   </tr>
   <tr class="data-row">
     <td>Margen Bruto %</td>
-    ${meses.map(m=>{
+    ${mesesOrd.map(m=>{
       const mg=+m.MARGEN_BRUTO_PCT||0;
       const col=mg>=30?'var(--green)':mg>=15?'var(--yellow)':'var(--red)';
       return`<td><span style="color:${col};font-weight:600">${hasCosto?fmtPct(mg):'—'}</span></td>`;
@@ -1454,21 +1477,21 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     <td><span style="color:${(+tot.MARGEN_BRUTO_PCT||0)>=30?'var(--green)':(+tot.MARGEN_BRUTO_PCT||0)>=15?'var(--yellow)':'var(--red)'};font-weight:600">${hasCosto?fmtPct(+tot.MARGEN_BRUTO_PCT||0):'—'}</span></td>
   </tr>
 
-  ${!tg?`<tr><td colspan="${meses.length+2}" style="background:rgba(255,180,0,.08);color:var(--yellow);font-size:.75rem;padding:.5rem 1rem;border-left:3px solid var(--yellow)">⚠️ Sin pólizas contables en SALDOS_CO/DOCTOS_CO_DET para cuentas 52*/53*/54*. Las cifras de gastos son $0. Ingresa los movimientos en Microsip Contabilidad o verifica que el módulo de contabilidad esté activo. <a href="/api/debug/saldos-co-cuentas" target="_blank" style="color:var(--yellow)">Ver diagnóstico →</a></td></tr>`:''}
-  <tr class="pnl-section-header"><td colspan="${meses.length+2}">GASTOS OPERATIVOS (ESTRUCTURA MICROsip SR)</td></tr>
-  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">A. ${coLbl('CO_A1','')}</td>${meses.map(m=>tdGasto(m,'CO_A1')).join('')}<td style="color:var(--red)">${footGasto('CO_A1')}</td></tr>
-  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">B. ${coLbl('CO_A2','')}</td>${meses.map(m=>tdGasto(m,'CO_A2')).join('')}<td style="color:var(--red)">${footGasto('CO_A2')}</td></tr>
-  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">C. ${coLbl('CO_A3','')}</td>${meses.map(m=>tdGasto(m,'CO_A3')).join('')}<td style="color:var(--red)">${footGasto('CO_A3')}</td></tr>
-  <tr class="subtotal-row"><td>▶ Total gastos operativos</td>${meses.map(m=>{
+  ${!tg?`<tr><td colspan="${mesesOrd.length+2}" style="background:rgba(255,180,0,.08);color:var(--yellow);font-size:.75rem;padding:.5rem 1rem;border-left:3px solid var(--yellow)">⚠️ Sin pólizas contables en SALDOS_CO/DOCTOS_CO_DET para cuentas 52*/53*/54*. Las cifras de gastos son $0. Ingresa los movimientos en Microsip Contabilidad o verifica que el módulo de contabilidad esté activo. <a href="/api/debug/saldos-co-cuentas" target="_blank" style="color:var(--yellow)">Ver diagnóstico →</a></td></tr>`:''}
+  <tr class="pnl-section-header"><td colspan="${mesesOrd.length+2}">GASTOS OPERATIVOS (ESTRUCTURA MICROsip SR)</td></tr>
+  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">A. ${coLbl('CO_A1','')}</td>${mesesOrd.map(m=>tdGasto(m,'CO_A1')).join('')}<td style="color:var(--red)">${footGasto('CO_A1')}</td></tr>
+  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">B. ${coLbl('CO_A2','')}</td>${mesesOrd.map(m=>tdGasto(m,'CO_A2')).join('')}<td style="color:var(--red)">${footGasto('CO_A2')}</td></tr>
+  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">C. ${coLbl('CO_A3','')}</td>${mesesOrd.map(m=>tdGasto(m,'CO_A3')).join('')}<td style="color:var(--red)">${footGasto('CO_A3')}</td></tr>
+  <tr class="subtotal-row"><td>▶ Total gastos operativos</td>${mesesOrd.map(m=>{
     const s=tg?sumGastoKeys(m,_GAS_OPEX):0;
     return s>0?`<td style="color:var(--yellow)">(${fmtM(s)})</td>`:`<td style="color:var(--text2)">${fmtM(0)}</td>`;
   }).join('')}<td style="color:var(--yellow)">${tg?'('+fmtM(sumGastoKeys(tot,_GAS_OPEX))+')':`(${fmtM(0)})`}</td></tr>
-  <tr class="pnl-section-header"><td colspan="${meses.length+2}">PARTIDAS EXTRAORDINARIAS</td></tr>
-  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">${coLbl('CO_C1','')}</td>${meses.map(m=>tdGasto(m,'CO_C1')).join('')}<td style="color:var(--red)">${footGasto('CO_C1')}</td></tr>
-  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">${coLbl('CO_B1','')}</td>${meses.map(m=>tdGasto(m,'CO_B1')).join('')}<td style="color:var(--red)">${footGasto('CO_B1')}</td></tr>
+  <tr class="pnl-section-header"><td colspan="${mesesOrd.length+2}">PARTIDAS EXTRAORDINARIAS</td></tr>
+  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">${coLbl('CO_C1','')}</td>${mesesOrd.map(m=>tdGasto(m,'CO_C1')).join('')}<td style="color:var(--red)">${footGasto('CO_C1')}</td></tr>
+  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">${coLbl('CO_B1','')}</td>${mesesOrd.map(m=>tdGasto(m,'CO_B1')).join('')}<td style="color:var(--red)">${footGasto('CO_B1')}</td></tr>
   <tr class="data-row">
     <td style="color:var(--orange);font-weight:600">Gastos operativos (OPEX) total</td>
-    ${meses.map(m=>{
+    ${mesesOrd.map(m=>{
       const s=tg?sumGastoKeys(m,_GAS_OPEX):0;
       return s>0?`<td style="color:var(--orange)">(${fmtM(s)})</td>`:`<td style="color:var(--text2)">${fmtM(0)}</td>`;
     }).join('')}
@@ -1476,7 +1499,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   </tr>
   <tr class="subtotal-row">
     <td>▶ Utilidad de operación (Bruta - OPEX)</td>
-    ${meses.map(m=>{
+    ${mesesOrd.map(m=>{
       if(!hasCosto)return '<td style="color:var(--muted)">—</td>';
       const ub=+m.UTILIDAD_BRUTA||0;
       const op=tg?sumGastoKeys(m,_GAS_OPEX):0;
@@ -1487,15 +1510,15 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     <td style="color:${hasCosto&&((+tot.UTILIDAD_BRUTA||0)-(tg?sumGastoKeys(tot,_GAS_OPEX):0))>=0?'var(--green)':'var(--red)'}">${hasCosto?fmtM((+tot.UTILIDAD_BRUTA||0)-(tg?sumGastoKeys(tot,_GAS_OPEX):0)):'—'}</td>
   </tr>
 
-  <tr class="pnl-section-header"><td colspan="${meses.length+2}">COBROS Y LIQUIDEZ</td></tr>
+  <tr class="pnl-section-header"><td colspan="${mesesOrd.length+2}">COBROS Y LIQUIDEZ</td></tr>
   <tr class="data-row">
     <td>Cobros Recibidos</td>
-    ${meses.map(m=>`<td style="color:var(--purple)">${fmtM(+m.COBROS||0)}</td>`).join('')}
+    ${mesesOrd.map(m=>`<td style="color:var(--purple)">${fmtM(+m.COBROS||0)}</td>`).join('')}
     <td style="color:var(--purple)">${fmtM(+tot.COBROS||0)}</td>
   </tr>
   <tr class="data-row">
     <td>Eficiencia de Cobro</td>
-    ${meses.map(m=>{
+    ${mesesOrd.map(m=>{
       const v=+m.VENTAS_NETAS||0;const cob=+m.COBROS||0;
       const e=v>0?Math.round(cob/v*100):0;
       const col=e>=80?'var(--green)':e>=50?'var(--yellow)':'var(--red)';
@@ -1505,15 +1528,16 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   </tr>
   <tr class="data-row">
     <td>N&uacute;mero de Facturas</td>
-    ${meses.map(m=>`<td style="color:var(--muted)">${+m.NUM_FACTURAS||0}</td>`).join('')}
+    ${mesesOrd.map(m=>`<td style="color:var(--muted)">${+m.NUM_FACTURAS||0}</td>`).join('')}
     <td style="color:var(--muted)">${+tot.NUM_FACTURAS||0}</td>
   </tr>`;
 
   if(pnlBodyEl)pnlBodyEl.innerHTML=pnl;
+  const isYtdView = mesesOrd.length>=2 && (+mesesOrd[0].MES===1) && mesesOrd.every(m=>+m.ANIO===+mesesOrd[0].ANIO);
   if(pnlFootEl)pnlFootEl.innerHTML=`
   <tr class="total-final">
-    <td>RESUMEN ${currentMeses} MESES</td>
-    ${meses.map(m=>`<td style="color:var(--blue)">${fmtM(+m.VENTAS_NETAS||0)}</td>`).join('')}
+    <td>${isYtdView?'ACUMULADO DEL AÑO':'RESUMEN DEL PERIODO'}</td>
+    ${mesesOrd.map(m=>`<td style="color:var(--blue)">${fmtM(+m.VENTAS_NETAS||0)}</td>`).join('')}
     <td style="color:${(+tot.VENTAS_NETAS||0)>0?'var(--green)':'var(--muted)'}">${fmtM(+tot.VENTAS_NETAS||0)}</td>
   </tr>`;
 }

@@ -306,7 +306,7 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
     <div style="overflow-x:auto">
       <table class="pnl-structured">
         <thead>
-          <tr>
+          <tr id="pnlHeadRow">
             <th style="width:22%">Concepto / Mes</th>
             <th id="thMeses" colspan="99">— cargando —</th>
           </tr>
@@ -384,6 +384,16 @@ const fmtM=v=>{if(v===null||v===undefined||isNaN(+v))return'—';v=+v;if(v>=1e6)
 const fmtPct=v=>isNaN(+v)?'—':(+v).toFixed(1)+'%';
 const MESES_ES=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 function mesLabel(r){return (MESES_ES[+r.MES]||r.MES)+' '+(+r.ANIO||'')}
+function sortMesesByPeriodo(rows){
+  const arr=Array.isArray(rows)?rows.slice():[];
+  arr.sort((a,b)=>{
+    const ay=+a.ANIO||0, by=+b.ANIO||0;
+    if(ay!==by)return ay-by;
+    const am=+a.MES||0, bm=+b.MES||0;
+    return am-bm;
+  });
+  return arr;
+}
 function escHtml(s){
   return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
 }
@@ -406,7 +416,7 @@ function setMeses(m,btn){
 async function loadData(){
   try{
     const data=await fetch(buildApiUrl('/api/resultados/pnl', 'meses='+currentMeses)).then(r=>r.json()).catch(()=>({}));
-    const meses=Array.isArray(data.meses)?data.meses:[];
+    const meses=sortMesesByPeriodo(Array.isArray(data.meses)?data.meses:[]);
     const tot=data.totales||{};
     const hasCosto=data.tiene_costo||false;
     renderKPIs(tot,meses,hasCosto);
@@ -635,54 +645,59 @@ function chartOpts(cbY){
 
 // ── P&L Table — columnas por mes + fila de concepto ──────────────────────────
 function renderTabla(meses,tot,hasCosto){
-  if(!meses.length){
+  const mesesOrd=sortMesesByPeriodo(meses);
+  if(!mesesOrd.length){
     document.getElementById('pnlBody').innerHTML='<tr><td colspan="99" style="text-align:center;padding:2rem;font-family:DM Mono,monospace;font-size:.78rem;color:var(--muted)">Sin datos para el periodo seleccionado</td></tr>';
     return;
   }
   // Build column headers
   const thEl=document.getElementById('thMeses');
-  const colSpan=meses.length;
-  let thHtml=meses.map((m,i)=>{
+  const thRowEl=document.getElementById('pnlHeadRow');
+  let thHtml=mesesOrd.map((m,i)=>{
     let mom='';
     if(i>0){
-      const pct=momPct(+m.VENTAS_NETAS||0,+meses[i-1].VENTAS_NETAS||1);
+      const pct=momPct(+m.VENTAS_NETAS||0,+mesesOrd[i-1].VENTAS_NETAS||1);
       if(pct!==null){const cls=pct>=0?'mom-positive':'mom-negative';const arr=pct>=0?'↑':'↓';mom=` <span class="${cls}">${arr}${Math.abs(pct)}%</span>`;}
     }
     return`<th>${mesLabel(m)}${mom}</th>`;
   }).join('');
-  thEl.outerHTML=`<th style="width:22%;text-align:left;padding:.55rem 1.4rem">Concepto</th>${thHtml}<th>Total</th>`;
+  if(thRowEl){
+    thRowEl.innerHTML=`<th style="width:22%;text-align:left;padding:.55rem 1.4rem">Concepto</th>${thHtml}<th>Total</th>`;
+  }else{
+    thEl.outerHTML=`<th style="width:22%;text-align:left;padding:.55rem 1.4rem">Concepto</th>${thHtml}<th>Total</th>`;
+  }
 
   // Rows
-  const rows=(key,color,fmt)=>meses.map(m=>`<td style="color:${color}">${fmt(+m[key]||0)}</td>`).join('');
-  const sumOf=key=>meses.reduce((s,m)=>s+(+m[key]||0),0);
+  const rows=(key,color,fmt)=>mesesOrd.map(m=>`<td style="color:${color}">${fmt(+m[key]||0)}</td>`).join('');
+  const sumOf=key=>mesesOrd.reduce((s,m)=>s+(+m[key]||0),0);
 
   const pnl=`
-  <tr class="pnl-section-header"><td colspan="${meses.length+2}">INGRESOS</td></tr>
+  <tr class="pnl-section-header"><td colspan="${mesesOrd.length+2}">INGRESOS</td></tr>
   <tr class="data-row">
     <td>Ventas Industrial (VE)</td>
-    ${meses.map(m=>`<td style="color:var(--text2)">${fmtM(+m.VENTAS_VE||0)}</td>`).join('')}
+    ${mesesOrd.map(m=>`<td style="color:var(--text2)">${fmtM(+m.VENTAS_VE||0)}</td>`).join('')}
     <td style="color:var(--text2)">${fmtM(sumOf('VENTAS_VE'))}</td>
   </tr>
   <tr class="data-row">
     <td>Ventas Mostrador (PV)</td>
-    ${meses.map(m=>`<td style="color:var(--text2)">${fmtM(+m.VENTAS_PV||0)}</td>`).join('')}
+    ${mesesOrd.map(m=>`<td style="color:var(--text2)">${fmtM(+m.VENTAS_PV||0)}</td>`).join('')}
     <td style="color:var(--text2)">${fmtM(sumOf('VENTAS_PV'))}</td>
   </tr>
   <tr class="subtotal-row">
     <td>▶ Total Ventas Netas</td>
-    ${meses.map(m=>`<td style="color:var(--blue)">${fmtM(+m.VENTAS_NETAS||0)}</td>`).join('')}
+    ${mesesOrd.map(m=>`<td style="color:var(--blue)">${fmtM(+m.VENTAS_NETAS||0)}</td>`).join('')}
     <td style="color:var(--blue)">${fmtM(+tot.VENTAS_NETAS||0)}</td>
   </tr>
 
-  <tr class="pnl-section-header"><td colspan="${meses.length+2}">COSTO DE VENTAS</td></tr>
+  <tr class="pnl-section-header"><td colspan="${mesesOrd.length+2}">COSTO DE VENTAS</td></tr>
   <tr class="data-row">
     <td>Costo de Ventas</td>
-    ${meses.map(m=>`<td style="color:var(--orange)">${hasCosto?fmtM(+m.COSTO_VENTAS||0):'—'}</td>`).join('')}
+    ${mesesOrd.map(m=>`<td style="color:var(--orange)">${hasCosto?fmtM(+m.COSTO_VENTAS||0):'—'}</td>`).join('')}
     <td style="color:var(--orange)">${hasCosto?fmtM(+tot.COSTO_VENTAS||0):'—'}</td>
   </tr>
   <tr class="data-row">
     <td>% Costo / Ventas</td>
-    ${meses.map(m=>{
+    ${mesesOrd.map(m=>{
       const v=+m.VENTAS_NETAS||0;const c=+m.COSTO_VENTAS||0;
       const p=v>0?Math.round(c/v*100):0;
       const col=p>75?'var(--red)':p>60?'var(--yellow)':'var(--text2)';
@@ -693,7 +708,7 @@ function renderTabla(meses,tot,hasCosto){
 
   <tr class="subtotal-row">
     <td>▶ Utilidad Bruta</td>
-    ${meses.map(m=>{
+    ${mesesOrd.map(m=>{
       const u=+m.UTILIDAD_BRUTA||(hasCosto?0:+m.VENTAS_NETAS||0);
       const mg=+m.MARGEN_BRUTO_PCT||0;
       const mgCol=mg>=30?'var(--green)':mg>=15?'var(--yellow)':'var(--red)';
@@ -703,7 +718,7 @@ function renderTabla(meses,tot,hasCosto){
   </tr>
   <tr class="data-row">
     <td>Margen Bruto %</td>
-    ${meses.map(m=>{
+    ${mesesOrd.map(m=>{
       const mg=+m.MARGEN_BRUTO_PCT||0;
       const col=mg>=30?'var(--green)':mg>=15?'var(--yellow)':'var(--red)';
       return`<td><span style="color:${col};font-weight:600">${hasCosto?fmtPct(mg):'—'}</span></td>`;
@@ -711,22 +726,22 @@ function renderTabla(meses,tot,hasCosto){
     <td><span style="color:${(+tot.MARGEN_BRUTO_PCT||0)>=30?'var(--green)':(+tot.MARGEN_BRUTO_PCT||0)>=15?'var(--yellow)':'var(--red)'};font-weight:600">${hasCosto?fmtPct(+tot.MARGEN_BRUTO_PCT||0):'—'}</span></td>
   </tr>
 
-  <tr class="pnl-section-header"><td colspan="${meses.length+2}">GASTOS OPERATIVOS (Módulo Contabilidad Microsip)</td></tr>
+  <tr class="pnl-section-header"><td colspan="${mesesOrd.length+2}">GASTOS OPERATIVOS (Módulo Contabilidad Microsip)</td></tr>
   <tr class="data-row">
     <td style="color:var(--muted)">Gastos de Operación</td>
-    ${meses.map(()=>'<td style="color:var(--muted);font-size:.65rem">N/D</td>').join('')}
+    ${mesesOrd.map(()=>'<td style="color:var(--muted);font-size:.65rem">N/D</td>').join('')}
     <td style="color:var(--muted);font-size:.65rem">No disponible</td>
   </tr>
 
-  <tr class="pnl-section-header"><td colspan="${meses.length+2}">COBROS Y LIQUIDEZ</td></tr>
+  <tr class="pnl-section-header"><td colspan="${mesesOrd.length+2}">COBROS Y LIQUIDEZ</td></tr>
   <tr class="data-row">
     <td>Cobros Recibidos</td>
-    ${meses.map(m=>`<td style="color:var(--purple)">${fmtM(+m.COBROS||0)}</td>`).join('')}
+    ${mesesOrd.map(m=>`<td style="color:var(--purple)">${fmtM(+m.COBROS||0)}</td>`).join('')}
     <td style="color:var(--purple)">${fmtM(+tot.COBROS||0)}</td>
   </tr>
   <tr class="data-row">
     <td>Eficiencia de Cobro</td>
-    ${meses.map(m=>{
+    ${mesesOrd.map(m=>{
       const v=+m.VENTAS_NETAS||0;const cob=+m.COBROS||0;
       const e=v>0?Math.round(cob/v*100):0;
       const col=e>=80?'var(--green)':e>=50?'var(--yellow)':'var(--red)';
@@ -736,16 +751,17 @@ function renderTabla(meses,tot,hasCosto){
   </tr>
   <tr class="data-row">
     <td>Número de Facturas</td>
-    ${meses.map(m=>`<td style="color:var(--muted)">${+m.NUM_FACTURAS||0}</td>`).join('')}
+    ${mesesOrd.map(m=>`<td style="color:var(--muted)">${+m.NUM_FACTURAS||0}</td>`).join('')}
     <td style="color:var(--muted)">${+tot.NUM_FACTURAS||0}</td>
   </tr>`;
 
   document.getElementById('pnlBody').innerHTML=pnl;
 
+  const isYtdView = mesesOrd.length>=2 && (+mesesOrd[0].MES===1) && mesesOrd.every(m=>+m.ANIO===+mesesOrd[0].ANIO);
   document.getElementById('pnlFoot').innerHTML=`
   <tr class="total-final">
-    <td>RESUMEN ${currentMeses} MESES</td>
-    ${meses.map(m=>`<td style="color:var(--blue)">${fmtM(+m.VENTAS_NETAS||0)}</td>`).join('')}
+    <td>${isYtdView?'ACUMULADO DEL AÑO':'RESUMEN DEL PERIODO'}</td>
+    ${mesesOrd.map(m=>`<td style="color:var(--blue)">${fmtM(+m.VENTAS_NETAS||0)}</td>`).join('')}
     <td style="color:var(--green)">${fmtM(+tot.VENTAS_NETAS||0)}</td>
   </tr>`;
 }
