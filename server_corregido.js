@@ -3387,6 +3387,55 @@ async function resultadosPnlCore(req, dbOpts) {
   // #endregion
 
   const key = (a, m) => `${a}-${m}`;
+  const isNameLike = (v, re) => re.test(String(v || '').toUpperCase());
+  const gastoBucket = (cuenta, nombre) => {
+    const c = String(cuenta || '').trim();
+    const n = String(nombre || '').trim();
+    if (!c) return '';
+    if (isNameLike(n, /FINAN/)) return 'CO_B1'; // gastos financieros
+    if (isNameLike(n, /OTROS?\s+GAST/)) return 'CO_C1'; // partidas extraordinarias
+    if (c.startsWith('5201')) return 'CO_A1'; // total gastos de venta
+    if (c.startsWith('5202')) return 'CO_A2'; // total gastos de operación
+    if (c.startsWith('5203')) return 'CO_A3'; // total gastos de administración (sin "otros gastos")
+    if (c.startsWith('52') || c.startsWith('53') || c.startsWith('54')) return 'CO_A3';
+    return '';
+  };
+  const emptyGasRow = () => ({
+    CO_A1: 0, CO_A2: 0, CO_A3: 0, CO_A4: 0, CO_A5: 0, CO_A6: 0,
+    CO_B1: 0, CO_B2: 0, CO_B3: 0, CO_B4: 0, CO_B5: 0,
+    CO_C1: 0, CO_C2: 0, CO_C3: 0, CO_C4: 0, CO_C5: 0, CO_C6: 0,
+  });
+  const rowsToClasifMap = (rows) => {
+    const out = {};
+    (rows || []).forEach((r) => {
+      const k = key(r.ANIO, r.MES);
+      if (!out[k]) out[k] = emptyGasRow();
+      const imp = Math.abs(+r.IMP || 0);
+      if (imp <= 0.0001) return;
+      const b = gastoBucket(r.CUENTA_PT, r.NOMBRE);
+      if (!b) return;
+      out[k][b] = (+out[k][b] || 0) + imp;
+    });
+    return out;
+  };
+  const gastosSaldosClasifRows = await q(`
+    SELECT ${salYearExpr} AS ANIO, ${salMonthExpr} AS MES,
+      TRIM(COALESCE(cu.CUENTA_PT, '')) AS CUENTA_PT,
+      TRIM(COALESCE(cu.NOMBRE, cu.CUENTA_PT)) AS NOMBRE,
+      COALESCE(SUM(${salGastoExpr}), 0) AS IMP
+    FROM SALDOS_CO s
+    JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
+    WHERE (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53' OR cu.CUENTA_PT STARTING WITH '54')
+      AND ${salYearExpr} >= ? AND ${salYearExpr} <= ?
+      AND NOT (${salYearExpr} = ? AND ${salMonthExpr} < ?)
+      AND NOT (${salYearExpr} = ? AND ${salMonthExpr} > ?)
+    GROUP BY ${salYearExpr}, ${salMonthExpr}, cu.CUENTA_PT, cu.NOMBRE
+    ORDER BY 1, 2, 3
+  `, [sy, ey, sy, sm, ey, em], 15000).catch(() => []);
+  const gastosClasifMap = rowsToClasifMap(gastosSaldosClasifRows);
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run20',hypothesisId:'H85',location:'server_corregido.js:resultadosPnlCore:gastosClasif',message:'classified gastos map built',data:{rows:(gastosSaldosClasifRows||[]).length,months:Object.keys(gastosClasifMap||{}).slice(0,12),sample:(gastosSaldosClasifRows||[])[0]||null},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   const mapFromRows = (rows) => {
     const out = {};
     (rows || []).forEach((r) => {
@@ -3531,7 +3580,7 @@ async function resultadosPnlCore(req, dbOpts) {
     const cobros = cobMap[key(r.ANIO, r.MES)] || 0;
     const util = ventas - costo;
     const margenPct = ventas > 0 ? Math.round((util / ventas) * 1000) / 10 : 0;
-    const g = gasMap[key(r.ANIO, r.MES)] || {};
+    const g = gastosClasifMap[km] || gasMap[km] || {};
     return {
       ANIO: r.ANIO,
       MES: r.MES,
@@ -3694,23 +3743,11 @@ async function resultadosPnlCore(req, dbOpts) {
     }
     return null;
   };
-  if (!prefijos_labels.CO_A1) prefijos_labels.CO_A1 = pickPref('5201');
-  if (!prefijos_labels.CO_A2) prefijos_labels.CO_A2 = pickPref('5202');
-  if (!prefijos_labels.CO_A3) prefijos_labels.CO_A3 = pickPref('5203');
-  if (!prefijos_labels.CO_A4) prefijos_labels.CO_A4 = pickPref('5204');
-  if (!prefijos_labels.CO_A5) prefijos_labels.CO_A5 = pickPref('5205');
-  if (!prefijos_labels.CO_A6) prefijos_labels.CO_A6 = pickPref('52', ['5201', '5202', '5203', '5204', '5205']);
-  if (!prefijos_labels.CO_B1) prefijos_labels.CO_B1 = pickPref('5301');
-  if (!prefijos_labels.CO_B2) prefijos_labels.CO_B2 = pickPref('5302');
-  if (!prefijos_labels.CO_B3) prefijos_labels.CO_B3 = pickPref('5303');
-  if (!prefijos_labels.CO_B4) prefijos_labels.CO_B4 = pickPref('5304');
-  if (!prefijos_labels.CO_B5) prefijos_labels.CO_B5 = pickPref('53', ['5301', '5302', '5303', '5304']);
-  if (!prefijos_labels.CO_C1) prefijos_labels.CO_C1 = pickPref('5401');
-  if (!prefijos_labels.CO_C2) prefijos_labels.CO_C2 = pickPref('5402');
-  if (!prefijos_labels.CO_C3) prefijos_labels.CO_C3 = pickPref('5403');
-  if (!prefijos_labels.CO_C4) prefijos_labels.CO_C4 = pickPref('5404');
-  if (!prefijos_labels.CO_C5) prefijos_labels.CO_C5 = pickPref('5405');
-  if (!prefijos_labels.CO_C6) prefijos_labels.CO_C6 = pickPref('54', ['5401', '5402', '5403', '5404', '5405']);
+  prefijos_labels.CO_A1 = 'Total gastos de venta';
+  prefijos_labels.CO_A2 = 'Total gastos de operación';
+  prefijos_labels.CO_A3 = 'Total gastos de administración';
+  prefijos_labels.CO_B1 = 'Gastos financieros';
+  prefijos_labels.CO_C1 = 'Otros gastos (partidas extraordinarias)';
 
   return { meses, totales, tiene_costo, tiene_gastos_co, prefijos_labels, gastos_estimados: gastosEstimados, gastos_estimados_desde: gastosEstimadosDesde };
 }
