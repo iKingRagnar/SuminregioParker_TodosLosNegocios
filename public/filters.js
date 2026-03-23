@@ -131,6 +131,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
 
   const ALLOWED_DB_TERMS = ['suminregio', 'agua', 'medicos', 'madera', 'carton', 'empaque', 'especial', 'reciclaje'];
   const DB_DISPLAY_STRIP_TERMS = ['suminregio', 'parker', 'grupo', 'suministros'];
+  const DB_ALLOWED_SET = ALLOWED_DB_TERMS.reduce(function (acc, t) { acc[t] = 1; return acc; }, {});
   function normDbText(v) {
     return String(v == null ? '' : v)
       .normalize('NFD')
@@ -151,14 +152,27 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   function filterAllowedDatabases(list) {
     const arr = Array.isArray(list) ? list : [];
     const out = arr.filter(function (e) {
-      const pool = normDbText([
+      const mainFields = [
         e && e.id,
         e && e.label,
-        fdbBasename(e && e.database),
-        e && e.database
-      ].join(' '));
-      return ALLOWED_DB_TERMS.some(function (t) { return pool.indexOf(t) >= 0; });
+        fdbBasename(e && e.database)
+      ].join(' ');
+      const pool = normDbText(mainFields);
+      const tokens = pool.split(/[^a-z0-9]+/).filter(Boolean);
+      if (ALLOWED_DB_TERMS.some(function (t) { return pool.indexOf(t) >= 0; })) return true;
+      return tokens.some(function (tk) { return !!DB_ALLOWED_SET[tk]; });
     });
+    // #region agent log
+    try {
+      const sampleIn = arr.slice(0, 12).map(function (e) {
+        return cleanDbDisplayName(fdbBasename(e && e.database) || (e && e.id) || '');
+      });
+      const sampleOut = out.slice(0, 12).map(function (e) {
+        return cleanDbDisplayName(fdbBasename(e && e.database) || (e && e.id) || '');
+      });
+      fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run16',hypothesisId:'H74',location:'filters.js:filterAllowedDatabases',message:'db filter strict fields applied',data:{inputCount:arr.length,outputCount:out.length,sampleIn:sampleIn,sampleOut:sampleOut},timestamp:Date.now()})}).catch(()=>{});
+    } catch(_) {}
+    // #endregion
     return out;
   }
   if (typeof window !== 'undefined') {
@@ -279,40 +293,47 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        gap: 8px;
-        padding: 10px 14px;
-        background: #1e2533;
-        border-radius: 10px;
-        margin-bottom: 18px;
-        border: 1px solid rgba(255,255,255,0.07);
+        gap: 10px;
+        padding: 12px 14px;
+        background: linear-gradient(180deg, rgba(17,30,45,.94), rgba(13,22,34,.94));
+        border-radius: 14px;
+        margin-bottom: 16px;
+        border: 1px solid rgba(120,155,196,.24);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 8px 24px rgba(2,8,23,.25);
       }
-      .fb-presets { display: flex; flex-wrap: wrap; gap: 5px; }
+      .fb-presets { display: flex; flex-wrap: wrap; gap: 6px; }
       .fb-preset {
-        padding: 5px 12px;
-        border-radius: 6px;
-        border: 1px solid rgba(255,255,255,0.18);
-        background: transparent;
-        color: #c0c8d4;
-        font-size: 12px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(140,174,212,.24);
+        background: rgba(19,31,46,.72);
+        color: #b4c4d8;
+        font-size: 11px;
+        letter-spacing: .01em;
         cursor: pointer;
-        transition: all .15s;
+        transition: all .18s ease;
         white-space: nowrap;
       }
-      .fb-preset:hover  { background: rgba(255,255,255,0.08); color:#fff; }
-      .fb-preset.active { background: var(--accent,#3b82f6); border-color: var(--accent,#3b82f6); color:#fff; font-weight:600; }
-      .fb-sep { width: 1px; height: 28px; background: rgba(255,255,255,0.12); align-self: center; }
+      .fb-preset:hover  { background: rgba(34,54,77,.95); border-color: rgba(140,174,212,.4); color:#e5edf8; transform: translateY(-1px); }
+      .fb-preset.active {
+        background: linear-gradient(135deg, rgba(230,168,0,.95), rgba(255,138,51,.9));
+        border-color: rgba(255,196,99,.75);
+        color:#0b1624;
+        font-weight:700;
+      }
+      .fb-sep { width: 1px; height: 30px; background: rgba(140,174,212,.24); align-self: center; }
       .fb-selects { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
       .fb-select {
-        padding: 5px 10px;
-        border-radius: 6px;
-        border: 1px solid rgba(255,255,255,0.18);
-        background: #151c27;
-        color: #c0c8d4;
+        padding: 7px 11px;
+        border-radius: 10px;
+        border: 1px solid rgba(140,174,212,.24);
+        background: rgba(15,26,40,.86);
+        color: #d3deea;
         font-size: 12px;
         cursor: pointer;
         max-width: 200px;
       }
-      .fb-select:focus { outline: none; border-color: var(--accent,#3b82f6); }
+      .fb-select:focus { outline: none; border-color: rgba(230,168,0,.6); box-shadow: 0 0 0 3px rgba(230,168,0,.14); }
       .fb-range { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
       .fb-range label { font-size: 11px; color: #8a94a6; display: flex; align-items: center; gap: 4px; }
       .fb-date {
@@ -326,8 +347,10 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       .fb-date:focus { outline: none; border-color: var(--accent,#3b82f6); }
       .biz-context-bar {
         display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
-        padding: 10px 14px; border-radius: 12px; margin-bottom: 14px;
-        background: rgba(17,34,51,.88); border: 1px solid rgba(255,255,255,.1);
+        padding: 10px 14px; border-radius: 14px; margin-bottom: 14px;
+        background: linear-gradient(180deg, rgba(16,29,44,.92), rgba(11,22,34,.92));
+        border: 1px solid rgba(120,155,196,.22);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 8px 22px rgba(2,8,23,.24);
       }
       .biz-context-label {
         font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
@@ -336,17 +359,17 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       .biz-chips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; min-width: 0; }
       .biz-chip {
         font-family: ui-monospace, 'DM Mono', monospace; font-size: 11px;
-        padding: 7px 12px; border-radius: 999px; border: 1px solid rgba(255,255,255,.14);
-        background: transparent; color: #B0BECE; cursor: pointer; transition: .2s;
+        padding: 7px 12px; border-radius: 999px; border: 1px solid rgba(140,174,212,.22);
+        background: rgba(18,31,46,.7); color: #b8c8da; cursor: pointer; transition: .2s;
         text-align: left;
       }
-      .biz-chip:hover { color: #fff; border-color: rgba(230,168,0,.4); }
+      .biz-chip:hover { color: #f0f5fb; border-color: rgba(230,168,0,.45); transform: translateY(-1px); }
       .biz-chip.active {
-        color: #E6A800; border-color: rgba(230,168,0,.45);
-        background: rgba(230,168,0,.12);
+        color: #111c2a; border-color: rgba(255,205,122,.7);
+        background: linear-gradient(135deg, rgba(230,168,0,.95), rgba(255,138,51,.9));
       }
       .db-chip-main { display: block; font-weight: 600; letter-spacing: .02em; }
-      .db-chip-sub { display: block; font-size: 9px; opacity: .75; margin-top: 2px; font-weight: 500; }
+      .db-chip-sub { display: block; font-size: 9px; opacity: .82; margin-top: 2px; font-weight: 500; }
 
       .fb-apply {
         padding: 5px 14px;
@@ -361,6 +384,11 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       }
       .fb-apply:hover { opacity: .85; }
       .fb-label-active { font-size: 11px; color: var(--accent,#3b82f6); font-weight: 600; white-space: nowrap; }
+      @media (max-width: 780px) {
+        .filter-bar, .biz-context-bar { padding: 10px 10px; border-radius: 12px; }
+        .fb-preset, .biz-chip { font-size: 10px; padding: 6px 10px; }
+        .db-chip-sub { display: none; }
+      }
     `;
     document.head.appendChild(style);
   }
@@ -400,6 +428,11 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
         <div class="fb-presets">${presetBtns}</div>
         ${(_cfg.showVendedor !== false) ? `<div class="fb-sep"></div>${vendSection}` : ''}
       </div>`;
+    // #region agent log
+    try {
+      fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run16',hypothesisId:'H75',location:'filters.js:renderBar',message:'filter bar rendered with refreshed ux skin',data:{preset:_state.preset||'mes',showVendedor:_cfg.showVendedor!==false,presetCount:presets.length},timestamp:Date.now()})}).catch(()=>{});
+    } catch(_) {}
+    // #endregion
 
     c.querySelectorAll('.fb-preset').forEach(btn => {
       btn.addEventListener('click', () => {

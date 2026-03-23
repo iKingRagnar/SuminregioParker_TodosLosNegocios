@@ -746,10 +746,11 @@ async function refreshCxcDbHint(){
   let db=cxcEffectiveDb();
   try{
     const list=await fetch(API+'/api/universe/databases').then(r=>r.json());
-    if(Array.isArray(list)&&list.length){
-      const hit=list.find(x=>String(x.id)===String(db));
+    const usable=(typeof window.filterDbCatalog==='function')?window.filterDbCatalog(list):(Array.isArray(list)?list:[]);
+    if(Array.isArray(usable)&&usable.length){
+      const hit=usable.find(x=>String(x.id)===String(db));
       const fn=(hit&&hit.database)?String(hit.database).split(/[/\\]/).pop():'';
-      el.textContent=db?(fn||hit?.label||db)+' · '+list.length+' negocios':('Por defecto · '+list.length+' negocios en servidor');
+      el.textContent=db?(fn||hit?.label||db)+' · '+usable.length+' negocios':('Por defecto · '+usable.length+' negocios en servidor');
     }else el.textContent=db?'db='+db:'Conexi&oacute;n por defecto';
   }catch(_){ el.textContent=db?'db='+db:'Contexto base de datos'; }
 }
