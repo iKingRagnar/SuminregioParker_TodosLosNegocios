@@ -2837,13 +2837,19 @@ async function resultadosPnlCore(req, dbOpts) {
   const salYearExpr = `s.${salAnoCol}`;
   const salMonthExpr = `s.${salMesCol}`;
   const salDeltaExpr = `COALESCE(s.${salCargoCol}, 0) - COALESCE(s.${salAbonoCol}, 0)`;
+  const salGastoExpr = `ABS(${salDeltaExpr})`;
   const detCols = await getTableColumns('DOCTOS_CO_DET', dbOpts).catch(() => new Set());
   const detCargoCol = firstExistingColumn(detCols, ['CARGO', 'CARGOS', 'DEBE']);
   const detAbonoCol = firstExistingColumn(detCols, ['ABONO', 'ABONOS', 'HABER']);
   const detImporteCol = firstExistingColumn(detCols, ['IMPORTE', 'MONTO']);
-  const detDeltaExpr = (detCargoCol && detAbonoCol)
+  const detDeltaExprRaw = (detCargoCol && detAbonoCol)
     ? `COALESCE(d.${detCargoCol}, 0) - COALESCE(d.${detAbonoCol}, 0)`
     : (detImporteCol ? `COALESCE(d.${detImporteCol}, 0)` : '0');
+  // Si CARGO/ABONO existen pero vienen en 0, usar IMPORTE para no perder pólizas.
+  const detDeltaExpr = detImporteCol
+    ? `(CASE WHEN ABS(${detDeltaExprRaw}) > 0 THEN ${detDeltaExprRaw} ELSE COALESCE(d.${detImporteCol}, 0) END)`
+    : detDeltaExprRaw;
+  const detGastoExpr = `ABS(${detDeltaExpr})`;
   const detDateExpr = detCols.has('FECHA') ? 'd.FECHA' : 'c.FECHA';
   const detNeedsDoctoJoin = !detCols.has('FECHA');
   // FIX: usar el mismo divisor IVA que ventasSub() para que resultados.html
@@ -3132,35 +3138,35 @@ async function resultadosPnlCore(req, dbOpts) {
     `, [sy, ey, sy, sm, ey, em], 15000).catch(() => []),
     q(`
       SELECT ${salYearExpr} AS ANIO, ${salMonthExpr} AS MES,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5201' THEN ${salDeltaExpr} ELSE 0 END) AS CO_A1,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5202' THEN ${salDeltaExpr} ELSE 0 END) AS CO_A2,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5203' THEN ${salDeltaExpr} ELSE 0 END) AS CO_A3,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5204' THEN ${salDeltaExpr} ELSE 0 END) AS CO_A4,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5205' THEN ${salDeltaExpr} ELSE 0 END) AS CO_A5,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5201' THEN ${salGastoExpr} ELSE 0 END) AS CO_A1,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5202' THEN ${salGastoExpr} ELSE 0 END) AS CO_A2,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5203' THEN ${salGastoExpr} ELSE 0 END) AS CO_A3,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5204' THEN ${salGastoExpr} ELSE 0 END) AS CO_A4,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5205' THEN ${salGastoExpr} ELSE 0 END) AS CO_A5,
         SUM(CASE
           WHEN cu.CUENTA_PT STARTING WITH '52'
            AND NOT (cu.CUENTA_PT STARTING WITH '5201' OR cu.CUENTA_PT STARTING WITH '5202' OR cu.CUENTA_PT STARTING WITH '5203'
              OR cu.CUENTA_PT STARTING WITH '5204' OR cu.CUENTA_PT STARTING WITH '5205')
-         THEN ${salDeltaExpr} ELSE 0 END) AS CO_A6,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5301' THEN ${salDeltaExpr} ELSE 0 END) AS CO_B1,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5302' THEN ${salDeltaExpr} ELSE 0 END) AS CO_B2,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5303' THEN ${salDeltaExpr} ELSE 0 END) AS CO_B3,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5304' THEN ${salDeltaExpr} ELSE 0 END) AS CO_B4,
+         THEN ${salGastoExpr} ELSE 0 END) AS CO_A6,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5301' THEN ${salGastoExpr} ELSE 0 END) AS CO_B1,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5302' THEN ${salGastoExpr} ELSE 0 END) AS CO_B2,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5303' THEN ${salGastoExpr} ELSE 0 END) AS CO_B3,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5304' THEN ${salGastoExpr} ELSE 0 END) AS CO_B4,
         SUM(CASE
           WHEN cu.CUENTA_PT STARTING WITH '53'
            AND NOT (cu.CUENTA_PT STARTING WITH '5301' OR cu.CUENTA_PT STARTING WITH '5302'
              OR cu.CUENTA_PT STARTING WITH '5303' OR cu.CUENTA_PT STARTING WITH '5304')
-         THEN ${salDeltaExpr} ELSE 0 END) AS CO_B5,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5401' THEN ${salDeltaExpr} ELSE 0 END) AS CO_C1,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5402' THEN ${salDeltaExpr} ELSE 0 END) AS CO_C2,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5403' THEN ${salDeltaExpr} ELSE 0 END) AS CO_C3,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5404' THEN ${salDeltaExpr} ELSE 0 END) AS CO_C4,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5405' THEN ${salDeltaExpr} ELSE 0 END) AS CO_C5,
+         THEN ${salGastoExpr} ELSE 0 END) AS CO_B5,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5401' THEN ${salGastoExpr} ELSE 0 END) AS CO_C1,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5402' THEN ${salGastoExpr} ELSE 0 END) AS CO_C2,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5403' THEN ${salGastoExpr} ELSE 0 END) AS CO_C3,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5404' THEN ${salGastoExpr} ELSE 0 END) AS CO_C4,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5405' THEN ${salGastoExpr} ELSE 0 END) AS CO_C5,
         SUM(CASE
           WHEN cu.CUENTA_PT STARTING WITH '54'
            AND NOT (cu.CUENTA_PT STARTING WITH '5401' OR cu.CUENTA_PT STARTING WITH '5402'
              OR cu.CUENTA_PT STARTING WITH '5403' OR cu.CUENTA_PT STARTING WITH '5404' OR cu.CUENTA_PT STARTING WITH '5405')
-         THEN ${salDeltaExpr} ELSE 0 END) AS CO_C6
+         THEN ${salGastoExpr} ELSE 0 END) AS CO_C6
       FROM SALDOS_CO s
       JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
       WHERE (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53' OR cu.CUENTA_PT STARTING WITH '54')
@@ -3172,35 +3178,35 @@ async function resultadosPnlCore(req, dbOpts) {
     `, [sy, ey, sy, sm, ey, em], 15000).catch(() => []),
     q(`
       SELECT EXTRACT(YEAR FROM ${detDateExpr}) AS ANIO, EXTRACT(MONTH FROM ${detDateExpr}) AS MES,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5201' THEN ${detDeltaExpr} ELSE 0 END) AS CO_A1,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5202' THEN ${detDeltaExpr} ELSE 0 END) AS CO_A2,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5203' THEN ${detDeltaExpr} ELSE 0 END) AS CO_A3,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5204' THEN ${detDeltaExpr} ELSE 0 END) AS CO_A4,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5205' THEN ${detDeltaExpr} ELSE 0 END) AS CO_A5,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5201' THEN ${detGastoExpr} ELSE 0 END) AS CO_A1,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5202' THEN ${detGastoExpr} ELSE 0 END) AS CO_A2,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5203' THEN ${detGastoExpr} ELSE 0 END) AS CO_A3,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5204' THEN ${detGastoExpr} ELSE 0 END) AS CO_A4,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5205' THEN ${detGastoExpr} ELSE 0 END) AS CO_A5,
         SUM(CASE
           WHEN cu.CUENTA_PT STARTING WITH '52'
            AND NOT (cu.CUENTA_PT STARTING WITH '5201' OR cu.CUENTA_PT STARTING WITH '5202' OR cu.CUENTA_PT STARTING WITH '5203'
              OR cu.CUENTA_PT STARTING WITH '5204' OR cu.CUENTA_PT STARTING WITH '5205')
-         THEN ${detDeltaExpr} ELSE 0 END) AS CO_A6,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5301' THEN ${detDeltaExpr} ELSE 0 END) AS CO_B1,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5302' THEN ${detDeltaExpr} ELSE 0 END) AS CO_B2,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5303' THEN ${detDeltaExpr} ELSE 0 END) AS CO_B3,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5304' THEN ${detDeltaExpr} ELSE 0 END) AS CO_B4,
+         THEN ${detGastoExpr} ELSE 0 END) AS CO_A6,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5301' THEN ${detGastoExpr} ELSE 0 END) AS CO_B1,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5302' THEN ${detGastoExpr} ELSE 0 END) AS CO_B2,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5303' THEN ${detGastoExpr} ELSE 0 END) AS CO_B3,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5304' THEN ${detGastoExpr} ELSE 0 END) AS CO_B4,
         SUM(CASE
           WHEN cu.CUENTA_PT STARTING WITH '53'
            AND NOT (cu.CUENTA_PT STARTING WITH '5301' OR cu.CUENTA_PT STARTING WITH '5302'
              OR cu.CUENTA_PT STARTING WITH '5303' OR cu.CUENTA_PT STARTING WITH '5304')
-         THEN ${detDeltaExpr} ELSE 0 END) AS CO_B5,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5401' THEN ${detDeltaExpr} ELSE 0 END) AS CO_C1,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5402' THEN ${detDeltaExpr} ELSE 0 END) AS CO_C2,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5403' THEN ${detDeltaExpr} ELSE 0 END) AS CO_C3,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5404' THEN ${detDeltaExpr} ELSE 0 END) AS CO_C4,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5405' THEN ${detDeltaExpr} ELSE 0 END) AS CO_C5,
+         THEN ${detGastoExpr} ELSE 0 END) AS CO_B5,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5401' THEN ${detGastoExpr} ELSE 0 END) AS CO_C1,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5402' THEN ${detGastoExpr} ELSE 0 END) AS CO_C2,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5403' THEN ${detGastoExpr} ELSE 0 END) AS CO_C3,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5404' THEN ${detGastoExpr} ELSE 0 END) AS CO_C4,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5405' THEN ${detGastoExpr} ELSE 0 END) AS CO_C5,
         SUM(CASE
           WHEN cu.CUENTA_PT STARTING WITH '54'
            AND NOT (cu.CUENTA_PT STARTING WITH '5401' OR cu.CUENTA_PT STARTING WITH '5402'
              OR cu.CUENTA_PT STARTING WITH '5403' OR cu.CUENTA_PT STARTING WITH '5404' OR cu.CUENTA_PT STARTING WITH '5405')
-         THEN ${detDeltaExpr} ELSE 0 END) AS CO_C6
+         THEN ${detGastoExpr} ELSE 0 END) AS CO_C6
       FROM DOCTOS_CO_DET d
       ${detNeedsDoctoJoin ? 'JOIN DOCTOS_CO c ON c.DOCTO_CO_ID = d.DOCTO_CO_ID' : ''}
       JOIN CUENTAS_CO cu ON cu.CUENTA_ID = d.CUENTA_ID
@@ -3244,7 +3250,9 @@ async function resultadosPnlCore(req, dbOpts) {
   const meses = (ventasMes || []).map(r => {
     const ventasBrutas = +r.VENTAS_BRUTAS || 0;
     const descuentosDev = descMap[key(r.ANIO, r.MES)] || 0;
-    const ventas = ventasBrutas - descuentosDev;
+    // Alineado con ventas.html/PBI del usuario: "ventas netas" = IMPORTE_NETO de F/V
+    // (notas de crédito/devoluciones se muestran como informativo, no se restan aquí).
+    const ventas = ventasBrutas;
     const costo = costMap[key(r.ANIO, r.MES)] || 0;
     const cobros = cobMap[key(r.ANIO, r.MES)] || 0;
     const util = ventas - costo;

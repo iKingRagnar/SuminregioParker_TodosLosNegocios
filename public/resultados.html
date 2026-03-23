@@ -1094,7 +1094,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   const pnl=`
   <tr class="pnl-section-header"><td colspan="${meses.length+2}">INGRESOS</td></tr>
   <tr class="data-row">
-    <td>Ventas (brutas)</td>
+    <td>Ventas netas (mismo criterio que Ventas)</td>
     ${meses.map(m=>{
       const vb=+m.VENTAS_BRUTAS||((+m.VENTAS_NETAS||0)+(+m.DESCUENTOS_DEV||0));
       return`<td style="color:var(--text2)">${fmtM(vb)}</td>`;
@@ -1102,7 +1102,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     <td style="color:var(--text2)">${fmtM((+tot.VENTAS_BRUTAS||0)||((+tot.VENTAS_NETAS||0)+(+tot.DESCUENTOS_DEV||0)))}</td>
   </tr>
   <tr class="data-row">
-    <td>Dsctos y devoluc s/ventas</td>
+    <td>Dsctos y devoluc s/ventas (informativo)</td>
     ${meses.map(m=>{
       const d=+m.DESCUENTOS_DEV||0;
       return`<td style="color:${d>0?'var(--red)':'var(--text2)'}">${d>0?'('+fmtM(d)+')':fmtM(0)}</td>`;
@@ -1120,7 +1120,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     <td style="color:var(--text2)">${fmtM(sumOf('VENTAS_PV'))}</td>
   </tr>
   <tr class="subtotal-row">
-    <td>▶ Total Ventas Netas</td>
+    <td>▶ Total Ventas Netas (dashboard Ventas)</td>
     ${meses.map(m=>`<td style="color:var(--blue)">${fmtM(+m.VENTAS_NETAS||0)}</td>`).join('')}
     <td style="color:var(--blue)">${fmtM(+tot.VENTAS_NETAS||0)}</td>
   </tr>

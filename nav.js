@@ -525,7 +525,10 @@ html[data-theme="light"] .microsip-skip-link:focus{background:#0f172a;color:#fff
     }
     applyNavTheme();
 
-    injectAiAssistant();
+    // Legacy assistant disabled by default (chat-widget.js is the active assistant).
+    if (window.__USE_LEGACY_AI_ASSISTANT__ === true) {
+      injectAiAssistant();
+    }
 
     loadAppGuideScript();
 
@@ -541,8 +544,6 @@ html[data-theme="light"] .microsip-skip-link:focus{background:#0f172a;color:#fff
 
   /** Widget IA: mismos IDs que sistema-cotizacion-web (#ai-widget-wrap, #ai-fab, ?). */
   function injectAiAssistant() {
-    if (document.getElementById('ai-widget-wrap')) return;
-
     const scriptSrc = document.currentScript && document.currentScript.src;
     const base = scriptSrc ? scriptSrc.replace(/[/\\][^/\\]+$/, '/') : '';
 
