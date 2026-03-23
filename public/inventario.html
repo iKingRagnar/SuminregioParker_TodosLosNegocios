@@ -227,8 +227,8 @@ async function apiFetch(url, ms){
     return r.json();
   } finally { clearTimeout(tid); }
 }
-const fmt  = n => isNaN(+n)||n==null?'&mdash;':'$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});
-const fmtK = n => { if(isNaN(+n)||n==null) return '&mdash;'; n=+n; if(Math.abs(n)>=1e6) return '$'+(n/1e6).toFixed(1)+'M'; if(Math.abs(n)>=1e3) return '$'+(n/1e3).toFixed(0)+'k'; return '$'+n.toFixed(0); };
+const fmt  = n => isNaN(+n)||n==null?'&mdash;':'$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
+const fmtK = n => { if(isNaN(+n)||n==null) return '&mdash;'; n=+n; return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2}); };
 const setText = (id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
 
 setInterval(()=>{ document.getElementById('clock').textContent=new Date().toLocaleTimeString('es-MX'); },1000);

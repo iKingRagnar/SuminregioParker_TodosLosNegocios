@@ -129,6 +129,30 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     return base.replace(/\.fdb$/i, '');
   }
 
+  const ALLOWED_DB_TERMS = ['suminregio', 'agua', 'medicos', 'madera', 'carton', 'empaque', 'especial', 'reciclaje'];
+  function normDbText(v) {
+    return String(v == null ? '' : v)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+  }
+  function filterAllowedDatabases(list) {
+    const arr = Array.isArray(list) ? list : [];
+    const out = arr.filter(function (e) {
+      const pool = normDbText([
+        e && e.id,
+        e && e.label,
+        fdbBasename(e && e.database),
+        e && e.database
+      ].join(' '));
+      return ALLOWED_DB_TERMS.some(function (t) { return pool.indexOf(t) >= 0; });
+    });
+    return out;
+  }
+  if (typeof window !== 'undefined') {
+    window.filterDbCatalog = filterAllowedDatabases;
+  }
+
   function renderDbChipsInto(container, list, onChange) {
     if (!container) return;
     const urlDb = getSelectedDbId();
@@ -198,6 +222,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     } catch (e) {
       list = [];
     }
+    list = filterAllowedDatabases(list);
     if (!Array.isArray(list) || !list.length || !chips) return;
     bar.style.display = 'flex';
     renderDbChipsInto(chips, list, function () { window.location.reload(); });

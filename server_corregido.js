@@ -67,6 +67,7 @@ const path     = require('path');
 
 const app  = express();
 const PORT = process.env.PORT || 7000;
+const BUILD_FINGERPRINT = 'dbg-5e0522-fallback-v2';
 
 /**
  * Power BI / reportes suelen usar importe base sin IVA; en cabecera DOCTOS_VE/PV el campo
@@ -437,7 +438,26 @@ function parseDatabaseRegistry() {
     return [{ id: 'default', label: process.env.EMPRESA_NOMBRE || 'Principal', options: { ...DB_OPTIONS } }];
   }
 
-  return entries;
+  // Mostrar solo familias de negocio permitidas por dirección:
+  // suminregio, agua, medicos, madera, carton, empaque, especial y reciclaje.
+  const allowedDbTerms = ['suminregio', 'agua', 'medicos', 'madera', 'carton', 'empaque', 'especial', 'reciclaje'];
+  const isAllowed = (e) => {
+    const pool = [
+      e && e.id,
+      e && e.label,
+      e && e.options && e.options.database ? path.basename(String(e.options.database)) : '',
+    ].join(' ').toLowerCase();
+    return allowedDbTerms.some((t) => pool.includes(t));
+  };
+  const filtered = entries.filter(isAllowed);
+  if (filtered.length) {
+    console.log('[Firebird] filtro de catálogo activo:', filtered.length, 'de', entries.length, 'bases visibles');
+    return filtered;
+  }
+
+  // Fallback de seguridad para no dejar el catálogo vacío.
+  const fallbackDefault = entries.find((e) => String((e && e.id) || '').toLowerCase() === 'default');
+  return fallbackDefault ? [fallbackDefault] : entries.slice(0, 1);
 }
 
 const DATABASE_REGISTRY = parseDatabaseRegistry();
@@ -2098,56 +2118,90 @@ function cxcDocSaldosSQL(cfSql) {
   return `${cxcDocSaldosInnerSQL(cfSql)} doc WHERE doc.SALDO_NETO > 0`;
 }
 
+async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
+  const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
+  const cliFilter = cf ? ` WHERE cs.CLIENTE_ID = ${cf}` : '';
+  const carFilter = cf ? ` WHERE cd.CLIENTE_ID = ${cf}` : '';
+  const [cxcSaldos, cxcAging] = await Promise.all([
+    query(`SELECT cs.CLIENTE_ID, cs.SALDO FROM ${cxcClienteSQL()} cs${cliFilter}`, [], qms, dbo).catch(() => []),
+    query(`
+      SELECT
+        cd.CLIENTE_ID,
+        SUM(cd.SALDO) AS TOTAL_C,
+        SUM(CASE WHEN cd.DIAS_VENCIDO <= 0 THEN cd.SALDO ELSE 0 END) AS COR_C,
+        SUM(CASE WHEN cd.DIAS_VENCIDO BETWEEN 1 AND 30 THEN cd.SALDO ELSE 0 END) AS B1_C,
+        SUM(CASE WHEN cd.DIAS_VENCIDO BETWEEN 31 AND 60 THEN cd.SALDO ELSE 0 END) AS B2_C,
+        SUM(CASE WHEN cd.DIAS_VENCIDO BETWEEN 61 AND 90 THEN cd.SALDO ELSE 0 END) AS B3_C,
+        SUM(CASE WHEN cd.DIAS_VENCIDO > 90 THEN cd.SALDO ELSE 0 END) AS B4_C,
+        SUM(CASE WHEN cd.DIAS_VENCIDO > 0 THEN cd.SALDO ELSE 0 END) AS VENC_C
+      FROM ${cxcCargosSQL()} cd
+      ${carFilter}
+      GROUP BY cd.CLIENTE_ID
+    `, [], qms, dbo).catch(() => []),
+  ]);
+  const agMap = {};
+  (cxcAging || []).forEach(r => { agMap[r.CLIENTE_ID] = r; });
+  let saldoTotal = 0, vencido = 0, porVencer = 0;
+  let agCorr = 0, ag1 = 0, ag2 = 0, ag3 = 0, ag4 = 0;
+  let numCliVenc = 0;
+  (cxcSaldos || []).forEach(r => {
+    const saldo = +r.SALDO || 0;
+    if (saldo <= 0) return;
+    saldoTotal += saldo;
+    const ag = agMap[r.CLIENTE_ID];
+    if (ag && +ag.TOTAL_C > 0) {
+      const totalC = +ag.TOTAL_C || 0;
+      const pCorr = Math.max(0, Math.min((+ag.COR_C || 0) / totalC, 1));
+      const p1 = Math.max(0, (+ag.B1_C || 0) / totalC);
+      const p2 = Math.max(0, (+ag.B2_C || 0) / totalC);
+      const p3 = Math.max(0, (+ag.B3_C || 0) / totalC);
+      const p4 = Math.max(0, (+ag.B4_C || 0) / totalC);
+      const pV = Math.max(0, Math.min((+ag.VENC_C || 0) / totalC, 1));
+      agCorr += saldo * pCorr;
+      ag1 += saldo * p1;
+      ag2 += saldo * p2;
+      ag3 += saldo * p3;
+      ag4 += saldo * p4;
+      vencido += saldo * pV;
+      porVencer += saldo * (1 - pV);
+      if (+ag.VENC_C > 0) numCliVenc += 1;
+    } else {
+      agCorr += saldo;
+      porVencer += saldo;
+    }
+  });
+  const resumen = {
+    SALDO_TOTAL: Math.round(saldoTotal * 100) / 100,
+    NUM_CLIENTES: (cxcSaldos || []).length,
+    NUM_CLIENTES_VENCIDOS: numCliVenc,
+    VENCIDO: Math.round(vencido * 100) / 100,
+    POR_VENCER: Math.round(porVencer * 100) / 100,
+  };
+  const aging = {
+    CORRIENTE: Math.round(agCorr * 100) / 100,
+    DIAS_1_30: Math.round(ag1 * 100) / 100,
+    DIAS_31_60: Math.round(ag2 * 100) / 100,
+    DIAS_61_90: Math.round(ag3 * 100) / 100,
+    DIAS_MAS_90: Math.round(ag4 * 100) / 100,
+  };
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run6',hypothesisId:'H14',location:'server_corregido.js:2140',message:'cxc unified resumen+aging snapshot',data:{cliente:cf||null,resumen,aging},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  return { resumen, aging };
+}
+
 // Resumen CxC: Vencido y No vencido (suma Saldo_Documento). Contado cuenta como vigente (sin días de atraso).
 get('/api/cxc/resumen', async (req) => {
   const dbo = getReqDbOpts(req);
-  const cf = req.query.cliente ? parseInt(req.query.cliente) : null;
-  const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
-  const docSal = cxcDocSaldosSQL(cfSql);
-  const [totales, numCli, numCliVenc] = await Promise.all([
-    query(`
-      SELECT
-        SUM(CASE WHEN doc.DIAS_VENCIDO >= 1 THEN doc.SALDO_NETO ELSE 0 END) AS VENCIDO,
-        SUM(CASE WHEN doc.DIAS_VENCIDO <= 0 THEN doc.SALDO_NETO ELSE 0 END) AS POR_VENCER
-      FROM ${docSal}
-    `, [], 12000, dbo).catch(() => [{ VENCIDO: 0, POR_VENCER: 0 }]),
-    query(`SELECT COUNT(DISTINCT doc.CLIENTE_ID) AS N FROM ${docSal}`, [], 12000, dbo).catch(() => [{ N: 0 }]),
-    query(`SELECT COUNT(DISTINCT doc.CLIENTE_ID) AS N FROM ${docSal.replace(/WHERE doc\.SALDO_NETO > 0\s*$/i, 'WHERE doc.SALDO_NETO > 0 AND doc.DIAS_VENCIDO >= 1')}`, [], 12000, dbo).catch(() => [{ N: 0 }]),
-  ]);
-  const vencido = +(totales[0] && totales[0].VENCIDO) || 0;
-  const porVencer = +(totales[0] && totales[0].POR_VENCER) || 0;
-  const saldoTotal = vencido + porVencer;
-  return {
-    SALDO_TOTAL  : Math.round(saldoTotal * 100) / 100,
-    NUM_CLIENTES : +(numCli[0] && numCli[0].N) || 0,
-    NUM_CLIENTES_VENCIDOS: +(numCliVenc[0] && numCliVenc[0].N) || 0,
-    VENCIDO      : Math.round(vencido   * 100) / 100,
-    POR_VENCER   : Math.round(porVencer * 100) / 100,
-  };
+  const snap = await cxcResumenAgingUnificado(req, dbo, 12000);
+  return snap.resumen;
 });
 
 // Aging por documento: suma de Saldo_Documento por rango de días (igual que Power BI). Buckets suman = SALDO_TOTAL.
 get('/api/cxc/aging', async (req) => {
   const dbo = getReqDbOpts(req);
-  const cf = req.query.cliente ? parseInt(req.query.cliente) : null;
-  const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
-  const rows = await query(`
-    SELECT
-      SUM(CASE WHEN doc.DIAS_VENCIDO <= 0               THEN doc.SALDO_NETO ELSE 0 END) AS CORRIENTE,
-      SUM(CASE WHEN doc.DIAS_VENCIDO BETWEEN  1 AND  30 THEN doc.SALDO_NETO ELSE 0 END) AS DIAS_1_30,
-      SUM(CASE WHEN doc.DIAS_VENCIDO BETWEEN 31 AND  60 THEN doc.SALDO_NETO ELSE 0 END) AS DIAS_31_60,
-      SUM(CASE WHEN doc.DIAS_VENCIDO BETWEEN 61 AND  90 THEN doc.SALDO_NETO ELSE 0 END) AS DIAS_61_90,
-      SUM(CASE WHEN doc.DIAS_VENCIDO > 90               THEN doc.SALDO_NETO ELSE 0 END) AS DIAS_MAS_90
-    FROM ${cxcDocSaldosSQL(cfSql)}
-  `, [], 12000, dbo).catch(() => [{ CORRIENTE: 0, DIAS_1_30: 0, DIAS_31_60: 0, DIAS_61_90: 0, DIAS_MAS_90: 0 }]);
-  const r = rows[0] || {};
-  return {
-    CORRIENTE  : Math.round((+r.CORRIENTE   || 0) * 100) / 100,
-    DIAS_1_30  : Math.round((+r.DIAS_1_30   || 0) * 100) / 100,
-    DIAS_31_60 : Math.round((+r.DIAS_31_60  || 0) * 100) / 100,
-    DIAS_61_90 : Math.round((+r.DIAS_61_90  || 0) * 100) / 100,
-    DIAS_MAS_90: Math.round((+r.DIAS_MAS_90 || 0) * 100) / 100,
-  };
+  const snap = await cxcResumenAgingUnificado(req, dbo, 12000);
+  return snap.aging;
 });
 
 // Facturas vencidas: misma base que aging (cxcDocSaldosSQL). Sin subconsultas anidadas extra (Firebird).
@@ -3252,10 +3306,93 @@ async function resultadosPnlCore(req, dbOpts) {
     const cols = ['CO_A1', 'CO_A2', 'CO_A3', 'CO_A4', 'CO_A5', 'CO_A6', 'CO_B1', 'CO_B2', 'CO_B3', 'CO_B4', 'CO_B5', 'CO_C1', 'CO_C2', 'CO_C3', 'CO_C4', 'CO_C5', 'CO_C6'];
     return acc + cols.reduce((s, c) => s + Math.abs(+r[c] || 0), 0);
   }, 0);
+  const sumGastoRow = (r) => {
+    const cols = ['CO_A1', 'CO_A2', 'CO_A3', 'CO_A4', 'CO_A5', 'CO_A6', 'CO_B1', 'CO_B2', 'CO_B3', 'CO_B4', 'CO_B5', 'CO_C1', 'CO_C2', 'CO_C3', 'CO_C4', 'CO_C5', 'CO_C6'];
+    return cols.reduce((s, c) => s + Math.abs(+((r || {})[c]) || 0), 0);
+  };
+  const sameMonth = sy === ey && sm === em;
+  const singleMonthRange = hasRangoExplicito && sameMonth;
   let gastosRows = Array.isArray(gastosSaldos52) ? gastosSaldos52 : [];
+  let gastosEstimados = false;
+  let gastosEstimadosDesde = null;
   if (sumGastosRows(gastosRows) <= 0.01 && sumGastosRows(gastosDoctos52) > 0.01) {
     gastosRows = gastosDoctos52;
   }
+  if (sumGastosRows(gastosRows) <= 0.01 && singleMonthRange) {
+    const yStart = `${ey}-01-01`;
+    const yEnd = hastaStr;
+    let fallbackRows = [];
+    try {
+      fallbackRows = await q(`
+        SELECT ${salYearExpr} AS ANIO, ${salMonthExpr} AS MES,
+          SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5201' THEN ${salGastoExpr} ELSE 0 END) AS CO_A1,
+          SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5202' THEN ${salGastoExpr} ELSE 0 END) AS CO_A2,
+          SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5203' THEN ${salGastoExpr} ELSE 0 END) AS CO_A3,
+          SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5204' THEN ${salGastoExpr} ELSE 0 END) AS CO_A4,
+          SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5205' THEN ${salGastoExpr} ELSE 0 END) AS CO_A5,
+          SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '52' THEN ${salGastoExpr} ELSE 0 END) AS CO_A6,
+          SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5301' THEN ${salGastoExpr} ELSE 0 END) AS CO_B1,
+          SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5302' THEN ${salGastoExpr} ELSE 0 END) AS CO_B2,
+          SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5303' THEN ${salGastoExpr} ELSE 0 END) AS CO_B3,
+          SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5304' THEN ${salGastoExpr} ELSE 0 END) AS CO_B4,
+          SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '53' THEN ${salGastoExpr} ELSE 0 END) AS CO_B5,
+          SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5401' THEN ${salGastoExpr} ELSE 0 END) AS CO_C1,
+          SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5402' THEN ${salGastoExpr} ELSE 0 END) AS CO_C2,
+          SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5403' THEN ${salGastoExpr} ELSE 0 END) AS CO_C3,
+          SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5404' THEN ${salGastoExpr} ELSE 0 END) AS CO_C4,
+          SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5405' THEN ${salGastoExpr} ELSE 0 END) AS CO_C5,
+          SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '54' THEN ${salGastoExpr} ELSE 0 END) AS CO_C6
+        FROM SALDOS_CO s
+        JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
+        WHERE (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53' OR cu.CUENTA_PT STARTING WITH '54')
+          AND CAST(MAKE_DATE(${salYearExpr}, ${salMonthExpr}, 1) AS DATE) >= CAST(? AS DATE)
+          AND CAST(MAKE_DATE(${salYearExpr}, ${salMonthExpr}, 1) AS DATE) <= CAST(? AS DATE)
+        GROUP BY ${salYearExpr}, ${salMonthExpr}
+        ORDER BY ${salYearExpr} DESC, ${salMonthExpr} DESC
+      `, [yStart, yEnd], 15000).catch(() => []);
+    } catch (_) {}
+    let fb = (fallbackRows || []).find((r) => sumGastoRow(r) > 0.01);
+    if (!fb) {
+      try {
+        fallbackRows = await q(`
+          SELECT EXTRACT(YEAR FROM ${detDateExpr}) AS ANIO, EXTRACT(MONTH FROM ${detDateExpr}) AS MES,
+            SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5201' THEN ${detGastoExpr} ELSE 0 END) AS CO_A1,
+            SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5202' THEN ${detGastoExpr} ELSE 0 END) AS CO_A2,
+            SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5203' THEN ${detGastoExpr} ELSE 0 END) AS CO_A3,
+            SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5204' THEN ${detGastoExpr} ELSE 0 END) AS CO_A4,
+            SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5205' THEN ${detGastoExpr} ELSE 0 END) AS CO_A5,
+            SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '52' THEN ${detGastoExpr} ELSE 0 END) AS CO_A6,
+            SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5301' THEN ${detGastoExpr} ELSE 0 END) AS CO_B1,
+            SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5302' THEN ${detGastoExpr} ELSE 0 END) AS CO_B2,
+            SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5303' THEN ${detGastoExpr} ELSE 0 END) AS CO_B3,
+            SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5304' THEN ${detGastoExpr} ELSE 0 END) AS CO_B4,
+            SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '53' THEN ${detGastoExpr} ELSE 0 END) AS CO_B5,
+            SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5401' THEN ${detGastoExpr} ELSE 0 END) AS CO_C1,
+            SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5402' THEN ${detGastoExpr} ELSE 0 END) AS CO_C2,
+            SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5403' THEN ${detGastoExpr} ELSE 0 END) AS CO_C3,
+            SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5404' THEN ${detGastoExpr} ELSE 0 END) AS CO_C4,
+            SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5405' THEN ${detGastoExpr} ELSE 0 END) AS CO_C5,
+            SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '54' THEN ${detGastoExpr} ELSE 0 END) AS CO_C6
+          FROM DOCTOS_CO_DET d
+          ${detNeedsDoctoJoin ? 'JOIN DOCTOS_CO c ON c.DOCTO_CO_ID = d.DOCTO_CO_ID' : ''}
+          JOIN CUENTAS_CO cu ON cu.CUENTA_ID = d.CUENTA_ID
+          WHERE (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53' OR cu.CUENTA_PT STARTING WITH '54')
+            AND CAST(${detDateExpr} AS DATE) >= CAST(? AS DATE) AND CAST(${detDateExpr} AS DATE) <= CAST(? AS DATE)
+          GROUP BY EXTRACT(YEAR FROM ${detDateExpr}), EXTRACT(MONTH FROM ${detDateExpr})
+          ORDER BY EXTRACT(YEAR FROM ${detDateExpr}) DESC, EXTRACT(MONTH FROM ${detDateExpr}) DESC
+        `, [yStart, yEnd], 15000).catch(() => []);
+      } catch (_) {}
+      fb = (fallbackRows || []).find((r) => sumGastoRow(r) > 0.01);
+    }
+    if (fb) {
+      gastosRows = [{ ...fb, ANIO: ey, MES: em }];
+      gastosEstimados = true;
+      gastosEstimadosDesde = { ANIO: +fb.ANIO || null, MES: +fb.MES || null };
+    }
+  }
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run3',hypothesisId:'H10',location:'server_corregido.js:3330',message:'gastos fallback resolution',data:{singleMonthRange,gastosEstimados,gastosEstimadosDesde,sumSelected:sumGastosRows(gastosRows)},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   // #region agent log
   fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run1',hypothesisId:'H4',location:'server_corregido.js:3247',message:'resultados gastos source selected',data:{source:(gastosRows===gastosDoctos52)?'DOCTOS_CO_DET':'SALDOS_CO',sumSaldos:sumGastosRows(gastosSaldos52),sumDoctos:sumGastosRows(gastosDoctos52),selectedSum:sumGastosRows(gastosRows)},timestamp:Date.now()})}).catch(()=>{});
   // #endregion
@@ -3448,7 +3585,7 @@ async function resultadosPnlCore(req, dbOpts) {
   if (!prefijos_labels.CO_C5) prefijos_labels.CO_C5 = pickPref('5405');
   if (!prefijos_labels.CO_C6) prefijos_labels.CO_C6 = pickPref('54', ['5401', '5402', '5403', '5404', '5405']);
 
-  return { meses, totales, tiene_costo, tiene_gastos_co, prefijos_labels };
+  return { meses, totales, tiene_costo, tiene_gastos_co, prefijos_labels, gastos_estimados: gastosEstimados, gastos_estimados_desde: gastosEstimadosDesde };
 }
 
 get('/api/resultados/pnl', async (req) => {
@@ -3528,6 +3665,67 @@ get('/api/debug/cxc', async () => {
     query(`SELECT COUNT(*) AS N FROM CLIENTES`).catch(() => [{ N: 0 }]),
   ]);
   return { doctos_cc: docs[0].N, importes_cc: importes[0].N, clientes: clientes[0].N };
+});
+
+get('/api/debug/cxc-reconcile', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const q = (sql, params, ms) => query(sql, params, ms, dbo);
+  const clienteTotalSql = (opts) => {
+    const exContado = opts && opts.excludeContado ? CXC_EXCLUIR_CONTADO : '';
+    const conIva = opts && opts.withIva;
+    const cargoExpr = conIva ? '(i.IMPORTE + COALESCE(i.IMPUESTO, 0))' : 'i.IMPORTE';
+    const reciboExpr = conIva
+      ? '(i.IMPORTE + COALESCE(i.IMPUESTO, 0))'
+      : `(CASE WHEN COALESCE(i.IMPUESTO, 0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END)`;
+    return `
+      SELECT COALESCE(SUM(x.SALDO), 0) AS T
+      FROM (
+        SELECT dc.CLIENTE_ID,
+          SUM(CASE
+            WHEN i.TIPO_IMPTE = 'C' THEN ${cargoExpr}
+            WHEN i.TIPO_IMPTE = 'R' THEN -(${reciboExpr})
+            ELSE 0
+          END) AS SALDO
+        FROM IMPORTES_DOCTOS_CC i
+        JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = i.DOCTO_CC_ID
+        LEFT JOIN CLIENTES clx ON clx.CLIENTE_ID = dc.CLIENTE_ID
+        LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, clx.COND_PAGO_ID)
+        WHERE COALESCE(i.CANCELADO, 'N') = 'N' ${exContado}
+        GROUP BY dc.CLIENTE_ID
+        HAVING SUM(CASE
+          WHEN i.TIPO_IMPTE = 'C' THEN ${cargoExpr}
+          WHEN i.TIPO_IMPTE = 'R' THEN -(${reciboExpr})
+          ELSE 0
+        END) > 0
+      ) x
+    `;
+  };
+  const docSql = `
+    SELECT
+      SUM(CASE WHEN doc.DIAS_VENCIDO >= 1 THEN doc.SALDO_NETO ELSE 0 END) AS VENCIDO,
+      SUM(CASE WHEN doc.DIAS_VENCIDO <= 0 THEN doc.SALDO_NETO ELSE 0 END) AS POR_VENCER
+    FROM ${cxcDocSaldosSQL('')}
+  `;
+  const [docRows, vActEx, vActIn, vIvaEx, vIvaIn] = await Promise.all([
+    q(docSql, [], 20000).catch(() => [{ VENCIDO: 0, POR_VENCER: 0 }]),
+    q(clienteTotalSql({ withIva: false, excludeContado: true }), [], 20000).catch(() => [{ T: 0 }]),
+    q(clienteTotalSql({ withIva: false, excludeContado: false }), [], 20000).catch(() => [{ T: 0 }]),
+    q(clienteTotalSql({ withIva: true, excludeContado: true }), [], 20000).catch(() => [{ T: 0 }]),
+    q(clienteTotalSql({ withIva: true, excludeContado: false }), [], 20000).catch(() => [{ T: 0 }]),
+  ]);
+  const docV = +(docRows[0] && docRows[0].VENCIDO) || 0;
+  const docP = +(docRows[0] && docRows[0].POR_VENCER) || 0;
+  const payload = {
+    metodo_doc_saldos: { total: Math.round((docV + docP) * 100) / 100, vencido: Math.round(docV * 100) / 100, por_vencer: Math.round(docP * 100) / 100 },
+    metodo_cliente_actual_excluye_contado: Math.round((+(vActEx[0] && vActEx[0].T) || 0) * 100) / 100,
+    metodo_cliente_actual_incluye_contado: Math.round((+(vActIn[0] && vActIn[0].T) || 0) * 100) / 100,
+    metodo_cliente_con_iva_excluye_contado: Math.round((+(vIvaEx[0] && vIvaEx[0].T) || 0) * 100) / 100,
+    metodo_cliente_con_iva_incluye_contado: Math.round((+(vIvaIn[0] && vIvaIn[0].T) || 0) * 100) / 100,
+  };
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run6',hypothesisId:'H13',location:'server_corregido.js:3630',message:'cxc reconcile totals',data:payload,timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  return payload;
 });
 
 get('/api/debug/ventas', async () => {
@@ -4414,7 +4612,8 @@ function aiSelectTools({ text = '', lowerPool = '', page = '', requested = [] })
   if (wantsCobradas) picks.push('cobradas');
   if (wantsResultados) picks.push('resultados');
   if (wantsForecast) picks.push('pronostico_ventas');
-  if (wantsVisualScenario) picks.push('escenario_visual');
+  const wantsExplicitScenario = /\b(escenario|simulaci[oó]n)\b/i.test(lowerPool);
+  if (wantsVisualScenario && (!wantsDashboardShot || wantsExplicitScenario)) picks.push('escenario_visual');
   if (wantsDashboardShot) picks.push('dashboard_screenshot');
   if (!picks.length) {
     if (/resultados\.html/i.test(page)) picks.push('resultados');
@@ -4641,7 +4840,8 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
     }
 
     if (toolId === 'cxc') {
-      const [t] = await query(`SELECT COALESCE(SUM(s.SALDO), 0) AS T FROM ${cxcClienteSQL()} s`, [], 12000, dbOpts).catch(() => [{ T: 0 }]);
+      const snap = await cxcResumenAgingUnificado({ query: (aiReq && aiReq.query) || {} }, dbOpts, 12000).catch(() => ({ resumen: { SALDO_TOTAL: 0 } }));
+      const saldoTotal = +(((snap || {}).resumen || {}).SALDO_TOTAL || 0);
       const top = await query(`
         SELECT FIRST 8 cs.CLIENTE_ID, COALESCE(cl.NOMBRE, '') AS NOMBRE, cs.SALDO
         FROM ${cxcClienteSQL()} cs
@@ -4649,7 +4849,6 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
         WHERE cs.SALDO > 0.5
         ORDER BY cs.SALDO DESC
       `, [], 12000, dbOpts).catch(() => []);
-      let porCondSource = 'documento';
       let porCond = await query(`
         SELECT FIRST 6
           COALESCE(cp.NOMBRE, 'Sin condición') AS CONDICION,
@@ -4659,29 +4858,22 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
         LEFT JOIN CLIENTES c ON c.CLIENTE_ID = dc.CLIENTE_ID
         LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, c.COND_PAGO_ID)
         WHERE doc.SALDO_NETO > 0.5
+          AND (
+            cp.COND_PAGO_ID IS NULL OR (
+              POSITION('CONTADO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) = 0
+              AND POSITION('EFECTIVO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) = 0
+              AND POSITION('INMEDIATO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) = 0
+            )
+          )
         GROUP BY COALESCE(cp.NOMBRE, 'Sin condición')
         ORDER BY 2 DESC
       `, [], 12000, dbOpts).catch(() => []);
-      if (!Array.isArray(porCond) || !porCond.length) {
-        porCondSource = 'cliente';
-        porCond = await query(`
-          SELECT FIRST 6
-            COALESCE(cp.NOMBRE, 'Sin condición') AS CONDICION,
-            COALESCE(SUM(cs.SALDO), 0) AS SALDO
-          FROM ${cxcClienteSQL()} cs
-          LEFT JOIN CLIENTES c ON c.CLIENTE_ID = cs.CLIENTE_ID
-          LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = c.COND_PAGO_ID
-          WHERE cs.SALDO > 0.5
-          GROUP BY COALESCE(cp.NOMBRE, 'Sin condición')
-          ORDER BY 2 DESC
-        `, [], 12000, dbOpts).catch(() => []);
-      }
       return {
         toolId,
         block: `\n\n**CxC (herramienta):**
-- Saldo total cartera: $${Number((t && t.T) || 0).toFixed(2)}.
+- Saldo total cartera: $${Number(saldoTotal || 0).toFixed(2)}.
 - Top deudores: ${(top || []).map(x => `${x.NOMBRE || x.CLIENTE_ID}: $${Number(x.SALDO || 0).toFixed(2)}`).join('; ') || 'Sin datos.'}
-- Por condición: ${(porCond || []).map(x => `${x.CONDICION}: $${Number(x.SALDO || 0).toFixed(2)}`).join('; ') || 'No disponible para esta base.'}${porCondSource === 'cliente' ? ' (clasificación fallback por condición de cliente)' : ''}`,
+- Por condición: ${(porCond || []).map(x => `${x.CONDICION}: $${Number(x.SALDO || 0).toFixed(2)}`).join('; ') || 'No disponible para esta base.'}`,
         source: '/api/cxc/resumen + /api/cxc/por-condicion',
       };
     }
@@ -4925,7 +5117,7 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
       } catch (e) {
         return {
           toolId,
-          block: `\n\nNo pude capturar screenshot real (${String(e.message || e)}). Generé un escenario visual alterno.`,
+          block: `\n\nNo pude capturar screenshot real (${String(e.message || e)}).`,
           source: `playwright-error:${pageFile}`,
           visuals: [],
         };
@@ -5398,6 +5590,18 @@ app.get('/api/diagnostico/ventas', async (req, res) => {
   }
 });
 
+get('/api/debug/build-info', async () => {
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run4',hypothesisId:'H11',location:'server_corregido.js:5484',message:'build-info endpoint hit',data:{build:BUILD_FINGERPRINT,port:PORT},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  return {
+    build: BUILD_FINGERPRINT,
+    hasFallbackFlags: true,
+    expectedFields: ['gastos_estimados', 'gastos_estimados_desde'],
+    now: new Date().toISOString(),
+  };
+});
+
 app.listen(PORT, () => {
-  console.log(`Suminregio API escuchando en http://localhost:${PORT}`);
+  console.log(`Suminregio API escuchando en http://localhost:${PORT} · build=${BUILD_FINGERPRINT}`);
 });

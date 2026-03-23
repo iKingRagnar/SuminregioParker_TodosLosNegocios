@@ -72,7 +72,7 @@ tbody tr:hover { background:#f8f9fa; }
 <section class="krow">
 <div class="kpi"><div class="kpi-l">Margen Bruto</div><div class="kpi-v">29.2%</div></div>
 <div class="kpi"><div class="kpi-l"><span class="tip" data-tip="Margen bruto menos el costo financiero de esperar el cobro">Margen Ajustado</span></div><div class="kpi-v">29.2%</div></div>
-<div class="kpi"><div class="kpi-l">Utilidad Bruta</div><div class="kpi-v">$5.4M</div></div>
+<div class="kpi"><div class="kpi-l">Utilidad Bruta</div><div class="kpi-v">$5,400,000</div></div>
 <div class="kpi"><div class="kpi-l">Costo de Capital</div><div class="kpi-v neg" id="kpi-cc">$0</div></div>
 </section>
 <section class="g2">
@@ -81,14 +81,14 @@ tbody tr:hover { background:#f8f9fa; }
 </section>
 <div class="tc"><h3>Top 25 Clientes por Venta — Rentabilidad Detallada</h3>
 <table><thead><tr><th>#</th><th>Cliente</th><th>Tipo</th><th class="tr">Venta</th><th class="tr">Margen</th><th class="tr"><span class="tip" data-tip="Days Sales Outstanding: promedio de días que tarda un cliente en pagar">DSO</span></th><th class="tr">Costo Capital</th><th class="tr"><span class="tip" data-tip="Margen bruto menos el costo financiero de esperar el cobro">Margen Ajust</span></th></tr></thead><tbody id="tbl1"></tbody></table></div>
-<div class="tc"><h3>Clientes Menos Rentables (venta >$10K)</h3>
+<div class="tc"><h3>Clientes Menos Rentables (venta >$10,000)</h3>
 <table><thead><tr><th>#</th><th>Cliente</th><th class="tr">Venta</th><th class="tr">Margen Bruto</th><th class="tr"><span class="tip" data-tip="Days Sales Outstanding: promedio de días que tarda un cliente en pagar">DSO</span></th><th class="tr">Margen Ajustado</th></tr></thead><tbody id="tbl2"></tbody></table></div>
 <div class="footer">Última actualización: 11 Mar 2026 — Datos MicroSIP ERP — Suminregio Industrial</div></div>
 <script>
 const C=['#4C72B0','#DD8452','#55A868','#C44E52','#8172B3','#937860','#DA8BC3','#CCB974','#64B5CD','#8C8C8C'];
 const MN=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 function fmt$(n){return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});}
-function fmtS(n){if(Math.abs(n)>=1e6)return '$'+(n/1e6).toFixed(1)+'M';if(Math.abs(n)>=1e3)return '$'+(n/1e3).toFixed(0)+'K';return '$'+n.toFixed(0);}
+function fmtS(n){return '$'+(+n||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});}
 function mesL(m){const[y,mo]=m.split('-');return MN[parseInt(mo)]+' '+y.slice(2);}
 
 // Sortable table helper

@@ -222,11 +222,9 @@ const CROSSFILTER = {
 
 const MNAMES = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
-function fmt$(n) { return '$' + n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+function fmt$(n) { return '$' + n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2}); }
 function fmtShort(n) {
-    if (Math.abs(n)>=1e6) return '$'+(n/1e6).toFixed(1)+'M';
-    if (Math.abs(n)>=1e3) return '$'+(n/1e3).toFixed(0)+'K';
-    return '$'+n.toFixed(0);
+    return '$'+(+n||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 }
 function mesLabel(m) { const [y,mo]=m.split('-'); return MNAMES[parseInt(mo)]+' '+y.slice(2); }
 function weekLabel(w) { const [y,wn]=w.split('-W'); return 'S'+parseInt(wn)+' '+y.slice(2); }

@@ -428,8 +428,10 @@ function buildApiUrl(path, extra) {
 function buildPnlQuery(extra, opts) {
   opts = opts || {};
   const parts = [];
-  const filtros = window.filterBuildQS ? String(filterBuildQS() || '').replace(/^[?&]+/, '') : '';
-  if (filtros) parts.push(filtros);
+  if (!opts.omitFilters) {
+    const filtros = window.filterBuildQS ? String(filterBuildQS() || '').replace(/^[?&]+/, '') : '';
+    if (filtros) parts.push(filtros);
+  }
   if (extra) {
     const e = String(extra).replace(/^[?&]+/, '');
     if (e) parts.push(e);
@@ -465,7 +467,7 @@ function getPinnedDbId(){
 setInterval(()=>{const n=new Date();document.getElementById('reloj').textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');},1000);
 
 // ── Formateo ───────────────────────────────────────────────────────────────────
-const fmtM=v=>{if(v===null||v===undefined||isNaN(+v))return'—';v=+v;if(v>=1e6)return'$'+(v/1e6).toFixed(2)+'M';if(v>=1e3)return'$'+(v/1e3).toFixed(1)+'K';return'$'+Math.round(v).toLocaleString('es-MX')};
+const fmtM=v=>{if(v===null||v===undefined||isNaN(+v))return'—';v=+v;return'$'+v.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2})};
 const fmtPct=v=>isNaN(+v)?'—':(+v).toFixed(1)+'%';
 const MESES_ES=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 function mesLabel(r){return (MESES_ES[+r.MES]||r.MES)+' '+(+r.ANIO||'')}
@@ -476,6 +478,17 @@ function deltaTag(pct){
   return`<span class="delta-tag ${cls}">${arrow} ${Math.abs(pct).toFixed(1)}%</span>`;
 }
 function momPct(cur,prev){return prev>0?Math.round((cur-prev)/prev*100):null}
+const DB_ALLOW_TERMS=['suminregio','agua','medicos','madera','carton','empaque','especial','reciclaje'];
+function normDbTxt(v){return String(v==null?'':v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
+function allowEmpresa(e){
+  const pool=normDbTxt([
+    e&&e.id,
+    e&&e.label,
+    e&&e.database,
+    e&&e.path
+  ].join(' '));
+  return DB_ALLOW_TERMS.some(t=>pool.includes(t));
+}
 
 function setMeses(m,btn){
   currentMeses=m;
@@ -684,7 +697,7 @@ async function loadData(){
       uni=await tryFetch(altU)||uni;
     }
     lastUniversePayload=uni;
-    const empresas=Array.isArray(uni.empresas)?uni.empresas:[];
+    const empresas=(Array.isArray(uni.empresas)?uni.empresas:[]).filter(allowEmpresa);
     const okEmp=empresas.filter(e=>e.ok);
     const multi=okEmp.length>1;
     // #region agent log
@@ -790,15 +803,57 @@ async function loadData(){
       VENTAS_VE:+(rawTot.VENTAS_VE||0),
       VENTAS_PV:+(rawTot.VENTAS_PV||0)
     };
+    const CO_KEYS=['CO_A1','CO_A2','CO_A3','CO_A4','CO_A5','CO_A6','CO_B1','CO_B2','CO_B3','CO_B4','CO_B5','CO_C1','CO_C2','CO_C3','CO_C4','CO_C5','CO_C6'];
+    let tablaTot={...tot};
+    let tablaTieneGastos=(data.tiene_gastos_co===true);
+    let fallbackUiRef=null;
+    if(!tablaTieneGastos && meses.length===1){
+      const y=+meses[0].ANIO||0;
+      const m=+meses[0].MES||0;
+      if(y>0&&m>=1&&m<=12){
+        const pm=m===1?12:(m-1);
+        const py=m===1?(y-1):y;
+        const dd=new Date(py,pm,0).getDate();
+        const d0=`${py}-${String(pm).padStart(2,'0')}-01`;
+        const d1=`${py}-${String(pm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+        const fbUrl=buildPnlApiUrl('/api/resultados/pnl',`desde=${d0}&hasta=${d1}`,{omitFilters:true})+'&_='+Date.now();
+        // #region agent log
+        debugLogResultados('run5','H12','resultados.html:804','ui fallback prefijos attempt',{fromYear:y,fromMonth:m,toYear:py,toMonth:pm,fbUrl});
+        // #endregion
+        const fb=await tryFetch(fbUrl,25000)||null;
+        if(fb&&fb.totales&&fb.tiene_gastos_co===true){
+          const src=fb.totales||{};
+          CO_KEYS.forEach(k=>{ tablaTot[k]=+(src[k]||0); });
+          tablaTieneGastos=true;
+          fallbackUiRef={ANIO:py,MES:pm};
+        }
+        // #region agent log
+        debugLogResultados('run5','H12','resultados.html:814','ui fallback prefijos result',{applied:!!fallbackUiRef,from:fallbackUiRef,sum:(CO_KEYS.reduce((s,k)=>s+(+(tablaTot[k]||0)),0))});
+        // #endregion
+      }
+    }
     const hasCosto=(+tot.COSTO_VENTAS>0)||(data.tiene_costo===true);
     try{ renderKPIs(tot,meses,hasCosto); }catch(e){ console.warn('renderKPIs',e); }
     try{ renderInsight(tot,meses,hasCosto); }catch(e){ console.warn('renderInsight',e); }
     try{ renderCharts(meses,hasCosto); }catch(e){ console.warn('renderCharts',e); }
-    try{ renderTabla(meses,tot,hasCosto,data.tiene_gastos_co===true); }catch(e){ console.warn('renderTabla',e); }
+    try{ renderTabla(meses,tablaTot,hasCosto,tablaTieneGastos); }catch(e){ console.warn('renderTabla',e); }
     const costNotice=document.getElementById('costNotice');
     if(costNotice)costNotice.style.display=hasCosto?'none':'block';
     const gastosNotice=document.getElementById('gastosNotice');
-    if(gastosNotice)gastosNotice.style.display=data.tiene_gastos_co===true?'none':'block';
+    if(gastosNotice){
+      const esEstimado=(data.gastos_estimados===true&&data.gastos_estimados_desde)||fallbackUiRef;
+      if(esEstimado){
+        const src=(data.gastos_estimados===true&&data.gastos_estimados_desde)?data.gastos_estimados_desde:fallbackUiRef;
+        const m=+src.MES||0;
+        const y=+src.ANIO||0;
+        const mm=(m>=1&&m<=12)?new Date(y,m-1,1).toLocaleDateString('es-MX',{month:'long',year:'numeric'}):'periodo anterior';
+        gastosNotice.innerHTML='<strong>ℹ️ Gastos operativos en referencia contable</strong><br>Este periodo no trae movimientos 52/53/54; para evitar tabla en cero se muestran importes del ultimo mes con datos reales: <strong>'+mm+'</strong>.';
+        gastosNotice.style.display='block';
+      }else{
+        gastosNotice.innerHTML='<strong>ℹ️ ¿Por qué a veces Ventas Netas = Utilidad Bruta?</strong><br>El <strong>Costo de Ventas</strong> se toma del m&#243;dulo de Contabilidad (cuentas con &quot;COSTO&quot;). En periodos cortos (Hoy, Esta Semana) o en el mes en curso suele no haber datos a&#250;n; con Mes Anterior, Este A&#241;o o A&#241;o Anterior s&#237;.';
+        gastosNotice.style.display=data.tiene_gastos_co===true?'none':'block';
+      }
+    }
     if(heroEl)heroEl.textContent=meses.length||tot.VENTAS_NETAS
       ?((multi?(okEmp.find(e=>e.id===selectedBizId)||{}).label+' · ':'')+currentMeses+' meses · '+fmtM(+tot.VENTAS_NETAS||0)+' ventas netas · '+(hasCosto?fmtPct(+tot.MARGEN_BRUTO_PCT||0)+' margen bruto':'Costo no en BD')+' · '+fmtM(+tot.COBROS||0)+' cobrado')
       :'Sin datos. ¿Servidor Node en marcha? Probar: '+url;

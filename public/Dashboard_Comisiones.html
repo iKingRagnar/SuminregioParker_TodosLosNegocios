@@ -2,7 +2,7 @@
 const CC=['#4C72B0','#DD8452','#55A868','#C44E52','#8172B3','#937860','#DA8BC3','#CCB974','#64B5CD','#8C8C8C'];
 const MN=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 const fmt$=n=>'$'+n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});
-const fmtS=n=>Math.abs(n)>=1e6?'$'+(n/1e6).toFixed(1)+'M':Math.abs(n)>=1e3?'$'+(n/1e3).toFixed(0)+'K':'$'+n.toFixed(0);
+const fmtS=n=>'$'+(+n||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 const mesL=m=>{const[y,mo]=m.split('-');return MN[parseInt(mo)]+' '+y.slice(2);};
 const semL=w=>{const p=w.split('-W');return 'S'+p[1]+' '+p[0].slice(2);};
 

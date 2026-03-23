@@ -159,9 +159,7 @@ function setTipo(t) {
 const fmtM = v => {
   if (v === null || v === undefined || isNaN(+v)) return '—';
   v = +v;
-  if (Math.abs(v) >= 1e6) return '$' + (v / 1e6).toFixed(2) + 'M';
-  if (Math.abs(v) >= 1e3) return '$' + (v / 1e3).toFixed(1) + 'K';
-  return '$' + v.toLocaleString('es-MX', { maximumFractionDigits: 2 });
+  return '$' + v.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 };
 const fmtPct = v => (v === null || v === undefined || isNaN(+v)) ? '—' : (+v).toFixed(2) + '%';
 const fmtDay = s => {

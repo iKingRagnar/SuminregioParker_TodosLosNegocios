@@ -349,8 +349,8 @@ function buildApiUrl(path, extra) {
 }
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 function sanitizeLabel(s){ if(!s) return ''; return String(s).replace(/[\u0370-\u03FF\u0400-\u04FF]/g,'').trim() || String(s).trim(); }
-const fmt  = n => isNaN(+n)||n==null?'?':'$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});
-const fmtK = n => { if(isNaN(+n)||n==null) return '?'; n=+n; if(Math.abs(n)>=1e6) return '$'+(n/1e6).toFixed(2)+'M'; if(Math.abs(n)>=1e3) return '$'+(n/1e3).toFixed(1)+'K'; return '$'+n.toFixed(0); };
+const fmt  = n => isNaN(+n)||n==null?'?':'$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
+const fmtK = n => { if(isNaN(+n)||n==null) return '?'; n=+n; return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2}); };
 const setText = (id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
 const setHtml = (id,v)=>{ const e=document.getElementById(id); if(e) e.innerHTML=v; };
 const setWid = (id,p)=>{ const e=document.getElementById(id); if(e) e.style.width=Math.min(+p||0,100)+'%'; };

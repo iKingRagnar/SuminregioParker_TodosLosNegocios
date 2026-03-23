@@ -329,7 +329,7 @@ let riesgoSort = { key: 'MONTO_VENCIDO', dir: -1 };
 
 setInterval(()=>{const n=new Date();document.getElementById('reloj').textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');},1000);
 
-const fmtM=v=>{if(!v&&v!==0)return'--';v=+v;if(v>=1e6)return'$'+(v/1e6).toFixed(2)+'M';if(v>=1e3)return'$'+(v/1e3).toFixed(1)+'K';return'$'+Math.round(v).toLocaleString()};
+const fmtM=v=>{if(!v&&v!==0)return'--';v=+v;return'$'+v.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2})};
 const fmtD=s=>s?String(s).split('T')[0]:'--';
 
 function showTab(tab, btn){
@@ -595,7 +595,7 @@ function renderChartBuckets(res){
         backgroundColor:['rgba(77,166,255,.5)','rgba(255,184,0,.5)','rgba(255,140,66,.5)','rgba(255,69,102,.5)'],
         borderColor:['#4DA6FF','#FFB800','#FF8C42','#FF4566'],borderWidth:1.5,borderRadius:5}]
     },
-    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,backgroundColor:'#0D1D35',borderColor:'rgba(255,255,255,.1)',borderWidth:1,callbacks:{label:c=>' $'+Math.round(+c.raw).toLocaleString()}}},scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5A7090',font:{size:9,family:"'DM Mono'"}}},y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5A7090',font:{size:9,family:"'DM Mono'"},callback:v=>{if(v>=1e6)return'$'+(v/1e6).toFixed(1)+'M';if(v>=1e3)return'$'+(v/1e3).toFixed(0)+'K';return'$'+v}}}}}
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,backgroundColor:'#0D1D35',borderColor:'rgba(255,255,255,.1)',borderWidth:1,callbacks:{label:c=>' $'+(+c.raw||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2})}}},scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5A7090',font:{size:9,family:"'DM Mono'"}}},y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5A7090',font:{size:9,family:"'DM Mono'"},callback:v=>'$'+(+v||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2})}}}}}
   });
 }
 

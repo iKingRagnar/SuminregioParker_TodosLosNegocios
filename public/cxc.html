@@ -348,15 +348,13 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
 const API = (window.__API_BASE != null ? String(window.__API_BASE).replace(/\/+$/, '') : (window.location.protocol === 'file:' ? 'http://localhost:7000' : (window.location.origin || '')));
 const MES_NOM = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
-const fmtK = v => { const n=+v||0; return n>=1e6 ? '$'+(n/1e6).toFixed(1)+'M' : n>=1e3 ? '$'+(n/1e3).toFixed(0)+'K' : '$'+n.toLocaleString('es-MX',{maximumFractionDigits:0}); };
+const fmtK = v => { const n=+v||0; return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2}); };
 /** Saldo documento CxC: siempre con centavos bajo 1K para no mostrar $0 en montos pequeños. */
 const fmtSaldoDoc = v => {
   const n = +v || 0;
-  if (n >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
-  if (n >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'K';
-  return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 };
-const fmtM = v => '$'+(+v||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});
+const fmtM = v => '$'+(+v||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 const setText = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
 
 function buildCxcQuery(extra){

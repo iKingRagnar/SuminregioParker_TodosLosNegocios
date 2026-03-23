@@ -779,6 +779,17 @@ function fdbBasenameIndex(p){
 async function initBizBar(){
   indexDbList=await fwt(API+'/api/universe/databases',[]);
   if(!Array.isArray(indexDbList))indexDbList=[];
+  try{
+    if(window.filterDbCatalog) indexDbList = window.filterDbCatalog(indexDbList);
+    else{
+      const terms=['suminregio','agua','medicos','madera','carton','empaque','especial','reciclaje'];
+      const norm=s=>String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+      indexDbList=indexDbList.filter(e=>{
+        const pool=norm([e&&e.id,e&&e.label,fdbBasenameIndex(e&&e.database),e&&e.database].join(' '));
+        return terms.some(t=>pool.includes(t));
+      });
+    }
+  }catch(_){}
   const bar=document.getElementById('bizContextBar');
   const chips=document.getElementById('bizChips');
   const lbl=document.getElementById('bizContextLabel');
@@ -823,7 +834,7 @@ const mesLabel=MESES[now.getMonth()].charAt(0).toUpperCase()+MESES[now.getMonth(
 document.getElementById('rankFecha').textContent=mesLabel+' '+now.getFullYear();
 
 // -- Helpers --------------------------------------------------------------------
-const fmtM=v=>{const n=+v||0;if(n>=1e6)return'$'+(n/1e6).toFixed(2)+'M';if(n>=1e3)return'$'+(n/1e3).toFixed(1)+'k';return'$'+n.toLocaleString('es-MX',{maximumFractionDigits:0})};
+const fmtM=v=>{const n=+v||0;return'$'+n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2})};
 const pctOf=(a,b)=>b?Math.round(a/b*100):0;
 function setEl(id,val){const e=document.getElementById(id);if(e)e.textContent=val}
 function setHtml(id,val){const e=document.getElementById(id);if(e)e.innerHTML=val}

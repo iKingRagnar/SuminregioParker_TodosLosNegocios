@@ -509,13 +509,11 @@ async function loadConversion(){
 }
 
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-const fmt  = n => isNaN(+n)||n==null?'?':'$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});
+const fmt  = n => isNaN(+n)||n==null?'?':'$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 const fmtK = n => {
   if(isNaN(+n)||n==null) return '?';
   n = +n;
-  if(Math.abs(n)>=1e6) return '$'+(n/1e6).toFixed(1)+'M';
-  if(Math.abs(n)>=1e3) return '$'+(n/1e3).toFixed(0)+'k';
-  return '$'+n.toFixed(0);
+  return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 };
 const setText = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
 const setWid  = (id,p) => { const e=document.getElementById(id); if(e) e.style.width=Math.min(+p||0,100)+'%'; };

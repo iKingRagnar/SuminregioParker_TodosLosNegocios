@@ -66,9 +66,9 @@ tbody tr:hover { background:#f8f9fa; }
 <a href="Dashboard_Alertas.html" >Alertas</a>
 </div></div>
 <section class="krow">
-<div class="kpi"><div class="kpi-l">Total Depósitos</div><div class="kpi-v pos">$16.3M</div></div>
-<div class="kpi"><div class="kpi-l">Total Retiros</div><div class="kpi-v neg">$7.4M</div></div>
-<div class="kpi"><div class="kpi-l">Flujo Neto</div><div class="kpi-v">$8.9M</div></div>
+<div class="kpi"><div class="kpi-l">Total Depósitos</div><div class="kpi-v pos">$16,300,000</div></div>
+<div class="kpi"><div class="kpi-l">Total Retiros</div><div class="kpi-v neg">$7,400,000</div></div>
+<div class="kpi"><div class="kpi-l">Flujo Neto</div><div class="kpi-v">$8,900,000</div></div>
 </section>
 <section class="g2">
 <div class="cc full"><h3>Flujo de Efectivo Mensual</h3><canvas id="ch1" height="100"></canvas></div>
@@ -81,7 +81,7 @@ tbody tr:hover { background:#f8f9fa; }
 const C=['#4C72B0','#DD8452','#55A868','#C44E52','#8172B3','#937860','#DA8BC3','#CCB974','#64B5CD','#8C8C8C'];
 const MN=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 function fmt$(n){return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});}
-function fmtS(n){if(Math.abs(n)>=1e6)return '$'+(n/1e6).toFixed(1)+'M';if(Math.abs(n)>=1e3)return '$'+(n/1e3).toFixed(0)+'K';return '$'+n.toFixed(0);}
+function fmtS(n){return '$'+(+n||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});}
 function mesL(m){const[y,mo]=m.split('-');return MN[parseInt(mo)]+' '+y.slice(2);}
 
 const D={"total_ingresos": 16253434.18, "total_egresos": 7388658.38, "flujo_neto": 8864775.8, "monthly": [{"mes": "2025-01", "ingresos": 0.0, "egresos": 50293.97, "flujo_neto": -50293.97, "docs": 1}, {"mes": "2025-03", "ingresos": 0.0, "egresos": 6816.79, "flujo_neto": -6816.79, "docs": 1}, {"mes": "2025-04", "ingresos": 1278300.79, "egresos": 72187.61, "flujo_neto": 1206113.18, "docs": 8}, {"mes": "2025-05", "ingresos": 524433.97, "egresos": 5910.75, "flujo_neto": 518523.22, "docs": 4}, {"mes": "2025-06", "ingresos": 481372.72, "egresos": 17423.33, "flujo_neto": 463949.39, "docs": 10}, {"mes": "2025-07", "ingresos": 920739.48, "egresos": 40795.07, "flujo_neto": 879944.41, "docs": 20}, {"mes": "2025-08", "ingresos": 1551242.07, "egresos": 31495.11, "flujo_neto": 1519746.96, "docs": 24}, {"mes": "2025-09", "ingresos": 1641600.97, "egresos": 60879.94, "flujo_neto": 1580721.03, "docs": 34}, {"mes": "2025-10", "ingresos": 1537883.2, "egresos": 255550.24, "flujo_neto": 1282332.96, "docs": 35}, {"mes": "2025-11", "ingresos": 1255740.8, "egresos": 188146.45, "flujo_neto": 1067594.35, "docs": 34}, {"mes": "2025-12", "ingresos": 2913091.92, "egresos": 279126.94, "flujo_neto": 2633964.98, "docs": 36}, {"mes": "2026-01", "ingresos": 2452440.5, "egresos": 97264.12, "flujo_neto": 2355176.38, "docs": 24}, {"mes": "2026-02", "ingresos": 1563921.84, "egresos": 6158747.25, "flujo_neto": -4594825.41, "docs": 62}, {"mes": "2026-03", "ingresos": 132665.92, "egresos": 124020.81, "flujo_neto": 8645.11, "docs": 11}], "saldos": [{"mes": "2025-04", "retiros": 0.0, "depositos": 1277981.01, "neto": 1277981.01, "acumulado": 1277981.01}, {"mes": "2025-05", "retiros": 0.0, "depositos": 524433.97, "neto": 524433.97, "acumulado": 1802414.98}, {"mes": "2025-06", "retiros": 0.0, "depositos": 480138.72, "neto": 480138.72, "acumulado": 2282553.7}, {"mes": "2025-07", "retiros": 0.0, "depositos": 920739.48, "neto": 920739.48, "acumulado": 3203293.18}, {"mes": "2025-08", "retiros": 0.0, "depositos": 1551242.07, "neto": 1551242.07, "acumulado": 4754535.25}, {"mes": "2025-09", "retiros": 0.0, "depositos": 1641600.97, "neto": 1641600.97, "acumulado": 6396136.22}, {"mes": "2025-10", "retiros": 0.0, "depositos": 1537883.2, "neto": 1537883.2, "acumulado": 7934019.42}, {"mes": "2025-11", "retiros": 0.0, "depositos": 1255740.8, "neto": 1255740.8, "acumulado": 9189760.22}, {"mes": "2025-12", "retiros": 0.0, "depositos": 1413091.92, "neto": 1413091.92, "acumulado": 10602852.14}, {"mes": "2026-01", "retiros": 0.0, "depositos": 952440.5, "neto": 952440.5, "acumulado": 11555292.64}, {"mes": "2026-02", "retiros": 0.0, "depositos": 1435903.2, "neto": 1435903.2, "acumulado": 12991195.84}, {"mes": "2026-03", "retiros": 0.0, "depositos": 132665.92, "neto": 132665.92, "acumulado": 13123861.76}]};
