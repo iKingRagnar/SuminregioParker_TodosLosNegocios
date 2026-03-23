@@ -1057,7 +1057,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   // Rows
   const sumOf=key=>meses.reduce((s,m)=>s+(+m[key]||0),0);
   function tdGasto(m,k){
-    if(!tg)return'<td style="color:var(--muted);font-size:.62rem">N/D</td>';
+    if(!tg)return`<td style="color:var(--text2)">${fmtM(0)}</td>`;
     const v=+m[k]||0;
     if(v<=0)return`<td style="color:var(--text2)">${fmtM(0)}</td>`;
     return`<td style="color:var(--red)">(${fmtM(v)})</td>`;
@@ -1139,6 +1139,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     <td><span style="color:${(+tot.MARGEN_BRUTO_PCT||0)>=30?'var(--green)':(+tot.MARGEN_BRUTO_PCT||0)>=15?'var(--yellow)':'var(--red)'};font-weight:600">${hasCosto?fmtPct(+tot.MARGEN_BRUTO_PCT||0):'—'}</span></td>
   </tr>
 
+  ${!tg?`<tr><td colspan="${meses.length+2}" style="background:rgba(255,180,0,.08);color:var(--yellow);font-size:.75rem;padding:.5rem 1rem;border-left:3px solid var(--yellow)">⚠️ Sin pólizas contables en SALDOS_CO/DOCTOS_CO_DET para cuentas 52*/53*/54*. Las cifras de gastos son $0. Ingresa los movimientos en Microsip Contabilidad o verifica que el módulo de contabilidad esté activo. <a href="/api/debug/saldos-co-cuentas" target="_blank" style="color:var(--yellow)">Ver diagnóstico →</a></td></tr>`:''}
   <tr class="pnl-section-header"><td colspan="${meses.length+2}">GASTOS DE VENTA (Contabilidad &mdash; prefijo 52*)</td></tr>
   <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">A1. ${coLbl('CO_A1','5201')}</td>${meses.map(m=>tdGasto(m,'CO_A1')).join('')}<td style="color:var(--red)">${footGasto('CO_A1')}</td></tr>
   <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">A2. ${coLbl('CO_A2','5202')}</td>${meses.map(m=>tdGasto(m,'CO_A2')).join('')}<td style="color:var(--red)">${footGasto('CO_A2')}</td></tr>
@@ -1147,10 +1148,9 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">A5. ${coLbl('CO_A5','5205')}</td>${meses.map(m=>tdGasto(m,'CO_A5')).join('')}<td style="color:var(--red)">${footGasto('CO_A5')}</td></tr>
   <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">A6. ${coLbl('CO_A6','52*')}</td>${meses.map(m=>tdGasto(m,'CO_A6')).join('')}<td style="color:var(--red)">${footGasto('CO_A6')}</td></tr>
   <tr class="subtotal-row"><td>▶ A. Gastos de ventas (suma 52*)</td>${meses.map(m=>{
-    if(!tg)return'<td style="color:var(--yellow);font-size:.65rem">N/D</td>';
-    const s=sumGastoKeys(m,_GAS_A);
+    const s=tg?sumGastoKeys(m,_GAS_A):0;
     return s>0?`<td style="color:var(--yellow)">(${fmtM(s)})</td>`:`<td style="color:var(--text2)">${fmtM(0)}</td>`;
-  }).join('')}<td style="color:var(--yellow)">${tg?'('+fmtM(sumGastoKeys(tot,_GAS_A))+')':'—'}</td></tr>
+  }).join('')}<td style="color:var(--yellow)">${tg?'('+fmtM(sumGastoKeys(tot,_GAS_A))+')':`(${fmtM(0)})`}</td></tr>
   <tr class="pnl-section-header"><td colspan="${meses.length+2}">GASTOS DE OPERACI&Oacute;N (Contabilidad &mdash; prefijo 53*)</td></tr>
   <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">B1. ${coLbl('CO_B1','5301')}</td>${meses.map(m=>tdGasto(m,'CO_B1')).join('')}<td style="color:var(--red)">${footGasto('CO_B1')}</td></tr>
   <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">B2. ${coLbl('CO_B2','5302')}</td>${meses.map(m=>tdGasto(m,'CO_B2')).join('')}<td style="color:var(--red)">${footGasto('CO_B2')}</td></tr>
@@ -1158,10 +1158,9 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">B4. ${coLbl('CO_B4','5304')}</td>${meses.map(m=>tdGasto(m,'CO_B4')).join('')}<td style="color:var(--red)">${footGasto('CO_B4')}</td></tr>
   <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">B5. ${coLbl('CO_B5','53*')}</td>${meses.map(m=>tdGasto(m,'CO_B5')).join('')}<td style="color:var(--red)">${footGasto('CO_B5')}</td></tr>
   <tr class="subtotal-row"><td>▶ B. Gastos de operación (suma 53*)</td>${meses.map(m=>{
-    if(!tg)return'<td style="color:var(--yellow);font-size:.65rem">N/D</td>';
-    const s=sumGastoKeys(m,_GAS_B);
+    const s=tg?sumGastoKeys(m,_GAS_B):0;
     return s>0?`<td style="color:var(--yellow)">(${fmtM(s)})</td>`:`<td style="color:var(--text2)">${fmtM(0)}</td>`;
-  }).join('')}<td style="color:var(--yellow)">${tg?'('+fmtM(sumGastoKeys(tot,_GAS_B))+')':'—'}</td></tr>
+  }).join('')}<td style="color:var(--yellow)">${tg?'('+fmtM(sumGastoKeys(tot,_GAS_B))+')':`(${fmtM(0)})`}</td></tr>
   <tr class="pnl-section-header"><td colspan="${meses.length+2}">GASTOS DE ADMINISTRACIÓN (Contabilidad &mdash; prefijo 54*)</td></tr>
   <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">C1. ${coLbl('CO_C1','5401')}</td>${meses.map(m=>tdGasto(m,'CO_C1')).join('')}<td style="color:var(--red)">${footGasto('CO_C1')}</td></tr>
   <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">C2. ${coLbl('CO_C2','5402')}</td>${meses.map(m=>tdGasto(m,'CO_C2')).join('')}<td style="color:var(--red)">${footGasto('CO_C2')}</td></tr>
@@ -1170,15 +1169,13 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">C5. ${coLbl('CO_C5','5405')}</td>${meses.map(m=>tdGasto(m,'CO_C5')).join('')}<td style="color:var(--red)">${footGasto('CO_C5')}</td></tr>
   <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">C6. ${coLbl('CO_C6','54*')}</td>${meses.map(m=>tdGasto(m,'CO_C6')).join('')}<td style="color:var(--red)">${footGasto('CO_C6')}</td></tr>
   <tr class="subtotal-row"><td>▶ C. Gastos de administración (suma 54*)</td>${meses.map(m=>{
-    if(!tg)return'<td style="color:var(--yellow);font-size:.65rem">N/D</td>';
-    const s=sumGastoKeys(m,_GAS_C);
+    const s=tg?sumGastoKeys(m,_GAS_C):0;
     return s>0?`<td style="color:var(--yellow)">(${fmtM(s)})</td>`:`<td style="color:var(--text2)">${fmtM(0)}</td>`;
-  }).join('')}<td style="color:var(--yellow)">${tg?'('+fmtM(sumGastoKeys(tot,_GAS_C))+')':'—'}</td></tr>
+  }).join('')}<td style="color:var(--yellow)">${tg?'('+fmtM(sumGastoKeys(tot,_GAS_C))+')':`(${fmtM(0)})`}</td></tr>
   <tr class="data-row">
     <td style="color:var(--orange);font-weight:600">Gastos operativos (OPEX) total</td>
     ${meses.map(m=>{
-      if(!tg)return'<td style="color:var(--muted);font-size:.65rem">N/D</td>';
-      const s=sumGastoKeys(m,_GAS_A)+sumGastoKeys(m,_GAS_B)+sumGastoKeys(m,_GAS_C);
+      const s=tg?(sumGastoKeys(m,_GAS_A)+sumGastoKeys(m,_GAS_B)+sumGastoKeys(m,_GAS_C)):0;
       return s>0?`<td style="color:var(--orange)">(${fmtM(s)})</td>`:`<td style="color:var(--text2)">${fmtM(0)}</td>`;
     }).join('')}
     <td style="color:var(--orange)">${tg?'('+fmtM(sumGastoKeys(tot,_GAS_A)+sumGastoKeys(tot,_GAS_B)+sumGastoKeys(tot,_GAS_C))+')':'Sin datos en cuentas 52/53/54 (SALDOS_CO)'}</td>

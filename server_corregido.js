@@ -3502,6 +3502,37 @@ get('/api/debug/cumplimiento', async () => {
   return { config: rows[0] || null };
 });
 
+// Diagnóstico de cuentas contables — ayuda a entender por qué gastos muestran $0
+get('/api/debug/saldos-co-cuentas', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const q = (sql, params, ms) => query(sql, params, ms, dbo);
+  const [totalCuentas, cuentasPrefijos, saldosCols, saldosMuestra, doctosCols] = await Promise.all([
+    q(`SELECT COUNT(*) AS N FROM CUENTAS_CO`, [], 8000).catch(() => [{ N: -1 }]),
+    q(`SELECT SUBSTRING(cu.CUENTA_PT FROM 1 FOR 2) AS PREFIJO2, COUNT(*) AS N
+       FROM CUENTAS_CO cu WHERE cu.CUENTA_PT IS NOT NULL AND CHAR_LENGTH(TRIM(cu.CUENTA_PT)) >= 2
+       GROUP BY 1 ORDER BY 2 DESC`, [], 10000).catch(() => []),
+    q(`SELECT FIRST 1 * FROM SALDOS_CO`, [], 8000).catch(() => []).then(r => r[0] ? Object.keys(r[0]) : []),
+    q(`SELECT FIRST 5 s.*, cu.CUENTA_PT, cu.NOMBRE FROM SALDOS_CO s
+       JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
+       WHERE cu.CUENTA_PT STARTING WITH '5'
+       ORDER BY cu.CUENTA_PT`, [], 10000).catch(() => []),
+    q(`SELECT FIRST 1 * FROM DOCTOS_CO_DET`, [], 8000).catch(() => []).then(r => r[0] ? Object.keys(r[0]) : []),
+  ]);
+  const prefijo5x = await q(`SELECT SUBSTRING(cu.CUENTA_PT FROM 1 FOR 4) AS PREF4, cu.NOMBRE, COUNT(s.CUENTA_ID) AS SALDOS
+     FROM CUENTAS_CO cu LEFT JOIN SALDOS_CO s ON s.CUENTA_ID = cu.CUENTA_ID
+     WHERE cu.CUENTA_PT STARTING WITH '5'
+     GROUP BY 1, 2 ORDER BY 1`, [], 12000).catch(() => []);
+  return {
+    total_cuentas_co: (totalCuentas[0] || {}).N,
+    saldos_co_columnas: saldosCols,
+    doctos_co_det_columnas: doctosCols,
+    prefijos_2dig_todos: cuentasPrefijos,
+    cuentas_5xxx_con_saldos: prefijo5x,
+    muestra_saldos_5xxx: saldosMuestra,
+    nota: 'Si cuentas_5xxx_con_saldos tiene SALDOS=0 para prefijos 52/53/54, no hay polizas contables cargadas en Microsip para gastos operativos.',
+  };
+});
+
 get('/api/debug/inv', async () => {
   const [art, lines] = await Promise.all([
     query(`SELECT COUNT(*) AS N FROM ARTICULOS`).catch(() => [{ N: 0 }]),

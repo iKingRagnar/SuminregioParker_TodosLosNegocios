@@ -106,4 +106,5 @@ new Chart(document.getElementById('ch-status'),{type:'doughnut',data:{labels:D.s
 new Chart(document.getElementById('ch-pareto'),{type:'line',data:{labels:D.pareto.map(p=>p.pct_clientes+'%'),datasets:[{label:'% Venta acumulada',data:D.pareto.map(p=>p.pct_venta),borderColor:'#4C72B0',backgroundColor:'#4C72B020',borderWidth:2,tension:.3,fill:true,pointRadius:4},{label:'Línea 80%',data:D.pareto.map(()=>80),borderColor:'#dc3545',borderWidth:1,borderDash:[5,5],pointRadius:0,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{usePointStyle:true}},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+ctx.parsed.y+'%'}}},scales:{y:{beginAtZero:true,max:105,ticks:{callback:v=>v+'%'}},x:{title:{display:true,text:'% de Clientes'}}}}});
 let h='';D.dormidos.forEach((d,i)=>{const cls=d.status==='Perdido'?'neg':'warn';h+=`<tr><td>${i+1}</td><td>${d.cliente}</td><td>${d.tipo}</td><td class="tr">${fmt$(d.venta)}</td><td>${d.ultima}</td><td class="tr ${cls}">${d.dias}</td><td class="${cls}">${d.status}</td></tr>`;});
 document.getElementById('tbl-dorm').innerHTML=h;
-</script></body></html>
+</script><script src="/chat-widget.js" defer></script>
+</body></html>

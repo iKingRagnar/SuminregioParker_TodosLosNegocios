@@ -10,7 +10,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 
 const PORT = process.env.PORT || 7000;
 const LOCAL = `http://localhost:${PORT}`;
-const MODEL  = process.env.AI_MODEL || 'claude-3-5-haiku-20241022';
+const MODEL  = process.env.AI_MODEL || 'claude-opus-4-6';
 const EMPRESA = process.env.AI_EMPRESA_NOMBRE || process.env.EMPRESA_NOMBRE || 'la empresa';
 
 // ── Cliente Anthropic ─────────────────────────────────────────────────────────
@@ -202,7 +202,7 @@ async function chat({ message, imageBase64, pageName, db, history = [] }) {
 
   const response = await client.messages.create({
     model: MODEL,
-    max_tokens: 1024,
+    max_tokens: 4096,
     system: systemPrompt,
     messages,
   });

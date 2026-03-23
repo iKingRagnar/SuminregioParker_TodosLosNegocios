@@ -98,4 +98,5 @@ let h='';D.top_clientes.forEach((c,i)=>{const cls=c.dso_prom>60?'neg':c.dso_prom
 document.getElementById('tbl1').innerHTML=h;
 let h2='';D.worst_payers.forEach((c,i)=>{h2+=`<tr><td>${i+1}</td><td>${c.cliente}</td><td class="tr neg">${c.dso_prom} días</td><td class="tr">${fmt$(c.cobros)}</td><td class="tr">${c.n_pagos}</td></tr>`;});
 document.getElementById('tbl2').innerHTML=h2;
-</script></body></html>
+</script><script src="/chat-widget.js" defer></script>
+</body></html>

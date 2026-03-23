@@ -102,4 +102,5 @@ let h='';D.top_articulos.forEach((a,i)=>{const ac=a.abc==='A'?'pos':a.abc==='B'?
 document.getElementById('tbl-abc').innerHTML=h;
 let h2='';D.lineas_abc.forEach(l=>{const mc=l.margen>=30?'pos':l.margen<15?'neg':'';h2+=`<tr><td>${l.linea}</td><td class="tr">${fmt$(l.venta)}</td><td class="tr">${l.articulos}</td><td class="tr pos">${l.a}</td><td class="tr">${l.b}</td><td class="tr" style="color:var(--muted)">${l.c}</td><td class="tr ${mc}">${l.margen}%</td></tr>`;});
 document.getElementById('tbl-lineas').innerHTML=h2;
-</script></body></html>
+</script><script src="/chat-widget.js" defer></script>
+</body></html>

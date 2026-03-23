@@ -130,4 +130,5 @@ new Chart(document.getElementById('ch2'),{type:'bar',data:{labels:D.by_tipo.map(
 function renderTable1(data){let h='';data.forEach((c,i)=>{const mc=c.margen_ajust>=25?'pos':c.margen_ajust<15?'neg':'';h+=`<tr><td>${i+1}</td><td>${c.cliente}</td><td>${c.tipo}</td><td class="tr">${fmt$(c.venta)}</td><td class="tr">${c.margen}%</td><td class="tr">${c.dso}</td><td class="tr">${fmt$(c.costo_capital)}</td><td class="tr ${mc}">${c.margen_ajust}%</td></tr>`;});document.getElementById('tbl1').innerHTML=h;}
 function renderTable2(data){let h='';data.forEach((c,i)=>{h+=`<tr><td>${i+1}</td><td>${c.cliente}</td><td class="tr">${fmt$(c.venta)}</td><td class="tr">${c.margen}%</td><td class="tr">${c.dso}</td><td class="tr neg">${c.margen_ajust}%</td></tr>`;});document.getElementById('tbl2').innerHTML=h;}
 renderTable1(D.top_clientes);renderTable2(D.least_profitable);makeTableSortable('tbl1',D.top_clientes,renderTable1,[0,3,4,5,6,7]);makeTableSortable('tbl2',D.least_profitable,renderTable2,[0,2,3,4,5]);
-</script></body></html>
+</script><script src="/chat-widget.js" defer></script>
+</body></html>

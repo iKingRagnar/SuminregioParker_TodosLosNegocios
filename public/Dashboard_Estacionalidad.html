@@ -94,4 +94,5 @@ new Chart(document.getElementById('ch4'),{type:'doughnut',data:{labels:qd.map(q=
 new Chart(document.getElementById('ch5'),{type:'bar',data:{labels:D.by_dow.map(d=>d.dia),datasets:[{label:'Documentos',data:D.by_dow.map(d=>d.docs),backgroundColor:dowC.map(c=>c+'66'),borderColor:dowC,borderWidth:1,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true},x:{grid:{display:false}}}}});
 let h='';D.by_dow.forEach(d=>{h+=`<tr><td>${d.dia}</td><td class="tr">${fmt$(d.venta)}</td><td class="tr">${fmt$(d.venta_prom)}</td><td class="tr">${d.docs}</td></tr>`;});
 document.getElementById('tbl1').innerHTML=h;
-</script></body></html>
+</script><script src="/chat-widget.js" defer></script>
+</body></html>

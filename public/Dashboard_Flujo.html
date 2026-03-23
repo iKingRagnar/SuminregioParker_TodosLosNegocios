@@ -90,4 +90,5 @@ const sl=D.saldos;
 new Chart(document.getElementById('ch2'),{type:'line',data:{labels:sl.map(s=>mesL(s.mes)),datasets:[{label:'Depósitos',data:sl.map(s=>s.depositos),borderColor:'#55A868',borderWidth:2,tension:.3,pointRadius:3,fill:false},{label:'Retiros',data:sl.map(s=>s.retiros),borderColor:'#C44E52',borderWidth:2,tension:.3,pointRadius:3,fill:false},{label:'Neto',data:sl.map(s=>s.neto),borderColor:'#4C72B0',backgroundColor:'#4C72B020',borderWidth:2,tension:.3,fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{usePointStyle:true}},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+fmt$(ctx.parsed.y)}}},scales:{y:{ticks:{callback:v=>fmtS(v)}},x:{grid:{display:false}}}}});
 let h='';D.monthly.forEach(m=>{const cls=m.flujo_neto>=0?'pos':'neg';h+=`<tr><td>${mesL(m.mes)}</td><td class="tr pos">${fmt$(m.ingresos)}</td><td class="tr neg">${fmt$(m.egresos)}</td><td class="tr ${cls}">${fmt$(m.flujo_neto)}</td><td class="tr">${m.docs}</td></tr>`;});
 document.getElementById('tbl1').innerHTML=h;
-</script></body></html>
+</script><script src="/chat-widget.js" defer></script>
+</body></html>

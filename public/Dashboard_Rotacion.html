@@ -99,4 +99,5 @@ let h='';D.slow_movers.forEach((a,i)=>{const cls=a.dias>180?'neg':a.dias>90?'war
 document.getElementById('tbl1').innerHTML=h;
 let h2='';D.fast_movers.forEach((a,i)=>{h2+=`<tr><td>${i+1}</td><td>${a.articulo}</td><td>${a.linea}</td><td class="tr">${a.stock_u}</td><td class="tr">${fmt$(a.stock_val)}</td><td class="tr">${a.venta_mens.toFixed(1)}</td><td class="tr pos">${a.dias}</td><td class="tr">${a.rotacion}x</td></tr>`;});
 document.getElementById('tbl2').innerHTML=h2;
-</script></body></html>
+</script><script src="/chat-widget.js" defer></script>
+</body></html>
