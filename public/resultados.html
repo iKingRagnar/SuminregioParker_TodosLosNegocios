@@ -183,6 +183,19 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
 .pl-mini-table td:nth-child(n+2){font-family:'DM Mono',monospace;text-align:right}
 .pl-mini-table tr:hover td{background:rgba(255,255,255,.02)}
 .pl-mini-table .err{color:var(--red);font-size:.72rem}
+.bg-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem;margin-bottom:1rem}
+@media(max-width:1000px){.bg-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.bg-kpi{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:.8rem .9rem}
+.bg-kpi .lbl{font-family:'DM Mono',monospace;font-size:.56rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.bg-kpi .val{font-family:'DM Mono',monospace;font-size:1.05rem;font-weight:600;margin-top:.25rem}
+.bg-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.85rem}
+@media(max-width:1100px){.bg-cols{grid-template-columns:1fr}}
+.bg-box{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:.7rem .85rem}
+.bg-box h4{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.5rem}
+.bg-list{display:flex;flex-direction:column;gap:.35rem}
+.bg-row{display:flex;justify-content:space-between;gap:.6rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--text2)}
+.bg-row .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:65%}
+.bg-row .v{color:var(--text);text-align:right}
 
 .footer{text-align:center;padding:1.75rem;font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.06em;border-top:1px solid var(--border);margin-top:2rem}
 </style>
@@ -402,6 +415,30 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
       </table>
     </div>
   </div>
+
+  <div class="sd"><div class="sd-label">Balance General (resumen contable)</div><div class="sd-line"></div></div>
+  <div class="card" style="margin-bottom:2rem">
+    <div class="card-head">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        Balance General
+      </div>
+      <div class="card-badge" id="bgBadge">Cargando...</div>
+    </div>
+    <div class="card-body">
+      <div class="bg-grid">
+        <div class="bg-kpi"><div class="lbl">Activo Total</div><div class="val" id="bgActivo">—</div></div>
+        <div class="bg-kpi"><div class="lbl">Pasivo Total</div><div class="val" id="bgPasivo">—</div></div>
+        <div class="bg-kpi"><div class="lbl">Capital Total</div><div class="val" id="bgCapital">—</div></div>
+        <div class="bg-kpi"><div class="lbl">Diferencia</div><div class="val" id="bgDiff">—</div></div>
+      </div>
+      <div class="bg-cols">
+        <div class="bg-box"><h4>Activos principales</h4><div class="bg-list" id="bgListActivo"><div class="bg-row"><span class="n">Cargando...</span><span class="v">—</span></div></div></div>
+        <div class="bg-box"><h4>Pasivos principales</h4><div class="bg-list" id="bgListPasivo"><div class="bg-row"><span class="n">Cargando...</span><span class="v">—</span></div></div></div>
+        <div class="bg-box"><h4>Capital principal</h4><div class="bg-list" id="bgListCapital"><div class="bg-row"><span class="n">Cargando...</span><span class="v">—</span></div></div></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="footer">Suminregio Parker &mdash; Estado de Resultados v9.0 &mdash; Datos en tiempo real desde Microsip / Firebird DB</div>
@@ -470,6 +507,7 @@ setInterval(()=>{const n=new Date();document.getElementById('reloj').textContent
 const fmtM=v=>{if(v===null||v===undefined||isNaN(+v))return'—';v=+v;return'$'+v.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2})};
 const fmtPct=v=>isNaN(+v)?'—':(+v).toFixed(1)+'%';
 const MESES_ES=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+const PNL_ROW_NUM_KEYS=['VENTAS_BRUTAS','DESCUENTOS_DEV','VENTAS_NETAS','VENTAS_VE','VENTAS_PV','COSTO_VENTAS','UTILIDAD_BRUTA','MARGEN_BRUTO_PCT','COBROS','NUM_FACTURAS','CO_A1','CO_A2','CO_A3','CO_A4','CO_A5','CO_A6','CO_B1','CO_B2','CO_B3','CO_B4','CO_B5','CO_C1','CO_C2','CO_C3','CO_C4','CO_C5','CO_C6'];
 function mesLabel(r){return (MESES_ES[+r.MES]||r.MES)+' '+(+r.ANIO||'')}
 function deltaTag(pct){
   if(isNaN(pct)||pct===null)return'';
@@ -478,6 +516,28 @@ function deltaTag(pct){
   return`<span class="delta-tag ${cls}">${arrow} ${Math.abs(pct).toFixed(1)}%</span>`;
 }
 function momPct(cur,prev){return prev>0?Math.round((cur-prev)/prev*100):null}
+function completeYtdMeses(source, anio, mesFin){
+  const y=+anio||new Date().getFullYear();
+  const mf=Math.min(Math.max(+mesFin||1,1),12);
+  const src=Array.isArray(source)?source:[];
+  const map=new Map(src.map(r=>[`${+r.ANIO||0}-${+r.MES||0}`,r]));
+  const out=[];
+  for(let m=1;m<=mf;m++){
+    const k=`${y}-${m}`;
+    const row=map.get(k)||{};
+    const base={ANIO:y,MES:m,PERIODO:`${y}-${String(m).padStart(2,'0')}`};
+    PNL_ROW_NUM_KEYS.forEach(nk=>{ base[nk]=+(row[nk]||0); });
+    if(base.VENTAS_NETAS>0) base.MARGEN_BRUTO_PCT = base.VENTAS_NETAS>0 ? Math.round((base.UTILIDAD_BRUTA/base.VENTAS_NETAS)*1000)/10 : 0;
+    out.push(base);
+  }
+  return out;
+}
+function rebuildTotalesFromMeses(meses){
+  const out={};
+  PNL_ROW_NUM_KEYS.forEach(k=>{ out[k]=(meses||[]).reduce((s,r)=>s+(+r[k]||0),0); });
+  out.MARGEN_BRUTO_PCT=out.VENTAS_NETAS>0?Math.round((out.UTILIDAD_BRUTA/out.VENTAS_NETAS)*1000)/10:0;
+  return out;
+}
 const DB_ALLOW_TERMS=['suminregio','agua','medicos','madera','carton','empaque','especial','reciclaje'];
 function normDbTxt(v){return String(v==null?'':v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
 function allowEmpresa(e){
@@ -495,6 +555,45 @@ function setMeses(m,btn){
   document.querySelectorAll('.hero .period-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   loadData();
+}
+
+async function loadBalanceGeneral(){
+  const badge=document.getElementById('bgBadge');
+  try{
+    const url=buildPnlApiUrl('/api/resultados/balance-general','');
+    const ctrl = new AbortController();
+    const tid = setTimeout(()=>ctrl.abort(), 25000);
+    let bg = {};
+    try{
+      const r = await fetch(url, { cache:'no-store', signal: ctrl.signal }).catch(()=>null);
+      bg = (r && r.ok) ? (await r.json().catch(()=>({}))) : {};
+    }finally{
+      clearTimeout(tid);
+    }
+    const t=(bg&&bg.totales)||{};
+    const d=(bg&&bg.detalle)||{};
+    const cierre=(bg&&bg.cierre)||{};
+    document.getElementById('bgActivo').textContent=fmtM(+t.ACTIVO_TOTAL||0);
+    document.getElementById('bgPasivo').textContent=fmtM(+t.PASIVO_TOTAL||0);
+    document.getElementById('bgCapital').textContent=fmtM(+t.CAPITAL_TOTAL||0);
+    const diff=+t.DIFERENCIA_BALANCE||0;
+    const diffEl=document.getElementById('bgDiff');
+    if(diffEl){diffEl.textContent=fmtM(diff);diffEl.style.color=Math.abs(diff)<=1?'var(--green)':(diff>0?'var(--yellow)':'var(--red)');}
+    if(badge) badge.textContent=`Cierre ${String(cierre.MES||'--').padStart(2,'0')}/${cierre.ANIO||'----'}`;
+    const renderList=(id,list)=>{
+      const el=document.getElementById(id); if(!el) return;
+      const arr=(Array.isArray(list)?list:[]).slice(0,8);
+      el.innerHTML=arr.length?arr.map(r=>`<div class="bg-row"><span class="n">${(r.CUENTA_PT||'')+' '+(r.NOMBRE||'')}</span><span class="v">${fmtM(+r.SALDO||0)}</span></div>`).join(''):'<div class="bg-row"><span class="n">Sin datos</span><span class="v">—</span></div>';
+    };
+    renderList('bgListActivo',d.activo);
+    renderList('bgListPasivo',d.pasivo);
+    renderList('bgListCapital',d.capital);
+    // #region agent log
+    debugLogResultados('run11','H64','resultados.html:loadBalanceGeneral','balance general rendered',{activo:+t.ACTIVO_TOTAL||0,pasivo:+t.PASIVO_TOTAL||0,capital:+t.CAPITAL_TOTAL||0,diff:+t.DIFERENCIA_BALANCE||0,cierre});
+    // #endregion
+  }catch(_){
+    if(badge) badge.textContent='Sin datos';
+  }
 }
 
 function setDbUrl(id){
@@ -805,6 +904,7 @@ async function loadData(){
     };
     const CO_KEYS=['CO_A1','CO_A2','CO_A3','CO_A4','CO_A5','CO_A6','CO_B1','CO_B2','CO_B3','CO_B4','CO_B5','CO_C1','CO_C2','CO_C3','CO_C4','CO_C5','CO_C6'];
     let tablaTot={...tot};
+    let tablaMeses=meses.slice();
     let tablaTieneGastos=(data.tiene_gastos_co===true);
     let fallbackUiRef=null;
     if(!tablaTieneGastos && meses.length===1){
@@ -832,11 +932,30 @@ async function loadData(){
         // #endregion
       }
     }
+    const anioRef = +((tablaMeses[tablaMeses.length-1]||{}).ANIO || (new Date().getFullYear()));
+    const mesActual = new Date().getMonth()+1;
+    const mesFinYtd = (anioRef===new Date().getFullYear()) ? mesActual : 12;
+    if(tablaMeses.length && tablaMeses.length<mesFinYtd){
+      const ytdUrl=buildPnlApiUrl('/api/resultados/pnl',`anio=${anioRef}`,{omitFilters:true})+'&_='+Date.now();
+      // #region agent log
+      debugLogResultados('run9','H41','resultados.html:846','ytd expansion attempt',{anioRef,mesesOriginal:tablaMeses.map(r=>`${r.ANIO}-${r.MES}`),mesFinYtd,ytdUrl});
+      // #endregion
+      const ytdData=await tryFetch(ytdUrl,25000)||{};
+      const ytdMesesRaw=Array.isArray(ytdData.meses)?ytdData.meses:tablaMeses;
+      tablaMeses=completeYtdMeses(ytdMesesRaw,anioRef,mesFinYtd);
+      const ytdTot = (ytdData && ytdData.totales) ? ytdData.totales : rebuildTotalesFromMeses(tablaMeses);
+      tablaTot={...tablaTot,...rebuildTotalesFromMeses(tablaMeses),...ytdTot};
+      tablaTieneGastos=(tablaTieneGastos||ytdData.tiene_gastos_co===true);
+      // #region agent log
+      debugLogResultados('run9','H41','resultados.html:855','ytd expansion result',{anioRef,mesesRender:tablaMeses.map(r=>`${r.ANIO}-${r.MES}`),ventasYtd:+(tablaTot.VENTAS_NETAS||0)});
+      // #endregion
+    }
     const hasCosto=(+tot.COSTO_VENTAS>0)||(data.tiene_costo===true);
     try{ renderKPIs(tot,meses,hasCosto); }catch(e){ console.warn('renderKPIs',e); }
-    try{ renderInsight(tot,meses,hasCosto); }catch(e){ console.warn('renderInsight',e); }
-    try{ renderCharts(meses,hasCosto); }catch(e){ console.warn('renderCharts',e); }
-    try{ renderTabla(meses,tablaTot,hasCosto,tablaTieneGastos); }catch(e){ console.warn('renderTabla',e); }
+    try{ renderInsight(tablaTot,tablaMeses,hasCosto); }catch(e){ console.warn('renderInsight',e); }
+    try{ renderCharts(tablaMeses,hasCosto); }catch(e){ console.warn('renderCharts',e); }
+    try{ renderTabla(tablaMeses,tablaTot,hasCosto,tablaTieneGastos); }catch(e){ console.warn('renderTabla',e); }
+    try{ await loadBalanceGeneral(); }catch(_){}
     const costNotice=document.getElementById('costNotice');
     if(costNotice)costNotice.style.display=hasCosto?'none':'block';
     const gastosNotice=document.getElementById('gastosNotice');

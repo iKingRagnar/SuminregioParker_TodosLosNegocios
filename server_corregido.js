@@ -907,7 +907,7 @@ const CXC_DIAS_SUM_INT = `CAST((
 function cxcClienteSQL() {
   return `(
     SELECT
-      dc.CLIENTE_ID,
+      dc_cargo.CLIENTE_ID,
       SUM(CASE
         WHEN i.TIPO_IMPTE = 'C'
           THEN i.IMPORTE
@@ -918,11 +918,14 @@ function cxcClienteSQL() {
         ELSE 0
       END) AS SALDO
     FROM IMPORTES_DOCTOS_CC i
-    JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = i.DOCTO_CC_ID
-    LEFT JOIN CLIENTES clx ON clx.CLIENTE_ID = dc.CLIENTE_ID
-    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, clx.COND_PAGO_ID)
+    JOIN DOCTOS_CC dc_cargo ON dc_cargo.DOCTO_CC_ID = CASE
+      WHEN i.TIPO_IMPTE = 'R' AND i.DOCTO_CC_ACR_ID IS NOT NULL THEN i.DOCTO_CC_ACR_ID
+      ELSE i.DOCTO_CC_ID
+    END
+    LEFT JOIN CLIENTES clx ON clx.CLIENTE_ID = dc_cargo.CLIENTE_ID
+    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc_cargo.COND_PAGO_ID, clx.COND_PAGO_ID)
     WHERE COALESCE(i.CANCELADO, 'N') = 'N' ${CXC_EXCLUIR_CONTADO}
-    GROUP BY dc.CLIENTE_ID
+    GROUP BY dc_cargo.CLIENTE_ID
     HAVING SUM(CASE
         WHEN i.TIPO_IMPTE = 'C'
           THEN i.IMPORTE
@@ -967,21 +970,8 @@ function cxcCargosSQL() {
     WHERE i.TIPO_IMPTE = 'C'
       AND COALESCE(i.CANCELADO, 'N') = 'N' ${CXC_EXCLUIR_CONTADO}
       AND dc.CLIENTE_ID IN (
-        SELECT dc2.CLIENTE_ID
-        FROM IMPORTES_DOCTOS_CC i2
-        JOIN DOCTOS_CC dc2 ON dc2.DOCTO_CC_ID = i2.DOCTO_CC_ID
-        LEFT JOIN CLIENTES clx2 ON clx2.CLIENTE_ID = dc2.CLIENTE_ID
-        LEFT JOIN CONDICIONES_PAGO cp2 ON cp2.COND_PAGO_ID = COALESCE(dc2.COND_PAGO_ID, clx2.COND_PAGO_ID)
-        WHERE COALESCE(i2.CANCELADO, 'N') = 'N' ${CXC_EXCLUIR_CONTADO_SUB}
-        GROUP BY dc2.CLIENTE_ID
-        HAVING SUM(CASE
-            WHEN i2.TIPO_IMPTE = 'C'
-              THEN i2.IMPORTE
-            WHEN i2.TIPO_IMPTE = 'R'
-              THEN -(CASE WHEN COALESCE(i2.IMPUESTO,0) > 0
-                          THEN i2.IMPORTE ELSE i2.IMPORTE/1.16 END)
-            ELSE 0
-          END) > 0
+        SELECT cs.CLIENTE_ID
+        FROM ${cxcClienteSQL()} cs
       )
     GROUP BY i.DOCTO_CC_ID, dc.CLIENTE_ID, dc.FOLIO, dc.FECHA,
              i.IMPORTE, i.IMPUESTO, cp.DIAS_PPAG, cp.NOMBRE
@@ -2141,6 +2131,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
   ]);
   const agMap = {};
   (cxcAging || []).forEach(r => { agMap[r.CLIENTE_ID] = r; });
+  const agingClientesTotalC = (cxcAging || []).reduce((s, r) => s + (+r.TOTAL_C || 0), 0);
   let saldoTotal = 0, vencido = 0, porVencer = 0;
   let agCorr = 0, ag1 = 0, ag2 = 0, ag3 = 0, ag4 = 0;
   let numCliVenc = 0;
@@ -2184,6 +2175,9 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
     DIAS_61_90: Math.round(ag3 * 100) / 100,
     DIAS_MAS_90: Math.round(ag4 * 100) / 100,
   };
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run7',hypothesisId:'H21',location:'server_corregido.js:2121',message:'cxc unified base sets',data:{cliente:cf||null,clientesSaldoCount:(cxcSaldos||[]).length,clientesAgingCount:(cxcAging||[]).length,saldoTotalClientesRaw:Math.round((cxcSaldos||[]).reduce((s,r)=>s+(+r.SALDO||0),0)*100)/100,agingTotalCRaw:Math.round(agingClientesTotalC*100)/100},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   // #region agent log
   fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run6',hypothesisId:'H14',location:'server_corregido.js:2140',message:'cxc unified resumen+aging snapshot',data:{cliente:cf||null,resumen,aging},timestamp:Date.now()})}).catch(()=>{});
   // #endregion
@@ -2638,6 +2632,109 @@ get('/api/inv/sin-movimiento', async (req) => {
     HAVING (MAX(CAST(d.FECHA AS DATE)) IS NULL) OR ((CURRENT_DATE - MAX(CAST(d.FECHA AS DATE))) > ${dias})
     ORDER BY 7 DESC NULLS FIRST, ex.EXISTENCIA DESC
   `, [], 12000, dbo).catch(() => []);
+});
+
+// Operación inventario: existencia 0 persistente + consumo activo + cobertura de críticos.
+get('/api/inv/operacion-critica', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const limit = Math.min(parseInt(req.query.limit) || 120, 300);
+  const rows = await query(`
+    SELECT FIRST ${limit}
+      a.ARTICULO_ID,
+      a.NOMBRE AS DESCRIPCION,
+      COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
+      COALESCE(ex.EXISTENCIA, 0) AS EXISTENCIA_ACTUAL,
+      COALESCE(mn.INVENTARIO_MINIMO, 0) AS MIN_ACTUAL,
+      COALESCE(hs.ENTRADAS_TOTAL, 0) AS ENTRADAS_TOTAL,
+      COALESCE(hs.SALIDAS_TOTAL, 0) AS SALIDAS_TOTAL,
+      COALESCE(c4.CONSUMO_4S, 0) AS CONSUMO_4_SEMANAS,
+      COALESCE(cm.CONSUMO_MES, 0) AS CONSUMO_MES_ACTUAL
+    FROM ARTICULOS a
+    LEFT JOIN ${SQL_EXIST_SUB} ex ON ex.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN ${SQL_MINIMO_SUB} mn ON mn.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN (
+      SELECT
+        si.ARTICULO_ID,
+        SUM(COALESCE(si.ENTRADAS_UNIDADES, 0)) AS ENTRADAS_TOTAL,
+        SUM(COALESCE(si.SALIDAS_UNIDADES, 0)) AS SALIDAS_TOTAL
+      FROM SALDOS_IN si
+      GROUP BY si.ARTICULO_ID
+    ) hs ON hs.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN (
+      SELECT
+        d.ARTICULO_ID,
+        COALESCE(SUM(d.UNIDADES), 0) AS CONSUMO_4S
+      FROM ${consumosSub('')} d
+      WHERE d.UNIDADES > 0
+        AND CAST(d.FECHA AS DATE) >= (CURRENT_DATE - 28)
+      GROUP BY d.ARTICULO_ID
+    ) c4 ON c4.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN (
+      SELECT
+        d.ARTICULO_ID,
+        COALESCE(SUM(d.UNIDADES), 0) AS CONSUMO_MES
+      FROM ${consumosSub('')} d
+      WHERE d.UNIDADES > 0
+        AND EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE)
+        AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE)
+      GROUP BY d.ARTICULO_ID
+    ) cm ON cm.ARTICULO_ID = a.ARTICULO_ID
+    WHERE COALESCE(a.ESTATUS, 'A') = 'A'
+      AND (
+        COALESCE(ex.EXISTENCIA, 0) <= 0
+        OR (
+          COALESCE(c4.CONSUMO_4S, 0) > 0
+          AND COALESCE(ex.EXISTENCIA, 0) <= COALESCE(mn.INVENTARIO_MINIMO, 0)
+        )
+      )
+    ORDER BY
+      CASE WHEN COALESCE(ex.EXISTENCIA, 0) <= 0 AND COALESCE(c4.CONSUMO_4S, 0) > 0 THEN 0 ELSE 1 END,
+      COALESCE(c4.CONSUMO_4S, 0) DESC,
+      COALESCE(ex.EXISTENCIA, 0) ASC
+  `, [], 15000, dbo).catch(() => []);
+
+  const enriched = (rows || []).map((r) => {
+    const existencia = +r.EXISTENCIA_ACTUAL || 0;
+    const minimo = +r.MIN_ACTUAL || 0;
+    const c4 = +r.CONSUMO_4_SEMANAS || 0;
+    const cm = +r.CONSUMO_MES_ACTUAL || 0;
+    const semanal = c4 > 0 ? (c4 / 4) : 0;
+    const diario = semanal / 7;
+    const semanas = semanal > 0 ? (existencia / semanal) : null;
+    const dias = diario > 0 ? (existencia / diario) : null;
+    const entradas = +r.ENTRADAS_TOTAL || 0;
+    const nuncaInventario = entradas <= 0.0001;
+    const consumeActivo = c4 > 0 || cm > 0;
+    const critico = consumeActivo && (existencia <= 0 || (dias != null && dias < 14) || (minimo > 0 && existencia <= minimo));
+    let estado = 'Normal';
+    if (existencia <= 0 && consumeActivo && nuncaInventario) estado = 'Sin inventario historico y con consumo activo';
+    else if (existencia <= 0 && consumeActivo) estado = 'Agotado con consumo activo';
+    else if (existencia <= 0) estado = 'Sin existencia sin consumo reciente';
+    else if (critico) estado = 'Cobertura critica';
+    else if (consumeActivo && dias != null && dias < 28) estado = 'Cobertura baja';
+    return {
+      ...r,
+      CONSUMO_SEMANAL_PROM: Math.round(semanal * 100) / 100,
+      CONSUMO_DIARIO_PROM: Math.round(diario * 100) / 100,
+      SEMANAS_COBERTURA_EST: semanas == null ? null : Math.round(semanas * 100) / 100,
+      DIAS_COBERTURA_EST: dias == null ? null : Math.round(dias * 100) / 100,
+      NUNCA_TUVO_ENTRADA: nuncaInventario,
+      CONSUMO_ACTIVO: consumeActivo,
+      CRITICO: critico,
+      ESTADO_OPERATIVO: estado,
+    };
+  });
+  const resumen = {
+    total_revisados: enriched.length,
+    cero_existencia: enriched.filter(x => (+x.EXISTENCIA_ACTUAL || 0) <= 0).length,
+    cero_y_consumo: enriched.filter(x => (+x.EXISTENCIA_ACTUAL || 0) <= 0 && x.CONSUMO_ACTIVO).length,
+    nunca_entraron: enriched.filter(x => x.NUNCA_TUVO_ENTRADA).length,
+    criticos: enriched.filter(x => x.CRITICO).length,
+  };
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run10',hypothesisId:'H51',location:'server_corregido.js:2637',message:'inventario operacion critica snapshot',data:{resumen,muestra:(enriched||[]).slice(0,3).map(x=>({id:x.ARTICULO_ID,ex:x.EXISTENCIA_ACTUAL,c4:x.CONSUMO_4_SEMANAS,dias:x.DIAS_COBERTURA_EST,critico:x.CRITICO,estado:x.ESTADO_OPERATIVO}))},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  return { resumen, rows: enriched };
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -3285,20 +3382,30 @@ async function resultadosPnlCore(req, dbOpts) {
   // #endregion
 
   const key = (a, m) => `${a}-${m}`;
-  const costMap = {};
-  const applyCostRows = (rows) => {
+  const mapFromRows = (rows) => {
+    const out = {};
     (rows || []).forEach((r) => {
       const k = key(r.ANIO, r.MES);
       const v = +r.COSTO_VENTAS || 0;
-      if (v <= 0) return;
-      if (!costMap[k] || costMap[k] <= 0) costMap[k] = v;
+      if (v > 0) out[k] = v;
     });
+    return out;
   };
-  applyCostRows(costosLineasMes);
-  applyCostRows(costosVEMes);
-  applyCostRows(costosINMes);
-  applyCostRows(costosINDirect);
-  applyCostRows(costosSaldos5101);
+  const costByConta = mapFromRows(costosSaldos5101);
+  const costByLineas = mapFromRows(costosLineasMes);
+  const costByVeDet = mapFromRows(costosVEMes);
+  const costByInDet = mapFromRows(costosINMes);
+  const costByInHdr = mapFromRows(costosINDirect);
+  const costMap = {};
+  // Prioridad: Contabilidad (5101) -> lineas historicas -> VE_DET -> IN_DET -> IN header.
+  const chooseCost = (k) => {
+    if (costByConta[k] > 0) return { value: costByConta[k], source: 'CONTA_5101' };
+    if (costByLineas[k] > 0) return { value: costByLineas[k], source: 'LINEAS_HIST' };
+    if (costByVeDet[k] > 0) return { value: costByVeDet[k], source: 'VE_DET' };
+    if (costByInDet[k] > 0) return { value: costByInDet[k], source: 'IN_DET' };
+    if (costByInHdr[k] > 0) return { value: costByInHdr[k], source: 'IN_HDR' };
+    return { value: 0, source: 'NONE' };
+  };
   const descMap = {};
   (descuentosMes || []).forEach(r => { descMap[key(r.ANIO, r.MES)] = +r.DESCUENTOS_DEV || 0; });
   const cobMap = {}; (cobrosMes || []).forEach(r => { cobMap[key(r.ANIO, r.MES)] = +r.COBROS || 0; });
@@ -3400,13 +3507,18 @@ async function resultadosPnlCore(req, dbOpts) {
   (gastosRows || []).forEach(r => { gasMap[key(r.ANIO, r.MES)] = r; });
   const gasAbs = (g, k) => Math.abs(+g[k] || 0);
 
+  const costosElegidos = [];
   const meses = (ventasMes || []).map(r => {
     const ventasBrutas = +r.VENTAS_BRUTAS || 0;
     const descuentosDev = descMap[key(r.ANIO, r.MES)] || 0;
     // Alineado con ventas.html/PBI del usuario: "ventas netas" = IMPORTE_NETO de F/V
     // (notas de crédito/devoluciones se muestran como informativo, no se restan aquí).
     const ventas = ventasBrutas;
-    const costo = costMap[key(r.ANIO, r.MES)] || 0;
+    const km = key(r.ANIO, r.MES);
+    const chosen = chooseCost(km);
+    const costo = chosen.value || 0;
+    costMap[km] = costo;
+    costosElegidos.push({ ANIO: r.ANIO, MES: r.MES, source: chosen.source, costo });
     const cobros = cobMap[key(r.ANIO, r.MES)] || 0;
     const util = ventas - costo;
     const margenPct = ventas > 0 ? Math.round((util / ventas) * 1000) / 10 : 0;
@@ -3485,6 +3597,9 @@ async function resultadosPnlCore(req, dbOpts) {
   const tiene_gastos_co = sumGastoCo > 0.01;
   // #region agent log
   fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run1',hypothesisId:'H5',location:'server_corregido.js:3333',message:'resultados totals built',data:{ventasNetas:totales.VENTAS_NETAS,costoVentas:totales.COSTO_VENTAS,sumGastoCo,tiene_gastos_co,mesesCount:meses.length,sampleMes:meses[0]||null},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run11',hypothesisId:'H61',location:'server_corregido.js:3390',message:'resultados costo source selection',data:{desde:desdeStr,hasta:hastaStr,costosElegidos,costosResumen:{conta:Object.keys(costByConta).length,lineas:Object.keys(costByLineas).length,ve:Object.keys(costByVeDet).length,inDet:Object.keys(costByInDet).length,inHdr:Object.keys(costByInHdr).length}},timestamp:Date.now()})}).catch(()=>{});
   // #endregion
   let prefijos_rows = [];
   try {
@@ -3654,6 +3769,163 @@ get('/api/resultados/pnl-universe', async (req) => {
   return { generatedAt: new Date().toISOString(), concurrency: conc, empresas: rows, consolidado: cons };
 });
 
+function resolveDateRangeFromQuery(q) {
+  const reDate = /^\d{4}-\d{2}-\d{2}$/;
+  let { desde, hasta, anio, mes } = q || {};
+  if (desde && reDate.test(String(desde)) && hasta && reDate.test(String(hasta))) {
+    return { desdeStr: String(desde), hastaStr: String(hasta) };
+  }
+  const y = anio != null && String(anio).trim() !== '' ? parseInt(anio, 10) : NaN;
+  const m = mes != null && String(mes).trim() !== '' ? parseInt(mes, 10) : NaN;
+  if (!isNaN(y) && !isNaN(m)) {
+    const lastDay = new Date(y, m, 0).getDate();
+    return { desdeStr: `${y}-${String(m).padStart(2, '0')}-01`, hastaStr: `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}` };
+  }
+  if (!isNaN(y) && isNaN(m)) {
+    return { desdeStr: `${y}-01-01`, hastaStr: `${y}-12-31` };
+  }
+  const mesesN = Math.min(Math.max(parseInt((q || {}).meses, 10) || 3, 1), 24);
+  const d = new Date();
+  d.setMonth(d.getMonth() - mesesN);
+  const desdeStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+  const h = new Date();
+  const hastaStr = `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, '0')}-${String(h.getDate()).padStart(2, '0')}`;
+  return { desdeStr, hastaStr };
+}
+
+// Balance General resumido por naturaleza contable (activo/pasivo/capital) al cierre del periodo filtrado.
+get('/api/resultados/balance-general', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const { desdeStr, hastaStr } = resolveDateRangeFromQuery(req.query || {});
+  const y = parseInt(String(hastaStr).slice(0, 4), 10);
+  const m = parseInt(String(hastaStr).slice(5, 7), 10);
+  const salCols = await getTableColumns('SALDOS_CO', dbo);
+  const salAnoCol = firstExistingColumn(salCols, ['ANO', 'ANIO']) || 'ANO';
+  const salMesCol = firstExistingColumn(salCols, ['MES', 'PERIODO']) || 'MES';
+  const salCargoCol = firstExistingColumn(salCols, ['CARGOS', 'DEBE']) || 'CARGOS';
+  const salAbonoCol = firstExistingColumn(salCols, ['ABONOS', 'HABER']) || 'ABONOS';
+  const rows = await query(`
+    SELECT
+      SUBSTRING(cu.CUENTA_PT FROM 1 FOR 1) AS GRUPO1,
+      cu.CUENTA_PT,
+      TRIM(COALESCE(cu.NOMBRE, cu.CUENTA_PT)) AS NOMBRE,
+      SUM(COALESCE(s.${salCargoCol}, 0)) AS CARGOS,
+      SUM(COALESCE(s.${salAbonoCol}, 0)) AS ABONOS
+    FROM SALDOS_CO s
+    JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
+    WHERE s.${salAnoCol} = ?
+      AND s.${salMesCol} <= ?
+      AND (cu.CUENTA_PT STARTING WITH '1' OR cu.CUENTA_PT STARTING WITH '2' OR cu.CUENTA_PT STARTING WITH '3')
+    GROUP BY SUBSTRING(cu.CUENTA_PT FROM 1 FOR 1), cu.CUENTA_PT, cu.NOMBRE
+    ORDER BY cu.CUENTA_PT
+  `, [y, m], 15000, dbo).catch(() => []);
+  const detail = { activo: [], pasivo: [], capital: [] };
+  let activo = 0; let pasivo = 0; let capital = 0;
+  (rows || []).forEach((r) => {
+    const g = String(r.GRUPO1 || '').trim();
+    const cargos = +r.CARGOS || 0;
+    const abonos = +r.ABONOS || 0;
+    let saldo = 0;
+    if (g === '1') saldo = cargos - abonos; // activos naturaleza deudora
+    if (g === '2' || g === '3') saldo = abonos - cargos; // pasivo/capital naturaleza acreedora
+    saldo = Math.round(saldo * 100) / 100;
+    if (Math.abs(saldo) < 0.005) return;
+    const rec = { CUENTA_PT: r.CUENTA_PT, NOMBRE: r.NOMBRE, SALDO: saldo };
+    if (g === '1') { activo += saldo; detail.activo.push(rec); }
+    if (g === '2') { pasivo += saldo; detail.pasivo.push(rec); }
+    if (g === '3') { capital += saldo; detail.capital.push(rec); }
+  });
+  detail.activo.sort((a, b) => Math.abs(+b.SALDO || 0) - Math.abs(+a.SALDO || 0));
+  detail.pasivo.sort((a, b) => Math.abs(+b.SALDO || 0) - Math.abs(+a.SALDO || 0));
+  detail.capital.sort((a, b) => Math.abs(+b.SALDO || 0) - Math.abs(+a.SALDO || 0));
+  const payload = {
+    cierre: { ANIO: y, MES: m, hasta: hastaStr },
+    totales: {
+      ACTIVO_TOTAL: Math.round(activo * 100) / 100,
+      PASIVO_TOTAL: Math.round(pasivo * 100) / 100,
+      CAPITAL_TOTAL: Math.round(capital * 100) / 100,
+      PASIVO_MAS_CAPITAL: Math.round((pasivo + capital) * 100) / 100,
+      DIFERENCIA_BALANCE: Math.round(((pasivo + capital) - activo) * 100) / 100,
+    },
+    detalle: {
+      activo: detail.activo.slice(0, 20),
+      pasivo: detail.pasivo.slice(0, 20),
+      capital: detail.capital.slice(0, 20),
+    },
+  };
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run11',hypothesisId:'H63',location:'server_corregido.js:3720',message:'balance general payload',data:{cierre:payload.cierre,totales:payload.totales},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  return payload;
+});
+
+// Reconciliación extendida para febrero u otros periodos: ventas/costo/gastos por variantes.
+get('/api/debug/pnl-reconcile-ext', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const { desdeStr, hastaStr } = resolveDateRangeFromQuery(req.query || {});
+  const params = [desdeStr, hastaStr];
+  const out = {};
+  const safeOne = async (k, sql, p = params) => {
+    const rows = await query(sql, p, 15000, dbo).catch(() => [{ T: 0 }]);
+    out[k] = +((rows[0] && (rows[0].T ?? rows[0].TOTAL)) || 0);
+  };
+  await Promise.all([
+    safeOne('ventas_fv_aplicado', `
+      SELECT COALESCE(SUM(${sqlVentaImporteBaseExpr('d')}),0) AS T
+      FROM DOCTOS_VE d
+      WHERE d.TIPO_DOCTO IN ('F','V')
+        AND COALESCE(d.ESTATUS,'N') NOT IN ('C','D','S')
+        AND COALESCE(d.APLICADO,'N')='S'
+        AND CAST(d.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(d.FECHA AS DATE) <= CAST(? AS DATE)
+    `),
+    safeOne('ventas_f_solo', `
+      SELECT COALESCE(SUM(${sqlVentaImporteBaseExpr('d')}),0) AS T
+      FROM DOCTOS_VE d
+      WHERE d.TIPO_DOCTO='F'
+        AND COALESCE(d.ESTATUS,'N') NOT IN ('C','D','S')
+        AND COALESCE(d.APLICADO,'N')='S'
+        AND CAST(d.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(d.FECHA AS DATE) <= CAST(? AS DATE)
+    `),
+    safeOne('ventas_pv_fv_aplicado', `
+      SELECT COALESCE(SUM(${sqlVentaImporteBaseExpr('d')}),0) AS T
+      FROM DOCTOS_PV d
+      WHERE d.TIPO_DOCTO IN ('F','V')
+        AND COALESCE(d.ESTATUS,'N') NOT IN ('C','D','S')
+        AND COALESCE(d.APLICADO,'N')='S'
+        AND CAST(d.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(d.FECHA AS DATE) <= CAST(? AS DATE)
+    `),
+    safeOne('costo_conta_5101', `
+      SELECT COALESCE(SUM(COALESCE(s.CARGOS,0) - COALESCE(s.ABONOS,0)),0) AS T
+      FROM SALDOS_CO s
+      JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
+      WHERE cu.CUENTA_PT STARTING WITH '5101'
+        AND s.ANO = EXTRACT(YEAR FROM CAST(? AS DATE))
+        AND s.MES = EXTRACT(MONTH FROM CAST(? AS DATE))
+    `),
+    safeOne('gastos_abs_52_53_54', `
+      SELECT COALESCE(SUM(ABS(COALESCE(s.CARGOS,0)-COALESCE(s.ABONOS,0))),0) AS T
+      FROM SALDOS_CO s
+      JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
+      WHERE (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53' OR cu.CUENTA_PT STARTING WITH '54')
+        AND s.ANO = EXTRACT(YEAR FROM CAST(? AS DATE))
+        AND s.MES = EXTRACT(MONTH FROM CAST(? AS DATE))
+    `),
+    safeOne('gastos_signed_52_53_54', `
+      SELECT COALESCE(SUM(COALESCE(s.CARGOS,0)-COALESCE(s.ABONOS,0)),0) AS T
+      FROM SALDOS_CO s
+      JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
+      WHERE (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53' OR cu.CUENTA_PT STARTING WITH '54')
+        AND s.ANO = EXTRACT(YEAR FROM CAST(? AS DATE))
+        AND s.MES = EXTRACT(MONTH FROM CAST(? AS DATE))
+    `),
+  ]);
+  const payload = { desdeStr, hastaStr, variantes: out };
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run11',hypothesisId:'H62',location:'server_corregido.js:3788',message:'pnl reconcile ext payload',data:payload,timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  return payload;
+});
+
 // ═══════════════════════════════════════════════════════════
 //  DEBUG
 // ═══════════════════════════════════════════════════════════
@@ -3706,21 +3978,46 @@ get('/api/debug/cxc-reconcile', async (req) => {
       SUM(CASE WHEN doc.DIAS_VENCIDO <= 0 THEN doc.SALDO_NETO ELSE 0 END) AS POR_VENCER
     FROM ${cxcDocSaldosSQL('')}
   `;
-  const [docRows, vActEx, vActIn, vIvaEx, vIvaIn] = await Promise.all([
+  const movimientosSql = (excludeContado) => `
+    SELECT
+      SUM(CASE WHEN i.TIPO_IMPTE = 'C' THEN i.IMPORTE ELSE 0 END) AS CARGOS,
+      SUM(CASE WHEN i.TIPO_IMPTE = 'R' THEN i.IMPORTE ELSE 0 END) AS RECIBOS_IMPORTE,
+      SUM(CASE WHEN i.TIPO_IMPTE = 'R' THEN (CASE WHEN COALESCE(i.IMPUESTO, 0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END) ELSE 0 END) AS RECIBOS_NORMALIZADOS
+    FROM IMPORTES_DOCTOS_CC i
+    JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = i.DOCTO_CC_ID
+    LEFT JOIN CLIENTES clx ON clx.CLIENTE_ID = dc.CLIENTE_ID
+    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, clx.COND_PAGO_ID)
+    WHERE COALESCE(i.CANCELADO, 'N') = 'N' ${excludeContado ? CXC_EXCLUIR_CONTADO : ''}
+  `;
+  const [docRows, vCurrent, vLegacyEx, vActIn, vIvaEx, vIvaIn, movEx, movIn] = await Promise.all([
     q(docSql, [], 20000).catch(() => [{ VENCIDO: 0, POR_VENCER: 0 }]),
+    q(`SELECT COALESCE(SUM(cs.SALDO), 0) AS T FROM ${cxcClienteSQL()} cs`, [], 20000).catch(() => [{ T: 0 }]),
     q(clienteTotalSql({ withIva: false, excludeContado: true }), [], 20000).catch(() => [{ T: 0 }]),
     q(clienteTotalSql({ withIva: false, excludeContado: false }), [], 20000).catch(() => [{ T: 0 }]),
     q(clienteTotalSql({ withIva: true, excludeContado: true }), [], 20000).catch(() => [{ T: 0 }]),
     q(clienteTotalSql({ withIva: true, excludeContado: false }), [], 20000).catch(() => [{ T: 0 }]),
+    q(movimientosSql(true), [], 20000).catch(() => [{ CARGOS: 0, RECIBOS_IMPORTE: 0, RECIBOS_NORMALIZADOS: 0 }]),
+    q(movimientosSql(false), [], 20000).catch(() => [{ CARGOS: 0, RECIBOS_IMPORTE: 0, RECIBOS_NORMALIZADOS: 0 }]),
   ]);
   const docV = +(docRows[0] && docRows[0].VENCIDO) || 0;
   const docP = +(docRows[0] && docRows[0].POR_VENCER) || 0;
   const payload = {
     metodo_doc_saldos: { total: Math.round((docV + docP) * 100) / 100, vencido: Math.round(docV * 100) / 100, por_vencer: Math.round(docP * 100) / 100 },
-    metodo_cliente_actual_excluye_contado: Math.round((+(vActEx[0] && vActEx[0].T) || 0) * 100) / 100,
+    metodo_cliente_actual_excluye_contado: Math.round((+(vCurrent[0] && vCurrent[0].T) || 0) * 100) / 100,
+    metodo_cliente_legacy_excluye_contado: Math.round((+(vLegacyEx[0] && vLegacyEx[0].T) || 0) * 100) / 100,
     metodo_cliente_actual_incluye_contado: Math.round((+(vActIn[0] && vActIn[0].T) || 0) * 100) / 100,
     metodo_cliente_con_iva_excluye_contado: Math.round((+(vIvaEx[0] && vIvaEx[0].T) || 0) * 100) / 100,
     metodo_cliente_con_iva_incluye_contado: Math.round((+(vIvaIn[0] && vIvaIn[0].T) || 0) * 100) / 100,
+    movimientos_excluye_contado: {
+      cargos: Math.round((+(movEx[0] && movEx[0].CARGOS) || 0) * 100) / 100,
+      recibos_importe: Math.round((+(movEx[0] && movEx[0].RECIBOS_IMPORTE) || 0) * 100) / 100,
+      recibos_normalizados: Math.round((+(movEx[0] && movEx[0].RECIBOS_NORMALIZADOS) || 0) * 100) / 100,
+    },
+    movimientos_incluye_contado: {
+      cargos: Math.round((+(movIn[0] && movIn[0].CARGOS) || 0) * 100) / 100,
+      recibos_importe: Math.round((+(movIn[0] && movIn[0].RECIBOS_IMPORTE) || 0) * 100) / 100,
+      recibos_normalizados: Math.round((+(movIn[0] && movIn[0].RECIBOS_NORMALIZADOS) || 0) * 100) / 100,
+    },
   };
   // #region agent log
   fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run6',hypothesisId:'H13',location:'server_corregido.js:3630',message:'cxc reconcile totals',data:payload,timestamp:Date.now()})}).catch(()=>{});
@@ -5115,9 +5412,13 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
           visuals: [{ type: 'image', title: `Screenshot ${pageFile}`, url: img }],
         };
       } catch (e) {
+        const errMsg = String((e && e.message) || e || '');
+        // #region agent log
+        fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run8',hypothesisId:'H31',location:'server_corregido.js:5130',message:'dashboard screenshot failed',data:{pageFile,targetUrl,playwrightMissingBinary:/Executable doesn't exist|playwright install/i.test(errMsg),errorPreview:errMsg.slice(0,220)},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         return {
           toolId,
-          block: `\n\nNo pude capturar screenshot real (${String(e.message || e)}).`,
+          block: `\n\nNo pude capturar screenshot real en este servidor (motor de navegador no disponible).`,
           source: `playwright-error:${pageFile}`,
           visuals: [],
         };
@@ -5373,9 +5674,11 @@ app.post('/api/ai/chat', async (req, res) => {
         const joined = toolBlocks.join('\n').trim();
         const rawReason = lastReason || (data && data.error && (data.error.message || data.error.type)) || 'Error de la API de Claude';
         const reason = String(rawReason || '').trim();
-        const modelTag = /model\s*:/i.test(reason) ? '' : `model: ${usedModel || 'n/a'} · `;
+        // #region agent log
+        fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run8',hypothesisId:'H32',location:'server_corregido.js:5399',message:'anthropic fallback activated',data:{usedModel:usedModel||null,modelsTried:models,reasonPreview:reason.slice(0,180),tools:selectedTools},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         const fallback = joined
-          ? `Resumen ejecutivo\n- Claude no respondió correctamente (${modelTag}${reason}).\n- Se activa respuesta local con datos reales del sistema.\n\n${joined}\n\nAcción recomendada\n- Revisa ANTHROPIC_API_KEY/permisos y prueba ANTHROPIC_MODEL.\n- Modelos intentados: ${models.join(', ')}.`
+          ? `Resumen ejecutivo\n- Asistente conversacional externo no disponible temporalmente.\n- Se activa respuesta local con datos reales del sistema.\n\n${joined}\n\nAcción recomendada\n- Revisar credenciales/permisos de Claude en el servidor para recuperar respuestas narrativas avanzadas.`
           : `Claude no respondió correctamente (${reason}) y no hubo datos para esta consulta con los filtros actuales.`;
         return res.json({ reply: fallback, visuals });
       }

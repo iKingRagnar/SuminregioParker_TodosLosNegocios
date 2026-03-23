@@ -83,6 +83,10 @@ nav{display:flex;align-items:center;gap:.25rem}
 .stock-bar-bg{flex:1;height:6px;background:var(--s3);border-radius:99px;overflow:hidden}
 .stock-bar-fill{height:100%;border-radius:99px}
 .semanas-tag{display:inline-block;padding:.1rem .4rem;border-radius:4px;font-family:'DM Mono',monospace;font-size:.62rem}
+.estado-chip{display:inline-block;padding:.1rem .45rem;border-radius:6px;font-family:'DM Mono',monospace;font-size:.6rem}
+.estado-chip.crit{color:var(--red);background:var(--red-dim)}
+.estado-chip.warn{color:var(--yellow);background:var(--yellow-dim)}
+.estado-chip.ok{color:var(--green);background:var(--green-dim)}
 </style>
 </head>
 <body>
@@ -209,6 +213,25 @@ nav{display:flex;align-items:center;gap:.25rem}
       </table>
     </div>
   </div>
+
+  <div class="card" style="margin-bottom:1.5rem">
+    <div class="card-head">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.5 9.5-8 10-4.5-.5-8-5-8-10V6l8-4z"/><path d="M8 12h8"/></svg>
+        Operaci&oacute;n Inventario (cero persistente + cobertura cr&iacute;tica)
+      </div>
+      <div class="card-badge" id="op-badge">--</div>
+    </div>
+    <div class="card-body" style="padding:0">
+      <table class="tbl" id="tbl-operacion">
+        <thead><tr>
+          <th>Art&iacute;culo</th><th class="num">Exist.</th><th class="num">Entradas Hist.</th>
+          <th class="num">Cons/4 Sem</th><th class="num">Cobertura</th><th>Estado</th>
+        </tr></thead>
+        <tbody id="tbl-operacion-body"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tbody>
+      </table>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -230,6 +253,11 @@ async function apiFetch(url, ms){
 const fmt  = n => isNaN(+n)||n==null?'&mdash;':'$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 const fmtK = n => { if(isNaN(+n)||n==null) return '&mdash;'; n=+n; return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2}); };
 const setText = (id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
+// #region agent log
+function debugLogInventario(runId,hypothesisId,location,message,data){
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId,hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
+}
+// #endregion
 
 setInterval(()=>{ document.getElementById('clock').textContent=new Date().toLocaleTimeString('es-MX'); },1000);
 
@@ -278,7 +306,7 @@ async function loadAll() {
     }
   } catch(e){}
 
-  await Promise.all([loadMinimo(), loadConsumo(), loadTopStock(), loadForecast(), loadSinMovimiento()]);
+  await Promise.all([loadMinimo(), loadConsumo(), loadTopStock(), loadForecast(), loadSinMovimiento(), loadOperacionCritica()]);
   setText('page-sub', 'Actualizado: '+new Date().toLocaleTimeString('es-MX'));
 }
 
@@ -389,6 +417,43 @@ async function loadSinMovimiento(){
       </tr>`;
     }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Sin art&iacute;culos sin movimiento</td></tr>';
   }catch(e){console.error('sin-movimiento',e);}
+}
+
+async function loadOperacionCritica(){
+  try{
+    const payload = await apiFetch(apiDb('/api/inv/operacion-critica?limit=120'), 30000);
+    const rows = Array.isArray(payload && payload.rows) ? payload.rows : [];
+    const rs = (payload && payload.resumen) || {};
+    setText('op-badge', `${rows.length} filas · ${Number(rs.criticos||0)} cr\u00edticos`);
+    document.getElementById('tbl-operacion-body').innerHTML = rows.map(r=>{
+      const ex = +r.EXISTENCIA_ACTUAL || 0;
+      const ent = +r.ENTRADAS_TOTAL || 0;
+      const c4 = +r.CONSUMO_4_SEMANAS || 0;
+      const dias = r.DIAS_COBERTURA_EST == null ? null : +r.DIAS_COBERTURA_EST;
+      const sem = r.SEMANAS_COBERTURA_EST == null ? null : +r.SEMANAS_COBERTURA_EST;
+      const crit = !!r.CRITICO;
+      const estado = String(r.ESTADO_OPERATIVO || '');
+      const chipCls = crit ? 'crit' : (estado.toLowerCase().includes('baja') || estado.toLowerCase().includes('agotado') ? 'warn' : 'ok');
+      const cobTxt = (dias == null || !isFinite(dias))
+        ? '&mdash;'
+        : `${dias.toFixed(1)} d / ${sem!=null&&isFinite(sem)?sem.toFixed(1):'--'} sem`;
+      return `<tr>
+        <td class="lbl">${r.DESCRIPCION||''}</td>
+        <td class="num" style="color:${ex<=0?'var(--red)':'var(--text)'}">${ex.toFixed(1)}</td>
+        <td class="num" style="color:${ent<=0?'var(--red)':'var(--muted)'}">${ent.toFixed(1)}</td>
+        <td class="num" style="color:${c4>0?'var(--blue)':'var(--muted)'}">${c4.toFixed(1)}</td>
+        <td class="num">${cobTxt}</td>
+        <td><span class="estado-chip ${chipCls}">${estado}</span></td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Sin art&iacute;culos para este an&aacute;lisis</td></tr>';
+    // #region agent log
+    debugLogInventario('run10','H52','inventario.html:loadOperacionCritica','render operacion critica',{rows:rows.length,criticos:Number(rs.criticos||0),ceroYConsumo:Number(rs.cero_y_consumo||0),nuncaEntraron:Number(rs.nunca_entraron||0)});
+    // #endregion
+  }catch(e){
+    console.error('operacion-critica',e);
+    const tb=document.getElementById('tbl-operacion-body');
+    if(tb) tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--red);padding:1.5rem">Error al cargar operaci&oacute;n inventario.</td></tr>';
+  }
 }
 
 if (typeof initFilters === 'function') {
