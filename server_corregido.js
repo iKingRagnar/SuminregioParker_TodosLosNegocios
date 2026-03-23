@@ -2810,6 +2810,23 @@ async function resultadosPnlCore(req, dbOpts) {
   const dateParams = [desdeStr, hastaStr];
   const dateCond = 'CAST(d.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(d.FECHA AS DATE) <= CAST(? AS DATE)';
   const dateCondCc = 'CAST(dc.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(dc.FECHA AS DATE) <= CAST(? AS DATE)';
+  const salCols = await getTableColumns('SALDOS_CO', dbOpts).catch(() => new Set());
+  const salAnoCol = firstExistingColumn(salCols, ['ANO', 'ANIO', 'EJERCICIO']) || 'ANO';
+  const salMesCol = firstExistingColumn(salCols, ['MES', 'PERIODO', 'NUM_MES']) || 'MES';
+  const salCargoCol = firstExistingColumn(salCols, ['CARGOS', 'CARGO', 'DEBE']) || 'CARGOS';
+  const salAbonoCol = firstExistingColumn(salCols, ['ABONOS', 'ABONO', 'HABER']) || 'ABONOS';
+  const salYearExpr = `s.${salAnoCol}`;
+  const salMonthExpr = `s.${salMesCol}`;
+  const salDeltaExpr = `COALESCE(s.${salCargoCol}, 0) - COALESCE(s.${salAbonoCol}, 0)`;
+  const detCols = await getTableColumns('DOCTOS_CO_DET', dbOpts).catch(() => new Set());
+  const detCargoCol = firstExistingColumn(detCols, ['CARGO', 'CARGOS', 'DEBE']);
+  const detAbonoCol = firstExistingColumn(detCols, ['ABONO', 'ABONOS', 'HABER']);
+  const detImporteCol = firstExistingColumn(detCols, ['IMPORTE', 'MONTO']);
+  const detDeltaExpr = (detCargoCol && detAbonoCol)
+    ? `COALESCE(d.${detCargoCol}, 0) - COALESCE(d.${detAbonoCol}, 0)`
+    : (detImporteCol ? `COALESCE(d.${detImporteCol}, 0)` : '0');
+  const detDateExpr = detCols.has('FECHA') ? 'd.FECHA' : 'c.FECHA';
+  const detNeedsDoctoJoin = !detCols.has('FECHA');
   const impRes = sqlVentaImporteResultadosExpr('d');
   const ventasSubRes = `(
     SELECT
@@ -3025,7 +3042,7 @@ async function resultadosPnlCore(req, dbOpts) {
   const ey = parseInt(String(hastaStr).slice(0, 4), 10);
   const em = parseInt(String(hastaStr).slice(5, 7), 10);
 
-  const [ventasMes, descuentosMes, costosINMes, costosINDirect, cobrosMes, costosSaldos5101, gastosSaldos52] = await Promise.all([
+  const [ventasMes, descuentosMes, costosINMes, costosINDirect, cobrosMes, costosSaldos5101, gastosSaldos52, gastosDoctos52] = await Promise.all([
     q(`
       SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
         COALESCE(SUM(d.IMPORTE_NETO), 0) AS VENTAS_BRUTAS,
@@ -3080,57 +3097,96 @@ async function resultadosPnlCore(req, dbOpts) {
       GROUP BY EXTRACT(YEAR FROM dc.FECHA), EXTRACT(MONTH FROM dc.FECHA) ORDER BY 1, 2
     `, dateParams).catch(() => []),
     q(`
-      SELECT s.ANO AS ANIO, s.MES AS MES,
-        COALESCE(SUM(COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0)), 0) AS COSTO_VENTAS
+      SELECT ${salYearExpr} AS ANIO, ${salMonthExpr} AS MES,
+        COALESCE(SUM(${salDeltaExpr}), 0) AS COSTO_VENTAS
       FROM SALDOS_CO s
       JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
       WHERE cu.CUENTA_PT STARTING WITH '5101'
-        AND s.ANO >= ? AND s.ANO <= ?
-        AND NOT (s.ANO = ? AND s.MES < ?)
-        AND NOT (s.ANO = ? AND s.MES > ?)
-      GROUP BY s.ANO, s.MES
+        AND ${salYearExpr} >= ? AND ${salYearExpr} <= ?
+        AND NOT (${salYearExpr} = ? AND ${salMonthExpr} < ?)
+        AND NOT (${salYearExpr} = ? AND ${salMonthExpr} > ?)
+      GROUP BY ${salYearExpr}, ${salMonthExpr}
       ORDER BY 1, 2
     `, [sy, ey, sy, sm, ey, em], 15000).catch(() => []),
     q(`
-      SELECT s.ANO AS ANIO, s.MES AS MES,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5201' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_A1,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5202' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_A2,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5203' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_A3,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5204' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_A4,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5205' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_A5,
+      SELECT ${salYearExpr} AS ANIO, ${salMonthExpr} AS MES,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5201' THEN ${salDeltaExpr} ELSE 0 END) AS CO_A1,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5202' THEN ${salDeltaExpr} ELSE 0 END) AS CO_A2,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5203' THEN ${salDeltaExpr} ELSE 0 END) AS CO_A3,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5204' THEN ${salDeltaExpr} ELSE 0 END) AS CO_A4,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5205' THEN ${salDeltaExpr} ELSE 0 END) AS CO_A5,
         SUM(CASE
           WHEN cu.CUENTA_PT STARTING WITH '52'
            AND NOT (cu.CUENTA_PT STARTING WITH '5201' OR cu.CUENTA_PT STARTING WITH '5202' OR cu.CUENTA_PT STARTING WITH '5203'
              OR cu.CUENTA_PT STARTING WITH '5204' OR cu.CUENTA_PT STARTING WITH '5205')
-          THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_A6,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5301' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_B1,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5302' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_B2,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5303' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_B3,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5304' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_B4,
+         THEN ${salDeltaExpr} ELSE 0 END) AS CO_A6,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5301' THEN ${salDeltaExpr} ELSE 0 END) AS CO_B1,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5302' THEN ${salDeltaExpr} ELSE 0 END) AS CO_B2,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5303' THEN ${salDeltaExpr} ELSE 0 END) AS CO_B3,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5304' THEN ${salDeltaExpr} ELSE 0 END) AS CO_B4,
         SUM(CASE
           WHEN cu.CUENTA_PT STARTING WITH '53'
            AND NOT (cu.CUENTA_PT STARTING WITH '5301' OR cu.CUENTA_PT STARTING WITH '5302'
              OR cu.CUENTA_PT STARTING WITH '5303' OR cu.CUENTA_PT STARTING WITH '5304')
-          THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_B5,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5401' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_C1,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5402' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_C2,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5403' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_C3,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5404' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_C4,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5405' THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_C5,
+         THEN ${salDeltaExpr} ELSE 0 END) AS CO_B5,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5401' THEN ${salDeltaExpr} ELSE 0 END) AS CO_C1,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5402' THEN ${salDeltaExpr} ELSE 0 END) AS CO_C2,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5403' THEN ${salDeltaExpr} ELSE 0 END) AS CO_C3,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5404' THEN ${salDeltaExpr} ELSE 0 END) AS CO_C4,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5405' THEN ${salDeltaExpr} ELSE 0 END) AS CO_C5,
         SUM(CASE
           WHEN cu.CUENTA_PT STARTING WITH '54'
            AND NOT (cu.CUENTA_PT STARTING WITH '5401' OR cu.CUENTA_PT STARTING WITH '5402'
              OR cu.CUENTA_PT STARTING WITH '5403' OR cu.CUENTA_PT STARTING WITH '5404' OR cu.CUENTA_PT STARTING WITH '5405')
-          THEN COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0) ELSE 0 END) AS CO_C6
+         THEN ${salDeltaExpr} ELSE 0 END) AS CO_C6
       FROM SALDOS_CO s
       JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
       WHERE (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53' OR cu.CUENTA_PT STARTING WITH '54')
-        AND s.ANO >= ? AND s.ANO <= ?
-        AND NOT (s.ANO = ? AND s.MES < ?)
-        AND NOT (s.ANO = ? AND s.MES > ?)
-      GROUP BY s.ANO, s.MES
+        AND ${salYearExpr} >= ? AND ${salYearExpr} <= ?
+        AND NOT (${salYearExpr} = ? AND ${salMonthExpr} < ?)
+        AND NOT (${salYearExpr} = ? AND ${salMonthExpr} > ?)
+      GROUP BY ${salYearExpr}, ${salMonthExpr}
       ORDER BY 1, 2
     `, [sy, ey, sy, sm, ey, em], 15000).catch(() => []),
+    q(`
+      SELECT EXTRACT(YEAR FROM ${detDateExpr}) AS ANIO, EXTRACT(MONTH FROM ${detDateExpr}) AS MES,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5201' THEN ${detDeltaExpr} ELSE 0 END) AS CO_A1,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5202' THEN ${detDeltaExpr} ELSE 0 END) AS CO_A2,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5203' THEN ${detDeltaExpr} ELSE 0 END) AS CO_A3,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5204' THEN ${detDeltaExpr} ELSE 0 END) AS CO_A4,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5205' THEN ${detDeltaExpr} ELSE 0 END) AS CO_A5,
+        SUM(CASE
+          WHEN cu.CUENTA_PT STARTING WITH '52'
+           AND NOT (cu.CUENTA_PT STARTING WITH '5201' OR cu.CUENTA_PT STARTING WITH '5202' OR cu.CUENTA_PT STARTING WITH '5203'
+             OR cu.CUENTA_PT STARTING WITH '5204' OR cu.CUENTA_PT STARTING WITH '5205')
+         THEN ${detDeltaExpr} ELSE 0 END) AS CO_A6,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5301' THEN ${detDeltaExpr} ELSE 0 END) AS CO_B1,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5302' THEN ${detDeltaExpr} ELSE 0 END) AS CO_B2,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5303' THEN ${detDeltaExpr} ELSE 0 END) AS CO_B3,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5304' THEN ${detDeltaExpr} ELSE 0 END) AS CO_B4,
+        SUM(CASE
+          WHEN cu.CUENTA_PT STARTING WITH '53'
+           AND NOT (cu.CUENTA_PT STARTING WITH '5301' OR cu.CUENTA_PT STARTING WITH '5302'
+             OR cu.CUENTA_PT STARTING WITH '5303' OR cu.CUENTA_PT STARTING WITH '5304')
+         THEN ${detDeltaExpr} ELSE 0 END) AS CO_B5,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5401' THEN ${detDeltaExpr} ELSE 0 END) AS CO_C1,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5402' THEN ${detDeltaExpr} ELSE 0 END) AS CO_C2,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5403' THEN ${detDeltaExpr} ELSE 0 END) AS CO_C3,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5404' THEN ${detDeltaExpr} ELSE 0 END) AS CO_C4,
+        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5405' THEN ${detDeltaExpr} ELSE 0 END) AS CO_C5,
+        SUM(CASE
+          WHEN cu.CUENTA_PT STARTING WITH '54'
+           AND NOT (cu.CUENTA_PT STARTING WITH '5401' OR cu.CUENTA_PT STARTING WITH '5402'
+             OR cu.CUENTA_PT STARTING WITH '5403' OR cu.CUENTA_PT STARTING WITH '5404' OR cu.CUENTA_PT STARTING WITH '5405')
+         THEN ${detDeltaExpr} ELSE 0 END) AS CO_C6
+      FROM DOCTOS_CO_DET d
+      ${detNeedsDoctoJoin ? 'JOIN DOCTOS_CO c ON c.DOCTO_CO_ID = d.DOCTO_CO_ID' : ''}
+      JOIN CUENTAS_CO cu ON cu.CUENTA_ID = d.CUENTA_ID
+      WHERE (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53' OR cu.CUENTA_PT STARTING WITH '54')
+        AND CAST(${detDateExpr} AS DATE) >= CAST(? AS DATE) AND CAST(${detDateExpr} AS DATE) <= CAST(? AS DATE)
+      GROUP BY EXTRACT(YEAR FROM ${detDateExpr}), EXTRACT(MONTH FROM ${detDateExpr})
+      ORDER BY 1, 2
+    `, dateParams, 15000).catch(() => []),
   ]);
 
   const key = (a, m) => `${a}-${m}`;
@@ -3151,8 +3207,16 @@ async function resultadosPnlCore(req, dbOpts) {
   const descMap = {};
   (descuentosMes || []).forEach(r => { descMap[key(r.ANIO, r.MES)] = +r.DESCUENTOS_DEV || 0; });
   const cobMap = {}; (cobrosMes || []).forEach(r => { cobMap[key(r.ANIO, r.MES)] = +r.COBROS || 0; });
+  const sumGastosRows = (rows) => (rows || []).reduce((acc, r) => {
+    const cols = ['CO_A1', 'CO_A2', 'CO_A3', 'CO_A4', 'CO_A5', 'CO_A6', 'CO_B1', 'CO_B2', 'CO_B3', 'CO_B4', 'CO_B5', 'CO_C1', 'CO_C2', 'CO_C3', 'CO_C4', 'CO_C5', 'CO_C6'];
+    return acc + cols.reduce((s, c) => s + Math.abs(+r[c] || 0), 0);
+  }, 0);
+  let gastosRows = Array.isArray(gastosSaldos52) ? gastosSaldos52 : [];
+  if (sumGastosRows(gastosRows) <= 0.01 && sumGastosRows(gastosDoctos52) > 0.01) {
+    gastosRows = gastosDoctos52;
+  }
   const gasMap = {};
-  (gastosSaldos52 || []).forEach(r => { gasMap[key(r.ANIO, r.MES)] = r; });
+  (gastosRows || []).forEach(r => { gasMap[key(r.ANIO, r.MES)] = r; });
   const gasAbs = (g, k) => Math.abs(+g[k] || 0);
 
   const meses = (ventasMes || []).map(r => {
@@ -3286,13 +3350,13 @@ async function resultadosPnlCore(req, dbOpts) {
           ELSE NULL
         END AS BUCKET,
         TRIM(COALESCE(NULLIF(cu.NOMBRE, ''), NULLIF(cu.CUENTA_JT, ''), cu.CUENTA_PT)) AS ETIQUETA,
-        SUM(ABS(COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0))) AS IMP
+        SUM(ABS(${salDeltaExpr})) AS IMP
       FROM SALDOS_CO s
       JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
       WHERE (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53' OR cu.CUENTA_PT STARTING WITH '54')
-        AND s.ANO >= ? AND s.ANO <= ?
-        AND NOT (s.ANO = ? AND s.MES < ?)
-        AND NOT (s.ANO = ? AND s.MES > ?)
+        AND ${salYearExpr} >= ? AND ${salYearExpr} <= ?
+        AND NOT (${salYearExpr} = ? AND ${salMonthExpr} < ?)
+        AND NOT (${salYearExpr} = ? AND ${salMonthExpr} > ?)
       GROUP BY 1, 2
       ORDER BY 1, 3 DESC
     `, [sy, ey, sy, sm, ey, em], 12000);
@@ -5035,9 +5099,11 @@ app.post('/api/ai/chat', async (req, res) => {
       }
       if (!data || data.error || !Array.isArray(data.content)) {
         const joined = toolBlocks.join('\n').trim();
-        const reason = lastReason || (data && data.error && (data.error.message || data.error.type)) || 'Error de la API de Claude';
+        const rawReason = lastReason || (data && data.error && (data.error.message || data.error.type)) || 'Error de la API de Claude';
+        const reason = String(rawReason || '').trim();
+        const modelTag = /model\s*:/i.test(reason) ? '' : `model: ${usedModel || 'n/a'} · `;
         const fallback = joined
-          ? `Resumen ejecutivo\n- Claude no respondió correctamente (model: ${usedModel || 'n/a'} · ${reason}).\n- Se activa respuesta local con datos reales del sistema.\n\n${joined}\n\nAcción recomendada\n- Revisa ANTHROPIC_API_KEY/permisos y prueba ANTHROPIC_MODEL.\n- Modelos intentados: ${models.join(', ')}.`
+          ? `Resumen ejecutivo\n- Claude no respondió correctamente (${modelTag}${reason}).\n- Se activa respuesta local con datos reales del sistema.\n\n${joined}\n\nAcción recomendada\n- Revisa ANTHROPIC_API_KEY/permisos y prueba ANTHROPIC_MODEL.\n- Modelos intentados: ${models.join(', ')}.`
           : `Claude no respondió correctamente (${reason}) y no hubo datos para esta consulta con los filtros actuales.`;
         return res.json({ reply: fallback, visuals });
       }
