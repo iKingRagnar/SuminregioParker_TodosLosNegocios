@@ -1010,7 +1010,14 @@ async function loadData(){
     const anioRef = +((tablaMeses[tablaMeses.length-1]||{}).ANIO || (new Date().getFullYear()));
     const mesActual = new Date().getMonth()+1;
     const mesFinYtd = (anioRef===new Date().getFullYear()) ? mesActual : 12;
-    if(tablaMeses.length && tablaMeses.length<mesFinYtd){
+    const fp = (typeof window.filterGetParams === 'function') ? (window.filterGetParams() || {}) : {};
+    const hasMesExplicito = !!(fp && fp.anio && fp.mes);
+    const hasRangoExplicito = !!(fp && fp.desde && fp.hasta);
+    const shouldExpandYtd = !!(tablaMeses.length && tablaMeses.length < mesFinYtd && !hasMesExplicito && !hasRangoExplicito);
+    // #region agent log
+    debugLogResultados('run17','H77','resultados.html:loadData:ytd-gate','ytd expansion gate',{anioRef,mesFinYtd,tablaMesesLen:tablaMeses.length,hasMesExplicito,hasRangoExplicito,shouldExpandYtd,filterParams:fp});
+    // #endregion
+    if(shouldExpandYtd){
       const ytdUrl=buildPnlApiUrl('/api/resultados/pnl',`anio=${anioRef}`,{omitFilters:true})+'&_='+Date.now();
       // #region agent log
       debugLogResultados('run9','H41','resultados.html:846','ytd expansion attempt',{anioRef,mesesOriginal:tablaMeses.map(r=>`${r.ANIO}-${r.MES}`),mesFinYtd,ytdUrl});
@@ -1332,7 +1339,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     return;
   }
   // Build column headers (solo si existe el th)
-  if(thEl){
+    if(thEl){
     let thHtml=meses.map((m,i)=>{
       let mom='';
       if(i>0){
@@ -1341,7 +1348,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
       }
       return`<th>${mesLabel(m)}${mom}</th>`;
     }).join('');
-    thEl.outerHTML=`<th style="width:22%;text-align:left;padding:.55rem 1.4rem">Concepto</th>${thHtml}<th>Total</th>`;
+      thEl.outerHTML=`${thHtml}<th>Total</th>`;
   }
   // #region agent log
   try{
@@ -1367,7 +1374,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   const pnl=`
   <tr class="pnl-section-header"><td colspan="${meses.length+2}">INGRESOS</td></tr>
   <tr class="data-row">
-    <td>Ventas netas (mismo criterio que Ventas)</td>
+    <td>Ventas netas (base dashboard ventas)</td>
     ${meses.map(m=>{
       const vb=+m.VENTAS_BRUTAS||((+m.VENTAS_NETAS||0)+(+m.DESCUENTOS_DEV||0));
       return`<td style="color:var(--text2)">${fmtM(vb)}</td>`;
@@ -1393,7 +1400,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     <td style="color:var(--text2)">${fmtM(sumOf('VENTAS_PV'))}</td>
   </tr>
   <tr class="subtotal-row">
-    <td>▶ Total Ventas Netas (dashboard Ventas)</td>
+    <td>▶ Total Ventas Netas (base contable si existe)</td>
     ${meses.map(m=>`<td style="color:var(--blue)">${fmtM(+m.VENTAS_NETAS||0)}</td>`).join('')}
     <td style="color:var(--blue)">${fmtM(+tot.VENTAS_NETAS||0)}</td>
   </tr>

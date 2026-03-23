@@ -3221,7 +3221,7 @@ async function resultadosPnlCore(req, dbOpts) {
   const ey = parseInt(String(hastaStr).slice(0, 4), 10);
   const em = parseInt(String(hastaStr).slice(5, 7), 10);
 
-  const [ventasMes, descuentosMes, costosINMes, costosINDirect, cobrosMes, costosSaldos5101, gastosSaldos52, gastosDoctos52] = await Promise.all([
+  const [ventasMes, descuentosMes, costosINMes, costosINDirect, cobrosMes, costosSaldos5101, ingresosSaldos4, gastosSaldos52, gastosDoctos52] = await Promise.all([
     q(`
       SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
         COALESCE(SUM(d.IMPORTE_NETO), 0) AS VENTAS_BRUTAS,
@@ -3282,6 +3282,17 @@ async function resultadosPnlCore(req, dbOpts) {
       JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
       WHERE cu.CUENTA_PT STARTING WITH '5101'
         AND ${salYearExpr} >= ? AND ${salYearExpr} <= ?
+        AND NOT (${salYearExpr} = ? AND ${salMonthExpr} < ?)
+        AND NOT (${salYearExpr} = ? AND ${salMonthExpr} > ?)
+      GROUP BY ${salYearExpr}, ${salMonthExpr}
+      ORDER BY 1, 2
+    `, [sy, ey, sy, sm, ey, em], 15000).catch(() => []),
+    q(`
+      SELECT ${salYearExpr} AS ANIO, ${salMonthExpr} AS MES,
+        COALESCE(SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '4' THEN (COALESCE(s.${salAbonoCol},0) - COALESCE(s.${salCargoCol},0)) ELSE 0 END), 0) AS VENTAS_NETAS_CONTA
+      FROM SALDOS_CO s
+      JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
+      WHERE ${salYearExpr} >= ? AND ${salYearExpr} <= ?
         AND NOT (${salYearExpr} = ? AND ${salMonthExpr} < ?)
         AND NOT (${salYearExpr} = ? AND ${salMonthExpr} > ?)
       GROUP BY ${salYearExpr}, ${salMonthExpr}
@@ -3500,15 +3511,19 @@ async function resultadosPnlCore(req, dbOpts) {
   const gasMap = {};
   (gastosRows || []).forEach(r => { gasMap[key(r.ANIO, r.MES)] = r; });
   const gasAbs = (g, k) => Math.abs(+g[k] || 0);
+  const ventasContaMap = {};
+  (ingresosSaldos4 || []).forEach(r => { ventasContaMap[key(r.ANIO, r.MES)] = +r.VENTAS_NETAS_CONTA || 0; });
 
   const costosElegidos = [];
+  const ventasFuentes = [];
   const meses = (ventasMes || []).map(r => {
     const ventasBrutas = +r.VENTAS_BRUTAS || 0;
     const descuentosDev = descMap[key(r.ANIO, r.MES)] || 0;
-    // Alineado con ventas.html/PBI del usuario: "ventas netas" = IMPORTE_NETO de F/V
-    // (notas de crédito/devoluciones se muestran como informativo, no se restan aquí).
-    const ventas = ventasBrutas;
     const km = key(r.ANIO, r.MES);
+    const ventasConta = +(ventasContaMap[km] || 0);
+    // Para Estado de Resultados priorizar ingresos contables (clase 4*).
+    const ventas = ventasConta > 0.01 ? ventasConta : ventasBrutas;
+    ventasFuentes.push({ ANIO: r.ANIO, MES: r.MES, ventas_dashboard: ventasBrutas, ventas_conta4: ventasConta, ventas_usada: ventas, fuente: ventasConta > 0.01 ? 'SALDOS_CO_4*' : 'VENTAS_DOCS_FV' });
     const chosen = chooseCost(km);
     const costo = chosen.value || 0;
     costMap[km] = costo;
@@ -3594,6 +3609,9 @@ async function resultadosPnlCore(req, dbOpts) {
   // #endregion
   // #region agent log
   fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run11',hypothesisId:'H61',location:'server_corregido.js:3390',message:'resultados costo source selection',data:{desde:desdeStr,hasta:hastaStr,costosElegidos,costosResumen:{conta:Object.keys(costByConta).length,lineas:Object.keys(costByLineas).length,ve:Object.keys(costByVeDet).length,inDet:Object.keys(costByInDet).length,inHdr:Object.keys(costByInHdr).length}},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run17',hypothesisId:'H78',location:'server_corregido.js:resultadosPnlCore',message:'resultados ventas source selected',data:{desde:desdeStr,hasta:hastaStr,ventasFuentes},timestamp:Date.now()})}).catch(()=>{});
   // #endregion
   let prefijos_rows = [];
   try {
@@ -3858,12 +3876,20 @@ get('/api/resultados/estado-sr', async (req) => {
   const dbo = getReqDbOpts(req);
   const { desdeStr, hastaStr } = resolveDateRangeFromQuery(req.query || {});
   const pnl = await resultadosPnlCore(req, dbo).catch(() => ({ meses: [], totales: {} }));
-  const ventas = +((pnl && pnl.totales && pnl.totales.VENTAS_NETAS) || 0);
-  const costo = +((pnl && pnl.totales && pnl.totales.COSTO_VENTAS) || 0);
-  const utilidadBruta = ventas - costo;
 
   const y = parseInt(String(hastaStr).slice(0, 4), 10);
   const m = parseInt(String(hastaStr).slice(5, 7), 10);
+  const ventasContaRows = await query(`
+    SELECT COALESCE(SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '4' THEN (COALESCE(s.ABONOS,0) - COALESCE(s.CARGOS,0)) ELSE 0 END), 0) AS VENTAS
+    FROM SALDOS_CO s
+    JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
+    WHERE s.ANO = ? AND s.MES = ?
+  `, [y, m], 15000, dbo).catch(() => [{ VENTAS: 0 }]);
+  const ventasConta = +((ventasContaRows[0] && ventasContaRows[0].VENTAS) || 0);
+  const ventasPnl = +((pnl && pnl.totales && pnl.totales.VENTAS_NETAS) || 0);
+  const ventas = ventasConta > 0.01 ? ventasConta : ventasPnl;
+  const costo = +((pnl && pnl.totales && pnl.totales.COSTO_VENTAS) || 0);
+  const utilidadBruta = ventas - costo;
   const rows = await query(`
     SELECT
       cu.CUENTA_PT,
@@ -3922,7 +3948,7 @@ get('/api/resultados/estado-sr', async (req) => {
     cuentas_muestra: (rows || []).slice(0, 50),
   };
   // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run12',hypothesisId:'H65',location:'server_corregido.js:3829',message:'estado sr contable payload',data:{periodo:payload.periodo,estado:payload.estado},timestamp:Date.now()})}).catch(()=>{});
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run17',hypothesisId:'H79',location:'server_corregido.js:/api/resultados/estado-sr',message:'estado sr contable payload',data:{periodo:payload.periodo,ventas_pnl:ventasPnl,ventas_conta4:ventasConta,ventas_usada:ventas,estado:payload.estado},timestamp:Date.now()})}).catch(()=>{});
   // #endregion
   return payload;
 });
