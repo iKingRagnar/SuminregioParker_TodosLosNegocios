@@ -130,11 +130,23 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   }
 
   const ALLOWED_DB_TERMS = ['suminregio', 'agua', 'medicos', 'madera', 'carton', 'empaque', 'especial', 'reciclaje'];
+  const DB_DISPLAY_STRIP_TERMS = ['suminregio', 'parker', 'grupo', 'suministros'];
   function normDbText(v) {
     return String(v == null ? '' : v)
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
       .toLowerCase();
+  }
+  function cleanDbDisplayName(v) {
+    const raw = String(v == null ? '' : v).replace(/\.fdb$/i, '').replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!raw) return '';
+    const toks = raw.split(' ');
+    const cleaned = toks.filter(function (t) {
+      const n = normDbText(t).replace(/[^a-z0-9]+/g, '');
+      if (!n) return false;
+      return DB_DISPLAY_STRIP_TERMS.indexOf(n) < 0;
+    }).join(' ').trim();
+    return cleaned || raw;
   }
   function filterAllowedDatabases(list) {
     const arr = Array.isArray(list) ? list : [];
@@ -161,16 +173,31 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     (list || []).forEach(function (e) {
       const id = String(e.id || '');
       const fname = fdbBasename(e.database);
-      const main = fname || id;
+      const main = cleanDbDisplayName(fname || id);
       const idClean = String(id).replace(/\.fdb$/i, '');
-      const labelClean = String(e.label || '').replace(/\.fdb$/i, '');
-      const sub = (labelClean && labelClean !== fname && labelClean !== idClean) ? labelClean : idClean;
+      const labelClean = cleanDbDisplayName(String(e.label || '').replace(/\.fdb$/i, ''));
+      const idPretty = cleanDbDisplayName(idClean);
+      const sub = (labelClean && labelClean !== main && labelClean !== idPretty) ? labelClean : idPretty;
       const active = urlDb === id ? ' active' : '';
       const title = escChip((e.database || '') + (e.host ? ' \u00b7 ' + e.host : ''));
       html += '<button type="button" class="biz-chip db-chip' + active + '" data-db="' + escChip(id) + '" title="' + title + '">' +
         '<span class="db-chip-main">' + escChip(main) + '</span><span class="db-chip-sub">' + escChip(sub) + '</span></button>';
     });
     container.innerHTML = html;
+    // #region agent log
+    try {
+      const preview = (list || []).slice(0, 8).map(function (e) {
+        const id = String(e && e.id || '');
+        const fname = fdbBasename(e && e.database);
+        return {
+          id: id,
+          main: cleanDbDisplayName(fname || id),
+          sub: cleanDbDisplayName(String((e && e.label) || '').replace(/\.fdb$/i, '')) || cleanDbDisplayName(id)
+        };
+      });
+      fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run14',hypothesisId:'H70',location:'filters.js:renderDbChipsInto',message:'db chip labels cleaned',data:{count:(list||[]).length,preview:preview},timestamp:Date.now()})}).catch(()=>{});
+    } catch(_) {}
+    // #endregion
     container.querySelectorAll('.biz-chip').forEach(function (btn) {
       btn.addEventListener('click', function () {
         const raw = btn.getAttribute('data-db') || '';
