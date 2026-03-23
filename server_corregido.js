@@ -2110,10 +2110,24 @@ function cxcDocSaldosSQL(cfSql) {
 
 async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
   const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
-  const cliFilter = cf ? ` WHERE cs.CLIENTE_ID = ${cf}` : '';
-  const carFilter = cf ? ` WHERE cd.CLIENTE_ID = ${cf}` : '';
-  const [cxcSaldos, cxcAging] = await Promise.all([
-    query(`SELECT cs.CLIENTE_ID, cs.SALDO FROM ${cxcClienteSQL()} cs${cliFilter}`, [], qms, dbo).catch(() => []),
+  const whereCliDoc = cf ? ` AND doc.CLIENTE_ID = ${cf}` : '';
+  const whereCliSaldo = cf ? ` WHERE cs.CLIENTE_ID = ${cf}` : '';
+  const [docAgingRows, cxcSaldosLegacy, cxcAgingLegacy] = await Promise.all([
+    query(`
+      SELECT
+        doc.CLIENTE_ID,
+        SUM(doc.SALDO_NETO) AS TOTAL_C,
+        SUM(CASE WHEN doc.DIAS_VENCIDO <= 0 THEN doc.SALDO_NETO ELSE 0 END) AS COR_C,
+        SUM(CASE WHEN doc.DIAS_VENCIDO BETWEEN 1 AND 30 THEN doc.SALDO_NETO ELSE 0 END) AS B1_C,
+        SUM(CASE WHEN doc.DIAS_VENCIDO BETWEEN 31 AND 60 THEN doc.SALDO_NETO ELSE 0 END) AS B2_C,
+        SUM(CASE WHEN doc.DIAS_VENCIDO BETWEEN 61 AND 90 THEN doc.SALDO_NETO ELSE 0 END) AS B3_C,
+        SUM(CASE WHEN doc.DIAS_VENCIDO > 90 THEN doc.SALDO_NETO ELSE 0 END) AS B4_C,
+        SUM(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.SALDO_NETO ELSE 0 END) AS VENC_C
+      FROM ${cxcDocSaldosSQL('')} doc
+      WHERE doc.SALDO_NETO > 0.005 ${whereCliDoc}
+      GROUP BY doc.CLIENTE_ID
+    `, [], qms, dbo).catch(() => []),
+    query(`SELECT cs.CLIENTE_ID, cs.SALDO FROM ${cxcClienteSQL()} cs${whereCliSaldo}`, [], qms, dbo).catch(() => []),
     query(`
       SELECT
         cd.CLIENTE_ID,
@@ -2125,45 +2139,32 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
         SUM(CASE WHEN cd.DIAS_VENCIDO > 90 THEN cd.SALDO ELSE 0 END) AS B4_C,
         SUM(CASE WHEN cd.DIAS_VENCIDO > 0 THEN cd.SALDO ELSE 0 END) AS VENC_C
       FROM ${cxcCargosSQL()} cd
-      ${carFilter}
+      ${cf ? `WHERE cd.CLIENTE_ID = ${cf}` : ''}
       GROUP BY cd.CLIENTE_ID
     `, [], qms, dbo).catch(() => []),
   ]);
-  const agMap = {};
-  (cxcAging || []).forEach(r => { agMap[r.CLIENTE_ID] = r; });
-  const agingClientesTotalC = (cxcAging || []).reduce((s, r) => s + (+r.TOTAL_C || 0), 0);
+
   let saldoTotal = 0, vencido = 0, porVencer = 0;
   let agCorr = 0, ag1 = 0, ag2 = 0, ag3 = 0, ag4 = 0;
   let numCliVenc = 0;
-  (cxcSaldos || []).forEach(r => {
-    const saldo = +r.SALDO || 0;
-    if (saldo <= 0) return;
-    saldoTotal += saldo;
-    const ag = agMap[r.CLIENTE_ID];
-    if (ag && +ag.TOTAL_C > 0) {
-      const totalC = +ag.TOTAL_C || 0;
-      const pCorr = Math.max(0, Math.min((+ag.COR_C || 0) / totalC, 1));
-      const p1 = Math.max(0, (+ag.B1_C || 0) / totalC);
-      const p2 = Math.max(0, (+ag.B2_C || 0) / totalC);
-      const p3 = Math.max(0, (+ag.B3_C || 0) / totalC);
-      const p4 = Math.max(0, (+ag.B4_C || 0) / totalC);
-      const pV = Math.max(0, Math.min((+ag.VENC_C || 0) / totalC, 1));
-      agCorr += saldo * pCorr;
-      ag1 += saldo * p1;
-      ag2 += saldo * p2;
-      ag3 += saldo * p3;
-      ag4 += saldo * p4;
-      vencido += saldo * pV;
-      porVencer += saldo * (1 - pV);
-      if (+ag.VENC_C > 0) numCliVenc += 1;
-    } else {
-      agCorr += saldo;
-      porVencer += saldo;
-    }
+  (docAgingRows || []).forEach(r => {
+    const total = +r.TOTAL_C || 0;
+    if (total <= 0) return;
+    saldoTotal += total;
+    const venc = +r.VENC_C || 0;
+    const corr = +r.COR_C || 0;
+    vencido += venc;
+    porVencer += corr;
+    agCorr += corr;
+    ag1 += +r.B1_C || 0;
+    ag2 += +r.B2_C || 0;
+    ag3 += +r.B3_C || 0;
+    ag4 += +r.B4_C || 0;
+    if (venc > 0) numCliVenc += 1;
   });
   const resumen = {
     SALDO_TOTAL: Math.round(saldoTotal * 100) / 100,
-    NUM_CLIENTES: (cxcSaldos || []).length,
+    NUM_CLIENTES: (docAgingRows || []).length,
     NUM_CLIENTES_VENCIDOS: numCliVenc,
     VENCIDO: Math.round(vencido * 100) / 100,
     POR_VENCER: Math.round(porVencer * 100) / 100,
@@ -2176,7 +2177,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
     DIAS_MAS_90: Math.round(ag4 * 100) / 100,
   };
   // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run7',hypothesisId:'H21',location:'server_corregido.js:2121',message:'cxc unified base sets',data:{cliente:cf||null,clientesSaldoCount:(cxcSaldos||[]).length,clientesAgingCount:(cxcAging||[]).length,saldoTotalClientesRaw:Math.round((cxcSaldos||[]).reduce((s,r)=>s+(+r.SALDO||0),0)*100)/100,agingTotalCRaw:Math.round(agingClientesTotalC*100)/100},timestamp:Date.now()})}).catch(()=>{});
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run15',hypothesisId:'H71',location:'server_corregido.js:cxcResumenAgingUnificado',message:'cxc source comparison legacy-vs-docsaldo',data:{cliente:cf||null,legacySaldoTotal:Math.round((cxcSaldosLegacy||[]).reduce((s,r)=>s+(+r.SALDO||0),0)*100)/100,legacyAgingTotal:Math.round((cxcAgingLegacy||[]).reduce((s,r)=>s+(+r.TOTAL_C||0),0)*100)/100,docAgingTotal:Math.round((docAgingRows||[]).reduce((s,r)=>s+(+r.TOTAL_C||0),0)*100)/100,resumen,aging},timestamp:Date.now()})}).catch(()=>{});
   // #endregion
   // #region agent log
   fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run6',hypothesisId:'H14',location:'server_corregido.js:2140',message:'cxc unified resumen+aging snapshot',data:{cliente:cf||null,resumen,aging},timestamp:Date.now()})}).catch(()=>{});
@@ -2303,27 +2304,12 @@ get('/api/cxc/por-condicion', async (req) => {
       dc.CLIENTE_ID,
       TRIM(COALESCE(cp.NOMBRE, 'Sin condición')) AS CONDICION_PAGO,
       COALESCE(cp.DIAS_PPAG, 0) AS DIAS_CREDITO,
-      CASE
-        WHEN COALESCE(cp.DIAS_PPAG, 0) <= 0 THEN 0
-        ELSE (
-          CURRENT_DATE - CAST(
-            COALESCE(
-              vcm.FECHA_VENCIMIENTO,
-              CAST(dc.FECHA AS DATE) + CAST(COALESCE(cp.DIAS_PPAG, 30) AS INTEGER)
-            ) AS DATE
-          )
-        )
-      END AS DIAS_VENCIDO,
+      doc.DIAS_VENCIDO AS DIAS_VENCIDO,
       doc.SALDO_NETO AS SALDO_NETO
     FROM ${cxcDocSaldosInnerSQL('')} doc
     JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = doc.DOCTO_CC_ID
     LEFT JOIN CLIENTES clx ON clx.CLIENTE_ID = dc.CLIENTE_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, clx.COND_PAGO_ID)
-    LEFT JOIN (
-      SELECT DOCTO_CC_ID, MIN(FECHA_VENCIMIENTO) AS FECHA_VENCIMIENTO
-      FROM VENCIMIENTOS_CARGOS_CC
-      GROUP BY DOCTO_CC_ID
-    ) vcm ON vcm.DOCTO_CC_ID = dc.DOCTO_CC_ID
     WHERE doc.SALDO_NETO > 0.005
       AND (
         cp.COND_PAGO_ID IS NULL OR (
@@ -2332,7 +2318,7 @@ get('/api/cxc/por-condicion', async (req) => {
           AND POSITION('INMEDIATO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) = 0
         )
       )
-    GROUP BY dc.DOCTO_CC_ID, dc.CLIENTE_ID, dc.FECHA, cp.NOMBRE, cp.DIAS_PPAG, vcm.FECHA_VENCIMIENTO, doc.SALDO_NETO
+    GROUP BY dc.DOCTO_CC_ID, dc.CLIENTE_ID, cp.NOMBRE, cp.DIAS_PPAG, doc.DIAS_VENCIDO, doc.SALDO_NETO
   `, [], 15000, dbo).catch(() => []);
   if (!(docs || []).length) {
     const altRows = await query(`
@@ -2397,11 +2383,16 @@ get('/api/cxc/por-condicion', async (req) => {
     const venc = dv > 0 ? saldo : 0;
     const cor = dv > 0 ? 0 : saldo;
     const esContado = false;
-    const key = `${r.CONDICION_PAGO}|${+r.DIAS_CREDITO || 0}|0`;
+    let diasCredito = +r.DIAS_CREDITO || 0;
+    if (diasCredito <= 0) {
+      const m = String(r.CONDICION_PAGO || '').match(/(\d{1,3})\s*DIAS?/i);
+      if (m && m[1]) diasCredito = parseInt(m[1], 10) || 0;
+    }
+    const key = `${r.CONDICION_PAGO}|${diasCredito}|0`;
     if (!byCond[key]) {
       byCond[key] = {
         CONDICION_PAGO: r.CONDICION_PAGO,
-        DIAS_CREDITO: +r.DIAS_CREDITO || 0,
+        DIAS_CREDITO: diasCredito,
         NUM_CLIENTES: new Set(),
         NUM_DOCUMENTOS: 0,
         SALDO_TOTAL: 0,
@@ -2429,6 +2420,9 @@ get('/api/cxc/por-condicion', async (req) => {
       ES_CONTADO: !!r.ES_CONTADO,
     }))
     .sort((a, b) => b.SALDO_TOTAL - a.SALDO_TOTAL);
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run15',hypothesisId:'H73',location:'server_corregido.js:/api/cxc/por-condicion',message:'por-condicion rebuilt from doc dias_vencido',data:{grupos:(grupos||[]).slice(0,10).map(g=>({cond:g.CONDICION_PAGO,dias:g.DIAS_CREDITO,total:g.SALDO_TOTAL,venc:g.VENCIDO,corr:g.CORRIENTE}))},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   return { grupos, pendiente_contado: null };
 });
 

@@ -358,10 +358,14 @@ const fmtM = v => '$'+(+v||0).toLocaleString('es-MX',{minimumFractionDigits:0,ma
 const setText = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
 
 function buildCxcQuery(extra){
-  const qBase = (typeof filterBuildQS === 'function') ? filterBuildQS() : '';
   const cf = (document.getElementById('fCliente')?.value || '').trim();
   const e = extra ? String(extra).replace(/^[?&]+/, '') : '';
-  const parts = [qBase, cf ? ('cliente=' + encodeURIComponent(cf)) : '', e].filter(Boolean).join('&');
+  const parts = [cf ? ('cliente=' + encodeURIComponent(cf)) : '', e].filter(Boolean).join('&');
+  // #region agent log
+  try{
+    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run15',hypothesisId:'H72',location:'cxc.html:buildCxcQuery',message:'cxc query built without global filters',data:{cliente:cf||null,extra:e||'',query:parts},timestamp:Date.now()})}).catch(()=>{});
+  }catch(_){}
+  // #endregion
   return parts ? ('?' + parts) : '';
 }
 
@@ -752,14 +756,8 @@ async function refreshCxcDbHint(){
 
 (async function init(){
   initCharts();
-  if (typeof initFilters === 'function') {
-    initFilters({
-      containerId:'filter-bar',
-      showVendedor:false,
-      onReady:()=>{},
-      onChange: async () => { await loadClientesFiltro(); await loadAll(); }
-    });
-  }
+  const fb = document.getElementById('filter-bar');
+  if (fb) fb.style.display = 'none';
   await checkStatus();
   await refreshCxcDbHint();
   await loadClientesFiltro();
