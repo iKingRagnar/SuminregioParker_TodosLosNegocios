@@ -131,6 +131,15 @@ tfoot td{font-weight:600;background:rgba(230,168,0,.08)}
 </div>
 <script>
 const API = window.__API_BASE || '';
+async function tFetch(url, ms){
+  ms = ms || 30000;
+  const ctrl = new AbortController();
+  const tid = setTimeout(()=>ctrl.abort(), ms);
+  try {
+    const r = await fetch(url, { cache:'no-store', signal: ctrl.signal });
+    return r;
+  } finally { clearTimeout(tid); }
+}
 function buildApiUrl(path, extra) {
   const qs = typeof filterBuildQS === 'function' ? filterBuildQS() : '';
   const e = extra ? String(extra).replace(/^[?&]+/, '') : '';
@@ -332,8 +341,8 @@ async function loadMargen(keepRows) {
   const pnlUrl = buildApiUrl('/api/resultados/pnl');
   try {
     const [r, rp] = await Promise.all([
-      fetch(url, { cache: 'no-store' }),
-      fetch(pnlUrl, { cache: 'no-store' }).catch(() => null)
+      tFetch(url, 30000),
+      tFetch(pnlUrl, 60000).catch(() => null)
     ]);
     const rows = r && r.ok ? await r.json() : [];
     let pnlTot = null;
@@ -344,7 +353,7 @@ async function loadMargen(keepRows) {
     let list = Array.isArray(rows) ? rows : [];
     if (!list.length) {
       const fallbackUrl = buildApiUrl('/api/ventas/margen-lineas', 'limit=5000&meses=12' + tq);
-      const rf = await fetch(fallbackUrl, { cache: 'no-store' });
+      const rf = await tFetch(fallbackUrl, 30000);
       const rowsF = rf.ok ? await rf.json() : [];
       list = Array.isArray(rowsF) ? rowsF : [];
     }
@@ -369,5 +378,6 @@ if (typeof initFilters === 'function') {
 }
 </script>
 <script src="nav.js"></script>
+<script src="/chat-widget.js" defer></script>
 </body>
 </html>

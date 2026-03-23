@@ -264,7 +264,7 @@ html[data-theme=light] .kpi-sub,html[data-theme=light] .sc-id{color:#64748b}
 
 <script>
 const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : '';
-function fwt(url,fallback,ms=10000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
+function fwt(url,fallback,ms=15000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
 let chartDiarioInst = null, chartCumplInst = null, chartCobrosInst = null;
 let lastMetasForChart = {};
 
@@ -302,11 +302,11 @@ async function loadData(){
   var heroSub = document.getElementById('heroSub');
   try{
     const [cumplData, metas, diario, cotiVends, cxcTop] = await Promise.all([
-      fwt(buildApiUrl('/api/ventas/cumplimiento'),[]),
-      fwt(API+'/api/config/metas',{}),
-      fwt(buildApiUrl('/api/ventas/diarias','dias=30'),[]),
-      fwt(buildApiUrl('/api/ventas/por-vendedor/cotizaciones'),[]),
-      fwt(API+'/api/cxc/top-deudores?limit=50',[]),
+      fwt(buildApiUrl('/api/ventas/cumplimiento'),[],25000),
+      fwt(API+'/api/config/metas',{},15000),
+      fwt(buildApiUrl('/api/ventas/diarias','dias=30'),[],20000),
+      fwt(buildApiUrl('/api/ventas/por-vendedor/cotizaciones'),[],30000),
+      fwt(API+'/api/cxc/top-deudores?limit=50',[],20000),
     ]);
     const vends = Array.isArray(cumplData) ? cumplData : [];
 
@@ -339,7 +339,7 @@ async function loadData(){
 
 async function loadCobros(){
   try{
-    const data = await fwt(API+'/api/resultados/pnl?meses=6', { meses: [], totales: {} });
+    const data = await fwt(API+'/api/resultados/pnl?meses=6', { meses: [], totales: {} }, 45000);
     const meses = Array.isArray(data.meses) ? data.meses : [];
     const MESES_ES = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
     if (!meses.length) {
@@ -687,5 +687,6 @@ initFilters({
 setInterval(loadData, 60000);
 </script>
 <script src="nav.js"></script>
+<script src="/chat-widget.js" defer></script>
 </body>
 </html>

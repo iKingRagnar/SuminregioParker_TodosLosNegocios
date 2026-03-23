@@ -383,12 +383,17 @@ function withDbParam(pathWithQuery){
 }
 async function apiFetch(pathWithQuery, opts){
   const skipDb=opts&&opts.skipDb;
+  const ms=(opts&&opts.timeout)||20000;
   const path=skipDb?pathWithQuery:withDbParam(pathWithQuery);
-  const r=await fetch(API+path);
-  if(!r.ok) throw new Error('HTTP '+r.status);
-  const data=await r.json();
-  if(data&&typeof data==='object'&&!Array.isArray(data)&&data.error) throw new Error(String(data.error));
-  return data;
+  const ctrl=new AbortController();
+  const tid=setTimeout(()=>ctrl.abort(),ms);
+  try{
+    const r=await fetch(API+path,{signal:ctrl.signal});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const data=await r.json();
+    if(data&&typeof data==='object'&&!Array.isArray(data)&&data.error) throw new Error(String(data.error));
+    return data;
+  } finally { clearTimeout(tid); }
 }
 
 async function checkStatus() {
@@ -644,7 +649,7 @@ async function loadBuro() {
   cont.innerHTML='<div class="loading"><div class="spin"></div>Cargando historial...</div>';
   try {
     let url='/api/cxc/historial-pagos' + buildCxcQuery('meses=' + encodeURIComponent(meses) + '&limit=300');
-    const raw = await apiFetch(url);
+    const raw = await apiFetch(url, {timeout:30000});
     const rows = Array.isArray(raw) ? raw : (raw && raw.rows ? raw.rows : []);
     const saldosPorCliente = (raw && !Array.isArray(raw) && raw.saldosPorCliente) ? raw.saldosPorCliente : {};
     const filtrados = srch ? rows.filter(r=>(r.CLIENTE||'').toLowerCase().includes(srch)) : rows;
@@ -766,5 +771,6 @@ async function refreshCxcDbHint(){
   window.addEventListener('popstate',()=>{ refreshCxcDbHint(); loadAll(); });
 })();
 </script>
+<script src="/chat-widget.js" defer></script>
 </body>
 </html>

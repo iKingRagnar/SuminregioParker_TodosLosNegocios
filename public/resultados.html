@@ -408,7 +408,7 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
 
 <script>
 const API = (window.__API_BASE != null ? String(window.__API_BASE).replace(/\/+$/, '') : (window.location.protocol === 'file:' ? 'http://localhost:7000' : (window.location.origin || '')));
-function fwt(url,fallback,ms=10000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
+function fwt(url,fallback,ms=20000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
 let chartVC=null, chartMg=null, chartCob=null, chartEmp=null;
 let currentMeses=3;
 /** null = una sola base por defecto; '__ALL__' = consolidado multi-empresa; string = id en FB_DATABASES_JSON */
@@ -630,10 +630,15 @@ async function loadData(){
     const o=window.location.origin||'';
     return o.replace(/\/+$/,'');
   }
-  async function tryFetch(u){
-    const r=await fetch(u,{ cache:'no-store' }).catch(()=>null);
-    if(!r||!r.ok)return null;
-    try{ return await r.json(); }catch(_){ return null; }
+  async function tryFetch(u, ms){
+    ms = ms || 60000;
+    const ctrl = new AbortController();
+    const tid = setTimeout(()=>ctrl.abort(), ms);
+    try {
+      const r = await fetch(u, { cache:'no-store', signal: ctrl.signal }).catch(()=>null);
+      if(!r||!r.ok) return null;
+      try{ return await r.json(); }catch(_){ return null; }
+    } finally { clearTimeout(tid); }
   }
   clearResultadosUI();
   document.getElementById('plScoreStrip')&&(document.getElementById('plScoreStrip').style.display='none');
@@ -1226,5 +1231,6 @@ initFilters({ containerId:'filter-bar', showVendedor:false, onReady:()=>loadData
 setInterval(loadData, 300000);
 </script>
 <script src="nav.js"></script>
+<script src="/chat-widget.js" defer></script>
 </body>
 </html>

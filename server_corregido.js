@@ -2827,7 +2827,10 @@ async function resultadosPnlCore(req, dbOpts) {
     : (detImporteCol ? `COALESCE(d.${detImporteCol}, 0)` : '0');
   const detDateExpr = detCols.has('FECHA') ? 'd.FECHA' : 'c.FECHA';
   const detNeedsDoctoJoin = !detCols.has('FECHA');
-  const impRes = sqlVentaImporteResultadosExpr('d');
+  // FIX: usar el mismo divisor IVA que ventasSub() para que resultados.html
+  // sea consistente con ventas.html, director.html, vendedores.html, etc.
+  // Antes usaba sqlVentaImporteResultadosExpr (sin divisor) → ventas 16% más altas.
+  const impRes = sqlVentaImporteBaseExpr('d');
   const ventasSubRes = `(
     SELECT
       d.FECHA,
@@ -3057,13 +3060,13 @@ async function resultadosPnlCore(req, dbOpts) {
       SELECT EXTRACT(YEAR FROM x.FECHA) AS ANIO, EXTRACT(MONTH FROM x.FECHA) AS MES,
         COALESCE(SUM(x.IMPORTE), 0) AS DESCUENTOS_DEV
       FROM (
-        SELECT d.FECHA, ${sqlVentaImporteResultadosExpr('d')} AS IMPORTE
+        SELECT d.FECHA, ${sqlVentaImporteBaseExpr('d')} AS IMPORTE
         FROM DOCTOS_VE d
         WHERE d.TIPO_DOCTO IN ('D')
           AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
           AND COALESCE(d.APLICADO, 'N') = 'S'
         UNION ALL
-        SELECT d.FECHA, ${sqlVentaImporteResultadosExpr('d')} AS IMPORTE
+        SELECT d.FECHA, ${sqlVentaImporteBaseExpr('d')} AS IMPORTE
         FROM DOCTOS_PV d
         WHERE d.TIPO_DOCTO IN ('D')
           AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
@@ -5144,6 +5147,89 @@ app.post('/api/ai/chat', async (req, res) => {
   } catch (e) {
     console.error('[ERROR] /api/ai/chat', e.message);
     res.status(500).json({ error: String(e.message) });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ALERTAS Y SCHEDULER — módulos opcionales (se cargan solo si existen)
+// ═══════════════════════════════════════════════════════════════════════════════
+let _checkKpis, _sendAlert, _runAlertJob, _captureScreenshots;
+try {
+  _checkKpis        = require('./modules/alerts').checkKpis;
+  _sendAlert        = require('./modules/notifier').sendAlert;
+  const sched       = require('./modules/scheduler');
+  _runAlertJob      = sched.runAlertJob;
+  _captureScreenshots = sched.captureScreenshots;
+  // Iniciar cron de alertas al arrancar el servidor
+  sched.startScheduler();
+} catch (e) {
+  console.warn('[alerts] Módulos de alertas no disponibles:', e.message);
+}
+
+// ── GET /api/alerts/check — Verificar KPIs ahora ─────────────────────────────
+app.get('/api/alerts/check', async (req, res) => {
+  if (!_checkKpis) {
+    return res.json({ ok: true, alertas: [], kpis: {}, empresa: process.env.EMPRESA_NOMBRE || 'ERP',
+      fecha: new Date().toLocaleDateString('es-MX'), _note: 'Módulo de alertas no instalado' });
+  }
+  try {
+    const db = req.query.db || null;
+    const result = await _checkKpis(db);
+    res.json(result);
+  } catch (e) {
+    console.error('[/api/alerts/check]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/alerts/send — Enviar alerta manualmente (email + WhatsApp) ──────
+app.post('/api/alerts/send', async (req, res) => {
+  if (!_checkKpis || !_sendAlert) {
+    return res.status(503).json({ error: 'Módulos de alertas/notifier no instalados' });
+  }
+  try {
+    const body       = req.body || {};
+    const channels   = Array.isArray(body.channels) ? body.channels : ['email', 'whatsapp'];
+    const doScreens  = body.captureScreenshots === true;
+    const db         = body.db || null;
+
+    const alertData  = await _checkKpis(db);
+    let screenshots  = [];
+    if (doScreens && _captureScreenshots) {
+      try {
+        screenshots = await _captureScreenshots([
+          { name: 'ventas',     path: '/ventas.html',     waitFor: null },
+          { name: 'cxc',        path: '/cxc.html',        waitFor: null },
+          { name: 'resultados', path: '/resultados.html', waitFor: null },
+        ]);
+      } catch (se) {
+        console.warn('[alerts/send] Screenshots fallaron:', se.message);
+      }
+    }
+
+    const result = await _sendAlert({ alertData, screenshotBuffers: screenshots, channels });
+    res.json({ ok: true, alertData: { ...alertData, kpis: undefined }, result });
+  } catch (e) {
+    console.error('[/api/alerts/send]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /api/alerts/test — Envío de prueba (sin capturas) ───────────────────
+app.post('/api/alerts/test', async (req, res) => {
+  if (!_checkKpis || !_sendAlert) {
+    return res.status(503).json({ error: 'Módulos de alertas/notifier no instalados' });
+  }
+  try {
+    const channels = Array.isArray((req.body || {}).channels) ? req.body.channels : ['email', 'whatsapp'];
+    const alertData = await _checkKpis(null);
+    // En prueba forzamos una alerta ficticia para confirmar el canal
+    alertData.alertas = [{ modulo: 'Prueba', descripcion: 'Este es un mensaje de prueba del sistema de alertas', nivel: 'INFO', valor: 'TEST OK' }];
+    const result = await _sendAlert({ alertData, screenshotBuffers: [], channels });
+    res.json({ ok: true, result });
+  } catch (e) {
+    console.error('[/api/alerts/test]', e.message);
+    res.status(500).json({ error: e.message });
   }
 });
 

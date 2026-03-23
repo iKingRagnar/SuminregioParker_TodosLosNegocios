@@ -297,9 +297,16 @@ html[data-theme=light] .chart-empty-msg{background:rgba(255,255,255,.85);color:#
 
 <script>
 const API = (window.__API_BASE != null ? String(window.__API_BASE).replace(/\/+$/, '') : (window.location.protocol === 'file:' ? 'http://localhost:7000' : (window.location.origin || '')));
-function fwt(url,fallback,ms=10000){return Promise.race([fetch(url).then(r=>{if(!r.ok)throw new Error(String(r.status));return r.json();}).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
-async function fetchJson(url,fallback={}){
-  try{const r=await fetch(url);if(!r.ok)throw new Error(String(r.status));return await r.json();}catch(_){return fallback;}
+function fwt(url,fallback,ms=20000){return Promise.race([fetch(url).then(r=>{if(!r.ok)throw new Error(String(r.status));return r.json();}).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
+async function fetchJson(url,fallback={},ms){
+  ms=ms||25000;
+  const ctrl=new AbortController();
+  const tid=setTimeout(()=>ctrl.abort(),ms);
+  try{
+    const r=await fetch(url,{signal:ctrl.signal});
+    if(!r.ok)throw new Error(String(r.status));
+    return await r.json();
+  }catch(_){return fallback;}finally{clearTimeout(tid);}
 }
 let chartVentas;
 let topDirCliLimit = 10;
@@ -643,5 +650,6 @@ async function loadRecientes() {
 initFilters({ containerId:'filter-bar', showVendedor:true, onReady:()=>loadAll(), onChange:()=>loadAll() });
 setInterval(loadAll, 60000);
 </script>
+<script src="/chat-widget.js" defer></script>
 </body>
 </html>
