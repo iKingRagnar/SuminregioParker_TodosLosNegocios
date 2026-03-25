@@ -58,14 +58,21 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 .period-btn{font-family:'DM Mono',monospace;font-size:.64rem;padding:.3rem .7rem;border-radius:7px;border:1px solid var(--border2);color:var(--muted);cursor:pointer;background:none;transition:all .2s;letter-spacing:.06em}
 .period-btn:hover{color:var(--text2);border-color:rgba(77,166,255,.3)}
 .period-btn.active{color:var(--suminregio);border-color:rgba(230,168,0,.35);background:var(--suminregio-dim)}
-.month-picker{margin:.65rem 0 1rem;padding:.8rem 1rem;border:1px solid var(--border);border-radius:12px;background:var(--s1)}
-.month-picker-head{display:flex;align-items:center;justify-content:space-between;gap:.7rem;flex-wrap:wrap;margin-bottom:.45rem}
+.month-picker{margin:.65rem 0 1rem;padding:.75rem 1rem;border:1px solid var(--border);border-radius:12px;background:var(--s1)}
+.month-picker-head{display:flex;align-items:center;justify-content:space-between;gap:.7rem;flex-wrap:wrap}
 .month-picker-title{font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
-.month-picker-actions{display:flex;gap:.35rem;flex-wrap:wrap}
+.month-dd{position:relative;min-width:260px;max-width:480px;flex:1}
+.month-dd-btn{width:100%;text-align:left;font-family:'DM Mono',monospace;font-size:.62rem;padding:.45rem .7rem;border-radius:8px;border:1px solid var(--border2);background:var(--s2);color:var(--text2);cursor:pointer}
+.month-dd-panel{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:15;border:1px solid var(--border2);border-radius:10px;background:var(--s1);padding:.55rem;display:none;box-shadow:0 12px 24px rgba(0,0,0,.25)}
+.month-dd.open .month-dd-panel{display:block}
+.month-picker-actions{display:flex;gap:.35rem;margin-bottom:.45rem}
 .month-picker-btn{font-family:'DM Mono',monospace;font-size:.58rem;padding:.2rem .5rem;border-radius:7px;border:1px solid var(--border2);background:none;color:var(--text2);cursor:pointer}
-.month-picker-grid{display:flex;gap:.42rem;flex-wrap:wrap}
+.month-picker-grid{display:flex;gap:.42rem;flex-wrap:wrap;max-height:190px;overflow:auto}
 .month-chip{display:inline-flex;align-items:center;gap:.3rem;padding:.28rem .5rem;border:1px solid var(--border2);border-radius:999px;background:var(--s2);cursor:pointer;font-family:'DM Mono',monospace;font-size:.58rem;color:var(--text2)}
 .month-chip input{accent-color:#e6a800}
+.pnl-drill-btn{display:inline-flex;align-items:center;gap:.35rem;background:none;border:none;color:var(--muted);font-family:'DM Mono',monospace;font-size:.65rem;cursor:pointer}
+.pnl-drill-btn .caret{display:inline-block;transition:transform .16s}
+.pnl-drill-btn.open .caret{transform:rotate(90deg)}
 
 /* KPI grid */
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:.9rem;margin-bottom:1.5rem}
@@ -256,12 +263,17 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
   <div class="month-picker" id="monthPicker" style="display:none">
     <div class="month-picker-head">
       <div class="month-picker-title">Filtro de meses acumulativo</div>
-      <div class="month-picker-actions">
-        <button type="button" class="month-picker-btn" id="monthSelAll">Todos</button>
-        <button type="button" class="month-picker-btn" id="monthSelNone">Solo uno</button>
+      <div class="month-dd" id="monthDd">
+        <button type="button" class="month-dd-btn" id="monthDdBtn">Seleccionar meses…</button>
+        <div class="month-dd-panel" id="monthDdPanel">
+          <div class="month-picker-actions">
+            <button type="button" class="month-picker-btn" id="monthSelAll">Todos</button>
+            <button type="button" class="month-picker-btn" id="monthSelNone">Solo uno</button>
+          </div>
+          <div class="month-picker-grid" id="monthPickerList"></div>
+        </div>
       </div>
     </div>
-    <div class="month-picker-grid" id="monthPickerList"></div>
   </div>
 
   <!-- Multi-empresa: chips + scorecard (inspirado en complemento MTD/YTD; aquí periodo = filtros + meses) -->
@@ -590,6 +602,8 @@ function setupMonthPicker(meses){
     monthKeysSelected=next;
   }
   const list=document.getElementById('monthPickerList');
+  const dd=document.getElementById('monthDd');
+  const ddBtn=document.getElementById('monthDdBtn');
   if(list){
     list.innerHTML=arr.map(m=>{
       const k=monthKey(m);
@@ -606,13 +620,22 @@ function setupMonthPicker(meses){
       });
     });
   }
+  if(dd && ddBtn){
+    ddBtn.textContent = monthKeysSelected.size===keys.length
+      ? 'Todos los meses'
+      : `${monthKeysSelected.size} mes(es) seleccionado(s)`;
+    ddBtn.onclick=()=>dd.classList.toggle('open');
+    document.addEventListener('click',(ev)=>{
+      if(!dd.contains(ev.target)) dd.classList.remove('open');
+    },{once:true});
+  }
   const bAll=document.getElementById('monthSelAll');
   const bNone=document.getElementById('monthSelNone');
   if(bAll) bAll.onclick=()=>{ keys.forEach(k=>monthKeysSelected.add(k)); loadData(); };
   if(bNone) bNone.onclick=()=>{ monthKeysSelected.clear(); if(keys[0]) monthKeysSelected.add(keys[0]); loadData(); };
   const selected = arr.filter(m=>monthKeysSelected.has(monthKey(m)));
   // #region agent log
-  debugLogResultados('run20','H88','resultados.html:setupMonthPicker','month multi-select applied',{available:arr.map(monthKey),selected:selected.map(monthKey)});
+  debugLogResultados('run22','H97','resultados.html:setupMonthPicker','month dropdown multi-select applied',{available:arr.map(monthKey),selected:selected.map(monthKey)});
   // #endregion
   return selected;
 }
@@ -1396,6 +1419,41 @@ function chartOpts(cbY){
       y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6A85A6',font:{size:10,family:"'DM Mono'"},callback:cbY}}}};
 }
 
+function applyPnlDrilldown(){
+  const tb=document.getElementById('pnlBody');
+  if(!tb) return;
+  const rows=[...tb.querySelectorAll('tr')];
+  let cur='';
+  const sectionRows={};
+  rows.forEach(r=>{
+    if(r.classList.contains('pnl-section-header')){
+      cur=r.getAttribute('data-section')||'sec';
+      sectionRows[cur]=[];
+      return;
+    }
+    if(!cur) return;
+    if(r.classList.contains('data-row')) sectionRows[cur].push(r);
+  });
+  Object.entries(sectionRows).forEach(([sec,list])=>{
+    const header=tb.querySelector(`tr.pnl-section-header[data-section="${sec}"] td`);
+    if(!header) return;
+    const open=false;
+    const lbl=header.textContent;
+    header.innerHTML=`<button type="button" class="pnl-drill-btn ${open?'open':''}" data-sec="${sec}"><span class="caret">▶</span><span>${lbl}</span></button>`;
+    list.forEach(r=>{ r.style.display=open?'':'none'; r.setAttribute('data-sec',sec); });
+  });
+  tb.querySelectorAll('.pnl-drill-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const sec=btn.getAttribute('data-sec');
+      const openNow=btn.classList.toggle('open');
+      tb.querySelectorAll(`tr.data-row[data-sec="${sec}"]`).forEach(r=>r.style.display=openNow?'':'none');
+      // #region agent log
+      debugLogResultados('run22','H99','resultados.html:applyPnlDrilldown','section toggled',{section:sec,open:openNow});
+      // #endregion
+    });
+  });
+}
+
 // Gastos CO alineados al Estado SR de Microsip.
 const _GAS_OPEX=['CO_A1','CO_A2','CO_A3'];
 function sumGastoKeys(m,keys){return keys.reduce((s,k)=>s+(+m[k]||0),0);}
@@ -1496,10 +1554,16 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     return v>0?`(${fmtM(v)})`:fmtM(0);
   }
 
+  const netoSinRem = (m) => {
+    const vb = +m.VENTAS_BRUTAS||((+m.VENTAS_NETAS||0)+(+m.DESCUENTOS_DEV||0));
+    const rem = +m.DESCUENTOS_DEV||0;
+    return vb - rem;
+  };
+  const netoSinRemTotal = mesesOrd.reduce((s,m)=>s+netoSinRem(m),0);
   const pnl=`
-  <tr class="pnl-section-header"><td colspan="${mesesOrd.length+2}">INGRESOS</td></tr>
+  <tr class="pnl-section-header" data-section="ingresos"><td colspan="${mesesOrd.length+2}">INGRESOS</td></tr>
   <tr class="data-row">
-    <td>Ventas netas (base dashboard ventas)</td>
+    <td>Ventas antes de remisiones</td>
     ${mesesOrd.map(m=>{
       const vb=+m.VENTAS_BRUTAS||((+m.VENTAS_NETAS||0)+(+m.DESCUENTOS_DEV||0));
       return`<td style="color:var(--text2)">${fmtM(vb)}</td>`;
@@ -1507,7 +1571,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     <td style="color:var(--text2)">${fmtM((+tot.VENTAS_BRUTAS||0)||((+tot.VENTAS_NETAS||0)+(+tot.DESCUENTOS_DEV||0)))}</td>
   </tr>
   <tr class="data-row">
-    <td>Dsctos y devoluc s/ventas (informativo)</td>
+    <td>Remisiones / devoluciones</td>
     ${mesesOrd.map(m=>{
       const d=+m.DESCUENTOS_DEV||0;
       return`<td style="color:${d>0?'var(--red)':'var(--text2)'}">${d>0?'('+fmtM(d)+')':fmtM(0)}</td>`;
@@ -1525,12 +1589,12 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     <td style="color:var(--text2)">${fmtM(sumOf('VENTAS_PV'))}</td>
   </tr>
   <tr class="subtotal-row">
-    <td>▶ Total Ventas Netas (base contable si existe)</td>
-    ${mesesOrd.map(m=>`<td style="color:var(--blue)">${fmtM(+m.VENTAS_NETAS||0)}</td>`).join('')}
-    <td style="color:var(--blue)">${fmtM(+tot.VENTAS_NETAS||0)}</td>
+    <td>▶ Total Ventas Netas (sin remisiones)</td>
+    ${mesesOrd.map(m=>`<td style="color:var(--blue)">${fmtM(netoSinRem(m))}</td>`).join('')}
+    <td style="color:var(--blue)">${fmtM(netoSinRemTotal)}</td>
   </tr>
 
-  <tr class="pnl-section-header"><td colspan="${mesesOrd.length+2}">COSTO DE VENTAS</td></tr>
+  <tr class="pnl-section-header" data-section="costo"><td colspan="${mesesOrd.length+2}">COSTO DE VENTAS</td></tr>
   <tr class="data-row">
     <td>Costo de Ventas</td>
     ${mesesOrd.map(m=>`<td style="color:var(--orange)">${hasCosto?fmtM(+m.COSTO_VENTAS||0):'—'}</td>`).join('')}
@@ -1549,7 +1613,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   </tr>
 
   ${!tg?`<tr><td colspan="${mesesOrd.length+2}" style="background:rgba(255,180,0,.08);color:var(--yellow);font-size:.75rem;padding:.5rem 1rem;border-left:3px solid var(--yellow)">⚠️ Sin pólizas contables en SALDOS_CO/DOCTOS_CO_DET para cuentas 52*/53*/54*. Las cifras de gastos son $0. Ingresa los movimientos en Microsip Contabilidad o verifica que el módulo de contabilidad esté activo. <a href="/api/debug/saldos-co-cuentas" target="_blank" style="color:var(--yellow)">Ver diagnóstico →</a></td></tr>`:''}
-  <tr class="pnl-section-header"><td colspan="${mesesOrd.length+2}">GASTOS OPERATIVOS (ESTRUCTURA MICROsip SR)</td></tr>
+  <tr class="pnl-section-header" data-section="gastos"><td colspan="${mesesOrd.length+2}">GASTOS OPERATIVOS (ESTRUCTURA MICROsip SR)</td></tr>
   <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">A. ${coLbl('CO_A1','')}</td>${mesesOrd.map(m=>tdGasto(m,'CO_A1')).join('')}<td style="color:var(--red)">${footGasto('CO_A1')}</td></tr>
   <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">B. ${coLbl('CO_A2','')}</td>${mesesOrd.map(m=>tdGasto(m,'CO_A2')).join('')}<td style="color:var(--red)">${footGasto('CO_A2')}</td></tr>
   <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">C. ${coLbl('CO_A3','')}</td>${mesesOrd.map(m=>tdGasto(m,'CO_A3')).join('')}<td style="color:var(--red)">${footGasto('CO_A3')}</td></tr>
@@ -1557,7 +1621,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     const s=tg?sumGastoKeys(m,_GAS_OPEX):0;
     return s>0?`<td style="color:var(--yellow)">(${fmtM(s)})</td>`:`<td style="color:var(--text2)">${fmtM(0)}</td>`;
   }).join('')}<td style="color:var(--yellow)">${tg?'('+fmtM(sumGastoKeys(tot,_GAS_OPEX))+')':`(${fmtM(0)})`}</td></tr>
-  <tr class="pnl-section-header"><td colspan="${mesesOrd.length+2}">PARTIDAS EXTRAORDINARIAS</td></tr>
+  <tr class="pnl-section-header" data-section="extra"><td colspan="${mesesOrd.length+2}">PARTIDAS EXTRAORDINARIAS</td></tr>
   <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">${coLbl('CO_C1','')}</td>${mesesOrd.map(m=>tdGasto(m,'CO_C1')).join('')}<td style="color:var(--red)">${footGasto('CO_C1')}</td></tr>
   <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">${coLbl('CO_B1','')}</td>${mesesOrd.map(m=>tdGasto(m,'CO_B1')).join('')}<td style="color:var(--red)">${footGasto('CO_B1')}</td></tr>
   <tr class="data-row">
@@ -1581,7 +1645,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     <td style="color:${hasCosto&&((+tot.UTILIDAD_BRUTA||0)-(tg?sumGastoKeys(tot,_GAS_OPEX):0))>=0?'var(--green)':'var(--red)'}">${hasCosto?fmtM((+tot.UTILIDAD_BRUTA||0)-(tg?sumGastoKeys(tot,_GAS_OPEX):0)):'—'}</td>
   </tr>
 
-  <tr class="pnl-section-header"><td colspan="${mesesOrd.length+2}">COBROS Y LIQUIDEZ</td></tr>
+  <tr class="pnl-section-header" data-section="cobros"><td colspan="${mesesOrd.length+2}">COBROS Y LIQUIDEZ</td></tr>
   <tr class="data-row">
     <td>Cobros Recibidos</td>
     ${mesesOrd.map(m=>`<td style="color:var(--purple)">${fmtM(+m.COBROS||0)}</td>`).join('')}
@@ -1594,6 +1658,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   </tr>`;
 
   if(pnlBodyEl)pnlBodyEl.innerHTML=pnl;
+  applyPnlDrilldown();
   const isYtdView = mesesOrd.length>=2 && (+mesesOrd[0].MES===1) && mesesOrd.every(m=>+m.ANIO===+mesesOrd[0].ANIO);
   const uaiForMes = (m) => {
     const ub=+m.UTILIDAD_BRUTA||0;
@@ -1606,7 +1671,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   };
   const uaiTotal = mesesOrd.reduce((s,m)=>s+uaiForMes(m),0);
   // #region agent log
-  debugLogResultados('run20','H89','resultados.html:renderTabla:footer-uai','uai footer computed',{meses:mesesOrd.map(monthKey),uaiTotal});
+  debugLogResultados('run22','H98','resultados.html:renderTabla:footer-uai','uai footer computed',{meses:mesesOrd.map(monthKey),uaiTotal,netoSinRemTotal});
   // #endregion
   if(pnlFootEl)pnlFootEl.innerHTML=`
   <tr class="total-final">
