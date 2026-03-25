@@ -2578,6 +2578,70 @@ get('/api/inv/resumen', async (req) => {
   return { TOTAL_ARTICULOS: +(r.TOTAL_ARTICULOS||0), VALOR_INVENTARIO: +(r.VALOR_INVENTARIO||0), BAJO_MINIMO: +(r.BAJO_MINIMO||0), SIN_STOCK: +(r.SIN_STOCK||0) };
 });
 
+// Diagnóstico duro de conectividad Firebird para inventario (no oculta errores).
+app.get('/api/debug/firebird-inv', async (req, res) => {
+  const dbo = getReqDbOpts(req);
+  const dbId = req && req.query && req.query.db ? String(req.query.db) : 'default';
+  try {
+    // #region agent log
+    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run-render-inv-2',hypothesisId:'H6',location:'server_corregido.js:/api/debug/firebird-inv:start',message:'firebird inv debug start',data:{db:dbId,host:dbo&&dbo.host?String(dbo.host):'',port:dbo&&dbo.port?Number(dbo.port):0,database:dbo&&dbo.database?String(dbo.database):'',user:dbo&&dbo.user?String(dbo.user):''},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    const rel = await query(`SELECT COUNT(*) AS C FROM RDB$RELATIONS`, [], 12000, dbo);
+    const art = await query(`SELECT COUNT(*) AS C FROM ARTICULOS`, [], 12000, dbo);
+    const act = await query(`SELECT COUNT(*) AS C FROM ARTICULOS a WHERE COALESCE(a.ESTATUS,'A')='A'`, [], 12000, dbo);
+    const sample = await query(`SELECT FIRST 3 a.ARTICULO_ID, a.NOMBRE, a.ESTATUS FROM ARTICULOS a ORDER BY a.ARTICULO_ID`, [], 12000, dbo);
+    const inv = await query(`
+      SELECT
+        COUNT(DISTINCT a.ARTICULO_ID) AS TOTAL_ARTICULOS,
+        SUM(CASE WHEN COALESCE(s.EXISTENCIA, 0) < COALESCE(n.INVENTARIO_MINIMO, 0) AND COALESCE(n.INVENTARIO_MINIMO, 0) > 0 THEN 1 ELSE 0 END) AS BAJO_MINIMO,
+        SUM(COALESCE(s.EXISTENCIA, 0) * COALESCE(pr.PRECIO1, 0)) AS VALOR_INVENTARIO,
+        SUM(CASE WHEN COALESCE(n.INVENTARIO_MINIMO, 0) > 0 AND COALESCE(s.EXISTENCIA, 0) <= 0 THEN 1 ELSE 0 END) AS SIN_STOCK
+      FROM ARTICULOS a
+      LEFT JOIN ${SQL_EXIST_SUB} s ON s.ARTICULO_ID = a.ARTICULO_ID
+      LEFT JOIN ${SQL_MINIMO_SUB} n ON n.ARTICULO_ID = a.ARTICULO_ID
+      LEFT JOIN ${SQL_PRECIO_SUB} pr ON pr.ARTICULO_ID = a.ARTICULO_ID
+      WHERE COALESCE(a.ESTATUS, 'A') = 'A'
+    `, [], 15000, dbo);
+    const out = {
+      ok: true,
+      db: dbId,
+      connection: {
+        host: dbo && dbo.host ? String(dbo.host) : '',
+        port: dbo && dbo.port ? Number(dbo.port) : 0,
+        database: dbo && dbo.database ? String(dbo.database) : '',
+        user: dbo && dbo.user ? String(dbo.user) : '',
+      },
+      counts: {
+        relations: +(rel[0] && rel[0].C || 0),
+        articulos_total: +(art[0] && art[0].C || 0),
+        articulos_activos: +(act[0] && act[0].C || 0),
+      },
+      inv_resumen_raw: inv[0] || {},
+      sample_articulos: Array.isArray(sample) ? sample : [],
+    };
+    // #region agent log
+    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run-render-inv-2',hypothesisId:'H7',location:'server_corregido.js:/api/debug/firebird-inv:ok',message:'firebird inv debug ok',data:{db:dbId,counts:out.counts,inv:out.inv_resumen_raw},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    return res.json(out);
+  } catch (e) {
+    const errMsg = e && e.message ? String(e.message) : String(e || 'Error desconocido');
+    // #region agent log
+    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run-render-inv-2',hypothesisId:'H8',location:'server_corregido.js:/api/debug/firebird-inv:error',message:'firebird inv debug failed',data:{db:dbId,host:dbo&&dbo.host?String(dbo.host):'',port:dbo&&dbo.port?Number(dbo.port):0,database:dbo&&dbo.database?String(dbo.database):'',error:errMsg.slice(0,500)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    return res.status(500).json({
+      ok: false,
+      db: dbId,
+      connection: {
+        host: dbo && dbo.host ? String(dbo.host) : '',
+        port: dbo && dbo.port ? Number(dbo.port) : 0,
+        database: dbo && dbo.database ? String(dbo.database) : '',
+        user: dbo && dbo.user ? String(dbo.user) : '',
+      },
+      error: errMsg,
+    });
+  }
+});
+
 get('/api/inv/bajo-minimo', async (req) => {
   const dbo = getReqDbOpts(req);
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
