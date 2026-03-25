@@ -76,6 +76,10 @@ nav{display:flex;gap:4px;flex-wrap:wrap}
 .cov-ok{background:rgba(0,229,160,.12);color:var(--green);box-shadow:inset 0 0 0 1px rgba(0,229,160,.2)}
 .cov-high{background:rgba(77,166,255,.12);color:var(--blue);box-shadow:inset 0 0 0 1px rgba(77,166,255,.2)}
 .ins-empty{color:var(--muted);font:.74rem 'DM Mono',monospace;padding:8px 0}
+.oc-wrap{margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08)}
+.oc-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px}
+.oc-title{font:.62rem 'DM Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.oc-chip{font:.6rem 'DM Mono',monospace;border:1px solid var(--brd);padding:.2rem .45rem;border-radius:6px;color:var(--txt2)}
 .mission{border-radius:16px;border:1px solid var(--brd);background:linear-gradient(145deg,rgba(77,166,255,.08),rgba(0,229,160,.06));padding:1rem 1.15rem;margin-bottom:1rem}
 .mission h2{font-size:.95rem;font-weight:800;color:var(--suminregio);margin-bottom:.35rem}
 .mission p{font-size:.78rem;color:var(--txt);line-height:1.55;opacity:.92}
@@ -159,6 +163,9 @@ nav{display:flex;gap:4px;flex-wrap:wrap}
       <div class="ch"><div class="ct">Inteligencia de consumo</div><div class="cb">Semanal &middot; concentraci&oacute;n &middot; vs periodo previo &middot; cobertura</div></div>
       <div class="bd insights-body" id="insightsBody">
         <div class="ins-empty">Cargando&hellip;</div>
+      </div>
+      <div class="bd insights-body oc-wrap" id="ocBody">
+        <div class="ins-empty">Cargando cruce consumo vs pedidos/OC&hellip;</div>
       </div>
     </article>
   </section>
@@ -339,6 +346,50 @@ async function loadInsights(){
     applyConsumoKpiSem(lastConsumoRes, null);
   }
 }
+function renderPedidosVsConsumo(d){
+  const box = document.getElementById('ocBody');
+  if(!box) return;
+  if(!d || typeof d !== 'object'){
+    box.innerHTML = '<div class="ins-empty">Sin datos de pedidos/OC para este filtro.</div>';
+    return;
+  }
+  const srcTxt = d.source && d.source.key ? ('Fuente: ' + d.source.key) : 'Sin fuente detectada';
+  const rows = Array.isArray(d.top_consumo) ? d.top_consumo : [];
+  const r = d.resumen || {};
+  const cov = +r.cobertura_pedidos_top_pct || 0;
+  const covCls = cov >= 90 ? 'cov-ok' : cov >= 65 ? 'cov-low' : 'cov-crit';
+  let html = '<div class="oc-head"><div class="oc-title">Pedidos / OC vs consumo</div><span class="oc-chip">'+esc(srcTxt)+'</span></div>';
+  if(!d.ok){
+    html += '<div class="ins-empty">'+esc(d.message || 'Sin estructura de compras compatible en esta base.')+'</div>';
+    box.innerHTML = html;
+    return;
+  }
+  html += '<div class="ins-sub">Cobertura de pedidos (Top consumo): <span class="cov-cell '+covCls+'" style="padding:2px 8px">'+fmtF(cov)+'%</span> · Consumo '+fmtN(r.unidades_consumo_top||0)+' u. · Pedidos '+fmtN(r.unidades_pedidas_top||0)+' u. · Brecha '+fmtN(r.brecha_top||0)+' u.</div>';
+  html += '<table class="ins-tbl" style="margin-top:8px"><thead><tr><th>Artículo</th><th class="num">Consumo</th><th class="num">Pedidos/OC</th><th class="num">Brecha</th><th class="num">Cobertura</th></tr></thead><tbody>';
+  if(!rows.length){
+    html += '<tr><td colspan="5" class="ins-empty">Sin artículos para el periodo actual.</td></tr>';
+  }else{
+    rows.forEach(x=>{
+      const c = +x.UNIDADES_CONSUMO || 0;
+      const p = +x.UNIDADES_PEDIDAS || 0;
+      const b = +x.BRECHA_UNIDADES || 0;
+      const cp = +x.COBERTURA_PEDIDOS_PCT || 0;
+      const cls = cp >= 90 ? 'cov-ok' : cp >= 65 ? 'cov-low' : 'cov-crit';
+      html += '<tr><td title="'+esc(x.ARTICULO||'')+'">'+esc(String(x.ARTICULO||'').substring(0,30))+(String(x.ARTICULO||'').length>30?'…':'')+'</td><td class="num">'+fmtN(c)+'</td><td class="num">'+fmtN(p)+'</td><td class="num">'+fmtN(b)+'</td><td class="num cov-cell '+cls+'">'+fmtF(cp)+'%</td></tr>';
+    });
+  }
+  html += '</tbody></table>';
+  box.innerHTML = html;
+}
+async function loadPedidosVsConsumo(){
+  const box = document.getElementById('ocBody');
+  try{
+    const d = await api('/api/consumos/pedidos-compra?' + getQS({ limit: 10 }));
+    renderPedidosVsConsumo(d);
+  }catch(e){
+    if(box) box.innerHTML = '<div class="ins-empty">No se pudo cargar cruce pedidos/OC: '+esc((e&&e.message)||'error')+'</div>';
+  }
+}
 async function loadVendedores(){
   const rows = (await api('/api/consumos/por-vendedor?' + getQS())).slice().sort((a,b)=>(+b.UNIDADES||0)-(+a.UNIDADES||0));
   const tb = document.querySelector('#tblVend tbody');
@@ -347,7 +398,7 @@ async function loadVendedores(){
 }
 async function loadAll(){
   try{
-    await Promise.all([loadResumen(), loadDiario(), loadTop(), loadVendedores(), loadInsights()]);
+    await Promise.all([loadResumen(), loadDiario(), loadTop(), loadVendedores(), loadInsights(), loadPedidosVsConsumo()]);
     document.getElementById('pageSub').textContent = 'Cantidad vendida (unidades) alineada al filtro activo.';
   }catch(e){
     document.getElementById('pageSub').textContent = 'Error al cargar consumos: ' + e.message;

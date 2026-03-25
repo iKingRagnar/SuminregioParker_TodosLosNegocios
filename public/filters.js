@@ -29,7 +29,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   const MESES_FULL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
                       'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : '';
-  const PARKER_DB_CANDIDATES = ['SUMINREGIO-PARKER', 'default'];
+  const PARKER_DB_CANDIDATES = ['default'];
 
   let _cfg        = {};
   let _vendedores = [];
@@ -86,6 +86,8 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     try {
       let db = (new URLSearchParams(window.location.search).get('db') || '').trim();
       if (!db) db = (sessionStorage.getItem('microsip_erp_db') || '').trim();
+      // Compat backward: alias legacy "SUMINREGIO-PARKER" -> "default" real id.
+      if (/^suminregio[-_\s]?parker$/i.test(db)) db = 'default';
       if (!db) db = PARKER_DB_CANDIDATES[0];
       return db;
     } catch (e) {
@@ -210,7 +212,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       } catch (_) {}
       try { sessionStorage.setItem('microsip_erp_db', urlDb); } catch (_) {}
       // #region agent log
-      fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8e39ce'},body:JSON.stringify({sessionId:'8e39ce',runId:'run2',hypothesisId:'H2',location:'public/filters.js:renderDbChipsInto',message:'db default applied to parker',data:{selectedDb:urlDb,availableIds:ids.slice(0,20)},timestamp:Date.now()})}).catch(()=>{});
+      fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run26',hypothesisId:'H107',location:'filters.js:renderDbChipsInto:initial-default',message:'db default normalized and applied',data:{selectedDb:urlDb,availableIds:ids.slice(0,20)},timestamp:Date.now()})}).catch(()=>{});
       // #endregion
     }
     let html = '';
@@ -251,6 +253,9 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
           history.replaceState({}, '', u);
         } catch (_) {}
         try { sessionStorage.setItem('microsip_erp_db', raw); } catch (_) {}
+        // #region agent log
+        fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run26',hypothesisId:'H108',location:'filters.js:renderDbChipsInto:onClick',message:'db chip clicked and persisted',data:{clickedDb:raw,href:window.location.href},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
         container.querySelectorAll('.biz-chip').forEach(function (b) { b.classList.remove('active'); });
         btn.classList.add('active');
         if (onChange) onChange(raw);

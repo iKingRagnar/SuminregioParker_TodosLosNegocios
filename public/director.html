@@ -246,7 +246,7 @@ html[data-theme=light] .chart-empty-msg{background:rgba(255,255,255,.85);color:#
 
   <div class="grid-2">
     <div class="card">
-      <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></svg>Ventas Diarias (VE + PV)</div><div class="card-badge">30 d&iacute;as</div></div>
+      <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></svg>Ventas por Mes (VE + PV)</div><div class="card-badge">Acumulado mensual</div></div>
       <div class="card-body">
         <div class="chart-wrap">
           <canvas id="chartVentas"></canvas>
@@ -559,26 +559,38 @@ async function loadDiarias() {
       return;
     }
     if (emptyEl) emptyEl.style.display = 'none';
-    const labels = rows.map(r=>{
+    const monthAgg = new Map();
+    rows.forEach(r => {
       const raw = r.DIA;
       const d = (raw instanceof Date) ? raw : new Date(typeof raw === 'string' && raw.includes('-') ? raw.substring(0,10)+'T12:00:00' : raw);
-      return `${d.getDate()}/${MESES[d.getMonth()]}`;
+      if (isNaN(d.getTime())) return;
+      const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      if (!monthAgg.has(key)) {
+        monthAgg.set(key, { y:d.getFullYear(), m:d.getMonth(), ve:0, pv:0, meta:0, ideal:0 });
+      }
+      const bucket = monthAgg.get(key);
+      bucket.ve += +r.VENTAS_VE || 0;
+      bucket.pv += +r.VENTAS_PV || 0;
+      bucket.meta += +r.META_EQUILIBRIO || 0;
+      bucket.ideal += +r.META_IDEAL || 0;
     });
-    const metaArr = rows.map(r=> r.META_EQUILIBRIO != null ? r.META_EQUILIBRIO : 0);
-    const idealArr = rows.map(r=> r.META_IDEAL != null ? r.META_IDEAL : 0);
-    const metaSample = metaArr.find(m=> m > 0) || 0;
-    const idealSample = idealArr.find(m=> m > 0) || 0;
+    const mRows = Array.from(monthAgg.values()).sort((a,b)=>(a.y-b.y)||(a.m-b.m)).slice(-12);
+    const labels = mRows.map(r => `${MESES[r.m]} ${String(r.y).slice(-2)}`);
+    const metaArr = mRows.map(r => r.meta);
+    const idealArr = mRows.map(r => r.ideal);
+    const metaSample = metaArr.reduce((s,v)=>s+v,0);
+    const idealSample = idealArr.reduce((s,v)=>s+v,0);
     const metaRefEl = document.getElementById('chartVentas-meta-ref');
     if(metaRefEl) metaRefEl.innerHTML = metaSample > 0
-      ? `<span>Meta (d&#237;a laboral): <strong class="m-val">${fmt(metaSample)}</strong></span><span>Ideal (+30%): <strong class="i-val">${fmt(idealSample)}</strong></span><span style="color:var(--text2)">Pasa el mouse sobre la gr&#225;fica por fecha para ver todos los valores.</span>`
+      ? `<span>Meta acumulada: <strong class="m-val">${fmt(metaSample)}</strong></span><span>Ideal acumulada (+30%): <strong class="i-val">${fmt(idealSample)}</strong></span><span style="color:var(--text2)">Vista mensual para comit&eacute; directivo.</span>`
       : '';
 
     if(chartVentas) chartVentas.destroy();
     chartVentas = new Chart(document.getElementById('chartVentas').getContext('2d'), {
       type:'line',
       data:{ labels, datasets:[
-        {label:'Industrial (VE)', data:rows.map(r=>r.VENTAS_VE||0), backgroundColor:'rgba(77,166,255,.15)', borderColor:'#4DA6FF', borderWidth:2, fill:true, tension:.4},
-        {label:'Mostrador (PV)', data:rows.map(r=>r.VENTAS_PV||0), backgroundColor:'rgba(155,109,255,.15)', borderColor:'#9B6DFF', borderWidth:2, fill:true, tension:.4},
+        {label:'Industrial (VE)', data:mRows.map(r=>r.ve||0), backgroundColor:'rgba(77,166,255,.15)', borderColor:'#4DA6FF', borderWidth:2, fill:true, tension:.35},
+        {label:'Mostrador (PV)', data:mRows.map(r=>r.pv||0), backgroundColor:'rgba(155,109,255,.15)', borderColor:'#9B6DFF', borderWidth:2, fill:true, tension:.35},
         {label:'Meta', data:metaArr, borderColor:'rgba(255,184,0,.85)', borderWidth:2.5, borderDash:[5,4], pointRadius:2, pointHoverRadius:5, fill:false},
         {label:'Ideal (+30%)', data:idealArr, borderColor:'rgba(0,229,160,.7)', borderWidth:2.5, borderDash:[3,4], pointRadius:2, pointHoverRadius:5, fill:false},
       ]},

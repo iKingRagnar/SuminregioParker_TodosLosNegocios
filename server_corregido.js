@@ -4552,6 +4552,123 @@ get('/api/consumos/por-vendedor', async (req) => {
 });
 
 /**
+ * Cruce Consumo vs Pedidos/OC en el periodo.
+ * Busca dinámicamente una estructura de compras válida (CM/CP/OC) y agrega unidades pedidas
+ * para los artículos de mayor consumo del filtro activo.
+ */
+get('/api/consumos/pedidos-compra', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const tipo = getTipo(req);
+  const sub = consumosSub(tipo);
+  if (!req.query.desde && !req.query.hasta && !req.query.anio) {
+    const now = new Date();
+    req.query.anio = now.getFullYear();
+    req.query.mes = now.getMonth() + 1;
+  }
+  const f = buildFiltros(req, 'd', { omitVendedorCliente: true });
+  const topN = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 5), 30);
+  const topRows = await query(`
+    SELECT FIRST ${topN}
+      d.ARTICULO_ID,
+      COALESCE(a.NOMBRE, 'Art. ' || CAST(d.ARTICULO_ID AS VARCHAR(12))) AS ARTICULO,
+      COALESCE(SUM(d.UNIDADES), 0) AS UNIDADES_CONSUMO
+    FROM ${sub} d
+    LEFT JOIN ARTICULOS a ON a.ARTICULO_ID = d.ARTICULO_ID
+    WHERE d.UNIDADES > 0 ${f.sql}
+    GROUP BY d.ARTICULO_ID, a.NOMBRE
+    ORDER BY UNIDADES_CONSUMO DESC
+  `, f.params, 18000, dbo).catch(() => []);
+  const ids = (topRows || []).map(r => +r.ARTICULO_ID || 0).filter(Boolean);
+
+  const sourceCandidates = [
+    { key: 'CM', head: 'DOCTOS_CM', det: 'DOCTOS_CM_DET', headId: 'DOCTO_CM_ID' },
+    { key: 'CP', head: 'DOCTOS_CP', det: 'DOCTOS_CP_DET', headId: 'DOCTO_CP_ID' },
+    { key: 'OC', head: 'DOCTOS_OC', det: 'DOCTOS_OC_DET', headId: 'DOCTO_OC_ID' },
+  ];
+  let src = null;
+  for (const c of sourceCandidates) {
+    const [hCols, dCols] = await Promise.all([
+      getTableColumns(c.head, dbo).catch(() => new Set()),
+      getTableColumns(c.det, dbo).catch(() => new Set()),
+    ]);
+    const hid = firstExistingColumn(hCols, [c.headId, 'ID']);
+    const did = firstExistingColumn(dCols, [c.headId, 'ID']);
+    const art = firstExistingColumn(dCols, ['ARTICULO_ID']);
+    const qty = firstExistingColumn(dCols, ['UNIDADES', 'CANTIDAD', 'CANT', 'UNIDAD']);
+    const fec = firstExistingColumn(hCols, ['FECHA', 'FCH_HORA', 'CREADO_EN']);
+    const est = firstExistingColumn(hCols, ['ESTATUS', 'STATUS']);
+    if (hid && did && art && qty && fec) {
+      src = { ...c, hid, did, art, qty, fec, est };
+      break;
+    }
+  }
+
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run26',hypothesisId:'H109',location:'server_corregido.js:/api/consumos/pedidos-compra:source-detect',message:'purchase source detection for consumos',data:{found:!!src,source:src?src.key:'',topRows:(topRows||[]).length,ids:ids.slice(0,12)},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+
+  if (!src) {
+    return {
+      ok: false,
+      message: 'No se encontró estructura de pedidos/OC compatible en esta base.',
+      source: null,
+      top_consumo: (topRows || []).map(r => ({
+        ARTICULO_ID: r.ARTICULO_ID,
+        ARTICULO: r.ARTICULO,
+        UNIDADES_CONSUMO: +r.UNIDADES_CONSUMO || 0,
+        UNIDADES_PEDIDAS: 0,
+        COBERTURA_PEDIDOS_PCT: 0,
+      })),
+    };
+  }
+
+  const fh = buildFiltros(req, 'h', { omitVendedorCliente: true, fechaExpr: `h.${src.fec}` });
+  const inSql = ids.length ? ` AND det.${src.art} IN (${ids.map(() => '?').join(',')})` : '';
+  const stSql = src.est ? ` AND COALESCE(h.${src.est}, '') <> 'C'` : '';
+  const pedRows = ids.length ? await query(`
+    SELECT
+      det.${src.art} AS ARTICULO_ID,
+      COALESCE(SUM(COALESCE(det.${src.qty}, 0)), 0) AS UNIDADES_PEDIDAS
+    FROM ${src.head} h
+    JOIN ${src.det} det ON det.${src.did} = h.${src.hid}
+    WHERE 1=1 ${fh.sql} ${stSql} ${inSql}
+    GROUP BY det.${src.art}
+  `, [...fh.params, ...ids], 20000, dbo).catch(() => []) : [];
+  const pedMap = new Map((pedRows || []).map(r => [+r.ARTICULO_ID || 0, +r.UNIDADES_PEDIDAS || 0]));
+  const outRows = (topRows || []).map(r => {
+    const cons = +r.UNIDADES_CONSUMO || 0;
+    const ped = pedMap.get(+r.ARTICULO_ID || 0) || 0;
+    const cov = cons > 0 ? Math.round((ped / cons) * 10000) / 100 : 0;
+    return {
+      ARTICULO_ID: r.ARTICULO_ID,
+      ARTICULO: r.ARTICULO,
+      UNIDADES_CONSUMO: cons,
+      UNIDADES_PEDIDAS: ped,
+      BRECHA_UNIDADES: Math.round((cons - ped) * 100) / 100,
+      COBERTURA_PEDIDOS_PCT: cov,
+    };
+  });
+  const totalCons = outRows.reduce((s, r) => s + (+r.UNIDADES_CONSUMO || 0), 0);
+  const totalPed = outRows.reduce((s, r) => s + (+r.UNIDADES_PEDIDAS || 0), 0);
+
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run26',hypothesisId:'H110',location:'server_corregido.js:/api/consumos/pedidos-compra:result',message:'consumo vs purchase output computed',data:{source:src.key,rows:outRows.length,totalCons,totalPed,cobertura:totalCons>0?Math.round((totalPed/totalCons)*10000)/100:0},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+
+  return {
+    ok: true,
+    source: { key: src.key, head: src.head, det: src.det, qtyColumn: src.qty, dateColumn: src.fec },
+    resumen: {
+      unidades_consumo_top: Math.round(totalCons * 100) / 100,
+      unidades_pedidas_top: Math.round(totalPed * 100) / 100,
+      cobertura_pedidos_top_pct: totalCons > 0 ? Math.round((totalPed / totalCons) * 10000) / 100 : 0,
+      brecha_top: Math.round((totalCons - totalPed) * 100) / 100,
+    },
+    top_consumo: outRows,
+  };
+});
+
+/**
  * KPIs extra consumos: variación semanal (7 vs 7), concentración Top 5, vs periodo anterior,
  * cobertura inventario sobre top artículos.
  */

@@ -84,6 +84,7 @@ main{padding-top:24px;padding-bottom:48px;max-width:1520px;margin:0 auto;
 .aging-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px}
 .aging-bkt{background:var(--s1);border:1px solid var(--brd);border-radius:12px;padding:16px;text-align:center}
 .aging-lbl{font-size:10px;color:var(--txt3);letter-spacing:.5px;font-weight:700;margin-bottom:8px;text-transform:uppercase}
+.aging-sub{font-size:10px;color:var(--txt3);margin-top:6px;line-height:1.3}
 .estatus-bkt{display:inline-block;padding:3px 8px;border-radius:6px;font-size:10px;text-transform:none;white-space:nowrap}
 .estatus-bkt.c1{background:rgba(245,158,11,.2);color:var(--ylw)}
 .estatus-bkt.c2{background:rgba(251,146,60,.2);color:#FB923C}
@@ -244,13 +245,14 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
 
   <!-- AGING -->
   <div class="aging-grid">
-    <div class="aging-bkt c0"><div class="aging-lbl">Corriente</div><div class="aging-val" id="agC">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="agCBar" style="width:0%"></div></div></div>
-    <div class="aging-bkt c1"><div class="aging-lbl">1&#8211;30 d&iacute;as</div><div class="aging-val" id="ag1">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag1Bar" style="width:0%"></div></div></div>
-    <div class="aging-bkt c2"><div class="aging-lbl">31&#8211;60 d&iacute;as</div><div class="aging-val" id="ag2">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag2Bar" style="width:0%"></div></div></div>
-    <div class="aging-bkt c3"><div class="aging-lbl">61&#8211;90 d&iacute;as</div><div class="aging-val" id="ag3">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag3Bar" style="width:0%"></div></div></div>
-    <div class="aging-bkt c4"><div class="aging-lbl">+90 d&iacute;as</div><div class="aging-val" id="ag4">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag4Bar" style="width:0%"></div></div></div>
+    <div class="aging-bkt c0"><div class="aging-lbl">Corriente</div><div class="aging-val" id="agC">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="agCBar" style="width:0%"></div></div><div class="aging-sub">Documentos a cr&eacute;dito sin atraso</div></div>
+    <div class="aging-bkt c1"><div class="aging-lbl">1&#8211;30 d&iacute;as</div><div class="aging-val" id="ag1">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag1Bar" style="width:0%"></div></div><div class="aging-sub">Atraso leve</div></div>
+    <div class="aging-bkt c2"><div class="aging-lbl">31&#8211;60 d&iacute;as</div><div class="aging-val" id="ag2">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag2Bar" style="width:0%"></div></div><div class="aging-sub">Atraso medio</div></div>
+    <div class="aging-bkt c3"><div class="aging-lbl">61&#8211;90 d&iacute;as</div><div class="aging-val" id="ag3">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag3Bar" style="width:0%"></div></div><div class="aging-sub">Atraso alto</div></div>
+    <div class="aging-bkt c4"><div class="aging-lbl">+90 d&iacute;as</div><div class="aging-val" id="ag4">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag4Bar" style="width:0%"></div></div><div class="aging-sub">Atraso cr&iacute;tico</div></div>
   </div>
   <p class="card-note" style="margin-top:-8px;margin-bottom:16px">Corriente = No vencido (Saldo Cartera Vigente). 1-30, 31-60, 61-90, +90 = Vencido por antig&uuml;edad (Saldo Cartera Vencido), igual que Power BI.</p>
+  <p class="card-note" id="agingBreakdown" style="margin-top:-10px;margin-bottom:20px">Cargando desglose de buckets…</p>
 
   <!-- TABS -->
   <div class="tabs">
@@ -494,6 +496,7 @@ async function loadResumen() {
     setText('ag2',  fmtK(age.DIAS_31_60)); setPct('ag2Bar',  age.DIAS_31_60);
     setText('ag3',  fmtK(age.DIAS_61_90)); setPct('ag3Bar',  age.DIAS_61_90);
     setText('ag4',  fmtK(age.DIAS_MAS_90));setPct('ag4Bar',  age.DIAS_MAS_90);
+    setText('agingBreakdown', 'Vencido = 1-30 ('+fmtK(age.DIAS_1_30)+') + 31-60 ('+fmtK(age.DIAS_31_60)+') + 61-90 ('+fmtK(age.DIAS_61_90)+') + +90 ('+fmtK(age.DIAS_MAS_90)+') = '+fmtK(venc)+'. Vigente = Corriente = '+fmtK(age.CORRIENTE)+'.');
     const agCorriente = document.getElementById('agC');
     if (agCorriente) agCorriente.style.color = '#22C55E';
     const agingCols = { ag1:'#F59E0B', ag2:'#FB923C', ag3:'#F97316', ag4:'#EF4444' };

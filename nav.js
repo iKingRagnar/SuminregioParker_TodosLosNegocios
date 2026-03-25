@@ -284,6 +284,22 @@ html[data-theme="light"] .nav-aux-wrap{border-left-color:rgba(15,23,42,.1)}
 html[data-theme="light"] .orb{opacity:.06!important}
 html[data-theme="light"] .nav-aux-btn{background:rgba(15,23,42,.04);color:var(--text2);border-color:rgba(15,23,42,.1)}
 html[data-theme="light"] .microsip-skip-link:focus{background:#0f172a;color:#fff}
+html[data-theme="light"] :where(.card,.kpi,.kpi-card,.module-card,.bg-box,.bg-kpi,.aging-bkt,.cond-row,.biz-db-shell,.filter-bar,.client-filter-bar){
+  background:#ffffff!important;
+  border-color:rgba(15,23,42,.14)!important;
+}
+html[data-theme="light"] :where(.card-title,.kpi-label,.kpi-sub,.card-note,.hero-sub,.page-sub,.sd-label,.bg-row,.tbl th,table thead th){
+  color:#475569!important;
+}
+html[data-theme="light"] :where(.tbl td,table tbody td,.kpi-value,.kpi-val,.bg-kpi .val,.bg-row .v,.vendor-name){
+  color:#0f172a!important;
+}
+html[data-theme="light"] :where(.ins-sub,.ins-pill .h,.aging-sub,.meta-pct,.clock,.live-pill){
+  color:#334155!important;
+}
+html[data-theme="dark"] :where(.card-note,.hero-sub,.page-sub,.sd-label,.bg-row,.kpi-sub,.ins-sub,.aging-sub){
+  color:#9fb3c9!important;
+}
 
 /* --- Sortable tables (global) --------------------------------------- */
 .ms-sortable-th{cursor:pointer;user-select:none;position:relative;padding-right:1.1rem!important}
