@@ -418,6 +418,10 @@ const CD = { responsive:true, maintainAspectRatio:false,
     tooltip:{ mode:'index', intersect:false } } };
 
 function initCharts() {
+  if (typeof window.Chart === 'undefined') {
+    console.warn('[cxc] Chart.js no disponible; se omiten gráficas.');
+    return;
+  }
   const c1 = document.getElementById('chartAging')?.getContext('2d');
   if(c1) chartAging = new Chart(c1, {
     type:'doughnut',
@@ -756,9 +760,18 @@ async function refreshCxcDbHint(){
 }
 
 (async function init(){
-  initCharts();
+  try { initCharts(); } catch (e) { console.warn('[cxc] initCharts', e && e.message ? e.message : e); }
   const fb = document.getElementById('filter-bar');
-  if (fb) fb.style.display = 'none';
+  if (fb) fb.style.display = '';
+  if (window.initFilters) {
+    initFilters({
+      containerId  : 'filter-bar',
+      showVendedor : false,
+      defaultPreset: 'mes',
+      onReady      : async () => { await refreshCxcDbHint(); await loadClientesFiltro(); await loadAll(); },
+      onChange     : async () => { await refreshCxcDbHint(); await loadClientesFiltro(); await loadAll(); },
+    });
+  }
   await checkStatus();
   await refreshCxcDbHint();
   await loadClientesFiltro();

@@ -169,7 +169,7 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
 </nav>
 
 <main>
-  <!-- Barra de filtros temporal (fecha) ù CXC aging es siempre al dùa de hoy -->
+  <!-- Barra de filtros temporal (fecha) ? CXC aging es siempre al d?a de hoy -->
   <div id="filter-bar"></div>
 
   <div class="filter-bar">
@@ -216,9 +216,9 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
   <!-- AGING -->
   <div class="aging-grid">
     <div class="aging-bkt c0"><div class="aging-lbl">Corriente</div><div class="aging-val" id="agC">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="agCBar" style="width:0%"></div></div></div>
-    <div class="aging-bkt c1"><div class="aging-lbl">1ù30 d&iacute;as</div><div class="aging-val" id="ag1">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag1Bar" style="width:0%"></div></div></div>
-    <div class="aging-bkt c2"><div class="aging-lbl">31ù60 d&iacute;as</div><div class="aging-val" id="ag2">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag2Bar" style="width:0%"></div></div></div>
-    <div class="aging-bkt c3"><div class="aging-lbl">61ù90 d&iacute;as</div><div class="aging-val" id="ag3">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag3Bar" style="width:0%"></div></div></div>
+    <div class="aging-bkt c1"><div class="aging-lbl">1?30 d&iacute;as</div><div class="aging-val" id="ag1">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag1Bar" style="width:0%"></div></div></div>
+    <div class="aging-bkt c2"><div class="aging-lbl">31?60 d&iacute;as</div><div class="aging-val" id="ag2">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag2Bar" style="width:0%"></div></div></div>
+    <div class="aging-bkt c3"><div class="aging-lbl">61?90 d&iacute;as</div><div class="aging-val" id="ag3">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag3Bar" style="width:0%"></div></div></div>
     <div class="aging-bkt c4"><div class="aging-lbl">+90 d&iacute;as</div><div class="aging-val" id="ag4">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag4Bar" style="width:0%"></div></div></div>
   </div>
 
@@ -343,6 +343,10 @@ const CD = { responsive:true, maintainAspectRatio:false,
   plugins:{ legend:{ labels:{ color:'#94A3B8', font:{size:11}, boxWidth:12 } } } };
 
 function initCharts() {
+  if (typeof window.Chart === 'undefined') {
+    console.warn('[cxc] Chart.js no disponible; se omiten gr?ficas.');
+    return;
+  }
   const c1 = document.getElementById('chartAging')?.getContext('2d');
   if(c1) chartAging = new Chart(c1, {
     type:'doughnut',
@@ -537,7 +541,7 @@ async function loadBuro() {
     for(const [cid,cl] of Object.entries(byC)){
       const cells = cols.map(col=>{
         const dm = cl.docs.filter(d=>+d.ANIO===col.anio&&+d.MES_EMISION===col.mes);
-        if(!dm.length) return '<td><span class="bc empty">ù</span></td>';
+        if(!dm.length) return '<td><span class="bc empty">?</span></td>';
         let best={cls:'ok',label:'OK',title:''};
         for(const d of dm){ const e=getEstadoPago(d); if(pri[e.cls]>pri[best.cls]) best=e; }
         return '<td style="text-align:center"><span class="bc '+best.cls+'" title="'+best.title+'">'+best.label+'</span></td>';
@@ -596,7 +600,7 @@ async function loadClientesFiltro(){
 async function loadAll(){ await Promise.all([loadResumen(), loadVencidas()]); }
 
 (async function init(){
-  initCharts();
+  try { initCharts(); } catch (e) { console.warn('[cxc] initCharts', e && e.message ? e.message : e); }
   await checkStatus();
   await loadClientesFiltro();
   // Inicializar filtros de fecha (aging CXC es siempre actual; no modifica consultas)
@@ -605,8 +609,8 @@ async function loadAll(){ await Promise.all([loadResumen(), loadVencidas()]); }
       containerId  : 'filter-bar',
       showVendedor : false,
       defaultPreset: 'mes',
-      onReady : () => {},
-      onChange: () => {},
+      onReady : async () => { await loadClientesFiltro(); await loadAll(); },
+      onChange: async () => { await loadClientesFiltro(); await loadAll(); },
     });
   }
   await loadAll();
