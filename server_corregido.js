@@ -506,12 +506,16 @@ function normalizeDbQueryId(raw) {
 function getReqDbOpts(req) {
   if (!req || !req.query) return null;
   const id = normalizeDbQueryId(req.query.db);
-  if (!id || id.toLowerCase() === 'default') return null;
+  if (!id || id.toLowerCase() === 'default') {
+    const def = DATABASE_REGISTRY.find(d => String(d.id || '').toLowerCase() === 'default');
+    return def ? def.options : null;
+  }
   const idLc = id.toLowerCase();
   const hit = DATABASE_REGISTRY.find(d => String(d.id).toLowerCase() === idLc);
   if (!hit) {
     console.warn('[db] Parámetro db desconocido (se usa FB_DATABASE por defecto):', id);
-    return null;
+    const def = DATABASE_REGISTRY.find(d => String(d.id || '').toLowerCase() === 'default');
+    return def ? def.options : null;
   }
   return hit.options;
 }
