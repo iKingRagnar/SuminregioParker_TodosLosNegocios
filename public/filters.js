@@ -29,6 +29,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   const MESES_FULL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
                       'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : '';
+  const PARKER_DB_CANDIDATES = ['SUMINREGIO-PARKER', 'default'];
 
   let _cfg        = {};
   let _vendedores = [];
@@ -85,9 +86,10 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     try {
       let db = (new URLSearchParams(window.location.search).get('db') || '').trim();
       if (!db) db = (sessionStorage.getItem('microsip_erp_db') || '').trim();
+      if (!db) db = PARKER_DB_CANDIDATES[0];
       return db;
     } catch (e) {
-      return '';
+      return PARKER_DB_CANDIDATES[0];
     }
   }
 
@@ -196,9 +198,22 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
 
   function renderDbChipsInto(container, list, onChange) {
     if (!container) return;
-    const urlDb = getSelectedDbId();
-    let html = '<button type="button" class="biz-chip db-chip' + (!urlDb ? ' active' : '') + '" data-db="" title="Conexi\u00f3n por defecto del servidor (FB_DATABASE)">' +
-      '<span class="db-chip-main">Por defecto</span><span class="db-chip-sub">.env</span></button>';
+    let urlDb = getSelectedDbId();
+    const ids = (list || []).map(function (e) { return String((e && e.id) || ''); });
+    const preferred = PARKER_DB_CANDIDATES.find(function (id) { return ids.indexOf(id) >= 0; }) || ids[0] || '';
+    if (!urlDb || ids.indexOf(urlDb) < 0) urlDb = preferred;
+    if (urlDb) {
+      try {
+        const u = new URL(window.location.href);
+        u.searchParams.set('db', urlDb);
+        history.replaceState({}, '', u);
+      } catch (_) {}
+      try { sessionStorage.setItem('microsip_erp_db', urlDb); } catch (_) {}
+      // #region agent log
+      fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8e39ce'},body:JSON.stringify({sessionId:'8e39ce',runId:'run2',hypothesisId:'H2',location:'public/filters.js:renderDbChipsInto',message:'db default applied to parker',data:{selectedDb:urlDb,availableIds:ids.slice(0,20)},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
+    }
+    let html = '';
     (list || []).forEach(function (e) {
       const id = String(e.id || '');
       const fname = fdbBasename(e.database);
@@ -229,17 +244,13 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     // #endregion
     container.querySelectorAll('.biz-chip').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        const raw = btn.getAttribute('data-db') || '';
+        const raw = btn.getAttribute('data-db') || preferred || PARKER_DB_CANDIDATES[0];
         try {
           const u = new URL(window.location.href);
-          if (raw) u.searchParams.set('db', raw);
-          else u.searchParams.delete('db');
+          u.searchParams.set('db', raw);
           history.replaceState({}, '', u);
         } catch (_) {}
-        try {
-          if (raw) sessionStorage.setItem('microsip_erp_db', raw);
-          else sessionStorage.removeItem('microsip_erp_db');
-        } catch (_) {}
+        try { sessionStorage.setItem('microsip_erp_db', raw); } catch (_) {}
         container.querySelectorAll('.biz-chip').forEach(function (b) { b.classList.remove('active'); });
         btn.classList.add('active');
         if (onChange) onChange(raw);

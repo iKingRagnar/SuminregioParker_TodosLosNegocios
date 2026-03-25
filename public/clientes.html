@@ -626,7 +626,38 @@ function renderChartBuckets(res){
         backgroundColor:['rgba(77,166,255,.5)','rgba(255,184,0,.5)','rgba(255,140,66,.5)','rgba(255,69,102,.5)'],
         borderColor:['#4DA6FF','#FFB800','#FF8C42','#FF4566'],borderWidth:1.5,borderRadius:5}]
     },
-    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,backgroundColor:'#0D1D35',borderColor:'rgba(255,255,255,.1)',borderWidth:1,callbacks:{label:c=>' $'+(+c.raw||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2})}}},scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5A7090',font:{size:9,family:"'DM Mono'"}}},y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5A7090',font:{size:9,family:"'DM Mono'"},callback:v=>'$'+(+v||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2})}}}}}
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          mode:'index',
+          intersect:false,
+          backgroundColor:'#0D1D35',
+          borderColor:'rgba(255,255,255,.1)',
+          borderWidth:1,
+          callbacks:{
+            label:c=>' $'+(+c.raw||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2})
+          }
+        }
+      },
+      scales:{
+        x:{
+          grid:{color:'rgba(255,255,255,.04)'},
+          ticks:{color:'#5A7090',font:{size:9,family:"'DM Mono'"}}
+        },
+        y:{
+          grid:{color:'rgba(255,255,255,.04)'},
+          ticks:{
+            color:'#5A7090',
+            font:{size:9,family:"'DM Mono'"},
+            callback:v=>'$'+(+v||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2})
+          }
+        }
+      }
+    }
   });
 }
 
