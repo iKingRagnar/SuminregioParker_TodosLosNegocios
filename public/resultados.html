@@ -1605,6 +1605,25 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     const vn = +m.VENTAS_NETAS||0;
     return Math.max(0, vb - vn);
   };
+  const veNetaCalc = (m) => {
+    const ve=+m.VENTAS_VE||0, pv=+m.VENTAS_PV||0, rem=remiCalc(m);
+    const den=ve+pv;
+    const remVe=den>0 ? (rem*(ve/den)) : 0;
+    return ve-remVe;
+  };
+  const pvNetaCalc = (m) => {
+    const ve=+m.VENTAS_VE||0, pv=+m.VENTAS_PV||0, rem=remiCalc(m);
+    const den=ve+pv;
+    const remVe=den>0 ? (rem*(ve/den)) : 0;
+    const remPv=rem-remVe;
+    return pv-remPv;
+  };
+  const remVeCalc = (m) => {
+    const ve=+m.VENTAS_VE||0, pv=+m.VENTAS_PV||0, rem=remiCalc(m);
+    const den=ve+pv;
+    return den>0 ? (rem*(ve/den)) : 0;
+  };
+  const remPvCalc = (m) => remiCalc(m)-remVeCalc(m);
   const remiTotal = mesesOrd.reduce((s,m)=>s+remiCalc(m),0);
   const pnl=`
   <tr class="pnl-section-header" data-section="ingresos"><td colspan="${mesesOrd.length+2}">INGRESOS</td></tr>
@@ -1624,14 +1643,29 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     <td style="color:${remiTotal>0?'var(--red)':'var(--text2)'}">${remiTotal>0?'('+fmtM(remiTotal)+')':fmtM(0)}</td>
   </tr>
   <tr class="data-row">
-    <td>Venta Industrial (VE)</td>
-    ${mesesOrd.map(m=>`<td style="color:var(--text2)">${fmtM(+m.VENTAS_VE||0)}</td>`).join('')}
-    <td style="color:var(--text2)">${fmtM(sumOf('VENTAS_VE'))}</td>
+    <td>Venta Industrial (VE) neta</td>
+    ${mesesOrd.map(m=>`<td style="color:var(--text2)">${fmtM(veNetaCalc(m))}</td>`).join('')}
+    <td style="color:var(--text2)">${fmtM(mesesOrd.reduce((s,m)=>s+veNetaCalc(m),0))}</td>
   </tr>
   <tr class="data-row">
-    <td>Ventas de Mostrador (PV)</td>
-    ${mesesOrd.map(m=>`<td style="color:var(--text2)">${fmtM(+m.VENTAS_PV||0)}</td>`).join('')}
-    <td style="color:var(--text2)">${fmtM(sumOf('VENTAS_PV'))}</td>
+    <td>Ventas de Mostrador (PV) neta</td>
+    ${mesesOrd.map(m=>`<td style="color:var(--text2)">${fmtM(pvNetaCalc(m))}</td>`).join('')}
+    <td style="color:var(--text2)">${fmtM(mesesOrd.reduce((s,m)=>s+pvNetaCalc(m),0))}</td>
+  </tr>
+  <tr class="data-row">
+    <td>Remisiones total (base)</td>
+    ${mesesOrd.map(m=>`<td style="color:var(--red)">${remiCalc(m)>0?'('+fmtM(remiCalc(m))+')':fmtM(0)}</td>`).join('')}
+    <td style="color:var(--red)">${remiTotal>0?'('+fmtM(remiTotal)+')':fmtM(0)}</td>
+  </tr>
+  <tr class="data-row">
+    <td>Remisiones atribuibles a VE</td>
+    ${mesesOrd.map(m=>`<td style="color:var(--muted)">${remVeCalc(m)>0?'('+fmtM(remVeCalc(m))+')':fmtM(0)}</td>`).join('')}
+    <td style="color:var(--muted)">${fmtM(mesesOrd.reduce((s,m)=>s+remVeCalc(m),0))}</td>
+  </tr>
+  <tr class="data-row">
+    <td>Remisiones atribuibles a PV</td>
+    ${mesesOrd.map(m=>`<td style="color:var(--muted)">${remPvCalc(m)>0?'('+fmtM(remPvCalc(m))+')':fmtM(0)}</td>`).join('')}
+    <td style="color:var(--muted)">${fmtM(mesesOrd.reduce((s,m)=>s+remPvCalc(m),0))}</td>
   </tr>
   <tr class="subtotal-row">
     <td>▶ Total Ventas Netas</td>
@@ -1716,7 +1750,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   };
   const uaiTotal = mesesOrd.reduce((s,m)=>s+uaiForMes(m),0);
   // #region agent log
-  debugLogResultados('run23','H102','resultados.html:renderTabla:footer-uai','uai footer computed',{meses:mesesOrd.map(monthKey),uaiTotal,ventasNetasTotal:+tot.VENTAS_NETAS||0,remisionesTotal:remiTotal});
+  debugLogResultados('run24','H103','resultados.html:renderTabla:reconciliacion','ventas netas and remisiones split by channel',{meses:mesesOrd.map(m=>({k:monthKey(m),vn:+m.VENTAS_NETAS||0,ve:+m.VENTAS_VE||0,pv:+m.VENTAS_PV||0,rem:remiCalc(m),veN:veNetaCalc(m),pvN:pvNetaCalc(m)})),ventasNetasTotal:+tot.VENTAS_NETAS||0,remisionesTotal:remiTotal});
   // #endregion
   if(pnlFootEl)pnlFootEl.innerHTML=`
   <tr class="total-final">
