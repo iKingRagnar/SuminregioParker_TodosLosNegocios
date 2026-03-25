@@ -708,7 +708,11 @@ async function loadBalanceGeneral(){
     document.getElementById('bgCapital').textContent=fmtM(+t.CAPITAL_TOTAL||0);
     const diff=+t.DIFERENCIA_BALANCE||0;
     const diffEl=document.getElementById('bgDiff');
-    if(diffEl){diffEl.textContent=fmtM(diff);diffEl.style.color=Math.abs(diff)<=1?'var(--green)':(diff>0?'var(--yellow)':'var(--red)');}
+    if(diffEl){
+      diffEl.textContent=fmtM(diff);
+      // Regla contable: Activo = Pasivo + Capital; cualquier diferencia material es crítica.
+      diffEl.style.color = Math.abs(diff)<=1 ? 'var(--green)' : 'var(--red)';
+    }
     if(badge) badge.textContent=`Cierre ${String(cierre.MES||'--').padStart(2,'0')}/${cierre.ANIO||'----'}`;
     const renderList=(id,list)=>{
       const el=document.getElementById(id); if(!el) return;
@@ -719,7 +723,7 @@ async function loadBalanceGeneral(){
     renderList('bgListPasivo',d.pasivo);
     renderList('bgListCapital',d.capital);
     // #region agent log
-    debugLogResultados('run11','H64','resultados.html:loadBalanceGeneral','balance general rendered',{activo:+t.ACTIVO_TOTAL||0,pasivo:+t.PASIVO_TOTAL||0,capital:+t.CAPITAL_TOTAL||0,diff:+t.DIFERENCIA_BALANCE||0,cierre});
+    debugLogResultados('run25','H104','resultados.html:loadBalanceGeneral','balance general rendered',{activo:+t.ACTIVO_TOTAL||0,pasivo:+t.PASIVO_TOTAL||0,capital:+t.CAPITAL_TOTAL||0,diff:+t.DIFERENCIA_BALANCE||0,diffColor:(Math.abs(diff)<=1?'green':'red'),cierre});
     // #endregion
   }catch(_){
     if(badge) badge.textContent='Sin datos';
@@ -751,6 +755,8 @@ async function loadEstadoSrContable(mesesScope, totScope){
     document.getElementById('srCosto').textContent=fmtM(costo);
     document.getElementById('srBruta').textContent=fmtM(bruta);
     document.getElementById('srUai').textContent=fmtM(uai);
+    const srUaiEl=document.getElementById('srUai');
+    if(srUaiEl) srUaiEl.style.color = uai < 0 ? 'var(--red)' : (uai > 0 ? 'var(--green)' : 'var(--yellow)');
     if(badge) badge.textContent=`Ref ${mesLabel(p1)} a ${mesLabel(p2)}`;
     if(listOp){
       listOp.innerHTML=[
@@ -773,7 +779,7 @@ async function loadEstadoSrContable(mesesScope, totScope){
       ].map(x=>`<div class="bg-row"><span class="n">${x[0]}</span><span class="v">${fmtM(x[1])}</span></div>`).join('');
     }
     // #region agent log
-    debugLogResultados('run23','H100','resultados.html:loadEstadoSrContable:scoped','estado sr derived from selected months',{meses:ord.map(monthKey),ventas,costo,bruta,gv,go,ga,tg,og,gf,uop,uai});
+    debugLogResultados('run25','H105','resultados.html:loadEstadoSrContable:scoped','estado sr derived from selected months',{meses:ord.map(monthKey),ventas,costo,bruta,gv,go,ga,tg,og,gf,uop,uai,uaiColor:(uai<0?'red':uai>0?'green':'yellow')});
     // #endregion
     return;
   }
@@ -794,6 +800,11 @@ async function loadEstadoSrContable(mesesScope, totScope){
     document.getElementById('srCosto').textContent=fmtM(+s.costo_ventas||0);
     document.getElementById('srBruta').textContent=fmtM(+s.utilidad_bruta||0);
     document.getElementById('srUai').textContent=fmtM(+s.utilidad_antes_impuestos||0);
+    const srUaiElFb=document.getElementById('srUai');
+    if(srUaiElFb){
+      const u=+s.utilidad_antes_impuestos||0;
+      srUaiElFb.style.color = u < 0 ? 'var(--red)' : (u > 0 ? 'var(--green)' : 'var(--yellow)');
+    }
     if(badge) badge.textContent=`Ref ${String(p.MES||'--').padStart(2,'0')}/${p.ANIO||'----'}`;
     if(listOp){
       listOp.innerHTML=[
@@ -816,7 +827,7 @@ async function loadEstadoSrContable(mesesScope, totScope){
       ].map(x=>`<div class="bg-row"><span class="n">${x[0]}</span><span class="v">${fmtM(x[1])}</span></div>`).join('');
     }
     // #region agent log
-    debugLogResultados('run23','H101','resultados.html:loadEstadoSrContable:fallback','estado sr endpoint rendered',{periodo:p,estado:s});
+    debugLogResultados('run25','H106','resultados.html:loadEstadoSrContable:fallback','estado sr endpoint rendered',{periodo:p,estado:s,uaiColor:((+s.utilidad_antes_impuestos||0)<0?'red':(+s.utilidad_antes_impuestos||0)>0?'green':'yellow')});
     // #endregion
   }catch(_){
     if(badge) badge.textContent='Sin datos';
