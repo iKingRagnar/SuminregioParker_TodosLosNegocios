@@ -549,6 +549,10 @@ function get(routePath, handler) {
   });
 }
 
+function debugLogServer(runId, hypothesisId, location, message, data) {
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8e39ce'},body:JSON.stringify({sessionId:'8e39ce',runId,hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
+}
+
 // ── Helper: construye cláusulas WHERE para filtros de fecha/vendedor/cliente ─
 // Soporta: anio, mes, dia, vendedor, cliente, desde (YYYY-MM-DD), hasta (YYYY-MM-DD)
 // Retorna { sql, params, lookbackOverride }
@@ -2873,6 +2877,12 @@ get('/api/inv/operacion-critica', async (req) => {
 
 get('/api/clientes/riesgo', async (req) => {
   const dbo = getReqDbOpts(req);
+  // #region agent log
+  debugLogServer('run1','H4','server_corregido.js:/api/clientes/riesgo','clientes riesgo request db resolution',{
+    dbQuery: (req && req.query && req.query.db) ? String(req.query.db) : '',
+    dbResolved: (dbo && dbo.database) ? String(dbo.database) : ''
+  });
+  // #endregion
   const limit = Math.min(parseInt(req.query.limit) || 100, 500);
   return query(`
     SELECT FIRST ${limit}
@@ -2958,6 +2968,12 @@ get('/api/clientes/riesgo', async (req) => {
 /** Sin compra >180 días (≈6 meses). Ticket mensual = promedio simple últimos 12 meses de historial. */
 get('/api/clientes/inactivos', async (req) => {
   const dbo = getReqDbOpts(req);
+  // #region agent log
+  debugLogServer('run1','H4','server_corregido.js:/api/clientes/inactivos','clientes inactivos request db resolution',{
+    dbQuery: (req && req.query && req.query.db) ? String(req.query.db) : '',
+    dbResolved: (dbo && dbo.database) ? String(dbo.database) : ''
+  });
+  // #endregion
   const limit = Math.min(parseInt(req.query.limit) || 200, 500);
   return query(`
     SELECT FIRST ${limit}
@@ -3003,6 +3019,12 @@ get('/api/clientes/inactivos', async (req) => {
 /** Comercial: sin compra en los últimos 60 días pero sí en los últimos 6 meses (61–180 días). */
 get('/api/clientes/comercial-atraso', async (req) => {
   const dbo = getReqDbOpts(req);
+  // #region agent log
+  debugLogServer('run1','H4','server_corregido.js:/api/clientes/comercial-atraso','clientes comercial request db resolution',{
+    dbQuery: (req && req.query && req.query.db) ? String(req.query.db) : '',
+    dbResolved: (dbo && dbo.database) ? String(dbo.database) : ''
+  });
+  // #endregion
   const limit = Math.min(parseInt(req.query.limit) || 200, 500);
   return query(`
     SELECT FIRST ${limit}
@@ -3048,6 +3070,12 @@ get('/api/clientes/comercial-atraso', async (req) => {
 
 get('/api/clientes/resumen-riesgo', async (req) => {
   const dbo = getReqDbOpts(req);
+  // #region agent log
+  debugLogServer('run1','H4','server_corregido.js:/api/clientes/resumen-riesgo','clientes resumen request db resolution',{
+    dbQuery: (req && req.query && req.query.db) ? String(req.query.db) : '',
+    dbResolved: (dbo && dbo.database) ? String(dbo.database) : ''
+  });
+  // #endregion
   const defaultRes = { TOTAL_EN_RIESGO: 0, MONTO_CRITICO: 0, MONTO_ALTO: 0, MONTO_MEDIO: 0, MONTO_LEVE: 0 };
   try {
     const [totales] = await query(`

@@ -322,6 +322,11 @@ function apiDb(rel){
   const p = rel.startsWith('/') ? rel : '/' + rel;
   return API + (typeof apiPathWithDb === 'function' ? apiPathWithDb(p) : p);
 }
+// #region agent log
+function debugLogClientes(runId, hypothesisId, location, message, data) {
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8e39ce'},body:JSON.stringify({sessionId:'8e39ce',runId,hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
+}
+// #endregion
 let chartRiesgoInst = null, chartBucketsInst = null;
 let riesgoData = [], inactivosData = [], comercialData = [];
 const clientesSemCtx = { riesgo: [], inactivos: [], comercial: [], res: {} };
@@ -352,6 +357,16 @@ async function loadData(){
   const heroSub = document.getElementById('heroSub');
   try{
     if(heroSub) heroSub.textContent = 'Conectando con el servidor…';
+    // #region agent log
+    debugLogClientes('run1','H1','clientes.html:loadData:before-fetch','clientes loadData start with current db context',{
+      href: window.location.href,
+      dbQuery: new URLSearchParams(window.location.search).get('db') || '',
+      dbSession: (sessionStorage.getItem('microsip_erp_db') || ''),
+      riesgoUrl: apiDb('/api/clientes/riesgo?limit=100'),
+      resumenUrl: apiDb('/api/clientes/resumen-riesgo'),
+      comercialUrl: apiDb('/api/clientes/comercial-atraso?limit=300')
+    });
+    // #endregion
     const [riesgo, resumen, comercial] = await Promise.all([
       fwt(apiDb('/api/clientes/riesgo?limit=100'), [], 20000),
       fwt(apiDb('/api/clientes/resumen-riesgo'), {}, 20000),
@@ -365,6 +380,17 @@ async function loadData(){
     renderRiesgo(riesgoData);
     renderChartRiesgo(res);
     renderChartBuckets(res);
+    // #region agent log
+    debugLogClientes('run1','H2','clientes.html:loadData:after-fetch','clientes datasets loaded',{
+      riesgoRows: riesgoData.length,
+      comercialRows: comercialData.length,
+      resumen: {
+        TOTAL_EN_RIESGO: +res.TOTAL_EN_RIESGO || 0,
+        MONTO_CRITICO: +res.MONTO_CRITICO || 0,
+        MONTO_ALTO: +res.MONTO_ALTO || 0
+      }
+    });
+    // #endregion
     if(riesgoData.length===0 && !res.TOTAL_EN_RIESGO && (+res.MONTO_CRITICO||0)===0){
       if(heroSub) heroSub.textContent = 'Sin datos. Abre esta página desde http://localhost:7000/clientes.html (no desde archivo) y con el servidor en marcha (npm start).';
     }else{
@@ -385,6 +411,11 @@ async function loadInactivos(){
     const inactivos = await fwt(apiDb('/api/clientes/inactivos?limit=300'), [], 15000);
     inactivosData = Array.isArray(inactivos) ? inactivos : [];
     clientesSemCtx.inactivos = inactivosData;
+    // #region agent log
+    debugLogClientes('run1','H3','clientes.html:loadInactivos:after-fetch','clientes inactivos loaded',{
+      inactivosRows: inactivosData.length
+    });
+    // #endregion
     renderInactivos(inactivosData);
     renderKPIs(riesgoData, inactivosData, clientesSemCtx.res || {}, comercialData);
   }catch(e){ console.warn('inactivos',e); }

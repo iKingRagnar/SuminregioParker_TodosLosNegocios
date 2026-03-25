@@ -1,0 +1,208 @@
+{
+  "plugins": {
+    "datadog": {
+      "enabled": true
+    },
+    "render": {
+      "enabled": true
+    },
+    "databricks-skills": {
+      "enabled": true
+    },
+    "amplitude": {
+      "enabled": true
+    },
+    "grafana-assistant": {
+      "enabled": true
+    },
+    "firetiger": {
+      "enabled": true
+    },
+    "hex": {
+      "enabled": true
+    },
+    "prisma": {
+      "enabled": true
+    },
+    "huggingface-skills": {
+      "enabled": true
+    },
+    "supabase": {
+      "enabled": true
+    },
+    "elastic-docs": {
+      "enabled": true
+    },
+    "clickhouse-cursor-plugin": {
+      "enabled": true
+    },
+    "firecrawl": {
+      "enabled": true
+    },
+    "azure-cosmosdb": {
+      "enabled": true
+    },
+    "postman": {
+      "enabled": true
+    },
+    "miro": {
+      "enabled": true
+    },
+    "gitlab": {
+      "enabled": true
+    },
+    "box": {
+      "enabled": true
+    },
+    "tldraw": {
+      "enabled": true
+    },
+    "launchdarkly": {
+      "enabled": true
+    },
+    "notion-workspace": {
+      "enabled": true
+    },
+    "runlayer": {
+      "enabled": true
+    },
+    "langfuse": {
+      "enabled": true
+    },
+    "parallel": {
+      "enabled": true
+    },
+    "superpowers": {
+      "enabled": true
+    },
+    "compound-engineering": {
+      "enabled": true
+    },
+    "browse": {
+      "enabled": true
+    },
+    "jfrog": {
+      "enabled": true
+    },
+    "context7-plugin": {
+      "enabled": true
+    },
+    "create-plugin": {
+      "enabled": true
+    },
+    "tavily": {
+      "enabled": true
+    },
+    "slack": {
+      "enabled": true
+    },
+    "figma": {
+      "enabled": true
+    },
+    "pagerduty": {
+      "enabled": true
+    },
+    "planetscale": {
+      "enabled": true
+    },
+    "vercel": {
+      "enabled": true
+    },
+    "browserstack": {
+      "enabled": true
+    },
+    "redis-development": {
+      "enabled": true
+    },
+    "clerk": {
+      "enabled": true
+    },
+    "convex": {
+      "enabled": true
+    },
+    "linear": {
+      "enabled": true
+    },
+    "sentry": {
+      "enabled": true
+    },
+    "functions": {
+      "enabled": true
+    },
+    "cloudflare": {
+      "enabled": true
+    },
+    "neon-postgres": {
+      "enabled": true
+    },
+    "deploy-on-aws": {
+      "enabled": true
+    },
+    "snyk-secure-development": {
+      "enabled": true
+    },
+    "plain": {
+      "enabled": true
+    },
+    "continual-learning": {
+      "enabled": true
+    },
+    "cursor-team-kit": {
+      "enabled": true
+    },
+    "semgrep-plugin": {
+      "enabled": true
+    },
+    "thousandeyes": {
+      "enabled": true
+    },
+    "endorlabs": {
+      "enabled": true
+    },
+    "1password": {
+      "enabled": true
+    },
+    "etoro": {
+      "enabled": true
+    },
+    "svelte": {
+      "enabled": true
+    },
+    "meta-quest-agentic-tools": {
+      "enabled": true
+    },
+    "sanity": {
+      "enabled": true
+    },
+    "webflow": {
+      "enabled": true
+    },
+    "zapier": {
+      "enabled": true
+    },
+    "wix": {
+      "enabled": true
+    },
+    "glean": {
+      "enabled": true
+    },
+    "monday.com": {
+      "enabled": true
+    },
+    "atlassian": {
+      "enabled": true
+    },
+    "circle": {
+      "enabled": true
+    },
+    "phantom-connect": {
+      "enabled": true
+    },
+    "stripe": {
+      "enabled": true
+    },
+    "snowflake-cursor-plugin": {
+      "enabled": true
+    }
+  }
+}
