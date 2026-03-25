@@ -126,10 +126,20 @@ function query(sql, params = [], timeoutMs = 12000, dbOptsOverride = null) {
   const attachOpts = dbOptsOverride || DB_OPTIONS;
   const queryPromise = new Promise((resolve, reject) => {
     Firebird.attach(attachOpts, (err, db) => {
-      if (err) return reject(err);
+      if (err) {
+        // #region agent log
+        fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run-render-inv-1',hypothesisId:'H1',location:'server_corregido.js:query.attach',message:'firebird attach failed',data:{host:attachOpts&&attachOpts.host?String(attachOpts.host):'',port:attachOpts&&attachOpts.port?Number(attachOpts.port):0,database:attachOpts&&attachOpts.database?String(attachOpts.database):'',error:err&&err.message?String(err.message).slice(0,300):String(err||'')},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+        return reject(err);
+      }
       db.query(sql, params, (err2, result) => {
         db.detach();
-        if (err2) return reject(err2);
+        if (err2) {
+          // #region agent log
+          fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run-render-inv-1',hypothesisId:'H2',location:'server_corregido.js:query.exec',message:'firebird query failed',data:{host:attachOpts&&attachOpts.host?String(attachOpts.host):'',port:attachOpts&&attachOpts.port?Number(attachOpts.port):0,database:attachOpts&&attachOpts.database?String(attachOpts.database):'',sqlHead:String(sql||'').slice(0,180),error:err2&&err2.message?String(err2.message).slice(0,300):String(err2||'')},timestamp:Date.now()})}).catch(()=>{});
+          // #endregion
+          return reject(err2);
+        }
         resolve(result || []);
       });
     });
@@ -2541,6 +2551,9 @@ const SQL_PRECIO_SUB = `( SELECT ARTICULO_ID, MIN(PRECIO) AS PRECIO1 FROM PRECIO
 // SIN_STOCK = solo articulos con minimo definido y existencia 0 (alerta real). No contar todo el catalogo en cero.
 get('/api/inv/resumen', async (req) => {
   const dbo = getReqDbOpts(req);
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run-render-inv-1',hypothesisId:'H3',location:'server_corregido.js:/api/inv/resumen:start',message:'inv resumen start',data:{db:req&&req.query&&req.query.db?String(req.query.db):'default',host:dbo&&dbo.host?String(dbo.host):'',port:dbo&&dbo.port?Number(dbo.port):0,database:dbo&&dbo.database?String(dbo.database):''},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   const rows = await query(`
     SELECT
       COUNT(DISTINCT a.ARTICULO_ID) AS TOTAL_ARTICULOS,
@@ -2552,8 +2565,16 @@ get('/api/inv/resumen', async (req) => {
     LEFT JOIN ${SQL_MINIMO_SUB} n ON n.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${SQL_PRECIO_SUB} pr ON pr.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A'
-  `, [], 12000, dbo).catch(() => [{}]);
+  `, [], 12000, dbo).catch((e) => {
+    // #region agent log
+    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run-render-inv-1',hypothesisId:'H4',location:'server_corregido.js:/api/inv/resumen:catch',message:'inv resumen query catch',data:{db:req&&req.query&&req.query.db?String(req.query.db):'default',error:e&&e.message?String(e.message).slice(0,300):String(e||'')},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    return [{}];
+  });
   const r = rows[0] || {};
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run-render-inv-1',hypothesisId:'H5',location:'server_corregido.js:/api/inv/resumen:end',message:'inv resumen result snapshot',data:{db:req&&req.query&&req.query.db?String(req.query.db):'default',tot:+(r.TOTAL_ARTICULOS||0),valor:+(r.VALOR_INVENTARIO||0),bajo:+(r.BAJO_MINIMO||0),sin:+(r.SIN_STOCK||0)},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   return { TOTAL_ARTICULOS: +(r.TOTAL_ARTICULOS||0), VALOR_INVENTARIO: +(r.VALOR_INVENTARIO||0), BAJO_MINIMO: +(r.BAJO_MINIMO||0), SIN_STOCK: +(r.SIN_STOCK||0) };
 });
 
