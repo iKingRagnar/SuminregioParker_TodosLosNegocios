@@ -726,11 +726,57 @@ async function loadBalanceGeneral(){
   }
 }
 
-async function loadEstadoSrContable(){
+async function loadEstadoSrContable(mesesScope, totScope){
   const badge=document.getElementById('srBadge');
   const listOp=document.getElementById('srGastosOp');
   const listEx=document.getElementById('srExtra');
   const listRs=document.getElementById('srResumen');
+  const scopedMeses = Array.isArray(mesesScope) ? mesesScope : [];
+  if(scopedMeses.length){
+    const ord=sortMesesByPeriodo(scopedMeses);
+    const ssum=(k)=>ord.reduce((s,m)=>s+(+m[k]||0),0);
+    const ventas=+((totScope&&totScope.VENTAS_NETAS) ?? ssum('VENTAS_NETAS'))||0;
+    const costo=+((totScope&&totScope.COSTO_VENTAS) ?? ssum('COSTO_VENTAS'))||0;
+    const bruta=+((totScope&&totScope.UTILIDAD_BRUTA) ?? ssum('UTILIDAD_BRUTA'))||0;
+    const gv=ssum('CO_A1');
+    const go=ssum('CO_A2');
+    const ga=ssum('CO_A3');
+    const tg=gv+go+ga;
+    const og=ssum('CO_C1');
+    const gf=ssum('CO_B1');
+    const uop=bruta-tg;
+    const uai=uop-og-gf;
+    const p1=ord[0], p2=ord[ord.length-1];
+    document.getElementById('srVentas').textContent=fmtM(ventas);
+    document.getElementById('srCosto').textContent=fmtM(costo);
+    document.getElementById('srBruta').textContent=fmtM(bruta);
+    document.getElementById('srUai').textContent=fmtM(uai);
+    if(badge) badge.textContent=`Ref ${mesLabel(p1)} a ${mesLabel(p2)}`;
+    if(listOp){
+      listOp.innerHTML=[
+        ['Gastos de venta',gv],
+        ['Gastos de operación',go],
+        ['Gastos de administración',ga],
+        ['Total gastos operativos',tg],
+      ].map(x=>`<div class="bg-row"><span class="n">${x[0]}</span><span class="v">${fmtM(x[1])}</span></div>`).join('');
+    }
+    if(listEx){
+      listEx.innerHTML=[
+        ['Otros gastos',og],
+        ['Gastos financieros',gf],
+      ].map(x=>`<div class="bg-row"><span class="n">${x[0]}</span><span class="v">${fmtM(x[1])}</span></div>`).join('');
+    }
+    if(listRs){
+      listRs.innerHTML=[
+        ['Utilidad de operación',uop],
+        ['Utilidad antes de impuestos',uai],
+      ].map(x=>`<div class="bg-row"><span class="n">${x[0]}</span><span class="v">${fmtM(x[1])}</span></div>`).join('');
+    }
+    // #region agent log
+    debugLogResultados('run23','H100','resultados.html:loadEstadoSrContable:scoped','estado sr derived from selected months',{meses:ord.map(monthKey),ventas,costo,bruta,gv,go,ga,tg,og,gf,uop,uai});
+    // #endregion
+    return;
+  }
   try{
     const url=buildPnlApiUrl('/api/resultados/estado-sr','');
     const ctrl=new AbortController();
@@ -770,7 +816,7 @@ async function loadEstadoSrContable(){
       ].map(x=>`<div class="bg-row"><span class="n">${x[0]}</span><span class="v">${fmtM(x[1])}</span></div>`).join('');
     }
     // #region agent log
-    debugLogResultados('run12','H65','resultados.html:loadEstadoSrContable','estado sr rendered',{periodo:p,estado:s});
+    debugLogResultados('run23','H101','resultados.html:loadEstadoSrContable:fallback','estado sr endpoint rendered',{periodo:p,estado:s});
     // #endregion
   }catch(_){
     if(badge) badge.textContent='Sin datos';
@@ -1160,7 +1206,7 @@ async function loadData(){
     try{ renderCharts(mesesVista,hasCosto); }catch(e){ console.warn('renderCharts',e); }
     try{ renderTabla(mesesVista,totVista,hasCosto,tablaTieneGastos); }catch(e){ console.warn('renderTabla',e); }
     try{ await loadBalanceGeneral(); }catch(_){}
-    try{ await loadEstadoSrContable(); }catch(_){}
+    try{ await loadEstadoSrContable(mesesVista, totVista); }catch(_){}
     const costNotice=document.getElementById('costNotice');
     if(costNotice)costNotice.style.display=hasCosto?'none':'block';
     const gastosNotice=document.getElementById('gastosNotice');
@@ -1554,29 +1600,28 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     return v>0?`(${fmtM(v)})`:fmtM(0);
   }
 
-  const netoSinRem = (m) => {
-    const vb = +m.VENTAS_BRUTAS||((+m.VENTAS_NETAS||0)+(+m.DESCUENTOS_DEV||0));
-    const rem = +m.DESCUENTOS_DEV||0;
-    return vb - rem;
+  const remiCalc = (m) => {
+    const vb = +m.VENTAS_BRUTAS||0;
+    const vn = +m.VENTAS_NETAS||0;
+    return Math.max(0, vb - vn);
   };
-  const netoSinRemTotal = mesesOrd.reduce((s,m)=>s+netoSinRem(m),0);
+  const remiTotal = mesesOrd.reduce((s,m)=>s+remiCalc(m),0);
   const pnl=`
   <tr class="pnl-section-header" data-section="ingresos"><td colspan="${mesesOrd.length+2}">INGRESOS</td></tr>
   <tr class="data-row">
-    <td>Ventas antes de remisiones</td>
+    <td>Ventas netas (base dashboard ventas)</td>
     ${mesesOrd.map(m=>{
-      const vb=+m.VENTAS_BRUTAS||((+m.VENTAS_NETAS||0)+(+m.DESCUENTOS_DEV||0));
-      return`<td style="color:var(--text2)">${fmtM(vb)}</td>`;
+      return`<td style="color:var(--text2)">${fmtM(+m.VENTAS_NETAS||0)}</td>`;
     }).join('')}
-    <td style="color:var(--text2)">${fmtM((+tot.VENTAS_BRUTAS||0)||((+tot.VENTAS_NETAS||0)+(+tot.DESCUENTOS_DEV||0)))}</td>
+    <td style="color:var(--text2)">${fmtM(+tot.VENTAS_NETAS||0)}</td>
   </tr>
   <tr class="data-row">
-    <td>Remisiones / devoluciones</td>
+    <td>Remisiones / ajustes (brutas - netas)</td>
     ${mesesOrd.map(m=>{
-      const d=+m.DESCUENTOS_DEV||0;
+      const d=remiCalc(m);
       return`<td style="color:${d>0?'var(--red)':'var(--text2)'}">${d>0?'('+fmtM(d)+')':fmtM(0)}</td>`;
     }).join('')}
-    <td style="color:${(+tot.DESCUENTOS_DEV||0)>0?'var(--red)':'var(--text2)'}">${(+tot.DESCUENTOS_DEV||0)>0?'('+fmtM(+tot.DESCUENTOS_DEV||0)+')':fmtM(0)}</td>
+    <td style="color:${remiTotal>0?'var(--red)':'var(--text2)'}">${remiTotal>0?'('+fmtM(remiTotal)+')':fmtM(0)}</td>
   </tr>
   <tr class="data-row">
     <td>Venta Industrial (VE)</td>
@@ -1589,9 +1634,9 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     <td style="color:var(--text2)">${fmtM(sumOf('VENTAS_PV'))}</td>
   </tr>
   <tr class="subtotal-row">
-    <td>▶ Total Ventas Netas (sin remisiones)</td>
-    ${mesesOrd.map(m=>`<td style="color:var(--blue)">${fmtM(netoSinRem(m))}</td>`).join('')}
-    <td style="color:var(--blue)">${fmtM(netoSinRemTotal)}</td>
+    <td>▶ Total Ventas Netas</td>
+    ${mesesOrd.map(m=>`<td style="color:var(--blue)">${fmtM(+m.VENTAS_NETAS||0)}</td>`).join('')}
+    <td style="color:var(--blue)">${fmtM(+tot.VENTAS_NETAS||0)}</td>
   </tr>
 
   <tr class="pnl-section-header" data-section="costo"><td colspan="${mesesOrd.length+2}">COSTO DE VENTAS</td></tr>
@@ -1671,7 +1716,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   };
   const uaiTotal = mesesOrd.reduce((s,m)=>s+uaiForMes(m),0);
   // #region agent log
-  debugLogResultados('run22','H98','resultados.html:renderTabla:footer-uai','uai footer computed',{meses:mesesOrd.map(monthKey),uaiTotal,netoSinRemTotal});
+  debugLogResultados('run23','H102','resultados.html:renderTabla:footer-uai','uai footer computed',{meses:mesesOrd.map(monthKey),uaiTotal,ventasNetasTotal:+tot.VENTAS_NETAS||0,remisionesTotal:remiTotal});
   // #endregion
   if(pnlFootEl)pnlFootEl.innerHTML=`
   <tr class="total-final">
