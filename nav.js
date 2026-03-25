@@ -178,7 +178,7 @@ header#app-header {
   max-width:30vw;
   height:auto;
   color:var(--text);
-  filter:drop-shadow(0 2px 10px rgba(0,0,0,.35));
+  filter:brightness(0) invert(1) drop-shadow(0 2px 10px rgba(0,0,0,.35));
 }
 
 nav#main-nav {
@@ -268,7 +268,7 @@ html[data-theme="light"] header#app-header{
   border-bottom-color:var(--border2);
   box-shadow:0 4px 20px rgba(15,23,42,.06);
 }
-html[data-theme="light"] .logo-mark{color:#0f172a;filter:drop-shadow(0 1px 4px rgba(15,23,42,.12))}
+html[data-theme="light"] .logo-mark{color:#0f172a;filter:brightness(0) invert(0) drop-shadow(0 1px 4px rgba(15,23,42,.12))}
 html[data-theme="light"] nav#main-nav{background:rgba(15,23,42,.04);border-color:rgba(15,23,42,.08)}
 html[data-theme="light"] .nav-link{color:var(--muted)}
 html[data-theme="light"] .nav-link:hover{color:var(--text2);background:rgba(15,23,42,.06)}

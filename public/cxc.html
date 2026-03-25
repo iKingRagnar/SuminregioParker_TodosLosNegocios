@@ -49,7 +49,7 @@ main{padding-top:24px;padding-bottom:48px;max-width:1520px;margin:0 auto;
 
 .cxc-hero{margin-bottom:22px;padding:18px 22px;border-radius:16px;background:linear-gradient(135deg,rgba(230,168,0,.08),rgba(6,14,26,.6));
   border:1px solid rgba(230,168,0,.18);display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 20px;justify-content:space-between}
-.cxc-hero h1{font-size:clamp(1.35rem,2.5vw,1.75rem);font-weight:800;letter-spacing:-.02em;color:var(--txt);margin:0}
+.cxc-hero h1{font-size:clamp(1.35rem,2.5vw,1.75rem);font-weight:800;letter-spacing:-.02em;color:var(--suminregio);margin:0;text-shadow:0 0 20px rgba(230,168,0,.18)}
 .cxc-hero p{margin:6px 0 0;font-size:12px;color:var(--txt2);max-width:52ch;line-height:1.45}
 .cxc-hero-meta{font-family:var(--mono);font-size:11px;color:var(--suminregio);opacity:.9}
 
@@ -356,6 +356,11 @@ const fmtSaldoDoc = v => {
 };
 const fmtM = v => '$'+(+v||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 const setText = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
+// #region agent log
+function debugLogCxc(runId,hypothesisId,location,message,data){
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId,hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
+}
+// #endregion
 
 function buildCxcQuery(extra){
   const cf = (document.getElementById('fCliente')?.value || '').trim();
@@ -527,10 +532,26 @@ async function loadResumen() {
 async function loadVencidas() {
   const tb = document.getElementById('tbVenc');
   try {
-    const raw = await apiFetch('/api/cxc/vencidas' + buildCxcQuery('limit=60'));
-    const rows = (Array.isArray(raw) ? raw : [])
+    const queryBase = buildCxcQuery('limit=60');
+    // #region agent log
+    debugLogCxc('run21','H90','cxc.html:loadVencidas:before-fetch','requesting overdue invoices',{queryBase,db:cxcEffectiveDb()||null,cliente:(document.getElementById('fCliente')?.value||'')||null,curTab});
+    // #endregion
+    const raw = await apiFetch('/api/cxc/vencidas' + queryBase);
+    let rows = (Array.isArray(raw) ? raw : [])
       .filter(r => (+r.SALDO || 0) > 0.005)
       .sort((a,b)=>(+b.SALDO||0)-(+a.SALDO||0));
+    if(!rows.length && (document.getElementById('fCliente')?.value||'').trim()){
+      const rawNoCli = await apiFetch('/api/cxc/vencidas?limit=120');
+      rows = (Array.isArray(rawNoCli) ? rawNoCli : [])
+        .filter(r => (+r.SALDO || 0) > 0.005)
+        .sort((a,b)=>(+b.SALDO||0)-(+a.SALDO||0));
+      // #region agent log
+      debugLogCxc('run21','H91','cxc.html:loadVencidas:retry-without-cliente','fallback without cliente filter',{retryRows:rows.length});
+      // #endregion
+    }
+    // #region agent log
+    debugLogCxc('run21','H92','cxc.html:loadVencidas:after-fetch','overdue invoices payload parsed',{rawType:Array.isArray(raw)?'array':typeof raw,rows:rows.length,firstFolios:rows.slice(0,5).map(r=>r.FOLIO)});
+    // #endregion
     setText('vBadge', rows.length+' docs');
     if(!rows.length){ tb.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--txt3);padding:20px">Sin facturas vencidas</td></tr>'; return; }
     function estatusRango(d){
@@ -558,7 +579,12 @@ async function loadVencidas() {
       <td style="color:var(--txt3);font-size:11px">${fmtDay(r.FECHA_VENCIMIENTO)}</td>
     </tr>`;
     }).join('');
-  } catch(e){ tb.innerHTML='<tr><td colspan="10" style="color:var(--red);padding:12px">Error: '+e.message+'</td></tr>'; }
+  } catch(e){
+    // #region agent log
+    debugLogCxc('run21','H93','cxc.html:loadVencidas:catch','overdue invoices rendering failed',{error:(e&&e.message)||String(e)});
+    // #endregion
+    tb.innerHTML='<tr><td colspan="10" style="color:var(--red);padding:12px">Error: '+e.message+'</td></tr>';
+  }
 }
 
 // -- Top Deudores --------------------------------------------------------------
@@ -718,6 +744,9 @@ function switchTab(name){
     if(el) el.style.display=p===name?'':'none';
   });
   document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',PANELS[i]===name));
+  // #region agent log
+  debugLogCxc('run21','H94','cxc.html:switchTab','tab switched',{name,panelsVisible:PANELS.map(p=>({p,display:(document.getElementById('p'+p.charAt(0).toUpperCase()+p.slice(1))||{}).style?.display||''}))});
+  // #endregion
   if(name==='top') loadTop();
   if(name==='condicion') loadCond();
   if(name==='buro') loadBuro();
@@ -742,7 +771,12 @@ async function loadClientesFiltro(){
 }
 
 // -- Init ----------------------------------------------------------------------
-async function loadAll(){ await Promise.all([loadResumen(), loadVencidas()]); }
+async function loadAll(){
+  // #region agent log
+  debugLogCxc('run21','H95','cxc.html:loadAll:start','loading summary and overdue table',{db:cxcEffectiveDb()||null,cliente:(document.getElementById('fCliente')?.value||'')||null});
+  // #endregion
+  await Promise.all([loadResumen(), loadVencidas()]);
+}
 
 async function refreshCxcDbHint(){
   const el=document.getElementById('cxcDbHint');
@@ -776,7 +810,7 @@ async function refreshCxcDbHint(){
   await refreshCxcDbHint();
   await loadClientesFiltro();
   await loadAll();
-  setInterval(loadResumen, 120000);
+  setInterval(loadResumen, 1800000);
   setInterval(checkStatus, 30000);
   window.addEventListener('popstate',()=>{ refreshCxcDbHint(); loadAll(); });
 })();

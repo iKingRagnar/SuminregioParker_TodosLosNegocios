@@ -2248,7 +2248,7 @@ get('/api/cxc/vencidas', async (req) => {
   const limit = Math.min(parseInt(req.query.limit) || 100, 500);
   const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
   const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
-  return query(`
+  const rows = await query(`
     SELECT FIRST ${limit}
       dc.FOLIO,
       c.NOMBRE AS CLIENTE,
@@ -2285,6 +2285,10 @@ get('/api/cxc/vencidas', async (req) => {
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, c.COND_PAGO_ID)
     ORDER BY x.SALDO_NETO DESC, x.DIAS_ATRASO DESC
   `, [], 12000, dbo).catch(() => []);
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run21',hypothesisId:'H96',location:'server_corregido.js:/api/cxc/vencidas',message:'overdue invoices query result',data:{db:(req&&req.query&&req.query.db)||null,cliente:cf||null,limit,rows:(rows||[]).length,firstFolios:(rows||[]).slice(0,5).map(r=>r.FOLIO)},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  return rows;
 });
 
 // Top Deudores: saldo neto + condición + vencido proporcional al saldo (igual que /api/cxc/resumen). Acepta ?cliente= para filtrar.

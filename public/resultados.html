@@ -58,6 +58,14 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 .period-btn{font-family:'DM Mono',monospace;font-size:.64rem;padding:.3rem .7rem;border-radius:7px;border:1px solid var(--border2);color:var(--muted);cursor:pointer;background:none;transition:all .2s;letter-spacing:.06em}
 .period-btn:hover{color:var(--text2);border-color:rgba(77,166,255,.3)}
 .period-btn.active{color:var(--suminregio);border-color:rgba(230,168,0,.35);background:var(--suminregio-dim)}
+.month-picker{margin:.65rem 0 1rem;padding:.8rem 1rem;border:1px solid var(--border);border-radius:12px;background:var(--s1)}
+.month-picker-head{display:flex;align-items:center;justify-content:space-between;gap:.7rem;flex-wrap:wrap;margin-bottom:.45rem}
+.month-picker-title{font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+.month-picker-actions{display:flex;gap:.35rem;flex-wrap:wrap}
+.month-picker-btn{font-family:'DM Mono',monospace;font-size:.58rem;padding:.2rem .5rem;border-radius:7px;border:1px solid var(--border2);background:none;color:var(--text2);cursor:pointer}
+.month-picker-grid{display:flex;gap:.42rem;flex-wrap:wrap}
+.month-chip{display:inline-flex;align-items:center;gap:.3rem;padding:.28rem .5rem;border:1px solid var(--border2);border-radius:999px;background:var(--s2);cursor:pointer;font-family:'DM Mono',monospace;font-size:.58rem;color:var(--text2)}
+.month-chip input{accent-color:#e6a800}
 
 /* KPI grid */
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:.9rem;margin-bottom:1.5rem}
@@ -245,6 +253,16 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
 
   <!-- Barra de filtros compartida -->
   <div id="filter-bar"></div>
+  <div class="month-picker" id="monthPicker" style="display:none">
+    <div class="month-picker-head">
+      <div class="month-picker-title">Filtro de meses acumulativo</div>
+      <div class="month-picker-actions">
+        <button type="button" class="month-picker-btn" id="monthSelAll">Todos</button>
+        <button type="button" class="month-picker-btn" id="monthSelNone">Solo uno</button>
+      </div>
+    </div>
+    <div class="month-picker-grid" id="monthPickerList"></div>
+  </div>
 
   <!-- Multi-empresa: chips + scorecard (inspirado en complemento MTD/YTD; aquí periodo = filtros + meses) -->
   <div id="bizContextBar" class="biz-context-bar biz-context-bar--compact" style="display:none">
@@ -260,15 +278,14 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
     <div class="pl-score-grid" id="plScoreGrid"></div>
   </div>
   <div id="plMiniTableWrap" class="pl-mini-wrap" style="display:none">
-    <div class="pl-mini-head">Scorecard P&amp;L por empresa <span id="plMiniMeta"></span></div>
+    <div class="pl-mini-head">Scorecard P&amp;L por Unidad de Negocio <span id="plMiniMeta"></span></div>
     <div style="overflow-x:auto">
       <table class="pl-mini-table">
         <thead>
           <tr>
-            <th>Empresa</th>
+            <th>Unidad de Negocio</th>
             <th>Ventas netas</th>
             <th>Util. bruta</th>
-            <th>Margen %</th>
             <th>Cobros</th>
             <th>Facts</th>
           </tr>
@@ -380,6 +397,18 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
       </div>
     </div>
   </div>
+  <div class="card" style="margin-bottom:1.2rem">
+    <div class="card-head">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M8 16V9M12 16V7M16 16v-5"/></svg>
+        Desglose de gastos: venta, operación y administración
+      </div>
+      <div class="card-badge">CO_A1 · CO_A2 · CO_A3</div>
+    </div>
+    <div class="card-body">
+      <div class="chart-h200"><canvas id="chartGastos"></canvas></div>
+    </div>
+  </div>
 
   <div id="chartEmpresasWrap" class="card" style="display:none;margin-bottom:1.2rem">
     <div class="card-head">
@@ -470,8 +499,9 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
 <script>
 const API = (window.__API_BASE != null ? String(window.__API_BASE).replace(/\/+$/, '') : (window.location.protocol === 'file:' ? 'http://localhost:7000' : (window.location.origin || '')));
 function fwt(url,fallback,ms=20000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
-let chartVC=null, chartMg=null, chartCob=null, chartEmp=null;
+let chartVC=null, chartMg=null, chartCob=null, chartEmp=null, chartGastos=null;
 let currentMeses=3;
+let monthKeysSelected = new Set();
 /** null = una sola base por defecto; '__ALL__' = consolidado multi-empresa; string = id en FB_DATABASES_JSON */
 let selectedBizId=(function(){try{const p=new URLSearchParams(location.search).get('db');return p||null;}catch(_){return null;}})();
 let lastUniversePayload=null;
@@ -533,6 +563,7 @@ const fmtPct=v=>isNaN(+v)?'—':(+v).toFixed(1)+'%';
 const MESES_ES=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 const PNL_ROW_NUM_KEYS=['VENTAS_BRUTAS','DESCUENTOS_DEV','VENTAS_NETAS','VENTAS_VE','VENTAS_PV','COSTO_VENTAS','UTILIDAD_BRUTA','MARGEN_BRUTO_PCT','COBROS','NUM_FACTURAS','CO_A1','CO_A2','CO_A3','CO_A4','CO_A5','CO_A6','CO_B1','CO_B2','CO_B3','CO_B4','CO_B5','CO_C1','CO_C2','CO_C3','CO_C4','CO_C5','CO_C6'];
 function mesLabel(r){return (MESES_ES[+r.MES]||r.MES)+' '+(+r.ANIO||'')}
+function monthKey(r){ return `${+r.ANIO||0}-${String(+r.MES||0).padStart(2,'0')}`; }
 function sortMesesByPeriodo(rows){
   const arr=Array.isArray(rows)?rows.slice():[];
   arr.sort((a,b)=>{
@@ -542,6 +573,48 @@ function sortMesesByPeriodo(rows){
     return am-bm;
   });
   return arr;
+}
+function setupMonthPicker(meses){
+  const wrap=document.getElementById('monthPicker');
+  if(!wrap) return sortMesesByPeriodo(meses||[]);
+  const arr=sortMesesByPeriodo(meses||[]);
+  if(!arr.length){ wrap.style.display='none'; return arr; }
+  wrap.style.display='block';
+  const keys=arr.map(monthKey);
+  if(!monthKeysSelected.size){
+    keys.forEach(k=>monthKeysSelected.add(k));
+  }else{
+    const next=new Set();
+    keys.forEach(k=>{ if(monthKeysSelected.has(k)) next.add(k); });
+    if(!next.size) keys.forEach(k=>next.add(k));
+    monthKeysSelected=next;
+  }
+  const list=document.getElementById('monthPickerList');
+  if(list){
+    list.innerHTML=arr.map(m=>{
+      const k=monthKey(m);
+      const checked=monthKeysSelected.has(k)?'checked':'';
+      return `<label class="month-chip"><input type="checkbox" data-mk="${k}" ${checked}/> ${mesLabel(m)}</label>`;
+    }).join('');
+    list.querySelectorAll('input[data-mk]').forEach(i=>{
+      i.addEventListener('change',()=>{
+        const k=i.getAttribute('data-mk');
+        if(!k) return;
+        if(i.checked) monthKeysSelected.add(k); else monthKeysSelected.delete(k);
+        if(!monthKeysSelected.size && keys[0]) monthKeysSelected.add(keys[0]);
+        loadData();
+      });
+    });
+  }
+  const bAll=document.getElementById('monthSelAll');
+  const bNone=document.getElementById('monthSelNone');
+  if(bAll) bAll.onclick=()=>{ keys.forEach(k=>monthKeysSelected.add(k)); loadData(); };
+  if(bNone) bNone.onclick=()=>{ monthKeysSelected.clear(); if(keys[0]) monthKeysSelected.add(keys[0]); loadData(); };
+  const selected = arr.filter(m=>monthKeysSelected.has(monthKey(m)));
+  // #region agent log
+  debugLogResultados('run20','H88','resultados.html:setupMonthPicker','month multi-select applied',{available:arr.map(monthKey),selected:selected.map(monthKey)});
+  // #endregion
+  return selected;
 }
 function deltaTag(pct){
   if(isNaN(pct)||pct===null)return'';
@@ -759,16 +832,13 @@ function renderPlMiniTable(empresas, meta){
   const sinAct = oks.filter(e => (+((e.totales||{}).NUM_FACTURAS)||0) === 0);
 
   const mkRow = e => {
-    if(!e.ok) return`<tr><td colspan="6" class="err">${(e.label||e.id)+': '+(e.error||'Error')}</td></tr>`;
+    if(!e.ok) return`<tr><td colspan="5" class="err">${(e.label||e.id)+': '+(e.error||'Error')}</td></tr>`;
     const t=e.totales||{};
-    const mg=+t.MARGEN_BRUTO_PCT||0;
-    const mgc=mg>=30?'var(--green)':mg>=15?'var(--yellow)':'var(--red)';
     const sinCosto=`<span title="No hay pólizas de costo (ctas 52*/53*/54*) en Microsip Contabilidad para este período" style="color:var(--muted);font-size:.78rem;cursor:help">Sin costo ℹ</span>`;
     return`<tr style="cursor:pointer" data-biz-row="${e.id}">
       <td><strong>${(e.label||e.id).replace(/</g,'')}</strong></td>
       <td>${fmtM(+t.VENTAS_NETAS||0)}</td>
       <td>${e.tiene_costo?fmtM(+t.UTILIDAD_BRUTA||0):sinCosto}</td>
-      <td style="color:${e.tiene_costo?mgc:'var(--muted)'}">${e.tiene_costo?fmtPct(mg):'—'}</td>
       <td>${fmtM(+t.COBROS||0)}</td>
       <td>${+t.NUM_FACTURAS||0}</td>
     </tr>`;
@@ -780,7 +850,7 @@ function renderPlMiniTable(empresas, meta){
   if(sinAct.length > 0){
     const toggleId = 'sinact-'+Math.random().toString(36).slice(2);
     html += `<tr style="background:rgba(255,255,255,.03)">
-      <td colspan="6" style="padding:.4rem .75rem;font-size:.73rem;color:var(--muted);cursor:pointer;user-select:none"
+      <td colspan="5" style="padding:.4rem .75rem;font-size:.73rem;color:var(--muted);cursor:pointer;user-select:none"
           onclick="var el=document.getElementById('${toggleId}');el.style.display=el.style.display==='none'?'table-row-group':'none'">
         ▸ ${sinAct.length} empresa${sinAct.length>1?'s':''} sin actividad este período — clic para ver
       </td>
@@ -789,7 +859,7 @@ function renderPlMiniTable(empresas, meta){
       <tr style="opacity:.4;font-size:.8rem;cursor:pointer" data-biz-row="${e.id}">
         <td><strong>${(e.label||e.id).replace(/</g,'')}</strong></td>
         <td style="color:var(--muted)">$0</td><td style="color:var(--muted)">—</td>
-        <td style="color:var(--muted)">—</td><td style="color:var(--muted)">$0</td>
+        <td style="color:var(--muted)">$0</td>
         <td style="color:var(--muted)">0</td>
       </tr>`).join('')}</tbody>`;
   }
@@ -869,6 +939,7 @@ async function loadData(){
   document.getElementById('plScoreStrip')&&(document.getElementById('plScoreStrip').style.display='none');
   document.getElementById('plMiniTableWrap')&&(document.getElementById('plMiniTableWrap').style.display='none');
   document.getElementById('chartEmpresasWrap')&&(document.getElementById('chartEmpresasWrap').style.display='none');
+  document.getElementById('monthPicker')&&(document.getElementById('monthPicker').style.display='none');
   try{
     const uniUrl=buildPnlApiUrl('/api/resultados/pnl-universe','meses='+currentMeses+'&concurrency=2',{ omitDb:true })+'&_='+Date.now();
     // #region agent log
@@ -948,6 +1019,7 @@ async function loadData(){
       if(chartVC){ chartVC.destroy(); chartVC=null; }
       if(chartMg){ chartMg.destroy(); chartMg=null; }
       if(chartCob){ chartCob.destroy(); chartCob=null; }
+      if(chartGastos){ chartGastos.destroy(); chartGastos=null; }
       const note=document.getElementById('pnlBody');
       const foot=document.getElementById('pnlFoot');
       if(note)note.innerHTML='<tr><td colspan="99" style="text-align:center;padding:2rem;font-family:DM Mono,monospace;font-size:.78rem;color:var(--muted)">Selecciona una <strong>empresa</strong> arriba para ver el estado de resultados <strong>mes a mes</strong> y las gráficas de tendencia.</td></tr>';
@@ -1059,9 +1131,11 @@ async function loadData(){
     tablaMeses=sortMesesByPeriodo(tablaMeses);
     const hasCosto=(+tot.COSTO_VENTAS>0)||(data.tiene_costo===true);
     try{ renderKPIs(tot,meses,hasCosto); }catch(e){ console.warn('renderKPIs',e); }
-    try{ renderInsight(tablaTot,tablaMeses,hasCosto); }catch(e){ console.warn('renderInsight',e); }
-    try{ renderCharts(tablaMeses,hasCosto); }catch(e){ console.warn('renderCharts',e); }
-    try{ renderTabla(tablaMeses,tablaTot,hasCosto,tablaTieneGastos); }catch(e){ console.warn('renderTabla',e); }
+    const mesesVista = setupMonthPicker(tablaMeses);
+    const totVista = rebuildTotalesFromMeses(mesesVista);
+    try{ renderInsight(totVista,mesesVista,hasCosto); }catch(e){ console.warn('renderInsight',e); }
+    try{ renderCharts(mesesVista,hasCosto); }catch(e){ console.warn('renderCharts',e); }
+    try{ renderTabla(mesesVista,totVista,hasCosto,tablaTieneGastos); }catch(e){ console.warn('renderTabla',e); }
     try{ await loadBalanceGeneral(); }catch(_){}
     try{ await loadEstadoSrContable(); }catch(_){}
     const costNotice=document.getElementById('costNotice');
@@ -1271,30 +1345,46 @@ function renderCharts(meses,hasCosto){
       empty3.style.display = 'none';
     }
   }
-  if(!hasAny){
-    return;
-  }
-  const maxStack = Math.max(1,...labels.map((_,i)=>(+ve[i]||0)+(+pv[i]||0)));
-  const maxCob = Math.max(1,...cobros.map(c=>+c||0));
-  const yMax = Math.max(maxStack,maxCob)*1.12;
-  chartCob=new Chart(ctx3,{
-    data:{labels,datasets:[
-      {type:'bar',label:'Venta Industrial (VE)',data:ve,stack:'ventas',yAxisID:'y',backgroundColor:'rgba(77,166,255,.55)',borderColor:'#4DA6FF',borderWidth:1.5,borderRadius:4},
-      {type:'bar',label:'Ventas de Mostrador (PV)',data:pv,stack:'ventas',yAxisID:'y',backgroundColor:'rgba(155,109,255,.5)',borderColor:'#9B6DFF',borderWidth:1.5,borderRadius:4},
-      {type:'line',label:'Cobros',data:cobros,yAxisID:'y1',borderColor:'#00E5A0',backgroundColor:'rgba(0,229,160,.12)',borderWidth:2.5,pointRadius:4,pointHoverRadius:6,pointBackgroundColor:'#00E5A0',tension:.35,fill:true}
-    ]},
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      interaction:{mode:'index',intersect:false},
-      plugins:{legend:{position:'top',labels:{color:'#6A85A6',font:{size:11,family:"'DM Mono'"},boxWidth:10,padding:14}},
-        tooltip:{mode:'index',intersect:false,backgroundColor:'#0D1D35',borderColor:'rgba(255,255,255,.1)',borderWidth:1,titleColor:'#F0F6FF',bodyColor:'#C8D8EC',callbacks:{label:c=>' '+c.dataset.label+': '+fmtM(c.raw)}}},
-      scales:{
-        x:{stacked:true,grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6A85A6',font:{size:10,family:"'DM Mono'"}}},
-        y:{stacked:true,position:'left',min:0,max:yMax,grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6A85A6',font:{size:10,family:"'DM Mono'"},callback:v=>fmtM(v)}},
-        y1:{stacked:false,position:'right',min:0,max:yMax,grid:{drawOnChartArea:false},ticks:{color:'#00E5A0',font:{size:10,family:"'DM Mono'"},callback:v=>fmtM(v)}}
+  if(hasAny){
+    const maxStack = Math.max(1,...labels.map((_,i)=>(+ve[i]||0)+(+pv[i]||0)));
+    const maxCob = Math.max(1,...cobros.map(c=>+c||0));
+    const yMax = Math.max(maxStack,maxCob)*1.12;
+    chartCob=new Chart(ctx3,{
+      data:{labels,datasets:[
+        {type:'bar',label:'Venta Industrial (VE)',data:ve,stack:'ventas',yAxisID:'y',backgroundColor:'rgba(77,166,255,.55)',borderColor:'#4DA6FF',borderWidth:1.5,borderRadius:4},
+        {type:'bar',label:'Ventas de Mostrador (PV)',data:pv,stack:'ventas',yAxisID:'y',backgroundColor:'rgba(155,109,255,.5)',borderColor:'#9B6DFF',borderWidth:1.5,borderRadius:4},
+        {type:'line',label:'Cobros',data:cobros,yAxisID:'y1',borderColor:'#00E5A0',backgroundColor:'rgba(0,229,160,.12)',borderWidth:2.5,pointRadius:4,pointHoverRadius:6,pointBackgroundColor:'#00E5A0',tension:.35,fill:true}
+      ]},
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        interaction:{mode:'index',intersect:false},
+        plugins:{legend:{position:'top',labels:{color:'#6A85A6',font:{size:11,family:"'DM Mono'"},boxWidth:10,padding:14}},
+          tooltip:{mode:'index',intersect:false,backgroundColor:'#0D1D35',borderColor:'rgba(255,255,255,.1)',borderWidth:1,titleColor:'#F0F6FF',bodyColor:'#C8D8EC',callbacks:{label:c=>' '+c.dataset.label+': '+fmtM(c.raw)}}},
+        scales:{
+          x:{stacked:true,grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6A85A6',font:{size:10,family:"'DM Mono'"}}},
+          y:{stacked:true,position:'left',min:0,max:yMax,grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6A85A6',font:{size:10,family:"'DM Mono'"},callback:v=>fmtM(v)}},
+          y1:{stacked:false,position:'right',min:0,max:yMax,grid:{drawOnChartArea:false},ticks:{color:'#00E5A0',font:{size:10,family:"'DM Mono'"},callback:v=>fmtM(v)}}
+        }
       }
-    }
-  });
+    });
+  }
+  const el4=document.getElementById('chartGastos');
+  if(el4){
+    const ctx4=el4.getContext('2d');
+    if(chartGastos) chartGastos.destroy();
+    const g1=(meses||[]).map(m=>+m.CO_A1||0);
+    const g2=(meses||[]).map(m=>+m.CO_A2||0);
+    const g3=(meses||[]).map(m=>+m.CO_A3||0);
+    chartGastos=new Chart(ctx4,{
+      type:'bar',
+      data:{labels,datasets:[
+        {label:'Gasto de venta',data:g1,backgroundColor:'rgba(239,68,68,.55)',borderColor:'#ef4444',borderWidth:1,borderRadius:4},
+        {label:'Gasto de operación',data:g2,backgroundColor:'rgba(245,158,11,.55)',borderColor:'#f59e0b',borderWidth:1,borderRadius:4},
+        {label:'Gasto de administración',data:g3,backgroundColor:'rgba(59,130,246,.55)',borderColor:'#3b82f6',borderWidth:1,borderRadius:4}
+      ]},
+      options:chartOpts(v=>fmtM(v))
+    });
+  }
 }
 
 function chartOpts(cbY){
@@ -1446,16 +1536,6 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     ${mesesOrd.map(m=>`<td style="color:var(--orange)">${hasCosto?fmtM(+m.COSTO_VENTAS||0):'—'}</td>`).join('')}
     <td style="color:var(--orange)">${hasCosto?fmtM(+tot.COSTO_VENTAS||0):'—'}</td>
   </tr>
-  <tr class="data-row">
-    <td>% Costo / Ventas</td>
-    ${mesesOrd.map(m=>{
-      const v=+m.VENTAS_NETAS||0;const c=+m.COSTO_VENTAS||0;
-      const p=v>0?Math.round(c/v*100):0;
-      const col=p>75?'var(--red)':p>60?'var(--yellow)':'var(--text2)';
-      return`<td style="color:${col}">${hasCosto?p+'%':'—'}</td>`;
-    }).join('')}
-    <td style="color:var(--text2)">${hasCosto&&(+tot.VENTAS_NETAS||0)>0?Math.round((+tot.COSTO_VENTAS||0)/(+tot.VENTAS_NETAS||1)*100)+'%':'—'}</td>
-  </tr>
 
   <tr class="subtotal-row">
     <td>▶ Utilidad Bruta</td>
@@ -1466,15 +1546,6 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
       return`<td><span style="color:${mgCol}">${hasCosto?fmtM(u):fmtM(+m.VENTAS_NETAS||0)}</span></td>`;
     }).join('')}
     <td style="color:${(+tot.MARGEN_BRUTO_PCT||0)>=30?'var(--green)':(+tot.MARGEN_BRUTO_PCT||0)>=15?'var(--yellow)':'var(--red)'}">${hasCosto?fmtM(+tot.UTILIDAD_BRUTA||0):fmtM(+tot.VENTAS_NETAS||0)}</td>
-  </tr>
-  <tr class="data-row">
-    <td>Margen Bruto %</td>
-    ${mesesOrd.map(m=>{
-      const mg=+m.MARGEN_BRUTO_PCT||0;
-      const col=mg>=30?'var(--green)':mg>=15?'var(--yellow)':'var(--red)';
-      return`<td><span style="color:${col};font-weight:600">${hasCosto?fmtPct(mg):'—'}</span></td>`;
-    }).join('')}
-    <td><span style="color:${(+tot.MARGEN_BRUTO_PCT||0)>=30?'var(--green)':(+tot.MARGEN_BRUTO_PCT||0)>=15?'var(--yellow)':'var(--red)'};font-weight:600">${hasCosto?fmtPct(+tot.MARGEN_BRUTO_PCT||0):'—'}</span></td>
   </tr>
 
   ${!tg?`<tr><td colspan="${mesesOrd.length+2}" style="background:rgba(255,180,0,.08);color:var(--yellow);font-size:.75rem;padding:.5rem 1rem;border-left:3px solid var(--yellow)">⚠️ Sin pólizas contables en SALDOS_CO/DOCTOS_CO_DET para cuentas 52*/53*/54*. Las cifras de gastos son $0. Ingresa los movimientos en Microsip Contabilidad o verifica que el módulo de contabilidad esté activo. <a href="/api/debug/saldos-co-cuentas" target="_blank" style="color:var(--yellow)">Ver diagnóstico →</a></td></tr>`:''}
@@ -1517,16 +1588,6 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     <td style="color:var(--purple)">${fmtM(+tot.COBROS||0)}</td>
   </tr>
   <tr class="data-row">
-    <td>Eficiencia de Cobro</td>
-    ${mesesOrd.map(m=>{
-      const v=+m.VENTAS_NETAS||0;const cob=+m.COBROS||0;
-      const e=v>0?Math.round(cob/v*100):0;
-      const col=e>=80?'var(--green)':e>=50?'var(--yellow)':'var(--red)';
-      return`<td style="color:${col}">${v>0?e+'%':'—'}</td>`;
-    }).join('')}
-    <td style="color:${(+tot.VENTAS_NETAS||0)>0&&Math.round((+tot.COBROS||0)/(+tot.VENTAS_NETAS||1)*100)>=80?'var(--green)':(+tot.VENTAS_NETAS||0)>0&&Math.round((+tot.COBROS||0)/(+tot.VENTAS_NETAS||1)*100)>=50?'var(--yellow)':'var(--red)'}">${(+tot.VENTAS_NETAS||0)>0?Math.round((+tot.COBROS||0)/(+tot.VENTAS_NETAS||1)*100)+'%':'—'}</td>
-  </tr>
-  <tr class="data-row">
     <td>N&uacute;mero de Facturas</td>
     ${mesesOrd.map(m=>`<td style="color:var(--muted)">${+m.NUM_FACTURAS||0}</td>`).join('')}
     <td style="color:var(--muted)">${+tot.NUM_FACTURAS||0}</td>
@@ -1534,16 +1595,29 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
 
   if(pnlBodyEl)pnlBodyEl.innerHTML=pnl;
   const isYtdView = mesesOrd.length>=2 && (+mesesOrd[0].MES===1) && mesesOrd.every(m=>+m.ANIO===+mesesOrd[0].ANIO);
+  const uaiForMes = (m) => {
+    const ub=+m.UTILIDAD_BRUTA||0;
+    const op=+m.CO_A1||0;
+    const oo=+m.CO_A2||0;
+    const oa=+m.CO_A3||0;
+    const gf=+m.CO_B1||0;
+    const ex=+m.CO_C1||0;
+    return ub - op - oo - oa - gf - ex;
+  };
+  const uaiTotal = mesesOrd.reduce((s,m)=>s+uaiForMes(m),0);
+  // #region agent log
+  debugLogResultados('run20','H89','resultados.html:renderTabla:footer-uai','uai footer computed',{meses:mesesOrd.map(monthKey),uaiTotal});
+  // #endregion
   if(pnlFootEl)pnlFootEl.innerHTML=`
   <tr class="total-final">
-    <td>${isYtdView?'ACUMULADO DEL AÑO':'RESUMEN DEL PERIODO'}</td>
-    ${mesesOrd.map(m=>`<td style="color:var(--blue)">${fmtM(+m.VENTAS_NETAS||0)}</td>`).join('')}
-    <td style="color:${(+tot.VENTAS_NETAS||0)>0?'var(--green)':'var(--muted)'}">${fmtM(+tot.VENTAS_NETAS||0)}</td>
+    <td>${isYtdView?'UTILIDAD ANTES DE IMPUESTOS ACUMULADA':'UTILIDAD ANTES DE IMPUESTOS (PERIODO)'}</td>
+    ${mesesOrd.map(m=>`<td style="color:${uaiForMes(m)>=0?'var(--green)':'var(--red)'}">${fmtM(uaiForMes(m))}</td>`).join('')}
+    <td style="color:${uaiTotal>=0?'var(--green)':'var(--red)'}">${fmtM(uaiTotal)}</td>
   </tr>`;
 }
 
 initFilters({ containerId:'filter-bar', showVendedor:false, defaultPreset:'mes_ant', onReady:()=>loadData(), onChange:()=>loadData() });
-setInterval(loadData, 300000);
+setInterval(loadData, 1800000);
 </script>
 <script src="nav.js"></script>
 <script src="/chat-widget.js" defer></script>

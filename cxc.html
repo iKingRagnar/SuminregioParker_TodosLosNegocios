@@ -614,7 +614,7 @@ async function loadAll(){ await Promise.all([loadResumen(), loadVencidas()]); }
     });
   }
   await loadAll();
-  setInterval(loadResumen, 120000);
+  setInterval(loadResumen, 1800000);
   setInterval(checkStatus, 30000);
 })();
 </script>
