@@ -889,12 +889,12 @@ async function refreshCxcDbHint(){
 
 (async function init(){
   try { initCharts(); } catch (e) { console.warn('[cxc] initCharts', e && e.message ? e.message : e); }
-  await checkStatus();
+  void checkStatus().catch(()=>{});
   const fb = document.getElementById('filter-bar');
   if (fb) fb.style.display = '';
   const hasFilters = !!window.initFilters;
   if (window.initFilters) {
-    initFilters({
+    await initFilters({
       containerId  : 'filter-bar',
       showVendedor : false,
       defaultPreset: 'mes',

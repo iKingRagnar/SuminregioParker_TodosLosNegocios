@@ -280,7 +280,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     wrap.id = 'navDbBarWrap';
     wrap.className = 'nav-db-bar-outer';
     wrap.innerHTML = '<div class="biz-context-bar nav-global-db-bar" style="display:none;margin:0 auto 14px;max-width:1900px;width:calc(100% - 3rem)">' +
-      '<span class="biz-context-label">Base de datos</span><div class="biz-chips" id="navGlobalDbChips"></div></div>';
+      '<span class="biz-context-label">Unidad de negocio</span><div class="biz-chips" id="navGlobalDbChips"></div></div>';
     header.parentNode.insertBefore(wrap, header.nextSibling);
     const bar = wrap.querySelector('.biz-context-bar');
     const chips = document.getElementById('navGlobalDbChips');
@@ -307,6 +307,13 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   function syncFiltersToUrl() {
     try {
       const u = new URL(window.location.href);
+      // P&L (resultados): no reescribir query con preset global — el usuario y el back usan anio/mes propios
+      if (/resultados\.html$/i.test(u.pathname)) {
+        // #region agent log
+        fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run-pl',hypothesisId:'H-skip-url-sync-pnl',location:'filters.js:syncFiltersToUrl',message:'skip url rewrite on P&L page',data:{pathname:u.pathname},timestamp:Date.now()})}).catch(()=>{});
+        // #endregion
+        return;
+      }
       const p = getParams();
       const sp = new URLSearchParams();
       const db = getSelectedDbId();
@@ -556,10 +563,10 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       renderBar();
       syncFiltersToUrl();
 
-      if (_cfg.onReady) _cfg.onReady(getParams(), buildQS);
+      if (_cfg.onReady) await Promise.resolve(_cfg.onReady(getParams(), buildQS));
     } catch(e) {
       console.warn('[filters.js] initFilters error:', e);
-      try { if (config && config.onReady) config.onReady({}, () => ''); } catch(_) {}
+      try { if (config && config.onReady) await Promise.resolve(config.onReady({}, () => '')); } catch(_) {}
     }
   }
 

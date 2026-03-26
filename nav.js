@@ -16,7 +16,7 @@
     { href: 'cxc.html',        label: 'CxC',         icon: '<rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/>' },
     { href: 'clientes.html',   label: 'Clientes',    icon: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>' },
     { href: 'inventario.html', label: 'Inventario',  icon: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 2 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>' },
-    { href: 'resultados.html', label: 'Resultados',  icon: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>' },
+    { href: 'resultados.html', label: 'P&L',  icon: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>' },
   ];
 
   function currentPage() {
@@ -291,14 +291,40 @@ html[data-theme="light"] :where(.card,.kpi,.kpi-card,.module-card,.bg-box,.bg-kp
   background:#ffffff!important;
   border-color:rgba(15,23,42,.14)!important;
 }
-html[data-theme="light"] :where(.card-title,.kpi-label,.kpi-sub,.card-note,.hero-sub,.page-sub,.sd-label,.bg-row,.tbl th,table thead th){
-  color:#455a70!important;
+html[data-theme="light"] :where(.card-title,.kpi-label,.card-note,.hero-sub,.page-sub,.sd-label,.bg-row,.tbl th,table thead th){
+  color:#0f172a!important;
+  font-weight:600!important;
+}
+html[data-theme="light"] :where(.kpi-sub,.storyline,.storyline-box,.mod-desc){
+  color:#334155!important;
+  font-weight:500!important;
 }
 html[data-theme="light"] :where(.tbl td,table tbody td,.kpi-value,.kpi-val,.bg-kpi .val,.bg-row .v,.vendor-name){
-  color:#102133!important;
+  color:#0f172a!important;
+  font-weight:600!important;
 }
 html[data-theme="light"] :where(.ins-sub,.ins-pill .h,.aging-sub,.meta-pct,.clock,.live-pill){
-  color:#41566d!important;
+  color:#475569!important;
+}
+html[data-theme="light"] :where(.card,.kpi,.kpi-card,.module-card,.bg-box,.bg-kpi,.filter-bar){
+  box-shadow:0 2px 14px rgba(15,23,42,.08)!important;
+}
+html[data-theme="light"] :where(.kpi-label){
+  letter-spacing:.04em!important;
+  font-size:.72rem!important;
+}
+/* Cobradas / tablas con clases propias: forzar contraste en tema claro */
+html[data-theme="light"] :where(.comision-table td,.detalle-table td){
+  color:#0f172a!important;
+  font-weight:600!important;
+}
+html[data-theme="light"] :where(.comision-table th,.detalle-table th){
+  color:#334155!important;
+  font-weight:700!important;
+}
+html[data-theme="light"] :where(.storyline,.storyline-box,.ms-story){
+  color:#1e293b!important;
+  border-color:rgba(15,23,42,.12)!important;
 }
 html[data-theme="dark"] :where(.card-note,.hero-sub,.page-sub,.sd-label,.bg-row,.kpi-sub,.ins-sub,.aging-sub){
   color:#9fb3c9!important;

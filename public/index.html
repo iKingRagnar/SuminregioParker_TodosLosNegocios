@@ -340,8 +340,8 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
   <div id="filter-bar"></div>
 
   <!-- Empresa (contexto operativo; siempre que el API registre al menos una base) -->
-  <div class="biz-context-bar" id="bizContextBar" style="display:none" aria-label="Base de datos">
-    <span class="biz-context-label" id="bizContextLabel">Base de datos</span>
+  <div class="biz-context-bar" id="bizContextBar" style="display:none" aria-label="Unidad de negocio">
+    <span class="biz-context-label" id="bizContextLabel">Unidad de negocio</span>
     <div class="biz-chips biz-chips-grid" id="bizChips"></div>
   </div>
 
@@ -796,7 +796,7 @@ async function initBizBar(){
   if(!bar||!chips)return;
   if(indexDbList.length===0){ bar.style.display='none'; return; }
   bar.style.display='flex';
-  if(lbl) lbl.textContent='Base de datos';
+  if(lbl) lbl.textContent='Unidad de negocio';
   if(window.renderDbChipsInto){
     renderDbChipsInto(chips,indexDbList,()=>loadAll());
   }else{

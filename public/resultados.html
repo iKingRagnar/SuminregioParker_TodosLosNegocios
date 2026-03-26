@@ -624,6 +624,7 @@ const fmtM=v=>{if(v===null||v===undefined||isNaN(+v))return'—';v=+v;return'$'+
 const fmtPct=v=>isNaN(+v)?'—':(+v).toFixed(1)+'%';
 const MESES_ES=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 const PNL_ROW_NUM_KEYS=['VENTAS_BRUTAS','DESCUENTOS_DEV','VENTAS_NETAS','VENTAS_VE','VENTAS_PV','COSTO_VENTAS','UTILIDAD_BRUTA','MARGEN_BRUTO_PCT','COBROS','NUM_FACTURAS','CO_A1','CO_A2','CO_A3','CO_A4','CO_A5','CO_A6','CO_B1','CO_B2','CO_B3','CO_B4','CO_B5','CO_C1','CO_C2','CO_C3','CO_C4','CO_C5','CO_C6'];
+const GASTOS_NOTICE_SUBCO = '<br><br><strong>Subconceptos X2–X6 y F2–F5:</strong> Si el total en X1 o F1 tiene importe pero las filas inferiores muestran <strong>$0</strong>, en Microsip no hubo movimientos en esas subcuentas en el periodo; el movimiento puede estar concentrado en la cuenta principal (p. ej. un solo auxiliar). Las etiquetas son descriptivas; el c&oacute;digo CO_B* / CO_C* viene del cat&aacute;logo <code>CUENTAS_CO</code>.';
 function mesLabel(r){return (MESES_ES[+r.MES]||r.MES)+' '+(+r.ANIO||'')}
 function monthKey(r){ return `${+r.ANIO||0}-${String(+r.MES||0).padStart(2,'0')}`; }
 function sortMesesByPeriodo(rows){
@@ -1417,10 +1418,10 @@ async function loadData(){
         const m=+src.MES||0;
         const y=+src.ANIO||0;
         const mm=(m>=1&&m<=12)?new Date(y,m-1,1).toLocaleDateString('es-MX',{month:'long',year:'numeric'}):'periodo anterior';
-        gastosNotice.innerHTML='<strong>ℹ️ Gastos operativos en referencia contable</strong><br>Este periodo no trae movimientos 52/53/54; para evitar tabla en cero se muestran importes del ultimo mes con datos reales: <strong>'+mm+'</strong>.';
+        gastosNotice.innerHTML='<strong>ℹ️ Gastos operativos en referencia contable</strong><br>Este periodo no trae movimientos 52/53/54; para evitar tabla en cero se muestran importes del ultimo mes con datos reales: <strong>'+mm+'</strong>.'+GASTOS_NOTICE_SUBCO;
         gastosNotice.style.display='block';
       }else{
-        gastosNotice.innerHTML='<strong>ℹ️ ¿Por qué a veces Ventas Netas = Utilidad Bruta?</strong><br>El <strong>Costo de Ventas</strong> se toma del m&#243;dulo de Contabilidad (cuentas con &quot;COSTO&quot;). En periodos cortos (Hoy, Esta Semana) o en el mes en curso suele no haber datos a&#250;n; con Mes Anterior, Este A&#241;o o A&#241;o Anterior s&#237;.';
+        gastosNotice.innerHTML='<strong>ℹ️ ¿Por qué a veces Ventas Netas = Utilidad Bruta?</strong><br>El <strong>Costo de Ventas</strong> se toma del m&#243;dulo de Contabilidad (cuentas con &quot;COSTO&quot;). En periodos cortos (Hoy, Esta Semana) o en el mes en curso suele no haber datos a&#250;n; con Mes Anterior, Este A&#241;o o A&#241;o Anterior s&#237;.'+GASTOS_NOTICE_SUBCO;
         gastosNotice.style.display=data.tiene_gastos_co===true?'none':'block';
       }
     }
@@ -1719,16 +1720,16 @@ const CO_PREFIX_LABELS_DEFAULT={
   CO_A5:'',
   CO_A6:'',
   CO_B1:'Gastos financieros',
-  CO_B2:'',
-  CO_B3:'',
-  CO_B4:'',
-  CO_B5:'',
+  CO_B2:'Gastos financieros — subcuenta B2 (detalle 530x)',
+  CO_B3:'Gastos financieros — subcuenta B3 (detalle 530x)',
+  CO_B4:'Gastos financieros — subcuenta B4 (detalle 530x)',
+  CO_B5:'Gastos financieros — subcuenta B5 (detalle 530x)',
   CO_C1:'Otros gastos (partidas extraordinarias)',
-  CO_C2:'',
-  CO_C3:'',
-  CO_C4:'',
-  CO_C5:'',
-  CO_C6:''
+  CO_C2:'Otros gastos — subcuenta C2 (detalle 53xx)',
+  CO_C3:'Otros gastos — subcuenta C3 (detalle 53xx)',
+  CO_C4:'Otros gastos — subcuenta C4 (detalle 53xx)',
+  CO_C5:'Otros gastos — subcuenta C5 (detalle 53xx)',
+  CO_C6:'Otros gastos — subcuenta C6 (detalle 53xx)'
 };
 let CO_PREFIX_LABELS={...CO_PREFIX_LABELS_DEFAULT};
 function applyCoLabelsDynamic(map){
