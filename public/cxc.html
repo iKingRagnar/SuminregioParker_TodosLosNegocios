@@ -487,12 +487,43 @@ async function loadResumen() {
     // #endregion
     const age = ageRaw && typeof ageRaw === 'object' && !Array.isArray(ageRaw) ? ageRaw : (Array.isArray(ageRaw) && ageRaw[0]) ? ageRaw[0] : {};
     const saldo = +res.SALDO_TOTAL||0;
-    const venc  = +res.VENCIDO||0;
+    let venc  = +res.VENCIDO||0;
     let pvenc = +res.POR_VENCER||0;
+    const vencFromAging = (+age.DIAS_1_30||0) + (+age.DIAS_31_60||0) + (+age.DIAS_61_90||0) + (+age.DIAS_MAS_90||0);
+    if (saldo > 0.005 && (venc <= 0.005 || isNaN(venc))) {
+      if (vencFromAging > 0.005) {
+        venc = vencFromAging;
+        // #region agent log
+        debugLogCxc('run32','H314','cxc.html:loadResumen:venc-fallback-aging','using aging buckets as vencido fallback',{vencFromResumen:+res.VENCIDO||0,vencFromAging,saldo});
+        // #endregion
+      } else {
+        try {
+          const topRowsRaw = await apiFetch('/api/cxc/top-deudores' + buildCxcQuery('limit=250'));
+          const topRows = Array.isArray(topRowsRaw) ? topRowsRaw : [];
+          const vencFromTop = topRows.reduce((s, r) => s + (+r.VENCIDO || 0), 0);
+          if (vencFromTop > 0.005) {
+            venc = vencFromTop;
+            // #region agent log
+            debugLogCxc('run32','H315','cxc.html:loadResumen:venc-fallback-top','using top-deudores sum as vencido fallback',{vencFromResumen:+res.VENCIDO||0,vencFromTop,saldo,rows:topRows.length});
+            // #endregion
+          }
+        } catch (eTop) {
+          // #region agent log
+          debugLogCxc('run32','H316','cxc.html:loadResumen:venc-fallback-top-catch','top-deudores fallback failed',{error:(eTop&&eTop.message)||String(eTop)});
+          // #endregion
+        }
+      }
+    }
     if ((pvenc <= 0.005 || isNaN(pvenc)) && (+age.CORRIENTE||0) > 0.005) {
       pvenc = +age.CORRIENTE || 0;
       // #region agent log
       debugLogCxc('run31','H313','cxc.html:loadResumen:pvenc-fallback','using aging current as no-vencido fallback',{pvencFromResumen:+res.POR_VENCER||0,pvencFromAging:+age.CORRIENTE||0,saldo,venc});
+      // #endregion
+    }
+    if ((pvenc <= 0.005 || isNaN(pvenc)) && saldo > 0.005) {
+      pvenc = Math.max(0, saldo - (venc || 0));
+      // #region agent log
+      debugLogCxc('run32','H317','cxc.html:loadResumen:pvenc-fallback-balance','using saldo-vencido as no-vencido fallback',{pvencFromResumen:+res.POR_VENCER||0,pvencDerived:pvenc,saldo,venc});
       // #endregion
     }
     // #region agent log
