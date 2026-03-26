@@ -910,7 +910,7 @@ const consumosSchemaCache = new Map();
  * Si se usa FECHA_DOCUMENTO o CANTIDAD incorrectamente, la query falla y los KPIs quedan en 0.
  */
 async function resolveConsumosSchema(dbo) {
-  const key = dbCacheKey(dbo);
+  const key = dbCacheKey(dbo) + ':v2amt';
   if (consumosSchemaCache.has(key)) return consumosSchemaCache.get(key);
   const [veCols, pvCols, veDetCols, pvDetCols] = await Promise.all([
     getTableColumns('DOCTOS_VE', dbo),
@@ -922,12 +922,32 @@ async function resolveConsumosSchema(dbo) {
   const fp = firstExistingColumn(pvCols, ['FECHA', 'FECHA_DOCUMENTO']) || 'FECHA';
   const veQty = firstExistingColumn(veDetCols, ['UNIDADES', 'CANTIDAD']) || 'UNIDADES';
   const pvQty = firstExistingColumn(pvDetCols, ['UNIDADES', 'CANTIDAD']) || 'UNIDADES';
+  const amtCandidates = ['PRECIO_TOTAL', 'IMPORTE', 'IMPORTE_TOTAL', 'SUBTOTAL', 'TOTAL_LINEA', 'IMPORTE_LINEA', 'IMPORTE_NETO'];
+  const veAmt = firstExistingColumn(veDetCols, amtCandidates);
+  const pvAmt = firstExistingColumn(pvDetCols, amtCandidates);
   const out = {
     feExprVe: `d.${fv}`,
     feExprPv: `d.${fp}`,
     veQty,
     pvQty,
+    veAmt,
+    pvAmt,
   };
+  // #region agent log
+  try {
+    fs.appendFileSync(
+      path.join(__dirname, 'debug-5e0522.log'),
+      JSON.stringify({
+        sessionId: '5e0522',
+        hypothesisId: 'H-consumos-amt',
+        location: 'server_corregido.js:resolveConsumosSchema',
+        message: 'consumos DET amount columns',
+        data: { veAmt, pvAmt, veQty, pvQty, dbKey: dbCacheKey(dbo) },
+        timestamp: Date.now(),
+      }) + '\n'
+    );
+  } catch (_) {}
+  // #endregion
   consumosSchemaCache.set(key, out);
   return out;
 }
@@ -943,12 +963,15 @@ function consumosSubSql(tipo = '', parts) {
   const fePv = p.feExprPv || 'd.FECHA';
   const veQty = p.veQty || 'UNIDADES';
   const pvQty = p.pvQty || 'UNIDADES';
+  const veImp = p.veAmt ? `COALESCE(det.${p.veAmt}, 0)` : '0';
+  const pvImp = p.pvAmt ? `COALESCE(det.${p.pvAmt}, 0)` : '0';
   // Sin tipo R: las devoluciones suelen no tener renglones en *_DET y anulan el consumo agregado (KPIs en 0).
   // Proyectar siempre CAST(... AS DATE) AS FECHA para que buildFiltros y KPIs usen d.FECHA en el exterior.
   const ve = `
     SELECT
       CAST(${feVe} AS DATE) AS FECHA,
       COALESCE(det.${veQty}, 0) AS UNIDADES,
+      ${veImp} AS IMPORTE_LINEA,
       COALESCE(d.VENDEDOR_ID, 0) AS VENDEDOR_ID,
       COALESCE(d.CLIENTE_ID, 0) AS CLIENTE_ID,
       COALESCE(det.ARTICULO_ID, 0) AS ARTICULO_ID,
@@ -964,6 +987,7 @@ function consumosSubSql(tipo = '', parts) {
     SELECT
       CAST(${fePv} AS DATE) AS FECHA,
       COALESCE(det.${pvQty}, 0) AS UNIDADES,
+      ${pvImp} AS IMPORTE_LINEA,
       COALESCE(
         CASE WHEN d.TIPO_DOCTO = 'F' THEN
           (SELECT d2.VENDEDOR_ID
@@ -2543,7 +2567,7 @@ get('/api/cxc/top-deudores', async (req) => {
     ORDER BY SALDO_TOTAL DESC, VENCIDO DESC
   `, [], 12000, dbo).catch(err => { console.error('cxc top-deudores main error:', err && (err.message || err)); return []; });
   if ((rows || []).length) return rows;
-  return query(`
+  const fbRows = await query(`
     SELECT FIRST ${limit}
       c.CLIENTE_ID,
       COALESCE(cl.NOMBRE, 'Cliente ' || CAST(c.CLIENTE_ID AS VARCHAR(12))) AS CLIENTE,
@@ -2552,12 +2576,16 @@ get('/api/cxc/top-deudores', async (req) => {
       CAST(0 AS DOUBLE PRECISION) AS VENCIDO,
       CAST(0 AS INTEGER) AS MAX_DIAS_ATRASO,
       CAST(0 AS INTEGER) AS NUM_DOCUMENTOS
-    FROM ${cxcClienteSQL()}
+    FROM ${cxcClienteSQL()} c
     LEFT JOIN CLIENTES cl ON cl.CLIENTE_ID = c.CLIENTE_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = cl.COND_PAGO_ID
     WHERE c.SALDO > 0.005 ${cf ? `AND c.CLIENTE_ID = ${cf}` : ''}
     ORDER BY c.SALDO DESC
   `, [], 12000, dbo).catch(err => { console.error('cxc top-deudores fallback error:', err && (err.message || err)); return []; });
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'post-fix',hypothesisId:'H-topdeudores-fallback',location:'server_corregido.js:/api/cxc/top-deudores',message:'fallback legacy saldos query',data:{rowCount:(fbRows||[]).length,ok:!!(fbRows&&fbRows.length)},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  return fbRows;
 });
 
 get('/api/cxc/historial', async (req) => {
@@ -2707,10 +2735,11 @@ get('/api/cxc/por-condicion', async (req) => {
 get('/api/cxc/historial-pagos', async (req) => {
   const dbo = getReqDbOpts(req);
   const limit = Math.min(parseInt(req.query.limit) || 300, 500);
-  const meses = Math.min(parseInt(req.query.meses) || 12, 24);
+  const meses = Math.min(parseInt(req.query.meses) || 12, 120);
   const saldosActuales = req.query.saldos_actuales === '1' || req.query.saldos_actuales === 'true';
   const clienteFiltro = req.query.cliente ? ` AND cl.CLIENTE_ID = ${parseInt(req.query.cliente)}` : '';
-  const fechaSql = ` AND dc.FECHA >= (CURRENT_DATE - ${meses * 31})`;
+  // Con saldos_actuales=1 el front necesita filas con saldo aunque la FECHA del doc sea muy antigua; sin esto el calendario queda vacío con cartera vieja.
+  const fechaSql = saldosActuales ? '' : ` AND dc.FECHA >= (CURRENT_DATE - ${meses * 31})`;
   const rows = await query(`
     SELECT FIRST ${limit}
       dc.DOCTO_CC_ID,
@@ -4805,7 +4834,9 @@ get('/api/consumos/resumen', async (req) => {
     query(`
       SELECT
         COALESCE(SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.UNIDADES ELSE 0 END), 0) AS HOY_UNIDADES,
+        COALESCE(SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_LINEA ELSE 0 END), 0) AS HOY_VENTA_IMPORTE,
         COALESCE(SUM(d.UNIDADES), 0) AS UNIDADES_PERIODO,
+        COALESCE(SUM(d.IMPORTE_LINEA), 0) AS VENTA_IMPORTE_PERIODO,
         COUNT(*) AS MOVIMIENTOS,
         COUNT(DISTINCT CAST(d.FECHA AS DATE)) AS DIAS_CON_MOVIMIENTO,
         COUNT(DISTINCT d.ARTICULO_ID) AS ARTICULOS_CONSUMIDOS
@@ -4828,7 +4859,9 @@ get('/api/consumos/resumen', async (req) => {
   const diasConMov = +t.DIAS_CON_MOVIMIENTO || 0;
   return {
     HOY_UNIDADES: +t.HOY_UNIDADES || 0,
+    HOY_VENTA_IMPORTE: +t.HOY_VENTA_IMPORTE || 0,
     UNIDADES_PERIODO: unidadesPeriodo,
+    VENTA_IMPORTE_PERIODO: +t.VENTA_IMPORTE_PERIODO || 0,
     CONSUMO_PROMEDIO_DIARIO: diasConMov > 0 ? Math.round((unidadesPeriodo / diasConMov) * 100) / 100 : 0,
     CONSUMO_MAXIMO_DIARIO: +m.MAXIMO_DIARIO || 0,
     DIA_MAXIMO: m.DIA_MAXIMO || null,
@@ -4873,7 +4906,8 @@ get('/api/consumos/top-articulos', async (req) => {
       d.ARTICULO_ID,
       COALESCE(a.NOMBRE, 'Art. ' || CAST(d.ARTICULO_ID AS VARCHAR(12))) AS ARTICULO,
       COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
-      COALESCE(SUM(d.UNIDADES), 0) AS UNIDADES
+      COALESCE(SUM(d.UNIDADES), 0) AS UNIDADES,
+      COALESCE(SUM(d.IMPORTE_LINEA), 0) AS VENTA_IMPORTE
     FROM ${sub} d
     LEFT JOIN ARTICULOS a ON a.ARTICULO_ID = d.ARTICULO_ID
     WHERE d.UNIDADES > 0 ${f.sql}
@@ -4892,7 +4926,8 @@ get('/api/consumos/por-vendedor', async (req) => {
     SELECT
       d.VENDEDOR_ID,
       COALESCE(v.NOMBRE, 'Vendedor ' || CAST(d.VENDEDOR_ID AS VARCHAR(10))) AS VENDEDOR,
-      COALESCE(SUM(d.UNIDADES), 0) AS UNIDADES
+      COALESCE(SUM(d.UNIDADES), 0) AS UNIDADES,
+      COALESCE(SUM(d.IMPORTE_LINEA), 0) AS VENTA_IMPORTE
     FROM ${sub} d
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
     WHERE d.UNIDADES > 0 AND d.VENDEDOR_ID > 0 ${f.sql}
@@ -4900,9 +4935,11 @@ get('/api/consumos/por-vendedor', async (req) => {
     ORDER BY UNIDADES DESC
   `, f.params, 12000, dbo).catch(() => []);
   const total = (rows || []).reduce((s, r) => s + (+r.UNIDADES || 0), 0);
+  const totalImp = (rows || []).reduce((s, r) => s + (+r.VENTA_IMPORTE || 0), 0);
   return (rows || []).map(r => ({
     ...r,
-    PARTICIPACION: total > 0 ? Math.round((+r.UNIDADES || 0) / total * 10000) / 100 : 0
+    PARTICIPACION: total > 0 ? Math.round((+r.UNIDADES || 0) / total * 10000) / 100 : 0,
+    PARTICIPACION_IMPORTE: totalImp > 0 ? Math.round((+r.VENTA_IMPORTE || 0) / totalImp * 10000) / 100 : 0
   }));
 });
 
