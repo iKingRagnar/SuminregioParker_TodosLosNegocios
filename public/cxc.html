@@ -488,45 +488,26 @@ async function loadResumen() {
     // #endregion
     const age = ageRaw && typeof ageRaw === 'object' && !Array.isArray(ageRaw) ? ageRaw : (Array.isArray(ageRaw) && ageRaw[0]) ? ageRaw[0] : {};
     const saldo = +res.SALDO_TOTAL||0;
-    let venc  = +res.VENCIDO||0;
-    let pvenc = +res.POR_VENCER||0;
     const vencFromAging = (+age.DIAS_1_30||0) + (+age.DIAS_31_60||0) + (+age.DIAS_61_90||0) + (+age.DIAS_MAS_90||0);
-    if (saldo > 0.005 && (venc <= 0.005 || isNaN(venc))) {
-      if (vencFromAging > 0.005) {
-        venc = vencFromAging;
-        // #region agent log
-        debugLogCxc('run32','H314','cxc.html:loadResumen:venc-fallback-aging','using aging buckets as vencido fallback',{vencFromResumen:+res.VENCIDO||0,vencFromAging,saldo});
-        // #endregion
-      } else {
-        try {
-          const topRowsRaw = await apiFetch('/api/cxc/top-deudores' + buildCxcQuery('limit=250'));
-          const topRows = Array.isArray(topRowsRaw) ? topRowsRaw : [];
-          const vencFromTop = topRows.reduce((s, r) => s + (+r.VENCIDO || 0), 0);
-          if (vencFromTop > 0.005) {
-            venc = vencFromTop;
-            // #region agent log
-            debugLogCxc('run32','H315','cxc.html:loadResumen:venc-fallback-top','using top-deudores sum as vencido fallback',{vencFromResumen:+res.VENCIDO||0,vencFromTop,saldo,rows:topRows.length});
-            // #endregion
-          }
-        } catch (eTop) {
-          // #region agent log
-          debugLogCxc('run32','H316','cxc.html:loadResumen:venc-fallback-top-catch','top-deudores fallback failed',{error:(eTop&&eTop.message)||String(eTop)});
-          // #endregion
-        }
+    const corrienteAging = +age.CORRIENTE || 0;
+    let venc = vencFromAging;
+    let pvenc = corrienteAging;
+    const sumAging = venc + pvenc;
+    let vencSource = 'aging';
+    if (saldo > 0.005 && sumAging <= 0.005) {
+      venc = +res.VENCIDO||0;
+      pvenc = +res.POR_VENCER||0;
+      vencSource = 'resumen-empty-aging';
+      if ((pvenc <= 0.005 || isNaN(pvenc)) && saldo > 0.005) {
+        pvenc = Math.max(0, saldo - (venc || 0));
       }
+    } else if (saldo > 0.005 && Math.abs(sumAging - saldo) > 0.02) {
+      pvenc = Math.max(0, saldo - venc);
+      vencSource = 'aging-reconcile-pvenc';
     }
-    if ((pvenc <= 0.005 || isNaN(pvenc)) && (+age.CORRIENTE||0) > 0.005) {
-      pvenc = +age.CORRIENTE || 0;
-      // #region agent log
-      debugLogCxc('run31','H313','cxc.html:loadResumen:pvenc-fallback','using aging current as no-vencido fallback',{pvencFromResumen:+res.POR_VENCER||0,pvencFromAging:+age.CORRIENTE||0,saldo,venc});
-      // #endregion
-    }
-    if ((pvenc <= 0.005 || isNaN(pvenc)) && saldo > 0.005) {
-      pvenc = Math.max(0, saldo - (venc || 0));
-      // #region agent log
-      debugLogCxc('run32','H317','cxc.html:loadResumen:pvenc-fallback-balance','using saldo-vencido as no-vencido fallback',{pvencFromResumen:+res.POR_VENCER||0,pvencDerived:pvenc,saldo,venc});
-      // #endregion
-    }
+    // #region agent log
+    debugLogCxc('post-fix','H318','cxc.html:loadResumen:venc-unified','venc/pvenc aligned to aging (no top-deudores mix)',{vencSource,venc,vencFromAging,resVenc:+res.VENCIDO||0,pvenc,corrienteAging,resPv:+res.POR_VENCER||0,saldo,sumAging});
+    // #endregion
     // #region agent log
     debugLogCxc('run30','H311','cxc.html:loadResumen:normalized','normalized cxc values rendered',{saldo,venc,pvenc,age:{CORRIENTE:+age.CORRIENTE||0,DIAS_1_30:+age.DIAS_1_30||0,DIAS_31_60:+age.DIAS_31_60||0,DIAS_61_90:+age.DIAS_61_90||0,DIAS_MAS_90:+age.DIAS_MAS_90||0}});
     // #endregion
@@ -562,7 +543,7 @@ async function loadResumen() {
     setText('ag2',  fmtK(age.DIAS_31_60)); setPct('ag2Bar',  age.DIAS_31_60);
     setText('ag3',  fmtK(age.DIAS_61_90)); setPct('ag3Bar',  age.DIAS_61_90);
     setText('ag4',  fmtK(age.DIAS_MAS_90));setPct('ag4Bar',  age.DIAS_MAS_90);
-    setText('agingBreakdown', 'Vencido = 1-30 ('+fmtK(age.DIAS_1_30)+') + 31-60 ('+fmtK(age.DIAS_31_60)+') + 61-90 ('+fmtK(age.DIAS_61_90)+') + +90 ('+fmtK(age.DIAS_MAS_90)+') = '+fmtK(venc)+'. Vigente = Corriente = '+fmtK(age.CORRIENTE)+'.');
+    setText('agingBreakdown', 'Vencido = 1-30 ('+fmtK(age.DIAS_1_30)+') + 31-60 ('+fmtK(age.DIAS_31_60)+') + 61-90 ('+fmtK(age.DIAS_61_90)+') + +90 ('+fmtK(age.DIAS_MAS_90)+') = '+fmtK(venc)+'. No vencido (KPI) = '+fmtK(pvenc)+' (corriente '+fmtK(age.CORRIENTE||0)+').');
     const agCorriente = document.getElementById('agC');
     if (agCorriente) agCorriente.style.color = '#22C55E';
     const agingCols = { ag1:'#F59E0B', ag2:'#FB923C', ag3:'#F97316', ag4:'#EF4444' };
