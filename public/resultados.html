@@ -1850,7 +1850,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
       </tr>
     `).join('');
   };
-  const rowGastoBucket=(bucket,lead)=>`<tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">${lead}. ${coLbl(bucket,'')}</td>${mesesOrd.map(m=>tdGasto(m,bucket)).join('')}<td style="color:var(--red)">${footGasto(bucket)}</td></tr>${renderSubRows(bucket)}`;
+  const rowGastoBucket=(bucket,lead)=>{const fv=+tot[bucket]||0;return`<tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">${lead}. ${coLbl(bucket,'')}</td>${mesesOrd.map(m=>tdGasto(m,bucket)).join('')}<td style="color:${fv>0?'var(--red)':'var(--text2)'}">${footGasto(bucket)}</td></tr>${renderSubRows(bucket)}`;};
 
   const remiCalc = (m) => {
     const vb = +m.VENTAS_BRUTAS||0;

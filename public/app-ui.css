@@ -321,3 +321,92 @@ html.theme-premium-light[data-theme="light"] .kpi.purple .kpi-val {
 html.theme-premium-light[data-theme="light"] .kpi.red .kpi-val {
   color: #b91c1c !important;
 }
+
+/* --- Tema claro: variables semánticas de color (--red/--grn/--ylw no las sobreescribe nav.js) --- */
+html[data-theme="light"] {
+  --red: #b91c1c;
+  --grn: #166534;
+  --ylw: #92400e;
+  --orange: #9a3412;
+  --suminregio: #92400e;
+  --suminregio-dim: rgba(146, 64, 14, 0.08);
+  --blue: #1d4ed8;
+  --purple: #6d28d9;
+}
+
+/* CxC hero: quitar gradiente oscuro, usar fondo ámbar suave */
+html[data-theme="light"] .cxc-hero {
+  background: linear-gradient(135deg, rgba(180, 83, 9, 0.06), rgba(255, 255, 255, 0)) !important;
+  border: 1px solid rgba(180, 83, 9, 0.18) !important;
+}
+html[data-theme="light"] .cxc-hero h1,
+html[data-theme="light"] .cxc-hero .hero-title {
+  color: #7c2d12 !important;
+  -webkit-text-fill-color: #7c2d12 !important;
+  background: none !important;
+  background-image: none !important;
+  -webkit-background-clip: unset !important;
+  background-clip: unset !important;
+}
+html[data-theme="light"] .cxc-hero p,
+html[data-theme="light"] .cxc-hero .hero-sub {
+  color: #475569 !important;
+}
+
+/* Aging buckets: colores accesibles en fondo claro */
+html[data-theme="light"] .c0 .aging-val { color: #166534 !important; }
+html[data-theme="light"] .c1 .aging-val { color: #92400e !important; }
+html[data-theme="light"] .c2 .aging-val { color: #9a3412 !important; }
+html[data-theme="light"] .c3 .aging-val { color: #b91c1c !important; }
+html[data-theme="light"] .c4 .aging-val { color: #7f1d1d !important; }
+
+/* Aging labels / captions */
+html[data-theme="light"] .aging-lbl,
+html[data-theme="light"] .aging-cap {
+  color: #475569 !important;
+}
+
+/* Valores de KPI que usan var(--grn)/var(--ylw)/var(--red) como color inline */
+html[data-theme="light"] .kpi-val[style*="--grn"],
+html[data-theme="light"] .val[style*="--grn"] { color: #166534 !important; }
+html[data-theme="light"] .kpi-val[style*="--ylw"],
+html[data-theme="light"] .val[style*="--ylw"]  { color: #92400e !important; }
+html[data-theme="light"] .kpi-val[style*="--red"],
+html[data-theme="light"] .val[style*="--red"]  { color: #b91c1c !important; }
+
+/* Tablas: filas de datos con colores inline — deben vencer a nav.js "table tbody td #0f172a !important"
+   nav.js usa :where() (especificidad 0) por lo que nuestros selectores con clase/atributo ganan */
+html[data-theme="light"] table td[style*="color:var(--red)"],
+html[data-theme="light"] table td[style*="color: var(--red)"] {
+  color: #b91c1c !important;
+}
+html[data-theme="light"] table td[style*="color:var(--grn)"],
+html[data-theme="light"] table td[style*="color: var(--grn)"] {
+  color: #166534 !important;
+}
+html[data-theme="light"] table td[style*="color:var(--ylw)"],
+html[data-theme="light"] table td[style*="color: var(--ylw)"] {
+  color: #92400e !important;
+}
+html[data-theme="light"] table td[style*="color:var(--muted)"],
+html[data-theme="light"] table td[style*="color: var(--muted)"] {
+  color: #64748b !important;
+}
+html[data-theme="light"] table td[style*="color:var(--text2)"],
+html[data-theme="light"] table td[style*="color: var(--text2)"] {
+  color: #334155 !important;
+}
+
+/* Tarjetas genéricas (fondo claro) */
+html[data-theme="light"] .card {
+  background: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
+  color: #0f172a !important;
+}
+
+/* Chips de empresa / negocio */
+html[data-theme="light"] .biz-chip {
+  background: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.15) !important;
+  color: #0f172a !important;
+}
