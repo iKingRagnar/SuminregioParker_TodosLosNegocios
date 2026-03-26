@@ -411,7 +411,8 @@ async function apiFetch(pathWithQuery, opts){
 
 async function checkStatus() {
   try {
-    await apiFetch('/api/ping',{skipDb:true});
+    const ping = await apiFetch('/api/ping',{skipDb:true});
+    if (ping && typeof ping.build === 'string' && ping.build) window.__apiBuild = ping.build;
     const d = document.getElementById('statusDot');
     if(d){ d.style.background='var(--grn)'; d.title='Conectado'; }
   } catch {
@@ -859,19 +860,23 @@ async function refreshCxcDbHint(){
   const el=document.getElementById('cxcDbHint');
   if(!el) return;
   let db=cxcEffectiveDb();
+  let line='';
   try{
     const list=await fetch(API+'/api/universe/databases').then(r=>r.json());
     const usable=(typeof window.filterDbCatalog==='function')?window.filterDbCatalog(list):(Array.isArray(list)?list:[]);
     if(Array.isArray(usable)&&usable.length){
       const hit=usable.find(x=>String(x.id)===String(db));
       const fn=(hit&&hit.database)?String(hit.database).split(/[/\\]/).pop():'';
-      el.textContent=db?(fn||hit?.label||db)+' · '+usable.length+' negocios':('Por defecto · '+usable.length+' negocios en servidor');
-    }else el.textContent=db?'db='+db:'Conexi&oacute;n por defecto';
-  }catch(_){ el.textContent=db?'db='+db:'Contexto base de datos'; }
+      line=db?(fn||hit?.label||db)+' · '+usable.length+' negocios':('Por defecto · '+usable.length+' negocios en servidor');
+    }else line=db?'db='+db:'Conexi&oacute;n por defecto';
+  }catch(_){ line=db?'db='+db:'Contexto base de datos'; }
+  el.textContent=line+(window.__apiBuild?' · '+window.__apiBuild:'');
+  el.title='Negocio activo'+(window.__apiBuild?(' · servidor '+window.__apiBuild):'');
 }
 
 (async function init(){
   try { initCharts(); } catch (e) { console.warn('[cxc] initCharts', e && e.message ? e.message : e); }
+  await checkStatus();
   const fb = document.getElementById('filter-bar');
   if (fb) fb.style.display = '';
   const hasFilters = !!window.initFilters;
@@ -884,7 +889,6 @@ async function refreshCxcDbHint(){
       onChange     : async () => { await refreshCxcDbHint(); await ensureClientesFiltro(); await loadAll(); },
     });
   }
-  await checkStatus();
   if (!hasFilters) {
     await refreshCxcDbHint();
     await ensureClientesFiltro();
