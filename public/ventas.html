@@ -18,12 +18,16 @@ window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7
   --border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.11);
   --green:#00E5A0;--green-dim:rgba(0,229,160,.1);
   --yellow:#FFB800;--yellow-dim:rgba(255,184,0,.12);
+  --yellow-ink:#facc15;--chart-yellow:#f59e0b;--chart-yellow-fill:rgba(245,158,11,.28);--amber:var(--orange);
   --orange:#FF8C42;--orange-dim:rgba(255,140,66,.1);
   --red:#FF4566;--red-dim:rgba(255,69,102,.12);
   --blue:#4DA6FF;--blue-dim:rgba(77,166,255,.1);
   --purple:#9B6DFF;--purple-dim:rgba(155,109,255,.1);
   --text:#E8EFF8;--text2:#B0BECE;--muted:#5A7090;--dim:#243348;
   --suminregio:#E6A800;--suminregio-dim:rgba(230,168,0,.15);--accent:var(--suminregio);
+}
+html[data-theme=light]{
+  --yellow-ink:#92400e;--chart-yellow:#b45309;--chart-yellow-fill:rgba(180,83,9,.22);
 }
 html{font-size:16px;-webkit-font-smoothing:antialiased}
 body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh}
@@ -68,11 +72,11 @@ nav{display:flex;align-items:center;gap:.25rem}
 .kpi-card.blue{--kpi-c:var(--blue)}.kpi-card.green{--kpi-c:var(--green)}.kpi-card.yellow{--kpi-c:var(--yellow)}.kpi-card.orange{--kpi-c:var(--orange)}.kpi-card.purple{--kpi-c:var(--purple)}
 .kpi-label{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem}
 .kpi-value{font-family:'DM Mono',monospace;font-size:1.4rem;font-weight:500;letter-spacing:-.02em;line-height:1}
-.kpi-card.blue .kpi-value{color:var(--blue)}.kpi-card.green .kpi-value{color:var(--green)}.kpi-card.yellow .kpi-value{color:var(--yellow)}.kpi-card.orange .kpi-value{color:var(--orange)}.kpi-card.purple .kpi-value{color:var(--purple)}
+.kpi-card.blue .kpi-value{color:var(--blue)}.kpi-card.green .kpi-value{color:var(--green)}.kpi-card.yellow .kpi-value{color:var(--yellow-ink)}.kpi-card.orange .kpi-value{color:var(--orange)}.kpi-card.purple .kpi-value{color:var(--purple)}
 .kpi-sub{margin-top:.4rem;font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted)}
 .meta-bar-wrap{margin-top:.6rem}.meta-bar-bg{height:4px;background:var(--s3);border-radius:99px;overflow:hidden}.meta-bar-fill{height:100%;border-radius:99px;background:var(--kpi-c);transition:width 1.2s cubic-bezier(.4,0,.2,1)}.meta-pct{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);margin-top:.2rem}
 .tag{display:inline-block;padding:.1rem .4rem;border-radius:4px;font-size:.6rem;font-weight:500}
-.tag.up{background:var(--green-dim);color:var(--green)}.tag.down{background:var(--red-dim);color:var(--red)}.tag.warn{background:var(--yellow-dim);color:var(--yellow)}.tag.ok{background:var(--blue-dim);color:var(--blue)}
+.tag.up{background:var(--green-dim);color:var(--green)}.tag.down{background:var(--red-dim);color:var(--red)}.tag.warn{background:var(--yellow-dim);color:var(--yellow-ink)}.tag.ok{background:var(--blue-dim);color:var(--blue)}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem}
 @media(max-width:1100px){.grid-2{grid-template-columns:1fr}}
 .card{background:var(--s1);border:1px solid var(--border);border-radius:16px;overflow:hidden}
@@ -111,8 +115,10 @@ nav{display:flex;align-items:center;gap:.25rem}
 .split-bar{display:flex;height:8px;border-radius:99px;overflow:hidden;margin-top:.5rem}
 .split-bar-ve{background:var(--blue);transition:width .8s}.split-bar-pv{background:var(--purple);transition:width .8s}
 </style>
+<link rel="stylesheet" href="app-ui.css">
+<script src="app-ui-boot.js" defer></script>
 </head>
-<body>
+<body class="app-dark">
 <div class="bg-orbs"><div class="orb orb-1"></div><div class="orb orb-2"></div></div>
 
 <header>
@@ -313,7 +319,7 @@ nav{display:flex;align-items:center;gap:.25rem}
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.85rem;margin-bottom:1.25rem">
         <div style="background:var(--s2);border-radius:12px;padding:.9rem 1rem;border:1px solid var(--border)">
           <div style="font-family:'DM Mono',monospace;font-size:.55rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.25rem">Total Cotizado</div>
-          <div id="cv-total-coti" style="font-family:'DM Mono',monospace;font-size:1.25rem;font-weight:500;color:var(--amber)">?</div>
+          <div id="cv-total-coti" style="font-family:'DM Mono',monospace;font-size:1.25rem;font-weight:500;color:var(--yellow-ink)">?</div>
           <div id="cv-num-coti" style="font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted);margin-top:.15rem">? cotizaciones</div>
         </div>
         <div style="background:var(--s2);border-radius:12px;padding:.9rem 1rem;border:1px solid var(--border)">
@@ -414,6 +420,10 @@ function setTopClientes(n) {
   loadClientes();
 }
 
+function cssVar(name,fallback){
+  try{const v=getComputedStyle(document.documentElement).getPropertyValue(name).trim();return v||fallback;}catch(e){return fallback;}
+}
+
 // -- Helper: construye URL con filtros activos + params extra ---------------
 function buildApiUrl(path, extraParams) {
   const qs    = window.filterBuildQS ? filterBuildQS() : '';
@@ -424,11 +434,26 @@ function buildApiUrl(path, extraParams) {
 
 // -- Conversión Cotizaciones → Ventas ----------------------------------
 async function loadConversion(){
+  const setTxt=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  const setH  =(id,v)=>{const e=document.getElementById(id);if(e)e.innerHTML=v;};
+  const cy=()=>cssVar('--chart-yellow','#d97706');
+  const cyFill=()=>cssVar('--chart-yellow-fill','rgba(217,119,6,.28)');
   try{
     const data = await fwt(buildApiUrl('/api/ventas/vs-cotizaciones','meses=6'), {}).catch(()=>({}));
     const ventasArr = Array.isArray(data.ventas) ? data.ventas : [];
     const cotiArr   = Array.isArray(data.cotizaciones) ? data.cotizaciones : [];
-    if(!ventasArr.length && !cotiArr.length) return;
+    if(!ventasArr.length && !cotiArr.length){
+      setTxt('cv-total-coti', fmtK(0));
+      setTxt('cv-num-coti', '0 cotizaciones');
+      setTxt('cv-total-ventas', fmtK(0));
+      setTxt('cv-num-ventas', '0 documentos');
+      setTxt('cv-tasa', '0%');
+      setTxt('cv-tasa-docs', '0%');
+      setH('cv-insight', '<span style="color:var(--muted)">Sin datos de cotizaciones y ventas mensuales en los últimos 6 meses para este filtro (o la API no respondió). Revisa periodo, empresa o conexión.</span>');
+      const ctx0=document.getElementById('chartConversion');
+      if(ctx0&&chartConvInst){chartConvInst.destroy();chartConvInst=null;}
+      return;
+    }
 
     // Build month key map
     const mapa = {};
@@ -456,9 +481,6 @@ async function loadConversion(){
     const tasaAmt = totCoti>0?Math.round(totVen/totCoti*100):0;
     const tasaDocs= numCoti>0?Math.round(numVen/numCoti*100):0;
 
-    const setTxt=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
-    const setH  =(id,v)=>{const e=document.getElementById(id);if(e)e.innerHTML=v;};
-
     setTxt('cv-total-coti', fmtK(totCoti));
     setTxt('cv-num-coti',   numCoti+' cotizaciones');
     setTxt('cv-total-ventas', fmtK(totVen));
@@ -468,13 +490,13 @@ async function loadConversion(){
 
     // Color conversion rate
     const tasaEl = document.getElementById('cv-tasa');
-    if(tasaEl) tasaEl.style.color = tasaAmt>=40?'var(--green)':tasaAmt>=25?'var(--amber)':'var(--red)';
+    if(tasaEl) tasaEl.style.color = tasaAmt>=40?'var(--green)':tasaAmt>=25?'var(--orange)':'var(--red)';
 
     // Insight
     const msg = tasaAmt>=40
       ? `<span style="color:var(--green)">&#10003; Tasa de conversi&#243;n saludable</span>: por cada $100 cotizados se venden $${tasaAmt}. `
       : tasaAmt>=25
-      ? `<span style="color:var(--amber)">&#9888; Tasa moderada</span>: por cada $100 cotizados se venden $${tasaAmt}. Oportunidad de mejorar el seguimiento. `
+      ? `<span style="color:var(--orange)">&#9888; Tasa moderada</span>: por cada $100 cotizados se venden $${tasaAmt}. Oportunidad de mejorar el seguimiento. `
       : `<span style="color:var(--red)">&#10005; Tasa baja</span>: solo $${tasaAmt} de cada $100 cotizados se convierten en venta. Revisar proceso comercial. `;
     const lastTasa = tasas[tasas.length-1]||0;
     const prevTasa = tasas[tasas.length-2]||0;
@@ -488,24 +510,34 @@ async function loadConversion(){
     const ctx = document.getElementById('chartConversion');
     if(ctx){
       if(chartConvInst) chartConvInst.destroy();
+      const legCol=cssVar('--text2','#94a3b8');
       chartConvInst = new Chart(ctx, {
         data:{labels,datasets:[
-          {type:'bar',label:'Cotizaciones',data:cotiVals,backgroundColor:'rgba(255,184,0,.28)',borderColor:'#FFB800',borderWidth:1.5,borderRadius:4},
+          {type:'bar',label:'Cotizaciones',data:cotiVals,backgroundColor:cyFill(),borderColor:cy(),borderWidth:1.5,borderRadius:4},
           {type:'bar',label:'Ventas',data:venVals,backgroundColor:'rgba(30,127,217,.32)',borderColor:'#1E7FD9',borderWidth:1.5,borderRadius:4},
           {type:'line',label:'% Conversi\u00f3n',data:tasas,borderColor:'#F57C00',backgroundColor:'rgba(245,124,0,.1)',borderWidth:2.5,pointRadius:5,pointBackgroundColor:'#F57C00',fill:true,tension:.35,yAxisID:'y2'}
         ]},
         options:{responsive:true,maintainAspectRatio:false,
-          plugins:{legend:{labels:{color:'#4D6E8A',font:{size:11,family:"'DM Mono'"}}},
+          plugins:{legend:{labels:{color:legCol,font:{size:11,family:"'DM Mono'"}}},
             tooltip:{backgroundColor:'#112233',borderColor:'rgba(255,255,255,.1)',borderWidth:1,titleColor:'#EDF4FF',bodyColor:'#93B4CC',
               callbacks:{label:c=>c.dataset.label+': '+(c.datasetIndex===2?c.raw+'%':fmtK(c.raw))}}},
           scales:{
-            x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#4D6E8A',font:{size:10,family:"'DM Mono'"}}},
-            y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#4D6E8A',font:{size:10,family:"'DM Mono'"},callback:v=>fmtK(v)}},
+            x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:legCol,font:{size:10,family:"'DM Mono'"}}},
+            y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:legCol,font:{size:10,family:"'DM Mono'"},callback:v=>fmtK(v)}},
             y2:{position:'right',min:0,max:120,grid:{display:false},ticks:{color:'#F57C00',font:{size:10,family:"'DM Mono'"},callback:v=>v+'%'}}
           }}
       });
     }
-  }catch(e){console.warn('loadConversion error:',e);}
+  }catch(e){
+    console.warn('loadConversion error:',e);
+    setTxt('cv-total-coti', fmtK(0));
+    setTxt('cv-num-coti', '—');
+    setTxt('cv-total-ventas', fmtK(0));
+    setTxt('cv-num-ventas', '—');
+    setTxt('cv-tasa', '—');
+    setTxt('cv-tasa-docs', '—');
+    setH('cv-insight', '<span style="color:var(--muted)">No se pudo cargar la conversión. Revisa la consola o reintenta más tarde.</span>');
+  }
 }
 
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
@@ -897,9 +929,10 @@ function applyCotiData(resObj, diarias, vends, ventasVE) {
   const maxY = Math.max(0, ...vals, ...metaL, ...idealL, bloq ? 0 : metaCBase * nV * 1.1);
   if (arr.length === 0 && !bloq && metaCBase * nV > 0) opts.scales.y.suggestedMax = Math.max(metaCBase * nV * 1.2, 1000);
   else if (maxY > 0) opts.scales.y.suggestedMax = maxY * 1.15;
+  const cotiBorder=cssVar('--chart-yellow','#d97706'), cotiFill=cssVar('--chart-yellow-fill','rgba(217,119,6,.28)');
   if(chartCotiDiarias) chartCotiDiarias.destroy();
   chartCotiDiarias = new Chart(document.getElementById('chartCotiDiarias').getContext('2d'), {type:'bar', data:{labels:lbls, datasets:[
-    {label:'Cotizaciones $', data:vals, order:0, backgroundColor:'rgba(255,184,0,.3)', borderColor:'#FFB800', borderWidth:1},
+    {label:'Cotizaciones $', data:vals, order:0, backgroundColor:cotiFill, borderColor:cotiBorder, borderWidth:1},
     {label:'Meta (día laboral)', data:metaL, type:'line', order:1, borderColor:'rgba(255,140,66,.9)', borderWidth:2.2, borderDash:[6,4], pointRadius:0, fill:false},
     {label:'Ideal (+30%)', data:idealL, type:'line', order:2, borderColor:'rgba(0,229,160,.82)', borderWidth:2, borderDash:[3,5], pointRadius:0, fill:'-1', backgroundColor:'rgba(255,184,0,.16)'},
   ]}, options:opts});
@@ -911,9 +944,9 @@ function applyCotiData(resObj, diarias, vends, ventasVE) {
       return `<div class="vendor-item">
         <div class="vendor-head">
           <span class="vendor-name"><span class="rank-num">${i+1}</span>${r.VENDEDOR}</span>
-          <span><span class="vendor-amount" style="color:var(--yellow)">${fmtK(r.COTIZACIONES_MES)}</span><span class="vendor-pct">${r.NUM_COTI_MES} coti</span></span>
+          <span><span class="vendor-amount" style="color:var(--yellow-ink)">${fmtK(r.COTIZACIONES_MES)}</span><span class="vendor-pct">${r.NUM_COTI_MES} coti</span></span>
         </div>
-        <div class="vendor-bar-bg"><div style="height:5px;border-radius:99px;background:linear-gradient(90deg,var(--yellow),var(--orange));width:${pct}%;transition:width 1.2s"></div></div>
+        <div class="vendor-bar-bg"><div style="height:5px;border-radius:99px;background:linear-gradient(90deg,var(--chart-yellow),var(--orange));width:${pct}%;transition:width 1.2s"></div></div>
       </div>`;
     }).join('')}</div>` : '<div style="text-align:center;color:var(--muted);padding:1.5rem">Sin datos</div>';
 }

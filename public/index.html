@@ -16,6 +16,7 @@
   --border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.14);
   --green:#00E5A0;--green-dim:rgba(0,229,160,.10);--green-dim2:rgba(0,229,160,.06);
   --yellow:#FFB800;--yellow-dim:rgba(255,184,0,.12);--yellow-dim2:rgba(255,184,0,.06);
+  --yellow-ink:#facc15;--chart-yellow:#f59e0b;
   --orange:#FF8C42;--orange-dim:rgba(255,140,66,.10);
   --red:#FF4566;--red-dim:rgba(255,69,102,.12);--red-dim2:rgba(255,69,102,.06);
   --blue:#4DA6FF;--blue-dim:rgba(77,166,255,.10);
@@ -25,6 +26,9 @@
   /* Suminregio: dorado/ambar del logo */
   --suminregio:#E6A800;--suminregio-dim:rgba(230,168,0,.15);
   --accent:var(--suminregio);
+}
+html[data-theme=light]{
+  --yellow-ink:#92400e;--chart-yellow:#b45309;
 }
 html{font-size:16px;-webkit-font-smoothing:antialiased}
 body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh}
@@ -123,13 +127,13 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 .hero-eyebrow::before{content:'';display:inline-block;width:18px;height:1px;background:var(--suminregio);opacity:.8}
 .hero-title{font-size:2.6rem;font-weight:800;line-height:.95;letter-spacing:-.035em;background:linear-gradient(135deg,var(--suminregio) 0%,var(--yellow) 50%,var(--orange) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .hero-sub{font-size:.82rem;color:var(--text2);margin-top:.55rem;font-family:'DM Mono',monospace;letter-spacing:.02em;line-height:1.6}
-.hero-data-hint{margin-top:.5rem;max-width:72ch;padding:.55rem .75rem;border-radius:10px;border:1px solid rgba(255,184,0,.28);background:rgba(255,184,0,.08);font-family:'DM Mono',monospace;font-size:.72rem;color:var(--yellow);line-height:1.5}
+.hero-data-hint{margin-top:.5rem;max-width:72ch;padding:.55rem .75rem;border-radius:10px;border:1px solid rgba(255,184,0,.28);background:rgba(255,184,0,.08);font-family:'DM Mono',monospace;font-size:.72rem;color:var(--yellow-ink);line-height:1.5}
 .hero-right{text-align:right}
 .hero-date{font-family:'DM Mono',monospace;font-size:.76rem;color:var(--muted);display:flex;align-items:center;justify-content:flex-end;gap:.45rem;margin-bottom:.4rem}
 .hero-date-val{color:var(--text2);font-weight:500}
 .situation-badge{display:inline-flex;align-items:center;gap:.5rem;padding:.35rem .8rem;border-radius:8px;font-family:'DM Mono',monospace;font-size:.68rem;font-weight:500;letter-spacing:.06em}
 .situation-badge.ok{background:var(--green-dim);border:1px solid rgba(0,229,160,.22);color:var(--green)}
-.situation-badge.warn{background:var(--yellow-dim);border:1px solid rgba(255,184,0,.22);color:var(--yellow)}
+.situation-badge.warn{background:var(--yellow-dim);border:1px solid rgba(255,184,0,.22);color:var(--yellow-ink)}
 .situation-badge.danger{background:var(--red-dim);border:1px solid rgba(255,69,102,.22);color:var(--red)}
 .situation-badge svg{width:13px;height:13px;fill:currentColor}
 
@@ -148,12 +152,12 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 .sem{display:inline-flex;align-items:center;gap:.28rem;padding:.18rem .5rem;border-radius:99px;font-family:'DM Mono',monospace;font-size:.55rem;font-weight:500;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
 .sem-dot{width:5px;height:5px;border-radius:50%}
 .sem.ok{background:var(--green-dim);border:1px solid rgba(0,229,160,.2);color:var(--green)}.sem.ok .sem-dot{background:var(--green);box-shadow:0 0 4px var(--green)}
-.sem.warn{background:var(--yellow-dim);border:1px solid rgba(255,184,0,.2);color:var(--yellow)}.sem.warn .sem-dot{background:var(--yellow);box-shadow:0 0 4px var(--yellow)}
+.sem.warn{background:var(--yellow-dim);border:1px solid rgba(255,184,0,.2);color:var(--yellow-ink)}.sem.warn .sem-dot{background:var(--yellow);box-shadow:0 0 4px var(--yellow)}
 .sem.danger{background:var(--red-dim);border:1px solid rgba(255,69,102,.2);color:var(--red)}.sem.danger .sem-dot{background:var(--red);box-shadow:0 0 4px var(--red)}
 .sem.neutral{background:var(--s3);border:1px solid var(--border2);color:var(--muted)}.sem.neutral .sem-dot{background:var(--muted)}
 .kpi-label{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--text2);letter-spacing:.07em;text-transform:uppercase;margin-bottom:.45rem;font-weight:500}
 .kpi-value{font-family:'DM Mono',monospace;font-size:2rem;font-weight:500;letter-spacing:-.025em;line-height:1}
-.kpi-card.blue .kpi-value{color:var(--blue)}.kpi-card.green .kpi-value{color:var(--green)}.kpi-card.yellow .kpi-value{color:var(--yellow)}.kpi-card.orange .kpi-value{color:var(--orange)}.kpi-card.red .kpi-value{color:var(--red)}.kpi-card.purple .kpi-value{color:var(--purple)}
+.kpi-card.blue .kpi-value{color:var(--blue)}.kpi-card.green .kpi-value{color:var(--green)}.kpi-card.yellow .kpi-value{color:var(--yellow-ink)}.kpi-card.orange .kpi-value{color:var(--orange)}.kpi-card.red .kpi-value{color:var(--red)}.kpi-card.purple .kpi-value{color:var(--purple)}
 .kpi-sub{margin-top:.4rem;font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);line-height:1.4}
 .meta-bar-wrap{margin-top:.65rem}
 .meta-bar-bg{height:3px;background:var(--s3);border-radius:99px;overflow:hidden}
@@ -219,7 +223,7 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 .mod-kpi-label{font-family:'DM Mono',monospace;font-size:.57rem;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
 .mod-kpi-val{font-family:'DM Mono',monospace;font-size:.76rem;font-weight:500}
 .module-card.blue .mod-kpi-val{color:var(--blue)}.module-card.green .mod-kpi-val{color:var(--green)}
-.module-card.yellow .mod-kpi-val{color:var(--yellow)}.module-card.orange .mod-kpi-val{color:var(--orange)}
+.module-card.yellow .mod-kpi-val{color:var(--yellow-ink)}.module-card.orange .mod-kpi-val{color:var(--orange)}
 .module-card.red .mod-kpi-val{color:var(--red)}.module-card.purple .mod-kpi-val{color:var(--purple)}
 .module-card.cyan .mod-kpi-val{color:var(--cyan)}
 .mod-footer{display:flex;align-items:center;justify-content:space-between;padding-top:.7rem;border-top:1px solid var(--border);position:relative;z-index:1}
@@ -259,8 +263,10 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .footer{text-align:center;padding:1.75rem;font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.06em;border-top:1px solid var(--border);margin-top:2rem}
 </style>
+<link rel="stylesheet" href="app-ui.css">
+<script src="app-ui-boot.js" defer></script>
 </head>
-<body>
+<body class="app-dark">
 <div class="bg-orbs">
   <div class="orb orb-1"></div>
   <div class="orb orb-2"></div>
@@ -363,7 +369,7 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
           <span class="uni-tech-badge" id="universeBadge">&mdash;</span>
         </div>
         <div class="uni-table-scroll">
-          <table class="uni-table">
+          <table class="uni-table" id="universeTable">
             <thead>
               <tr>
                 <th>Empresa</th>
@@ -687,7 +693,7 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
         <div class="mod-kpi-row"><span class="mod-kpi-label">Vendedores</span><span class="mod-kpi-val" id="modMetaVend">0</span></div>
       </div>
       <div class="mod-footer">
-        <span class="mod-open" style="color:var(--yellow)">Config. activa <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></span>
+        <span class="mod-open" style="color:var(--yellow-ink)">Config. activa <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></span>
         <span class="mod-status" id="modMetaStatus">&mdash;</span>
       </div>
     </div>
@@ -857,10 +863,10 @@ function setBar(barId,pctId,pct,{invert=false}={}){
   const capped=Math.min(pct,100);
   let col,label;
   if(!invert){
-    col=pct>=100?'var(--green)':pct>=70?'var(--yellow)':'var(--red)';
+    col=pct>=100?'var(--green)':pct>=70?'var(--yellow-ink)':'var(--red)';
     label=pct>=100?'Meta cumplida':pct>=70?'Buen avance':'Por debajo';
   }else{
-    col=pct<25?'var(--green)':pct<50?'var(--yellow)':'var(--red)';
+    col=pct<25?'var(--green)':pct<50?'var(--yellow-ink)':'var(--red)';
     label=pct<25?'Cartera saludable':pct<50?'Atenci\u00f3n requerida':'Cartera cr\u00edtica';
   }
   if(bar){bar.style.width=capped+'%';bar.style.background=col}
@@ -926,13 +932,13 @@ function renderUniversePortfolio(uni){
     return '<article class="uni-entity-card '+riskCls+'"><div class="uni-ec-head"><div class="uni-ec-name">'+escHtml(r.label||r.id)+'</div><div class="uni-ec-id">ID \u00b7 '+escHtml(r.id)+'</div>'+
       (path?'<div class="uni-ec-path" title="'+escHtml(path)+'">'+escHtml(shortPath)+'</div>':'')+'</div>'+
       '<div class="uni-ec-metrics">'+
-      '<div class="uni-ec-m"><div class="m-l">Venta periodo</div><div class="m-v" style="color:var(--green)">'+fmtM(r.ventas_mes)+'</div></div>'+
-      '<div class="uni-ec-m"><div class="m-l">Venta hoy</div><div class="m-v">'+fmtM(r.ventas_hoy)+'</div></div>'+
-      '<div class="uni-ec-m"><div class="m-l">Saldo CxC</div><div class="m-v" style="color:var(--orange)">'+fmtM(r.cxc_saldo)+'</div></div>'+
-      '<div class="uni-ec-m"><div class="m-l">Cotiz. periodo</div><div class="m-v" style="color:var(--yellow)">'+fmtM(r.cotiz_importe_mes)+'</div></div>'+
+      '<div class="uni-ec-m"><div class="m-l">Venta periodo</div><div class="m-v m-v-sale">'+fmtM(r.ventas_mes)+'</div></div>'+
+      '<div class="uni-ec-m"><div class="m-l">Venta hoy</div><div class="m-v m-v-hoy">'+fmtM(r.ventas_hoy)+'</div></div>'+
+      '<div class="uni-ec-m"><div class="m-l">Saldo CxC</div><div class="m-v m-v-cxc">'+fmtM(r.cxc_saldo)+'</div></div>'+
+      '<div class="uni-ec-m"><div class="m-l">Cotiz. periodo</div><div class="m-v m-v-cotiz">'+fmtM(r.cotiz_importe_mes)+'</div></div>'+
       '</div>'+
-      '<div class="uni-risk-bar"><div class="uni-risk-fill" style="width:'+Math.min(100,Math.max(0,pv))+'%;background:'+(pv>40?'var(--red)':pv>20?'var(--yellow)':'var(--green)')+'"></div></div>'+
-      '<div class="uni-risk-meta"><span>Cartera vencida</span><span style="color:'+(pv>40?'var(--red)':pv>20?'var(--yellow)':'var(--green)')+'">'+pv.toFixed(1)+'%</span></div></article>';
+      '<div class="uni-risk-bar"><div class="uni-risk-fill" style="width:'+Math.min(100,Math.max(0,pv))+'%;background:'+(pv>40?'var(--red)':pv>20?'var(--yellow-ink)':'var(--green)')+'"></div></div>'+
+      '<div class="uni-risk-meta"><span>Cartera vencida</span><span style="color:'+(pv>40?'var(--red)':pv>20?'var(--yellow-ink)':'var(--green)')+'">'+pv.toFixed(1)+'%</span></div></article>';
   }).join('');
   if(tbody){
     tbody.innerHTML=emp.map(r=>{
@@ -940,12 +946,12 @@ function renderUniversePortfolio(uni){
         return '<tr><td colspan="5" style="color:var(--red);padding:.85rem 1rem;font-size:.8rem">'+escHtml(r.label||r.id)+': '+escHtml(r.error||'Error')+'</td></tr>';
       }
       const pv=+(r.cxc_pct_vencido||0);
-      const pvCol=pv>40?'var(--red)':pv>20?'var(--yellow)':'var(--green)';
+      const pvCol=pv>40?'var(--red)':pv>20?'var(--yellow-ink)':'var(--green)';
       return '<tr><td><div class="t-name">'+escHtml(r.label||r.id)+'</div><div class="t-id">'+escHtml(r.id)+'</div></td>'+
-        '<td class="t-val" style="color:var(--green)">'+fmtM(r.ventas_mes)+'</td>'+
-        '<td class="t-val" style="color:var(--orange)">'+fmtM(r.cxc_saldo)+'</td>'+
+        '<td class="t-val t-val-venta">'+fmtM(r.ventas_mes)+'</td>'+
+        '<td class="t-val t-val-cxc">'+fmtM(r.cxc_saldo)+'</td>'+
         '<td class="t-val" style="color:'+pvCol+'">'+pv.toFixed(1)+'%</td>'+
-        '<td class="t-val" style="color:var(--yellow)">'+fmtM(r.cotiz_importe_mes)+'</td></tr>';
+        '<td class="t-val t-val-cotiz">'+fmtM(r.cotiz_importe_mes)+'</td></tr>';
     }).join('');
   }
   if(foot){
@@ -967,7 +973,7 @@ function renderScorecard(rows){
     if(r.statusCxc!=null){ ok=pct<=25; warn=pct>25&&pct<=50; }
     const semCls=ok?'ok':warn?'warn':'danger';
     const semTxt=r.statusCxc!=null?(ok?'Activa':warn?'Atenci\u00f3n':'Cr\u00edtica'):(ok?'\u2713 Cumplido':warn?'\u2713 En riesgo':'\u2713 Cr\u00edtico');
-    const semColor=ok?'var(--green)':warn?'var(--yellow)':'var(--red)';
+    const semColor=ok?'var(--green)':warn?'var(--yellow-ink)':'var(--red)';
     const barColor=semColor;
     const barW=pct!==null?Math.min(r.invert?Math.max(0,100-(r.statusCxc!=null?pct:pct*2)):pct,100):0;
     const deltaStr=delta!==null
@@ -1179,19 +1185,19 @@ async function loadAll(){
     setEl('modVentaHoy',fmtM(valorVenta1));
     setEl('modVentaMes',fmtM(ventaMes));
     setEl('modCotiHoy',fmtM(valorCoti));
-    const vColor=pVenta1>=100?'var(--green)':pVenta1>=70?'var(--yellow)':'var(--red)';
+    const vColor=pVenta1>=100?'var(--green)':pVenta1>=70?'var(--yellow-ink)':'var(--red)';
     setHtml('modVentaStatus',`<span style="color:${vColor}">${pVenta1}% meta ${metaPeriodo}</span>`);
 
     setEl('modCxcTotal',fmtM(cxcTotal));
     setEl('modCxcVenc',fmtM(cxcVenc));
     setEl('modCxcClientes',cxcClientes+' clientes');
-    const cxcColor=pVenc>50?'var(--red)':pVenc>25?'var(--yellow)':'var(--green)';
+    const cxcColor=pVenc>50?'var(--red)':pVenc>25?'var(--yellow-ink)':'var(--green)';
     setHtml('modCxcStatus',`<span style="color:${cxcColor}">${pVenc}% vencido</span>`);
 
     setEl('modInvTotal',invTotal.toLocaleString());
     setEl('modInvBajo',invBajo.toLocaleString());
     setEl('modInvCero',invCero.toLocaleString());
-    const invColor=invBajo>10?'var(--red)':invBajo>0?'var(--yellow)':'var(--green)';
+    const invColor=invBajo>10?'var(--red)':invBajo>0?'var(--yellow-ink)':'var(--green)';
     setHtml('modInvStatus',`<span style="color:${invColor}">${invBajo>0?invBajo+' alertas':'Stock OK'}</span>`);
 
     setEl('modMetaDiaria',fmtM(metaDia));
@@ -1213,7 +1219,7 @@ async function loadAll(){
       setEl('modVendEnMeta',enMeta+'/'+cumpl.length);
       setEl('modVendPctMes',totalPctMes.toFixed(0)+'%');
       setEl('modVendActivos',cumpl.length+' vend.');
-      const vColor2=totalPctMes>=100?'var(--green)':totalPctMes>=75?'var(--yellow)':'var(--red)';
+      const vColor2=totalPctMes>=100?'var(--green)':totalPctMes>=75?'var(--yellow-ink)':'var(--red)';
       setHtml('modVendStatus',`<span style="color:${vColor2}">${totalPctMes.toFixed(0)}% meta mes</span>`);
     }
 
@@ -1224,7 +1230,7 @@ async function loadAll(){
     setEl('modCliRiesgo',cliRiesgoN+' clientes');
     setEl('modCliCritico',fmtM(cliCriticoM));
     setEl('modCliInactivos',cliInactivosN+' inactivos');
-    const cliColor=cliRiesgoN>10?'var(--red)':cliRiesgoN>3?'var(--yellow)':'var(--green)';
+    const cliColor=cliRiesgoN>10?'var(--red)':cliRiesgoN>3?'var(--yellow-ink)':'var(--green)';
     setHtml('modCliStatus',`<span style="color:${cliColor}">${cliRiesgoN>0?'Atenci\u00f3n requerida':'Sin alertas'}</span>`);
 
     // Resultados P&L
@@ -1239,7 +1245,7 @@ async function loadAll(){
     setEl('modResVentas',fmtM(resVentas));
     setEl('modResMargen',resMargen.toFixed(1)+'%');
     setEl('modResCobros',fmtM(resCobros));
-    const mColor=resMargen>=30?'var(--green)':resMargen>=15?'var(--yellow)':'var(--red)';
+    const mColor=resMargen>=30?'var(--green)':resMargen>=15?'var(--yellow-ink)':'var(--red)';
     setHtml('modResStatus',`<span style="color:${mColor}">Margen ${resMargen.toFixed(1)}%</span>`);
 
     // Director
@@ -1262,12 +1268,12 @@ async function loadAll(){
     renderScorecard([
       {name:labelVenta1,area:'Ventas - Tiempo Real',actual:valorVenta1,meta:metaVenta1,actualFmt:fmtM(valorVenta1),metaFmt:fmtM(metaVenta1),valColor:'var(--green)'},
       {name:labelVenta2,area:areaPeriodLabel,actual:ventaMes,meta:metaMes,actualFmt:fmtM(ventaMes),metaFmt:fmtM(metaMes),valColor:'var(--blue)'},
-      {name:scCotiName,area:'Ventas - Oportunidades',actual:valorCoti,meta:metaCotiDia,actualFmt:fmtM(valorCoti),metaFmt:fmtM(metaCotiDia),valColor:'var(--yellow)'},
+      {name:scCotiName,area:'Ventas - Oportunidades',actual:valorCoti,meta:metaCotiDia,actualFmt:fmtM(valorCoti),metaFmt:fmtM(metaCotiDia),valColor:'var(--yellow-ink)'},
       {name:'Cartera Total CxC',area:'Cobranza - Saldo',actual:cxcTotal,meta:null,actualFmt:fmtM(cxcTotal),metaFmt:'Ref. % vencido',valColor:'var(--orange)',statusCxc:pVenc},
-      {name:'Cartera Vencida',area:'Cobranza - Riesgo',actual:pVenc,meta:20,actualFmt:pVenc+'%',metaFmt:'<20%',valColor:pVenc>50?'var(--red)':pVenc>25?'var(--yellow)':'var(--green)',invert:true},
-      {name:'Art\u00edculos bajo m\u00ednimo',area:'Inventario - Alerta',actual:invBajo,meta:metaBajoMin,actualFmt:invBajo.toLocaleString(),metaFmt:'<'+metaBajoMin,valColor:invBajo>10?'var(--red)':invBajo>0?'var(--yellow)':'var(--green)',invert:true},
+      {name:'Cartera Vencida',area:'Cobranza - Riesgo',actual:pVenc,meta:20,actualFmt:pVenc+'%',metaFmt:'<20%',valColor:pVenc>50?'var(--red)':pVenc>25?'var(--yellow-ink)':'var(--green)',invert:true},
+      {name:'Art\u00edculos bajo m\u00ednimo',area:'Inventario - Alerta',actual:invBajo,meta:metaBajoMin,actualFmt:invBajo.toLocaleString(),metaFmt:'<'+metaBajoMin,valColor:invBajo>10?'var(--red)':invBajo>0?'var(--yellow-ink)':'var(--green)',invert:true},
       {name:'Vendedores en Meta',area:'Ventas - Equipo',actual:cumpl.filter(r=>+r.PCT_HOY>=100).length,meta:numVend,actualFmt:cumpl.filter(r=>+r.PCT_HOY>=100).length+'/'+numVend,metaFmt:numVend+' vend.',valColor:'var(--purple)'},
-      {name:'Margen Bruto',area:'P&amp;L',actual:resMargen,meta:30,actualFmt:resMargen.toFixed(1)+'%',metaFmt:'\u2265 30%',valColor:resMargen>=30?'var(--green)':resMargen>=15?'var(--yellow)':'var(--red)'},
+      {name:'Margen Bruto',area:'P&amp;L',actual:resMargen,meta:30,actualFmt:resMargen.toFixed(1)+'%',metaFmt:'\u2265 30%',valColor:resMargen>=30?'var(--green)':resMargen>=15?'var(--yellow-ink)':'var(--red)'},
     ]);
 
     fwt(universeScorecardUrl(),{ empresas: [], consolidado: {} },45000).then(function(uniData){
@@ -1284,7 +1290,7 @@ function renderVendedores(vends){
   if(!vends||!vends.length){setEl('vendedoresContainer','Sin datos de vendedores');return}
   const sorted=[...vends].sort((a,b)=>(+b.VENTAS_MES||+b.VENTA_MES||0)-(+a.VENTAS_MES||+a.VENTA_MES||0));
   const maxV=+(sorted[0].VENTAS_MES||sorted[0].VENTA_MES)||1;
-  const cols=['var(--green)','var(--blue)','var(--purple)','var(--yellow)','var(--orange)','var(--red)','var(--cyan)'];
+  const cols=['var(--green)','var(--blue)','var(--purple)','var(--chart-yellow)','var(--orange)','var(--red)','var(--cyan)'];
   let html='';
   sorted.slice(0,8).forEach((vd,i)=>{
     const venta=+vd.VENTAS_MES||+vd.VENTA_MES||0;

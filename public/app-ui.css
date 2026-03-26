@@ -1,0 +1,254 @@
+/**
+ * app-ui.css — capa global de legibilidad, jerarquía y contraste
+ * Cargar al final del <head> (después de los <style> inline de cada página).
+ */
+
+html {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- Tema oscuro principal (Syne / scorecard) -------------------------------- */
+body.app-dark {
+  --muted: #93a4b8;
+  --text2: #dce8f5;
+  --kpi-venta: #00d9a0;
+  --kpi-hoy: #e8eef7;
+  --kpi-cxc: #5ec8ff;
+  --kpi-cotiz: #f5c84a;
+}
+
+body.app-dark .nav-link {
+  font-size: 0.8rem !important;
+  padding: 0.42rem 0.95rem !important;
+  min-height: 44px;
+  align-items: center;
+}
+
+body.app-dark .hero-title {
+  font-size: clamp(1.75rem, 4vw, 2.35rem) !important;
+  line-height: 1.05 !important;
+}
+
+body.app-dark .hero-sub {
+  font-size: 0.92rem !important;
+  color: var(--text2) !important;
+  line-height: 1.55 !important;
+}
+
+body.app-dark .kpi-module,
+body.app-dark .kpi-label {
+  font-size: 0.68rem !important;
+  color: var(--muted) !important;
+}
+
+body.app-dark .kpi-value {
+  font-size: clamp(1.45rem, 2.8vw, 1.85rem) !important;
+}
+
+body.app-dark .kpi-sub {
+  font-size: 0.72rem !important;
+}
+
+/* Barra de filtros (filters.js inyecta CSS después; forzar legibilidad) */
+body.app-dark .fb-preset {
+  padding: 0.5rem 1rem !important;
+  font-size: 13px !important;
+  min-height: 40px !important;
+  color: #c8d8e8 !important;
+}
+
+body.app-dark .fb-select {
+  font-size: 13px !important;
+  min-height: 40px !important;
+}
+
+body.app-dark .biz-chip,
+body.app-dark .biz-chip.db-chip {
+  font-size: 12px !important;
+  padding: 0.5rem 0.95rem !important;
+  min-height: 40px !important;
+}
+
+body.app-dark .db-chip-sub {
+  font-size: 10px !important;
+  opacity: 0.88 !important;
+}
+
+body.app-dark .biz-context-label {
+  color: var(--muted) !important;
+  font-size: 11px !important;
+}
+
+/* Universo de negocios — chips de empresa en index */
+body.app-dark .biz-chips:not(.biz-chips-grid) .biz-chip {
+  font-size: 0.78rem !important;
+  padding: 0.45rem 1rem !important;
+}
+
+body.app-dark .uni-subtitle {
+  color: var(--text2) !important;
+  font-size: 0.95rem !important;
+  line-height: 1.55 !important;
+}
+
+body.app-dark .uni-portfolio {
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+body.app-dark .uni-sum-pill {
+  min-height: 4.25rem !important;
+  padding: 0.75rem 1rem !important;
+}
+
+body.app-dark .uni-sum-pill .u-l {
+  font-size: 0.72rem !important;
+  letter-spacing: 0.07em !important;
+  color: var(--muted) !important;
+}
+
+body.app-dark .uni-sum-pill .u-v {
+  font-size: 1.12rem !important;
+  font-weight: 700 !important;
+}
+
+body.app-dark .uni-entity-card {
+  padding: 1.05rem 1.15rem 1.2rem !important;
+  border: 1px solid rgba(15, 23, 42, 0.12) !important;
+  background: linear-gradient(180deg, #ffffff 0%, #f4f7fb 100%) !important;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.28) !important;
+}
+
+body.app-dark .uni-entity-card .uni-ec-name {
+  font-size: 1.05rem !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+body.app-dark .uni-entity-card .uni-ec-id {
+  color: #475569 !important;
+  font-size: 0.72rem !important;
+}
+
+body.app-dark .uni-ec-path {
+  font-size: 0.65rem !important;
+  color: #64748b !important;
+  opacity: 1 !important;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.app-dark .uni-ec-metrics {
+  gap: 10px !important;
+  margin-top: 12px !important;
+}
+
+body.app-dark .uni-ec-m .m-l {
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: #475569 !important;
+}
+
+body.app-dark .uni-ec-m .m-v {
+  font-size: 1.06rem !important;
+  font-weight: 700 !important;
+  font-family: "DM Mono", ui-monospace, monospace !important;
+  margin-top: 4px !important;
+}
+
+body.app-dark .m-v-sale {
+  color: var(--kpi-venta) !important;
+}
+body.app-dark .m-v-hoy {
+  color: var(--kpi-hoy) !important;
+}
+body.app-dark .m-v-cxc {
+  color: var(--kpi-cxc) !important;
+}
+body.app-dark .m-v-cotiz {
+  color: var(--kpi-cotiz) !important;
+}
+
+body.app-dark .uni-risk-meta span:first-child {
+  color: #475569 !important;
+  font-weight: 600 !important;
+}
+
+body.app-dark #universeTable .t-val.t-val-venta {
+  color: var(--kpi-venta) !important;
+}
+body.app-dark #universeTable .t-val.t-val-cxc {
+  color: var(--kpi-cxc) !important;
+}
+body.app-dark #universeTable .t-val.t-val-cotiz {
+  color: var(--kpi-cotiz) !important;
+}
+
+/* Tabla scorecard — etiquetas más legibles */
+body.app-dark .sc-kpi-area {
+  font-size: 0.62rem !important;
+  color: var(--muted) !important;
+}
+
+body.app-dark .sc-val {
+  font-size: 0.98rem !important;
+}
+
+/* Páginas oscuras genéricas (cxc, ventas, …) */
+body.app-dark .kpi-label,
+body.app-dark .filter-label,
+body.app-dark .aging-lbl {
+  font-size: 11px !important;
+  letter-spacing: 0.06em !important;
+}
+
+body.app-dark .kpi-val {
+  font-size: clamp(1.25rem, 2.5vw, 1.65rem) !important;
+}
+
+body.app-dark .cxc-hero p {
+  font-size: 13px !important;
+  color: var(--text2) !important;
+}
+
+/* --- Dashboards claros (sin app-dark) -------------------------------------- */
+body:not(.app-dark) .card p {
+  font-size: max(12px, 0.85rem);
+  line-height: 1.45;
+}
+
+body:not(.app-dark) .card h2 {
+  font-size: max(15px, 0.95rem);
+}
+
+body:not(.app-dark) .kpi-l,
+body:not(.app-dark) .fgroup label {
+  font-size: 11px !important;
+}
+
+body:not(.app-dark) .kpi-v {
+  font-size: max(19px, 1.15rem);
+}
+
+/* --- Amarillo / ámbar: legible en fondo claro y oscuro ------------------------ */
+:root {
+  --yellow-ink: #facc15;
+  --chart-yellow: #f59e0b;
+  --chart-yellow-fill: rgba(245, 158, 11, 0.28);
+  --amber: var(--orange);
+}
+
+html[data-theme="light"] {
+  --yellow-ink: #92400e;
+  --chart-yellow: #b45309;
+  --chart-yellow-fill: rgba(180, 83, 9, 0.22);
+}
+
+/* Tarjetas blancas dentro de layout “app-dark” (p. ej. universo multi-negocio) */
+body.app-dark .uni-entity-card .m-v-cotiz {
+  color: #b45309 !important;
+}

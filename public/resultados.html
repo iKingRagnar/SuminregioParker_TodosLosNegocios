@@ -16,12 +16,16 @@
   --suminregio:#E6A800;--suminregio-dim:rgba(230,168,0,.15);
   --green:#00E5A0;--green-dim:rgba(0,229,160,.10);
   --yellow:#FFB800;--yellow-dim:rgba(255,184,0,.12);
+  --yellow-ink:#facc15;--chart-yellow:#f59e0b;--chart-yellow-fill:rgba(245,158,11,.28);
   --orange:#FF8C42;--orange-dim:rgba(255,140,66,.10);
   --blue:#4DA6FF;--blue-dim:rgba(77,166,255,.10);
   --red:#FF4566;--red-dim:rgba(255,69,102,.12);
   --purple:#9B6DFF;--purple-dim:rgba(155,109,255,.10);
   --cyan:#00D4FF;--cyan-dim:rgba(0,212,255,.10);
   --text:#F0F6FF;--text2:#C8D8EC;--muted:#6A85A6;--dim:#1E2E42;
+}
+html[data-theme=light]{
+  --yellow-ink:#92400e;--chart-yellow:#b45309;--chart-yellow-fill:rgba(180,83,9,.22);
 }
 html{font-size:16px;-webkit-font-smoothing:antialiased}
 body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh}
@@ -83,7 +87,7 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 .kpi.blue{--kc:var(--blue)}.kpi.green{--kc:var(--green)}.kpi.yellow{--kc:var(--yellow)}.kpi.orange{--kc:var(--orange)}.kpi.purple{--kc:var(--purple)}.kpi.cyan{--kc:var(--cyan)}
 .kpi-lbl{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--text2);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.42rem;font-weight:500}
 .kpi-val{font-family:'DM Mono',monospace;font-size:1.95rem;font-weight:500;line-height:1;letter-spacing:-.025em}
-.kpi.blue .kpi-val{color:var(--blue)}.kpi.green .kpi-val{color:var(--green)}.kpi.yellow .kpi-val{color:var(--yellow)}.kpi.orange .kpi-val{color:var(--orange)}.kpi.purple .kpi-val{color:var(--purple)}.kpi.cyan .kpi-val{color:var(--cyan)}
+.kpi.blue .kpi-val{color:var(--blue)}.kpi.green .kpi-val{color:var(--green)}.kpi.yellow .kpi-val{color:var(--yellow-ink)}.kpi.orange .kpi-val{color:var(--orange)}.kpi.purple .kpi-val{color:var(--purple)}.kpi.cyan .kpi-val{color:var(--cyan)}
 .kpi-sub{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);margin-top:.32rem;line-height:1.4}
 .kpi-trend{font-family:'DM Mono',monospace;font-size:.65rem;margin-top:.32rem;font-weight:500}
 .trend-up{color:var(--green)}.trend-dn{color:var(--red)}.trend-flat{color:var(--muted)}
@@ -96,7 +100,7 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 .insight-title{font-size:.8rem;font-weight:700;color:var(--text);margin-bottom:.35rem;letter-spacing:-.01em}
 .insight-text{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--text2);line-height:1.7}
 .insight-text strong{color:var(--text);font-weight:600}
-.insight-text .hi-green{color:var(--green)}.insight-text .hi-red{color:var(--red)}.insight-text .hi-yellow{color:var(--yellow)}.insight-text .hi-blue{color:var(--blue)}
+.insight-text .hi-green{color:var(--green)}.insight-text .hi-red{color:var(--red)}.insight-text .hi-yellow{color:var(--yellow-ink)}.insight-text .hi-blue{color:var(--blue)}
 
 /* Section divider */
 .sd{display:flex;align-items:center;gap:1rem;margin:1.6rem 0 1.1rem}
@@ -138,8 +142,8 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 .delta-tag.up{color:var(--green)}.delta-tag.dn{color:var(--red)}.delta-tag.flat{color:var(--muted)}
 
 /* Gastos notice */
-.gastos-notice{background:rgba(255,184,0,.06);border:1px solid rgba(255,184,0,.2);border-radius:10px;padding:.85rem 1.1rem;margin-bottom:1.2rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--yellow);line-height:1.65}
-.gastos-notice strong{font-weight:700;color:var(--yellow)}
+.gastos-notice{background:rgba(255,184,0,.06);border:1px solid rgba(255,184,0,.2);border-radius:10px;padding:.85rem 1.1rem;margin-bottom:1.2rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--yellow-ink);line-height:1.65}
+.gastos-notice strong{font-weight:700;color:var(--yellow-ink)}
 
 /* MoM sparkline in table */
 .mom-positive{color:var(--green);font-size:.65rem}.mom-negative{color:var(--red);font-size:.65rem}.mom-neutral{color:var(--muted);font-size:.65rem}
@@ -187,7 +191,7 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
 .pl-sc-lbl{font-family:'DM Mono',monospace;font-size:.56rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.35rem}
 .pl-sc-val{font-family:'DM Mono',monospace;font-size:1.35rem;font-weight:600;color:var(--text);letter-spacing:-.02em}
 .pl-sc-sub{font-family:'DM Mono',monospace;font-size:.6rem;margin-top:.28rem;line-height:1.35}
-.pl-sc-sub.ok{color:var(--green)}.pl-sc-sub.warn{color:var(--yellow)}.pl-sc-sub.bad{color:var(--red)}
+.pl-sc-sub.ok{color:var(--green)}.pl-sc-sub.warn{color:var(--yellow-ink)}.pl-sc-sub.bad{color:var(--red)}
 .pl-mini-wrap{background:var(--s1);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:1.25rem}
 .pl-mini-head{padding:.85rem 1.2rem;border-bottom:1px solid var(--border);font-size:.8rem;font-weight:700;color:var(--text);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
 .pl-mini-head span{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted);font-weight:500}
@@ -235,8 +239,10 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
 
 .footer{text-align:center;padding:1.75rem;font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.06em;border-top:1px solid var(--border);margin-top:2rem}
 </style>
+<link rel="stylesheet" href="app-ui.css">
+<script src="app-ui-boot.js" defer></script>
 </head>
-<body>
+<body class="app-dark">
 <div class="bg-orbs"><div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div></div>
 
 <header>
@@ -832,10 +838,10 @@ async function loadBalanceGeneral(){
       el.textContent = val;
       if (color) el.style.color = color;
     };
-    setRatio('bgRatioLiquidez', liquidez.toFixed(2) + 'x', liquidez >= 1.5 ? 'var(--green)' : liquidez >= 1 ? 'var(--yellow)' : 'var(--red)');
-    setRatio('bgRatioLeverage', fmtPct(leverage * 100), leverage <= 0.55 ? 'var(--green)' : leverage <= 0.75 ? 'var(--yellow)' : 'var(--red)');
+    setRatio('bgRatioLiquidez', liquidez.toFixed(2) + 'x', liquidez >= 1.5 ? 'var(--green)' : liquidez >= 1 ? 'var(--yellow-ink)' : 'var(--red)');
+    setRatio('bgRatioLeverage', fmtPct(leverage * 100), leverage <= 0.55 ? 'var(--green)' : leverage <= 0.75 ? 'var(--yellow-ink)' : 'var(--red)');
     setRatio('bgRatioWorking', fmtM(workCap), workCap >= 0 ? 'var(--green)' : 'var(--red)');
-    setRatio('bgRatioDebtEq', debtEq > 0 ? debtEq.toFixed(2) + 'x' : '—', debtEq <= 1.2 ? 'var(--green)' : debtEq <= 2 ? 'var(--yellow)' : 'var(--red)');
+    setRatio('bgRatioDebtEq', debtEq > 0 ? debtEq.toFixed(2) + 'x' : '—', debtEq <= 1.2 ? 'var(--green)' : debtEq <= 2 ? 'var(--yellow-ink)' : 'var(--red)');
     const gaugeVal = Math.max(0, Math.min(3, liquidez));
     const gaugeRemainder = Math.max(0, 3 - gaugeVal);
     const gaugeColor = liquidez >= 1.5 ? '#00E5A0' : liquidez >= 1 ? '#FFB800' : '#FF4566';
@@ -941,14 +947,14 @@ async function loadEstadoSrContable(mesesScope, totScope){
     document.getElementById('srBruta').textContent=fmtM(bruta);
     document.getElementById('srUai').textContent=fmtM(uai);
     const srUaiEl=document.getElementById('srUai');
-    if(srUaiEl) srUaiEl.style.color = uai < 0 ? 'var(--red)' : (uai > 0 ? 'var(--green)' : 'var(--yellow)');
+    if(srUaiEl) srUaiEl.style.color = uai < 0 ? 'var(--red)' : (uai > 0 ? 'var(--green)' : 'var(--yellow-ink)');
     if(badge) badge.textContent=`Ref ${mesLabel(p1)} a ${mesLabel(p2)}`;
     if(listOp){
       listOp.innerHTML=[
         ['Gastos de venta',gv],
         ['Gastos de operación',go],
         ['Gastos de administración',ga],
-        ['Total gastos operativos',tg],
+        ['Subtotal operativo (5201+5202+5203)',tg],
       ].map(x=>`<div class="bg-row"><span class="n">${x[0]}</span><span class="v">${fmtM(x[1])}</span></div>`).join('');
     }
     if(listEx){
@@ -988,7 +994,7 @@ async function loadEstadoSrContable(mesesScope, totScope){
     const srUaiElFb=document.getElementById('srUai');
     if(srUaiElFb){
       const u=+s.utilidad_antes_impuestos||0;
-      srUaiElFb.style.color = u < 0 ? 'var(--red)' : (u > 0 ? 'var(--green)' : 'var(--yellow)');
+      srUaiElFb.style.color = u < 0 ? 'var(--red)' : (u > 0 ? 'var(--green)' : 'var(--yellow-ink)');
     }
     if(badge) badge.textContent=`Ref ${String(p.MES||'--').padStart(2,'0')}/${p.ANIO||'----'}`;
     if(listOp){
@@ -996,7 +1002,7 @@ async function loadEstadoSrContable(mesesScope, totScope){
         ['Gastos de venta',+s.gastos_venta||0],
         ['Gastos de operación',+s.gastos_operacion||0],
         ['Gastos de administración',+s.gastos_administracion||0],
-        ['Total gastos operativos',+s.total_gastos_operativos||0],
+        ['Subtotal operativo (5201+5202+5203)',+s.total_gastos_operativos||0],
       ].map(x=>`<div class="bg-row"><span class="n">${x[0]}</span><span class="v">${fmtM(x[1])}</span></div>`).join('');
     }
     if(listEx){
@@ -1475,9 +1481,9 @@ function renderKPIs(tot,meses,hasCosto){
   document.getElementById('kpiUtilidadTrend').innerHTML=trendUtil;
   const sinDatos=ventas===0&&!hasCosto;
   document.getElementById('kpiMargen').textContent=fmtPct(margen);
-  document.getElementById('kpiMargen').style.color=sinDatos?'var(--muted, #6A85A6)':(margen>=30?'var(--green)':margen>=15?'var(--yellow)':'var(--red)');
+  document.getElementById('kpiMargen').style.color=sinDatos?'var(--muted, #6A85A6)':(margen>=30?'var(--green)':margen>=15?'var(--yellow-ink)':'var(--red)');
   document.getElementById('kpiMargenSub').innerHTML=hasCosto
-    ? `meta ≥ 30% · <span style="color:${margen>=30?'var(--green)':margen>=15?'var(--yellow)':'var(--red)'}">${margen>=30?'✓ OK':margen>=15?'⚠ Revisar':'✗ Bajo'}</span>`
+    ? `meta ≥ 30% · <span style="color:${margen>=30?'var(--green)':margen>=15?'var(--yellow-ink)':'var(--red)'}">${margen>=30?'✓ OK':margen>=15?'⚠ Revisar':'✗ Bajo'}</span>`
     : 'Sin costo en BD · capturar en Microsip para margen real';
   document.getElementById('kpiMargenTrend').innerHTML=trendMargen;
   document.getElementById('kpiCosto').textContent=hasCosto?fmtM(costo):'Sin datos';
@@ -1487,7 +1493,7 @@ function renderKPIs(tot,meses,hasCosto){
   document.getElementById('kpiCobros').textContent=fmtM(cobros);
   const efic=ventas>0?Math.round(cobros/ventas*100):0;
   document.getElementById('kpiCobrosSub').textContent=fmtPct(efic)+' de facturado cobrado';
-  const eficColor=efic>=80?'var(--green)':efic>=50?'var(--yellow)':'var(--red)';
+  const eficColor=efic>=80?'var(--green)':efic>=50?'var(--yellow-ink)':'var(--red)';
   document.getElementById('kpiCobrosEfic').innerHTML=`<span style="color:${eficColor}">${efic>=80?'✓ Eficiencia alta':efic>=50?'⚠ Mejorar cobro':'✗ Cobro bajo'}</span>`;
   document.getElementById('chartBadge1').textContent=currentMeses+' meses';
   document.getElementById('chartBadge2').textContent=fmtPct(margen)+' promedio';
@@ -1564,6 +1570,9 @@ function tendencia(vals){
 }
 
 // ── Charts ─────────────────────────────────────────────────────────────────────
+function cssVar(name,fallback){
+  try{const v=getComputedStyle(document.documentElement).getPropertyValue(name).trim();return v||fallback;}catch(e){return fallback;}
+}
 function renderCharts(meses,hasCosto){
   const labels=(meses||[]).map(mesLabel);
   const ventas=(meses||[]).map(m=>+m.VENTAS_NETAS||0);
@@ -1588,12 +1597,13 @@ function renderCharts(meses,hasCosto){
   const marginLabels = labels.length >= 2 ? labels : (labels.length === 1 ? [labels[0], 'Actual'] : ['Sin datos']);
   const marginVals = labels.length >= 2 ? margen : (labels.length === 1 ? [margen[0], margen[0]] : [0]);
   const yMaxMg = Math.max(40, ...marginVals.map(v => +v || 0), 30) + 10;
+  const chY=cssVar('--chart-yellow','#d97706'), chYf=cssVar('--chart-yellow-fill','rgba(217,119,6,.12)');
   chartMg=new Chart(ctx2,{
     type: labels.length >= 2 ? 'line' : 'bar',
     data:{labels:marginLabels,datasets:[
       labels.length >= 2
-        ? {label:'Margen %',data:marginVals,borderColor:'#FFB800',backgroundColor:'rgba(255,184,0,.08)',borderWidth:2,pointRadius:4,pointBackgroundColor:'#FFB800',fill:true,tension:.38}
-        : {label:'Margen % (mes actual)',data:marginVals,backgroundColor:'rgba(255,184,0,.45)',borderColor:'#FFB800',borderWidth:1.6,borderRadius:6},
+        ? {label:'Margen %',data:marginVals,borderColor:chY,backgroundColor:chYf,borderWidth:2,pointRadius:4,pointBackgroundColor:chY,fill:true,tension:.38}
+        : {label:'Margen % (mes actual)',data:marginVals,backgroundColor:cssVar('--chart-yellow-fill','rgba(217,119,6,.35)'),borderColor:chY,borderWidth:1.6,borderRadius:6},
       {type:'line',label:'Meta 30%',data:Array(marginLabels.length).fill(30),borderColor:'rgba(0,229,160,.45)',borderDash:[4,4],borderWidth:1.4,pointRadius:0,fill:false}
     ]},
     options:{
@@ -1709,7 +1719,13 @@ function applyPnlDrilldown(){
 }
 
 // Gastos CO alineados al Estado SR de Microsip.
+// OPEX en utilidad de operación = solo prefijos 5201+5202+5203 (A1+A2+A3).
 const _GAS_OPEX=['CO_A1','CO_A2','CO_A3'];
+// Partición sin solape: A1..A6 + B1..B5 + C1..C6 = total movimiento en clases 52+53+54 (ver SQL en server).
+const _GAS_ALL_CO=['CO_A1','CO_A2','CO_A3','CO_A4','CO_A5','CO_A6','CO_B1','CO_B2','CO_B3','CO_B4','CO_B5','CO_C1','CO_C2','CO_C3','CO_C4','CO_C5','CO_C6'];
+// Desglose del total naranja: sin solape con _GAS_ALL_CO = _GAS_52_ALL + _GAS_5354.
+const _GAS_52_ALL=['CO_A1','CO_A2','CO_A3','CO_A4','CO_A5','CO_A6'];
+const _GAS_5354=['CO_B1','CO_B2','CO_B3','CO_B4','CO_B5','CO_C1','CO_C2','CO_C3','CO_C4','CO_C5','CO_C6'];
 function sumGastoKeys(m,keys){return keys.reduce((s,k)=>s+(+m[k]||0),0);}
 // Etiquetas legibles para prefijos contables (referencia editable en sitio).
 const CO_PREFIX_LABELS_DEFAULT={
@@ -1720,16 +1736,16 @@ const CO_PREFIX_LABELS_DEFAULT={
   CO_A5:'',
   CO_A6:'',
   CO_B1:'Gastos financieros',
-  CO_B2:'Gastos financieros — subcuenta B2 (detalle 530x)',
-  CO_B3:'Gastos financieros — subcuenta B3 (detalle 530x)',
-  CO_B4:'Gastos financieros — subcuenta B4 (detalle 530x)',
-  CO_B5:'Gastos financieros — subcuenta B5 (detalle 530x)',
-  CO_C1:'Otros gastos (partidas extraordinarias)',
-  CO_C2:'Otros gastos — subcuenta C2 (detalle 53xx)',
-  CO_C3:'Otros gastos — subcuenta C3 (detalle 53xx)',
-  CO_C4:'Otros gastos — subcuenta C4 (detalle 53xx)',
-  CO_C5:'Otros gastos — subcuenta C5 (detalle 53xx)',
-  CO_C6:'Otros gastos — subcuenta C6 (detalle 53xx)'
+  CO_B2:'Gastos financieros — 5302',
+  CO_B3:'Gastos financieros — 5303',
+  CO_B4:'Gastos financieros — 5304',
+  CO_B5:'Gastos financieros — resto 53** (no 5301–5304)',
+  CO_C1:'Otros gastos (54** — p.ej. 5401)',
+  CO_C2:'Otros gastos — 5402',
+  CO_C3:'Otros gastos — 5403',
+  CO_C4:'Otros gastos — 5404',
+  CO_C5:'Otros gastos — 5405',
+  CO_C6:'Otros gastos — resto 54** (no 5401–5405)'
 };
 let CO_PREFIX_LABELS={...CO_PREFIX_LABELS_DEFAULT};
 function applyCoLabelsDynamic(map){
@@ -1806,6 +1822,17 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   function footGasto(k){
     if(!tg)return'—';
     const v=+tot[k]||0;
+    return v>0?`(${fmtM(v)})`:fmtM(0);
+  }
+  function tdGastoSum(m,keys){
+    if(!tg)return`<td style="color:var(--text2)">${fmtM(0)}</td>`;
+    const v=sumGastoKeys(m,keys);
+    if(v<=0)return`<td style="color:var(--text2)">${fmtM(0)}</td>`;
+    return`<td style="color:var(--red)">(${fmtM(v)})</td>`;
+  }
+  function footGastoSum(keys){
+    if(!tg)return'—';
+    const v=sumGastoKeys(tot,keys);
     return v>0?`(${fmtM(v)})`:fmtM(0);
   }
   const renderSubRows=(bucket)=>{
@@ -1910,13 +1937,13 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     ${mesesOrd.map(m=>{
       const u=+m.UTILIDAD_BRUTA||(hasCosto?0:+m.VENTAS_NETAS||0);
       const mg=+m.MARGEN_BRUTO_PCT||0;
-      const mgCol=mg>=30?'var(--green)':mg>=15?'var(--yellow)':'var(--red)';
+      const mgCol=mg>=30?'var(--green)':mg>=15?'var(--yellow-ink)':'var(--red)';
       return`<td><span style="color:${mgCol}">${hasCosto?fmtM(u):fmtM(+m.VENTAS_NETAS||0)}</span></td>`;
     }).join('')}
-    <td style="color:${(+tot.MARGEN_BRUTO_PCT||0)>=30?'var(--green)':(+tot.MARGEN_BRUTO_PCT||0)>=15?'var(--yellow)':'var(--red)'}">${hasCosto?fmtM(+tot.UTILIDAD_BRUTA||0):fmtM(+tot.VENTAS_NETAS||0)}</td>
+    <td style="color:${(+tot.MARGEN_BRUTO_PCT||0)>=30?'var(--green)':(+tot.MARGEN_BRUTO_PCT||0)>=15?'var(--yellow-ink)':'var(--red)'}">${hasCosto?fmtM(+tot.UTILIDAD_BRUTA||0):fmtM(+tot.VENTAS_NETAS||0)}</td>
   </tr>
 
-  ${!tg?`<tr><td colspan="${mesesOrd.length+2}" style="background:rgba(255,180,0,.08);color:var(--yellow);font-size:.75rem;padding:.5rem 1rem;border-left:3px solid var(--yellow)">⚠️ Sin pólizas contables en SALDOS_CO/DOCTOS_CO_DET para cuentas 52*/53*/54*. Las cifras de gastos son $0. Ingresa los movimientos en Microsip Contabilidad o verifica que el módulo de contabilidad esté activo. <a href="/api/debug/saldos-co-cuentas" target="_blank" style="color:var(--yellow)">Ver diagnóstico →</a></td></tr>`:''}
+  ${!tg?`<tr><td colspan="${mesesOrd.length+2}" style="background:rgba(255,180,0,.08);color:var(--yellow-ink);font-size:.75rem;padding:.5rem 1rem;border-left:3px solid var(--chart-yellow)">⚠️ Sin pólizas contables en SALDOS_CO/DOCTOS_CO_DET para cuentas 52*/53*/54*. Las cifras de gastos son $0. Ingresa los movimientos en Microsip Contabilidad o verifica que el módulo de contabilidad esté activo. <a href="/api/debug/saldos-co-cuentas" target="_blank" style="color:var(--yellow-ink)">Ver diagnóstico →</a></td></tr>`:''}
   <tr class="pnl-section-header" data-section="gastos"><td colspan="${mesesOrd.length+2}">GASTOS OPERATIVOS (ESTRUCTURA MICROsip SR)</td></tr>
   ${rowGastoBucket('CO_A1','A')}
   ${rowGastoBucket('CO_A2','B')}
@@ -1924,11 +1951,12 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   ${rowGastoBucket('CO_A4','D')}
   ${rowGastoBucket('CO_A5','E')}
   ${rowGastoBucket('CO_A6','F')}
-  <tr class="subtotal-row"><td>▶ Total gastos operativos</td>${mesesOrd.map(m=>{
+  <tr class="subtotal-row"><td>▶ Subtotal gastos operativos (5201+5202+5203)</td>${mesesOrd.map(m=>{
     const s=tg?sumGastoKeys(m,_GAS_OPEX):0;
-    return s>0?`<td style="color:var(--yellow)">(${fmtM(s)})</td>`:`<td style="color:var(--text2)">${fmtM(0)}</td>`;
-  }).join('')}<td style="color:var(--yellow)">${tg?'('+fmtM(sumGastoKeys(tot,_GAS_OPEX))+')':`(${fmtM(0)})`}</td></tr>
-  <tr class="pnl-section-header" data-section="extra"><td colspan="${mesesOrd.length+2}">PARTIDAS EXTRAORDINARIAS</td></tr>
+    return s>0?`<td style="color:var(--yellow-ink)">(${fmtM(s)})</td>`:`<td style="color:var(--text2)">${fmtM(0)}</td>`;
+  }).join('')}<td style="color:var(--yellow-ink)">${tg?'('+fmtM(sumGastoKeys(tot,_GAS_OPEX))+')':`(${fmtM(0)})`}</td></tr>
+  <tr class="data-row"><td colspan="${mesesOrd.length+2}" style="font-size:.72rem;color:var(--muted);line-height:1.35;padding:.35rem 1rem .5rem 1rem;border-left:3px solid var(--text2)">El subtotal amarillo <strong>no</strong> incluye 5204/5205, ni clase 53**, ni 54**. El total naranja suma <strong>clase 52** + 53** + 54**</strong>. Si solo miras la sección X/F (54** y 53**), falta la parte de <strong>clase 52** (filas A–F arriba)</strong>. Las dos filas de desglose antes del total naranja muestran esa suma en dos bloques.</td></tr>
+  <tr class="pnl-section-header" data-section="extra"><td colspan="${mesesOrd.length+2}">OTROS GASTOS (54**) Y GASTOS FINANCIEROS (53**)</td></tr>
   ${rowGastoBucket('CO_C1','X1')}
   ${rowGastoBucket('CO_C2','X2')}
   ${rowGastoBucket('CO_C3','X3')}
@@ -1940,13 +1968,23 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   ${rowGastoBucket('CO_B3','F3')}
   ${rowGastoBucket('CO_B4','F4')}
   ${rowGastoBucket('CO_B5','F5')}
+  <tr class="data-row" style="background:rgba(255,140,0,.07)">
+    <td style="font-size:.85rem;font-weight:500">Suma clase 52** (filas A–F: venta, operación, admin, 5204–5206)</td>
+    ${mesesOrd.map(m=>tdGastoSum(m,_GAS_52_ALL)).join('')}
+    <td style="color:var(--orange);font-weight:600">${footGastoSum(_GAS_52_ALL)}</td>
+  </tr>
+  <tr class="data-row" style="background:rgba(255,140,0,.07)">
+    <td style="font-size:.85rem;font-weight:500">Suma clases 53**+54** (filas X1–X6 + F1–F5)</td>
+    ${mesesOrd.map(m=>tdGastoSum(m,_GAS_5354)).join('')}
+    <td style="color:var(--orange);font-weight:600">${footGastoSum(_GAS_5354)}</td>
+  </tr>
   <tr class="data-row">
-    <td style="color:var(--orange);font-weight:600">Gastos operativos (OPEX) total</td>
+    <td style="color:var(--orange);font-weight:600">Total gastos 52+53+54 (= suma de las dos filas anteriores)</td>
     ${mesesOrd.map(m=>{
-      const s=tg?sumGastoKeys(m,_GAS_OPEX):0;
+      const s=tg?sumGastoKeys(m,_GAS_ALL_CO):0;
       return s>0?`<td style="color:var(--orange)">(${fmtM(s)})</td>`:`<td style="color:var(--text2)">${fmtM(0)}</td>`;
     }).join('')}
-    <td style="color:var(--orange)">${tg?'('+fmtM(sumGastoKeys(tot,_GAS_OPEX))+')':'Sin datos en cuentas 52/53/54 (SALDOS_CO)'}</td>
+    <td style="color:var(--orange)">${tg?'('+fmtM(sumGastoKeys(tot,_GAS_ALL_CO))+')':'Sin datos en cuentas 52/53/54 (SALDOS_CO)'}</td>
   </tr>
   <tr class="subtotal-row">
     <td>▶ Utilidad de operación (Bruta - OPEX)</td>
