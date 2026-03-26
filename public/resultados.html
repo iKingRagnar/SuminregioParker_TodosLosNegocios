@@ -217,6 +217,14 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
 .bg-viz-card h4{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.45rem}
 .bg-viz-sub{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--text2);margin-top:.35rem}
 .bg-viz-canvas{height:150px;position:relative}
+.bg-classic{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:.75rem .85rem;margin:0 0 .9rem}
+.bg-classic h4{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.55rem}
+.bg-classic-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.7rem}
+@media(max-width:1000px){.bg-classic-grid{grid-template-columns:1fr}}
+.bg-classic table{width:100%;border-collapse:collapse}
+.bg-classic td{font-size:.67rem;padding:.35rem .4rem;border-bottom:1px dashed var(--border);color:var(--text2)}
+.bg-classic td.num{text-align:right;font-family:'DM Mono',monospace;color:var(--text)}
+.bg-classic tr.total td{border-top:1px solid var(--border2);border-bottom:none;font-weight:700;color:var(--text)}
 .bg-ratios{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.7rem;margin-bottom:.9rem}
 @media(max-width:1100px){.bg-ratios{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .bg-ratio{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:.55rem .7rem}
@@ -478,6 +486,10 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
       <div class="card-badge" id="bgBadge">Cargando...</div>
     </div>
     <div class="card-body">
+      <div class="bg-classic">
+        <h4>Estructura base (primero) · estilo estado financiero</h4>
+        <div class="bg-classic-grid" id="bgClassic"><div style="color:var(--muted);font-size:.68rem">Cargando estructura de activo/pasivo/capital...</div></div>
+      </div>
       <div class="bg-grid">
         <div class="bg-kpi"><div class="lbl">Activo Total</div><div class="val" id="bgActivo">—</div></div>
         <div class="bg-kpi"><div class="lbl">Pasivo Total</div><div class="val" id="bgPasivo">—</div></div>
@@ -754,6 +766,49 @@ async function loadBalanceGeneral(){
       const arr=(Array.isArray(list)?list:[]).slice(0,8);
       el.innerHTML=arr.length?arr.map(r=>`<div class="bg-row"><span class="n">${(r.CUENTA_PT||'')+' '+(r.NOMBRE||'')}</span><span class="v">${fmtM(+r.SALDO||0)}</span></div>`).join(''):'<div class="bg-row"><span class="n">Sin datos</span><span class="v">—</span></div>';
     };
+    const renderClassicBalance = () => {
+      const wrap = document.getElementById('bgClassic');
+      if (!wrap) return;
+      const sumBy = (arr, pred) => (arr || []).reduce((s, r) => s + (pred(r) ? (+r.SALDO || 0) : 0), 0);
+      const activoRows = Array.isArray(d.activo) ? d.activo : [];
+      const pasivoRows = Array.isArray(d.pasivo) ? d.pasivo : [];
+      const capitalRows = Array.isArray(d.capital) ? d.capital : [];
+      const caja = sumBy(activoRows, r => /caja|banco|efectivo/i.test(String(r.NOMBRE || '')));
+      const cxc = sumBy(activoRows, r => /cobrar|cliente/i.test(String(r.NOMBRE || '')));
+      const invent = sumBy(activoRows, r => /invent/i.test(String(r.NOMBRE || '')));
+      const actCirculante = caja + cxc + invent;
+      const activoTotal = +t.ACTIVO_TOTAL || 0;
+      const activoNoCirculante = activoTotal - actCirculante;
+      const bancosCorto = sumBy(pasivoRows, r => /banco|credito|financ/i.test(String(r.NOMBRE || '')));
+      const proveedores = sumBy(pasivoRows, r => /provee|pagar/i.test(String(r.NOMBRE || '')));
+      const pasivoTotal = +t.PASIVO_TOTAL || 0;
+      const otrosPas = Math.max(0, pasivoTotal - bancosCorto - proveedores);
+      const utilRet = sumBy(capitalRows, r => /reten|resultado|utilidad/i.test(String(r.NOMBRE || '')));
+      const capSocial = Math.max(0, (+t.CAPITAL_TOTAL || 0) - utilRet);
+      wrap.innerHTML = `
+        <table>
+          <tbody>
+            <tr><td>Caja / Bancos</td><td class="num">${fmtM(caja)}</td></tr>
+            <tr><td>Cuentas por cobrar</td><td class="num">${fmtM(cxc)}</td></tr>
+            <tr><td>Inventario</td><td class="num">${fmtM(invent)}</td></tr>
+            <tr class="total"><td>Total Activo Circulante</td><td class="num">${fmtM(actCirculante)}</td></tr>
+            <tr><td>Activo no circulante</td><td class="num">${fmtM(activoNoCirculante)}</td></tr>
+            <tr class="total"><td>Total Activo</td><td class="num">${fmtM(activoTotal)}</td></tr>
+          </tbody>
+        </table>
+        <table>
+          <tbody>
+            <tr><td>Préstamo bancario c/p</td><td class="num">${fmtM(bancosCorto)}</td></tr>
+            <tr><td>Cuentas por pagar</td><td class="num">${fmtM(proveedores)}</td></tr>
+            <tr><td>Otros pasivos</td><td class="num">${fmtM(otrosPas)}</td></tr>
+            <tr class="total"><td>Total Pasivo</td><td class="num">${fmtM(pasivoTotal)}</td></tr>
+            <tr><td>Capital social</td><td class="num">${fmtM(capSocial)}</td></tr>
+            <tr><td>Utilidades retenidas</td><td class="num">${fmtM(utilRet)}</td></tr>
+            <tr class="total"><td>Total Pasivo + Capital</td><td class="num">${fmtM((+t.PASIVO_TOTAL || 0) + (+t.CAPITAL_TOTAL || 0))}</td></tr>
+          </tbody>
+        </table>`;
+    };
+    renderClassicBalance();
     renderList('bgListActivo',d.activo);
     renderList('bgListPasivo',d.pasivo);
     renderList('bgListCapital',d.capital);

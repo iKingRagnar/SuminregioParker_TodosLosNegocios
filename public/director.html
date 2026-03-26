@@ -246,7 +246,7 @@ html[data-theme=light] .chart-empty-msg{background:rgba(255,255,255,.85);color:#
 
   <div class="grid-2">
     <div class="card">
-      <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></svg>Ventas por Mes (VE + PV)</div><div class="card-badge">Acumulado mensual</div></div>
+      <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></svg>Ventas por Mes (VE + PV, sin remisiones)</div><div class="card-badge">Acumulado mensual</div></div>
       <div class="card-body">
         <div class="chart-wrap">
           <canvas id="chartVentas"></canvas>
@@ -460,7 +460,7 @@ async function loadAll() {
     setSem('sem-mes',pMesIdeal>=100?'ok':pMesIdeal>=70?'warn':'danger',pMesIdeal+'% vs ideal');
 
     // Canal split
-    const ventaVE=+(v.MES_VE||0), ventaPV=+(v.MES_PV||0);
+    const ventaVE=+(v.MES_VE||0), ventaPV=+(v.MES_PV||0), remMes=+(v.REMISIONES_MES||0);
     const totalCanal=ventaVE+ventaPV||1;
     setText('v-mes-ve', fmtK(ventaVE));
     const pVE=Math.round(ventaVE/totalCanal*100);
@@ -521,7 +521,7 @@ async function loadAll() {
     const parts=[];
     const hColor=pHoy>=100?'hi-green':pHoy>=70?'hi-yellow':'hi-red';
     parts.push(`Venta de hoy: <strong class="${hColor}">${fmtK(ventaHoy)}</strong> (${!hoyLabor ? 'día no laboral' : pHoy + '% de meta ' + fmtK(metaDia)}).`);
-    parts.push(`Venta del mes: <strong class="${pMesBase>=100?'hi-green':pMesBase>=70?'hi-yellow':'hi-red'}">${fmtK(ventaMes)}</strong> &#8211; industrial <strong>${fmtK(ventaVE)}</strong> (${pVE}%) + mostrador <strong>${fmtK(ventaPV)}</strong>.`);
+    parts.push(`Venta del mes (sin remisiones): <strong class="${pMesBase>=100?'hi-green':pMesBase>=70?'hi-yellow':'hi-red'}">${fmtK(ventaMes)}</strong> &#8211; industrial <strong>${fmtK(ventaVE)}</strong> (${pVE}%) + mostrador <strong>${fmtK(ventaPV)}</strong> · remisiones <strong>${fmtK(remMes)}</strong>.`);
     const cxcColor=pVenc>50?'hi-red':pVenc>25?'hi-yellow':'hi-green';
     parts.push(`CxC: cartera total <strong class="hi-blue">${fmtK(cTotal)}</strong> &#8211; vencido <strong class="${cxcColor}">${fmtK(cVenc)} (${pVenc}%)</strong> &#8211; vigente ${fmtK(cVig)}.`);
     if(pVenc>50)parts.push(`<strong class="hi-red">&#10003; ALERTA:</strong> m&#225;s del 50% de la cartera est&#225; vencida &#8211; gesti&#243;n de cobranza urgente.`);

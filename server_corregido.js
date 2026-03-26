@@ -755,7 +755,9 @@ function consumosVendedorClienteSql(req, alias = 'd') {
  * filtrando solo Facturas/Ventas válidas sin doble-conteo.
  * @param {string} tipo - 'VE', 'PV' o '' (todos)
  */
-function ventasSub(tipo = '') {
+function ventasSub(tipo = '', opts = {}) {
+  const includeRemisiones = !!(opts && opts.includeRemisiones);
+  const doctosVenta = includeRemisiones ? "('V', 'F')" : "('F')";
   const imp = sqlVentaImporteBaseExpr('d');
   const ve = `
     SELECT
@@ -771,7 +773,7 @@ function ventasSub(tipo = '') {
       'VE' AS TIPO_SRC
     FROM DOCTOS_VE d
     WHERE (
-      d.TIPO_DOCTO IN ('V', 'F')
+      d.TIPO_DOCTO IN ${doctosVenta}
       AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
       AND COALESCE(d.APLICADO, 'N') = 'S'
     )`;
@@ -790,11 +792,54 @@ function ventasSub(tipo = '') {
       'PV' AS TIPO_SRC
     FROM DOCTOS_PV d
     WHERE (
-      d.TIPO_DOCTO IN ('V', 'F')
+      d.TIPO_DOCTO IN ${doctosVenta}
       AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
       AND COALESCE(d.APLICADO, 'N') = 'S'
     )`;
 
+  if (tipo === 'VE') return `(${ve})`;
+  if (tipo === 'PV') return `(${pv})`;
+  return `(${ve} UNION ALL ${pv})`;
+}
+
+function remisionesSub(tipo = '') {
+  const imp = sqlVentaImporteBaseExpr('d');
+  const ve = `
+    SELECT
+      d.FECHA,
+      ${imp} AS IMPORTE_NETO,
+      COALESCE(d.VENDEDOR_ID, 0)  AS VENDEDOR_ID,
+      COALESCE(d.CLIENTE_ID,  0)  AS CLIENTE_ID,
+      d.FOLIO,
+      d.TIPO_DOCTO,
+      d.ESTATUS,
+      d.DOCTO_VE_ID,
+      CAST(NULL AS INTEGER) AS DOCTO_PV_ID,
+      'VE' AS TIPO_SRC
+    FROM DOCTOS_VE d
+    WHERE (
+      d.TIPO_DOCTO = 'V'
+      AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
+      AND COALESCE(d.APLICADO, 'N') = 'S'
+    )`;
+  const pv = `
+    SELECT
+      d.FECHA,
+      ${imp} AS IMPORTE_NETO,
+      COALESCE(d.VENDEDOR_ID, 0)  AS VENDEDOR_ID,
+      COALESCE(d.CLIENTE_ID,  0)  AS CLIENTE_ID,
+      d.FOLIO,
+      d.TIPO_DOCTO,
+      d.ESTATUS,
+      CAST(NULL AS INTEGER) AS DOCTO_VE_ID,
+      d.DOCTO_PV_ID,
+      'PV' AS TIPO_SRC
+    FROM DOCTOS_PV d
+    WHERE (
+      d.TIPO_DOCTO = 'V'
+      AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
+      AND COALESCE(d.APLICADO, 'N') = 'S'
+    )`;
   if (tipo === 'VE') return `(${ve})`;
   if (tipo === 'PV') return `(${pv})`;
   return `(${ve} UNION ALL ${pv})`;
@@ -1026,7 +1071,8 @@ get('/api/config/metas', async (req) => {
   if (cacheHit && cacheHit.expireAt > Date.now()) return cacheHit.payload;
 
   const dbo = getReqDbOpts(req);
-  const rows = await query(`
+  const [rows, activeRows] = await Promise.all([
+    query(`
     SELECT COUNT(DISTINCT VENDEDOR_ID) AS NUM_VENDEDORES
     FROM DOCTOS_VE
     WHERE (
@@ -1036,8 +1082,12 @@ get('/api/config/metas', async (req) => {
     )
     AND EXTRACT(YEAR  FROM FECHA) = EXTRACT(YEAR  FROM CURRENT_DATE)
     AND EXTRACT(MONTH FROM FECHA) = EXTRACT(MONTH FROM CURRENT_DATE)
-  `, [], 30000, dbo);
-  const numV = (rows[0] && rows[0].NUM_VENDEDORES) ? Number(rows[0].NUM_VENDEDORES) : 1;
+  `, [], 30000, dbo).catch(() => [{ NUM_VENDEDORES: 0 }]),
+    query(`SELECT COUNT(*) AS N FROM VENDEDORES WHERE COALESCE(ESTATUS,'A') NOT IN ('I','B','0','N')`, [], 30000, dbo).catch(() => [{ N: 0 }]),
+  ]);
+  const numVConVenta = (rows[0] && rows[0].NUM_VENDEDORES) ? Number(rows[0].NUM_VENDEDORES) : 0;
+  const numVActivos = (activeRows[0] && activeRows[0].N) ? Number(activeRows[0].N) : 0;
+  const numV = Math.max(numVActivos || 0, numVConVenta || 0, 1);
 
   const META_DIA_V   = 5650;
   const META_IDEAL_V = 5650 * 1.30;
@@ -1054,8 +1104,13 @@ get('/api/config/metas', async (req) => {
     META_COTI_TOTAL          : META_DIA_C   * numV,
     META_COTI_IDEAL_TOTAL    : META_IDEAL_C * numV,
     NUM_VENDEDORES           : numV,
+    NUM_VENDEDORES_ACTIVOS   : numVActivos,
+    NUM_VENDEDORES_CON_VENTA : numVConVenta,
     MARGEN_COMISION          : 0.08,
   };
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run28',hypothesisId:'H202',location:'server_corregido.js:/api/config/metas',message:'meta vendedores source compare',data:{numV,numVActivos,numVConVenta,metaCotiTotal:META_DIA_C*numV},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   metasCache.set(dbKey, { expireAt: Date.now() + 60 * 1000, payload });
   return payload;
 });
@@ -1098,7 +1153,8 @@ get('/api/ventas/resumen', async (req) => {
   }
   const f    = buildFiltros(req, 'd');
   const tipo = getTipo(req);
-  const rows = await query(`
+  const [rows, remRows] = await Promise.all([
+    query(`
     SELECT
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE
                THEN d.IMPORTE_NETO ELSE 0 END)                      AS HOY,
@@ -1108,8 +1164,28 @@ get('/api/ventas/resumen', async (req) => {
                THEN d.IMPORTE_NETO ELSE 0 END)                     AS HASTA_AYER_MES
     FROM ${ventasSub(tipo)} d
     WHERE 1=1 ${f.sql}
-  `, f.params, 12000, dbo).catch(() => []);
-  return rows[0] || {};
+  `, f.params, 12000, dbo).catch(() => []),
+    query(`
+    SELECT
+      SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END) AS REMISIONES_HOY,
+      COALESCE(SUM(d.IMPORTE_NETO), 0) AS REMISIONES_MES
+    FROM ${remisionesSub(tipo)} d
+    WHERE 1=1 ${f.sql}
+  `, f.params, 12000, dbo).catch(() => []),
+  ]);
+  const out = {
+    HOY: +((rows[0] && rows[0].HOY) || 0),
+    MES_ACTUAL: +((rows[0] && rows[0].MES_ACTUAL) || 0),
+    FACTURAS_MES: +((rows[0] && rows[0].FACTURAS_MES) || 0),
+    HASTA_AYER_MES: +((rows[0] && rows[0].HASTA_AYER_MES) || 0),
+  };
+  const rem = remRows[0] || {};
+  out.REMISIONES_HOY = +(rem.REMISIONES_HOY || 0);
+  out.REMISIONES_MES = +(rem.REMISIONES_MES || 0);
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run28',hypothesisId:'H201',location:'server_corregido.js:/api/ventas/resumen',message:'ventas netas excluyendo remisiones + remisiones separadas',data:{tipo,mesActual:+(out.MES_ACTUAL||0),hoy:+(out.HOY||0),remMes:+(out.REMISIONES_MES||0),remHoy:+(out.REMISIONES_HOY||0),facturas:+(out.FACTURAS_MES||0)},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  return out;
 });
 
 // Cotizaciones: rango de fechas explícito (primer/último día del mes) para que Firebird use índice y no escanee toda la tabla.
@@ -1930,7 +2006,7 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
     rq.query.mes = now.getMonth() + 1;
   }
   const f = buildFiltros(rq, 'd');
-  const [vRow, cxcSnap, coRow] = await Promise.all([
+  const [vRow, remRow, cxcSnap, coRow] = await Promise.all([
     query(`
       SELECT
         SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END) AS HOY,
@@ -1939,6 +2015,13 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
         COALESCE(SUM(CASE WHEN d.TIPO_SRC = 'VE' THEN d.IMPORTE_NETO ELSE 0 END), 0) AS MES_VE,
         COALESCE(SUM(CASE WHEN d.TIPO_SRC = 'PV' THEN d.IMPORTE_NETO ELSE 0 END), 0) AS MES_PV
       FROM ${ventasSub()} d
+      WHERE 1=1 ${f.sql}
+    `, f.params, qms, dbOpts).catch(() => [{}]),
+    query(`
+      SELECT
+        SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END) AS REMISIONES_HOY,
+        COALESCE(SUM(d.IMPORTE_NETO), 0) AS REMISIONES_MES
+      FROM ${remisionesSub()} d
       WHERE 1=1 ${f.sql}
     `, f.params, qms, dbOpts).catch(() => [{}]),
     cxcResumenAgingUnificado(rq, dbOpts, qms).catch(() => ({ resumen: { SALDO_TOTAL: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: 0, VENCIDO: 0, POR_VENCER: 0 }, aging: {} })),
@@ -1953,10 +2036,14 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
     `, f.params, qms, dbOpts).catch(() => [{}]),
   ]);
   const v = vRow[0] || {};
+  const rem = remRow[0] || {};
   const co = coRow[0] || {};
   const cxc = (cxcSnap && cxcSnap.resumen) || { SALDO_TOTAL: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: 0, VENCIDO: 0, POR_VENCER: 0 };
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run28',hypothesisId:'H203',location:'server_corregido.js:directorResumenSnapshot',message:'director ventas netas y remisiones separadas',data:{ventasMes:+(v.MES_ACTUAL||0),ventasHoy:+(v.HOY||0),remMes:+(rem.REMISIONES_MES||0),remHoy:+(rem.REMISIONES_HOY||0),cxcVenc:+(cxc.VENCIDO||0),cxcPorVencer:+(cxc.POR_VENCER||0)},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   return {
-    ventas: { HOY: +(v.HOY||0), MES_ACTUAL: +(v.MES_ACTUAL||0), FACTURAS_MES: +(v.FACTURAS_MES||0), MES_VE: +(v.MES_VE||0), MES_PV: +(v.MES_PV||0) },
+    ventas: { HOY: +(v.HOY||0), MES_ACTUAL: +(v.MES_ACTUAL||0), FACTURAS_MES: +(v.FACTURAS_MES||0), MES_VE: +(v.MES_VE||0), MES_PV: +(v.MES_PV||0), REMISIONES_HOY: +(rem.REMISIONES_HOY||0), REMISIONES_MES: +(rem.REMISIONES_MES||0) },
     cxc: { SALDO_TOTAL: +(cxc.SALDO_TOTAL||0), NUM_CLIENTES: +(cxc.NUM_CLIENTES||0), NUM_CLIENTES_VENCIDOS: +(cxc.NUM_CLIENTES_VENCIDOS||0), VENCIDO: +(cxc.VENCIDO||0), POR_VENCER: +(cxc.POR_VENCER||0) },
     cotizaciones: { COTI_HOY: +(co.COTI_HOY||0), IMPORTE_COTI_HOY: +(co.IMPORTE_COTI_HOY||0), IMPORTE_COTI_MES: +(co.IMPORTE_COTI_MES||0), COTI_MES: +(co.COTI_MES||0) },
   };
@@ -2150,8 +2237,22 @@ function cxcDocSaldosSQL(cfSql) {
 async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
   const t0 = Date.now();
   const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
+  const whereCliDoc = cf ? ` AND doc.CLIENTE_ID = ${cf}` : '';
   const whereCliSaldo = cf ? ` WHERE cs.CLIENTE_ID = ${cf}` : '';
-  const [cxcSaldosLegacy, cxcAgingLegacy] = await Promise.all([
+  const [docAggRows, cxcSaldosLegacy, cxcAgingLegacy] = await Promise.all([
+    query(`
+      SELECT
+        COUNT(DISTINCT doc.CLIENTE_ID) AS NUM_CLIENTES_DOC,
+        SUM(doc.SALDO_NETO) AS TOTAL_C,
+        SUM(CASE WHEN doc.DIAS_VENCIDO <= 0 THEN doc.SALDO_NETO ELSE 0 END) AS COR_C,
+        SUM(CASE WHEN doc.DIAS_VENCIDO BETWEEN 1 AND 30 THEN doc.SALDO_NETO ELSE 0 END) AS B1_C,
+        SUM(CASE WHEN doc.DIAS_VENCIDO BETWEEN 31 AND 60 THEN doc.SALDO_NETO ELSE 0 END) AS B2_C,
+        SUM(CASE WHEN doc.DIAS_VENCIDO BETWEEN 61 AND 90 THEN doc.SALDO_NETO ELSE 0 END) AS B3_C,
+        SUM(CASE WHEN doc.DIAS_VENCIDO > 90 THEN doc.SALDO_NETO ELSE 0 END) AS B4_C,
+        SUM(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.SALDO_NETO ELSE 0 END) AS VENC_C
+      FROM ${cxcDocSaldosInnerSQL('')} doc
+      WHERE doc.SALDO_NETO > 0.005 ${whereCliDoc}
+    `, [], qms, dbo).catch(() => []),
     query(`SELECT cs.CLIENTE_ID, cs.SALDO FROM ${cxcClienteSQL()} cs${whereCliSaldo}`, [], qms, dbo).catch(() => []),
     query(`
       SELECT
@@ -2171,49 +2272,25 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
 
   let saldoTotal = 0, vencido = 0, porVencer = 0;
   let agCorr = 0, ag1 = 0, ag2 = 0, ag3 = 0, ag4 = 0;
-  let numCliVenc = 0;
-  const ageMap = new Map((Array.isArray(cxcAgingLegacy) ? cxcAgingLegacy : []).map(r => [+r.CLIENTE_ID || 0, r]));
-  (cxcSaldosLegacy || []).forEach(r => {
-    const clienteId = +r.CLIENTE_ID || 0;
-    const saldo = +r.SALDO || 0;
-    if (saldo <= 0.005) return;
-    saldoTotal += saldo;
-    const ag = ageMap.get(clienteId);
-    const totalA = +(ag && ag.TOTAL_C) || 0;
-    if (ag && totalA > 0.005) {
-      const ratio = (n) => Math.max(0, (+n || 0) / totalA);
-      const cor = saldo * ratio(ag.COR_C);
-      const b1 = saldo * ratio(ag.B1_C);
-      const b2 = saldo * ratio(ag.B2_C);
-      const b3 = saldo * ratio(ag.B3_C);
-      const b4 = saldo * ratio(ag.B4_C);
-      const vnc = saldo * ratio(ag.VENC_C);
-      agCorr += cor; ag1 += b1; ag2 += b2; ag3 += b3; ag4 += b4;
-      vencido += vnc;
-      porVencer += (saldo - vnc);
-      if (vnc > 0.005) numCliVenc += 1;
-    } else {
-      // Sin aging por documento: conservar saldo como vigente para evitar KPI en cero.
-      agCorr += saldo;
-      porVencer += saldo;
-    }
-  });
-  if (saldoTotal <= 0.005 && Array.isArray(cxcAgingLegacy) && cxcAgingLegacy.length) {
-    (cxcAgingLegacy || []).forEach(r => {
-      saldoTotal += +r.TOTAL_C || 0;
-      vencido += +r.VENC_C || 0;
-      agCorr += +r.COR_C || 0;
-      ag1 += +r.B1_C || 0;
-      ag2 += +r.B2_C || 0;
-      ag3 += +r.B3_C || 0;
-      ag4 += +r.B4_C || 0;
-      if ((+r.VENC_C || 0) > 0.005) numCliVenc += 1;
-    });
-    porVencer += agCorr;
+  const docAgg = (Array.isArray(docAggRows) && docAggRows[0]) ? docAggRows[0] : {};
+  saldoTotal = +docAgg.TOTAL_C || 0;
+  vencido = +docAgg.VENC_C || 0;
+  agCorr = +docAgg.COR_C || 0;
+  ag1 = +docAgg.B1_C || 0;
+  ag2 = +docAgg.B2_C || 0;
+  ag3 = +docAgg.B3_C || 0;
+  ag4 = +docAgg.B4_C || 0;
+  porVencer = agCorr;
+  let numCliVenc = (Array.isArray(cxcAgingLegacy) ? cxcAgingLegacy.filter(r => (+r.VENC_C || 0) > 0.005).length : 0);
+  if (saldoTotal <= 0.005 && Array.isArray(cxcSaldosLegacy) && cxcSaldosLegacy.length) {
+    saldoTotal = (cxcSaldosLegacy || []).reduce((s, r) => s + (+r.SALDO || 0), 0);
+    porVencer = saldoTotal;
+    vencido = 0;
+    agCorr = saldoTotal;
   }
   const resumen = {
     SALDO_TOTAL: Math.round(saldoTotal * 100) / 100,
-    NUM_CLIENTES: (cxcSaldosLegacy || []).length,
+    NUM_CLIENTES: cf ? ((cxcSaldosLegacy || []).length ? 1 : 0) : Math.max(+(docAgg.NUM_CLIENTES_DOC || 0), (cxcSaldosLegacy || []).length),
     NUM_CLIENTES_VENCIDOS: numCliVenc,
     VENCIDO: Math.round(vencido * 100) / 100,
     POR_VENCER: Math.round(porVencer * 100) / 100,
@@ -2226,7 +2303,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
     DIAS_MAS_90: Math.round(ag4 * 100) / 100,
   };
   // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run27',hypothesisId:'H112',location:'server_corregido.js:cxcResumenAgingUnificado',message:'cxc summary rebuilt from saldos+aging map',data:{cliente:cf||null,rowsSaldos:(cxcSaldosLegacy||[]).length,rowsAging:(cxcAgingLegacy||[]).length,resumen,aging,elapsedMs:(Date.now()-t0)},timestamp:Date.now()})}).catch(()=>{});
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run28',hypothesisId:'H204',location:'server_corregido.js:cxcResumenAgingUnificado',message:'cxc summary from document aging aggregate',data:{cliente:cf||null,docAgg,resumen,aging,rowsSaldos:(cxcSaldosLegacy||[]).length,rowsAging:(cxcAgingLegacy||[]).length,elapsedMs:(Date.now()-t0)},timestamp:Date.now()})}).catch(()=>{});
   // #endregion
   // #region agent log
   fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run6',hypothesisId:'H14',location:'server_corregido.js:2140',message:'cxc unified resumen+aging snapshot',data:{cliente:cf||null,resumen,aging},timestamp:Date.now()})}).catch(()=>{});
