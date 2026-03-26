@@ -927,7 +927,16 @@ function consumosSub(tipo = '') {
     SELECT
       d.FECHA,
       COALESCE(det.UNIDADES, 0) AS UNIDADES,
-      COALESCE(d.VENDEDOR_ID, 0) AS VENDEDOR_ID,
+      COALESCE(
+        CASE WHEN d.TIPO_DOCTO = 'F' THEN
+          (SELECT d2.VENDEDOR_ID
+           FROM DOCTOS_PV_LIGAS liga
+           JOIN DOCTOS_PV d2 ON d2.DOCTO_PV_ID = liga.DOCTO_PV_FTE_ID
+           WHERE liga.DOCTO_PV_DEST_ID = d.DOCTO_PV_ID
+           ROWS 1)
+        ELSE d.VENDEDOR_ID
+        END,
+      0) AS VENDEDOR_ID,
       COALESCE(d.CLIENTE_ID, 0) AS CLIENTE_ID,
       COALESCE(det.ARTICULO_ID, 0) AS ARTICULO_ID,
       'PV' AS TIPO_SRC
@@ -2271,7 +2280,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
   const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
   const whereCliDoc = cf ? ` AND doc.CLIENTE_ID = ${cf}` : '';
   const whereCliSaldo = cf ? ` WHERE cs.CLIENTE_ID = ${cf}` : '';
-  const [docAggRows, cxcSaldosLegacy, cxcAgingLegacy, docStatsRows] = await Promise.all([
+  const [docAggRows, cxcSaldosLegacy, cxcAgingLegacy, docStatsRows, movStatsRows, saldoCutRows] = await Promise.all([
     query(`
       SELECT
         COUNT(DISTINCT doc.CLIENTE_ID) AS NUM_CLIENTES_DOC,
@@ -2310,6 +2319,31 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
       FROM ${cxcDocSaldosInnerSQL('')} doc
       WHERE doc.SALDO_NETO > 0.005 ${whereCliDoc}
     `, [], qms, dbo).catch((err) => { console.error('cxcResumenAgingUnificado docStats error:', err && (err.message || err)); return []; }),
+    query(`
+      SELECT
+        SUM(CASE WHEN i.TIPO_IMPTE = 'C' THEN 1 ELSE 0 END) AS MOV_C,
+        SUM(CASE WHEN i.TIPO_IMPTE = 'R' THEN 1 ELSE 0 END) AS MOV_R,
+        COUNT(DISTINCT CASE WHEN i.TIPO_IMPTE = 'C' THEN i.DOCTO_CC_ID END) AS DOCS_CON_CARGO,
+        COUNT(DISTINCT CASE WHEN i.TIPO_IMPTE = 'R' THEN i.DOCTO_CC_ACR_ID END) AS DOCS_CON_COBRO_REF,
+        SUM(CASE WHEN i.TIPO_IMPTE = 'C' THEN i.IMPORTE ELSE 0 END) AS CARGOS_IMPORTE,
+        SUM(CASE WHEN i.TIPO_IMPTE = 'R' THEN (CASE WHEN COALESCE(i.IMPUESTO, 0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END) ELSE 0 END) AS COBROS_IMPORTE
+      FROM IMPORTES_DOCTOS_CC i
+      JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = CASE
+        WHEN i.TIPO_IMPTE = 'R' AND i.DOCTO_CC_ACR_ID IS NOT NULL THEN i.DOCTO_CC_ACR_ID
+        ELSE i.DOCTO_CC_ID
+      END
+      LEFT JOIN CLIENTES clx ON clx.CLIENTE_ID = dc.CLIENTE_ID
+      LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, clx.COND_PAGO_ID)
+      WHERE COALESCE(i.CANCELADO, 'N') = 'N' ${CXC_EXCLUIR_CONTADO} ${cf ? ` AND dc.CLIENTE_ID = ${cf}` : ''}
+    `, [], qms, dbo).catch((err) => { console.error('cxcResumenAgingUnificado movStats error:', err && (err.message || err)); return []; }),
+    query(`
+      SELECT
+        COUNT(*) AS DOCS_ALL,
+        SUM(CASE WHEN doc.SALDO_NETO > 0.005 THEN 1 ELSE 0 END) AS DOCS_PENDIENTES,
+        SUM(CASE WHEN doc.SALDO_NETO <= 0.005 THEN 1 ELSE 0 END) AS DOCS_PAGADOS_O_CERRADOS
+      FROM ${cxcDocSaldosInnerSQL('')} doc
+      WHERE 1 = 1 ${whereCliDoc}
+    `, [], qms, dbo).catch((err) => { console.error('cxcResumenAgingUnificado saldoCut error:', err && (err.message || err)); return []; }),
   ]);
 
   let saldoTotal = 0, vencido = 0, porVencer = 0;
@@ -2365,7 +2399,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
     DIAS_MAS_90: Math.round(ag4 * 100) / 100,
   };
   // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run30',hypothesisId:'H310',location:'server_corregido.js:cxcResumenAgingUnificado',message:'cxc summary from document aging aggregate',data:{cliente:cf||null,docAgg,docStats:(docStatsRows&&docStatsRows[0])||{},resumen,aging,rowsSaldos:(cxcSaldosLegacy||[]).length,rowsAging:(cxcAgingLegacy||[]).length,elapsedMs:(Date.now()-t0)},timestamp:Date.now()})}).catch(()=>{});
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run30',hypothesisId:'H310',location:'server_corregido.js:cxcResumenAgingUnificado',message:'cxc summary from document aging aggregate',data:{cliente:cf||null,docAgg,docStats:(docStatsRows&&docStatsRows[0])||{},movStats:(movStatsRows&&movStatsRows[0])||{},saldoCut:(saldoCutRows&&saldoCutRows[0])||{},resumen,aging,rowsSaldos:(cxcSaldosLegacy||[]).length,rowsAging:(cxcAgingLegacy||[]).length,elapsedMs:(Date.now()-t0)},timestamp:Date.now()})}).catch(()=>{});
   // #endregion
   // #region agent log
   fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run6',hypothesisId:'H14',location:'server_corregido.js:2140',message:'cxc unified resumen+aging snapshot',data:{cliente:cf||null,resumen,aging},timestamp:Date.now()})}).catch(()=>{});
@@ -3332,7 +3366,17 @@ async function resultadosPnlCore(req, dbOpts) {
     SELECT
       d.FECHA,
       ${impRes} AS IMPORTE_NETO,
-      COALESCE(d.VENDEDOR_ID, 0) AS VENDEDOR_ID,
+      COALESCE(
+        CASE WHEN d.TIPO_DOCTO = 'F' THEN
+          (SELECT d2.VENDEDOR_ID
+           FROM DOCTOS_PV_LIGAS liga
+           JOIN DOCTOS_PV d2 ON d2.DOCTO_PV_ID = liga.DOCTO_PV_FTE_ID
+           WHERE liga.DOCTO_PV_DEST_ID = d.DOCTO_PV_ID
+           ROWS 1)
+        ELSE d.VENDEDOR_ID
+        END,
+        d.VENDEDOR_ID,
+      0) AS VENDEDOR_ID,
       COALESCE(d.CLIENTE_ID, 0) AS CLIENTE_ID,
       d.FOLIO,
       d.TIPO_DOCTO,
