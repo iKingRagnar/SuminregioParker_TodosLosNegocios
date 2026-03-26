@@ -2280,7 +2280,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
   const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
   const whereCliDoc = cf ? ` AND doc.CLIENTE_ID = ${cf}` : '';
   const whereCliSaldo = cf ? ` WHERE cs.CLIENTE_ID = ${cf}` : '';
-  const [docAggRows, cxcSaldosLegacy, cxcAgingLegacy, docStatsRows, movStatsRows, saldoCutRows] = await Promise.all([
+  const [docAggRows, cxcSaldosLegacy, cxcAgingLegacy, docStatsRows, movStatsRows, saldoCutRows, topAggRows] = await Promise.all([
     query(`
       SELECT
         COUNT(DISTINCT doc.CLIENTE_ID) AS NUM_CLIENTES_DOC,
@@ -2344,11 +2344,28 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
       FROM ${cxcDocSaldosInnerSQL('')} doc
       WHERE 1 = 1 ${whereCliDoc}
     `, [], qms, dbo).catch((err) => { console.error('cxcResumenAgingUnificado saldoCut error:', err && (err.message || err)); return []; }),
+    query(`
+      SELECT
+        COALESCE(SUM(t.SALDO_TOTAL), 0) AS TOTAL_C,
+        COALESCE(SUM(t.VENCIDO), 0) AS VENC_C,
+        COUNT(*) AS NUM_CLIENTES,
+        SUM(CASE WHEN t.VENCIDO > 0.005 THEN 1 ELSE 0 END) AS NUM_CLIENTES_VENC
+      FROM (
+        SELECT
+          doc.CLIENTE_ID,
+          SUM(doc.SALDO_NETO) AS SALDO_TOTAL,
+          SUM(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.SALDO_NETO ELSE 0 END) AS VENCIDO
+        FROM ${cxcDocSaldosInnerSQL('')} doc
+        WHERE doc.SALDO_NETO > 0.005 ${whereCliDoc}
+        GROUP BY doc.CLIENTE_ID
+      ) t
+    `, [], qms, dbo).catch((err) => { console.error('cxcResumenAgingUnificado topAgg error:', err && (err.message || err)); return []; }),
   ]);
 
   let saldoTotal = 0, vencido = 0, porVencer = 0;
   let agCorr = 0, ag1 = 0, ag2 = 0, ag3 = 0, ag4 = 0;
   const docAgg = (Array.isArray(docAggRows) && docAggRows[0]) ? docAggRows[0] : {};
+  const topAgg = (Array.isArray(topAggRows) && topAggRows[0]) ? topAggRows[0] : {};
   saldoTotal = +docAgg.TOTAL_C || 0;
   vencido = +docAgg.VENC_C || 0;
   agCorr = +docAgg.COR_C || 0;
@@ -2384,6 +2401,45 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
       agCorr = saldoTotal;
     }
   }
+  // Fallback robusto: si docAgg devolvió todo vigente pero el agregado por cliente detecta vencido,
+  // usar topAgg para KPIs y redistribuir buckets vencidos con la proporción legacy.
+  if (saldoTotal > 0.005 && vencido <= 0.005 && (+topAgg.VENC_C || 0) > 0.005) {
+    const topVenc = +topAgg.VENC_C || 0;
+    vencido = topVenc;
+    porVencer = Math.max(0, saldoTotal - vencido);
+    agCorr = porVencer;
+    const aggLegacy = (Array.isArray(cxcAgingLegacy) ? cxcAgingLegacy : []).reduce((a, r) => {
+      a.b1 += (+r.B1_C || 0);
+      a.b2 += (+r.B2_C || 0);
+      a.b3 += (+r.B3_C || 0);
+      a.b4 += (+r.B4_C || 0);
+      a.venc += (+r.VENC_C || 0);
+      return a;
+    }, { b1: 0, b2: 0, b3: 0, b4: 0, venc: 0 });
+    if (aggLegacy.venc > 0.005) {
+      const w1 = aggLegacy.b1 / aggLegacy.venc;
+      const w2 = aggLegacy.b2 / aggLegacy.venc;
+      const w3 = aggLegacy.b3 / aggLegacy.venc;
+      const w4 = Math.max(0, 1 - (w1 + w2 + w3));
+      ag1 = vencido * w1;
+      ag2 = vencido * w2;
+      ag3 = vencido * w3;
+      ag4 = vencido * w4;
+    } else {
+      ag1 = vencido;
+      ag2 = 0;
+      ag3 = 0;
+      ag4 = 0;
+    }
+    if (!cf) {
+      numCliVenc = +topAgg.NUM_CLIENTES_VENC || numCliVenc;
+    } else {
+      numCliVenc = (vencido > 0.005) ? 1 : 0;
+    }
+    // #region agent log
+    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run33',hypothesisId:'H318',location:'server_corregido.js:cxcResumenAgingUnificado:fallbackTopAgg',message:'fallback applied from topAgg when docAgg reported all-current',data:{cliente:cf||null,saldoTotal,topAggVenc:topVenc,topAgg,agCorr,ag1,ag2,ag3,ag4},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+  }
   const resumen = {
     SALDO_TOTAL: Math.round(saldoTotal * 100) / 100,
     NUM_CLIENTES: cf ? ((cxcSaldosLegacy || []).length ? 1 : 0) : Math.max(+(docAgg.NUM_CLIENTES_DOC || 0), (cxcSaldosLegacy || []).length),
@@ -2399,7 +2455,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
     DIAS_MAS_90: Math.round(ag4 * 100) / 100,
   };
   // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run30',hypothesisId:'H310',location:'server_corregido.js:cxcResumenAgingUnificado',message:'cxc summary from document aging aggregate',data:{cliente:cf||null,docAgg,docStats:(docStatsRows&&docStatsRows[0])||{},movStats:(movStatsRows&&movStatsRows[0])||{},saldoCut:(saldoCutRows&&saldoCutRows[0])||{},resumen,aging,rowsSaldos:(cxcSaldosLegacy||[]).length,rowsAging:(cxcAgingLegacy||[]).length,elapsedMs:(Date.now()-t0)},timestamp:Date.now()})}).catch(()=>{});
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run30',hypothesisId:'H310',location:'server_corregido.js:cxcResumenAgingUnificado',message:'cxc summary from document aging aggregate',data:{cliente:cf||null,docAgg,topAgg,docStats:(docStatsRows&&docStatsRows[0])||{},movStats:(movStatsRows&&movStatsRows[0])||{},saldoCut:(saldoCutRows&&saldoCutRows[0])||{},resumen,aging,rowsSaldos:(cxcSaldosLegacy||[]).length,rowsAging:(cxcAgingLegacy||[]).length,elapsedMs:(Date.now()-t0)},timestamp:Date.now()})}).catch(()=>{});
   // #endregion
   // #region agent log
   fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run6',hypothesisId:'H14',location:'server_corregido.js:2140',message:'cxc unified resumen+aging snapshot',data:{cliente:cf||null,resumen,aging},timestamp:Date.now()})}).catch(()=>{});
@@ -2494,7 +2550,7 @@ get('/api/cxc/top-deudores', async (req) => {
     WHERE doc.SALDO_NETO > 0.005
     GROUP BY doc.CLIENTE_ID, cl.NOMBRE, cp.NOMBRE
     ORDER BY SALDO_TOTAL DESC, VENCIDO DESC
-  `, [], 12000, dbo).catch(() => []);
+  `, [], 12000, dbo).catch(err => { console.error('cxc top-deudores main error:', err && (err.message || err)); return []; });
   if ((rows || []).length) return rows;
   return query(`
     SELECT FIRST ${limit}
@@ -2510,7 +2566,7 @@ get('/api/cxc/top-deudores', async (req) => {
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = cl.COND_PAGO_ID
     WHERE c.SALDO > 0.005 ${cf ? `AND c.CLIENTE_ID = ${cf}` : ''}
     ORDER BY c.SALDO DESC
-  `, [], 12000, dbo).catch(() => []);
+  `, [], 12000, dbo).catch(err => { console.error('cxc top-deudores fallback error:', err && (err.message || err)); return []; });
 });
 
 get('/api/cxc/historial', async (req) => {
