@@ -2464,6 +2464,13 @@ get('/api/cxc/aging', async (req) => {
   return snap.aging;
 });
 
+// Un solo snapshot: evita que el cliente llame /resumen y /aging en paralelo (duplicaba cxcResumenAgingUnificado y saturaba Firebird en Render).
+get('/api/cxc/resumen-aging', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const snap = await cxcResumenAgingUnificado(req, dbo, 30000);
+  return { resumen: snap.resumen, aging: snap.aging };
+});
+
 // Facturas vencidas: misma base que aging (cxcDocSaldosSQL). Sin subconsultas anidadas extra (Firebird).
 get('/api/cxc/vencidas', async (req) => {
   const dbo = getReqDbOpts(req);

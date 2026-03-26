@@ -461,10 +461,10 @@ async function loadResumen() {
   const salEl = document.getElementById('kSalud');
   const salSub = document.getElementById('kSaludSub');
   try {
-    const [res, ageRaw] = await Promise.all([
-      apiFetch('/api/cxc/resumen' + buildCxcQuery()),
-      apiFetch('/api/cxc/aging' + buildCxcQuery())
-    ]);
+    // Un solo round-trip: /resumen + /aging en paralelo duplicaban cxcResumenAgingUnificado (timeouts en producción).
+    const snap = await apiFetch('/api/cxc/resumen-aging' + buildCxcQuery(), { timeout: 45000 });
+    const res = (snap && snap.resumen) || {};
+    const ageRaw = (snap && snap.aging) || {};
     // #region agent log
     debugLogCxc('run29','H301','cxc.html:loadResumen:after-fetch','cxc summary and aging payload on screen',{
       pageUrl: window.location.href,
@@ -853,16 +853,25 @@ async function loadAll(){
   // #region agent log
   debugLogCxc('run21','H95','cxc.html:loadAll:start','loading summary and overdue table',{db:cxcEffectiveDb()||null,cliente:(document.getElementById('fCliente')?.value||'')||null});
   // #endregion
-  await Promise.all([loadResumen(), loadVencidas()]);
+  const [rRes, rVen] = await Promise.allSettled([loadResumen(), loadVencidas()]);
+  if (rRes.status === 'rejected') console.error('[cxc] loadResumen', rRes.reason);
+  if (rVen.status === 'rejected') console.error('[cxc] loadVencidas', rVen.reason);
 }
 
 async function refreshCxcDbHint(){
   const el=document.getElementById('cxcDbHint');
   if(!el) return;
+  // #region agent log
+  debugLogCxc('run40','H401','cxc.html:refreshCxcDbHint:start','hint fetch start (must not block CxC data)',{db:(cxcEffectiveDb()||null)});
+  // #endregion
   let db=cxcEffectiveDb();
   let line='';
+  const ctrl=new AbortController();
+  const tid=setTimeout(()=>ctrl.abort(),8000);
   try{
-    const list=await fetch(API+'/api/universe/databases').then(r=>r.json());
+    const r=await fetch(API+'/api/universe/databases',{signal:ctrl.signal,cache:'no-store'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const list=await r.json();
     const usable=(typeof window.filterDbCatalog==='function')?window.filterDbCatalog(list):(Array.isArray(list)?list:[]);
     if(Array.isArray(usable)&&usable.length){
       const hit=usable.find(x=>String(x.id)===String(db));
@@ -870,8 +879,12 @@ async function refreshCxcDbHint(){
       line=db?(fn||hit?.label||db)+' · '+usable.length+' negocios':('Por defecto · '+usable.length+' negocios en servidor');
     }else line=db?'db='+db:'Conexi&oacute;n por defecto';
   }catch(_){ line=db?'db='+db:'Contexto base de datos'; }
+  finally{ clearTimeout(tid); }
   el.textContent=line+(window.__apiBuild?' · '+window.__apiBuild:'');
   el.title='Negocio activo'+(window.__apiBuild?(' · servidor '+window.__apiBuild):'');
+  // #region agent log
+  debugLogCxc('run40','H401','cxc.html:refreshCxcDbHint:done','hint fetch done',{linePreview:String(line||'').slice(0,96)});
+  // #endregion
 }
 
 (async function init(){
@@ -885,18 +898,19 @@ async function refreshCxcDbHint(){
       containerId  : 'filter-bar',
       showVendedor : false,
       defaultPreset: 'mes',
-      onReady      : async () => { await refreshCxcDbHint(); await ensureClientesFiltro(); await loadAll(); },
-      onChange     : async () => { await refreshCxcDbHint(); await ensureClientesFiltro(); await loadAll(); },
+      // Hint (/api/universe/databases) must not block resumen/vencidas — Render cold starts can stall the hint fetch.
+      onReady      : async () => { void refreshCxcDbHint().catch(()=>{}); await ensureClientesFiltro(); await loadAll(); },
+      onChange     : async () => { void refreshCxcDbHint().catch(()=>{}); await ensureClientesFiltro(); await loadAll(); },
     });
   }
   if (!hasFilters) {
-    await refreshCxcDbHint();
+    void refreshCxcDbHint().catch(()=>{});
     await ensureClientesFiltro();
     await loadAll();
   }
   setInterval(loadResumen, 1800000);
   setInterval(checkStatus, 30000);
-  window.addEventListener('popstate',async ()=>{ await refreshCxcDbHint(); await ensureClientesFiltro(); await loadAll(); });
+  window.addEventListener('popstate',async ()=>{ void refreshCxcDbHint().catch(()=>{}); await ensureClientesFiltro(); await loadAll(); });
 })();
 </script>
 <script src="/chat-widget.js" defer></script>
