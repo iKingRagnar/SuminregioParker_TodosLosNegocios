@@ -1635,7 +1635,7 @@ get('/api/ventas/cobradas-detalle', async (req) => {
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = ${vendedorAtribExpr}
     WHERE i.TIPO_IMPTE = 'R' AND COALESCE(i.CANCELADO, 'N') = 'N' ${fi.sql}
     ORDER BY MONTO_COBRADO DESC, COALESCE(i.FECHA, dc.FECHA) DESC, dc.FOLIO DESC
-  `, fi.params, 15000, dbo).catch(() => []);
+  `, fi.params, 15000, dbo).catch(err => { console.error('cobradas-detalle error:', err && (err.message || err)); return []; });
 });
 
 // Margen por renglón: DOCTOS_VE_DET / DOCTOS_PV_DET (venta sin campo importe: PRECIO_T o UNIDADES×PRECIO_U).
@@ -1848,7 +1848,7 @@ get('/api/ventas/cobradas-por-factura', async (req) => {
     ORDER BY q.COBRADO_PERIODO DESC, q.TOTAL_VENTA DESC, q.FECHA_FACTURA DESC
   `;
   const params = [...f.params, ...fiIr.params];
-  return query(sql, params, 20000, dbo).catch(() => []);
+  return query(sql, params, 20000, dbo).catch(err => { console.error('cobradas-por-factura error:', err && (err.message || err)); return []; });
 });
 
 get('/api/ventas/margen', async (req) => {
@@ -2284,8 +2284,8 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
         SUM(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.SALDO_NETO ELSE 0 END) AS VENC_C
       FROM ${cxcDocSaldosInnerSQL('')} doc
       WHERE doc.SALDO_NETO > 0.005 ${whereCliDoc}
-    `, [], qms, dbo).catch(() => []),
-    query(`SELECT cs.CLIENTE_ID, cs.SALDO FROM ${cxcClienteSQL()} cs${whereCliSaldo}`, [], qms, dbo).catch(() => []),
+    `, [], qms, dbo).catch((err) => { console.error('cxcResumenAgingUnificado docAgg error:', err && (err.message || err)); return []; }),
+    query(`SELECT cs.CLIENTE_ID, cs.SALDO FROM ${cxcClienteSQL()} cs${whereCliSaldo}`, [], qms, dbo).catch((err) => { console.error('cxcResumenAgingUnificado saldosLegacy error:', err && (err.message || err)); return []; }),
     query(`
       SELECT
         cd.CLIENTE_ID,
@@ -2299,7 +2299,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
       FROM ${cxcCargosSQL()} cd
       ${cf ? `WHERE cd.CLIENTE_ID = ${cf}` : ''}
       GROUP BY cd.CLIENTE_ID
-    `, [], qms, dbo).catch(() => []),
+    `, [], qms, dbo).catch((err) => { console.error('cxcResumenAgingUnificado agingLegacy error:', err && (err.message || err)); return []; }),
     query(`
       SELECT
         COUNT(*) AS DOCS_SALDO,
@@ -2309,7 +2309,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
         SUM(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.SALDO_NETO ELSE 0 END) AS SALDO_VENCIDO
       FROM ${cxcDocSaldosInnerSQL('')} doc
       WHERE doc.SALDO_NETO > 0.005 ${whereCliDoc}
-    `, [], qms, dbo).catch(() => []),
+    `, [], qms, dbo).catch((err) => { console.error('cxcResumenAgingUnificado docStats error:', err && (err.message || err)); return []; }),
   ]);
 
   let saldoTotal = 0, vencido = 0, porVencer = 0;
@@ -2326,9 +2326,29 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
   let numCliVenc = (Array.isArray(cxcAgingLegacy) ? cxcAgingLegacy.filter(r => (+r.VENC_C || 0) > 0.005).length : 0);
   if (saldoTotal <= 0.005 && Array.isArray(cxcSaldosLegacy) && cxcSaldosLegacy.length) {
     saldoTotal = (cxcSaldosLegacy || []).reduce((s, r) => s + (+r.SALDO || 0), 0);
-    porVencer = saldoTotal;
-    vencido = 0;
-    agCorr = saldoTotal;
+    const aggLegacy = (Array.isArray(cxcAgingLegacy) ? cxcAgingLegacy : []).reduce((a, r) => {
+      a.cor += (+r.COR_C || 0);
+      a.b1 += (+r.B1_C || 0);
+      a.b2 += (+r.B2_C || 0);
+      a.b3 += (+r.B3_C || 0);
+      a.b4 += (+r.B4_C || 0);
+      a.venc += (+r.VENC_C || 0);
+      return a;
+    }, { cor: 0, b1: 0, b2: 0, b3: 0, b4: 0, venc: 0 });
+    const hasLegacyAging = (aggLegacy.cor + aggLegacy.venc) > 0.005;
+    if (hasLegacyAging) {
+      agCorr = aggLegacy.cor;
+      ag1 = aggLegacy.b1;
+      ag2 = aggLegacy.b2;
+      ag3 = aggLegacy.b3;
+      ag4 = aggLegacy.b4;
+      vencido = aggLegacy.venc;
+      porVencer = aggLegacy.cor;
+    } else {
+      porVencer = saldoTotal;
+      vencido = 0;
+      agCorr = saldoTotal;
+    }
   }
   const resumen = {
     SALDO_TOTAL: Math.round(saldoTotal * 100) / 100,
