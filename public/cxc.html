@@ -460,10 +460,33 @@ async function loadResumen() {
       apiFetch('/api/cxc/resumen' + buildCxcQuery()),
       apiFetch('/api/cxc/aging' + buildCxcQuery())
     ]);
+    // #region agent log
+    debugLogCxc('run29','H301','cxc.html:loadResumen:after-fetch','cxc summary and aging payload on screen',{
+      pageUrl: window.location.href,
+      apiBase: API,
+      db: cxcEffectiveDb() || null,
+      resumen: {
+        SALDO_TOTAL: +(res && res.SALDO_TOTAL || 0),
+        VENCIDO: +(res && res.VENCIDO || 0),
+        POR_VENCER: +(res && res.POR_VENCER || 0),
+        NUM_CLIENTES: +(res && res.NUM_CLIENTES || 0)
+      },
+      aging: {
+        CORRIENTE: +(ageRaw && ageRaw.CORRIENTE || 0),
+        DIAS_1_30: +(ageRaw && ageRaw.DIAS_1_30 || 0),
+        DIAS_31_60: +(ageRaw && ageRaw.DIAS_31_60 || 0),
+        DIAS_61_90: +(ageRaw && ageRaw.DIAS_61_90 || 0),
+        DIAS_MAS_90: +(ageRaw && ageRaw.DIAS_MAS_90 || 0)
+      }
+    });
+    // #endregion
     const age = ageRaw && typeof ageRaw === 'object' && !Array.isArray(ageRaw) ? ageRaw : (Array.isArray(ageRaw) && ageRaw[0]) ? ageRaw[0] : {};
     const saldo = +res.SALDO_TOTAL||0;
     const venc  = +res.VENCIDO||0;
     const pvenc = +res.POR_VENCER||0;
+    // #region agent log
+    debugLogCxc('run30','H311','cxc.html:loadResumen:normalized','normalized cxc values rendered',{saldo,venc,pvenc,age:{CORRIENTE:+age.CORRIENTE||0,DIAS_1_30:+age.DIAS_1_30||0,DIAS_31_60:+age.DIAS_31_60||0,DIAS_61_90:+age.DIAS_61_90||0,DIAS_MAS_90:+age.DIAS_MAS_90||0}});
+    // #endregion
     setText('kSaldo', fmtK(saldo));
     setText('kCli', (res.NUM_CLIENTES||0)+' clientes');
     const pV = (saldo > 0 && typeof venc === 'number' && !isNaN(venc)) ? (venc / saldo) * 100 : NaN;

@@ -224,6 +224,8 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
 .bg-classic table{width:100%;border-collapse:collapse}
 .bg-classic td{font-size:.67rem;padding:.35rem .4rem;border-bottom:1px dashed var(--border);color:var(--text2)}
 .bg-classic td.num{text-align:right;font-family:'DM Mono',monospace;color:var(--text)}
+.bg-classic td.pct{text-align:right;font-family:'DM Mono',monospace;color:var(--muted);width:72px}
+.bg-classic tr.sec td{font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding-top:.52rem;padding-bottom:.25rem;border-bottom:1px solid var(--border)}
 .bg-classic tr.total td{border-top:1px solid var(--border2);border-bottom:none;font-weight:700;color:var(--text)}
 .bg-ratios{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.7rem;margin-bottom:.9rem}
 @media(max-width:1100px){.bg-ratios{grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -561,6 +563,7 @@ let chartVC=null, chartMg=null, chartCob=null, chartEmp=null, chartGastos=null;
 let bgGaugeChart=null, bgSparkChart=null, bgDonutChart=null;
 let currentMeses=3;
 let monthKeysSelected = new Set();
+let lastSubconceptos = {};
 /** null = una sola base por defecto; '__ALL__' = consolidado multi-empresa; string = id en FB_DATABASES_JSON */
 let selectedBizId=(function(){try{const p=new URLSearchParams(location.search).get('db');return p||null;}catch(_){return null;}})();
 let lastUniversePayload=null;
@@ -785,26 +788,29 @@ async function loadBalanceGeneral(){
       const otrosPas = Math.max(0, pasivoTotal - bancosCorto - proveedores);
       const utilRet = sumBy(capitalRows, r => /reten|resultado|utilidad/i.test(String(r.NOMBRE || '')));
       const capSocial = Math.max(0, (+t.CAPITAL_TOTAL || 0) - utilRet);
+      const pct = (v, base) => (base > 0 ? ((v / base) * 100).toFixed(1) + '%' : '0.0%');
       wrap.innerHTML = `
         <table>
           <tbody>
-            <tr><td>Caja / Bancos</td><td class="num">${fmtM(caja)}</td></tr>
-            <tr><td>Cuentas por cobrar</td><td class="num">${fmtM(cxc)}</td></tr>
-            <tr><td>Inventario</td><td class="num">${fmtM(invent)}</td></tr>
-            <tr class="total"><td>Total Activo Circulante</td><td class="num">${fmtM(actCirculante)}</td></tr>
-            <tr><td>Activo no circulante</td><td class="num">${fmtM(activoNoCirculante)}</td></tr>
-            <tr class="total"><td>Total Activo</td><td class="num">${fmtM(activoTotal)}</td></tr>
+            <tr class="sec"><td colspan="3">Activo</td></tr>
+            <tr><td>Caja / Bancos</td><td class="num">${fmtM(caja)}</td><td class="pct">${pct(caja,activoTotal)}</td></tr>
+            <tr><td>Cuentas por cobrar</td><td class="num">${fmtM(cxc)}</td><td class="pct">${pct(cxc,activoTotal)}</td></tr>
+            <tr><td>Inventario</td><td class="num">${fmtM(invent)}</td><td class="pct">${pct(invent,activoTotal)}</td></tr>
+            <tr class="total"><td>Total Activo Circulante</td><td class="num">${fmtM(actCirculante)}</td><td class="pct">${pct(actCirculante,activoTotal)}</td></tr>
+            <tr><td>Activo no circulante</td><td class="num">${fmtM(activoNoCirculante)}</td><td class="pct">${pct(activoNoCirculante,activoTotal)}</td></tr>
+            <tr class="total"><td>Total Activo</td><td class="num">${fmtM(activoTotal)}</td><td class="pct">100.0%</td></tr>
           </tbody>
         </table>
         <table>
           <tbody>
-            <tr><td>Préstamo bancario c/p</td><td class="num">${fmtM(bancosCorto)}</td></tr>
-            <tr><td>Cuentas por pagar</td><td class="num">${fmtM(proveedores)}</td></tr>
-            <tr><td>Otros pasivos</td><td class="num">${fmtM(otrosPas)}</td></tr>
-            <tr class="total"><td>Total Pasivo</td><td class="num">${fmtM(pasivoTotal)}</td></tr>
-            <tr><td>Capital social</td><td class="num">${fmtM(capSocial)}</td></tr>
-            <tr><td>Utilidades retenidas</td><td class="num">${fmtM(utilRet)}</td></tr>
-            <tr class="total"><td>Total Pasivo + Capital</td><td class="num">${fmtM((+t.PASIVO_TOTAL || 0) + (+t.CAPITAL_TOTAL || 0))}</td></tr>
+            <tr class="sec"><td colspan="3">Pasivo y Capital</td></tr>
+            <tr><td>Préstamo bancario c/p</td><td class="num">${fmtM(bancosCorto)}</td><td class="pct">${pct(bancosCorto,activoTotal)}</td></tr>
+            <tr><td>Cuentas por pagar</td><td class="num">${fmtM(proveedores)}</td><td class="pct">${pct(proveedores,activoTotal)}</td></tr>
+            <tr><td>Otros pasivos</td><td class="num">${fmtM(otrosPas)}</td><td class="pct">${pct(otrosPas,activoTotal)}</td></tr>
+            <tr class="total"><td>Total Pasivo</td><td class="num">${fmtM(pasivoTotal)}</td><td class="pct">${pct(pasivoTotal,activoTotal)}</td></tr>
+            <tr><td>Capital social</td><td class="num">${fmtM(capSocial)}</td><td class="pct">${pct(capSocial,activoTotal)}</td></tr>
+            <tr><td>Utilidades retenidas</td><td class="num">${fmtM(utilRet)}</td><td class="pct">${pct(utilRet,activoTotal)}</td></tr>
+            <tr class="total"><td>Total Pasivo + Capital</td><td class="num">${fmtM((+t.PASIVO_TOTAL || 0) + (+t.CAPITAL_TOTAL || 0))}</td><td class="pct">100.0%</td></tr>
           </tbody>
         </table>`;
     };
@@ -1255,6 +1261,7 @@ async function loadData(){
     const vistaConsolidado=multi&&selectedBizId==='__ALL__';
 
     if(vistaConsolidado){
+      lastSubconceptos = {};
       document.getElementById('chartsNormal')&&(document.getElementById('chartsNormal').style.display='none');
       const cons=uni.consolidado||{};
       const tot={
@@ -1316,6 +1323,10 @@ async function loadData(){
       data=await tryFetch(altUrl)||data;
     }
     const meses=Array.isArray(data.meses)?data.meses:[];
+    lastSubconceptos = (data && data.subconceptos && typeof data.subconceptos === 'object') ? data.subconceptos : {};
+    // #region agent log
+    debugLogResultados('run29','H308','resultados.html:loadData:subconceptos','subconcept payload loaded',{buckets:Object.keys(lastSubconceptos||{}),mesesLen:meses.length,url});
+    // #endregion
     applyCoLabelsDynamic(data.prefijos_labels||null);
     const rawTot=data.totales||{};
     const tot={
@@ -1734,6 +1745,7 @@ function coLbl(k,fallback){
 function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   const mesesOrd=sortMesesByPeriodo(meses);
   const tg=tieneGastosCo===true;
+  const subData = lastSubconceptos && typeof lastSubconceptos === 'object' ? lastSubconceptos : {};
   const pnlBodyEl=document.getElementById('pnlBody');
   const pnlFootEl=document.getElementById('pnlFoot');
   const thEl=document.getElementById('thMeses');
@@ -1788,6 +1800,22 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     const v=+tot[k]||0;
     return v>0?`(${fmtM(v)})`:fmtM(0);
   }
+  const renderSubRows=(bucket)=>{
+    const arr=(subData[bucket]&&Array.isArray(subData[bucket]))?subData[bucket]:[];
+    if(!arr.length)return'';
+    return arr.map(r=>`
+      <tr class="data-row">
+        <td style="padding-left:2rem;color:var(--text2)">· ${r.etiqueta||'Sin etiqueta'}</td>
+        ${mesesOrd.map(m=>{
+          const mk=monthKey(m);
+          const v=+((r.meses&&r.meses[mk])||0);
+          return v>0?`<td style="color:var(--red)">(${fmtM(v)})</td>`:`<td style="color:var(--text2)">${fmtM(0)}</td>`;
+        }).join('')}
+        <td style="color:${(+r.total||0)>0?'var(--red)':'var(--text2)'}">${(+r.total||0)>0?`(${fmtM(+r.total||0)})`:fmtM(0)}</td>
+      </tr>
+    `).join('');
+  };
+  const rowGastoBucket=(bucket,lead)=>`<tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">${lead}. ${coLbl(bucket,'')}</td>${mesesOrd.map(m=>tdGasto(m,bucket)).join('')}<td style="color:var(--red)">${footGasto(bucket)}</td></tr>${renderSubRows(bucket)}`;
 
   const remiCalc = (m) => {
     const vb = +m.VENTAS_BRUTAS||0;
@@ -1882,16 +1910,28 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
 
   ${!tg?`<tr><td colspan="${mesesOrd.length+2}" style="background:rgba(255,180,0,.08);color:var(--yellow);font-size:.75rem;padding:.5rem 1rem;border-left:3px solid var(--yellow)">⚠️ Sin pólizas contables en SALDOS_CO/DOCTOS_CO_DET para cuentas 52*/53*/54*. Las cifras de gastos son $0. Ingresa los movimientos en Microsip Contabilidad o verifica que el módulo de contabilidad esté activo. <a href="/api/debug/saldos-co-cuentas" target="_blank" style="color:var(--yellow)">Ver diagnóstico →</a></td></tr>`:''}
   <tr class="pnl-section-header" data-section="gastos"><td colspan="${mesesOrd.length+2}">GASTOS OPERATIVOS (ESTRUCTURA MICROsip SR)</td></tr>
-  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">A. ${coLbl('CO_A1','')}</td>${mesesOrd.map(m=>tdGasto(m,'CO_A1')).join('')}<td style="color:var(--red)">${footGasto('CO_A1')}</td></tr>
-  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">B. ${coLbl('CO_A2','')}</td>${mesesOrd.map(m=>tdGasto(m,'CO_A2')).join('')}<td style="color:var(--red)">${footGasto('CO_A2')}</td></tr>
-  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">C. ${coLbl('CO_A3','')}</td>${mesesOrd.map(m=>tdGasto(m,'CO_A3')).join('')}<td style="color:var(--red)">${footGasto('CO_A3')}</td></tr>
+  ${rowGastoBucket('CO_A1','A')}
+  ${rowGastoBucket('CO_A2','B')}
+  ${rowGastoBucket('CO_A3','C')}
+  ${rowGastoBucket('CO_A4','D')}
+  ${rowGastoBucket('CO_A5','E')}
+  ${rowGastoBucket('CO_A6','F')}
   <tr class="subtotal-row"><td>▶ Total gastos operativos</td>${mesesOrd.map(m=>{
     const s=tg?sumGastoKeys(m,_GAS_OPEX):0;
     return s>0?`<td style="color:var(--yellow)">(${fmtM(s)})</td>`:`<td style="color:var(--text2)">${fmtM(0)}</td>`;
   }).join('')}<td style="color:var(--yellow)">${tg?'('+fmtM(sumGastoKeys(tot,_GAS_OPEX))+')':`(${fmtM(0)})`}</td></tr>
   <tr class="pnl-section-header" data-section="extra"><td colspan="${mesesOrd.length+2}">PARTIDAS EXTRAORDINARIAS</td></tr>
-  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">${coLbl('CO_C1','')}</td>${mesesOrd.map(m=>tdGasto(m,'CO_C1')).join('')}<td style="color:var(--red)">${footGasto('CO_C1')}</td></tr>
-  <tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">${coLbl('CO_B1','')}</td>${mesesOrd.map(m=>tdGasto(m,'CO_B1')).join('')}<td style="color:var(--red)">${footGasto('CO_B1')}</td></tr>
+  ${rowGastoBucket('CO_C1','X1')}
+  ${rowGastoBucket('CO_C2','X2')}
+  ${rowGastoBucket('CO_C3','X3')}
+  ${rowGastoBucket('CO_C4','X4')}
+  ${rowGastoBucket('CO_C5','X5')}
+  ${rowGastoBucket('CO_C6','X6')}
+  ${rowGastoBucket('CO_B1','F1')}
+  ${rowGastoBucket('CO_B2','F2')}
+  ${rowGastoBucket('CO_B3','F3')}
+  ${rowGastoBucket('CO_B4','F4')}
+  ${rowGastoBucket('CO_B5','F5')}
   <tr class="data-row">
     <td style="color:var(--orange);font-weight:600">Gastos operativos (OPEX) total</td>
     ${mesesOrd.map(m=>{
@@ -1939,7 +1979,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   };
   const uaiTotal = mesesOrd.reduce((s,m)=>s+uaiForMes(m),0);
   // #region agent log
-  debugLogResultados('run24','H103','resultados.html:renderTabla:reconciliacion','ventas netas and remisiones split by channel',{meses:mesesOrd.map(m=>({k:monthKey(m),vn:+m.VENTAS_NETAS||0,ve:+m.VENTAS_VE||0,pv:+m.VENTAS_PV||0,rem:remiCalc(m),veN:veNetaCalc(m),pvN:pvNetaCalc(m)})),ventasNetasTotal:+tot.VENTAS_NETAS||0,remisionesTotal:remiTotal});
+  debugLogResultados('run29','H304','resultados.html:renderTabla:subconceptos','rendered pnl with granular subconcepts',{meses:mesesOrd.map(m=>({k:monthKey(m),vn:+m.VENTAS_NETAS||0})),subBuckets:Object.keys(subData||{}),ventasNetasTotal:+tot.VENTAS_NETAS||0,remisionesTotal:remiTotal});
   // #endregion
   if(pnlFootEl)pnlFootEl.innerHTML=`
   <tr class="total-final">

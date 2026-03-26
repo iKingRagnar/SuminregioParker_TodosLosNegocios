@@ -782,7 +782,16 @@ function ventasSub(tipo = '', opts = {}) {
     SELECT
       d.FECHA,
       ${imp} AS IMPORTE_NETO,
-      COALESCE(d.VENDEDOR_ID, 0)  AS VENDEDOR_ID,
+      COALESCE(
+        CASE WHEN d.TIPO_DOCTO = 'F' THEN
+          (SELECT d2.VENDEDOR_ID
+           FROM DOCTOS_PV_LIGAS liga
+           JOIN DOCTOS_PV d2 ON d2.DOCTO_PV_ID = liga.DOCTO_PV_FTE_ID
+           WHERE liga.DOCTO_PV_DEST_ID = d.DOCTO_PV_ID
+           ROWS 1)
+        ELSE d.VENDEDOR_ID
+        END,
+      0) AS VENDEDOR_ID,
       COALESCE(d.CLIENTE_ID,  0)  AS CLIENTE_ID,
       d.FOLIO,
       d.TIPO_DOCTO,
@@ -1467,6 +1476,16 @@ get('/api/ventas/cobradas', async (req) => {
   const fiAll = filtrosImporteCobro(reqNoVend, 'i', { coalesceDcFecha: true });
   const tipo = getTipo(req);
   const tipoFac = sqlTipoFacLinkCc('fac', tipo);
+  const vendedorAtribExpr = `COALESCE(
+    ve.VENDEDOR_ID,
+    (SELECT d2.VENDEDOR_ID
+     FROM DOCTOS_PV_LIGAS liga
+     JOIN DOCTOS_PV d2 ON d2.DOCTO_PV_ID = liga.DOCTO_PV_FTE_ID
+     WHERE liga.DOCTO_PV_DEST_ID = pv.DOCTO_PV_ID
+     ROWS 1),
+    pv.VENDEDOR_ID,
+    0
+  )`;
 
   /** Cobros del periodo: total sin exigir enlace VE/PV (muchas bases no llenan DOCTO_* en CC). */
   const cobroSqlFull = `
@@ -1480,7 +1499,7 @@ get('/api/ventas/cobradas', async (req) => {
     LEFT JOIN DOCTOS_CC fac ON fac.DOCTO_CC_ID = COALESCE(i.DOCTO_CC_ACR_ID, i.DOCTO_CC_ID)
     LEFT JOIN DOCTOS_VE ve ON ve.DOCTO_VE_ID = fac.DOCTO_VE_ID
     LEFT JOIN DOCTOS_PV pv ON pv.DOCTO_PV_ID = fac.DOCTO_PV_ID
-    LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = COALESCE(ve.VENDEDOR_ID, pv.VENDEDOR_ID)
+    LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = ${vendedorAtribExpr}
     WHERE i.TIPO_IMPTE = 'R' AND COALESCE(i.CANCELADO, 'N') = 'N' ${tipoFac} ${fiAll.sql}`;
 
   const [rows, cobroPorVend, cobrosRow, cobroLinkedRows] = await Promise.all([
@@ -1493,11 +1512,11 @@ get('/api/ventas/cobradas', async (req) => {
     `, fAll.params, 12000, dbo).catch(() => []),
     query(`
       SELECT
-        COALESCE(ve.VENDEDOR_ID, pv.VENDEDOR_ID, 0) AS VENDEDOR_ID,
+        ${vendedorAtribExpr} AS VENDEDOR_ID,
         MAX(COALESCE(v.NOMBRE, '')) AS VENDEDOR,
         COALESCE(SUM(CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END), 0) AS TOTAL_COBRADO
       ${cobroSqlAtrib}
-      GROUP BY COALESCE(ve.VENDEDOR_ID, pv.VENDEDOR_ID, 0)
+      GROUP BY ${vendedorAtribExpr}
     `, fiAll.params, 12000, dbo).catch(() => []),
     query(`
       SELECT COALESCE(SUM(CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END), 0) AS TOTAL_COBRADO
@@ -1511,6 +1530,9 @@ get('/api/ventas/cobradas', async (req) => {
 
   const totalCobradoReal = +(cobrosRow && cobrosRow[0] && cobrosRow[0].TOTAL_COBRADO) || 0;
   const totalLinked = +(cobroLinkedRows && cobroLinkedRows[0] && cobroLinkedRows[0].TOTAL_COBRADO) || 0;
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run30',hypothesisId:'H309',location:'server_corregido.js:/api/ventas/cobradas',message:'ventas cobradas attribution summary',data:{tipo,rowsVentas:(rows||[]).length,rowsCobroVend:(cobroPorVend||[]).length,totalCobradoReal,totalLinked,vendedorReq:isNaN(vendedorReq)?null:vendedorReq},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   const orphanCobro = Math.max(0, Math.round((totalCobradoReal - totalLinked) * 100) / 100);
   const totalFacturado = (rows || []).reduce((s, r) => s + (+r.TOTAL_VENTA || 0), 0);
   const cobMap = Object.fromEntries((cobroPorVend || []).map(r => [r.VENDEDOR_ID, +r.TOTAL_COBRADO || 0]));
@@ -1586,6 +1608,16 @@ get('/api/ventas/cobradas-detalle', async (req) => {
   // Periodo del cobro: muchas bases dejan i.FECHA nula en tipo R; el resumen reparte cobros aun así, aquí se filtra con COALESCE(i.FECHA, dc.FECHA).
   const fi = filtrosImporteCobro(req, 'i', { coalesceDcFecha: true });
   const limit = Math.min(parseInt(req.query.limit, 10) || 400, 800);
+  const vendedorAtribExpr = `COALESCE(
+    ve.VENDEDOR_ID,
+    (SELECT d2.VENDEDOR_ID
+     FROM DOCTOS_PV_LIGAS liga
+     JOIN DOCTOS_PV d2 ON d2.DOCTO_PV_ID = liga.DOCTO_PV_FTE_ID
+     WHERE liga.DOCTO_PV_DEST_ID = pv.DOCTO_PV_ID
+     ROWS 1),
+    pv.VENDEDOR_ID,
+    0
+  )`;
   return query(`
     SELECT FIRST ${limit}
       CAST(COALESCE(i.FECHA, dc.FECHA) AS DATE) AS FECHA_COBRO,
@@ -1600,7 +1632,7 @@ get('/api/ventas/cobradas-detalle', async (req) => {
     LEFT JOIN CLIENTES cl ON cl.CLIENTE_ID = COALESCE(fac.CLIENTE_ID, dc.CLIENTE_ID)
     LEFT JOIN DOCTOS_VE ve ON ve.DOCTO_VE_ID = fac.DOCTO_VE_ID
     LEFT JOIN DOCTOS_PV pv ON pv.DOCTO_PV_ID = fac.DOCTO_PV_ID
-    LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = COALESCE(ve.VENDEDOR_ID, pv.VENDEDOR_ID)
+    LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = ${vendedorAtribExpr}
     WHERE i.TIPO_IMPTE = 'R' AND COALESCE(i.CANCELADO, 'N') = 'N' ${fi.sql}
     ORDER BY MONTO_COBRADO DESC, COALESCE(i.FECHA, dc.FECHA) DESC, dc.FOLIO DESC
   `, fi.params, 15000, dbo).catch(() => []);
@@ -2239,7 +2271,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
   const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
   const whereCliDoc = cf ? ` AND doc.CLIENTE_ID = ${cf}` : '';
   const whereCliSaldo = cf ? ` WHERE cs.CLIENTE_ID = ${cf}` : '';
-  const [docAggRows, cxcSaldosLegacy, cxcAgingLegacy] = await Promise.all([
+  const [docAggRows, cxcSaldosLegacy, cxcAgingLegacy, docStatsRows] = await Promise.all([
     query(`
       SELECT
         COUNT(DISTINCT doc.CLIENTE_ID) AS NUM_CLIENTES_DOC,
@@ -2267,6 +2299,16 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
       FROM ${cxcCargosSQL()} cd
       ${cf ? `WHERE cd.CLIENTE_ID = ${cf}` : ''}
       GROUP BY cd.CLIENTE_ID
+    `, [], qms, dbo).catch(() => []),
+    query(`
+      SELECT
+        COUNT(*) AS DOCS_SALDO,
+        SUM(CASE WHEN doc.DIAS_VENCIDO > 0 THEN 1 ELSE 0 END) AS DOCS_VENCIDOS,
+        SUM(CASE WHEN doc.DIAS_VENCIDO <= 0 THEN 1 ELSE 0 END) AS DOCS_CORRIENTE,
+        SUM(CASE WHEN doc.DIAS_VENCIDO <= 0 THEN doc.SALDO_NETO ELSE 0 END) AS SALDO_CORRIENTE,
+        SUM(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.SALDO_NETO ELSE 0 END) AS SALDO_VENCIDO
+      FROM ${cxcDocSaldosInnerSQL('')} doc
+      WHERE doc.SALDO_NETO > 0.005 ${whereCliDoc}
     `, [], qms, dbo).catch(() => []),
   ]);
 
@@ -2303,7 +2345,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
     DIAS_MAS_90: Math.round(ag4 * 100) / 100,
   };
   // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run28',hypothesisId:'H204',location:'server_corregido.js:cxcResumenAgingUnificado',message:'cxc summary from document aging aggregate',data:{cliente:cf||null,docAgg,resumen,aging,rowsSaldos:(cxcSaldosLegacy||[]).length,rowsAging:(cxcAgingLegacy||[]).length,elapsedMs:(Date.now()-t0)},timestamp:Date.now()})}).catch(()=>{});
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run30',hypothesisId:'H310',location:'server_corregido.js:cxcResumenAgingUnificado',message:'cxc summary from document aging aggregate',data:{cliente:cf||null,docAgg,docStats:(docStatsRows&&docStatsRows[0])||{},resumen,aging,rowsSaldos:(cxcSaldosLegacy||[]).length,rowsAging:(cxcAgingLegacy||[]).length,elapsedMs:(Date.now()-t0)},timestamp:Date.now()})}).catch(()=>{});
   // #endregion
   // #region agent log
   fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run6',hypothesisId:'H14',location:'server_corregido.js:2140',message:'cxc unified resumen+aging snapshot',data:{cliente:cf||null,resumen,aging},timestamp:Date.now()})}).catch(()=>{});
@@ -2315,6 +2357,9 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
 get('/api/cxc/resumen', async (req) => {
   const dbo = getReqDbOpts(req);
   const snap = await cxcResumenAgingUnificado(req, dbo, 12000);
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run29',hypothesisId:'H302',location:'server_corregido.js:/api/cxc/resumen',message:'cxc resumen endpoint response',data:{db:(req&&req.query&&req.query.db)||null,cliente:(req&&req.query&&req.query.cliente)||null,resumen:snap&&snap.resumen?snap.resumen:{}},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   return snap.resumen;
 });
 
@@ -3928,6 +3973,7 @@ async function resultadosPnlCore(req, dbOpts) {
   }
   const prefijos_labels = {};
   let prefijos_top_rows = [];
+  let subconceptos_rows = [];
   try {
     prefijos_top_rows = await q(`
       SELECT
@@ -3965,6 +4011,45 @@ async function resultadosPnlCore(req, dbOpts) {
   } catch (_) {
     prefijos_top_rows = [];
   }
+  try {
+    subconceptos_rows = await q(`
+      SELECT
+        CASE
+          WHEN cu.CUENTA_PT STARTING WITH '5201' THEN 'CO_A1'
+          WHEN cu.CUENTA_PT STARTING WITH '5202' THEN 'CO_A2'
+          WHEN cu.CUENTA_PT STARTING WITH '5203' THEN 'CO_A3'
+          WHEN cu.CUENTA_PT STARTING WITH '5204' THEN 'CO_A4'
+          WHEN cu.CUENTA_PT STARTING WITH '5205' THEN 'CO_A5'
+          WHEN cu.CUENTA_PT STARTING WITH '52' THEN 'CO_A6'
+          WHEN cu.CUENTA_PT STARTING WITH '5301' THEN 'CO_B1'
+          WHEN cu.CUENTA_PT STARTING WITH '5302' THEN 'CO_B2'
+          WHEN cu.CUENTA_PT STARTING WITH '5303' THEN 'CO_B3'
+          WHEN cu.CUENTA_PT STARTING WITH '5304' THEN 'CO_B4'
+          WHEN cu.CUENTA_PT STARTING WITH '53' THEN 'CO_B5'
+          WHEN cu.CUENTA_PT STARTING WITH '5401' THEN 'CO_C1'
+          WHEN cu.CUENTA_PT STARTING WITH '5402' THEN 'CO_C2'
+          WHEN cu.CUENTA_PT STARTING WITH '5403' THEN 'CO_C3'
+          WHEN cu.CUENTA_PT STARTING WITH '5404' THEN 'CO_C4'
+          WHEN cu.CUENTA_PT STARTING WITH '5405' THEN 'CO_C5'
+          WHEN cu.CUENTA_PT STARTING WITH '54' THEN 'CO_C6'
+          ELSE NULL
+        END AS BUCKET,
+        TRIM(COALESCE(NULLIF(cu.NOMBRE, ''), NULLIF(cu.CUENTA_JT, ''), cu.CUENTA_PT)) AS ETIQUETA,
+        ${salYearExpr} AS ANIO,
+        ${salMonthExpr} AS MES,
+        SUM(ABS(${salDeltaExpr})) AS IMP
+      FROM SALDOS_CO s
+      JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
+      WHERE (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53' OR cu.CUENTA_PT STARTING WITH '54')
+        AND ${salYearExpr} >= ? AND ${salYearExpr} <= ?
+        AND NOT (${salYearExpr} = ? AND ${salMonthExpr} < ?)
+        AND NOT (${salYearExpr} = ? AND ${salMonthExpr} > ?)
+      GROUP BY 1, 2, 3, 4
+      ORDER BY 1, 2, 3, 4
+    `, [sy, ey, sy, sm, ey, em], 15000);
+  } catch (_) {
+    subconceptos_rows = [];
+  }
   for (const r of (prefijos_top_rows || [])) {
     const b = String(r.BUCKET || '').trim();
     const et = String(r.ETIQUETA || '').trim();
@@ -3988,8 +4073,32 @@ async function resultadosPnlCore(req, dbOpts) {
   prefijos_labels.CO_A3 = 'Total gastos de administración';
   prefijos_labels.CO_B1 = 'Gastos financieros';
   prefijos_labels.CO_C1 = 'Otros gastos (partidas extraordinarias)';
+  const subTmp = {};
+  for (const r of (subconceptos_rows || [])) {
+    const b = String(r.BUCKET || '').trim();
+    if (!b) continue;
+    const et = String(r.ETIQUETA || '').trim() || 'Sin etiqueta';
+    const an = +r.ANIO || 0;
+    const me = +r.MES || 0;
+    const val = +r.IMP || 0;
+    if (!an || me < 1 || me > 12 || val <= 0.005) continue;
+    if (!subTmp[b]) subTmp[b] = {};
+    if (!subTmp[b][et]) subTmp[b][et] = { etiqueta: et, total: 0, meses: {} };
+    const mk = `${an}-${String(me).padStart(2, '0')}`;
+    subTmp[b][et].total += val;
+    subTmp[b][et].meses[mk] = (subTmp[b][et].meses[mk] || 0) + val;
+  }
+  const subconceptos = {};
+  Object.keys(subTmp).forEach((bucket) => {
+    subconceptos[bucket] = Object.values(subTmp[bucket])
+      .sort((a, b) => (+b.total || 0) - (+a.total || 0))
+      .slice(0, 30);
+  });
+  // #region agent log
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run29',hypothesisId:'H303',location:'server_corregido.js:resultadosPnlCore',message:'resultados subconceptos generated',data:{desde:desdeStr,hasta:hastaStr,buckets:Object.keys(subconceptos),rows:(subconceptos_rows||[]).length},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
 
-  return { meses, totales, tiene_costo, tiene_gastos_co, prefijos_labels, gastos_estimados: gastosEstimados, gastos_estimados_desde: gastosEstimadosDesde };
+  return { meses, totales, tiene_costo, tiene_gastos_co, prefijos_labels, subconceptos, gastos_estimados: gastosEstimados, gastos_estimados_desde: gastosEstimadosDesde };
 }
 
 get('/api/resultados/pnl', async (req) => {
