@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Suminregio Parker &mdash; Estado de Resultados</title>
+<title>Suminregio Parker &mdash; P&amp;L</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500&display=swap" rel="stylesheet">
 <script>window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');</script>
 <script src="filters.js"></script>
@@ -255,7 +255,7 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
       <a href="cxc.html" class="nav-link"><svg viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>CxC</a>
       <a href="clientes.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Clientes</a>
       <a href="inventario.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 2 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Inventario</a>
-      <a href="resultados.html" class="nav-link active"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Resultados</a>
+      <a href="resultados.html" class="nav-link active"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>P&amp;L</a>
     </nav>
     <div class="header-right">
       <div class="live-pill"><div class="live-dot"></div>P&amp;L Live</div>
@@ -267,8 +267,8 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
 <div class="page">
   <div class="hero">
     <div>
-      <div class="hero-eyebrow">Estado de Resultados · P&amp;L</div>
-      <div class="hero-title">Resultados</div>
+      <div class="hero-eyebrow">Estado de resultados</div>
+      <div class="hero-title">P&amp;L</div>
       <div class="hero-sub" id="heroSub">Cargando datos financieros...</div>
     </div>
     <div class="period-btns">
@@ -457,7 +457,7 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
   </div>
 
   <!-- P&L Estructurado -->
-  <div class="sd"><div class="sd-label">Estado de Resultados Detallado por Mes</div><div class="sd-line"></div></div>
+  <div class="sd"><div class="sd-label">P&amp;L detallado por mes</div><div class="sd-line"></div></div>
 
   <div id="costNotice" class="notice" style="display:none">ℹ️ Sin costo para este periodo. El costo se obtiene de Contabilidad (cuentas con &quot;COSTO&quot;). En Hoy, Esta Semana o Este Mes puede no haber datos a&#250;n; prueba Mes Anterior, Este A&#241;o o A&#241;o Anterior.</div>
 
@@ -554,7 +554,7 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
   </div>
 </div>
 
-<div class="footer">Suminregio Parker &mdash; Estado de Resultados v9.0 &mdash; Datos en tiempo real desde Microsip / Firebird DB</div>
+<div class="footer">Suminregio Parker &mdash; P&amp;L v9.0 &mdash; Datos en tiempo real desde Microsip / Firebird DB</div>
 
 <script>
 const API = (window.__API_BASE != null ? String(window.__API_BASE).replace(/\/+$/, '') : (window.location.protocol === 'file:' ? 'http://localhost:7000' : (window.location.origin || '')));
@@ -1205,7 +1205,9 @@ async function loadData(){
   document.getElementById('chartEmpresasWrap')&&(document.getElementById('chartEmpresasWrap').style.display='none');
   document.getElementById('monthPicker')&&(document.getElementById('monthPicker').style.display='none');
   try{
-    const uniUrl=buildPnlApiUrl('/api/resultados/pnl-universe','meses='+currentMeses+'&concurrency=2',{ omitDb:true })+'&_='+Date.now();
+    // Si ya hay negocio concreto (URL/session), no escanear todo el registro — evita colgarse minutos en pnl-universe.
+    const uniOmitDb = !(selectedBizId && selectedBizId !== '__ALL__');
+    const uniUrl=buildPnlApiUrl('/api/resultados/pnl-universe','meses='+currentMeses+'&concurrency=2',{ omitDb:uniOmitDb })+'&_='+Date.now();
     // #region agent log
     debugLogResultados('run2','H6','resultados.html:671','frontend built universe url',{search:location.search||'',currentMeses,selectedBizId:selectedBizId||'',uniUrl});
     // #endregion
@@ -1405,8 +1407,6 @@ async function loadData(){
     try{ renderInsight(totVista,mesesVista,hasCosto); }catch(e){ console.warn('renderInsight',e); }
     try{ renderCharts(mesesVista,hasCosto); }catch(e){ console.warn('renderCharts',e); }
     try{ renderTabla(mesesVista,totVista,hasCosto,tablaTieneGastos); }catch(e){ console.warn('renderTabla',e); }
-    try{ await loadBalanceGeneral(); }catch(_){}
-    try{ await loadEstadoSrContable(mesesVista, totVista); }catch(_){}
     const costNotice=document.getElementById('costNotice');
     if(costNotice)costNotice.style.display=hasCosto?'none':'block';
     const gastosNotice=document.getElementById('gastosNotice');
@@ -1424,9 +1424,16 @@ async function loadData(){
         gastosNotice.style.display=data.tiene_gastos_co===true?'none':'block';
       }
     }
+    // Hero / subtítulo: actualizar aquí para no quedar en "Cargando..." si Balance/Estado SR tardan o fallan.
     if(heroEl)heroEl.textContent=meses.length||tot.VENTAS_NETAS
       ?((multi?(okEmp.find(e=>e.id===selectedBizId)||{}).label+' · ':'')+currentMeses+' meses · '+fmtM(+tot.VENTAS_NETAS||0)+' ventas netas · '+(hasCosto?fmtPct(+tot.MARGEN_BRUTO_PCT||0)+' margen bruto':'Costo no en BD')+' · '+fmtM(+tot.COBROS||0)+' cobrado')
       :'Sin datos. ¿Servidor Node en marcha? Probar: '+url;
+    try{
+      await Promise.all([
+        loadBalanceGeneral().catch(()=>{}),
+        loadEstadoSrContable(mesesVista, totVista).catch(()=>{})
+      ]);
+    }catch(_){}
   }catch(e){
     applyCoLabelsDynamic(null);
     if(heroEl)heroEl.textContent='Error: '+e.message+'. Revisar consola (F12).';

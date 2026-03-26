@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Guillermo Ríos — IT, BI, RPA e IA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Source+Sans+3:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #0f1419;
+      --muted: #5c6670;
+      --accent: #1a4d6d;
+      --accent-soft: #e8f1f6;
+      --gold: #b8860b;
+      --paper: #faf9f7;
+      --line: #e2ddd4;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    @page {
+      size: A4;
+      margin: 14mm 16mm;
+    }
+
+    body {
+      font-family: "Source Sans 3", system-ui, sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.55;
+      color: var(--ink);
+      background: var(--paper);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .doc {
+      max-width: 210mm;
+      margin: 0 auto;
+      padding: 12mm 14mm 18mm;
+    }
+
+    /* Header */
+    .hero {
+      border-bottom: 3px solid var(--accent);
+      padding-bottom: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero h1 {
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 2.15rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--accent);
+      line-height: 1.15;
+    }
+
+    .hero .tagline {
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: var(--muted);
+      margin-top: 0.35rem;
+    }
+
+    .hero .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 0.85rem;
+    }
+
+    .pill {
+      font-size: 0.72rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 0.28rem 0.65rem;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-radius: 2px;
+    }
+
+    /* Sections */
+    h2 {
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 1.35rem;
+      font-weight: 600;
+      color: var(--ink);
+      margin: 1.35rem 0 0.65rem;
+      padding-bottom: 0.35rem;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h2:first-of-type { margin-top: 0.5rem; }
+
+    .lead {
+      font-size: 0.98rem;
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    /* Timeline / roles */
+    .role {
+      margin-bottom: 1.1rem;
+      padding-left: 0.85rem;
+      border-left: 3px solid var(--accent);
+    }
+
+    .role.current {
+      border-left-color: var(--gold);
+      background: linear-gradient(90deg, rgba(184, 134, 11, 0.06) 0%, transparent 100%);
+      padding: 0.65rem 0.65rem 0.65rem 0.85rem;
+      margin-left: -0.65rem;
+      border-radius: 0 4px 4px 0;
+    }
+
+    .role h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .role .org {
+      font-weight: 600;
+      color: var(--accent);
+      font-size: 0.92rem;
+    }
+
+    .role .period {
+      font-size: 0.78rem;
+      color: var(--muted);
+      font-weight: 500;
+      margin: 0.15rem 0 0.4rem;
+    }
+
+    .role ul {
+      margin: 0;
+      padding-left: 1.1rem;
+    }
+
+    .role li {
+      margin-bottom: 0.25rem;
+      color: var(--ink);
+    }
+
+    /* Skills grid */
+    .skills {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.65rem 1.25rem;
+      margin-top: 0.5rem;
+    }
+
+    .skill-block {
+      background: #fff;
+      border: 1px solid var(--line);
+      padding: 0.65rem 0.75rem;
+      border-radius: 4px;
+    }
+
+    .skill-block strong {
+      display: block;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--accent);
+      margin-bottom: 0.25rem;
+    }
+
+    .skill-block span {
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+
+    /* Freelance */
+    .freelance-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    .fcard {
+      border: 1px solid var(--line);
+      padding: 0.65rem 0.75rem;
+      border-radius: 4px;
+      background: #fff;
+    }
+
+    .fcard .name { font-weight: 700; color: var(--accent); font-size: 0.9rem; }
+    .fcard .type { font-size: 0.82rem; color: var(--muted); margin-top: 0.2rem; }
+
+    footer {
+      margin-top: 1.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--line);
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    @media print {
+      body { background: #fff; }
+      .doc { padding: 0; max-width: none; }
+      .role { break-inside: avoid; }
+      h2 { break-after: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="doc">
+    <header class="hero">
+      <h1>Guillermo Ríos</h1>
+      <p class="tagline">Consultoría y auditoría IT · Business Intelligence · RPA · Sistemas web · IA (agentes, asistentes y soluciones)</p>
+      <div class="pill-row">
+        <span class="pill">Auditoría IT</span>
+        <span class="pill">Business Intelligence</span>
+        <span class="pill">RPA</span>
+        <span class="pill">Sistemas web</span>
+        <span class="pill">IA aplicada</span>
+        <span class="pill">Análisis de datos</span>
+      </div>
+    </header>
+
+    <p class="lead">
+      <strong>Guillermo Ríos</strong> combina experiencia en <strong>consultoría y auditoría de TI</strong> en firmas reconocidas con trabajo práctico en <strong>BI</strong>, <strong>RPA</strong>, <strong>sistemas web</strong> y <strong>inteligencia artificial</strong>. Su recorrido va del control y la documentación de auditoría al tablero de indicadores, la automatización de procesos y el desarrollo de soluciones con IA; le interesa que el dato y la tecnología sirvan a decisiones claras, sin ruido innecesario.
+    </p>
+
+    <h2>Consultoría y auditoría (IT)</h2>
+    <p class="lead" style="margin-bottom:0.75rem">Participación en revisiones de controles, riesgos tecnológicos y alineamiento de TI con objetivos de negocio, en equipos multidisciplinarios.</p>
+
+    <div class="role">
+      <h3>Consultor / Auditor en tecnologías de la información</h3>
+      <div class="org">KPMG</div>
+      <p class="period">Big Four — Auditoría, controles sobre TI y trabajo conjunto con equipos de auditoría financiera y de riesgos.</p>
+      <ul>
+        <li>Participación en revisiones de controles sobre procesos y sistemas relevantes para el negocio; criterio técnico y soporte documental al trabajo de aseguramiento.</li>
+        <li>Colaboración con auditoría financiera y de riesgos en marcos de calidad profesional exigentes.</li>
+        <li>Experiencia en metodologías de auditoría IT, vínculo proceso–sistema y hallazgos bien sustentados.</li>
+      </ul>
+    </div>
+
+    <div class="role">
+      <h3>Consultor / Auditor en tecnologías de la información</h3>
+      <div class="org">Mazars</div>
+      <p class="period">Red internacional — Aseguramiento y consultoría en entornos de TI variados.</p>
+      <ul>
+        <li>Apoyo en evaluaciones de madurez de procesos y controles ligados a sistemas de información.</li>
+        <li>Comunicación con stakeholders y traducción de hallazgos técnicos en mensajes útiles para auditoría y cliente.</li>
+        <li>Documentación de hallazgos y seguimiento de recomendaciones.</li>
+      </ul>
+    </div>
+
+    <h2>Analítica, BI y sector industrial</h2>
+    <p class="lead" style="margin-bottom:0.75rem">Tras la etapa de auditoría, el foco se desplazó al dato: desarrollo de BI, análisis y reporteo en industria y consultoría.</p>
+
+    <div class="role">
+      <h3>BI Developer (Business Intelligence)</h3>
+      <div class="org">Valtre</div>
+      <p class="period">Consultoría especializada — Soluciones de BI, modelado y entregables analíticos.</p>
+      <ul>
+        <li>Diseño e implementación de informes, vistas y componentes de BI según prioridades de negocio.</li>
+        <li>Trabajo con usuarios y equipos técnicos: de requerimiento a tableros e indicadores utilizables.</li>
+        <li>Modelado conceptual, calidad del dato y ciclo de vida de entregables en proyecto.</li>
+      </ul>
+    </div>
+
+    <div class="role">
+      <h3>Análisis de datos</h3>
+      <div class="org">Foretags</div>
+      <p class="period">Análisis a partir de datos operativos y corporativos.</p>
+      <ul>
+        <li>Análisis orientados a decisiones: exploración, segmentación y soporte a preguntas de negocio concretas.</li>
+        <li>Priorizar qué medir y cómo presentarlo; ser claro sobre límites del dato cuando aplica.</li>
+      </ul>
+    </div>
+
+    <div class="role">
+      <h3>Business Intelligence (BI)</h3>
+      <div class="org">Aceros y Overrollings de México (OMEX)</div>
+      <p class="period">Sector industrial — Métricas y reporteo para operación y dirección.</p>
+      <ul>
+        <li>Desarrollo y mantenimiento de soluciones de BI alineadas a operación industrial.</li>
+        <li>Tableros e indicadores para visibilidad de desempeño y seguimiento de metas.</li>
+      </ul>
+    </div>
+
+    <h2>Rol actual — COVIA</h2>
+
+    <div class="role current">
+      <h3>Analista de BI · RPA · Sistemas web · IA</h3>
+      <div class="org">COVIA</div>
+      <p class="period">Posición actual — BI, automatización, sistemas web y desarrollo con inteligencia artificial.</p>
+      <ul>
+        <li><strong>BI:</strong> Modelado, indicadores e información para usuarios de negocio.</li>
+        <li><strong>RPA:</strong> Identificación de procesos repetitivos y automatización para reducir errores y tiempo manual.</li>
+        <li><strong>Sistemas web:</strong> Participación en soluciones vía navegador e integración con procesos internos.</li>
+        <li><strong>IA:</strong> Creación de <strong>soluciones de IA</strong>, <strong>agentes</strong> y <strong>asistentes de IA</strong> (asistentes conversacionales u orientados a tareas, según el caso), además de aplicar IA a problemas de productividad o apoyo a la decisión cuando el alcance lo permite.</li>
+      </ul>
+    </div>
+
+    <h2>Freelance</h2>
+    <p class="lead" style="margin-bottom:0.6rem">Proyectos como consultor independiente.</p>
+    <div class="freelance-grid">
+      <div class="fcard">
+        <div class="name">Suminregio Parker Mangueras Industriales</div>
+        <div class="type">Consultoría en datos, procesos o sistemas según necesidad del cliente.</div>
+      </div>
+      <div class="fcard">
+        <div class="name">Cooper Lighting</div>
+        <div class="type">Consultoría en líneas tecnológicas o analíticas.</div>
+      </div>
+    </div>
+
+    <h2>Competencias</h2>
+    <div class="skills">
+      <div class="skill-block">
+        <strong>Auditoría &amp; riesgo IT</strong>
+        <span>Controles, evidencia, trabajo con equipos multidisciplinarios y estándares de la profesión.</span>
+      </div>
+      <div class="skill-block">
+        <strong>BI &amp; datos</strong>
+        <span>Indicadores, modelos de información, reportes y uso del dato para decisiones.</span>
+      </div>
+      <div class="skill-block">
+        <strong>RPA</strong>
+        <span>Automatización de reglas de negocio repetibles y procesos bien definidos.</span>
+      </div>
+      <div class="skill-block">
+        <strong>Web &amp; IA</strong>
+        <span>Sistemas web; soluciones de IA, agentes y asistentes de IA aplicados a necesidades reales.</span>
+      </div>
+    </div>
+
+    <footer>
+      Guillermo Ríos · Documento para impresión o PDF (Ctrl+P → Guardar como PDF)<br />
+      Agregar contacto o LinkedIn según convenga.
+    </footer>
+  </div>
+</body>
+</html>

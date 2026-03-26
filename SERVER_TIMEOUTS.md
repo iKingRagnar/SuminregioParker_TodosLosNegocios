@@ -20,7 +20,7 @@ Tras `git pull`, reiniciar Node/pm2. Opcional: añadir `FB_QUERY_DEFAULT_MS=6000
 
 ## Selector multi-base (`?db=`)
 
-Los chips del Command Center envían `?db=<id>`. En el servidor, **`getReqDbOpts`** solo acepta `id` que exista en `DATABASE_REGISTRY` (misma lista que `/api/universe/databases`). Si el id **no coincide** (URL vieja, typo, registro distinto en otro PC), Node **ignora** el parámetro y usa **`FB_DATABASE`** → puedes ver **todo en $0** aunque el chip muestre otra empresa.
+Los chips del SCORECARD envían `?db=<id>`. En el servidor, **`getReqDbOpts`** solo acepta `id` que exista en `DATABASE_REGISTRY` (misma lista que `/api/universe/databases`). Si el id **no coincide** (URL vieja, typo, registro distinto en otro PC), Node **ignora** el parámetro y usa **`FB_DATABASE`** → puedes ver **todo en $0** aunque el chip muestre otra empresa.
 
 - Comprobar: `GET /api/config/db-check?db=TU_ID`
 - Consola del servidor: línea `[Firebird] bases registradas (N): id ← archivo.fdb`

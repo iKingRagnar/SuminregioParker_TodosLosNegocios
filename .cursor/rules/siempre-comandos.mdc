@@ -1,0 +1,34 @@
+---
+description: Siempre dar comandos completos (PowerShell) para git, deploy y verificación
+alwaysApply: true
+---
+
+# Comandos siempre visibles (obligación del agente)
+
+## Cuándo aplica
+
+En **cualquier** respuesta que involucre: `git`, push a GitHub, Render, PM2, verificación de API (`/api/ping`), o pasos de terminal para este proyecto.
+
+## Qué incluir siempre
+
+1. **Ruta explícita** con `cd` al workspace del usuario, por ejemplo:
+   - `cd C:\Users\ragna\Downloads\microsip-api`
+2. **Comandos completos** listos para copiar y pegar, no solo "haz commit" o "sube a Render".
+3. **PowerShell** en Windows: usar `;` para encadenar si hace falta (evitar `&&` en PS antiguo).
+4. Flujo típico de despliegue cuando los cambios deben verse en producción:
+   - `git status`
+   - `git add` (archivos específicos o `-A` si corresponde)
+   - `git commit -m "mensaje claro"`
+   - `git push origin main`
+5. **Verificación** tras deploy (una de):
+   - `curl.exe -s "https://suminregioparker-todoslosnegocios.onrender.com/api/ping"`
+   - O abrir en navegador la misma URL y confirmar el campo `build` en JSON.
+
+## No hacer
+
+- No terminar solo con narrativa sin bloque de comandos cuando el usuario necesita ejecutar algo.
+- No omitir `commit`/`push` si el objetivo es actualizar Render u otro remoto.
+
+## Relación con otras reglas
+
+- Complementa `.cursor/rules/suminregio-git-deploy.mdc` (obligación de push tras cambios listos).

@@ -902,16 +902,53 @@ function cotizacionesSub() {
   )`;
 }
 
+/** Cache por base: columnas reales en DOCTOS_* (FECHA vs FECHA_DOCUMENTO, UNIDADES vs CANTIDAD). */
+const consumosSchemaCache = new Map();
+
+/**
+ * Resuelve columnas de fecha en cabecera y cantidad en renglón (variantes Microsip).
+ * Si se usa FECHA_DOCUMENTO o CANTIDAD incorrectamente, la query falla y los KPIs quedan en 0.
+ */
+async function resolveConsumosSchema(dbo) {
+  const key = dbCacheKey(dbo);
+  if (consumosSchemaCache.has(key)) return consumosSchemaCache.get(key);
+  const [veCols, pvCols, veDetCols, pvDetCols] = await Promise.all([
+    getTableColumns('DOCTOS_VE', dbo),
+    getTableColumns('DOCTOS_PV', dbo),
+    getTableColumns('DOCTOS_VE_DET', dbo),
+    getTableColumns('DOCTOS_PV_DET', dbo),
+  ]);
+  const fv = firstExistingColumn(veCols, ['FECHA', 'FECHA_DOCUMENTO']) || 'FECHA';
+  const fp = firstExistingColumn(pvCols, ['FECHA', 'FECHA_DOCUMENTO']) || 'FECHA';
+  const veQty = firstExistingColumn(veDetCols, ['UNIDADES', 'CANTIDAD']) || 'UNIDADES';
+  const pvQty = firstExistingColumn(pvDetCols, ['UNIDADES', 'CANTIDAD']) || 'UNIDADES';
+  const out = {
+    feExprVe: `d.${fv}`,
+    feExprPv: `d.${fp}`,
+    veQty,
+    pvQty,
+  };
+  consumosSchemaCache.set(key, out);
+  return out;
+}
+
 /**
  * Subconsulta de consumo por unidades vendidas (VE + PV)
  * tipo: 'VE' | 'PV' | '' (ambos)
+ * parts: salida de resolveConsumosSchema(dbo)
  */
-function consumosSub(tipo = '') {
+function consumosSubSql(tipo = '', parts) {
+  const p = parts || {};
+  const feVe = p.feExprVe || 'd.FECHA';
+  const fePv = p.feExprPv || 'd.FECHA';
+  const veQty = p.veQty || 'UNIDADES';
+  const pvQty = p.pvQty || 'UNIDADES';
   // Sin tipo R: las devoluciones suelen no tener renglones en *_DET y anulan el consumo agregado (KPIs en 0).
+  // Proyectar siempre CAST(... AS DATE) AS FECHA para que buildFiltros y KPIs usen d.FECHA en el exterior.
   const ve = `
     SELECT
-      d.FECHA,
-      COALESCE(det.UNIDADES, 0) AS UNIDADES,
+      CAST(${feVe} AS DATE) AS FECHA,
+      COALESCE(det.${veQty}, 0) AS UNIDADES,
       COALESCE(d.VENDEDOR_ID, 0) AS VENDEDOR_ID,
       COALESCE(d.CLIENTE_ID, 0) AS CLIENTE_ID,
       COALESCE(det.ARTICULO_ID, 0) AS ARTICULO_ID,
@@ -925,8 +962,8 @@ function consumosSub(tipo = '') {
 
   const pv = `
     SELECT
-      d.FECHA,
-      COALESCE(det.UNIDADES, 0) AS UNIDADES,
+      CAST(${fePv} AS DATE) AS FECHA,
+      COALESCE(det.${pvQty}, 0) AS UNIDADES,
       COALESCE(
         CASE WHEN d.TIPO_DOCTO = 'F' THEN
           (SELECT d2.VENDEDOR_ID
@@ -2723,30 +2760,63 @@ const SQL_EXIST_SUB = `( SELECT ARTICULO_ID, SUM(ENTRADAS_UNIDADES - SALIDAS_UNI
 const SQL_MINIMO_SUB = `( SELECT ARTICULO_ID, MAX(INVENTARIO_MINIMO) AS INVENTARIO_MINIMO FROM NIVELES_ARTICULOS WHERE INVENTARIO_MINIMO > 0 GROUP BY ARTICULO_ID )`;
 const SQL_PRECIO_SUB = `( SELECT ARTICULO_ID, MIN(PRECIO) AS PRECIO1 FROM PRECIOS_ARTICULOS WHERE MONEDA_ID = 1 AND PRECIO > 0 GROUP BY ARTICULO_ID )`;
 
+const invPrecioSubCache = new Map();
+/** Precio mínimo por artículo (PRECIO vs PRECIO_VENTA; MONEDA_ID opcional). Falla común: MONEDA_ID o PRECIO distintos → rompe solo el KPI agregado con precios. */
+async function invPrecioSubSql(dbo) {
+  const key = dbCacheKey(dbo);
+  if (invPrecioSubCache.has(key)) return invPrecioSubCache.get(key);
+  const cols = await getTableColumns('PRECIOS_ARTICULOS', dbo);
+  if (!cols || cols.size === 0) {
+    invPrecioSubCache.set(key, SQL_PRECIO_SUB);
+    return invPrecioSubCache.get(key);
+  }
+  const precioCol = firstExistingColumn(cols, ['PRECIO', 'PRECIO_VENTA', 'PRECIO_LISTA', 'IMPORTE']);
+  if (!precioCol) {
+    invPrecioSubCache.set(key, SQL_PRECIO_SUB);
+    return invPrecioSubCache.get(key);
+  }
+  const hasMoneda = cols.has('MONEDA_ID');
+  const where = hasMoneda ? `${precioCol} > 0 AND MONEDA_ID = 1` : `${precioCol} > 0`;
+  const sql = `( SELECT ARTICULO_ID, MIN(${precioCol}) AS PRECIO1 FROM PRECIOS_ARTICULOS WHERE ${where} GROUP BY ARTICULO_ID )`;
+  invPrecioSubCache.set(key, sql);
+  return sql;
+}
+
 // SIN_STOCK = solo articulos con minimo definido y existencia 0 (alerta real). No contar todo el catalogo en cero.
 get('/api/inv/resumen', async (req) => {
   const dbo = getReqDbOpts(req);
   // #region agent log
   fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run-render-inv-1',hypothesisId:'H3',location:'server_corregido.js:/api/inv/resumen:start',message:'inv resumen start',data:{db:req&&req.query&&req.query.db?String(req.query.db):'default',host:dbo&&dbo.host?String(dbo.host):'',port:dbo&&dbo.port?Number(dbo.port):0,database:dbo&&dbo.database?String(dbo.database):''},timestamp:Date.now()})}).catch(()=>{});
   // #endregion
-  const rows = await query(`
+  const qCounts = `
     SELECT
       COUNT(DISTINCT a.ARTICULO_ID) AS TOTAL_ARTICULOS,
       SUM(CASE WHEN COALESCE(s.EXISTENCIA, 0) < COALESCE(n.INVENTARIO_MINIMO, 0) AND COALESCE(n.INVENTARIO_MINIMO, 0) > 0 THEN 1 ELSE 0 END) AS BAJO_MINIMO,
-      SUM(COALESCE(s.EXISTENCIA, 0) * COALESCE(pr.PRECIO1, 0)) AS VALOR_INVENTARIO,
       SUM(CASE WHEN COALESCE(n.INVENTARIO_MINIMO, 0) > 0 AND COALESCE(s.EXISTENCIA, 0) <= 0 THEN 1 ELSE 0 END) AS SIN_STOCK
     FROM ARTICULOS a
     LEFT JOIN ${SQL_EXIST_SUB} s ON s.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${SQL_MINIMO_SUB} n ON n.ARTICULO_ID = a.ARTICULO_ID
-    LEFT JOIN ${SQL_PRECIO_SUB} pr ON pr.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A'
-  `, [], 12000, dbo).catch((e) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run-render-inv-1',hypothesisId:'H4',location:'server_corregido.js:/api/inv/resumen:catch',message:'inv resumen query catch',data:{db:req&&req.query&&req.query.db?String(req.query.db):'default',error:e&&e.message?String(e.message).slice(0,300):String(e||'')},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
+  `;
+  const countsRows = await query(qCounts, [], 12000, dbo).catch((e) => {
+    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run-render-inv-1',hypothesisId:'H4a',location:'server_corregido.js:/api/inv/resumen:counts-catch',message:'inv resumen counts query catch',data:{db:req&&req.query&&req.query.db?String(req.query.db):'default',error:e&&e.message?String(e.message).slice(0,300):String(e||'')},timestamp:Date.now()})}).catch(()=>{});
     return [{}];
   });
-  const r = rows[0] || {};
+  const precioSub = await invPrecioSubSql(dbo);
+  const qValor = `
+    SELECT COALESCE(SUM(COALESCE(s.EXISTENCIA, 0) * COALESCE(pr.PRECIO1, 0)), 0) AS VALOR_INVENTARIO
+    FROM ARTICULOS a
+    LEFT JOIN ${SQL_EXIST_SUB} s ON s.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN ${precioSub} pr ON pr.ARTICULO_ID = a.ARTICULO_ID
+    WHERE COALESCE(a.ESTATUS, 'A') = 'A'
+  `;
+  const valorRows = await query(qValor, [], 12000, dbo).catch((e) => {
+    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run-render-inv-1',hypothesisId:'H4b',location:'server_corregido.js:/api/inv/resumen:valor-catch',message:'inv resumen valor query catch',data:{db:req&&req.query&&req.query.db?String(req.query.db):'default',error:e&&e.message?String(e.message).slice(0,300):String(e||'')},timestamp:Date.now()})}).catch(()=>{});
+    return [{ VALOR_INVENTARIO: 0 }];
+  });
+  const c = countsRows[0] || {};
+  const v = valorRows[0] || {};
+  const r = Object.assign({}, c, v);
   // #region agent log
   fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run-render-inv-1',hypothesisId:'H5',location:'server_corregido.js:/api/inv/resumen:end',message:'inv resumen result snapshot',data:{db:req&&req.query&&req.query.db?String(req.query.db):'default',tot:+(r.TOTAL_ARTICULOS||0),valor:+(r.VALOR_INVENTARIO||0),bajo:+(r.BAJO_MINIMO||0),sin:+(r.SIN_STOCK||0)},timestamp:Date.now()})}).catch(()=>{});
   // #endregion
@@ -2765,6 +2835,7 @@ app.get('/api/debug/firebird-inv', async (req, res) => {
     const art = await query(`SELECT COUNT(*) AS C FROM ARTICULOS`, [], 12000, dbo);
     const act = await query(`SELECT COUNT(*) AS C FROM ARTICULOS a WHERE COALESCE(a.ESTATUS,'A')='A'`, [], 12000, dbo);
     const sample = await query(`SELECT FIRST 3 a.ARTICULO_ID, a.NOMBRE, a.ESTATUS FROM ARTICULOS a ORDER BY a.ARTICULO_ID`, [], 12000, dbo);
+    const precioSubDbg = await invPrecioSubSql(dbo);
     const inv = await query(`
       SELECT
         COUNT(DISTINCT a.ARTICULO_ID) AS TOTAL_ARTICULOS,
@@ -2774,7 +2845,7 @@ app.get('/api/debug/firebird-inv', async (req, res) => {
       FROM ARTICULOS a
       LEFT JOIN ${SQL_EXIST_SUB} s ON s.ARTICULO_ID = a.ARTICULO_ID
       LEFT JOIN ${SQL_MINIMO_SUB} n ON n.ARTICULO_ID = a.ARTICULO_ID
-      LEFT JOIN ${SQL_PRECIO_SUB} pr ON pr.ARTICULO_ID = a.ARTICULO_ID
+      LEFT JOIN ${precioSubDbg} pr ON pr.ARTICULO_ID = a.ARTICULO_ID
       WHERE COALESCE(a.ESTATUS, 'A') = 'A'
     `, [], 15000, dbo);
     const out = {
@@ -2839,13 +2910,14 @@ get('/api/inv/existencias', async (req) => {
   const q = (req.query.q || '').trim();
   if (q.length < 2) return [];
   const like = `%${q.toUpperCase().replace(/'/g, "''")}%`;
+  const precioSub = await invPrecioSubSql(dbo);
   return query(`
     SELECT FIRST 50 a.ARTICULO_ID, a.NOMBRE AS DESCRIPCION, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
       COALESCE(s.EXISTENCIA, 0) AS EXISTENCIA, COALESCE(n.INVENTARIO_MINIMO, 0) AS EXISTENCIA_MINIMA, COALESCE(pr.PRECIO1, 0) AS PRECIO_VENTA
     FROM ARTICULOS a
     LEFT JOIN ${SQL_EXIST_SUB} s ON s.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${SQL_MINIMO_SUB} n ON n.ARTICULO_ID = a.ARTICULO_ID
-    LEFT JOIN ${SQL_PRECIO_SUB} pr ON pr.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN ${precioSub} pr ON pr.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND (UPPER(a.NOMBRE) LIKE ? OR UPPER(CAST(a.ARTICULO_ID AS VARCHAR(50))) LIKE ?)
     ORDER BY a.NOMBRE
   `, [like, like], 12000, dbo).catch(() => []);
@@ -2854,33 +2926,34 @@ get('/api/inv/existencias', async (req) => {
 get('/api/inv/top-stock', async (req) => {
   const dbo = getReqDbOpts(req);
   const limit = Math.min(parseInt(req.query.limit) || 30, 100);
+  const precioSub = await invPrecioSubSql(dbo);
   return query(`
     SELECT FIRST ${limit} a.ARTICULO_ID, a.NOMBRE AS DESCRIPCION, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
       COALESCE(s.EXISTENCIA, 0) AS EXISTENCIA, COALESCE(s.EXISTENCIA, 0) * COALESCE(pr.PRECIO1, 0) AS VALOR_TOTAL, COALESCE(pr.PRECIO1, 0) AS PRECIO_VENTA
     FROM ARTICULOS a
     LEFT JOIN ${SQL_EXIST_SUB} s ON s.ARTICULO_ID = a.ARTICULO_ID
-    LEFT JOIN ${SQL_PRECIO_SUB} pr ON pr.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN ${precioSub} pr ON pr.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND COALESCE(s.EXISTENCIA, 0) > 0
     ORDER BY VALOR_TOTAL DESC
   `, [], 12000, dbo).catch(() => []);
 });
 
-// Consumo semanal desde ventas (DOCTOS_VE_DET) — inventario.html espera DESCRIPCION, EXISTENCIA, CONSUMO_SEMANAL_PROM, SEMANAS_STOCK
+// Consumo semanal desde ventas (VE unificado con resolveConsumosSchema: FECHA/FECHA_DOCUMENTO, UNIDADES/CANTIDAD)
 get('/api/inv/consumo-semanal', async (req) => {
   const dbo = getReqDbOpts(req);
   const limit = Math.min(parseInt(req.query.limit) || 30, 100);
+  const csp = await resolveConsumosSchema(dbo);
+  const subVe = consumosSubSql('VE', csp);
   return query(`
     SELECT FIRST ${limit} a.NOMBRE AS DESCRIPCION, a.ARTICULO_ID, COALESCE(s.EXISTENCIA, 0) AS EXISTENCIA,
-      SUM(det.UNIDADES) / 4.0 AS CONSUMO_SEMANAL_PROM,
-      CASE WHEN SUM(det.UNIDADES) > 0 THEN COALESCE(s.EXISTENCIA, 0) / (SUM(det.UNIDADES) / 4.0) ELSE 9999 END AS SEMANAS_STOCK
-    FROM DOCTOS_VE d
-    JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
-    JOIN ARTICULOS a ON a.ARTICULO_ID = det.ARTICULO_ID
+      SUM(d.UNIDADES) / 4.0 AS CONSUMO_SEMANAL_PROM,
+      CASE WHEN SUM(d.UNIDADES) > 0 THEN COALESCE(s.EXISTENCIA, 0) / (SUM(d.UNIDADES) / 4.0) ELSE 9999 END AS SEMANAS_STOCK
+    FROM ${subVe} d
+    JOIN ARTICULOS a ON a.ARTICULO_ID = d.ARTICULO_ID
     LEFT JOIN ${SQL_EXIST_SUB} s ON s.ARTICULO_ID = a.ARTICULO_ID
-    WHERE (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C') OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
-      AND d.FECHA >= (CURRENT_DATE - 28)
+    WHERE CAST(d.FECHA AS DATE) >= (CURRENT_DATE - 28)
     GROUP BY a.NOMBRE, a.ARTICULO_ID, s.EXISTENCIA
-    HAVING SUM(det.UNIDADES) > 0
+    HAVING SUM(d.UNIDADES) > 0
     ORDER BY SEMANAS_STOCK ASC
   `, [], 12000, dbo).catch(() => []);
 });
@@ -2891,20 +2964,21 @@ get('/api/inv/consumo', async (req) => {
   const dias = Math.min(parseInt(req.query.dias) || 90, 365);
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
   const lead = Math.min(parseInt(req.query.lead) || 15, 60);
+  const csp = await resolveConsumosSchema(dbo);
+  const subVe = consumosSubSql('VE', csp);
   const rows = await query(`
     SELECT FIRST ${limit} a.NOMBRE AS DESCRIPCION, a.ARTICULO_ID, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
       COALESCE(ex.EXISTENCIA, 0) AS EXISTENCIA_ACTUAL, COALESCE(mn.INVENTARIO_MINIMO, 0) AS MIN_ACTUAL,
-      SUM(det.UNIDADES) AS CONSUMO_PERIODO, SUM(det.UNIDADES) / ${dias}.0 AS CONSUMO_DIARIO,
-      CASE WHEN SUM(det.UNIDADES) > 0 THEN CAST(COALESCE(ex.EXISTENCIA, 0) / (SUM(det.UNIDADES) / ${dias}.0) AS INTEGER) ELSE 9999 END AS DIAS_STOCK,
-      CASE WHEN SUM(det.UNIDADES) > 0 THEN CAST(SUM(det.UNIDADES) / ${dias}.0 * ${lead} + 0.9999 AS INTEGER) ELSE 0 END AS STOCK_MINIMO_RECOMENDADO
-    FROM DOCTOS_VE d
-    JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
-    JOIN ARTICULOS a ON a.ARTICULO_ID = det.ARTICULO_ID
+      SUM(d.UNIDADES) AS CONSUMO_PERIODO, SUM(d.UNIDADES) / ${dias}.0 AS CONSUMO_DIARIO,
+      CASE WHEN SUM(d.UNIDADES) > 0 THEN CAST(COALESCE(ex.EXISTENCIA, 0) / (SUM(d.UNIDADES) / ${dias}.0) AS INTEGER) ELSE 9999 END AS DIAS_STOCK,
+      CASE WHEN SUM(d.UNIDADES) > 0 THEN CAST(SUM(d.UNIDADES) / ${dias}.0 * ${lead} + 0.9999 AS INTEGER) ELSE 0 END AS STOCK_MINIMO_RECOMENDADO
+    FROM ${subVe} d
+    JOIN ARTICULOS a ON a.ARTICULO_ID = d.ARTICULO_ID
     LEFT JOIN ${SQL_EXIST_SUB} ex ON ex.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${SQL_MINIMO_SUB} mn ON mn.ARTICULO_ID = a.ARTICULO_ID
-    WHERE (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C') AND d.FECHA >= (CURRENT_DATE - ${dias}) AND COALESCE(a.ESTATUS, 'A') = 'A'
+    WHERE CAST(d.FECHA AS DATE) >= (CURRENT_DATE - ${dias}) AND COALESCE(a.ESTATUS, 'A') = 'A'
     GROUP BY a.NOMBRE, a.ARTICULO_ID, a.UNIDAD_VENTA, ex.EXISTENCIA, mn.INVENTARIO_MINIMO
-    HAVING SUM(det.UNIDADES) > 0
+    HAVING SUM(d.UNIDADES) > 0
     ORDER BY DIAS_STOCK ASC
   `, [], 12000, dbo).catch(() => []);
   return rows.map(r => ({
@@ -2919,25 +2993,33 @@ get('/api/inv/sin-movimiento', async (req) => {
   const dbo = getReqDbOpts(req);
   const dias = Math.min(parseInt(req.query.dias) || 180, 730);
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+  const csp = await resolveConsumosSchema(dbo);
+  const subVe = consumosSubSql('VE', csp);
   return query(`
     SELECT FIRST ${limit} a.NOMBRE AS DESCRIPCION, a.ARTICULO_ID, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
       COALESCE(ex.EXISTENCIA, 0) AS EXISTENCIA_ACTUAL, COALESCE(mn.INVENTARIO_MINIMO, 0) AS MIN_ACTUAL,
-      MAX(CAST(d.FECHA AS DATE)) AS ULTIMO_MOVIMIENTO, (CURRENT_DATE - MAX(CAST(d.FECHA AS DATE))) AS DIAS_SIN_VENTA
+      um.ULTIMO_MOVIMIENTO,
+      CASE WHEN um.ULTIMO_MOVIMIENTO IS NULL THEN NULL ELSE (CURRENT_DATE - um.ULTIMO_MOVIMIENTO) END AS DIAS_SIN_VENTA
     FROM ARTICULOS a
     LEFT JOIN ${SQL_EXIST_SUB} ex ON ex.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${SQL_MINIMO_SUB} mn ON mn.ARTICULO_ID = a.ARTICULO_ID
-    LEFT JOIN DOCTOS_VE_DET det ON det.ARTICULO_ID = a.ARTICULO_ID
-    LEFT JOIN DOCTOS_VE d ON d.DOCTO_VE_ID = det.DOCTO_VE_ID AND (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
+    LEFT JOIN (
+      SELECT d.ARTICULO_ID, MAX(CAST(d.FECHA AS DATE)) AS ULTIMO_MOVIMIENTO
+      FROM ${subVe} d
+      WHERE d.UNIDADES > 0
+      GROUP BY d.ARTICULO_ID
+    ) um ON um.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND COALESCE(ex.EXISTENCIA, 0) > 0
-    GROUP BY a.NOMBRE, a.ARTICULO_ID, a.UNIDAD_VENTA, ex.EXISTENCIA, mn.INVENTARIO_MINIMO
-    HAVING (MAX(CAST(d.FECHA AS DATE)) IS NULL) OR ((CURRENT_DATE - MAX(CAST(d.FECHA AS DATE))) > ${dias})
-    ORDER BY 7 DESC NULLS FIRST, ex.EXISTENCIA DESC
+      AND (um.ULTIMO_MOVIMIENTO IS NULL OR (CURRENT_DATE - um.ULTIMO_MOVIMIENTO) > ${dias})
+    ORDER BY DIAS_SIN_VENTA DESC NULLS FIRST, ex.EXISTENCIA DESC
   `, [], 12000, dbo).catch(() => []);
 });
 
 // Operación inventario: existencia 0 persistente + consumo activo + cobertura de críticos.
 get('/api/inv/operacion-critica', async (req) => {
   const dbo = getReqDbOpts(req);
+  const csp = await resolveConsumosSchema(dbo);
+  const subOc = consumosSubSql('', csp);
   const limit = Math.min(parseInt(req.query.limit) || 120, 300);
   const rows = await query(`
     SELECT FIRST ${limit}
@@ -2967,7 +3049,7 @@ get('/api/inv/operacion-critica', async (req) => {
       SELECT
         d.ARTICULO_ID,
         COALESCE(SUM(d.UNIDADES), 0) AS CONSUMO_4S
-      FROM ${consumosSub('')} d
+      FROM ${subOc} d
       WHERE d.UNIDADES > 0
         AND CAST(d.FECHA AS DATE) >= (CURRENT_DATE - 28)
       GROUP BY d.ARTICULO_ID
@@ -2976,7 +3058,7 @@ get('/api/inv/operacion-critica', async (req) => {
       SELECT
         d.ARTICULO_ID,
         COALESCE(SUM(d.UNIDADES), 0) AS CONSUMO_MES
-      FROM ${consumosSub('')} d
+      FROM ${subOc} d
       WHERE d.UNIDADES > 0
         AND EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE)
         AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE)
@@ -2987,7 +3069,7 @@ get('/api/inv/operacion-critica', async (req) => {
         d.ARTICULO_ID,
         MAX(CAST(d.FECHA AS DATE)) AS ULTIMO_MOVIMIENTO,
         (CURRENT_DATE - MAX(CAST(d.FECHA AS DATE))) AS DIAS_SIN_VENTA
-      FROM ${consumosSub('')} d
+      FROM ${subOc} d
       WHERE d.UNIDADES > 0
       GROUP BY d.ARTICULO_ID
     ) lm ON lm.ARTICULO_ID = a.ARTICULO_ID
@@ -4186,7 +4268,13 @@ get('/api/resultados/pnl', async (req) => {
 // Resumen P&L por cada empresa del registro (sin devolver series completas; ahorra ancho de banda).
 get('/api/resultados/pnl-universe', async (req) => {
   const conc = Math.min(Math.max(parseInt(req.query.concurrency, 10) || 2, 1), 4);
-  const rows = await mapPoolLimit(DATABASE_REGISTRY, conc, async (entry) => {
+  let registry = DATABASE_REGISTRY;
+  const qdb = req.query.db ? String(req.query.db).trim().toLowerCase() : '';
+  if (qdb && qdb !== 'default' && qdb !== '__all__') {
+    const hit = DATABASE_REGISTRY.find((d) => String(d.id).toLowerCase() === qdb);
+    if (hit) registry = [hit];
+  }
+  const rows = await mapPoolLimit(registry, conc, async (entry) => {
     try {
       const { meses, totales, tiene_costo, tiene_gastos_co } = await resultadosPnlCore(req, entry.options);
       const t = totales || {};
@@ -4697,13 +4785,15 @@ get('/api/debug/schema', async () => {
 
 get('/api/consumos/resumen', async (req) => {
   const dbo = getReqDbOpts(req);
+  const tipo = getTipo(req);
+  const parts = await resolveConsumosSchema(dbo);
+  const sub = consumosSubSql(tipo, parts);
   if (!req.query.desde && !req.query.hasta && !req.query.anio) {
     const now = new Date();
     req.query.anio = now.getFullYear();
     req.query.mes = now.getMonth() + 1;
   }
   const f = buildFiltros(req, 'd');
-  const tipo = getTipo(req);
   const [totRows, maxRows] = await Promise.all([
     query(`
       SELECT
@@ -4712,14 +4802,14 @@ get('/api/consumos/resumen', async (req) => {
         COUNT(*) AS MOVIMIENTOS,
         COUNT(DISTINCT CAST(d.FECHA AS DATE)) AS DIAS_CON_MOVIMIENTO,
         COUNT(DISTINCT d.ARTICULO_ID) AS ARTICULOS_CONSUMIDOS
-      FROM ${consumosSub(tipo)} d
+      FROM ${sub} d
       WHERE d.UNIDADES > 0 ${f.sql}
     `, f.params, 12000, dbo).catch(() => []),
     query(`
       SELECT FIRST 1
         CAST(d.FECHA AS DATE) AS DIA_MAXIMO,
         COALESCE(SUM(d.UNIDADES), 0) AS MAXIMO_DIARIO
-      FROM ${consumosSub(tipo)} d
+      FROM ${sub} d
       WHERE d.UNIDADES > 0 ${f.sql}
       GROUP BY CAST(d.FECHA AS DATE)
       ORDER BY MAXIMO_DIARIO DESC, DIA_MAXIMO DESC
@@ -4744,6 +4834,8 @@ get('/api/consumos/resumen', async (req) => {
 get('/api/consumos/diarias', async (req) => {
   const dbo = getReqDbOpts(req);
   const tipo = getTipo(req);
+  const parts = await resolveConsumosSchema(dbo);
+  const sub = consumosSubSql(tipo, parts);
   const dias = Math.min(parseInt(req.query.dias) || 30, 366);
   const desde = new Date();
   desde.setDate(desde.getDate() - dias);
@@ -4754,7 +4846,7 @@ get('/api/consumos/diarias', async (req) => {
       COALESCE(SUM(CASE WHEN d.TIPO_SRC = 'VE' THEN d.UNIDADES ELSE 0 END), 0) AS CONSUMO_VE,
       COALESCE(SUM(CASE WHEN d.TIPO_SRC = 'PV' THEN d.UNIDADES ELSE 0 END), 0) AS CONSUMO_PV,
       COALESCE(SUM(d.UNIDADES), 0) AS CONSUMO_TOTAL
-    FROM ${consumosSub(tipo)} d
+    FROM ${sub} d
     WHERE d.UNIDADES > 0 AND CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
     GROUP BY CAST(d.FECHA AS DATE)
     ORDER BY 1
@@ -4764,8 +4856,10 @@ get('/api/consumos/diarias', async (req) => {
 
 get('/api/consumos/top-articulos', async (req) => {
   const dbo = getReqDbOpts(req);
-  const f = buildFiltros(req, 'd');
   const tipo = getTipo(req);
+  const parts = await resolveConsumosSchema(dbo);
+  const sub = consumosSubSql(tipo, parts);
+  const f = buildFiltros(req, 'd');
   const limit = Math.min(parseInt(req.query.limit) || 15, 100);
   return query(`
     SELECT FIRST ${limit}
@@ -4773,7 +4867,7 @@ get('/api/consumos/top-articulos', async (req) => {
       COALESCE(a.NOMBRE, 'Art. ' || CAST(d.ARTICULO_ID AS VARCHAR(12))) AS ARTICULO,
       COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
       COALESCE(SUM(d.UNIDADES), 0) AS UNIDADES
-    FROM ${consumosSub(tipo)} d
+    FROM ${sub} d
     LEFT JOIN ARTICULOS a ON a.ARTICULO_ID = d.ARTICULO_ID
     WHERE d.UNIDADES > 0 ${f.sql}
     GROUP BY d.ARTICULO_ID, a.NOMBRE, a.UNIDAD_VENTA
@@ -4783,14 +4877,16 @@ get('/api/consumos/top-articulos', async (req) => {
 
 get('/api/consumos/por-vendedor', async (req) => {
   const dbo = getReqDbOpts(req);
-  const f = buildFiltros(req, 'd');
   const tipo = getTipo(req);
+  const parts = await resolveConsumosSchema(dbo);
+  const sub = consumosSubSql(tipo, parts);
+  const f = buildFiltros(req, 'd');
   const rows = await query(`
     SELECT
       d.VENDEDOR_ID,
       COALESCE(v.NOMBRE, 'Vendedor ' || CAST(d.VENDEDOR_ID AS VARCHAR(10))) AS VENDEDOR,
       COALESCE(SUM(d.UNIDADES), 0) AS UNIDADES
-    FROM ${consumosSub(tipo)} d
+    FROM ${sub} d
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
     WHERE d.UNIDADES > 0 AND d.VENDEDOR_ID > 0 ${f.sql}
     GROUP BY d.VENDEDOR_ID, v.NOMBRE
@@ -4811,7 +4907,8 @@ get('/api/consumos/por-vendedor', async (req) => {
 get('/api/consumos/pedidos-compra', async (req) => {
   const dbo = getReqDbOpts(req);
   const tipo = getTipo(req);
-  const sub = consumosSub(tipo);
+  const parts = await resolveConsumosSchema(dbo);
+  const sub = consumosSubSql(tipo, parts);
   if (!req.query.desde && !req.query.hasta && !req.query.anio) {
     const now = new Date();
     req.query.anio = now.getFullYear();
@@ -4936,7 +5033,8 @@ get('/api/consumos/pedidos-compra', async (req) => {
 get('/api/consumos/insights', async (req) => {
   const dbo = getReqDbOpts(req);
   const tipo = getTipo(req);
-  const sub = consumosSub(tipo);
+  const parts = await resolveConsumosSchema(dbo);
+  const sub = consumosSubSql(tipo, parts);
   if (!req.query.desde && !req.query.hasta && !req.query.anio) {
     const now = new Date();
     req.query.anio = now.getFullYear();

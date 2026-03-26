@@ -187,7 +187,7 @@ function renderKpis(list, pnlTot) {
   const docsK = usePnl ? (+pnlTot.NUM_FACTURAS || 0) : docs;
   const costoVentaPct = ventaK > 0 ? (costoK / ventaK) * 100 : null;
   const utilSub = usePnl
-    ? (pnlHasCosto ? 'Utilidad bruta (Resultados)' : 'Utilidad por renglones (fallback)')
+    ? (pnlHasCosto ? 'Utilidad bruta (P&L)' : 'Utilidad por renglones (fallback)')
     : 'Venta - costo';
   const costoSub = usePnl
     ? (pnlHasCosto ? `Costo/venta: ${fmtPct(costoVentaPct)}` : `Costo/venta (renglones): ${fmtPct(costoVentaPct)}`)

@@ -297,10 +297,66 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     list = filterAllowedDatabases(list);
     if (!Array.isArray(list) || !list.length || !chips) return;
     bar.style.display = 'flex';
-    renderDbChipsInto(chips, list, function () { window.location.reload(); });
+    renderDbChipsInto(chips, list, function () {
+      if (typeof window.filterSyncFiltersToUrl === 'function') window.filterSyncFiltersToUrl();
+      window.location.reload();
+    });
+  }
+
+  /** Sincroniza fecha/vendedor/preset en la URL para que sigan vivos tras reload (?db= en chips). */
+  function syncFiltersToUrl() {
+    try {
+      const u = new URL(window.location.href);
+      const p = getParams();
+      const sp = new URLSearchParams();
+      const db = getSelectedDbId();
+      if (db) sp.set('db', db);
+      if (p.desde && p.hasta) {
+        sp.set('desde', p.desde);
+        sp.set('hasta', p.hasta);
+      } else {
+        if (p.anio != null && p.anio !== '') sp.set('anio', String(p.anio));
+        if (p.mes != null && p.mes !== '') sp.set('mes', String(p.mes));
+      }
+      if (p.preset) sp.set('preset', String(p.preset));
+      if (p.vendedor) sp.set('vendedor', String(p.vendedor));
+      const qs = sp.toString();
+      const path = u.pathname + (u.hash || '');
+      history.replaceState({}, '', path + (qs ? '?' + qs : ''));
+    } catch (_) {}
+  }
+
+  /** Lee ?preset=&anio=&mes=&desde=&hasta=&vendedor= al cargar (p. ej. tras reload con ?db=). */
+  function hydrateFiltersFromUrl() {
+    try {
+      const sp = new URLSearchParams(window.location.search);
+      const v = sp.get('vendedor');
+      if (v) _state.vendedor = v;
+      const desde = sp.get('desde');
+      const hasta = sp.get('hasta');
+      if (desde && hasta && /^\d{4}-\d{2}-\d{2}$/.test(desde) && /^\d{4}-\d{2}-\d{2}$/.test(hasta)) {
+        _state.desde = desde;
+        _state.hasta = hasta;
+        _state.anio = null;
+        _state.mes = null;
+        const pr = sp.get('preset');
+        if (pr && (pr === 'hoy' || pr === 'semana')) _state.preset = pr;
+        else _state.preset = 'hoy';
+        return;
+      }
+      const pr = sp.get('preset');
+      if (pr && ['hoy', 'semana', 'mes', 'mes_ant', 'anio', 'anio_ant'].indexOf(pr) >= 0) {
+        applyPreset(pr);
+      }
+      const anio = parseInt(sp.get('anio'), 10);
+      const mes = parseInt(sp.get('mes'), 10);
+      if (!isNaN(anio)) _state.anio = anio;
+      if (!isNaN(mes)) _state.mes = mes;
+    } catch (_) {}
   }
 
   function fire() {
+    syncFiltersToUrl();
     if (_cfg.onChange) _cfg.onChange(getParams(), buildQS);
   }
 
@@ -387,12 +443,16 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
         font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
         color: #6A85A6; white-space: nowrap;
       }
-      .biz-chips { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; min-width: 0; }
+      .biz-chips { display: flex; flex-wrap: wrap; gap: 10px; row-gap: 10px; flex: 1; min-width: 0; align-content: flex-start; }
       .biz-chip {
         font-family: ui-monospace, 'DM Mono', monospace; font-size: 11px;
         padding: 7px 12px; border-radius: 999px; border: 1px solid rgba(140,174,212,.22);
         background: rgba(18,31,46,.7); color: #b8c8da; cursor: pointer; transition: .2s;
         text-align: left;
+        flex: 0 1 auto;
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
       }
       .biz-chip:hover { color: #f0f5fb; border-color: rgba(230,168,0,.45); transform: translateY(-1px); }
       .biz-chip.active {
@@ -487,12 +547,14 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       _state = { preset: 'mes', anio: null, mes: null, desde: '', hasta: '', vendedor: '' };
 
       applyPreset(_cfg.defaultPreset || 'mes');
+      hydrateFiltersFromUrl();
 
       if (_cfg.showVendedor !== false) {
         await loadVendedores();
       }
 
       renderBar();
+      syncFiltersToUrl();
 
       if (_cfg.onReady) _cfg.onReady(getParams(), buildQS);
     } catch(e) {
@@ -508,5 +570,6 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   window.renderDbChipsInto        = renderDbChipsInto;
   window.apiPathWithDb            = apiPathWithDb;
   window.initGlobalDbBarAfterNav  = initGlobalDbBarAfterNav;
+  window.filterSyncFiltersToUrl   = syncFiltersToUrl;
 
 })();
