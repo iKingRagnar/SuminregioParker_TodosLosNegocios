@@ -252,3 +252,72 @@ html[data-theme="light"] {
 body.app-dark .uni-entity-card .m-v-cotiz {
   color: #b45309 !important;
 }
+
+/* --- ERP premium (theme-premium-light): títulos legibles, sin texto amarillo “fantasma” */
+html.theme-premium-light[data-theme="light"] :where(.hero-title, .page-title) {
+  background: none !important;
+  background-image: none !important;
+  -webkit-background-clip: unset !important;
+  -webkit-text-fill-color: unset !important;
+  background-clip: unset !important;
+  color: #0f172a !important;
+}
+html.theme-premium-light[data-theme="light"] :where(.kpi-value, .kpi-val, .kpi-v) {
+  color: #0f172a !important;
+}
+html.theme-premium-light[data-theme="light"] :where(.kpi-val, .kpi-v).text-amber,
+html.theme-premium-light[data-theme="light"] .vendor-pct,
+html.theme-premium-light[data-theme="light"] .meta-pct {
+  color: #b45309 !important;
+}
+html.theme-premium-light[data-theme="light"] :where(.kpi-val, .kpi-v).text-green-600,
+html.theme-premium-light[data-theme="light"] .ms-sem-good {
+  color: #15803d !important;
+}
+html.theme-premium-light[data-theme="light"] :where(.kpi-val, .kpi-v).text-red-600,
+html.theme-premium-light[data-theme="light"] .ms-sem-red {
+  color: #b91c1c !important;
+}
+html.theme-premium-light[data-theme="light"] table thead th,
+html.theme-premium-light[data-theme="light"] .tbl th {
+  color: #1e293b !important;
+  background: #e2e8f0 !important;
+}
+
+/* Páginas con <style> oscuro inline (p. ej. vendedores): forzar canvas claro */
+html.theme-premium-light[data-theme="light"] body {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+html.theme-premium-light[data-theme="light"] header {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-bottom-color: rgba(15, 23, 42, 0.08) !important;
+}
+html.theme-premium-light[data-theme="light"] .kpi,
+html.theme-premium-light[data-theme="light"] .sc-card {
+  background: #fff !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
+  color: #0f172a !important;
+}
+html.theme-premium-light[data-theme="light"] .kpi-lbl,
+html.theme-premium-light[data-theme="light"] .hero-eyebrow,
+html.theme-premium-light[data-theme="light"] .hero-sub,
+html.theme-premium-light[data-theme="light"] .kpi-sub {
+  color: #475569 !important;
+}
+html.theme-premium-light[data-theme="light"] .kpi.green .kpi-val {
+  color: #15803d !important;
+}
+html.theme-premium-light[data-theme="light"] .kpi.blue .kpi-val {
+  color: #1d4ed8 !important;
+}
+html.theme-premium-light[data-theme="light"] .kpi.yellow .kpi-val,
+html.theme-premium-light[data-theme="light"] .kpi.orange .kpi-val {
+  color: #b45309 !important;
+}
+html.theme-premium-light[data-theme="light"] .kpi.purple .kpi-val {
+  color: #6d28d9 !important;
+}
+html.theme-premium-light[data-theme="light"] .kpi.red .kpi-val {
+  color: #b91c1c !important;
+}

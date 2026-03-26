@@ -80,7 +80,8 @@
   function applyNavTheme() {
     let t = 'dark';
     try { t = localStorage.getItem(LS_THEME) || 'dark'; } catch (_) {}
-    const light = t === 'light';
+    const premiumLight = document.documentElement.classList.contains('theme-premium-light');
+    const light = premiumLight || t === 'light';
     document.documentElement.setAttribute('data-theme', light ? 'light' : 'dark');
     const btn = document.getElementById('app-theme-toggle');
     if (btn) {
@@ -325,6 +326,28 @@ html[data-theme="light"] :where(.comision-table th,.detalle-table th){
 html[data-theme="light"] :where(.storyline,.storyline-box,.ms-story){
   color:#1e293b!important;
   border-color:rgba(15,23,42,.12)!important;
+}
+html[data-theme="light"] .ms-story{
+  background:linear-gradient(150deg,#f8fafc 0%,#e8edf4 48%,#f1f5f9 100%)!important;
+  border-color:rgba(15,23,42,.12)!important;
+}
+html[data-theme="light"] .ms-story-kicker{
+  color:#1e40af!important;
+  background:rgba(30,64,175,.1);
+  padding:.22rem .55rem;
+  border-radius:6px;
+  display:inline-block;
+  letter-spacing:.08em;
+}
+html[data-theme="light"] .ms-story-text{color:#0f172a!important}
+html[data-theme="light"] .ms-story-pill{
+  color:#334155!important;
+  background:#fff!important;
+  border-color:rgba(15,23,42,.14)!important;
+}
+html[data-theme="light"] .logo-mark{
+  height:40px!important;
+  min-height:36px!important;
 }
 html[data-theme="dark"] :where(.card-note,.hero-sub,.page-sub,.sd-label,.bg-row,.kpi-sub,.ins-sub,.aging-sub){
   color:#9fb3c9!important;

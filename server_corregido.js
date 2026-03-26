@@ -69,6 +69,13 @@ const app  = express();
 const PORT = process.env.PORT || 7000;
 const BUILD_FINGERPRINT = 'cxc-dedupe-docto-maxdias-20250326';
 
+const DEBUG_SESSION_LOG = path.join(__dirname, 'debug-5e0522.log');
+function debugSessionLogLine(payload) {
+  try {
+    fs.appendFileSync(DEBUG_SESSION_LOG, JSON.stringify(Object.assign({ sessionId: '5e0522', timestamp: Date.now() }, payload)) + '\n', 'utf8');
+  } catch (_) { /* ignore */ }
+}
+
 /**
  * Power BI / reportes suelen usar importe base sin IVA; en cabecera DOCTOS_VE/PV el campo
  * IMPORTE_NETO a veces viene con IVA acumulado. Por defecto se divide entre 1.16.
@@ -2504,7 +2511,7 @@ get('/api/cxc/vencidas', async (req) => {
   const rows = await query(`
     SELECT FIRST ${limit}
       dc.FOLIO,
-      c.NOMBRE AS CLIENTE,
+      COALESCE(c.NOMBRE, 'Sin cliente') AS CLIENTE,
       COALESCE(cp.NOMBRE, 'S/D') AS CONDICION_PAGO,
       x.SALDO_NETO AS SALDO,
       x.DIAS_ATRASO AS ATRASO,
@@ -2530,16 +2537,22 @@ get('/api/cxc/vencidas', async (req) => {
         MAX(doc.DIAS_VENCIDO) AS DIAS_ATRASO,
         MAX(doc.SALDO_NETO) AS SALDO_NETO
       FROM ${cxcDocSaldosInnerSQL(cfSql)} doc
-      WHERE doc.SALDO_NETO > 0.005 AND doc.DIAS_VENCIDO >= 1
+      WHERE doc.SALDO_NETO > 0.005 AND doc.DIAS_VENCIDO > 0
       GROUP BY doc.DOCTO_CC_ID, doc.CLIENTE_ID
     ) x
     JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = x.DOCTO_CC_ID
-    JOIN CLIENTES c ON c.CLIENTE_ID = x.CLIENTE_ID
+    LEFT JOIN CLIENTES c ON c.CLIENTE_ID = x.CLIENTE_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, c.COND_PAGO_ID)
     ORDER BY x.SALDO_NETO DESC, x.DIAS_ATRASO DESC
-  `, [], 12000, dbo).catch(() => []);
+  `, [], 30000, dbo).catch((err) => {
+    const msg = err && (err.message || String(err));
+    console.error('cxc /api/cxc/vencidas query error:', msg);
+    debugSessionLogLine({ hypothesisId: 'H-timeout', location: 'server_corregido.js:/api/cxc/vencidas', message: 'query catch', data: { err: String(msg).slice(0, 500), db: (req && req.query && req.query.db) || null, limit } });
+    return [];
+  });
   // #region agent log
   fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run21',hypothesisId:'H96',location:'server_corregido.js:/api/cxc/vencidas',message:'overdue invoices query result',data:{db:(req&&req.query&&req.query.db)||null,cliente:cf||null,limit,rows:(rows||[]).length,firstFolios:(rows||[]).slice(0,5).map(r=>r.FOLIO)},timestamp:Date.now()})}).catch(()=>{});
+  debugSessionLogLine({ hypothesisId: 'H96', location: 'server_corregido.js:/api/cxc/vencidas', message: 'overdue invoices query result', data: { db: (req && req.query && req.query.db) || null, cliente: cf, limit, rowCount: (rows || []).length } });
   // #endregion
   return rows;
 });
@@ -4693,7 +4706,7 @@ get('/api/debug/cxc-reconcile', async (req) => {
   };
   const docSql = `
     SELECT
-      SUM(CASE WHEN doc.DIAS_VENCIDO >= 1 THEN doc.SALDO_NETO ELSE 0 END) AS VENCIDO,
+      SUM(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.SALDO_NETO ELSE 0 END) AS VENCIDO,
       SUM(CASE WHEN doc.DIAS_VENCIDO <= 0 THEN doc.SALDO_NETO ELSE 0 END) AS POR_VENCER
     FROM ${cxcDocSaldosSQL('')}
   `;

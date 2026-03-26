@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="theme-premium-light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -186,6 +186,8 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
   .cond-amt{text-align:left}
 }
 </style>
+<link rel="stylesheet" href="app-ui.css">
+<script src="app-ui-boot.js" defer></script>
 </head>
 <body>
 <div class="orb orb-1"></div>
@@ -232,7 +234,7 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
     <div class="kpi kpi--vig" title="Power BI: Saldo Cartera Vigente">
       <div class="kpi-label">No vencido <span style="font-weight:400;color:var(--txt3)">(vigente)</span></div>
       <div class="kpi-val grn" id="kVigente">$&mdash;</div>
-      <div class="kpi-sub" id="kPctVig">&mdash; % vigente</div>
+      <div class="kpi-sub" id="kPctVig">&mdash; % del saldo</div>
       <div class="kpi-badge" aria-hidden="true"></div>
     </div>
     <div class="kpi kpi--health">
@@ -323,6 +325,8 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
             <option value="12" selected>12 meses</option>
             <option value="18">18 meses</option>
             <option value="24">24 meses</option>
+            <option value="60">60 meses</option>
+            <option value="120">120 meses</option>
           </select>
         </div>
         <div class="filter-group">
@@ -358,6 +362,21 @@ const fmtSaldoDoc = v => {
 };
 const fmtM = v => '$'+(+v||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 const setText = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
+/** Respuestas CxC: siempre array (top/por-condición a veces envuelven en { rows } / { grupos }). */
+function asArrayCxC(x) {
+  if (Array.isArray(x)) return x;
+  if (x && typeof x === 'object') {
+    if (Array.isArray(x.rows)) return x.rows;
+    if (Array.isArray(x.grupos)) return x.grupos;
+  }
+  return [];
+}
+/** Saldo en fila CxC (API puede usar SALDO, SALDO_NETO o minúsculas). */
+function cxcRowSaldo(r) {
+  if (!r || typeof r !== 'object') return 0;
+  const v = r.SALDO != null ? r.SALDO : (r.SALDO_NETO != null ? r.SALDO_NETO : (r.saldo != null ? r.saldo : r.saldo_neto));
+  return +v || 0;
+}
 // #region agent log
 function debugLogCxc(runId,hypothesisId,location,message,data){
   fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId,hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
@@ -367,13 +386,30 @@ function debugLogCxc(runId,hypothesisId,location,message,data){
 function buildCxcQuery(extra){
   const cf = (document.getElementById('fCliente')?.value || '').trim();
   const e = extra ? String(extra).replace(/^[?&]+/, '') : '';
-  const parts = [cf ? ('cliente=' + encodeURIComponent(cf)) : '', e].filter(Boolean).join('&');
+  const extraObj = {};
+  if (e) {
+    e.split('&').forEach(function (pair) {
+      const ix = pair.indexOf('=');
+      if (ix > 0) {
+        try {
+          extraObj[decodeURIComponent(pair.slice(0, ix))] = decodeURIComponent(pair.slice(ix + 1));
+        } catch (_) {}
+      }
+    });
+  }
+  if (cf) extraObj.cliente = cf;
+  let qs = '';
+  if (typeof window.filterBuildQS === 'function') {
+    qs = window.filterBuildQS(Object.keys(extraObj).length ? extraObj : null, { omitDb: true });
+  } else {
+    qs = Object.keys(extraObj).map(function (k) { return k + '=' + encodeURIComponent(extraObj[k]); }).join('&');
+  }
   // #region agent log
-  try{
-    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run15',hypothesisId:'H72',location:'cxc.html:buildCxcQuery',message:'cxc query built without global filters',data:{cliente:cf||null,extra:e||'',query:parts},timestamp:Date.now()})}).catch(()=>{});
-  }catch(_){}
+  try {
+    debugLogCxc('run15', 'H72', 'cxc.html:buildCxcQuery', 'cxc query with filterBuildQS omitDb', { cliente: cf || null, extra: e || '', qs: qs || '' });
+  } catch (_) {}
   // #endregion
-  return parts ? ('?' + parts) : '';
+  return qs ? ('?' + qs) : '';
 }
 
 function cxcEffectiveDb(){
@@ -490,23 +526,13 @@ async function loadResumen() {
     const saldo = +res.SALDO_TOTAL||0;
     const vencFromAging = (+age.DIAS_1_30||0) + (+age.DIAS_31_60||0) + (+age.DIAS_61_90||0) + (+age.DIAS_MAS_90||0);
     const corrienteAging = +age.CORRIENTE || 0;
-    let venc = vencFromAging;
-    let pvenc = corrienteAging;
-    const sumAging = venc + pvenc;
-    let vencSource = 'aging';
-    if (saldo > 0.005 && sumAging <= 0.005) {
-      venc = +res.VENCIDO||0;
-      pvenc = +res.POR_VENCER||0;
-      vencSource = 'resumen-empty-aging';
-      if ((pvenc <= 0.005 || isNaN(pvenc)) && saldo > 0.005) {
-        pvenc = Math.max(0, saldo - (venc || 0));
-      }
-    } else if (saldo > 0.005 && Math.abs(sumAging - saldo) > 0.02) {
-      pvenc = Math.max(0, saldo - venc);
-      vencSource = 'aging-reconcile-pvenc';
-    }
+    const sumAging = vencFromAging + corrienteAging;
+    // KPIs: mismos que devuelve /resumen-aging (VENCIDO / POR_VENCER) — misma fuente que buckets.
+    const venc = +res.VENCIDO || 0;
+    const pvenc = +res.POR_VENCER || 0;
+    const vencSource = 'resumen-api';
     // #region agent log
-    debugLogCxc('post-fix','H318','cxc.html:loadResumen:venc-unified','venc/pvenc aligned to aging (no top-deudores mix)',{vencSource,venc,vencFromAging,resVenc:+res.VENCIDO||0,pvenc,corrienteAging,resPv:+res.POR_VENCER||0,saldo,sumAging});
+    debugLogCxc('post-fix', 'H318', 'cxc.html:loadResumen:venc-unified', 'KPI venc/pvenc from resumen-aging only', { vencSource, venc, vencFromAging, resVenc: +res.VENCIDO || 0, pvenc, corrienteAging, resPv: +res.POR_VENCER || 0, saldo, sumAging });
     // #endregion
     // #region agent log
     debugLogCxc('run30','H311','cxc.html:loadResumen:normalized','normalized cxc values rendered',{saldo,venc,pvenc,age:{CORRIENTE:+age.CORRIENTE||0,DIAS_1_30:+age.DIAS_1_30||0,DIAS_31_60:+age.DIAS_31_60||0,DIAS_61_90:+age.DIAS_61_90||0,DIAS_MAS_90:+age.DIAS_MAS_90||0}});
@@ -520,7 +546,7 @@ async function loadResumen() {
     if (elVenc) { elVenc.textContent = fmtK(venc); elVenc.style.color = porcVencidoDec > 0.2 ? '#EF4444' : '#94A3B8'; }
     if (elVig)  { elVig.textContent = fmtK(pvenc); elVig.style.color = '#22C55E'; elVig.classList.add('grn'); }
     setText('kPctV', (saldo>0?((venc/saldo)*100).toFixed(1):0)+'% del saldo');
-    setText('kPctVig', (saldo>0?((pvenc/saldo)*100).toFixed(1):0)+'% vigente');
+    setText('kPctVig', (saldo>0?((pvenc/saldo)*100).toFixed(1):0)+'% del saldo');
     if (salEl) {
       if (saldo <= 0 || typeof pV !== 'number' || isNaN(pV)) {
         salEl.textContent = 'Sin dato';
@@ -543,7 +569,7 @@ async function loadResumen() {
     setText('ag2',  fmtK(age.DIAS_31_60)); setPct('ag2Bar',  age.DIAS_31_60);
     setText('ag3',  fmtK(age.DIAS_61_90)); setPct('ag3Bar',  age.DIAS_61_90);
     setText('ag4',  fmtK(age.DIAS_MAS_90));setPct('ag4Bar',  age.DIAS_MAS_90);
-    setText('agingBreakdown', 'Vencido = 1-30 ('+fmtK(age.DIAS_1_30)+') + 31-60 ('+fmtK(age.DIAS_31_60)+') + 61-90 ('+fmtK(age.DIAS_61_90)+') + +90 ('+fmtK(age.DIAS_MAS_90)+') = '+fmtK(venc)+'. No vencido (KPI) = '+fmtK(pvenc)+' (corriente '+fmtK(age.CORRIENTE||0)+').');
+    setText('agingBreakdown', 'Aging: Corriente '+fmtK(corrienteAging)+' · Mora (1-30 … +90) '+fmtK(vencFromAging)+' · Suma buckets '+fmtK(sumAging)+'. KPI: Vencido '+fmtK(venc)+' · No vencido '+fmtK(pvenc)+' · Deuda total '+fmtK(saldo)+'.');
     const agCorriente = document.getElementById('agC');
     if (agCorriente) agCorriente.style.color = '#22C55E';
     const agingCols = { ag1:'#F59E0B', ag2:'#FB923C', ag3:'#F97316', ag4:'#EF4444' };
@@ -586,21 +612,21 @@ async function loadVencidas() {
     // #region agent log
     debugLogCxc('run21','H90','cxc.html:loadVencidas:before-fetch','requesting overdue invoices',{queryBase,db:cxcEffectiveDb()||null,cliente:(document.getElementById('fCliente')?.value||'')||null,curTab});
     // #endregion
-    const raw = await apiFetch('/api/cxc/vencidas' + queryBase);
-    let rows = (Array.isArray(raw) ? raw : [])
-      .filter(r => (+r.SALDO || 0) > 0.005)
-      .sort((a,b)=>(+b.SALDO||0)-(+a.SALDO||0));
+    const raw = await apiFetch('/api/cxc/vencidas' + queryBase, { timeout: 45000 });
+    let rows = asArrayCxC(raw)
+      .filter(r => cxcRowSaldo(r) > 0.005)
+      .sort((a,b)=>cxcRowSaldo(b)-cxcRowSaldo(a));
     if(!rows.length && (document.getElementById('fCliente')?.value||'').trim()){
-      const rawNoCli = await apiFetch('/api/cxc/vencidas?limit=120');
-      rows = (Array.isArray(rawNoCli) ? rawNoCli : [])
-        .filter(r => (+r.SALDO || 0) > 0.005)
-        .sort((a,b)=>(+b.SALDO||0)-(+a.SALDO||0));
+      const rawNoCli = await apiFetch('/api/cxc/vencidas?limit=120', { timeout: 45000 });
+      rows = asArrayCxC(rawNoCli)
+        .filter(r => cxcRowSaldo(r) > 0.005)
+        .sort((a,b)=>cxcRowSaldo(b)-cxcRowSaldo(a));
       // #region agent log
       debugLogCxc('run21','H91','cxc.html:loadVencidas:retry-without-cliente','fallback without cliente filter',{retryRows:rows.length});
       // #endregion
     }
     // #region agent log
-    debugLogCxc('run21','H92','cxc.html:loadVencidas:after-fetch','overdue invoices payload parsed',{rawType:Array.isArray(raw)?'array':typeof raw,rows:rows.length,firstFolios:rows.slice(0,5).map(r=>r.FOLIO)});
+    debugLogCxc('run21','H92','cxc.html:loadVencidas:after-fetch','overdue invoices payload parsed',{rawType:Array.isArray(raw)?'array':(raw&&raw.rows)?'object.rows':typeof raw,asArrayLen:asArrayCxC(raw).length,rows:rows.length,firstFolios:rows.slice(0,5).map(r=>r.FOLIO)});
     // #endregion
     setText('vBadge', rows.length+' docs');
     if(!rows.length){ tb.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--txt3);padding:20px">Sin facturas vencidas</td></tr>'; return; }
@@ -621,7 +647,7 @@ async function loadVencidas() {
       <td style="color:var(--txt)">${(r.CLIENTE||'').substring(0,28)}</td>
       <td style="color:var(--txt3)">${r.CONDICION_PAGO||'S/D'}</td>
       <td><span class="aging-lbl estatus-bkt ${estatusCl}">${estatus}</span></td>
-      <td style="color:var(--red)">${fmtSaldoDoc(r.SALDO)}</td>
+      <td style="color:var(--red)">${fmtSaldoDoc(cxcRowSaldo(r))}</td>
       <td style="color:var(--txt3);font-size:11px">${fmtDay(r.FECHA_VENTA)}</td>
       <td style="color:var(--txt3);font-size:11px">${fmtDay(r.FECHA_VENC_PLAZO)}</td>
       <td><span style="background:rgba(239,68,68,.15);color:var(--red);padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700">+${d}d</span></td>
@@ -641,8 +667,11 @@ async function loadVencidas() {
 async function loadTop() {
   const tb = document.getElementById('tbTop');
   try {
-    const rowsRaw = await apiFetch('/api/cxc/top-deudores' + buildCxcQuery('limit=20'));
-    const rows = [...(rowsRaw||[])].sort((a,b)=>(+b.SALDO_TOTAL||0)-(+a.SALDO_TOTAL||0));
+    const rowsRaw = await apiFetch('/api/cxc/top-deudores' + buildCxcQuery('limit=20'), { timeout: 45000 });
+    const rows = asArrayCxC(rowsRaw).sort((a,b)=>(+b.SALDO_TOTAL||0)-(+a.SALDO_TOTAL||0));
+    // #region agent log
+    debugLogCxc('run-cxc-tabs', 'H-tab-top', 'cxc.html:loadTop', 'top-deudores rows', { n: rows.length, rawType: rowsRaw == null ? 'null' : Array.isArray(rowsRaw) ? 'array' : typeof rowsRaw });
+    // #endregion
     if(!rows.length){ tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--txt3);padding:20px">Sin deudores</td></tr>'; return; }
     tb.innerHTML = rows.map((r,i)=>`<tr>
       <td style="color:var(--txt3)">${i+1}</td>
@@ -661,8 +690,11 @@ async function loadCond() {
   const cl = document.getElementById('condList');
   const ban = document.getElementById('condPendContado');
   try {
-    const raw = await apiFetch('/api/cxc/por-condicion' + buildCxcQuery());
-    const rows = Array.isArray(raw) ? raw : (raw && raw.grupos) ? raw.grupos : [];
+    const raw = await apiFetch('/api/cxc/por-condicion' + buildCxcQuery(), { timeout: 45000 });
+    const rows = asArrayCxC(raw);
+    // #region agent log
+    debugLogCxc('run-cxc-tabs', 'H-tab-cond', 'cxc.html:loadCond', 'por-condicion rows', { n: rows.length, hadGrupos: !!(raw && raw.grupos) });
+    // #endregion
     if (ban) { ban.style.display = 'none'; ban.innerHTML = ''; }
     if(!rows.length){ cl.innerHTML='<div style="color:var(--txt3);padding:20px;text-align:center">Sin datos</div>'; return; }
     const max = Math.max(...rows.map(r=>+r.SALDO_TOTAL||0));
@@ -730,9 +762,12 @@ async function loadBuro() {
   if(!cont) return;
   cont.innerHTML='<div class="loading"><div class="spin"></div>Cargando historial...</div>';
   try {
-    let url='/api/cxc/historial-pagos' + buildCxcQuery('meses=' + encodeURIComponent(meses) + '&limit=300');
-    const raw = await apiFetch(url, {timeout:30000});
+    let url='/api/cxc/historial-pagos' + buildCxcQuery('meses=' + encodeURIComponent(meses) + '&limit=500&saldos_actuales=1');
+    const raw = await apiFetch(url, { timeout: 45000 });
     const rows = Array.isArray(raw) ? raw : (raw && raw.rows ? raw.rows : []);
+    // #region agent log
+    debugLogCxc('run-cxc-tabs', 'H-tab-buro', 'cxc.html:loadBuro', 'historial-pagos rows', { n: rows.length, meses: +meses || 0, hasSaldosMap: !!(raw && raw.saldosPorCliente) });
+    // #endregion
     const saldosPorCliente = (raw && !Array.isArray(raw) && raw.saldosPorCliente) ? raw.saldosPorCliente : {};
     const filtrados = srch ? rows.filter(r=>(r.CLIENTE||'').toLowerCase().includes(srch)) : rows;
     if(!filtrados.length){ cont.innerHTML='<div style="color:var(--txt3);padding:24px;text-align:center">Sin datos de historial</div>'; return; }
@@ -805,7 +840,7 @@ function switchTab(name){
 // -- Clientes filtro -----------------------------------------------------------
 async function loadClientesFiltro(){
   try{
-    const rows = await apiFetch('/api/cxc/top-deudores' + buildCxcQuery('limit=100'));
+    const rows = asArrayCxC(await apiFetch('/api/cxc/top-deudores' + buildCxcQuery('limit=100'), { timeout: 45000 }));
     const sel = document.getElementById('fCliente');
     if(!sel) return;
     const selected = sel.value || '';
@@ -837,6 +872,23 @@ async function loadAll(){
   const [rRes, rVen] = await Promise.allSettled([loadResumen(), loadVencidas()]);
   if (rRes.status === 'rejected') console.error('[cxc] loadResumen', rRes.reason);
   if (rVen.status === 'rejected') console.error('[cxc] loadVencidas', rVen.reason);
+  // Carga secuencial de pestañas: menos contención en Firebird que 3× en paralelo tras el resumen.
+  const results = [];
+  for (const fn of [loadTop, loadCond, loadBuro]) {
+    try {
+      results.push({ name: fn.name, status: 'fulfilled', value: await fn() });
+    } catch (e) {
+      console.error('[cxc]', fn.name, e);
+      results.push({ name: fn.name, status: 'rejected', reason: (e && e.message) || String(e) });
+    }
+  }
+  // #region agent log
+  debugLogCxc('post-fix', 'H96', 'cxc.html:loadAll:tab-chain', 'sequential tab loaders', {
+    top: results[0] && results[0].status,
+    cond: results[1] && results[1].status,
+    buro: results[2] && results[2].status
+  });
+  // #endregion
 }
 
 async function refreshCxcDbHint(){

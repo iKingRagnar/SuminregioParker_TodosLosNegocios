@@ -379,7 +379,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   }
 
   function injectCSS() {
-    if (document.getElementById('filter-bar-css')) return;
+    if (!document.getElementById('filter-bar-css')) {
     const style = document.createElement('style');
     style.id = 'filter-bar-css';
     style.textContent = `
@@ -489,6 +489,60 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       }
     `;
     document.head.appendChild(style);
+    }
+    injectPremiumFilterOverrides();
+  }
+
+  /** Barra de filtros legible en ERP premium (tema claro; sin barra oscura). */
+  function injectPremiumFilterOverrides() {
+    if (!document.documentElement.classList.contains('theme-premium-light')) return;
+    if (document.getElementById('filter-bar-css-premium')) return;
+    const s = document.createElement('style');
+    s.id = 'filter-bar-css-premium';
+    s.textContent = `
+      html.theme-premium-light[data-theme="light"] .filter-bar {
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
+        border: 1px solid rgba(15, 23, 42, 0.1) !important;
+        box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06) !important;
+      }
+      html.theme-premium-light[data-theme="light"] .fb-preset {
+        background: #f1f5f9 !important;
+        color: #475569 !important;
+        border-color: rgba(15, 23, 42, 0.1) !important;
+      }
+      html.theme-premium-light[data-theme="light"] .fb-preset:hover {
+        background: #e2e8f0 !important;
+        color: #0f172a !important;
+      }
+      html.theme-premium-light[data-theme="light"] .fb-preset.active {
+        background: linear-gradient(135deg, #fbbf24, #f59e0b) !important;
+        color: #422006 !important;
+        border-color: rgba(217, 119, 6, 0.35) !important;
+      }
+      html.theme-premium-light[data-theme="light"] .fb-select {
+        background: #fff !important;
+        color: #0f172a !important;
+        border-color: rgba(15, 23, 42, 0.12) !important;
+      }
+      html.theme-premium-light[data-theme="light"] .biz-context-bar {
+        background: linear-gradient(180deg, #f8fafc, #f1f5f9) !important;
+        border: 1px solid rgba(15, 23, 42, 0.1) !important;
+        box-shadow: 0 2px 12px rgba(15, 23, 42, 0.05) !important;
+      }
+      html.theme-premium-light[data-theme="light"] .biz-context-label { color: #64748b !important; }
+      html.theme-premium-light[data-theme="light"] .biz-chip {
+        background: #fff !important;
+        color: #334155 !important;
+        border-color: rgba(15, 23, 42, 0.12) !important;
+      }
+      html.theme-premium-light[data-theme="light"] .biz-chip:hover { color: #0f172a !important; }
+      html.theme-premium-light[data-theme="light"] .biz-chip.active {
+        color: #422006 !important;
+        background: linear-gradient(135deg, #fbbf24, #f59e0b) !important;
+        border-color: rgba(217, 119, 6, 0.4) !important;
+      }
+    `;
+    document.head.appendChild(s);
   }
 
   function renderBar() {
