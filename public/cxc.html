@@ -774,6 +774,15 @@ async function loadClientesFiltro(){
 }
 
 // -- Init ----------------------------------------------------------------------
+let lastClientesDb = null;
+async function ensureClientesFiltro(){
+  const db = cxcEffectiveDb() || '';
+  if (db !== lastClientesDb) {
+    lastClientesDb = db;
+    await loadClientesFiltro();
+  }
+}
+
 async function loadAll(){
   // #region agent log
   debugLogCxc('run21','H95','cxc.html:loadAll:start','loading summary and overdue table',{db:cxcEffectiveDb()||null,cliente:(document.getElementById('fCliente')?.value||'')||null});
@@ -800,22 +809,25 @@ async function refreshCxcDbHint(){
   try { initCharts(); } catch (e) { console.warn('[cxc] initCharts', e && e.message ? e.message : e); }
   const fb = document.getElementById('filter-bar');
   if (fb) fb.style.display = '';
+  const hasFilters = !!window.initFilters;
   if (window.initFilters) {
     initFilters({
       containerId  : 'filter-bar',
       showVendedor : false,
       defaultPreset: 'mes',
-      onReady      : async () => { await refreshCxcDbHint(); await loadClientesFiltro(); await loadAll(); },
-      onChange     : async () => { await refreshCxcDbHint(); await loadClientesFiltro(); await loadAll(); },
+      onReady      : async () => { await refreshCxcDbHint(); await ensureClientesFiltro(); await loadAll(); },
+      onChange     : async () => { await refreshCxcDbHint(); await ensureClientesFiltro(); await loadAll(); },
     });
   }
   await checkStatus();
-  await refreshCxcDbHint();
-  await loadClientesFiltro();
-  await loadAll();
+  if (!hasFilters) {
+    await refreshCxcDbHint();
+    await ensureClientesFiltro();
+    await loadAll();
+  }
   setInterval(loadResumen, 1800000);
   setInterval(checkStatus, 30000);
-  window.addEventListener('popstate',()=>{ refreshCxcDbHint(); loadAll(); });
+  window.addEventListener('popstate',async ()=>{ await refreshCxcDbHint(); await ensureClientesFiltro(); await loadAll(); });
 })();
 </script>
 <script src="/chat-widget.js" defer></script>

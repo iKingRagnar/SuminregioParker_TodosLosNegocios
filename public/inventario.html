@@ -226,9 +226,9 @@ nav{display:flex;align-items:center;gap:.25rem}
       <table class="tbl" id="tbl-operacion">
         <thead><tr>
           <th>Art&iacute;culo</th><th class="num">Exist.</th><th class="num">Entradas Hist.</th>
-          <th class="num">Cons/4 Sem</th><th class="num">Cobertura</th><th>Estado</th>
+          <th class="num">Cons/4 Sem</th><th class="num">Cobertura</th><th class="num">D&iacute;as sin venta</th><th class="num">&Uacute;lt. mov.</th><th>Estado</th>
         </tr></thead>
-        <tbody id="tbl-operacion-body"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tbody>
+        <tbody id="tbl-operacion-body"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tbody>
       </table>
     </div>
   </div>
@@ -431,6 +431,8 @@ async function loadOperacionCritica(){
       const c4 = +r.CONSUMO_4_SEMANAS || 0;
       const dias = r.DIAS_COBERTURA_EST == null ? null : +r.DIAS_COBERTURA_EST;
       const sem = r.SEMANAS_COBERTURA_EST == null ? null : +r.SEMANAS_COBERTURA_EST;
+      const diasSinVenta = (r.DIAS_SIN_VENTA == null || r.DIAS_SIN_VENTA === '') ? null : +r.DIAS_SIN_VENTA;
+      const ultMov = r.ULTIMO_MOVIMIENTO ? String(r.ULTIMO_MOVIMIENTO).split('T')[0] : 'Sin registro';
       const crit = !!r.CRITICO;
       const estado = String(r.ESTADO_OPERATIVO || '');
       const chipCls = crit ? 'crit' : (estado.toLowerCase().includes('baja') || estado.toLowerCase().includes('agotado') ? 'warn' : 'ok');
@@ -443,9 +445,11 @@ async function loadOperacionCritica(){
         <td class="num" style="color:${ent<=0?'var(--red)':'var(--muted)'}">${ent.toFixed(1)}</td>
         <td class="num" style="color:${c4>0?'var(--blue)':'var(--muted)'}">${c4.toFixed(1)}</td>
         <td class="num">${cobTxt}</td>
+        <td class="num" style="color:${diasSinVenta==null?'var(--muted)':(diasSinVenta>180?'var(--red)':diasSinVenta>90?'var(--orange)':'var(--text2)')}">${diasSinVenta==null?'Sin hist.':(diasSinVenta.toFixed(0)+' d')}</td>
+        <td class="num" style="color:var(--text2)">${ultMov}</td>
         <td><span class="estado-chip ${chipCls}">${estado}</span></td>
       </tr>`;
-    }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Sin art&iacute;culos para este an&aacute;lisis</td></tr>';
+    }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.5rem">Sin art&iacute;culos para este an&aacute;lisis</td></tr>';
     // #region agent log
     debugLogInventario('run10','H52','inventario.html:loadOperacionCritica','render operacion critica',{rows:rows.length,criticos:Number(rs.criticos||0),ceroYConsumo:Number(rs.cero_y_consumo||0),nuncaEntraron:Number(rs.nunca_entraron||0)});
     // #endregion

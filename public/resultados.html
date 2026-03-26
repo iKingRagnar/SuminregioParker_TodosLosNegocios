@@ -217,6 +217,11 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
 .bg-viz-card h4{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.45rem}
 .bg-viz-sub{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--text2);margin-top:.35rem}
 .bg-viz-canvas{height:150px;position:relative}
+.bg-ratios{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.7rem;margin-bottom:.9rem}
+@media(max-width:1100px){.bg-ratios{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.bg-ratio{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:.55rem .7rem}
+.bg-ratio .k{font-family:'DM Mono',monospace;font-size:.56rem;color:var(--muted);letter-spacing:.07em;text-transform:uppercase}
+.bg-ratio .v{font-family:'DM Mono',monospace;font-size:.95rem;font-weight:700;margin-top:.2rem}
 
 .footer{text-align:center;padding:1.75rem;font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.06em;border-top:1px solid var(--border);margin-top:2rem}
 </style>
@@ -479,6 +484,12 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
         <div class="bg-kpi"><div class="lbl">Capital Total</div><div class="val" id="bgCapital">—</div></div>
         <div class="bg-kpi"><div class="lbl">Diferencia</div><div class="val" id="bgDiff">—</div></div>
       </div>
+      <div class="bg-ratios">
+        <div class="bg-ratio"><div class="k">Liquidez corriente</div><div class="v" id="bgRatioLiquidez">—</div></div>
+        <div class="bg-ratio"><div class="k">Apalancamiento (Pasivo/Activo)</div><div class="v" id="bgRatioLeverage">—</div></div>
+        <div class="bg-ratio"><div class="k">Capital de trabajo</div><div class="v" id="bgRatioWorking">—</div></div>
+        <div class="bg-ratio"><div class="k">Pasivo / Capital</div><div class="v" id="bgRatioDebtEq">—</div></div>
+      </div>
       <div class="bg-viz">
         <div class="bg-viz-card">
           <h4>Gauge · Liquidez Corriente</h4>
@@ -486,14 +497,14 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
           <div class="bg-viz-sub" id="bgGaugeTxt">Objetivo &gt; 1.5</div>
         </div>
         <div class="bg-viz-card">
-          <h4>Sparkline · Evolución de Deuda (12m)</h4>
+          <h4>Puente contable · Activo vs Pasivo + Capital</h4>
           <div class="bg-viz-canvas"><canvas id="bgSparkDebt"></canvas></div>
-          <div class="bg-viz-sub" id="bgSparkTxt">Pasivo total acumulado por mes</div>
+          <div class="bg-viz-sub" id="bgSparkTxt">Debe cerrar con diferencia 0</div>
         </div>
         <div class="bg-viz-card">
-          <h4>Donut · Composición Pasivo</h4>
+          <h4>Donut · Composición de pasivo</h4>
           <div class="bg-viz-canvas"><canvas id="bgDonutPasivo"></canvas></div>
-          <div class="bg-viz-sub" id="bgDonutTxt">Pasivo vs Capital</div>
+          <div class="bg-viz-sub" id="bgDonutTxt">Proveedores vs bancos vs otros</div>
         </div>
       </div>
       <div class="bg-cols">
@@ -750,6 +761,19 @@ async function loadBalanceGeneral(){
     const pasivo = +t.PASIVO_TOTAL || 0;
     const capital = +t.CAPITAL_TOTAL || 0;
     const liquidez = pasivo > 0 ? activo / pasivo : 0;
+    const leverage = activo > 0 ? pasivo / activo : 0;
+    const workCap = activo - pasivo;
+    const debtEq = capital > 0 ? pasivo / capital : 0;
+    const setRatio = (id, val, color) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = val;
+      if (color) el.style.color = color;
+    };
+    setRatio('bgRatioLiquidez', liquidez.toFixed(2) + 'x', liquidez >= 1.5 ? 'var(--green)' : liquidez >= 1 ? 'var(--yellow)' : 'var(--red)');
+    setRatio('bgRatioLeverage', fmtPct(leverage * 100), leverage <= 0.55 ? 'var(--green)' : leverage <= 0.75 ? 'var(--yellow)' : 'var(--red)');
+    setRatio('bgRatioWorking', fmtM(workCap), workCap >= 0 ? 'var(--green)' : 'var(--red)');
+    setRatio('bgRatioDebtEq', debtEq > 0 ? debtEq.toFixed(2) + 'x' : '—', debtEq <= 1.2 ? 'var(--green)' : debtEq <= 2 ? 'var(--yellow)' : 'var(--red)');
     const gaugeVal = Math.max(0, Math.min(3, liquidez));
     const gaugeRemainder = Math.max(0, 3 - gaugeVal);
     const gaugeColor = liquidez >= 1.5 ? '#00E5A0' : liquidez >= 1 ? '#FFB800' : '#FF4566';
@@ -766,53 +790,60 @@ async function loadBalanceGeneral(){
     const gaugeTxt = document.getElementById('bgGaugeTxt');
     if (gaugeTxt) gaugeTxt.textContent = `Liquidez ${liquidez.toFixed(2)} (objetivo > 1.5)`;
 
+    const pasivoRows = Array.isArray(d.pasivo) ? d.pasivo : [];
+    const bucketPasivo = pasivoRows.reduce((acc, r) => {
+      const n = String(r.NOMBRE || '').toLowerCase();
+      const s = +r.SALDO || 0;
+      if (n.includes('provee')) acc.prov += s;
+      else if (n.includes('banco') || n.includes('credito') || n.includes('financ')) acc.bancos += s;
+      else acc.otros += s;
+      return acc;
+    }, { prov: 0, bancos: 0, otros: 0 });
     const donutEl = document.getElementById('bgDonutPasivo');
     if (donutEl) {
       const ctxD = donutEl.getContext('2d');
       if (bgDonutChart) bgDonutChart.destroy();
       bgDonutChart = new Chart(ctxD, {
         type: 'doughnut',
-        data: { labels: ['Pasivo', 'Capital'], datasets: [{ data: [pasivo, capital], backgroundColor: ['#FF8C42', '#4DA6FF'], borderWidth: 0 }] },
+        data: {
+          labels: ['Proveedores', 'Bancos/Crédito', 'Otros pasivos'],
+          datasets: [{ data: [bucketPasivo.prov, bucketPasivo.bancos, bucketPasivo.otros], backgroundColor: ['#4DA6FF', '#FF8C42', '#9B6DFF'], borderWidth: 0 }]
+        },
         options: { cutout: '65%', plugins: { legend: { position: 'bottom', labels: { color: '#B0BECE', font: { size: 10, family: "'DM Mono'" } } } } }
       });
     }
     const donutTxt = document.getElementById('bgDonutTxt');
-    const denom = (pasivo + capital) || 1;
-    if (donutTxt) donutTxt.textContent = `Pasivo ${(pasivo/denom*100).toFixed(1)}% · Capital ${(capital/denom*100).toFixed(1)}%`;
+    const denomPasivo = (bucketPasivo.prov + bucketPasivo.bancos + bucketPasivo.otros) || 1;
+    if (donutTxt) donutTxt.textContent = `Prov ${(bucketPasivo.prov/denomPasivo*100).toFixed(1)}% · Bancos ${(bucketPasivo.bancos/denomPasivo*100).toFixed(1)}% · Otros ${(bucketPasivo.otros/denomPasivo*100).toFixed(1)}%`;
 
     const sparkEl = document.getElementById('bgSparkDebt');
     if (sparkEl) {
-      const now = new Date();
-      const reqs = [];
-      for (let i = 11; i >= 0; i--) {
-        const dt = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const y0 = dt.getFullYear();
-        const m0 = dt.getMonth() + 1;
-        reqs.push(
-          fwt(buildPnlApiUrl('/api/resultados/balance-general', `anio=${y0}&mes=${m0}`, { omitFilters: true }), {}, 15000)
-            .then(x => ({ y: y0, m: m0, pasivo: +(((x||{}).totales||{}).PASIVO_TOTAL || 0) }))
-        );
-      }
-      const trend = await Promise.all(reqs);
       const ctxS = sparkEl.getContext('2d');
       if (bgSparkChart) bgSparkChart.destroy();
       bgSparkChart = new Chart(ctxS, {
-        type: 'line',
+        type: 'bar',
         data: {
-          labels: trend.map(r => `${MESES_ES[r.m]}/${String(r.y).slice(-2)}`),
-          datasets: [{ label: 'Pasivo', data: trend.map(r => r.pasivo), borderColor: '#FF8C42', backgroundColor: 'rgba(255,140,66,.15)', fill: true, tension: .3, pointRadius: 2 }]
+          labels: ['Activo', 'Pasivo + Capital', 'Diferencia'],
+          datasets: [{
+            label: 'Balance',
+            data: [activo, pasivo + capital, diff],
+            backgroundColor: ['#4DA6FF', '#FF8C42', Math.abs(diff) <= 1 ? '#00E5A0' : '#FF4566'],
+            borderWidth: 0
+          }]
         },
         options: {
           responsive: true, maintainAspectRatio: false,
           plugins: { legend: { display: false } },
-          scales: { x: { ticks: { color: '#5A7090', font: { size: 9 } }, grid: { display: false } }, y: { ticks: { color: '#5A7090', font: { size: 9 }, callback: v => fmtM(v) }, grid: { color: 'rgba(255,255,255,.05)' } } }
+          scales: {
+            x: { ticks: { color: '#5A7090', font: { size: 9 } }, grid: { display: false } },
+            y: { ticks: { color: '#5A7090', font: { size: 9 }, callback: v => fmtM(v) }, grid: { color: 'rgba(255,255,255,.05)' } }
+          }
         }
       });
-      const first = trend[0] ? trend[0].pasivo : 0;
-      const last = trend.length ? trend[trend.length - 1].pasivo : 0;
-      const dir = (last > first) ? 'subiendo' : (last < first ? 'bajando' : 'estable');
       const sparkTxt = document.getElementById('bgSparkTxt');
-      if (sparkTxt) sparkTxt.textContent = `Pasivo ${dir} (${fmtM(first)} → ${fmtM(last)})`;
+      if (sparkTxt) sparkTxt.textContent = Math.abs(diff) <= 1
+        ? 'Ecuación contable cerrada correctamente.'
+        : 'Diferencia material detectada: revisar pólizas y saldos.';
     }
     // #region agent log
     debugLogResultados('run26','H111','resultados.html:loadBalanceGeneral','balance general visual pack rendered',{activo,pasivo,capital,liquidez,hasGauge:!!bgGaugeChart,hasSpark:!!bgSparkChart,hasDonut:!!bgDonutChart,diff:+t.DIFERENCIA_BALANCE||0,diffColor:(Math.abs(diff)<=1?'green':'red'),cierre});

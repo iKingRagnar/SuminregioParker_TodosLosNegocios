@@ -367,15 +367,18 @@ async function loadData(){
       comercialUrl: apiDb('/api/clientes/comercial-atraso?limit=300')
     });
     // #endregion
-    const [riesgo, resumen, comercial] = await Promise.all([
-      fwt(apiDb('/api/clientes/riesgo?limit=100'), [], 20000),
-      fwt(apiDb('/api/clientes/resumen-riesgo'), {}, 20000),
-      fwt(apiDb('/api/clientes/comercial-atraso?limit=300'), [], 20000),
+    const [riesgo, resumen, comercial, inactivos] = await Promise.all([
+      fwt(apiDb('/api/clientes/riesgo?limit=100'), [], 35000),
+      fwt(apiDb('/api/clientes/resumen-riesgo'), {}, 35000),
+      fwt(apiDb('/api/clientes/comercial-atraso?limit=300'), [], 35000),
+      fwt(apiDb('/api/clientes/inactivos?limit=300'), [], 25000),
     ]);
     riesgoData = Array.isArray(riesgo) ? riesgo : [];
     comercialData = Array.isArray(comercial) ? comercial : [];
+    inactivosData = Array.isArray(inactivos) ? inactivos : [];
     const res = resumen && typeof resumen==='object' ? resumen : {};
     renderComercial(comercialData);
+    renderInactivos(inactivosData);
     renderKPIs(riesgoData, inactivosData, res, comercialData);
     renderRiesgo(riesgoData);
     renderChartRiesgo(res);
@@ -396,7 +399,6 @@ async function loadData(){
     }else{
       if(heroSub) heroSub.textContent = riesgoData.length+' clientes en riesgo '+'\u00b7 '+fmtM(+res.MONTO_CRITICO||0)+' en nivel cr\u00edtico';
     }
-    loadInactivos();
   }catch(e){
     if(heroSub) heroSub.textContent = 'Error de conexión. Abre desde http://localhost:7000/clientes.html y revisa que el servidor esté corriendo (npm start).';
     renderKPIs([], inactivosData, {}, []);

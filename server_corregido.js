@@ -1930,7 +1930,7 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
     rq.query.mes = now.getMonth() + 1;
   }
   const f = buildFiltros(rq, 'd');
-  const [vRow, cxcSaldos, cxcAging, coRow] = await Promise.all([
+  const [vRow, cxcSnap, coRow] = await Promise.all([
     query(`
       SELECT
         SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END) AS HOY,
@@ -1941,8 +1941,7 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
       FROM ${ventasSub()} d
       WHERE 1=1 ${f.sql}
     `, f.params, qms, dbOpts).catch(() => [{}]),
-    query(`SELECT cs.CLIENTE_ID, cs.SALDO FROM ${cxcClienteSQL()} cs`, [], qms, dbOpts).catch(() => []),
-    query(`SELECT cd.CLIENTE_ID, SUM(cd.SALDO) AS TOTAL_C, SUM(CASE WHEN cd.DIAS_VENCIDO > 0 THEN cd.SALDO ELSE 0 END) AS VENC_C FROM ${cxcCargosSQL()} cd GROUP BY cd.CLIENTE_ID`, [], qms, dbOpts).catch(() => []),
+    cxcResumenAgingUnificado(rq, dbOpts, qms).catch(() => ({ resumen: { SALDO_TOTAL: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: 0, VENCIDO: 0, POR_VENCER: 0 }, aging: {} })),
     query(`
       SELECT
         SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN ${sqlCotiImporteExpr('d')} ELSE 0 END) AS IMPORTE_COTI_HOY,
@@ -1953,26 +1952,12 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
       WHERE 1=1 ${f.sql}
     `, f.params, qms, dbOpts).catch(() => [{}]),
   ]);
-  const agMap = {};
-  (cxcAging || []).forEach(r => { agMap[r.CLIENTE_ID] = r; });
-  let saldoTotal = 0, vencido = 0, porVencer = 0;
-  (cxcSaldos || []).forEach(r => {
-    const saldo = +r.SALDO || 0;
-    saldoTotal += saldo;
-    const ag = agMap[r.CLIENTE_ID];
-    if (ag && +ag.TOTAL_C > 0) {
-      const pct = Math.min(+ag.VENC_C / +ag.TOTAL_C, 1);
-      vencido += saldo * pct;
-      porVencer += saldo * (1 - pct);
-    } else porVencer += saldo;
-  });
   const v = vRow[0] || {};
   const co = coRow[0] || {};
-  let numCliVenc = 0;
-  (cxcAging || []).forEach(a => { if (+a.VENC_C > 0) numCliVenc++; });
+  const cxc = (cxcSnap && cxcSnap.resumen) || { SALDO_TOTAL: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: 0, VENCIDO: 0, POR_VENCER: 0 };
   return {
     ventas: { HOY: +(v.HOY||0), MES_ACTUAL: +(v.MES_ACTUAL||0), FACTURAS_MES: +(v.FACTURAS_MES||0), MES_VE: +(v.MES_VE||0), MES_PV: +(v.MES_PV||0) },
-    cxc: { SALDO_TOTAL: Math.round(saldoTotal*100)/100, NUM_CLIENTES: (cxcSaldos||[]).length, NUM_CLIENTES_VENCIDOS: numCliVenc, VENCIDO: Math.round(vencido*100)/100, POR_VENCER: Math.round(porVencer*100)/100 },
+    cxc: { SALDO_TOTAL: +(cxc.SALDO_TOTAL||0), NUM_CLIENTES: +(cxc.NUM_CLIENTES||0), NUM_CLIENTES_VENCIDOS: +(cxc.NUM_CLIENTES_VENCIDOS||0), VENCIDO: +(cxc.VENCIDO||0), POR_VENCER: +(cxc.POR_VENCER||0) },
     cotizaciones: { COTI_HOY: +(co.COTI_HOY||0), IMPORTE_COTI_HOY: +(co.IMPORTE_COTI_HOY||0), IMPORTE_COTI_MES: +(co.IMPORTE_COTI_MES||0), COTI_MES: +(co.COTI_MES||0) },
   };
 }
@@ -2163,24 +2148,10 @@ function cxcDocSaldosSQL(cfSql) {
 }
 
 async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
+  const t0 = Date.now();
   const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
-  const whereCliDoc = cf ? ` AND doc.CLIENTE_ID = ${cf}` : '';
   const whereCliSaldo = cf ? ` WHERE cs.CLIENTE_ID = ${cf}` : '';
-  const [docAgingRows, cxcSaldosLegacy, cxcAgingLegacy] = await Promise.all([
-    query(`
-      SELECT
-        doc.CLIENTE_ID,
-        SUM(doc.SALDO_NETO) AS TOTAL_C,
-        SUM(CASE WHEN doc.DIAS_VENCIDO <= 0 THEN doc.SALDO_NETO ELSE 0 END) AS COR_C,
-        SUM(CASE WHEN doc.DIAS_VENCIDO BETWEEN 1 AND 30 THEN doc.SALDO_NETO ELSE 0 END) AS B1_C,
-        SUM(CASE WHEN doc.DIAS_VENCIDO BETWEEN 31 AND 60 THEN doc.SALDO_NETO ELSE 0 END) AS B2_C,
-        SUM(CASE WHEN doc.DIAS_VENCIDO BETWEEN 61 AND 90 THEN doc.SALDO_NETO ELSE 0 END) AS B3_C,
-        SUM(CASE WHEN doc.DIAS_VENCIDO > 90 THEN doc.SALDO_NETO ELSE 0 END) AS B4_C,
-        SUM(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.SALDO_NETO ELSE 0 END) AS VENC_C
-      FROM ${cxcDocSaldosInnerSQL('')} doc
-      WHERE doc.SALDO_NETO > 0.005 ${whereCliDoc}
-      GROUP BY doc.CLIENTE_ID
-    `, [], qms, dbo).catch(() => []),
+  const [cxcSaldosLegacy, cxcAgingLegacy] = await Promise.all([
     query(`SELECT cs.CLIENTE_ID, cs.SALDO FROM ${cxcClienteSQL()} cs${whereCliSaldo}`, [], qms, dbo).catch(() => []),
     query(`
       SELECT
@@ -2201,31 +2172,48 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
   let saldoTotal = 0, vencido = 0, porVencer = 0;
   let agCorr = 0, ag1 = 0, ag2 = 0, ag3 = 0, ag4 = 0;
   let numCliVenc = 0;
-  const sourceRows = (Array.isArray(docAgingRows) && docAgingRows.length)
-    ? docAgingRows
-    : (Array.isArray(cxcAgingLegacy) ? cxcAgingLegacy : []);
-  sourceRows.forEach(r => {
-    const total = +r.TOTAL_C || 0;
-    if (total <= 0) return;
-    saldoTotal += total;
-    const venc = +r.VENC_C || 0;
-    const corr = +r.COR_C || 0;
-    vencido += venc;
-    porVencer += corr;
-    agCorr += corr;
-    ag1 += +r.B1_C || 0;
-    ag2 += +r.B2_C || 0;
-    ag3 += +r.B3_C || 0;
-    ag4 += +r.B4_C || 0;
-    if (venc > 0) numCliVenc += 1;
+  const ageMap = new Map((Array.isArray(cxcAgingLegacy) ? cxcAgingLegacy : []).map(r => [+r.CLIENTE_ID || 0, r]));
+  (cxcSaldosLegacy || []).forEach(r => {
+    const clienteId = +r.CLIENTE_ID || 0;
+    const saldo = +r.SALDO || 0;
+    if (saldo <= 0.005) return;
+    saldoTotal += saldo;
+    const ag = ageMap.get(clienteId);
+    const totalA = +(ag && ag.TOTAL_C) || 0;
+    if (ag && totalA > 0.005) {
+      const ratio = (n) => Math.max(0, (+n || 0) / totalA);
+      const cor = saldo * ratio(ag.COR_C);
+      const b1 = saldo * ratio(ag.B1_C);
+      const b2 = saldo * ratio(ag.B2_C);
+      const b3 = saldo * ratio(ag.B3_C);
+      const b4 = saldo * ratio(ag.B4_C);
+      const vnc = saldo * ratio(ag.VENC_C);
+      agCorr += cor; ag1 += b1; ag2 += b2; ag3 += b3; ag4 += b4;
+      vencido += vnc;
+      porVencer += (saldo - vnc);
+      if (vnc > 0.005) numCliVenc += 1;
+    } else {
+      // Sin aging por documento: conservar saldo como vigente para evitar KPI en cero.
+      agCorr += saldo;
+      porVencer += saldo;
+    }
   });
-  if (saldoTotal <= 0.005 && Array.isArray(cxcSaldosLegacy) && cxcSaldosLegacy.length) {
-    const legacySaldo = (cxcSaldosLegacy || []).reduce((s, r) => s + (+r.SALDO || 0), 0);
-    if (legacySaldo > 0.005) saldoTotal = legacySaldo;
+  if (saldoTotal <= 0.005 && Array.isArray(cxcAgingLegacy) && cxcAgingLegacy.length) {
+    (cxcAgingLegacy || []).forEach(r => {
+      saldoTotal += +r.TOTAL_C || 0;
+      vencido += +r.VENC_C || 0;
+      agCorr += +r.COR_C || 0;
+      ag1 += +r.B1_C || 0;
+      ag2 += +r.B2_C || 0;
+      ag3 += +r.B3_C || 0;
+      ag4 += +r.B4_C || 0;
+      if ((+r.VENC_C || 0) > 0.005) numCliVenc += 1;
+    });
+    porVencer += agCorr;
   }
   const resumen = {
     SALDO_TOTAL: Math.round(saldoTotal * 100) / 100,
-    NUM_CLIENTES: sourceRows.length,
+    NUM_CLIENTES: (cxcSaldosLegacy || []).length,
     NUM_CLIENTES_VENCIDOS: numCliVenc,
     VENCIDO: Math.round(vencido * 100) / 100,
     POR_VENCER: Math.round(porVencer * 100) / 100,
@@ -2238,7 +2226,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
     DIAS_MAS_90: Math.round(ag4 * 100) / 100,
   };
   // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run15',hypothesisId:'H71',location:'server_corregido.js:cxcResumenAgingUnificado',message:'cxc source comparison legacy-vs-docsaldo',data:{cliente:cf||null,legacySaldoTotal:Math.round((cxcSaldosLegacy||[]).reduce((s,r)=>s+(+r.SALDO||0),0)*100)/100,legacyAgingTotal:Math.round((cxcAgingLegacy||[]).reduce((s,r)=>s+(+r.TOTAL_C||0),0)*100)/100,docAgingTotal:Math.round((docAgingRows||[]).reduce((s,r)=>s+(+r.TOTAL_C||0),0)*100)/100,resumen,aging},timestamp:Date.now()})}).catch(()=>{});
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run27',hypothesisId:'H112',location:'server_corregido.js:cxcResumenAgingUnificado',message:'cxc summary rebuilt from saldos+aging map',data:{cliente:cf||null,rowsSaldos:(cxcSaldosLegacy||[]).length,rowsAging:(cxcAgingLegacy||[]).length,resumen,aging,elapsedMs:(Date.now()-t0)},timestamp:Date.now()})}).catch(()=>{});
   // #endregion
   // #region agent log
   fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run6',hypothesisId:'H14',location:'server_corregido.js:2140',message:'cxc unified resumen+aging snapshot',data:{cliente:cf||null,resumen,aging},timestamp:Date.now()})}).catch(()=>{});
@@ -2782,7 +2770,9 @@ get('/api/inv/operacion-critica', async (req) => {
       COALESCE(hs.ENTRADAS_TOTAL, 0) AS ENTRADAS_TOTAL,
       COALESCE(hs.SALIDAS_TOTAL, 0) AS SALIDAS_TOTAL,
       COALESCE(c4.CONSUMO_4S, 0) AS CONSUMO_4_SEMANAS,
-      COALESCE(cm.CONSUMO_MES, 0) AS CONSUMO_MES_ACTUAL
+      COALESCE(cm.CONSUMO_MES, 0) AS CONSUMO_MES_ACTUAL,
+      lm.ULTIMO_MOVIMIENTO,
+      lm.DIAS_SIN_VENTA
     FROM ARTICULOS a
     LEFT JOIN ${SQL_EXIST_SUB} ex ON ex.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${SQL_MINIMO_SUB} mn ON mn.ARTICULO_ID = a.ARTICULO_ID
@@ -2813,6 +2803,15 @@ get('/api/inv/operacion-critica', async (req) => {
         AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE)
       GROUP BY d.ARTICULO_ID
     ) cm ON cm.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN (
+      SELECT
+        d.ARTICULO_ID,
+        MAX(CAST(d.FECHA AS DATE)) AS ULTIMO_MOVIMIENTO,
+        (CURRENT_DATE - MAX(CAST(d.FECHA AS DATE))) AS DIAS_SIN_VENTA
+      FROM ${consumosSub('')} d
+      WHERE d.UNIDADES > 0
+      GROUP BY d.ARTICULO_ID
+    ) lm ON lm.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A'
       AND (
         COALESCE(ex.EXISTENCIA, 0) <= 0
@@ -4581,9 +4580,10 @@ get('/api/consumos/pedidos-compra', async (req) => {
   const ids = (topRows || []).map(r => +r.ARTICULO_ID || 0).filter(Boolean);
 
   const sourceCandidates = [
-    { key: 'CM', head: 'DOCTOS_CM', det: 'DOCTOS_CM_DET', headId: 'DOCTO_CM_ID' },
-    { key: 'CP', head: 'DOCTOS_CP', det: 'DOCTOS_CP_DET', headId: 'DOCTO_CP_ID' },
     { key: 'OC', head: 'DOCTOS_OC', det: 'DOCTOS_OC_DET', headId: 'DOCTO_OC_ID' },
+    { key: 'CP', head: 'DOCTOS_CP', det: 'DOCTOS_CP_DET', headId: 'DOCTO_CP_ID' },
+    // CM se deja al final porque suele incluir movimientos internos, no solo pedidos.
+    { key: 'CM', head: 'DOCTOS_CM', det: 'DOCTOS_CM_DET', headId: 'DOCTO_CM_ID' },
   ];
   let src = null;
   for (const c of sourceCandidates) {
@@ -4657,7 +4657,15 @@ get('/api/consumos/pedidos-compra', async (req) => {
 
   return {
     ok: true,
-    source: { key: src.key, head: src.head, det: src.det, qtyColumn: src.qty, dateColumn: src.fec },
+    source: {
+      key: src.key,
+      head: src.head,
+      det: src.det,
+      qtyColumn: src.qty,
+      dateColumn: src.fec,
+      confidence: src.key === 'CM' ? 'low' : 'high',
+      note: src.key === 'CM' ? 'CM puede mezclar movimientos internos además de compras.' : 'Origen de compras detectado.',
+    },
     resumen: {
       unidades_consumo_top: Math.round(totalCons * 100) / 100,
       unidades_pedidas_top: Math.round(totalPed * 100) / 100,

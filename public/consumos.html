@@ -354,6 +354,7 @@ function renderPedidosVsConsumo(d){
     return;
   }
   const srcTxt = d.source && d.source.key ? ('Fuente: ' + d.source.key) : 'Sin fuente detectada';
+  const srcLow = !!(d.source && d.source.confidence === 'low');
   const rows = Array.isArray(d.top_consumo) ? d.top_consumo : [];
   const r = d.resumen || {};
   const cov = +r.cobertura_pedidos_top_pct || 0;
@@ -365,6 +366,9 @@ function renderPedidosVsConsumo(d){
     return;
   }
   html += '<div class="ins-sub">Cobertura de pedidos (Top consumo): <span class="cov-cell '+covCls+'" style="padding:2px 8px">'+fmtF(cov)+'%</span> · Consumo '+fmtN(r.unidades_consumo_top||0)+' u. · Pedidos '+fmtN(r.unidades_pedidas_top||0)+' u. · Brecha '+fmtN(r.brecha_top||0)+' u.</div>';
+  if (srcLow) {
+    html += '<div class="ins-sub" style="color:var(--ylw);margin-top:4px">Aviso: la fuente detectada es CM (movimientos), puede incluir traspasos internos además de compras.</div>';
+  }
   html += '<table class="ins-tbl" style="margin-top:8px"><thead><tr><th>Artículo</th><th class="num">Consumo</th><th class="num">Pedidos/OC</th><th class="num">Brecha</th><th class="num">Cobertura</th></tr></thead><tbody>';
   if(!rows.length){
     html += '<tr><td colspan="5" class="ins-empty">Sin artículos para el periodo actual.</td></tr>';
