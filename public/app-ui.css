@@ -334,25 +334,6 @@ html[data-theme="light"] {
   --purple: #6d28d9;
 }
 
-/* CxC hero: quitar gradiente oscuro, usar fondo ámbar suave */
-html[data-theme="light"] .cxc-hero {
-  background: linear-gradient(135deg, rgba(180, 83, 9, 0.06), rgba(255, 255, 255, 0)) !important;
-  border: 1px solid rgba(180, 83, 9, 0.18) !important;
-}
-html[data-theme="light"] .cxc-hero h1,
-html[data-theme="light"] .cxc-hero .hero-title {
-  color: #7c2d12 !important;
-  -webkit-text-fill-color: #7c2d12 !important;
-  background: none !important;
-  background-image: none !important;
-  -webkit-background-clip: unset !important;
-  background-clip: unset !important;
-}
-html[data-theme="light"] .cxc-hero p,
-html[data-theme="light"] .cxc-hero .hero-sub {
-  color: #475569 !important;
-}
-
 /* Aging buckets: colores accesibles en fondo claro */
 html[data-theme="light"] .c0 .aging-val { color: #166534 !important; }
 html[data-theme="light"] .c1 .aging-val { color: #92400e !important; }
