@@ -210,7 +210,9 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
         u.searchParams.set('db', urlDb);
         history.replaceState({}, '', u);
       } catch (_) {}
-      try { sessionStorage.setItem('microsip_erp_db', urlDb); } catch (_) {}
+      if (urlDb !== '__all__') {
+        try { sessionStorage.setItem('microsip_erp_db', urlDb); } catch (_) {}
+      }
       // #region agent log
       fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run26',hypothesisId:'H107',location:'filters.js:renderDbChipsInto:initial-default',message:'db default normalized and applied',data:{selectedDb:urlDb,availableIds:ids.slice(0,20)},timestamp:Date.now()})}).catch(()=>{});
       // #endregion
@@ -255,7 +257,10 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
           u.searchParams.set('db', raw);
           history.replaceState({}, '', u);
         } catch (_) {}
-        try { sessionStorage.setItem('microsip_erp_db', raw); } catch (_) {}
+        // No persistir __all__ en sessionStorage; solo afecta la página actual
+        if (raw !== '__all__') {
+          try { sessionStorage.setItem('microsip_erp_db', raw); } catch (_) {}
+        }
         // #region agent log
         fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run26',hypothesisId:'H108',location:'filters.js:renderDbChipsInto:onClick',message:'db chip clicked and persisted',data:{clickedDb:raw,href:window.location.href},timestamp:Date.now()})}).catch(()=>{});
         // #endregion

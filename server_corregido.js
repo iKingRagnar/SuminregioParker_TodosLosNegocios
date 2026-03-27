@@ -984,7 +984,11 @@ async function resolveConsumosSchema(dbo) {
       );
     } catch (_) {}
     // #endregion
-    consumosSchemaCache.set(key, out);
+    // Only cache if schema detection actually worked (at least one table had columns)
+    const schemaDetected = veCols.size > 0 || pvCols.size > 0 || veDetCols.size > 0 || pvDetCols.size > 0;
+    if (schemaDetected) {
+      consumosSchemaCache.set(key, out);
+    }
     return out;
   }).finally(() => {
     consumosSchemaInFlight.delete(key);
@@ -3089,9 +3093,10 @@ get('/api/inv/sin-movimiento', async (req) => {
     LEFT JOIN ${SQL_EXIST_SUB} ex ON ex.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${SQL_MINIMO_SUB} mn ON mn.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN (
-      SELECT d.ARTICULO_ID, MAX(CAST(d.FECHA AS DATE)) AS ULTIMO_MOVIMIENTO
+      SELECT d.ARTICULO_ID, MAX(d.FECHA) AS ULTIMO_MOVIMIENTO
       FROM ${subVe} d
       WHERE d.UNIDADES > 0
+        AND d.FECHA >= (CURRENT_DATE - ${Math.min(dias * 2, 730)})
       GROUP BY d.ARTICULO_ID
     ) um ON um.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND COALESCE(ex.EXISTENCIA, 0) > 0
@@ -3182,6 +3187,7 @@ get('/api/inv/operacion-critica', async (req) => {
         (CURRENT_DATE - MAX(CAST(d.FECHA AS DATE))) AS DIAS_SIN_VENTA
       FROM ${subOc} d
       WHERE d.UNIDADES > 0
+        AND d.FECHA >= (CURRENT_DATE - 45)
       GROUP BY d.ARTICULO_ID
     ) cs ON cs.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A'
