@@ -106,7 +106,10 @@ app.use(express.json());
 // (evita que index.html viejo en la raíz opaque public/index.html).
 const staticOpts = {
   setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.html')) res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store');
+    }
     if (filePath.endsWith('.js'))   res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
     if (filePath.endsWith('.css'))  res.setHeader('Content-Type', 'text/css; charset=utf-8');
   }
@@ -911,6 +914,7 @@ function cotizacionesSub() {
 
 /** Cache por base: columnas reales en DOCTOS_* (FECHA vs FECHA_DOCUMENTO, UNIDADES vs CANTIDAD). */
 const consumosSchemaCache = new Map();
+const consumosSchemaInFlight = new Map();
 
 /**
  * Resuelve columnas de fecha en cabecera y cantidad en renglón (variantes Microsip).
@@ -919,44 +923,51 @@ const consumosSchemaCache = new Map();
 async function resolveConsumosSchema(dbo) {
   const key = dbCacheKey(dbo) + ':v3amt';
   if (consumosSchemaCache.has(key)) return consumosSchemaCache.get(key);
-  const [veCols, pvCols, veDetCols, pvDetCols] = await Promise.all([
+  // Deduplication: share in-flight promise across concurrent callers (prevents N×4 DB queries on cold start)
+  if (consumosSchemaInFlight.has(key)) return consumosSchemaInFlight.get(key);
+  const p = Promise.all([
     getTableColumns('DOCTOS_VE', dbo),
     getTableColumns('DOCTOS_PV', dbo),
     getTableColumns('DOCTOS_VE_DET', dbo),
     getTableColumns('DOCTOS_PV_DET', dbo),
-  ]);
-  const fv = firstExistingColumn(veCols, ['FECHA', 'FECHA_DOCUMENTO']) || 'FECHA';
-  const fp = firstExistingColumn(pvCols, ['FECHA', 'FECHA_DOCUMENTO']) || 'FECHA';
-  const veQty = firstExistingColumn(veDetCols, ['UNIDADES', 'CANTIDAD']) || 'UNIDADES';
-  const pvQty = firstExistingColumn(pvDetCols, ['UNIDADES', 'CANTIDAD']) || 'UNIDADES';
-  const amtCandidates = ['PRECIO_TOTAL', 'IMPORTE', 'IMPORTE_TOTAL', 'SUBTOTAL', 'TOTAL_LINEA', 'IMPORTE_LINEA', 'IMPORTE_NETO', 'TOTAL', 'NETO', 'PRECIO_TOTAL_NETO', 'TOTAL_RENGLON', 'PRECIO_NETO'];
-  const veAmt = firstExistingColumn(veDetCols, amtCandidates);
-  const pvAmt = firstExistingColumn(pvDetCols, amtCandidates);
-  const out = {
-    feExprVe: `d.${fv}`,
-    feExprPv: `d.${fp}`,
-    veQty,
-    pvQty,
-    veAmt,
-    pvAmt,
-  };
-  // #region agent log
-  try {
-    fs.appendFileSync(
-      path.join(__dirname, 'debug-5e0522.log'),
-      JSON.stringify({
-        sessionId: '5e0522',
-        hypothesisId: 'H-consumos-amt',
-        location: 'server_corregido.js:resolveConsumosSchema',
-        message: 'consumos DET amount columns',
-        data: { veAmt, pvAmt, veQty, pvQty, dbKey: dbCacheKey(dbo) },
-        timestamp: Date.now(),
-      }) + '\n'
-    );
-  } catch (_) {}
-  // #endregion
-  consumosSchemaCache.set(key, out);
-  return out;
+  ]).then(([veCols, pvCols, veDetCols, pvDetCols]) => {
+    const fv = firstExistingColumn(veCols, ['FECHA', 'FECHA_DOCUMENTO']) || 'FECHA';
+    const fp = firstExistingColumn(pvCols, ['FECHA', 'FECHA_DOCUMENTO']) || 'FECHA';
+    const veQty = firstExistingColumn(veDetCols, ['UNIDADES', 'CANTIDAD']) || 'UNIDADES';
+    const pvQty = firstExistingColumn(pvDetCols, ['UNIDADES', 'CANTIDAD']) || 'UNIDADES';
+    const amtCandidates = ['PRECIO_TOTAL', 'IMPORTE', 'IMPORTE_TOTAL', 'SUBTOTAL', 'TOTAL_LINEA', 'IMPORTE_LINEA', 'IMPORTE_NETO', 'TOTAL', 'NETO', 'PRECIO_TOTAL_NETO', 'TOTAL_RENGLON', 'PRECIO_NETO'];
+    const veAmt = firstExistingColumn(veDetCols, amtCandidates);
+    const pvAmt = firstExistingColumn(pvDetCols, amtCandidates);
+    const out = {
+      feExprVe: `d.${fv}`,
+      feExprPv: `d.${fp}`,
+      veQty,
+      pvQty,
+      veAmt,
+      pvAmt,
+    };
+    // #region agent log
+    try {
+      fs.appendFileSync(
+        path.join(__dirname, 'debug-5e0522.log'),
+        JSON.stringify({
+          sessionId: '5e0522',
+          hypothesisId: 'H-consumos-amt',
+          location: 'server_corregido.js:resolveConsumosSchema',
+          message: 'consumos DET amount columns',
+          data: { veAmt, pvAmt, veQty, pvQty, dbKey: dbCacheKey(dbo) },
+          timestamp: Date.now(),
+        }) + '\n'
+      );
+    } catch (_) {}
+    // #endregion
+    consumosSchemaCache.set(key, out);
+    return out;
+  }).finally(() => {
+    consumosSchemaInFlight.delete(key);
+  });
+  consumosSchemaInFlight.set(key, p);
+  return p;
 }
 
 /**
@@ -6940,6 +6951,11 @@ get('/api/debug/build-info', async () => {
     expectedFields: ['gastos_estimados', 'gastos_estimados_desde'],
     now: new Date().toISOString(),
   };
+});
+
+// Pre-calentar el caché de esquema al iniciar (reduce cold-start en primera petición)
+setImmediate(() => {
+  resolveConsumosSchema(null).catch(() => {});
 });
 
 app.listen(PORT, () => {

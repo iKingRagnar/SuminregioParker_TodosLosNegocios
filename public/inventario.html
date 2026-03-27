@@ -425,9 +425,26 @@ async function loadForecast(){
 async function loadSinMovimiento(){
   const b180 = document.getElementById('tbl-sinmov-body');
   const b365 = document.getElementById('tbl-sinmov365-body');
-  const errRow = '<tr><td colspan="6" style="text-align:center;color:var(--red);padding:1.5rem">Error al cargar — reintenta</td></tr>';
+  const errRow = '<tr><td colspan="6" style="text-align:center;color:var(--red);padding:1.5rem">Error al cargar &mdash; recarga la p&aacute;gina</td></tr>';
+  const warmRow = '<tr><td colspan="6" style="text-align:center;color:var(--yellow);padding:1.5rem">&#9677; Conectando con servidor&hellip;</td></tr>';
+  let done = false;
+  // After 20s show "connecting" state so user knows it's not stuck
+  const tWarm = setTimeout(()=>{
+    if(done) return;
+    if(b180) b180.innerHTML = warmRow;
+    if(b365) b365.innerHTML = warmRow;
+  }, 20000);
+  // Hard deadline: guarantee DOM update even if catch block fails for any reason
+  const tHard = setTimeout(()=>{
+    if(done) return;
+    done = true;
+    if(b180) b180.innerHTML = errRow;
+    if(b365) b365.innerHTML = errRow;
+  }, 65000);
+  const fin = ()=>{ done=true; clearTimeout(tWarm); clearTimeout(tHard); };
   try{
-    const all = (await apiFetch(apiDb('/api/inv/sin-movimiento?dias=180&limit=100'), 35000)).slice().sort((a,b)=>(+b.DIAS_SIN_VENTA||0)-(+a.DIAS_SIN_VENTA||0));
+    const all = (await apiFetch(apiDb('/api/inv/sin-movimiento?dias=180&limit=100'), 60000)).slice().sort((a,b)=>(+b.DIAS_SIN_VENTA||0)-(+a.DIAS_SIN_VENTA||0));
+    fin();
     const rowHtml = r => {
       const dias = +(r.DIAS_SIN_VENTA||9999);
       const col  = dias>=365?'var(--red)':dias>180?'var(--orange)':'var(--yellow)';
@@ -440,12 +457,14 @@ async function loadSinMovimiento(){
         <td class="num" style="color:var(--muted)">${r.ULTIMO_MOVIMIENTO||'Sin registro'}</td>
       </tr>`;
     };
-    setText('sinmov-badge', all.length+' art&iacute;culos');
+    const badge = n => n+' art\u00edculo'+(n===1?'':'s');
     if(b180) b180.innerHTML = all.map(rowHtml).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Sin art&iacute;culos sin movimiento</td></tr>';
+    document.getElementById('sinmov-badge').textContent = badge(all.length);
     const rows365 = all.filter(r=>(+r.DIAS_SIN_VENTA||0)>=365);
-    setText('sinmov365-badge', rows365.length+' art&iacute;culos');
     if(b365) b365.innerHTML = rows365.map(rowHtml).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Sin art&iacute;culos con 365+ d&iacute;as sin movimiento</td></tr>';
+    document.getElementById('sinmov365-badge').textContent = badge(rows365.length);
   }catch(e){
+    fin();
     console.error('sin-movimiento',e);
     if(b180) b180.innerHTML = errRow;
     if(b365) b365.innerHTML = errRow;
