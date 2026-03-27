@@ -530,6 +530,29 @@ function getReqDbOpts(req) {
   return hit.options;
 }
 
+/**
+ * Ejecuta queryFn contra todas las bases registradas y combina los resultados.
+ * queryFn recibe (dbOptions, entry) y debe devolver un array.
+ * Cada fila recibe una propiedad EMPRESA con el label de la empresa.
+ */
+async function runForAllDbs(queryFn) {
+  const results = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
+    try {
+      const rows = await queryFn(entry.options, entry);
+      const label = entry.label || entry.id || path.basename(entry.options.database || '');
+      return (rows || []).map(r => Object.assign({}, r, { EMPRESA: label }));
+    } catch (e) {
+      return [];
+    }
+  });
+  return results.flat();
+}
+
+function isAllDbs(req) {
+  const id = req && req.query && req.query.db ? String(req.query.db).trim() : '';
+  return id === '__all__';
+}
+
 /** Ejecuta tareas con a lo sumo `limit` en vuelo (reduce carga en servidor transaccional). */
 async function mapPoolLimit(items, limit, mapper) {
   const results = new Array(items.length);
@@ -983,7 +1006,7 @@ function consumosSubSql(tipo = '', parts) {
   const pvQty = p.pvQty || 'UNIDADES';
   const veImp = p.veAmt ? `COALESCE(det.${p.veAmt}, 0)` : '0';
   const pvImp = p.pvAmt ? `COALESCE(det.${p.pvAmt}, 0)` : '0';
-  // Sin tipo R: las devoluciones suelen no tener renglones en *_DET y anulan el consumo agregado (KPIs en 0).
+  // Incluye F (Factura), V (Venta), R (Remisión). Excluye cotizaciones/devoluciones y cancelados.
   // Proyectar siempre CAST(... AS DATE) AS FECHA para que buildFiltros y KPIs usen d.FECHA en el exterior.
   const ve = `
     SELECT
@@ -999,6 +1022,7 @@ function consumosSubSql(tipo = '', parts) {
     WHERE (
       (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
       OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
+      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS NOT IN ('C','T'))
     )`;
 
   const pv = `
@@ -1024,6 +1048,7 @@ function consumosSubSql(tipo = '', parts) {
     WHERE (
       (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
       OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
+      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS NOT IN ('C','T'))
     )`;
 
   if (tipo === 'VE') return `(${ve})`;
@@ -3050,12 +3075,12 @@ get('/api/inv/consumo', async (req) => {
 });
 
 get('/api/inv/sin-movimiento', async (req) => {
-  const dbo = getReqDbOpts(req);
   const dias = Math.min(parseInt(req.query.dias) || 180, 730);
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
-  const csp = await resolveConsumosSchema(dbo);
-  const subVe = consumosSubSql('VE', csp);
-  return query(`
+  async function sinMovimientoForDb(dbo) {
+    const csp = await resolveConsumosSchema(dbo);
+    const subVe = consumosSubSql('VE', csp);
+    return query(`
     SELECT FIRST ${limit} a.NOMBRE AS DESCRIPCION, a.ARTICULO_ID, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
       COALESCE(ex.EXISTENCIA, 0) AS EXISTENCIA_ACTUAL, COALESCE(mn.INVENTARIO_MINIMO, 0) AS MIN_ACTUAL,
       um.ULTIMO_MOVIMIENTO,
@@ -3072,11 +3097,52 @@ get('/api/inv/sin-movimiento', async (req) => {
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND COALESCE(ex.EXISTENCIA, 0) > 0
       AND (um.ULTIMO_MOVIMIENTO IS NULL OR (CURRENT_DATE - um.ULTIMO_MOVIMIENTO) > ${dias})
     ORDER BY DIAS_SIN_VENTA DESC NULLS FIRST, ex.EXISTENCIA DESC
-  `, [], 20000, dbo).catch(() => []);
+  `, [], 45000, dbo).catch(() => []);
+  }
+  if (isAllDbs(req)) return runForAllDbs((dbo) => sinMovimientoForDb(dbo));
+  return sinMovimientoForDb(getReqDbOpts(req));
 });
 
 // Operación inventario: existencia 0 persistente + consumo activo + cobertura de críticos.
 get('/api/inv/operacion-critica', async (req) => {
+  if (isAllDbs(req)) {
+    const limit2 = Math.min(parseInt(req.query.limit) || 120, 300);
+    async function opCritForDb(dbo) {
+      const csp2 = await resolveConsumosSchema(dbo);
+      const subOc2 = consumosSubSql('', csp2);
+      const rows2 = await query(`
+    SELECT FIRST ${limit2}
+      a.ARTICULO_ID, a.NOMBRE AS DESCRIPCION, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
+      COALESCE(ex.EXISTENCIA, 0) AS EXISTENCIA_ACTUAL, COALESCE(mn.INVENTARIO_MINIMO, 0) AS MIN_ACTUAL,
+      COALESCE(hs.ENTRADAS_TOTAL, 0) AS ENTRADAS_TOTAL, COALESCE(hs.SALIDAS_TOTAL, 0) AS SALIDAS_TOTAL,
+      COALESCE(cs.CONSUMO_4S, 0) AS CONSUMO_4_SEMANAS, COALESCE(cs.CONSUMO_MES, 0) AS CONSUMO_MES_ACTUAL,
+      cs.ULTIMO_MOVIMIENTO, cs.DIAS_SIN_VENTA
+    FROM ARTICULOS a
+    LEFT JOIN ${SQL_EXIST_SUB} ex ON ex.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN ${SQL_MINIMO_SUB} mn ON mn.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN (SELECT si.ARTICULO_ID, SUM(COALESCE(si.ENTRADAS_UNIDADES,0)) AS ENTRADAS_TOTAL, SUM(COALESCE(si.SALIDAS_UNIDADES,0)) AS SALIDAS_TOTAL FROM SALDOS_IN si GROUP BY si.ARTICULO_ID) hs ON hs.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN (SELECT d.ARTICULO_ID, SUM(CASE WHEN CAST(d.FECHA AS DATE)>=(CURRENT_DATE-28) THEN COALESCE(d.UNIDADES,0) ELSE 0 END) AS CONSUMO_4S, SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA)=EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA)=EXTRACT(MONTH FROM CURRENT_DATE) THEN COALESCE(d.UNIDADES,0) ELSE 0 END) AS CONSUMO_MES, MAX(CAST(d.FECHA AS DATE)) AS ULTIMO_MOVIMIENTO, (CURRENT_DATE-MAX(CAST(d.FECHA AS DATE))) AS DIAS_SIN_VENTA FROM ${subOc2} d WHERE d.UNIDADES>0 GROUP BY d.ARTICULO_ID) cs ON cs.ARTICULO_ID=a.ARTICULO_ID
+    WHERE COALESCE(a.ESTATUS,'A')='A' AND (COALESCE(ex.EXISTENCIA,0)<=0 OR (COALESCE(cs.CONSUMO_4S,0)>0 AND COALESCE(ex.EXISTENCIA,0)<=COALESCE(mn.INVENTARIO_MINIMO,0)))
+    ORDER BY CASE WHEN COALESCE(ex.EXISTENCIA,0)<=0 AND COALESCE(cs.CONSUMO_4S,0)>0 THEN 0 ELSE 1 END, COALESCE(cs.CONSUMO_4S,0) DESC, COALESCE(ex.EXISTENCIA,0) ASC
+      `, [], 45000, dbo).catch(() => []);
+      return (rows2 || []).map(r => {
+        const existencia=+r.EXISTENCIA_ACTUAL||0, minimo=+r.MIN_ACTUAL||0, c4=+r.CONSUMO_4_SEMANAS||0, cm=+r.CONSUMO_MES_ACTUAL||0;
+        const semanal=c4>0?c4/4:0, diario=semanal/7, semanas=semanal>0?existencia/semanal:null, dias=diario>0?existencia/diario:null;
+        const entradas=+r.ENTRADAS_TOTAL||0, nuncaInventario=entradas<=0.0001, consumeActivo=c4>0||cm>0;
+        const critico=consumeActivo&&(existencia<=0||(dias!=null&&dias<14)||(minimo>0&&existencia<=minimo));
+        let estado='Normal';
+        if(existencia<=0&&consumeActivo&&nuncaInventario) estado='Sin inventario historico y con consumo activo';
+        else if(existencia<=0&&consumeActivo) estado='Agotado con consumo activo';
+        else if(existencia<=0) estado='Sin existencia sin consumo reciente';
+        else if(critico) estado='Cobertura critica';
+        else if(consumeActivo&&dias!=null&&dias<28) estado='Cobertura baja';
+        return {...r, CONSUMO_SEMANAL_PROM:Math.round(semanal*100)/100, CONSUMO_DIARIO_PROM:Math.round(diario*100)/100, SEMANAS_COBERTURA_EST:semanas==null?null:Math.round(semanas*100)/100, DIAS_COBERTURA_EST:dias==null?null:Math.round(dias*100)/100, NUNCA_TUVO_ENTRADA:nuncaInventario, CONSUMO_ACTIVO:consumeActivo, CRITICO:critico, ESTADO_OPERATIVO:estado};
+      });
+    }
+    const allRows = await runForAllDbs((dbo) => opCritForDb(dbo));
+    const criticos = allRows.filter(r=>r.CRITICO).length;
+    return { rows: allRows, resumen: { total: allRows.length, criticos } };
+  }
   const dbo = getReqDbOpts(req);
   const csp = await resolveConsumosSchema(dbo);
   const subOc = consumosSubSql('', csp);
@@ -3090,10 +3156,10 @@ get('/api/inv/operacion-critica', async (req) => {
       COALESCE(mn.INVENTARIO_MINIMO, 0) AS MIN_ACTUAL,
       COALESCE(hs.ENTRADAS_TOTAL, 0) AS ENTRADAS_TOTAL,
       COALESCE(hs.SALIDAS_TOTAL, 0) AS SALIDAS_TOTAL,
-      COALESCE(c4.CONSUMO_4S, 0) AS CONSUMO_4_SEMANAS,
-      COALESCE(cm.CONSUMO_MES, 0) AS CONSUMO_MES_ACTUAL,
-      lm.ULTIMO_MOVIMIENTO,
-      lm.DIAS_SIN_VENTA
+      COALESCE(cs.CONSUMO_4S, 0) AS CONSUMO_4_SEMANAS,
+      COALESCE(cs.CONSUMO_MES, 0) AS CONSUMO_MES_ACTUAL,
+      cs.ULTIMO_MOVIMIENTO,
+      cs.DIAS_SIN_VENTA
     FROM ARTICULOS a
     LEFT JOIN ${SQL_EXIST_SUB} ex ON ex.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${SQL_MINIMO_SUB} mn ON mn.ARTICULO_ID = a.ARTICULO_ID
@@ -3108,44 +3174,29 @@ get('/api/inv/operacion-critica', async (req) => {
     LEFT JOIN (
       SELECT
         d.ARTICULO_ID,
-        COALESCE(SUM(d.UNIDADES), 0) AS CONSUMO_4S
-      FROM ${subOc} d
-      WHERE d.UNIDADES > 0
-        AND CAST(d.FECHA AS DATE) >= (CURRENT_DATE - 28)
-      GROUP BY d.ARTICULO_ID
-    ) c4 ON c4.ARTICULO_ID = a.ARTICULO_ID
-    LEFT JOIN (
-      SELECT
-        d.ARTICULO_ID,
-        COALESCE(SUM(d.UNIDADES), 0) AS CONSUMO_MES
-      FROM ${subOc} d
-      WHERE d.UNIDADES > 0
-        AND EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE)
-        AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE)
-      GROUP BY d.ARTICULO_ID
-    ) cm ON cm.ARTICULO_ID = a.ARTICULO_ID
-    LEFT JOIN (
-      SELECT
-        d.ARTICULO_ID,
+        SUM(CASE WHEN CAST(d.FECHA AS DATE) >= (CURRENT_DATE - 28) THEN COALESCE(d.UNIDADES, 0) ELSE 0 END) AS CONSUMO_4S,
+        SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE)
+                      AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE)
+                 THEN COALESCE(d.UNIDADES, 0) ELSE 0 END) AS CONSUMO_MES,
         MAX(CAST(d.FECHA AS DATE)) AS ULTIMO_MOVIMIENTO,
         (CURRENT_DATE - MAX(CAST(d.FECHA AS DATE))) AS DIAS_SIN_VENTA
       FROM ${subOc} d
       WHERE d.UNIDADES > 0
       GROUP BY d.ARTICULO_ID
-    ) lm ON lm.ARTICULO_ID = a.ARTICULO_ID
+    ) cs ON cs.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A'
       AND (
         COALESCE(ex.EXISTENCIA, 0) <= 0
         OR (
-          COALESCE(c4.CONSUMO_4S, 0) > 0
+          COALESCE(cs.CONSUMO_4S, 0) > 0
           AND COALESCE(ex.EXISTENCIA, 0) <= COALESCE(mn.INVENTARIO_MINIMO, 0)
         )
       )
     ORDER BY
-      CASE WHEN COALESCE(ex.EXISTENCIA, 0) <= 0 AND COALESCE(c4.CONSUMO_4S, 0) > 0 THEN 0 ELSE 1 END,
-      COALESCE(c4.CONSUMO_4S, 0) DESC,
+      CASE WHEN COALESCE(ex.EXISTENCIA, 0) <= 0 AND COALESCE(cs.CONSUMO_4S, 0) > 0 THEN 0 ELSE 1 END,
+      COALESCE(cs.CONSUMO_4S, 0) DESC,
       COALESCE(ex.EXISTENCIA, 0) ASC
-  `, [], 15000, dbo).catch(() => []);
+  `, [], 45000, dbo).catch(() => []);
 
   const enriched = (rows || []).map((r) => {
     const existencia = +r.EXISTENCIA_ACTUAL || 0;
@@ -3282,7 +3333,7 @@ get('/api/clientes/riesgo', async (req) => {
     ) buy ON buy.CLIENTE_ID = agg.CLIENTE_ID
     WHERE agg.MONTO_VENCIDO > 0
     ORDER BY agg.MONTO_VENCIDO DESC, COALESCE(buy.TICKET_PROMEDIO_MES, 0) DESC
-  `, [], 12000, dbo).catch(() => []);
+  `, [], 35000, dbo).catch(() => []);
 });
 
 /** Sin compra >180 días (≈6 meses). Ticket mensual = promedio simple últimos 12 meses de historial. */
@@ -3334,6 +3385,92 @@ get('/api/clientes/inactivos', async (req) => {
     WHERE (CURRENT_DATE - ult.ULTIMA) > 180
     ORDER BY 4 DESC
   `, [], 15000, dbo).catch(() => []);
+});
+
+/** Inteligencia de clientes: CxC en riesgo + inactivos sin compra >90d que hayan comprado al menos 1 vez. */
+get('/api/clientes/inteligencia', async (req) => {
+  const limit = Math.min(parseInt(req.query.limit) || 300, 800);
+  async function inteligenciaForDb(dbo) {
+    const [riesgo, inactivos] = await Promise.all([
+      query(`
+        SELECT FIRST 200
+          agg.CLIENTE_ID, agg.NOMBRE, agg.CONDICION_PAGO,
+          agg.SALDO_TOTAL, agg.MONTO_VENCIDO, agg.MAX_DIAS_VENCIDO, agg.NUM_DOCS_VENCIDOS,
+          COALESCE(buy.NUM_COMPRAS_VIDA, 0) AS NUM_COMPRAS_VIDA,
+          buy.ULTIMA_COMPRA,
+          COALESCE((SELECT FIRST 1 COALESCE(z.IMP,0) FROM (
+            SELECT CAST(v.FECHA AS DATE) AS FD, COALESCE(v.IMPORTE_NETO,0) AS IMP FROM DOCTOS_VE v
+            WHERE v.CLIENTE_ID=agg.CLIENTE_ID AND v.CLIENTE_ID>0
+              AND v.TIPO_DOCTO NOT IN ('C') AND v.ESTATUS NOT IN ('C','T')
+            UNION ALL
+            SELECT CAST(p.FECHA AS DATE), COALESCE(p.IMPORTE_NETO,0) FROM DOCTOS_PV p
+            WHERE p.CLIENTE_ID=agg.CLIENTE_ID AND p.CLIENTE_ID>0
+              AND p.TIPO_DOCTO NOT IN ('C') AND p.ESTATUS NOT IN ('C','T')
+          ) z ORDER BY z.FD DESC), 0) AS ULTIMA_COMPRA_IMPORTE,
+          CAST(COALESCE(buy.TICKET_PROMEDIO_MES,0)*12 AS DECIMAL(18,2)) AS PERDIDA_VENTA_ANUAL_EST,
+          CASE WHEN agg.MAX_DIAS_VENCIDO>90 THEN 'CRITICO'
+               WHEN agg.MAX_DIAS_VENCIDO>60 THEN 'ALTO'
+               WHEN agg.MAX_DIAS_VENCIDO>30 THEN 'MEDIO' ELSE 'LEVE' END AS NIVEL
+        FROM (
+          SELECT doc.CLIENTE_ID, c.NOMBRE, COALESCE(cp.NOMBRE,'S/D') AS CONDICION_PAGO,
+            SUM(doc.SALDO_NETO) AS SALDO_TOTAL,
+            SUM(CASE WHEN doc.DIAS_VENCIDO>0 THEN doc.SALDO_NETO ELSE 0 END) AS MONTO_VENCIDO,
+            MAX(CASE WHEN doc.DIAS_VENCIDO>0 THEN doc.DIAS_VENCIDO ELSE 0 END) AS MAX_DIAS_VENCIDO,
+            SUM(CASE WHEN doc.DIAS_VENCIDO>0 THEN 1 ELSE 0 END) AS NUM_DOCS_VENCIDOS
+          FROM ${cxcDocSaldosInnerSQL('')} doc
+          LEFT JOIN CLIENTES c ON c.CLIENTE_ID=doc.CLIENTE_ID
+          LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID=c.COND_PAGO_ID
+          WHERE doc.SALDO_NETO>0
+          GROUP BY doc.CLIENTE_ID, c.NOMBRE, cp.NOMBRE
+        ) agg
+        LEFT JOIN (
+          SELECT t.CLIENTE_ID, COUNT(*) AS NUM_COMPRAS_VIDA, MAX(t.FECHA_D) AS ULTIMA_COMPRA,
+            COALESCE(SUM(CASE WHEN t.FECHA_D>=(CURRENT_DATE-365) THEN t.IMP_NETO ELSE 0 END),0)/12.0 AS TICKET_PROMEDIO_MES
+          FROM (
+            SELECT CLIENTE_ID, CAST(FECHA AS DATE) AS FECHA_D, COALESCE(IMPORTE_NETO,0) AS IMP_NETO FROM DOCTOS_VE
+            WHERE CLIENTE_ID>0 AND TIPO_DOCTO NOT IN ('C') AND ESTATUS NOT IN ('C','T')
+            UNION ALL
+            SELECT CLIENTE_ID, CAST(FECHA AS DATE), COALESCE(IMPORTE_NETO,0) FROM DOCTOS_PV
+            WHERE CLIENTE_ID>0 AND TIPO_DOCTO NOT IN ('C') AND ESTATUS NOT IN ('C','T')
+          ) t
+          GROUP BY t.CLIENTE_ID
+        ) buy ON buy.CLIENTE_ID=agg.CLIENTE_ID
+        WHERE agg.MONTO_VENCIDO>0
+        ORDER BY agg.MONTO_VENCIDO DESC
+      `, [], 35000, dbo).catch(() => []),
+      query(`
+        SELECT FIRST 300
+          c.CLIENTE_ID, c.NOMBRE,
+          COALESCE(cp.NOMBRE,'S/D') AS CONDICION_PAGO,
+          0 AS SALDO_TOTAL, 0 AS MONTO_VENCIDO, 0 AS MAX_DIAS_VENCIDO, 0 AS NUM_DOCS_VENCIDOS,
+          ult.NUM_COMPRAS_VIDA,
+          ult.ULTIMA AS ULTIMA_COMPRA,
+          0 AS ULTIMA_COMPRA_IMPORTE,
+          CAST(COALESCE(ult.TICKET_PROM,0)*12 AS DECIMAL(18,2)) AS PERDIDA_VENTA_ANUAL_EST,
+          'INACTIVO' AS NIVEL
+        FROM CLIENTES c
+        JOIN (
+          SELECT CLIENTE_ID, MAX(CAST(FECHA AS DATE)) AS ULTIMA, COUNT(*) AS NUM_COMPRAS_VIDA,
+            COALESCE(SUM(CASE WHEN CAST(FECHA AS DATE)>=(CURRENT_DATE-365) THEN COALESCE(IMPORTE_NETO,0) ELSE 0 END),0)/12.0 AS TICKET_PROM
+          FROM DOCTOS_VE
+          WHERE CLIENTE_ID>0 AND TIPO_DOCTO NOT IN ('C') AND ESTATUS NOT IN ('C','T')
+          GROUP BY CLIENTE_ID
+          HAVING MAX(CAST(FECHA AS DATE))<(CURRENT_DATE-90)
+        ) ult ON ult.CLIENTE_ID=c.CLIENTE_ID
+        LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID=c.COND_PAGO_ID
+        ORDER BY ult.ULTIMA ASC
+      `, [], 35000, dbo).catch(() => []),
+    ]);
+    // Merge: riesgo clients first, then inactivos not already in riesgo
+    const riesgoIds = new Set((riesgo || []).map(r => r.CLIENTE_ID));
+    const merged = [
+      ...(riesgo || []),
+      ...(inactivos || []).filter(r => !riesgoIds.has(r.CLIENTE_ID)),
+    ];
+    return merged;
+  }
+  if (isAllDbs(req)) return runForAllDbs((dbo) => inteligenciaForDb(dbo));
+  return inteligenciaForDb(getReqDbOpts(req));
 });
 
 /** Comercial: sin compra en los últimos 60 días pero sí en los últimos 6 meses (61–180 días). */

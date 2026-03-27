@@ -203,7 +203,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     let urlDb = getSelectedDbId();
     const ids = (list || []).map(function (e) { return String((e && e.id) || ''); });
     const preferred = PARKER_DB_CANDIDATES.find(function (id) { return ids.indexOf(id) >= 0; }) || ids[0] || '';
-    if (!urlDb || ids.indexOf(urlDb) < 0) urlDb = preferred;
+    if (!urlDb || (urlDb !== '__all__' && ids.indexOf(urlDb) < 0)) urlDb = preferred;
     if (urlDb) {
       try {
         const u = new URL(window.location.href);
@@ -216,6 +216,9 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       // #endregion
     }
     let html = '';
+    const isAll = (urlDb === '__all__');
+    html += '<button type="button" class="biz-chip db-chip' + (isAll ? ' active' : '') + '" data-db="__all__" title="Agregar datos de todas las empresas">' +
+      '<span class="db-chip-main">Todos los Negocios</span><span class="db-chip-sub">Grupo Suminregio</span></button>';
     (list || []).forEach(function (e) {
       const id = String(e.id || '');
       const fname = fdbBasename(e.database);
@@ -224,7 +227,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       const labelClean = cleanDbDisplayName(String(e.label || '').replace(/\.fdb$/i, ''));
       const idPretty = cleanDbDisplayName(idClean);
       const sub = (labelClean && labelClean !== main && labelClean !== idPretty) ? labelClean : idPretty;
-      const active = urlDb === id ? ' active' : '';
+      const active = (!isAll && urlDb === id) ? ' active' : '';
       const title = escChip((e.database || '') + (e.host ? ' \u00b7 ' + e.host : ''));
       html += '<button type="button" class="biz-chip db-chip' + active + '" data-db="' + escChip(id) + '" title="' + title + '">' +
         '<span class="db-chip-main">' + escChip(main) + '</span><span class="db-chip-sub">' + escChip(sub) + '</span></button>';

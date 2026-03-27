@@ -370,7 +370,7 @@ async function loadData(){
     });
     // #endregion
     const [riesgo, resumen, comercial, inactivos] = await Promise.all([
-      fwt(apiDb('/api/clientes/riesgo?limit=100'), [], 35000),
+      fwt(apiDb('/api/clientes/inteligencia?limit=400'), [], 35000),
       fwt(apiDb('/api/clientes/resumen-riesgo'), {}, 35000),
       fwt(apiDb('/api/clientes/comercial-atraso?limit=300'), [], 35000),
       fwt(apiDb('/api/clientes/inactivos?limit=300'), [], 25000),
@@ -526,7 +526,7 @@ function renderRiesgo(data){
   const rows = dataToRender.map(r=>{
     const maxD = +r.MAX_DIAS_VENCIDO||0;
     const nivel = (r.NIVEL_RIESGO||nivelFromDias(maxD)).toUpperCase();
-    const badgeClass = nivel==='CRITICO'?'badge-critico':nivel==='ALTO'?'badge-alto':nivel==='MEDIO'?'badge-medio':'badge-leve';
+    const badgeClass = nivel==='INACTIVO'?'badge-inactivo':nivel==='CRITICO'?'badge-critico':nivel==='ALTO'?'badge-alto':nivel==='MEDIO'?'badge-medio':'badge-leve';
     const saldoTotal = +r.SALDO_TOTAL||+r.SALDO||0;
     const montoVencido = +r.MONTO_VENCIDO||+r.MONTO_VENCIDO_BRUTO||+r.SALDO||0;
     let pctV = 0;
@@ -536,8 +536,9 @@ function renderRiesgo(data){
     const ultImp = +r.ULTIMA_COMPRA_IMPORTE || 0;
     const riesgoAnual = +r.PERDIDA_VENTA_ANUAL_EST || 0;
     const nCom = +r.NUM_COMPRAS_VIDA||0;
+    const nombreCell = (r.NOMBRE||'--') + (r.EMPRESA ? '<br><small style="color:var(--muted);font-size:.7rem">' + (r.EMPRESA || '') + '</small>' : '');
     return `<tr>
-      <td style="padding:.65rem .75rem;color:var(--text);font-weight:600">${r.NOMBRE||'--'}</td>
+      <td style="padding:.65rem .75rem;color:var(--text);font-weight:600">${nombreCell}</td>
       <td style="padding:.65rem .75rem"><span class="badge ${badgeClass}">${nivel}</span></td>
       <td class="num" style="color:var(--blue)">${fmtM(saldoTotal)}</td>
       <td class="num" style="color:${col}">${fmtM(montoVencido)}</td>
@@ -547,7 +548,7 @@ function renderRiesgo(data){
       </td>
       <td class="num" style="color:${col}">${maxD} d&iacute;as</td>
       <td class="num" style="color:var(--text2)">${+r.NUM_DOCS_VENCIDOS||'--'}</td>
-      <td class="num" style="color:var(--text2)">${nCom||'\u2014'}</td>
+      <td class="num" style="color:var(--text2)">${nCom ? nCom+' veces' : '\u2014'}</td>
       <td class="num" style="color:var(--text2);font-size:.78rem">${fmtD(r.ULTIMA_COMPRA)}</td>
       <td class="num" style="color:var(--green)">${fmtM(ultImp)}</td>
       <td class="num" style="color:var(--orange)">${fmtM(riesgoAnual)}</td>
