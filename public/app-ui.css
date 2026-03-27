@@ -410,3 +410,188 @@ html[data-theme="light"] .biz-chip {
   border-color: rgba(15, 23, 42, 0.15) !important;
   color: #0f172a !important;
 }
+
+/* --- index.html: scorecard y universo de negocios en tema claro ------------------- */
+
+/* Scorecard table wrapper (dark gradient) */
+html[data-theme="light"] .scorecard-wrap {
+  background: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.08) !important;
+}
+html[data-theme="light"] .scorecard-head {
+  background: #f8fafc !important;
+  border-bottom-color: rgba(15, 23, 42, 0.08) !important;
+}
+html[data-theme="light"] .scorecard-title {
+  color: #0f172a !important;
+}
+html[data-theme="light"] .sc-table th {
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+}
+html[data-theme="light"] .sc-table td {
+  border-bottom-color: rgba(15, 23, 42, 0.06) !important;
+}
+html[data-theme="light"] .sc-table tr:hover td {
+  background: rgba(15, 23, 42, 0.025) !important;
+}
+html[data-theme="light"] .sc-kpi-name {
+  color: #0f172a !important;
+}
+html[data-theme="light"] .sc-kpi-area {
+  color: #64748b !important;
+}
+html[data-theme="light"] .sc-val {
+  color: #0f172a !important;
+}
+html[data-theme="light"] .sc-meta {
+  color: #64748b !important;
+}
+html[data-theme="light"] .sc-bar-bg {
+  background: #e2e8f0 !important;
+}
+html[data-theme="light"] .sc-pct {
+  color: #64748b !important;
+}
+html[data-theme="light"] .delta-up { color: #166534 !important; }
+html[data-theme="light"] .delta-down { color: #b91c1c !important; }
+html[data-theme="light"] .delta-flat { color: #64748b !important; }
+
+/* Panel universo de negocios */
+html[data-theme="light"] .uni-portfolio {
+  background: #f8fafc !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08) !important;
+}
+html[data-theme="light"] .uni-portfolio-shell {
+  background: transparent !important;
+}
+html[data-theme="light"] .uni-title {
+  color: #0f172a !important;
+}
+html[data-theme="light"] .uni-subtitle {
+  color: #475569 !important;
+}
+html[data-theme="light"] .uni-sum-pill {
+  background: rgba(15, 23, 42, 0.04) !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
+}
+html[data-theme="light"] .uni-sum-pill .u-l {
+  color: #64748b !important;
+}
+html[data-theme="light"] .uni-sum-pill .u-v {
+  color: #0f172a !important;
+}
+
+/* Tabla comparativo detallado */
+html[data-theme="light"] .uni-detail-panel {
+  background: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
+}
+html[data-theme="light"] .uni-detail-head {
+  background: #f1f5f9 !important;
+  border-bottom-color: rgba(15, 23, 42, 0.08) !important;
+}
+html[data-theme="light"] .uni-detail-title {
+  color: #334155 !important;
+}
+html[data-theme="light"] .uni-table th {
+  background: #f8fafc !important;
+  color: #475569 !important;
+  border-bottom-color: rgba(15, 23, 42, 0.08) !important;
+}
+html[data-theme="light"] .uni-table td {
+  border-bottom-color: rgba(15, 23, 42, 0.05) !important;
+}
+html[data-theme="light"] .uni-table .t-name {
+  color: #0f172a !important;
+}
+html[data-theme="light"] .uni-table .t-id {
+  color: #64748b !important;
+}
+html[data-theme="light"] .uni-foot {
+  color: #64748b !important;
+  border-top-color: rgba(15, 23, 42, 0.08) !important;
+}
+
+/* Módulo cards (index) */
+html[data-theme="light"] .module-card {
+  background: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
+}
+html[data-theme="light"] .mod-name {
+  color: #0f172a !important;
+}
+html[data-theme="light"] .mod-desc {
+  color: #475569 !important;
+}
+html[data-theme="light"] .mod-kpi-label {
+  color: #64748b !important;
+}
+html[data-theme="light"] .mod-footer {
+  border-top-color: rgba(15, 23, 42, 0.08) !important;
+}
+html[data-theme="light"] .mod-status {
+  color: #64748b !important;
+}
+
+/* KPI mega grid (index) */
+html[data-theme="light"] .kpi-card {
+  background: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
+}
+html[data-theme="light"] .kpi-label {
+  color: #475569 !important;
+}
+html[data-theme="light"] .kpi-sub {
+  color: #64748b !important;
+}
+html[data-theme="light"] .meta-bar-bg {
+  background: #e2e8f0 !important;
+}
+html[data-theme="light"] .meta-pct {
+  color: #64748b !important;
+}
+html[data-theme="light"] .kpi-card.green .kpi-value  { color: #166534 !important; }
+html[data-theme="light"] .kpi-card.blue .kpi-value   { color: #1d4ed8 !important; }
+html[data-theme="light"] .kpi-card.yellow .kpi-value { color: #92400e !important; }
+html[data-theme="light"] .kpi-card.orange .kpi-value { color: #9a3412 !important; }
+html[data-theme="light"] .kpi-card.red .kpi-value    { color: #b91c1c !important; }
+html[data-theme="light"] .kpi-card.purple .kpi-value { color: #6d28d9 !important; }
+
+/* Hero title index */
+html[data-theme="light"] .hero-title {
+  background: none !important;
+  background-image: none !important;
+  -webkit-background-clip: unset !important;
+  -webkit-text-fill-color: unset !important;
+  background-clip: unset !important;
+  color: #0f172a !important;
+}
+html[data-theme="light"] .hero-sub {
+  color: #475569 !important;
+}
+html[data-theme="light"] .hero-data-hint {
+  background: rgba(180, 83, 9, 0.07) !important;
+  border-color: rgba(180, 83, 9, 0.2) !important;
+  color: #92400e !important;
+}
+html[data-theme="light"] .section-divider-label {
+  color: #64748b !important;
+}
+html[data-theme="light"] .section-divider-line {
+  background: rgba(15, 23, 42, 0.1) !important;
+}
+
+/* Biz context bar */
+html[data-theme="light"] .biz-context-bar {
+  background: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
+  box-shadow: none !important;
+}
+html[data-theme="light"] .biz-chip.active {
+  color: #7c2d12 !important;
+  border-color: rgba(124, 45, 18, 0.4) !important;
+  background: rgba(124, 45, 18, 0.08) !important;
+}

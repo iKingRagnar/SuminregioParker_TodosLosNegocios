@@ -917,7 +917,7 @@ const consumosSchemaCache = new Map();
  * Si se usa FECHA_DOCUMENTO o CANTIDAD incorrectamente, la query falla y los KPIs quedan en 0.
  */
 async function resolveConsumosSchema(dbo) {
-  const key = dbCacheKey(dbo) + ':v2amt';
+  const key = dbCacheKey(dbo) + ':v3amt';
   if (consumosSchemaCache.has(key)) return consumosSchemaCache.get(key);
   const [veCols, pvCols, veDetCols, pvDetCols] = await Promise.all([
     getTableColumns('DOCTOS_VE', dbo),
@@ -929,7 +929,7 @@ async function resolveConsumosSchema(dbo) {
   const fp = firstExistingColumn(pvCols, ['FECHA', 'FECHA_DOCUMENTO']) || 'FECHA';
   const veQty = firstExistingColumn(veDetCols, ['UNIDADES', 'CANTIDAD']) || 'UNIDADES';
   const pvQty = firstExistingColumn(pvDetCols, ['UNIDADES', 'CANTIDAD']) || 'UNIDADES';
-  const amtCandidates = ['PRECIO_TOTAL', 'IMPORTE', 'IMPORTE_TOTAL', 'SUBTOTAL', 'TOTAL_LINEA', 'IMPORTE_LINEA', 'IMPORTE_NETO'];
+  const amtCandidates = ['PRECIO_TOTAL', 'IMPORTE', 'IMPORTE_TOTAL', 'SUBTOTAL', 'TOTAL_LINEA', 'IMPORTE_LINEA', 'IMPORTE_NETO', 'TOTAL', 'NETO', 'PRECIO_TOTAL_NETO', 'TOTAL_RENGLON', 'PRECIO_NETO'];
   const veAmt = firstExistingColumn(veDetCols, amtCandidates);
   const pvAmt = firstExistingColumn(pvDetCols, amtCandidates);
   const out = {
