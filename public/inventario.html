@@ -216,6 +216,26 @@ nav{display:flex;align-items:center;gap:.25rem}
     </div>
   </div>
 
+  <div class="card" style="margin-top:1.25rem;margin-bottom:1.5rem">
+    <div class="card-head">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+        Art&iacute;culos Sin Movimiento (&ge;365 d&iacute;as con existencia)
+      </div>
+      <div class="card-badge" id="sinmov365-badge">--</div>
+    </div>
+    <div class="card-body" style="padding:0">
+      <table class="tbl" id="tbl-sinmov365">
+        <thead><tr>
+          <th>Art&iacute;culo</th><th>Unidad</th>
+          <th class="num">Existencia</th><th class="num">M&iacute;nimo</th>
+          <th class="num">D&iacute;as Sin Venta</th><th class="num">&Uacute;lt. Movimiento</th>
+        </tr></thead>
+        <tbody id="tbl-sinmov365-body"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tbody>
+      </table>
+    </div>
+  </div>
+
   <div class="card" style="margin-bottom:1.5rem">
     <div class="card-head">
       <div class="card-title">
@@ -403,22 +423,33 @@ async function loadForecast(){
 }
 
 async function loadSinMovimiento(){
+  const b180 = document.getElementById('tbl-sinmov-body');
+  const b365 = document.getElementById('tbl-sinmov365-body');
+  const errRow = '<tr><td colspan="6" style="text-align:center;color:var(--red);padding:1.5rem">Error al cargar — reintenta</td></tr>';
   try{
-    const rows = (await apiFetch(apiDb('/api/inv/sin-movimiento?dias=180&limit=50'), 25000)).slice().sort((a,b)=>(+b.DIAS_SIN_VENTA||0)-(+a.DIAS_SIN_VENTA||0));
-    setText('sinmov-badge', rows.length+' art&iacute;culos');
-    document.getElementById('tbl-sinmov-body').innerHTML = rows.map(r=>{
+    const all = (await apiFetch(apiDb('/api/inv/sin-movimiento?dias=180&limit=100'), 35000)).slice().sort((a,b)=>(+b.DIAS_SIN_VENTA||0)-(+a.DIAS_SIN_VENTA||0));
+    const rowHtml = r => {
       const dias = +(r.DIAS_SIN_VENTA||9999);
-      const col  = dias>365?'var(--red)':dias>180?'var(--orange)':'var(--yellow)';
+      const col  = dias>=365?'var(--red)':dias>180?'var(--orange)':'var(--yellow)';
       return `<tr>
         <td class="lbl">${r.DESCRIPCION}</td>
         <td style="color:var(--muted)">${r.UNIDAD||''}</td>
-        <td class="num" style="color:var(--yellow)">${+(r.EXISTENCIA_ACTUAL||0).toFixed(1)}</td>
+        <td class="num" style="color:var(--yellow)">${(+(r.EXISTENCIA_ACTUAL||0)).toFixed(1)}</td>
         <td class="num">${+(r.MIN_ACTUAL||0)}</td>
         <td class="num"><span style="color:${col};font-weight:600">${dias>9000?'Sin hist.':dias+' d&iacute;as'}</span></td>
         <td class="num" style="color:var(--muted)">${r.ULTIMO_MOVIMIENTO||'Sin registro'}</td>
       </tr>`;
-    }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Sin art&iacute;culos sin movimiento</td></tr>';
-  }catch(e){console.error('sin-movimiento',e);}
+    };
+    setText('sinmov-badge', all.length+' art&iacute;culos');
+    if(b180) b180.innerHTML = all.map(rowHtml).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Sin art&iacute;culos sin movimiento</td></tr>';
+    const rows365 = all.filter(r=>(+r.DIAS_SIN_VENTA||0)>=365);
+    setText('sinmov365-badge', rows365.length+' art&iacute;culos');
+    if(b365) b365.innerHTML = rows365.map(rowHtml).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Sin art&iacute;culos con 365+ d&iacute;as sin movimiento</td></tr>';
+  }catch(e){
+    console.error('sin-movimiento',e);
+    if(b180) b180.innerHTML = errRow;
+    if(b365) b365.innerHTML = errRow;
+  }
 }
 
 async function loadOperacionCritica(){

@@ -3061,7 +3061,7 @@ get('/api/inv/sin-movimiento', async (req) => {
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND COALESCE(ex.EXISTENCIA, 0) > 0
       AND (um.ULTIMO_MOVIMIENTO IS NULL OR (CURRENT_DATE - um.ULTIMO_MOVIMIENTO) > ${dias})
     ORDER BY DIAS_SIN_VENTA DESC NULLS FIRST, ex.EXISTENCIA DESC
-  `, [], 12000, dbo).catch(() => []);
+  `, [], 20000, dbo).catch(() => []);
 });
 
 // Operación inventario: existencia 0 persistente + consumo activo + cobertura de críticos.
