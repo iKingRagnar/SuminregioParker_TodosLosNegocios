@@ -189,7 +189,7 @@ const getQS = (extra={}) => {
   return p.toString();
 };
 async function api(url, ms){
-  ms = ms || 25000;
+  ms = ms || 90000;
   const ctrl = new AbortController();
   const tid = setTimeout(()=>ctrl.abort(), ms);
   try {
@@ -247,7 +247,9 @@ function applyConsumoKpiSem(r, insights){
 }
 
 async function loadResumen(){
-  const r = await api('/api/consumos/resumen?' + getQS());
+  let r;
+  try { r = await api('/api/consumos/resumen?' + getQS()); } catch(e) { r = {}; }
+  r = r && typeof r === 'object' ? r : {};
   lastConsumoRes = r;
 
   document.getElementById('kHoy').textContent = fmtN(r.HOY_UNIDADES);
@@ -267,19 +269,23 @@ async function loadResumen(){
   applyConsumoKpiSem(r, window.__consumosInsights);
 }
 async function loadDiario(){
-  const rows = await api('/api/consumos/diarias?' + getQS({ dias: 30 }));
-  if(!chartDiario)return;
-  chartDiario.data.labels = rows.map(r => new Date(r.DIA).toLocaleDateString('es-MX',{day:'2-digit',month:'short'}));
-  chartDiario.data.datasets[0].data = rows.map(r => +r.CONSUMO_TOTAL || 0);
-  chartDiario.update();
+  try {
+    const rows = await api('/api/consumos/diarias?' + getQS({ dias: 30 }));
+    if(!chartDiario || !Array.isArray(rows)) return;
+    chartDiario.data.labels = rows.map(r => new Date(r.DIA).toLocaleDateString('es-MX',{day:'2-digit',month:'short'}));
+    chartDiario.data.datasets[0].data = rows.map(r => +r.CONSUMO_TOTAL || 0);
+    chartDiario.update();
+  } catch(e) { /* chart stays blank */ }
 }
 async function loadTop(){
-  const rows = await api('/api/consumos/top-articulos?' + getQS({ limit: topConsumoN }));
-  if(!chartTop)return;
-  chartTop.data.labels = rows.map(r => (r.ARTICULO || '').substring(0, 24));
-  chartTop.data.datasets[0].data = rows.map(r => +r.UNIDADES || 0);
-  chartTop.data.datasets[1].data = rows.map(r => +r.VENTA_IMPORTE || 0);
-  chartTop.update();
+  try {
+    const rows = await api('/api/consumos/top-articulos?' + getQS({ limit: topConsumoN }));
+    if(!chartTop || !Array.isArray(rows)) return;
+    chartTop.data.labels = rows.map(r => (r.ARTICULO || '').substring(0, 24));
+    chartTop.data.datasets[0].data = rows.map(r => +r.UNIDADES || 0);
+    chartTop.data.datasets[1].data = rows.map(r => +r.VENTA_IMPORTE || 0);
+    chartTop.update();
+  } catch(e) { /* chart stays blank */ }
 }
 function esc(s){
   return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
@@ -414,18 +420,20 @@ async function loadPedidosVsConsumo(){
   }
 }
 async function loadVendedores(){
-  const rows = (await api('/api/consumos/por-vendedor?' + getQS())).slice().sort((a,b)=>(+b.UNIDADES||0)-(+a.UNIDADES||0));
   const tb = document.querySelector('#tblVend tbody');
-  if(!rows.length){ tb.innerHTML = '<tr><td colspan="5">Sin datos para este filtro</td></tr>'; return; }
-  tb.innerHTML = rows.map(r => `<tr><td>${esc(r.VENDEDOR)}</td><td class="num">${fmtN(r.UNIDADES)}</td><td class="num">${fmtF(r.PARTICIPACION)}%</td><td class="num">${fmtF(r.VENTA_IMPORTE||0)}</td><td class="num">${fmtF(r.PARTICIPACION_IMPORTE||0)}%</td></tr>`).join('');
+  try {
+    const raw = await api('/api/consumos/por-vendedor?' + getQS());
+    const rows = (Array.isArray(raw) ? raw : []).slice().sort((a,b)=>(+b.UNIDADES||0)-(+a.UNIDADES||0));
+    if(!rows.length){ tb.innerHTML = '<tr><td colspan="5">Sin datos para este filtro</td></tr>'; return; }
+    tb.innerHTML = rows.map(r => `<tr><td>${esc(r.VENDEDOR)}</td><td class="num">${fmtN(r.UNIDADES)}</td><td class="num">${fmtF(r.PARTICIPACION)}%</td><td class="num">${fmtF(r.VENTA_IMPORTE||0)}</td><td class="num">${fmtF(r.PARTICIPACION_IMPORTE||0)}%</td></tr>`).join('');
+  } catch(e) {
+    if(tb) tb.innerHTML = '<tr><td colspan="5" style="color:var(--orange)">Error al cargar vendedores</td></tr>';
+  }
 }
 async function loadAll(){
-  try{
-    await Promise.all([loadResumen(), loadDiario(), loadTop(), loadVendedores(), loadInsights(), loadPedidosVsConsumo()]);
-    document.getElementById('pageSub').textContent = 'Consumo en unidades y venta ($) de las mismas l\u00edneas VE/PV seg\u00fan el filtro.';
-  }catch(e){
-    document.getElementById('pageSub').textContent = 'Error al cargar consumos: ' + e.message;
-  }
+  // Cada función maneja sus propios errores; allSettled garantiza que un fallo no cancele las demás
+  await Promise.allSettled([loadResumen(), loadDiario(), loadTop(), loadVendedores(), loadInsights(), loadPedidosVsConsumo()]);
+  document.getElementById('pageSub').textContent = 'Consumo en unidades y venta ($) de las mismas l\u00edneas VE/PV seg\u00fan el filtro.';
 }
 (async function init(){
   initCharts();

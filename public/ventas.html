@@ -965,61 +965,26 @@ function applyCotiData(resObj, diarias, vends, ventasVE) {
   } catch(e) { console.error('applyCotiData', e); }
 }
 
-function asArrayCotizacionesDocs(raw){
-  if (Array.isArray(raw)) return raw;
-  if (raw && raw.error) return [];
-  if (raw && Array.isArray(raw.data)) return raw.data;
-  if (raw && Array.isArray(raw.rows)) return raw.rows;
-  return [];
-}
-
-function deriveCotiFromDocs(rows){
-  const docs = Array.isArray(rows) ? rows : [];
-  const byDay = {};
-  const byVend = {};
-  const today = new Date();
-  const y = today.getFullYear(), m = today.getMonth(), d = today.getDate();
-  let mesImp = 0, hoyImp = 0, mesCnt = 0, hoyCnt = 0;
-  for(const r of docs){
-    const f = r && r.FECHA ? new Date(r.FECHA) : null;
-    if(!f || isNaN(f)) continue;
-    const imp = fnum(r.IMPORTE_NETO);
-    const dayKey = `${f.getFullYear()}-${String(f.getMonth()+1).padStart(2,'0')}-${String(f.getDate()).padStart(2,'0')}`;
-    byDay[dayKey] = (byDay[dayKey] || 0) + imp;
-    const vid = r.VENDEDOR_ID != null ? r.VENDEDOR_ID : 0;
-    const vend = (r.VENDEDOR && String(r.VENDEDOR).trim()) ? r.VENDEDOR : (vid ? ('Vendedor ' + vid) : 'Sin vendedor');
-    const vkey = String(vid) + '|' + vend;
-    if(!byVend[vkey]) byVend[vkey] = { VENDEDOR: vend, VENDEDOR_ID: vid, COTIZACIONES_MES: 0, NUM_COTI_MES: 0 };
-    byVend[vkey].COTIZACIONES_MES += imp;
-    byVend[vkey].NUM_COTI_MES += 1;
-    if(f.getFullYear()===y && f.getMonth()===m){
-      mesImp += imp; mesCnt++;
-      if(f.getDate()===d){ hoyImp += imp; hoyCnt++; }
-    }
-  }
-  const diarias = Object.keys(byDay).sort().map(k=>({ DIA:k, TOTAL_COTIZACIONES:byDay[k] }));
-  const vends = Object.values(byVend).sort((a,b)=>(+b.COTIZACIONES_MES||0)-(+a.COTIZACIONES_MES||0)).slice(0,20);
-  const resObj = { HOY:hoyImp, MES_ACTUAL:mesImp, COTIZACIONES_MES:mesCnt, COTIZACIONES_HOY:hoyCnt };
-  return { resObj, diarias, vends };
-}
-
 async function loadCotizaciones() {
   const btnReintentar = document.getElementById('coti-reintentar');
-  // Mostrar "Cargando..." mientras llegan los datos
   document.getElementById('coti-vendedores-list').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)">Cargando...</div>';
-  // Si hay caché, mostrarla de inmediato (se pisa con datos frescos al llegar)
   if (lastCotiData) applyCotiData(lastCotiData.resObj, lastCotiData.diarias, lastCotiData.vends, lastCotiData.ventasVE);
   try {
+    // Misma estructura que ventas: llamar endpoints dedicados de resumen/diarias/por-vendedor
+    // en lugar de derivar desde docs crudos (TIPO_DOCTO='C', igual que ventas usa 'F'/'V')
     const settled = await Promise.allSettled([
-      fwt(buildApiUrl('/api/ventas/cotizaciones', 'limit=400'), [], 90000),
+      fwt(buildApiUrl('/api/ventas/cotizaciones/resumen'), {}, 90000),
+      fwt(buildApiUrl('/api/ventas/cotizaciones/diarias'), [], 90000),
+      fwt(buildApiUrl('/api/ventas/por-vendedor/cotizaciones'), [], 90000),
       fwt(buildApiUrl('/api/ventas/resumen', 'tipo=VE'), {}, 30000),
     ]);
     const safe = (idx, fb) => (settled[idx] && settled[idx].status === 'fulfilled') ? settled[idx].value : fb;
-    const docs = asArrayCotizacionesDocs(safe(0, []));
-    const ventasVE = safe(1, {});
-    const derived = deriveCotiFromDocs(docs);
-    lastCotiData = { resObj: derived.resObj, diarias: derived.diarias, vends: derived.vends, ventasVE };
-    applyCotiData(derived.resObj, derived.diarias, derived.vends, ventasVE);
+    const resObj  = (v => (v && typeof v === 'object' && !Array.isArray(v)) ? v : {})(safe(0, {}));
+    const diarias = Array.isArray(safe(1, [])) ? safe(1, []) : [];
+    const vends   = Array.isArray(safe(2, [])) ? safe(2, []) : [];
+    const ventasVE = (v => (v && typeof v === 'object' && !Array.isArray(v)) ? v : {})(safe(3, {}));
+    lastCotiData = { resObj, diarias, vends, ventasVE };
+    applyCotiData(resObj, diarias, vends, ventasVE);
     if (btnReintentar) btnReintentar.style.display = 'none';
   } catch(e) {
     console.error('coti error', e);
