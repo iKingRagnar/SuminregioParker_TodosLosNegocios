@@ -368,6 +368,13 @@ function fwt(url,fallback,ms=10000){
     new Promise(r=>setTimeout(()=>r(fallback),ms))
   ]);
 }
+/** Importes numéricos desde API/Firebird (evita NaN en KPIs y conversión). */
+function fnum(x) {
+  if (x == null) return 0;
+  if (typeof x === 'number') return Number.isFinite(x) ? x : 0;
+  const n = parseFloat(String(x).trim().replace(/,/g, ''));
+  return Number.isFinite(n) ? n : 0;
+}
 let chartDiarias, chartMensuales, chartCotiDiarias, chartConvInst;
 let currentTipo = '';
 let currentDias = 30;
@@ -439,7 +446,7 @@ async function loadConversion(){
   const cy=()=>cssVar('--chart-yellow','#d97706');
   const cyFill=()=>cssVar('--chart-yellow-fill','rgba(217,119,6,.28)');
   try{
-    const data = await fwt(buildApiUrl('/api/ventas/vs-cotizaciones','meses=6'), {}, 60000).catch(()=>({}));
+    const data = await fwt(buildApiUrl('/api/ventas/vs-cotizaciones','meses=6'), {}, 90000).catch(()=>({}));
     const ventasArr = Array.isArray(data.ventas) ? data.ventas : [];
     const cotiArr   = Array.isArray(data.cotizaciones) ? data.cotizaciones : [];
     if(!ventasArr.length && !cotiArr.length){
@@ -459,12 +466,12 @@ async function loadConversion(){
     const mapa = {};
     cotiArr.forEach(c=>{
       const k=`${c.ANIO}-${String(c.MES).padStart(2,'0')}`;
-      mapa[k]={ ANIO:c.ANIO, MES:c.MES, COTI:+c.TOTAL_COTI||0, NUM_COTI:+c.NUM_COTI||0, VENTAS:0, NUM_VEN:0 };
+      mapa[k]={ ANIO:c.ANIO, MES:c.MES, COTI:fnum(c.TOTAL_COTI), NUM_COTI:fnum(c.NUM_COTI), VENTAS:0, NUM_VEN:0 };
     });
     ventasArr.forEach(v=>{
       const k=`${v.ANIO}-${String(v.MES).padStart(2,'0')}`;
-      if(mapa[k]){ mapa[k].VENTAS=+v.TOTAL_VENTAS||0; mapa[k].NUM_VEN=+v.NUM_DOCS||0; }
-      else mapa[k]={ ANIO:v.ANIO, MES:v.MES, COTI:0, NUM_COTI:0, VENTAS:+v.TOTAL_VENTAS||0, NUM_VEN:+v.NUM_DOCS||0 };
+      if(mapa[k]){ mapa[k].VENTAS=fnum(v.TOTAL_VENTAS); mapa[k].NUM_VEN=fnum(v.NUM_DOCS); }
+      else mapa[k]={ ANIO:v.ANIO, MES:v.MES, COTI:0, NUM_COTI:0, VENTAS:fnum(v.TOTAL_VENTAS), NUM_VEN:fnum(v.NUM_DOCS) };
     });
     const rows = Object.values(mapa).sort((a,b)=>a.ANIO!==b.ANIO?a.ANIO-b.ANIO:a.MES-b.MES);
 
@@ -476,10 +483,13 @@ async function loadConversion(){
 
     const totCoti = cotiVals.reduce((s,v)=>s+v,0);
     const totVen  = venVals.reduce((s,v)=>s+v,0);
-    const numCoti = cotiArr.reduce((s,r)=>s+(+r.NUM_COTI||0),0);
-    const numVen  = ventasArr.reduce((s,r)=>s+(+r.NUM_DOCS||0),0);
+    const numCoti = cotiArr.reduce((s,r)=>s+fnum(r.NUM_COTI),0);
+    const numVen  = ventasArr.reduce((s,r)=>s+fnum(r.NUM_DOCS),0);
     const tasaAmt = totCoti>0?Math.round(totVen/totCoti*100):0;
     const tasaDocs= numCoti>0?Math.round(numVen/numCoti*100):0;
+    // #region agent log
+    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'pre-fix',hypothesisId:'H-conv',location:'ventas.html:loadConversion',message:'vs-cotizaciones merge',data:{ventasN:ventasArr.length,cotiN:cotiArr.length,totCoti,totVen,numCoti,numVen},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
 
     setTxt('cv-total-coti', fmtK(totCoti));
     setTxt('cv-num-coti',   numCoti+' cotizaciones');
@@ -969,7 +979,7 @@ function deriveCotiFromDocs(rows){
   for(const r of docs){
     const f = r && r.FECHA ? new Date(r.FECHA) : null;
     if(!f || isNaN(f)) continue;
-    const imp = +(r.IMPORTE_NETO || 0);
+    const imp = fnum(r.IMPORTE_NETO);
     const dayKey = `${f.getFullYear()}-${String(f.getMonth()+1).padStart(2,'0')}-${String(f.getDate()).padStart(2,'0')}`;
     byDay[dayKey] = (byDay[dayKey] || 0) + imp;
     const vid = r.VENDEDOR_ID != null ? r.VENDEDOR_ID : 0;
@@ -997,12 +1007,15 @@ async function loadCotizaciones() {
   document.getElementById('coti-vendedores-list').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)">Cargando...</div>';
   try {
     const settled = await Promise.allSettled([
-      fwt(buildApiUrl('/api/ventas/cotizaciones', 'limit=400'), [], 45000),
+      fwt(buildApiUrl('/api/ventas/cotizaciones', 'limit=400'), [], 90000),
       fwt(buildApiUrl('/api/ventas/resumen','tipo=VE'), {}),
     ]);
     const safe = (idx, fb) => (settled[idx] && settled[idx].status === 'fulfilled') ? settled[idx].value : fb;
     const docs = asArrayCotizacionesDocs(safe(0, []));
     const ventasVE = safe(1, {});
+    // #region agent log
+    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'pre-fix',hypothesisId:'H-coti-api',location:'ventas.html:loadCotizaciones',message:'cotizaciones settled',data:{s0:settled[0]&&settled[0].status,s1:settled[1]&&settled[1].status,docsLen:docs.length,mesImpPreview:docs.length?fnum(docs[0]&&docs[0].IMPORTE_NETO):0},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     const derived = deriveCotiFromDocs(docs);
     const resObj = derived.resObj;
     const diarias = derived.diarias;

@@ -937,7 +937,8 @@ function cotizacionesSub(extraWhere = '') {
   )`;
 }
 
-/** Sufijo SQL (AND …) para excluir cotizaciones con fecha de vigencia vencida, si existe columna en DOCTOS_VE. MICROSIP_COTIZACIONES_INCLUIR_VENCIDAS=1 desactiva el filtro. */
+/** Sufijo SQL (AND …) para excluir cotizaciones con vigencia vencida SOLO si MICROSIP_COTIZACIONES_SOLO_VIGENTES=1.
+ *  Por defecto no se filtra (paridad con Power BI / histórico del mes). MICROSIP_COTIZACIONES_INCLUIR_VENCIDAS=1 fuerza sin filtro. */
 const cotizacionVigenciaCache = new Map();
 const cotizacionVigenciaInFlight = new Map();
 async function resolveCotizacionVigenciaSqlSuffix(dbo) {
@@ -946,6 +947,10 @@ async function resolveCotizacionVigenciaSqlSuffix(dbo) {
   if (cotizacionVigenciaInFlight.has(key)) return cotizacionVigenciaInFlight.get(key);
   const p = (async () => {
     if ((process.env.MICROSIP_COTIZACIONES_INCLUIR_VENCIDAS || '').match(/^(1|true|yes)$/i)) {
+      cotizacionVigenciaCache.set(key, '');
+      return '';
+    }
+    if (!(process.env.MICROSIP_COTIZACIONES_SOLO_VIGENTES || '').match(/^(1|true|yes)$/i)) {
       cotizacionVigenciaCache.set(key, '');
       return '';
     }
@@ -1129,11 +1134,15 @@ const CXC_SQL_ES_CONTADO = `(
       OR POSITION('EFECTIVO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) > 0
       OR POSITION('INMEDIATO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) > 0
     )`;
-/** Días desde FECHA_EMISION hasta vencimiento si no hay fila en VENCIMIENTOS_CARGOS_CC (0 = contado / mismo día). */
+/** Días desde FECHA_EMISION hasta vencimiento si no hay fila en VENCIMIENTOS_CARGOS_CC.
+ *  Microsip a veces deja DIAS_PPAG=0 pero el nombre sigue siendo "30 DIAS" → antes vencía el mismo día y el atraso quedaba absurdo vs Power BI.
+ *  Solo usamos 0 días si el nombre es contado/efectivo/inmediato (rama arriba en CASE o exclusión CXC_EXCLUIR_CONTADO). */
 const CXC_DIAS_SUM_INT = `CAST((
       CASE
         WHEN POSITION('CONTADO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) > 0 THEN 0
-        WHEN cp.DIAS_PPAG IS NOT NULL THEN cp.DIAS_PPAG
+        WHEN POSITION('EFECTIVO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) > 0 THEN 0
+        WHEN POSITION('INMEDIATO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) > 0 THEN 0
+        WHEN COALESCE(cp.DIAS_PPAG, 0) > 0 THEN cp.DIAS_PPAG
         ELSE 30
       END
     ) AS INTEGER)`;
@@ -1576,17 +1585,17 @@ get('/api/ventas/vs-cotizaciones', async (req) => {
   const [ventasMes, cotizMes] = await Promise.all([
     query(`
       SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
-        COALESCE(SUM(d.IMPORTE_NETO), 0) AS TOTAL_VENTAS, COUNT(*) AS NUM_DOCS
+        CAST(COALESCE(SUM(d.IMPORTE_NETO), 0) AS DOUBLE PRECISION) AS TOTAL_VENTAS, COUNT(*) AS NUM_DOCS
       FROM ${ventasSub()} d WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
       GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
-    `, [desdeStr], 12000, dbo).catch(() => []),
+    `, [desdeStr], 25000, dbo).catch(() => []),
     query(`
       SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
-        COALESCE(SUM(${sqlCotiImporteExpr('d')}), 0) AS TOTAL_COTI, COUNT(*) AS NUM_COTI
+        CAST(COALESCE(SUM(${sqlCotiImporteExpr('d')}), 0) AS DOUBLE PRECISION) AS TOTAL_COTI, COUNT(*) AS NUM_COTI
       FROM ${cotizacionesSub(cotiEw)} d
       WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
       GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
-    `, [desdeStr], 12000, dbo).catch(() => []),
+    `, [desdeStr], 25000, dbo).catch(() => []),
   ]);
   return { ventas: ventasMes || [], cotizaciones: cotizMes || [] };
 });
@@ -2047,7 +2056,7 @@ get('/api/ventas/cotizaciones', async (req) => {
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
     WHERE 1=1 ${f.sql}
     ORDER BY ${ci} DESC, d.FECHA DESC, d.FOLIO DESC
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, 30000, dbo).catch(() => []);
 });
 
 get('/api/ventas/vendedores', async (req) => {
@@ -3122,7 +3131,7 @@ get('/api/inv/sin-movimiento', async (req) => {
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND COALESCE(ex.EXISTENCIA, 0) > 0
       AND (um.ULTIMO_MOVIMIENTO IS NULL OR (CURRENT_DATE - um.ULTIMO_MOVIMIENTO) > ${dias})
     ORDER BY DIAS_SIN_VENTA DESC NULLS FIRST, ex.EXISTENCIA DESC
-  `, [], 45000, dbo).catch(() => []);
+  `, [], 120000, dbo).catch(() => []);
   }
   if (isAllDbs(req)) return runForAllDbs((dbo) => sinMovimientoForDb(dbo));
   return sinMovimientoForDb(getReqDbOpts(req));
@@ -3149,7 +3158,7 @@ get('/api/inv/operacion-critica', async (req) => {
     LEFT JOIN (SELECT d.ARTICULO_ID, SUM(CASE WHEN CAST(d.FECHA AS DATE)>=(CURRENT_DATE-28) THEN COALESCE(d.UNIDADES,0) ELSE 0 END) AS CONSUMO_4S, SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA)=EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA)=EXTRACT(MONTH FROM CURRENT_DATE) THEN COALESCE(d.UNIDADES,0) ELSE 0 END) AS CONSUMO_MES, MAX(CAST(d.FECHA AS DATE)) AS ULTIMO_MOVIMIENTO, (CURRENT_DATE-MAX(CAST(d.FECHA AS DATE))) AS DIAS_SIN_VENTA FROM ${subOc2} d WHERE d.UNIDADES>0 GROUP BY d.ARTICULO_ID) cs ON cs.ARTICULO_ID=a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS,'A')='A' AND (COALESCE(ex.EXISTENCIA,0)<=0 OR (COALESCE(cs.CONSUMO_4S,0)>0 AND COALESCE(ex.EXISTENCIA,0)<=COALESCE(mn.INVENTARIO_MINIMO,0)))
     ORDER BY CASE WHEN COALESCE(ex.EXISTENCIA,0)<=0 AND COALESCE(cs.CONSUMO_4S,0)>0 THEN 0 ELSE 1 END, COALESCE(cs.CONSUMO_4S,0) DESC, COALESCE(ex.EXISTENCIA,0) ASC
-      `, [], 45000, dbo).catch(() => []);
+      `, [], 120000, dbo).catch(() => []);
       return (rows2 || []).map(r => {
         const existencia=+r.EXISTENCIA_ACTUAL||0, minimo=+r.MIN_ACTUAL||0, c4=+r.CONSUMO_4_SEMANAS||0, cm=+r.CONSUMO_MES_ACTUAL||0;
         const semanal=c4>0?c4/4:0, diario=semanal/7, semanas=semanal>0?existencia/semanal:null, dias=diario>0?existencia/diario:null;
@@ -3222,7 +3231,7 @@ get('/api/inv/operacion-critica', async (req) => {
       CASE WHEN COALESCE(ex.EXISTENCIA, 0) <= 0 AND COALESCE(cs.CONSUMO_4S, 0) > 0 THEN 0 ELSE 1 END,
       COALESCE(cs.CONSUMO_4S, 0) DESC,
       COALESCE(ex.EXISTENCIA, 0) ASC
-  `, [], 45000, dbo).catch(() => []);
+  `, [], 120000, dbo).catch(() => []);
 
   const enriched = (rows || []).map((r) => {
     const existencia = +r.EXISTENCIA_ACTUAL || 0;

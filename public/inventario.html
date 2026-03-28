@@ -440,10 +440,10 @@ async function loadSinMovimiento(){
     done = true;
     if(b180) b180.innerHTML = errRow;
     if(b365) b365.innerHTML = errRow;
-  }, 65000);
+  }, 130000);
   const fin = ()=>{ done=true; clearTimeout(tWarm); clearTimeout(tHard); };
   try{
-    const all = (await apiFetch(apiDb('/api/inv/sin-movimiento?dias=180&limit=100'), 60000)).slice().sort((a,b)=>(+b.DIAS_SIN_VENTA||0)-(+a.DIAS_SIN_VENTA||0));
+    const all = (await apiFetch(apiDb('/api/inv/sin-movimiento?dias=180&limit=100'), 120000)).slice().sort((a,b)=>(+b.DIAS_SIN_VENTA||0)-(+a.DIAS_SIN_VENTA||0));
     fin();
     const rowHtml = r => {
       const dias = +(r.DIAS_SIN_VENTA||9999);
@@ -473,7 +473,7 @@ async function loadSinMovimiento(){
 
 async function loadOperacionCritica(){
   try{
-    const payload = await apiFetch(apiDb('/api/inv/operacion-critica?limit=120'), 60000);
+    const payload = await apiFetch(apiDb('/api/inv/operacion-critica?limit=120'), 120000);
     const rows = Array.isArray(payload && payload.rows) ? payload.rows : [];
     const rs = (payload && payload.resumen) || {};
     setText('op-badge', `${rows.length} filas · ${Number(rs.criticos||0)} cr\u00edticos`);
