@@ -69,13 +69,6 @@ const app  = express();
 const PORT = process.env.PORT || 7000;
 const BUILD_FINGERPRINT = 'cxc-dedupe-docto-maxdias-20250326';
 
-const DEBUG_SESSION_LOG = path.join(__dirname, 'debug-5e0522.log');
-function debugSessionLogLine(payload) {
-  try {
-    fs.appendFileSync(DEBUG_SESSION_LOG, JSON.stringify(Object.assign({ sessionId: '5e0522', timestamp: Date.now() }, payload)) + '\n', 'utf8');
-  } catch (_) { /* ignore */ }
-}
-
 /**
  * Power BI / reportes suelen usar importe base sin IVA; en cabecera DOCTOS_VE/PV el campo
  * IMPORTE_NETO a veces viene con IVA acumulado. Por defecto se divide entre 1.16.
@@ -137,17 +130,13 @@ function query(sql, params = [], timeoutMs = 12000, dbOptsOverride = null) {
   const queryPromise = new Promise((resolve, reject) => {
     Firebird.attach(attachOpts, (err, db) => {
       if (err) {
-        // #region agent log
-        fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run-render-inv-1',hypothesisId:'H1',location:'server_corregido.js:query.attach',message:'firebird attach failed',data:{host:attachOpts&&attachOpts.host?String(attachOpts.host):'',port:attachOpts&&attachOpts.port?Number(attachOpts.port):0,database:attachOpts&&attachOpts.database?String(attachOpts.database):'',error:err&&err.message?String(err.message).slice(0,300):String(err||'')},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
+
         return reject(err);
       }
       db.query(sql, params, (err2, result) => {
         db.detach();
         if (err2) {
-          // #region agent log
-          fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run-render-inv-1',hypothesisId:'H2',location:'server_corregido.js:query.exec',message:'firebird query failed',data:{host:attachOpts&&attachOpts.host?String(attachOpts.host):'',port:attachOpts&&attachOpts.port?Number(attachOpts.port):0,database:attachOpts&&attachOpts.database?String(attachOpts.database):'',sqlHead:String(sql||'').slice(0,180),error:err2&&err2.message?String(err2.message).slice(0,300):String(err2||'')},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
+
           return reject(err2);
         }
         resolve(result || []);
@@ -583,10 +572,6 @@ function get(routePath, handler) {
   });
 }
 
-function debugLogServer(runId, hypothesisId, location, message, data) {
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'8e39ce'},body:JSON.stringify({sessionId:'8e39ce',runId,hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
-}
-
 // ── Helper: construye cláusulas WHERE para filtros de fecha/vendedor/cliente ─
 // Soporta: anio, mes, dia, vendedor, cliente, desde (YYYY-MM-DD), hasta (YYYY-MM-DD)
 // Retorna { sql, params, lookbackOverride }
@@ -913,27 +898,35 @@ function normalizeCotizacionResumenRow(row) {
   };
 }
 
-/** Importe cotización de la subconsulta (ya normalizado): usar IMPORTE_NETO. */
+/** Importe cotización desde subconsulta: COALESCE(alias.IMPORTE_NETO, 0). */
 function sqlCotiImporteExpr(alias = 'd') {
-  const a = alias;
-  return `COALESCE(${a}.IMPORTE_NETO, 0)`;
+  return `COALESCE(${alias}.IMPORTE_NETO, 0)`;
 }
 
+/**
+ * Subconsulta de cotizaciones alineada al DAX de Power BI:
+ *   Cotizaciones $ = SUM(det.UNIDADES * det.PRECIO_UNITARIO) - COALESCE(d.DSCTO_IMPORTE, 0)
+ * Filtra: TIPO_DOCTO IN ('C','O') y ESTATUS <> 'C' (no canceladas).
+ * No divide entre 1.16 — los precios en cotización ya están en base ex-IVA.
+ * Usa LEFT JOIN + GROUP BY para evitar N subconsultas correlacionadas.
+ */
 function cotizacionesSub(extraWhere = '') {
-  const ci = sqlVentaImporteBaseExpr('d');
   const ew = String(extraWhere || '');
   return `(
     SELECT
       d.DOCTO_VE_ID,
-      d.FECHA,
+      CAST(d.FECHA AS DATE) AS FECHA,
       d.FOLIO,
       d.TIPO_DOCTO,
       d.ESTATUS,
       d.CLIENTE_ID,
       d.VENDEDOR_ID,
-      ${ci} AS IMPORTE_NETO
+      COALESCE(SUM(COALESCE(det.UNIDADES, 0) * COALESCE(det.PRECIO_UNITARIO, 0)), 0)
+        - COALESCE(MAX(d.DSCTO_IMPORTE), 0) AS IMPORTE_NETO
     FROM DOCTOS_VE d
+    LEFT JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
     WHERE ${sqlWhereCotizacionActiva('d')}${ew}
+    GROUP BY d.DOCTO_VE_ID, CAST(d.FECHA AS DATE), d.FOLIO, d.TIPO_DOCTO, d.ESTATUS, d.CLIENTE_ID, d.VENDEDOR_ID
   )`;
 }
 
@@ -958,9 +951,7 @@ async function resolveCotizacionVigenciaSqlSuffix(dbo) {
     const col = firstExistingColumn(cols, ['FECHA_VENCIMIENTO', 'FECHA_VIGENCIA', 'FECHA_VALIDA', 'FECHA_CADUCIDAD']);
     const suffix = col ? ` AND (d.${col} IS NULL OR CAST(d.${col} AS DATE) >= CURRENT_DATE)` : '';
     cotizacionVigenciaCache.set(key, suffix);
-    // #region agent log
-    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '5e0522' }, body: JSON.stringify({ sessionId: '5e0522', runId: 'run-coti-vig', hypothesisId: 'H-coti-vig', location: 'server_corregido.js:resolveCotizacionVigenciaSqlSuffix', message: 'cotizacion vigencia suffix', data: { column: col || null, hasFilter: !!suffix }, timestamp: Date.now() }) }).catch(() => {});
-    // #endregion
+
     return suffix;
   })().finally(() => {
     cotizacionVigenciaInFlight.delete(key);
@@ -1003,21 +994,7 @@ async function resolveConsumosSchema(dbo) {
       veAmt,
       pvAmt,
     };
-    // #region agent log
-    try {
-      fs.appendFileSync(
-        path.join(__dirname, 'debug-5e0522.log'),
-        JSON.stringify({
-          sessionId: '5e0522',
-          hypothesisId: 'H-consumos-amt',
-          location: 'server_corregido.js:resolveConsumosSchema',
-          message: 'consumos DET amount columns',
-          data: { veAmt, pvAmt, veQty, pvQty, dbKey: dbCacheKey(dbo) },
-          timestamp: Date.now(),
-        }) + '\n'
-      );
-    } catch (_) {}
-    // #endregion
+
     // Only cache if schema detection actually worked (at least one table had columns)
     const schemaDetected = veCols.size > 0 || pvCols.size > 0 || veDetCols.size > 0 || pvDetCols.size > 0;
     if (schemaDetected) {
@@ -1263,9 +1240,7 @@ get('/api/config/metas', async (req) => {
     NUM_VENDEDORES_CON_VENTA : numVConVenta,
     MARGEN_COMISION          : 0.08,
   };
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run28',hypothesisId:'H202',location:'server_corregido.js:/api/config/metas',message:'meta vendedores source compare',data:{numV,numVActivos,numVConVenta,metaCotiTotal:META_DIA_C*numV},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
   metasCache.set(dbKey, { expireAt: Date.now() + 60 * 1000, payload });
   return payload;
 });
@@ -1337,9 +1312,7 @@ get('/api/ventas/resumen', async (req) => {
   const rem = remRows[0] || {};
   out.REMISIONES_HOY = +(rem.REMISIONES_HOY || 0);
   out.REMISIONES_MES = +(rem.REMISIONES_MES || 0);
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run28',hypothesisId:'H201',location:'server_corregido.js:/api/ventas/resumen',message:'ventas netas excluyendo remisiones + remisiones separadas',data:{tipo,mesActual:+(out.MES_ACTUAL||0),hoy:+(out.HOY||0),remMes:+(out.REMISIONES_MES||0),remHoy:+(out.REMISIONES_HOY||0),facturas:+(out.FACTURAS_MES||0)},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
   return out;
 });
 
@@ -1682,9 +1655,7 @@ get('/api/ventas/cobradas', async (req) => {
 
   const totalCobradoReal = +(cobrosRow && cobrosRow[0] && cobrosRow[0].TOTAL_COBRADO) || 0;
   const totalLinked = +(cobroLinkedRows && cobroLinkedRows[0] && cobroLinkedRows[0].TOTAL_COBRADO) || 0;
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run30',hypothesisId:'H309',location:'server_corregido.js:/api/ventas/cobradas',message:'ventas cobradas attribution summary',data:{tipo,rowsVentas:(rows||[]).length,rowsCobroVend:(cobroPorVend||[]).length,totalCobradoReal,totalLinked,vendedorReq:isNaN(vendedorReq)?null:vendedorReq},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
   const orphanCobro = Math.max(0, Math.round((totalCobradoReal - totalLinked) * 100) / 100);
   const totalFacturado = (rows || []).reduce((s, r) => s + (+r.TOTAL_VENTA || 0), 0);
   const cobMap = Object.fromEntries((cobroPorVend || []).map(r => [r.VENDEDOR_ID, +r.TOTAL_COBRADO || 0]));
@@ -2225,9 +2196,7 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
   const rem = remRow[0] || {};
   const co = coRow[0] || {};
   const cxc = (cxcSnap && cxcSnap.resumen) || { SALDO_TOTAL: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: 0, VENCIDO: 0, POR_VENCER: 0 };
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run28',hypothesisId:'H203',location:'server_corregido.js:directorResumenSnapshot',message:'director ventas netas y remisiones separadas',data:{ventasMes:+(v.MES_ACTUAL||0),ventasHoy:+(v.HOY||0),remMes:+(rem.REMISIONES_MES||0),remHoy:+(rem.REMISIONES_HOY||0),cxcVenc:+(cxc.VENCIDO||0),cxcPorVencer:+(cxc.POR_VENCER||0)},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
   return {
     ventas: { HOY: +(v.HOY||0), MES_ACTUAL: +(v.MES_ACTUAL||0), FACTURAS_MES: +(v.FACTURAS_MES||0), MES_VE: +(v.MES_VE||0), MES_PV: +(v.MES_PV||0), REMISIONES_HOY: +(rem.REMISIONES_HOY||0), REMISIONES_MES: +(rem.REMISIONES_MES||0) },
     cxc: { SALDO_TOTAL: +(cxc.SALDO_TOTAL||0), NUM_CLIENTES: +(cxc.NUM_CLIENTES||0), NUM_CLIENTES_VENCIDOS: +(cxc.NUM_CLIENTES_VENCIDOS||0), VENCIDO: +(cxc.VENCIDO||0), POR_VENCER: +(cxc.POR_VENCER||0) },
@@ -2548,12 +2517,8 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
     DIAS_61_90: Math.round(ag3 * 100) / 100,
     DIAS_MAS_90: Math.round(ag4 * 100) / 100,
   };
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run30',hypothesisId:'H310',location:'server_corregido.js:cxcResumenAgingUnificado',message:'cxc summary from document aging aggregate',data:{cliente:cf||null,docAgg,NUM_CLI_VENC_DOC:+(docAgg.NUM_CLI_VENC_DOC||0),NUM_CLIENTES_VENCIDOS:numCliVenc,docStats:(docStatsRows&&docStatsRows[0])||{},movStats:(movStatsRows&&movStatsRows[0])||{},saldoCut:(saldoCutRows&&saldoCutRows[0])||{},resumen,aging,rowsSaldos:(cxcSaldosLegacy||[]).length,rowsAging:(cxcAgingLegacy||[]).length,elapsedMs:(Date.now()-t0)},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run6',hypothesisId:'H14',location:'server_corregido.js:2140',message:'cxc unified resumen+aging snapshot',data:{cliente:cf||null,resumen,aging},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
+
   return { resumen, aging };
 }
 
@@ -2561,9 +2526,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
 get('/api/cxc/resumen', async (req) => {
   const dbo = getReqDbOpts(req);
   const snap = await cxcResumenAgingUnificado(req, dbo, 12000);
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run29',hypothesisId:'H302',location:'server_corregido.js:/api/cxc/resumen',message:'cxc resumen endpoint response',data:{db:(req&&req.query&&req.query.db)||null,cliente:(req&&req.query&&req.query.cliente)||null,resumen:snap&&snap.resumen?snap.resumen:{}},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
   return snap.resumen;
 });
 
@@ -2616,13 +2579,10 @@ get('/api/cxc/vencidas', async (req) => {
   `, [], 30000, dbo).catch((err) => {
     const msg = err && (err.message || String(err));
     console.error('cxc /api/cxc/vencidas query error:', msg);
-    debugSessionLogLine({ hypothesisId: 'H-timeout', location: 'server_corregido.js:/api/cxc/vencidas', message: 'query catch', data: { err: String(msg).slice(0, 500), db: (req && req.query && req.query.db) || null, limit } });
+
     return [];
   });
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run21',hypothesisId:'H96',location:'server_corregido.js:/api/cxc/vencidas',message:'overdue invoices query result',data:{db:(req&&req.query&&req.query.db)||null,cliente:cf||null,limit,rows:(rows||[]).length,firstFolios:(rows||[]).slice(0,5).map(r=>r.FOLIO)},timestamp:Date.now()})}).catch(()=>{});
-  debugSessionLogLine({ hypothesisId: 'H96', location: 'server_corregido.js:/api/cxc/vencidas', message: 'overdue invoices query result', data: { db: (req && req.query && req.query.db) || null, cliente: cf, limit, rowCount: (rows || []).length } });
-  // #endregion
+
   return rows;
 });
 
@@ -2665,9 +2625,7 @@ get('/api/cxc/top-deudores', async (req) => {
     WHERE c.SALDO > 0.005 ${cf ? `AND c.CLIENTE_ID = ${cf}` : ''}
     ORDER BY c.SALDO DESC
   `, [], 12000, dbo).catch(err => { console.error('cxc top-deudores fallback error:', err && (err.message || err)); return []; });
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'post-fix',hypothesisId:'H-topdeudores-fallback',location:'server_corregido.js:/api/cxc/top-deudores',message:'fallback legacy saldos query',data:{rowCount:(fbRows||[]).length,ok:!!(fbRows&&fbRows.length)},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
   return fbRows;
 });
 
@@ -2807,9 +2765,7 @@ get('/api/cxc/por-condicion', async (req) => {
       ES_CONTADO: !!r.ES_CONTADO,
     }))
     .sort((a, b) => b.SALDO_TOTAL - a.SALDO_TOTAL);
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run15',hypothesisId:'H73',location:'server_corregido.js:/api/cxc/por-condicion',message:'por-condicion rebuilt from doc dias_vencido',data:{grupos:(grupos||[]).slice(0,10).map(g=>({cond:g.CONDICION_PAGO,dias:g.DIAS_CREDITO,total:g.SALDO_TOTAL,venc:g.VENCIDO,corr:g.CORRIENTE}))},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
   return { grupos, pendiente_contado: null };
 });
 
@@ -2903,9 +2859,7 @@ async function invPrecioSubSql(dbo) {
 // SIN_STOCK = solo articulos con minimo definido y existencia 0 (alerta real). No contar todo el catalogo en cero.
 get('/api/inv/resumen', async (req) => {
   const dbo = getReqDbOpts(req);
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run-render-inv-1',hypothesisId:'H3',location:'server_corregido.js:/api/inv/resumen:start',message:'inv resumen start',data:{db:req&&req.query&&req.query.db?String(req.query.db):'default',host:dbo&&dbo.host?String(dbo.host):'',port:dbo&&dbo.port?Number(dbo.port):0,database:dbo&&dbo.database?String(dbo.database):''},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
   const qCounts = `
     SELECT
       COUNT(DISTINCT a.ARTICULO_ID) AS TOTAL_ARTICULOS,
@@ -2916,10 +2870,7 @@ get('/api/inv/resumen', async (req) => {
     LEFT JOIN ${SQL_MINIMO_SUB} n ON n.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A'
   `;
-  const countsRows = await query(qCounts, [], 12000, dbo).catch((e) => {
-    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run-render-inv-1',hypothesisId:'H4a',location:'server_corregido.js:/api/inv/resumen:counts-catch',message:'inv resumen counts query catch',data:{db:req&&req.query&&req.query.db?String(req.query.db):'default',error:e&&e.message?String(e.message).slice(0,300):String(e||'')},timestamp:Date.now()})}).catch(()=>{});
-    return [{}];
-  });
+  const countsRows = await query(qCounts, [], 12000, dbo).catch(() => [{}]);
   const precioSub = await invPrecioSubSql(dbo);
   const qValor = `
     SELECT COALESCE(SUM(COALESCE(s.EXISTENCIA, 0) * COALESCE(pr.PRECIO1, 0)), 0) AS VALOR_INVENTARIO
@@ -2928,16 +2879,11 @@ get('/api/inv/resumen', async (req) => {
     LEFT JOIN ${precioSub} pr ON pr.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A'
   `;
-  const valorRows = await query(qValor, [], 12000, dbo).catch((e) => {
-    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run-render-inv-1',hypothesisId:'H4b',location:'server_corregido.js:/api/inv/resumen:valor-catch',message:'inv resumen valor query catch',data:{db:req&&req.query&&req.query.db?String(req.query.db):'default',error:e&&e.message?String(e.message).slice(0,300):String(e||'')},timestamp:Date.now()})}).catch(()=>{});
-    return [{ VALOR_INVENTARIO: 0 }];
-  });
+  const valorRows = await query(qValor, [], 12000, dbo).catch(() => [{ VALOR_INVENTARIO: 0 }]);
   const c = countsRows[0] || {};
   const v = valorRows[0] || {};
   const r = Object.assign({}, c, v);
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run-render-inv-1',hypothesisId:'H5',location:'server_corregido.js:/api/inv/resumen:end',message:'inv resumen result snapshot',data:{db:req&&req.query&&req.query.db?String(req.query.db):'default',tot:+(r.TOTAL_ARTICULOS||0),valor:+(r.VALOR_INVENTARIO||0),bajo:+(r.BAJO_MINIMO||0),sin:+(r.SIN_STOCK||0)},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
   return { TOTAL_ARTICULOS: +(r.TOTAL_ARTICULOS||0), VALOR_INVENTARIO: +(r.VALOR_INVENTARIO||0), BAJO_MINIMO: +(r.BAJO_MINIMO||0), SIN_STOCK: +(r.SIN_STOCK||0) };
 });
 
@@ -2946,9 +2892,7 @@ app.get('/api/debug/firebird-inv', async (req, res) => {
   const dbo = getReqDbOpts(req);
   const dbId = req && req.query && req.query.db ? String(req.query.db) : 'default';
   try {
-    // #region agent log
-    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run-render-inv-2',hypothesisId:'H6',location:'server_corregido.js:/api/debug/firebird-inv:start',message:'firebird inv debug start',data:{db:dbId,host:dbo&&dbo.host?String(dbo.host):'',port:dbo&&dbo.port?Number(dbo.port):0,database:dbo&&dbo.database?String(dbo.database):'',user:dbo&&dbo.user?String(dbo.user):''},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
+
     const rel = await query(`SELECT COUNT(*) AS C FROM RDB$RELATIONS`, [], 12000, dbo);
     const art = await query(`SELECT COUNT(*) AS C FROM ARTICULOS`, [], 12000, dbo);
     const act = await query(`SELECT COUNT(*) AS C FROM ARTICULOS a WHERE COALESCE(a.ESTATUS,'A')='A'`, [], 12000, dbo);
@@ -2983,15 +2927,11 @@ app.get('/api/debug/firebird-inv', async (req, res) => {
       inv_resumen_raw: inv[0] || {},
       sample_articulos: Array.isArray(sample) ? sample : [],
     };
-    // #region agent log
-    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run-render-inv-2',hypothesisId:'H7',location:'server_corregido.js:/api/debug/firebird-inv:ok',message:'firebird inv debug ok',data:{db:dbId,counts:out.counts,inv:out.inv_resumen_raw},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
+
     return res.json(out);
   } catch (e) {
     const errMsg = e && e.message ? String(e.message) : String(e || 'Error desconocido');
-    // #region agent log
-    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run-render-inv-2',hypothesisId:'H8',location:'server_corregido.js:/api/debug/firebird-inv:error',message:'firebird inv debug failed',data:{db:dbId,host:dbo&&dbo.host?String(dbo.host):'',port:dbo&&dbo.port?Number(dbo.port):0,database:dbo&&dbo.database?String(dbo.database):'',error:errMsg.slice(0,500)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
+
     return res.status(500).json({
       ok: false,
       db: dbId,
@@ -3271,9 +3211,7 @@ get('/api/inv/operacion-critica', async (req) => {
     nunca_entraron: enriched.filter(x => x.NUNCA_TUVO_ENTRADA).length,
     criticos: enriched.filter(x => x.CRITICO).length,
   };
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run10',hypothesisId:'H51',location:'server_corregido.js:2637',message:'inventario operacion critica snapshot',data:{resumen,muestra:(enriched||[]).slice(0,3).map(x=>({id:x.ARTICULO_ID,ex:x.EXISTENCIA_ACTUAL,c4:x.CONSUMO_4_SEMANAS,dias:x.DIAS_COBERTURA_EST,critico:x.CRITICO,estado:x.ESTADO_OPERATIVO}))},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
   return { resumen, rows: enriched };
 });
 
@@ -3283,12 +3221,7 @@ get('/api/inv/operacion-critica', async (req) => {
 
 get('/api/clientes/riesgo', async (req) => {
   const dbo = getReqDbOpts(req);
-  // #region agent log
-  debugLogServer('run1','H4','server_corregido.js:/api/clientes/riesgo','clientes riesgo request db resolution',{
-    dbQuery: (req && req.query && req.query.db) ? String(req.query.db) : '',
-    dbResolved: (dbo && dbo.database) ? String(dbo.database) : ''
-  });
-  // #endregion
+
   const limit = Math.min(parseInt(req.query.limit) || 100, 500);
   return query(`
     SELECT FIRST ${limit}
@@ -3374,12 +3307,7 @@ get('/api/clientes/riesgo', async (req) => {
 /** Sin compra >180 días (≈6 meses). Ticket mensual = promedio simple últimos 12 meses de historial. */
 get('/api/clientes/inactivos', async (req) => {
   const dbo = getReqDbOpts(req);
-  // #region agent log
-  debugLogServer('run1','H4','server_corregido.js:/api/clientes/inactivos','clientes inactivos request db resolution',{
-    dbQuery: (req && req.query && req.query.db) ? String(req.query.db) : '',
-    dbResolved: (dbo && dbo.database) ? String(dbo.database) : ''
-  });
-  // #endregion
+
   const limit = Math.min(parseInt(req.query.limit) || 200, 500);
   return query(`
     SELECT FIRST ${limit}
@@ -3511,12 +3439,7 @@ get('/api/clientes/inteligencia', async (req) => {
 /** Comercial: sin compra en los últimos 60 días pero sí en los últimos 6 meses (61–180 días). */
 get('/api/clientes/comercial-atraso', async (req) => {
   const dbo = getReqDbOpts(req);
-  // #region agent log
-  debugLogServer('run1','H4','server_corregido.js:/api/clientes/comercial-atraso','clientes comercial request db resolution',{
-    dbQuery: (req && req.query && req.query.db) ? String(req.query.db) : '',
-    dbResolved: (dbo && dbo.database) ? String(dbo.database) : ''
-  });
-  // #endregion
+
   const limit = Math.min(parseInt(req.query.limit) || 200, 500);
   return query(`
     SELECT FIRST ${limit}
@@ -3562,12 +3485,7 @@ get('/api/clientes/comercial-atraso', async (req) => {
 
 get('/api/clientes/resumen-riesgo', async (req) => {
   const dbo = getReqDbOpts(req);
-  // #region agent log
-  debugLogServer('run1','H4','server_corregido.js:/api/clientes/resumen-riesgo','clientes resumen request db resolution',{
-    dbQuery: (req && req.query && req.query.db) ? String(req.query.db) : '',
-    dbResolved: (dbo && dbo.database) ? String(dbo.database) : ''
-  });
-  // #endregion
+
   const defaultRes = { TOTAL_EN_RIESGO: 0, MONTO_CRITICO: 0, MONTO_ALTO: 0, MONTO_MEDIO: 0, MONTO_LEVE: 0 };
   try {
     const [totales] = await query(`
@@ -3630,9 +3548,7 @@ async function resultadosPnlCore(req, dbOpts) {
   const dateParams = [desdeStr, hastaStr];
   const dateCond = 'CAST(d.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(d.FECHA AS DATE) <= CAST(? AS DATE)';
   const dateCondCc = 'CAST(dc.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(dc.FECHA AS DATE) <= CAST(? AS DATE)';
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run1',hypothesisId:'H1',location:'server_corregido.js:2829',message:'resultados range resolved',data:{db:normalizeDbQueryId(req?.query?.db)||'default',desdeStr,hastaStr,hasRangoExplicito,useMesesRolling,mesesParam:req?.query?.meses||null},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
   const salCols = await getTableColumns('SALDOS_CO', dbOpts).catch(() => new Set());
   const salAnoCol = firstExistingColumn(salCols, ['ANO', 'ANIO', 'EJERCICIO']) || 'ANO';
   const salMesCol = firstExistingColumn(salCols, ['MES', 'PERIODO', 'NUM_MES']) || 'MES';
@@ -3656,9 +3572,7 @@ async function resultadosPnlCore(req, dbOpts) {
   const detGastoExpr = `ABS(${detDeltaExpr})`;
   const detDateExpr = detCols.has('FECHA') ? 'd.FECHA' : 'c.FECHA';
   const detNeedsDoctoJoin = !detCols.has('FECHA');
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run1',hypothesisId:'H2',location:'server_corregido.js:2854',message:'resultados column mapping',data:{salAnoCol,salMesCol,salCargoCol,salAbonoCol,detCargoCol:detCargoCol||null,detAbonoCol:detAbonoCol||null,detImporteCol:detImporteCol||null,detDateExpr,detNeedsDoctoJoin,salColsCount:salCols.size,detColsCount:detCols.size},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
   // FIX: usar el mismo divisor IVA que ventasSub() para que resultados.html
   // sea consistente con ventas.html, director.html, vendedores.html, etc.
   // Antes usaba sqlVentaImporteResultadosExpr (sin divisor) → ventas 16% más altas.
@@ -4048,9 +3962,7 @@ async function resultadosPnlCore(req, dbOpts) {
     const cols = ['CO_A1', 'CO_A2', 'CO_A3', 'CO_A4', 'CO_A5', 'CO_A6', 'CO_B1', 'CO_B2', 'CO_B3', 'CO_B4', 'CO_B5', 'CO_C1', 'CO_C2', 'CO_C3', 'CO_C4', 'CO_C5', 'CO_C6'];
     return acc + cols.reduce((s, c) => s + Math.abs(+r[c] || 0), 0);
   }, 0);
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run1',hypothesisId:'H3',location:'server_corregido.js:3220',message:'resultados query outputs',data:{ventasMesLen:(ventasMes||[]).length,descuentosMesLen:(descuentosMes||[]).length,gastosSaldos52Len:(gastosSaldos52||[]).length,gastosDoctos52Len:(gastosDoctos52||[]).length,gastosSaldos52Total:dbgSumRows(gastosSaldos52),gastosDoctos52Total:dbgSumRows(gastosDoctos52),sampleSaldos:(gastosSaldos52||[])[0]||null,sampleDoctos:(gastosDoctos52||[])[0]||null},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
 
   const key = (a, m) => `${a}-${m}`;
   const isNameLike = (v, re) => re.test(String(v || '').toUpperCase());
@@ -4099,9 +4011,7 @@ async function resultadosPnlCore(req, dbOpts) {
     ORDER BY 1, 2, 3
   `, [sy, ey, sy, sm, ey, em], 15000).catch(() => []);
   const gastosClasifMap = rowsToClasifMap(gastosSaldosClasifRows);
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run20',hypothesisId:'H85',location:'server_corregido.js:resultadosPnlCore:gastosClasif',message:'classified gastos map built',data:{rows:(gastosSaldosClasifRows||[]).length,months:Object.keys(gastosClasifMap||{}).slice(0,12),sample:(gastosSaldosClasifRows||[])[0]||null},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
   const mapFromRows = (rows) => {
     const out = {};
     (rows || []).forEach((r) => {
@@ -4217,12 +4127,8 @@ async function resultadosPnlCore(req, dbOpts) {
       gastosEstimadosDesde = { ANIO: +fb.ANIO || null, MES: +fb.MES || null };
     }
   }
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run3',hypothesisId:'H10',location:'server_corregido.js:3330',message:'gastos fallback resolution',data:{singleMonthRange,gastosEstimados,gastosEstimadosDesde,sumSelected:sumGastosRows(gastosRows)},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run1',hypothesisId:'H4',location:'server_corregido.js:3247',message:'resultados gastos source selected',data:{source:(gastosRows===gastosDoctos52)?'DOCTOS_CO_DET':'SALDOS_CO',sumSaldos:sumGastosRows(gastosSaldos52),sumDoctos:sumGastosRows(gastosDoctos52),selectedSum:sumGastosRows(gastosRows)},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
+
   const gasMap = {};
   (gastosRows || []).forEach(r => { gasMap[key(r.ANIO, r.MES)] = r; });
   const gasAbs = (g, k) => Math.abs(+g[k] || 0);
@@ -4319,15 +4225,9 @@ async function resultadosPnlCore(req, dbOpts) {
   const sumGastoCo = ['CO_A1', 'CO_A2', 'CO_A3', 'CO_A4', 'CO_A5', 'CO_A6', 'CO_B1', 'CO_B2', 'CO_B3', 'CO_B4', 'CO_B5', 'CO_C1', 'CO_C2', 'CO_C3', 'CO_C4', 'CO_C5', 'CO_C6']
     .reduce((s, k) => s + (+totales[k] || 0), 0);
   const tiene_gastos_co = sumGastoCo > 0.01;
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run1',hypothesisId:'H5',location:'server_corregido.js:3333',message:'resultados totals built',data:{ventasNetas:totales.VENTAS_NETAS,costoVentas:totales.COSTO_VENTAS,sumGastoCo,tiene_gastos_co,mesesCount:meses.length,sampleMes:meses[0]||null},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run11',hypothesisId:'H61',location:'server_corregido.js:3390',message:'resultados costo source selection',data:{desde:desdeStr,hasta:hastaStr,costosElegidos,costosResumen:{conta:Object.keys(costByConta).length,lineas:Object.keys(costByLineas).length,ve:Object.keys(costByVeDet).length,inDet:Object.keys(costByInDet).length,inHdr:Object.keys(costByInHdr).length}},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run17',hypothesisId:'H78',location:'server_corregido.js:resultadosPnlCore',message:'resultados ventas source selected',data:{desde:desdeStr,hasta:hastaStr,ventasFuentes},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
+
+
   let prefijos_rows = [];
   try {
     prefijos_rows = await q(`
@@ -4475,9 +4375,7 @@ async function resultadosPnlCore(req, dbOpts) {
       .sort((a, b) => (+b.total || 0) - (+a.total || 0))
       .slice(0, 30);
   });
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run29',hypothesisId:'H303',location:'server_corregido.js:resultadosPnlCore',message:'resultados subconceptos generated',data:{desde:desdeStr,hasta:hastaStr,buckets:Object.keys(subconceptos),rows:(subconceptos_rows||[]).length},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
 
   return { meses, totales, tiene_costo, tiene_gastos_co, prefijos_labels, subconceptos, gastos_estimados: gastosEstimados, gastos_estimados_desde: gastosEstimadosDesde };
 }
@@ -4638,9 +4536,7 @@ get('/api/resultados/balance-general', async (req) => {
       capital: detail.capital.slice(0, 20),
     },
   };
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run11',hypothesisId:'H63',location:'server_corregido.js:3720',message:'balance general payload',data:{cierre:payload.cierre,totales:payload.totales},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
   return payload;
 });
 
@@ -4720,9 +4616,7 @@ get('/api/resultados/estado-sr', async (req) => {
     },
     cuentas_muestra: (rows || []).slice(0, 50),
   };
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run17',hypothesisId:'H79',location:'server_corregido.js:/api/resultados/estado-sr',message:'estado sr contable payload',data:{periodo:payload.periodo,ventas_pnl:ventasPnl,ventas_conta4:ventasConta,ventas_usada:ventas,estado:payload.estado},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
   return payload;
 });
 
@@ -4835,9 +4729,7 @@ get('/api/debug/pnl-reconcile-ext', async (req) => {
     `),
   ]);
   const payload = { desdeStr, hastaStr, variantes: out };
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run11',hypothesisId:'H62',location:'server_corregido.js:3788',message:'pnl reconcile ext payload',data:payload,timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
   return payload;
 });
 
@@ -4934,9 +4826,7 @@ get('/api/debug/cxc-reconcile', async (req) => {
       recibos_normalizados: Math.round((+(movIn[0] && movIn[0].RECIBOS_NORMALIZADOS) || 0) * 100) / 100,
     },
   };
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run6',hypothesisId:'H13',location:'server_corregido.js:3630',message:'cxc reconcile totals',data:payload,timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
   return payload;
 });
 
@@ -5193,9 +5083,7 @@ get('/api/consumos/pedidos-compra', async (req) => {
     }
   }
 
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run26',hypothesisId:'H109',location:'server_corregido.js:/api/consumos/pedidos-compra:source-detect',message:'purchase source detection for consumos',data:{found:!!src,source:src?src.key:'',topRows:(topRows||[]).length,ids:ids.slice(0,12)},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
 
   if (!src) {
     return {
@@ -5241,9 +5129,7 @@ get('/api/consumos/pedidos-compra', async (req) => {
   const totalCons = outRows.reduce((s, r) => s + (+r.UNIDADES_CONSUMO || 0), 0);
   const totalPed = outRows.reduce((s, r) => s + (+r.UNIDADES_PEDIDAS || 0), 0);
 
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run26',hypothesisId:'H110',location:'server_corregido.js:/api/consumos/pedidos-compra:result',message:'consumo vs purchase output computed',data:{source:src.key,rows:outRows.length,totalCons,totalPed,cobertura:totalCons>0?Math.round((totalPed/totalCons)*10000)/100:0},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
 
   return {
     ok: true,
@@ -6298,9 +6184,7 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
           { CONDICION: 'Vencido', SALDO: +ag.VENCIDO || 0 },
         ].filter(x => (+x.SALDO || 0) > 0.005);
       }
-      // #region agent log
-      fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run19',hypothesisId:'H82',location:'server_corregido.js:aiRunContextTool:cxc',message:'ai cxc tool blocks',data:{saldoTotal,topCount:(top||[]).length,porCondCount:(porCond||[]).length,porCondSample:(porCond||[])[0]||null},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
+
       return {
         toolId,
         block: `\n\n**CxC (herramienta):**
@@ -6374,9 +6258,7 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
       const ult = meses.slice(-3).map(m =>
         `${m.PERIODO || `${m.ANIO}-${String(m.MES || '').padStart(2, '0')}`}: Vta $${Number(m.VENTAS_NETAS || 0).toFixed(2)}, Costo $${Number(m.COSTO_VENTAS || 0).toFixed(2)}, Margen ${Number(m.MARGEN_BRUTO_PCT || 0).toFixed(2)}%`
       ).join(' | ');
-      // #region agent log
-      fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run19',hypothesisId:'H83',location:'server_corregido.js:aiRunContextTool:resultados',message:'ai resultados tool totals',data:{ventas:tot.VENTAS_NETAS||0,costo:tot.COSTO_VENTAS||0,utilBruta:tot.UTILIDAD_BRUTA||0,gastosOperativos:sumGastos,utilOperativa:utilOp,meses:meses.slice(-3)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
+
       return {
         toolId,
         block: `\n\n**Resultados / P&L (herramienta):**
@@ -6556,9 +6438,7 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
         };
       } catch (e) {
         const errMsg = String((e && e.message) || e || '');
-        // #region agent log
-        fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run8',hypothesisId:'H31',location:'server_corregido.js:5130',message:'dashboard screenshot failed',data:{pageFile,targetUrl,playwrightMissingBinary:/Executable doesn't exist|playwright install/i.test(errMsg),errorPreview:errMsg.slice(0,220)},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
+
         return {
           toolId,
           block: '',
@@ -6837,9 +6717,7 @@ app.post('/api/ai/chat', async (req, res) => {
               ? String(openaiData.choices[0].message.content).trim()
               : '';
             if (openaiResp.ok && openaiReply) {
-              // #region agent log
-              fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run19',hypothesisId:'H84',location:'server_corregido.js:/api/ai/chat',message:'anthropic failed, openai fallback succeeded',data:{openaiModel:fallbackModel,tools:selectedTools},timestamp:Date.now()})}).catch(()=>{});
-              // #endregion
+
               return res.json({ reply: openaiReply, visuals });
             }
           } catch (_) {
@@ -6849,9 +6727,7 @@ app.post('/api/ai/chat', async (req, res) => {
         const joined = toolBlocks.join('\n').trim();
         const rawReason = lastReason || (data && data.error && (data.error.message || data.error.type)) || 'Error de la API de Claude';
         const reason = String(rawReason || '').trim();
-        // #region agent log
-        fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run8',hypothesisId:'H32',location:'server_corregido.js:5399',message:'anthropic fallback activated',data:{usedModel:usedModel||null,modelsTried:models,reasonPreview:reason.slice(0,180),tools:selectedTools},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
+
         const fallback = joined
           ? `Resumen ejecutivo\n- Asistente conversacional externo no disponible temporalmente.\n- Se activa respuesta local con datos reales del sistema.\n\n${joined}\n\nAcción recomendada\n- Revisar credenciales/permisos de Claude en el servidor para recuperar respuestas narrativas avanzadas.`
           : `Claude no respondió correctamente (${reason}) y no hubo datos para esta consulta con los filtros actuales.`;
@@ -7115,9 +6991,7 @@ app.get('/api/diagnostico/ventas', async (req, res) => {
 });
 
 get('/api/debug/build-info', async () => {
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run4',hypothesisId:'H11',location:'server_corregido.js:5484',message:'build-info endpoint hit',data:{build:BUILD_FINGERPRINT,port:PORT},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
   return {
     build: BUILD_FINGERPRINT,
     hasFallbackFlags: true,

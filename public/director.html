@@ -362,11 +362,7 @@ function setSem(id,cls,label){
   el.className='sem '+cls;
   el.innerHTML=`<div class="sem-dot"></div>${label}`;
 }
-// #region agent log
-function debugLogDirector(runId,hypothesisId,location,message,data){
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId,hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
-}
-// #endregion
+
 
 function setBarColor(barId,pctId,pct,{invert=false}={}){
   const bar=document.getElementById(barId);
@@ -432,9 +428,7 @@ async function loadAll() {
     const dir = (dirRes.status === 'fulfilled' && dirRes.value && typeof dirRes.value === 'object') ? dirRes.value : {};
     const cxcObj = (cxcRes.status === 'fulfilled' && cxcRes.value && typeof cxcRes.value === 'object') ? cxcRes.value : {};
     const metas = (metasRes.status === 'fulfilled' && metasRes.value && typeof metasRes.value === 'object') ? metasRes.value : {};
-    // #region agent log
-    debugLogDirector('run29','H305','director.html:loadAll:fetches','director fetch statuses for exec score',{director:dirRes.status,cxc:cxcRes.status,metas:metasRes.status,hasVentas:!!(dir&&dir.ventas),hasCxcObj:!!(cxcObj&&Object.keys(cxcObj).length),hasMetas:!!(metas&&Object.keys(metas).length)});
-    // #endregion
+
     // reasignar cxc desde director si cxcObj falla
     const cxc   = (cxcObj && Object.keys(cxcObj).length>0) ? cxcObj : (dir.cxc||{});
     const v = dir.ventas||{}, c = cxc, co = dir.cotizaciones||{};
@@ -528,9 +522,7 @@ async function loadAll() {
       applyDirKpiSem('cxc-vigente', pVigSafe >= 60 ? 'ok' : pVigSafe >= 40 ? 'warn' : 'danger');
       applyDirKpiSem('rel-vcxc', relN >= 0.3 ? 'ok' : relN >= 0.15 ? 'warn' : 'danger');
       const execScore = computeDirectorExecScore({ pMesIdeal, pHoy, hoyLabor, pVenc, relN });
-      // #region agent log
-      debugLogDirector('run29','H306','director.html:loadAll:execscore','director executive score computed',{pMesIdeal,pHoy,hoyLabor,pVenc,relN,execScore,ventaMes,cTotal});
-      // #endregion
+
       renderDirectorExecScore(execScore);
     }
 
@@ -548,9 +540,7 @@ async function loadAll() {
 
   } catch(e){
     console.error('resumen',e);
-    // #region agent log
-    debugLogDirector('run29','H307','director.html:loadAll:catch','director loadAll error',{message:String(e&&e.message||e),stack:String(e&&e.stack||'').slice(0,400)});
-    // #endregion
+
     setText('page-sub','Error cargando datos: '+e.message);
     const vExec = document.getElementById('dir-exec-val');
     const bExec = document.getElementById('dir-exec-bar');

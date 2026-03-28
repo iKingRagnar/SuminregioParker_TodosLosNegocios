@@ -275,11 +275,6 @@ async function apiFetch(url, ms){
 const fmt  = n => isNaN(+n)||n==null?'&mdash;':'$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 const fmtK = n => { if(isNaN(+n)||n==null) return '&mdash;'; n=+n; return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2}); };
 const setText = (id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
-// #region agent log
-function debugLogInventario(runId,hypothesisId,location,message,data){
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId,hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
-}
-// #endregion
 
 setInterval(()=>{ document.getElementById('clock').textContent=new Date().toLocaleTimeString('es-MX'); },1000);
 
@@ -502,9 +497,6 @@ async function loadOperacionCritica(){
         <td><span class="estado-chip ${chipCls}">${estado}</span></td>
       </tr>`;
     }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.5rem">Sin art&iacute;culos para este an&aacute;lisis</td></tr>';
-    // #region agent log
-    debugLogInventario('run10','H52','inventario.html:loadOperacionCritica','render operacion critica',{rows:rows.length,criticos:Number(rs.criticos||0),ceroYConsumo:Number(rs.cero_y_consumo||0),nuncaEntraron:Number(rs.nunca_entraron||0)});
-    // #endregion
   }catch(e){
     console.error('operacion-critica',e);
     const tb=document.getElementById('tbl-operacion-body');

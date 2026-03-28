@@ -377,11 +377,7 @@ function cxcRowSaldo(r) {
   const v = r.SALDO != null ? r.SALDO : (r.SALDO_NETO != null ? r.SALDO_NETO : (r.saldo != null ? r.saldo : r.saldo_neto));
   return +v || 0;
 }
-// #region agent log
-function debugLogCxc(runId,hypothesisId,location,message,data){
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId,hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
-}
-// #endregion
+
 
 function buildCxcQuery(extra){
   const cf = (document.getElementById('fCliente')?.value || '').trim();
@@ -404,11 +400,7 @@ function buildCxcQuery(extra){
   } else {
     qs = Object.keys(extraObj).map(function (k) { return k + '=' + encodeURIComponent(extraObj[k]); }).join('&');
   }
-  // #region agent log
-  try {
-    debugLogCxc('run15', 'H72', 'cxc.html:buildCxcQuery', 'cxc query with filterBuildQS omitDb', { cliente: cf || null, extra: e || '', qs: qs || '' });
-  } catch (_) {}
-  // #endregion
+
   return qs ? ('?' + qs) : '';
 }
 
@@ -435,9 +427,7 @@ async function apiFetch(pathWithQuery, opts){
   const tid=setTimeout(()=>ctrl.abort(),ms);
   try{
     const r=await fetch(API+path,{signal:ctrl.signal,cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}});
-    // #region agent log
-    debugLogCxc('run30','H312','cxc.html:apiFetch:response','api fetch response metadata',{requestPath:path,status:r&&r.status,url:(r&&r.url)||'',cacheControl:(r&&r.headers&&r.headers.get('cache-control'))||null,age:(r&&r.headers&&r.headers.get('age'))||null,etag:(r&&r.headers&&r.headers.get('etag'))||null});
-    // #endregion
+
     if(!r.ok) throw new Error('HTTP '+r.status);
     const data=await r.json();
     if(data&&typeof data==='object'&&!Array.isArray(data)&&data.error) throw new Error(String(data.error));
@@ -501,27 +491,7 @@ async function loadResumen() {
     const snap = await apiFetch('/api/cxc/resumen-aging' + buildCxcQuery(), { timeout: 45000 });
     const res = (snap && snap.resumen) || {};
     const ageRaw = (snap && snap.aging) || {};
-    // #region agent log
-    debugLogCxc('run29','H301','cxc.html:loadResumen:after-fetch','cxc summary and aging payload on screen',{
-      pageUrl: window.location.href,
-      apiBase: API,
-      db: cxcEffectiveDb() || null,
-      resumen: {
-        SALDO_TOTAL: +(res && res.SALDO_TOTAL || 0),
-        VENCIDO: +(res && res.VENCIDO || 0),
-        POR_VENCER: +(res && res.POR_VENCER || 0),
-        NUM_CLIENTES: +(res && res.NUM_CLIENTES || 0),
-        NUM_CLIENTES_VENCIDOS: +(res && res.NUM_CLIENTES_VENCIDOS || 0)
-      },
-      aging: {
-        CORRIENTE: +(ageRaw && ageRaw.CORRIENTE || 0),
-        DIAS_1_30: +(ageRaw && ageRaw.DIAS_1_30 || 0),
-        DIAS_31_60: +(ageRaw && ageRaw.DIAS_31_60 || 0),
-        DIAS_61_90: +(ageRaw && ageRaw.DIAS_61_90 || 0),
-        DIAS_MAS_90: +(ageRaw && ageRaw.DIAS_MAS_90 || 0)
-      }
-    });
-    // #endregion
+
     const age = ageRaw && typeof ageRaw === 'object' && !Array.isArray(ageRaw) ? ageRaw : (Array.isArray(ageRaw) && ageRaw[0]) ? ageRaw[0] : {};
     const saldo = +res.SALDO_TOTAL||0;
     const vencFromAging = (+age.DIAS_1_30||0) + (+age.DIAS_31_60||0) + (+age.DIAS_61_90||0) + (+age.DIAS_MAS_90||0);
@@ -531,12 +501,8 @@ async function loadResumen() {
     const venc = +res.VENCIDO || 0;
     const pvenc = +res.POR_VENCER || 0;
     const vencSource = 'resumen-api';
-    // #region agent log
-    debugLogCxc('post-fix', 'H318', 'cxc.html:loadResumen:venc-unified', 'KPI venc/pvenc from resumen-aging only', { vencSource, venc, vencFromAging, resVenc: +res.VENCIDO || 0, pvenc, corrienteAging, resPv: +res.POR_VENCER || 0, saldo, sumAging });
-    // #endregion
-    // #region agent log
-    debugLogCxc('run30','H311','cxc.html:loadResumen:normalized','normalized cxc values rendered',{saldo,venc,pvenc,age:{CORRIENTE:+age.CORRIENTE||0,DIAS_1_30:+age.DIAS_1_30||0,DIAS_31_60:+age.DIAS_31_60||0,DIAS_61_90:+age.DIAS_61_90||0,DIAS_MAS_90:+age.DIAS_MAS_90||0}});
-    // #endregion
+
+
     setText('kSaldo', fmtK(saldo));
     setText('kCli', (res.NUM_CLIENTES||0)+' clientes');
     const pV = (saldo > 0 && typeof venc === 'number' && !isNaN(venc)) ? (venc / saldo) * 100 : NaN;
@@ -609,9 +575,7 @@ async function loadVencidas() {
   const tb = document.getElementById('tbVenc');
   try {
     const queryBase = buildCxcQuery('limit=60');
-    // #region agent log
-    debugLogCxc('run21','H90','cxc.html:loadVencidas:before-fetch','requesting overdue invoices',{queryBase,db:cxcEffectiveDb()||null,cliente:(document.getElementById('fCliente')?.value||'')||null,curTab});
-    // #endregion
+
     const raw = await apiFetch('/api/cxc/vencidas' + queryBase, { timeout: 45000 });
     let rows = asArrayCxC(raw)
       .filter(r => cxcRowSaldo(r) > 0.005)
@@ -621,13 +585,9 @@ async function loadVencidas() {
       rows = asArrayCxC(rawNoCli)
         .filter(r => cxcRowSaldo(r) > 0.005)
         .sort((a,b)=>cxcRowSaldo(b)-cxcRowSaldo(a));
-      // #region agent log
-      debugLogCxc('run21','H91','cxc.html:loadVencidas:retry-without-cliente','fallback without cliente filter',{retryRows:rows.length});
-      // #endregion
+
     }
-    // #region agent log
-    debugLogCxc('run21','H92','cxc.html:loadVencidas:after-fetch','overdue invoices payload parsed',{rawType:Array.isArray(raw)?'array':(raw&&raw.rows)?'object.rows':typeof raw,asArrayLen:asArrayCxC(raw).length,rows:rows.length,firstFolios:rows.slice(0,5).map(r=>r.FOLIO)});
-    // #endregion
+
     setText('vBadge', rows.length+' docs');
     if(!rows.length){ tb.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--txt3);padding:20px">Sin facturas vencidas</td></tr>'; return; }
     function estatusRango(d){
@@ -656,9 +616,7 @@ async function loadVencidas() {
     </tr>`;
     }).join('');
   } catch(e){
-    // #region agent log
-    debugLogCxc('run21','H93','cxc.html:loadVencidas:catch','overdue invoices rendering failed',{error:(e&&e.message)||String(e)});
-    // #endregion
+
     tb.innerHTML='<tr><td colspan="10" style="color:var(--red);padding:12px">Error: '+e.message+'</td></tr>';
   }
 }
@@ -669,9 +627,7 @@ async function loadTop() {
   try {
     const rowsRaw = await apiFetch('/api/cxc/top-deudores' + buildCxcQuery('limit=20'), { timeout: 45000 });
     const rows = asArrayCxC(rowsRaw).sort((a,b)=>(+b.SALDO_TOTAL||0)-(+a.SALDO_TOTAL||0));
-    // #region agent log
-    debugLogCxc('run-cxc-tabs', 'H-tab-top', 'cxc.html:loadTop', 'top-deudores rows', { n: rows.length, rawType: rowsRaw == null ? 'null' : Array.isArray(rowsRaw) ? 'array' : typeof rowsRaw });
-    // #endregion
+
     if(!rows.length){ tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--txt3);padding:20px">Sin deudores</td></tr>'; return; }
     tb.innerHTML = rows.map((r,i)=>`<tr>
       <td style="color:var(--txt3)">${i+1}</td>
@@ -692,9 +648,7 @@ async function loadCond() {
   try {
     const raw = await apiFetch('/api/cxc/por-condicion' + buildCxcQuery(), { timeout: 45000 });
     const rows = asArrayCxC(raw);
-    // #region agent log
-    debugLogCxc('run-cxc-tabs', 'H-tab-cond', 'cxc.html:loadCond', 'por-condicion rows', { n: rows.length, hadGrupos: !!(raw && raw.grupos) });
-    // #endregion
+
     if (ban) { ban.style.display = 'none'; ban.innerHTML = ''; }
     if(!rows.length){ cl.innerHTML='<div style="color:var(--txt3);padding:20px;text-align:center">Sin datos</div>'; return; }
     const max = Math.max(...rows.map(r=>+r.SALDO_TOTAL||0));
@@ -765,9 +719,7 @@ async function loadBuro() {
     let url='/api/cxc/historial-pagos' + buildCxcQuery('meses=' + encodeURIComponent(meses) + '&limit=500&saldos_actuales=1');
     const raw = await apiFetch(url, { timeout: 45000 });
     const rows = Array.isArray(raw) ? raw : (raw && raw.rows ? raw.rows : []);
-    // #region agent log
-    debugLogCxc('run-cxc-tabs', 'H-tab-buro', 'cxc.html:loadBuro', 'historial-pagos rows', { n: rows.length, meses: +meses || 0, hasSaldosMap: !!(raw && raw.saldosPorCliente) });
-    // #endregion
+
     const saldosPorCliente = (raw && !Array.isArray(raw) && raw.saldosPorCliente) ? raw.saldosPorCliente : {};
     const filtrados = srch ? rows.filter(r=>(r.CLIENTE||'').toLowerCase().includes(srch)) : rows;
     if(!filtrados.length){ cont.innerHTML='<div style="color:var(--txt3);padding:24px;text-align:center">Sin datos de historial</div>'; return; }
@@ -829,9 +781,7 @@ function switchTab(name){
     if(el) el.style.display=p===name?'':'none';
   });
   document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',PANELS[i]===name));
-  // #region agent log
-  debugLogCxc('run21','H94','cxc.html:switchTab','tab switched',{name,panelsVisible:PANELS.map(p=>({p,display:(document.getElementById('p'+p.charAt(0).toUpperCase()+p.slice(1))||{}).style?.display||''}))});
-  // #endregion
+
   if(name==='top') loadTop();
   if(name==='condicion') loadCond();
   if(name==='buro') loadBuro();
@@ -866,9 +816,7 @@ async function ensureClientesFiltro(){
 }
 
 async function loadAll(){
-  // #region agent log
-  debugLogCxc('run21','H95','cxc.html:loadAll:start','loading summary and overdue table',{db:cxcEffectiveDb()||null,cliente:(document.getElementById('fCliente')?.value||'')||null});
-  // #endregion
+
   const [rRes, rVen] = await Promise.allSettled([loadResumen(), loadVencidas()]);
   if (rRes.status === 'rejected') console.error('[cxc] loadResumen', rRes.reason);
   if (rVen.status === 'rejected') console.error('[cxc] loadVencidas', rVen.reason);
@@ -882,21 +830,13 @@ async function loadAll(){
       results.push({ name: fn.name, status: 'rejected', reason: (e && e.message) || String(e) });
     }
   }
-  // #region agent log
-  debugLogCxc('post-fix', 'H96', 'cxc.html:loadAll:tab-chain', 'sequential tab loaders', {
-    top: results[0] && results[0].status,
-    cond: results[1] && results[1].status,
-    buro: results[2] && results[2].status
-  });
-  // #endregion
+
 }
 
 async function refreshCxcDbHint(){
   const el=document.getElementById('cxcDbHint');
   if(!el) return;
-  // #region agent log
-  debugLogCxc('run40','H401','cxc.html:refreshCxcDbHint:start','hint fetch start (must not block CxC data)',{db:(cxcEffectiveDb()||null)});
-  // #endregion
+
   let db=cxcEffectiveDb();
   let line='';
   const ctrl=new AbortController();
@@ -915,9 +855,7 @@ async function refreshCxcDbHint(){
   finally{ clearTimeout(tid); }
   el.textContent=line+(window.__apiBuild?' · '+window.__apiBuild:'');
   el.title='Negocio activo'+(window.__apiBuild?(' · servidor '+window.__apiBuild):'');
-  // #region agent log
-  debugLogCxc('run40','H401','cxc.html:refreshCxcDbHint:done','hint fetch done',{linePreview:String(line||'').slice(0,96)});
-  // #endregion
+
 }
 
 (async function init(){

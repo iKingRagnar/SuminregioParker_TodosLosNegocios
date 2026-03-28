@@ -249,9 +249,7 @@ function applyConsumoKpiSem(r, insights){
 async function loadResumen(){
   const r = await api('/api/consumos/resumen?' + getQS());
   lastConsumoRes = r;
-  // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run-consumos',hypothesisId:'H-consumos-venta-fields',location:'consumos.html:loadResumen',message:'resumen consumos',data:{HOY_VENTA_IMPORTE:r&&r.HOY_VENTA_IMPORTE,VENTA_IMPORTE_PERIODO:r&&r.VENTA_IMPORTE_PERIODO,HOY_UNIDADES:r&&r.HOY_UNIDADES},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
+
   document.getElementById('kHoy').textContent = fmtN(r.HOY_UNIDADES);
   document.getElementById('kPer').textContent = fmtN(r.UNIDADES_PERIODO);
   const hv = document.getElementById('kHoyVent');

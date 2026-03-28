@@ -691,9 +691,7 @@ function setupMonthPicker(meses){
   if(bAll) bAll.onclick=()=>{ keys.forEach(k=>monthKeysSelected.add(k)); loadData(); };
   if(bNone) bNone.onclick=()=>{ monthKeysSelected.clear(); if(keys[0]) monthKeysSelected.add(keys[0]); loadData(); };
   const selected = arr.filter(m=>monthKeysSelected.has(monthKey(m)));
-  // #region agent log
-  debugLogResultados('run22','H97','resultados.html:setupMonthPicker','month dropdown multi-select applied',{available:arr.map(monthKey),selected:selected.map(monthKey)});
-  // #endregion
+
   return selected;
 }
 function deltaTag(pct){
@@ -913,9 +911,7 @@ async function loadBalanceGeneral(){
         ? 'Ecuación contable cerrada correctamente.'
         : 'Diferencia material detectada: revisar pólizas y saldos.';
     }
-    // #region agent log
-    debugLogResultados('run26','H111','resultados.html:loadBalanceGeneral','balance general visual pack rendered',{activo,pasivo,capital,liquidez,hasGauge:!!bgGaugeChart,hasSpark:!!bgSparkChart,hasDonut:!!bgDonutChart,diff:+t.DIFERENCIA_BALANCE||0,diffColor:(Math.abs(diff)<=1?'green':'red'),cierre});
-    // #endregion
+
   }catch(_){
     if(badge) badge.textContent='Sin datos';
   }
@@ -969,9 +965,7 @@ async function loadEstadoSrContable(mesesScope, totScope){
         ['Utilidad antes de impuestos',uai],
       ].map(x=>`<div class="bg-row"><span class="n">${x[0]}</span><span class="v">${fmtM(x[1])}</span></div>`).join('');
     }
-    // #region agent log
-    debugLogResultados('run25','H105','resultados.html:loadEstadoSrContable:scoped','estado sr derived from selected months',{meses:ord.map(monthKey),ventas,costo,bruta,gv,go,ga,tg,og,gf,uop,uai,uaiColor:(uai<0?'red':uai>0?'green':'yellow')});
-    // #endregion
+
     return;
   }
   try{
@@ -1017,9 +1011,7 @@ async function loadEstadoSrContable(mesesScope, totScope){
         ['Utilidad antes de impuestos',+s.utilidad_antes_impuestos||0],
       ].map(x=>`<div class="bg-row"><span class="n">${x[0]}</span><span class="v">${fmtM(x[1])}</span></div>`).join('');
     }
-    // #region agent log
-    debugLogResultados('run25','H106','resultados.html:loadEstadoSrContable:fallback','estado sr endpoint rendered',{periodo:p,estado:s,uaiColor:((+s.utilidad_antes_impuestos||0)<0?'red':(+s.utilidad_antes_impuestos||0)>0?'green':'yellow')});
-    // #endregion
+
   }catch(_){
     if(badge) badge.textContent='Sin datos';
   }
@@ -1176,11 +1168,7 @@ function clearResultadosUI(){
   const insightEl=document.getElementById('insightText'); if(insightEl)insightEl.textContent='Cargando...';
   const body=document.getElementById('pnlBody'); if(body)body.innerHTML='<tr><td colspan="99" style="text-align:center;padding:1rem;color:var(--muted)">Cargando...</td></tr>';
 }
-// #region agent log
-function debugLogResultados(runId,hypothesisId,location,message,data){
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId,hypothesisId,location,message,data,timestamp:Date.now()})}).catch(()=>{});
-}
-// #endregion
+
 
 // ── Load ───────────────────────────────────────────────────────────────────────
 async function loadData(){
@@ -1215,9 +1203,7 @@ async function loadData(){
     // Si ya hay negocio concreto (URL/session), no escanear todo el registro — evita colgarse minutos en pnl-universe.
     const uniOmitDb = !(selectedBizId && selectedBizId !== '__ALL__');
     const uniUrl=buildPnlApiUrl('/api/resultados/pnl-universe','meses='+currentMeses+'&concurrency=2',{ omitDb:uniOmitDb })+'&_='+Date.now();
-    // #region agent log
-    debugLogResultados('run2','H6','resultados.html:671','frontend built universe url',{search:location.search||'',currentMeses,selectedBizId:selectedBizId||'',uniUrl});
-    // #endregion
+
     let uni=await tryFetch(uniUrl)||{};
     const base=getBase();
     if((!uni.empresas||!uni.empresas.length)&&base.indexOf(':7000')===-1&&window.location.protocol!=='file:'){
@@ -1228,9 +1214,7 @@ async function loadData(){
     const empresas=(Array.isArray(uni.empresas)?uni.empresas:[]).filter(allowEmpresa);
     const okEmp=empresas.filter(e=>e.ok);
     const multi=okEmp.length>1;
-    // #region agent log
-    debugLogResultados('run2','H7','resultados.html:681','frontend universe payload',{empresasLen:empresas.length,okEmpLen:okEmp.length,multi,selectedBizId:selectedBizId||'',consolidadoVentas:+(uni.consolidado&&uni.consolidado.VENTAS_NETAS||0)});
-    // #endregion
+
 
     if(!multi){
       document.getElementById('bizContextBar')&&(document.getElementById('bizContextBar').style.display='none');
@@ -1323,9 +1307,7 @@ async function loadData(){
     url = explicitParts.length
       ? buildPnlApiUrl('/api/resultados/pnl',explicitParts.join('&'),{omitFilters:true})+'&_='+Date.now()
       : buildPnlApiUrl('/api/resultados/pnl','meses='+currentMeses)+'&_='+Date.now();
-    // #region agent log
-    debugLogResultados('run2','H8','resultados.html:758','frontend built pnl url',{url,currentMeses,selectedBizId:selectedBizId||''});
-    // #endregion
+
     data=await tryFetch(url)||{};
     if((!data.meses||!data.meses.length)&&base.indexOf(':7000')===-1&&window.location.protocol!=='file:'){
       const altUrl=url.replace(/^(https?:\/\/[^\/]+)/,(window.location.origin||'').replace(/:\d+$/,'')+':7000');
@@ -1333,9 +1315,7 @@ async function loadData(){
     }
     const meses=Array.isArray(data.meses)?data.meses:[];
     lastSubconceptos = (data && data.subconceptos && typeof data.subconceptos === 'object') ? data.subconceptos : {};
-    // #region agent log
-    debugLogResultados('run29','H308','resultados.html:loadData:subconceptos','subconcept payload loaded',{buckets:Object.keys(lastSubconceptos||{}),mesesLen:meses.length,url});
-    // #endregion
+
     applyCoLabelsDynamic(data.prefijos_labels||null);
     const rawTot=data.totales||{};
     const tot={
@@ -1365,9 +1345,7 @@ async function loadData(){
         const d0=`${py}-${String(pm).padStart(2,'0')}-01`;
         const d1=`${py}-${String(pm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
         const fbUrl=buildPnlApiUrl('/api/resultados/pnl',`desde=${d0}&hasta=${d1}`,{omitFilters:true})+'&_='+Date.now();
-        // #region agent log
-        debugLogResultados('run5','H12','resultados.html:804','ui fallback prefijos attempt',{fromYear:y,fromMonth:m,toYear:py,toMonth:pm,fbUrl});
-        // #endregion
+
         const fb=await tryFetch(fbUrl,25000)||null;
         if(fb&&fb.totales&&fb.tiene_gastos_co===true){
           const src=fb.totales||{};
@@ -1375,9 +1353,7 @@ async function loadData(){
           tablaTieneGastos=true;
           fallbackUiRef={ANIO:py,MES:pm};
         }
-        // #region agent log
-        debugLogResultados('run5','H12','resultados.html:814','ui fallback prefijos result',{applied:!!fallbackUiRef,from:fallbackUiRef,sum:(CO_KEYS.reduce((s,k)=>s+(+(tablaTot[k]||0)),0))});
-        // #endregion
+
       }
     }
     const anioRef = +((tablaMeses[tablaMeses.length-1]||{}).ANIO || (new Date().getFullYear()));
@@ -1388,23 +1364,17 @@ async function loadData(){
     const hasMesExplicito = !!((fp && fp.anio && fp.mes) || (usp.get('anio') && usp.get('mes')));
     const hasRangoExplicito = !!((fp && fp.desde && fp.hasta) || (usp.get('desde') && usp.get('hasta')));
     const shouldExpandYtd = !!(tablaMeses.length && tablaMeses.length < mesFinYtd && !hasMesExplicito && !hasRangoExplicito);
-    // #region agent log
-    debugLogResultados('run17','H77','resultados.html:loadData:ytd-gate','ytd expansion gate',{anioRef,mesFinYtd,tablaMesesLen:tablaMeses.length,hasMesExplicito,hasRangoExplicito,shouldExpandYtd,filterParams:fp});
-    // #endregion
+
     if(shouldExpandYtd){
       const ytdUrl=buildPnlApiUrl('/api/resultados/pnl',`anio=${anioRef}`,{omitFilters:true})+'&_='+Date.now();
-      // #region agent log
-      debugLogResultados('run9','H41','resultados.html:846','ytd expansion attempt',{anioRef,mesesOriginal:tablaMeses.map(r=>`${r.ANIO}-${r.MES}`),mesFinYtd,ytdUrl});
-      // #endregion
+
       const ytdData=await tryFetch(ytdUrl,25000)||{};
       const ytdMesesRaw=Array.isArray(ytdData.meses)?ytdData.meses:tablaMeses;
       tablaMeses=completeYtdMeses(ytdMesesRaw,anioRef,mesFinYtd);
       const ytdTot = (ytdData && ytdData.totales) ? ytdData.totales : rebuildTotalesFromMeses(tablaMeses);
       tablaTot={...tablaTot,...rebuildTotalesFromMeses(tablaMeses),...ytdTot};
       tablaTieneGastos=(tablaTieneGastos||ytdData.tiene_gastos_co===true);
-      // #region agent log
-      debugLogResultados('run9','H41','resultados.html:855','ytd expansion result',{anioRef,mesesRender:tablaMeses.map(r=>`${r.ANIO}-${r.MES}`),ventasYtd:+(tablaTot.VENTAS_NETAS||0)});
-      // #endregion
+
     }
     tablaMeses=sortMesesByPeriodo(tablaMeses);
     const hasCosto=(+tot.COSTO_VENTAS>0)||(data.tiene_costo===true);
@@ -1711,9 +1681,7 @@ function applyPnlDrilldown(){
       const sec=btn.getAttribute('data-sec');
       const openNow=btn.classList.toggle('open');
       tb.querySelectorAll(`tr.data-row[data-sec="${sec}"]`).forEach(r=>r.style.display=openNow?'':'none');
-      // #region agent log
-      debugLogResultados('run22','H99','resultados.html:applyPnlDrilldown','section toggled',{section:sec,open:openNow});
-      // #endregion
+
     });
   });
 }
@@ -1774,9 +1742,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   const pnlFootEl=document.getElementById('pnlFoot');
   const thEl=document.getElementById('thMeses');
   const thRowEl=document.getElementById('pnlHeadRow');
-  // #region agent log
-  debugLogResultados('run13','H66','resultados.html:renderTabla:entry','render tabla inputs',{mesesLen:mesesOrd.length,meses:mesesOrd.map(m=>({anio:+m.ANIO||0,mes:+m.MES||0,label:mesLabel(m),ventas:+m.VENTAS_NETAS||0,costo:+m.COSTO_VENTAS||0})),totalVentas:+tot.VENTAS_NETAS||0,totalCosto:+tot.COSTO_VENTAS||0,tieneGastos:tg});
-  // #endregion
+
   if(!mesesOrd.length){
     if(pnlBodyEl)pnlBodyEl.innerHTML='<tr><td colspan="99" style="text-align:center;padding:2rem;font-family:DM Mono,monospace;font-size:.78rem;color:var(--muted)">Sin datos para el periodo seleccionado</td></tr>';
     if(pnlFootEl)pnlFootEl.innerHTML='';
@@ -1804,12 +1770,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     }).join('');
     thEl.outerHTML=`${thHtml}<th>Total</th>`;
   }
-  // #region agent log
-  try{
-    const thTexts=[...document.querySelectorAll('.pnl-structured thead th')].map(x=>String((x&&x.textContent)||'').trim());
-    debugLogResultados('run13','H66','resultados.html:renderTabla:headers','rendered table headers',{thCount:thTexts.length,thTexts});
-  }catch(_){}
-  // #endregion
+
 
   // Rows
   const sumOf=key=>mesesOrd.reduce((s,m)=>s+(+m[key]||0),0);
@@ -2024,9 +1985,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     return ub - op - oo - oa - gf - ex;
   };
   const uaiTotal = mesesOrd.reduce((s,m)=>s+uaiForMes(m),0);
-  // #region agent log
-  debugLogResultados('run29','H304','resultados.html:renderTabla:subconceptos','rendered pnl with granular subconcepts',{meses:mesesOrd.map(m=>({k:monthKey(m),vn:+m.VENTAS_NETAS||0})),subBuckets:Object.keys(subData||{}),ventasNetasTotal:+tot.VENTAS_NETAS||0,remisionesTotal:remiTotal});
-  // #endregion
+
   if(pnlFootEl)pnlFootEl.innerHTML=`
   <tr class="total-final">
     <td>${isYtdView?'UTILIDAD ANTES DE IMPUESTOS ACUMULADA':'UTILIDAD ANTES DE IMPUESTOS (PERIODO)'}</td>

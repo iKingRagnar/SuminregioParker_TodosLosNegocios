@@ -181,17 +181,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       if (ALLOWED_DB_TERMS.some(function (t) { return pool.indexOf(t) >= 0; })) return true;
       return tokens.some(function (tk) { return !!DB_ALLOWED_SET[tk]; });
     });
-    // #region agent log
-    try {
-      const sampleIn = arr.slice(0, 12).map(function (e) {
-        return cleanDbDisplayName(fdbBasename(e && e.database) || (e && e.id) || '');
-      });
-      const sampleOut = out.slice(0, 12).map(function (e) {
-        return cleanDbDisplayName(fdbBasename(e && e.database) || (e && e.id) || '');
-      });
-      fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run16',hypothesisId:'H74',location:'filters.js:filterAllowedDatabases',message:'db filter strict fields applied',data:{inputCount:arr.length,outputCount:out.length,sampleIn:sampleIn,sampleOut:sampleOut},timestamp:Date.now()})}).catch(()=>{});
-    } catch(_) {}
-    // #endregion
+
     return out;
   }
   if (typeof window !== 'undefined') {
@@ -213,9 +203,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       if (urlDb !== '__all__') {
         try { sessionStorage.setItem('microsip_erp_db', urlDb); } catch (_) {}
       }
-      // #region agent log
-      fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run26',hypothesisId:'H107',location:'filters.js:renderDbChipsInto:initial-default',message:'db default normalized and applied',data:{selectedDb:urlDb,availableIds:ids.slice(0,20)},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
+
     }
     let html = '';
     const isAll = (urlDb === '__all__');
@@ -235,20 +223,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
         '<span class="db-chip-main">' + escChip(main) + '</span><span class="db-chip-sub">' + escChip(sub) + '</span></button>';
     });
     container.innerHTML = html;
-    // #region agent log
-    try {
-      const preview = (list || []).slice(0, 8).map(function (e) {
-        const id = String(e && e.id || '');
-        const fname = fdbBasename(e && e.database);
-        return {
-          id: id,
-          main: cleanDbDisplayName(fname || id),
-          sub: cleanDbDisplayName(String((e && e.label) || '').replace(/\.fdb$/i, '')) || cleanDbDisplayName(id)
-        };
-      });
-      fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run14',hypothesisId:'H70',location:'filters.js:renderDbChipsInto',message:'db chip labels cleaned',data:{count:(list||[]).length,preview:preview},timestamp:Date.now()})}).catch(()=>{});
-    } catch(_) {}
-    // #endregion
+
     container.querySelectorAll('.biz-chip').forEach(function (btn) {
       btn.addEventListener('click', function () {
         const raw = btn.getAttribute('data-db') || preferred || PARKER_DB_CANDIDATES[0];
@@ -261,9 +236,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
         if (raw !== '__all__') {
           try { sessionStorage.setItem('microsip_erp_db', raw); } catch (_) {}
         }
-        // #region agent log
-        fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run26',hypothesisId:'H108',location:'filters.js:renderDbChipsInto:onClick',message:'db chip clicked and persisted',data:{clickedDb:raw,href:window.location.href},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
+
         container.querySelectorAll('.biz-chip').forEach(function (b) { b.classList.remove('active'); });
         btn.classList.add('active');
         if (onChange) onChange(raw);
@@ -317,9 +290,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       const u = new URL(window.location.href);
       // P&L (resultados): no reescribir query con preset global — el usuario y el back usan anio/mes propios
       if (/resultados\.html$/i.test(u.pathname)) {
-        // #region agent log
-        fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run-pl',hypothesisId:'H-skip-url-sync-pnl',location:'filters.js:syncFiltersToUrl',message:'skip url rewrite on P&L page',data:{pathname:u.pathname},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
+
         return;
       }
       const p = getParams();
@@ -588,11 +559,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
         <div class="fb-presets">${presetBtns}</div>
         ${(_cfg.showVendedor !== false) ? `<div class="fb-sep"></div>${vendSection}` : ''}
       </div>`;
-    // #region agent log
-    try {
-      fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run16',hypothesisId:'H75',location:'filters.js:renderBar',message:'filter bar rendered with refreshed ux skin',data:{preset:_state.preset||'mes',showVendedor:_cfg.showVendedor!==false,presetCount:presets.length},timestamp:Date.now()})}).catch(()=>{});
-    } catch(_) {}
-    // #endregion
+
 
     c.querySelectorAll('.fb-preset').forEach(btn => {
       btn.addEventListener('click', () => {
