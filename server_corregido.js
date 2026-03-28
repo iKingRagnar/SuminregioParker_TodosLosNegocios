@@ -1146,7 +1146,9 @@ function cxcClienteSQL() {
 // ── v9: Documentos de CARGO para clientes que aún tienen saldo pendiente ─────
 // Días hasta vencimiento: DIAS_PPAG del catálogo (0 = contado / vence mismo día).
 // Antes: NULLIF(DIAS_PPAG,0) + default 30 convertía contado (0) en +30 días → "vencido" falso.
-// Ahora: CONTADO en nombre fuerza 0 días; si DIAS_PPAG IS NOT NULL se usa tal cual; si no, 30.
+// Vencimiento = FECHA_CARGO + DIAS_PPAG (condición de pago). Sin VENCIMIENTOS_CARGOS_CC:
+// esa tabla almacena fechas renegociadas/extendidas que hacen que todo aparezca como CORRIENTE.
+// El cálculo coincide con Power BI: vencimiento = fecha de emisión + días de crédito.
 function cxcCargosSQL() {
   return `(
     SELECT
@@ -1154,32 +1156,21 @@ function cxcCargosSQL() {
       dc.CLIENTE_ID,
       dc.FOLIO,
       i.IMPORTE                                                       AS SALDO,
-      CAST(
-        CASE
-          WHEN ${CXC_SQL_ES_CONTADO} THEN CAST(dc.FECHA AS DATE)
-          ELSE COALESCE(MIN(vc.FECHA_VENCIMIENTO), CAST(dc.FECHA AS DATE) + ${CXC_DIAS_SUM_INT})
-        END
-      AS DATE)                                                        AS FECHA_VENCIMIENTO,
+      CAST(dc.FECHA AS DATE) + ${CXC_DIAS_SUM_INT}                   AS FECHA_VENCIMIENTO,
       CASE
         WHEN ${CXC_SQL_ES_CONTADO} THEN 0
-        ELSE (CURRENT_DATE - CAST(COALESCE(
-          MIN(vc.FECHA_VENCIMIENTO),
-          CAST(dc.FECHA AS DATE) + ${CXC_DIAS_SUM_INT}
-        ) AS DATE))
+        ELSE (CURRENT_DATE - (CAST(dc.FECHA AS DATE) + ${CXC_DIAS_SUM_INT}))
       END                                                             AS DIAS_VENCIDO
     FROM IMPORTES_DOCTOS_CC i
     JOIN  DOCTOS_CC dc         ON dc.DOCTO_CC_ID  = i.DOCTO_CC_ID
     LEFT JOIN CLIENTES clx ON clx.CLIENTE_ID = dc.CLIENTE_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, clx.COND_PAGO_ID)
-    LEFT JOIN VENCIMIENTOS_CARGOS_CC vc ON vc.DOCTO_CC_ID = i.DOCTO_CC_ID
     WHERE i.TIPO_IMPTE = 'C'
       AND COALESCE(i.CANCELADO, 'N') = 'N' ${CXC_EXCLUIR_CONTADO}
       AND dc.CLIENTE_ID IN (
         SELECT cs.CLIENTE_ID
         FROM ${cxcClienteSQL()} cs
       )
-    GROUP BY i.DOCTO_CC_ID, dc.CLIENTE_ID, dc.FOLIO, dc.FECHA,
-             i.IMPORTE, i.IMPUESTO, cp.DIAS_PPAG, cp.NOMBRE
   )`;
 }
 
@@ -2558,18 +2549,8 @@ get('/api/cxc/vencidas', async (req) => {
       x.DIAS_ATRASO AS ATRASO,
       x.DIAS_ATRASO AS DIAS_ATRASO,
       CAST(dc.FECHA AS DATE) AS FECHA_VENTA,
-      CAST(
-        COALESCE(
-          (SELECT MIN(vx.FECHA_VENCIMIENTO) FROM VENCIMIENTOS_CARGOS_CC vx WHERE vx.DOCTO_CC_ID = dc.DOCTO_CC_ID),
-          CAST(dc.FECHA AS DATE) + ${CXC_DIAS_SUM_INT}
-        )
-      AS DATE) AS FECHA_VENC_PLAZO,
-      CAST(
-        COALESCE(
-          (SELECT MIN(vx2.FECHA_VENCIMIENTO) FROM VENCIMIENTOS_CARGOS_CC vx2 WHERE vx2.DOCTO_CC_ID = dc.DOCTO_CC_ID),
-          CAST(dc.FECHA AS DATE) + ${CXC_DIAS_SUM_INT}
-        )
-      AS DATE) AS FECHA_VENCIMIENTO,
+      CAST(dc.FECHA AS DATE) + ${CXC_DIAS_SUM_INT}                   AS FECHA_VENC_PLAZO,
+      CAST(dc.FECHA AS DATE) + ${CXC_DIAS_SUM_INT}                   AS FECHA_VENCIMIENTO,
       x.DIAS_ATRASO AS TIEMPO_SIN_PAGAR_DIAS
     FROM (
       SELECT
@@ -2802,7 +2783,7 @@ get('/api/cxc/historial-pagos', async (req) => {
       cl.CLIENTE_ID,
       COALESCE(cp.NOMBRE, 'S/D')                                        AS CONDICION_PAGO,
       CAST(COALESCE(MIN(CASE WHEN i.TIPO_IMPTE = 'C' THEN COALESCE(i.FECHA, dc.FECHA) END), CAST(dc.FECHA AS DATE)) AS DATE) AS FECHA_EMISION,
-      CAST(COALESCE(MIN(vc.FECHA_VENCIMIENTO), CAST(dc.FECHA AS DATE) + ${CXC_DIAS_SUM_INT}) AS DATE) AS FECHA_VENCIMIENTO,
+      CAST(dc.FECHA AS DATE) + ${CXC_DIAS_SUM_INT}                     AS FECHA_VENCIMIENTO,
       SUM(CASE WHEN i.TIPO_IMPTE = 'C' THEN i.IMPORTE ELSE 0 END)       AS CARGO_ORIGINAL,
       SUM(CASE WHEN i.TIPO_IMPTE = 'R' THEN i.IMPORTE ELSE 0 END)       AS TOTAL_COBRADO,
       SUM(CASE WHEN i.TIPO_IMPTE = 'C' THEN i.IMPORTE WHEN i.TIPO_IMPTE = 'R' THEN -i.IMPORTE ELSE 0 END) AS SALDO_RESTANTE,
@@ -2813,7 +2794,6 @@ get('/api/cxc/historial-pagos', async (req) => {
     JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = i.DOCTO_CC_ID
     JOIN CLIENTES cl ON cl.CLIENTE_ID = dc.CLIENTE_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, cl.COND_PAGO_ID)
-    LEFT JOIN VENCIMIENTOS_CARGOS_CC vc ON vc.DOCTO_CC_ID = i.DOCTO_CC_ID
     WHERE COALESCE(i.CANCELADO, 'N') = 'N' ${CXC_EXCLUIR_CONTADO}
       ${fechaSql}
       ${clienteFiltro}
