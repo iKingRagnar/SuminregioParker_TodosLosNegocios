@@ -939,13 +939,7 @@ function applyCotiData(resObj, diarias, vends, ventasVE) {
   const maxY = Math.max(0, ...vals, ...metaL, ...idealL, bloq ? 0 : metaCBase * nV * 1.1);
   if (arr.length === 0 && !bloq && metaCBase * nV > 0) opts.scales.y.suggestedMax = Math.max(metaCBase * nV * 1.2, 1000);
   else if (maxY > 0) opts.scales.y.suggestedMax = maxY * 1.15;
-  const cotiBorder=cssVar('--chart-yellow','#d97706'), cotiFill=cssVar('--chart-yellow-fill','rgba(217,119,6,.28)');
-  if(chartCotiDiarias) chartCotiDiarias.destroy();
-  chartCotiDiarias = new Chart(document.getElementById('chartCotiDiarias').getContext('2d'), {type:'bar', data:{labels:lbls, datasets:[
-    {label:'Cotizaciones $', data:vals, order:0, backgroundColor:cotiFill, borderColor:cotiBorder, borderWidth:1},
-    {label:'Meta (día laboral)', data:metaL, type:'line', order:1, borderColor:'rgba(255,140,66,.9)', borderWidth:2.2, borderDash:[6,4], pointRadius:0, fill:false},
-    {label:'Ideal (+30%)', data:idealL, type:'line', order:2, borderColor:'rgba(0,229,160,.82)', borderWidth:2, borderDash:[3,5], pointRadius:0, fill:'-1', backgroundColor:'rgba(255,184,0,.16)'},
-  ]}, options:opts});
+  // Actualizar vendedores ANTES de la gráfica — si Chart.js lanza error no se queda en "Cargando..."
   const vendsArr = Array.isArray(vends) ? vends : [];
   const maxV = vendsArr.reduce((m,r)=>Math.max(m,+(r.COTIZACIONES_MES||0)),0);
   document.getElementById('coti-vendedores-list').innerHTML = vendsArr.length ?
@@ -959,6 +953,15 @@ function applyCotiData(resObj, diarias, vends, ventasVE) {
         <div class="vendor-bar-bg"><div style="height:5px;border-radius:99px;background:linear-gradient(90deg,var(--chart-yellow),var(--orange));width:${pct}%;transition:width 1.2s"></div></div>
       </div>`;
     }).join('')}</div>` : '<div style="text-align:center;color:var(--muted);padding:1.5rem">Sin datos</div>';
+  try{
+    const cotiBorder=cssVar('--chart-yellow','#d97706'), cotiFill=cssVar('--chart-yellow-fill','rgba(217,119,6,.28)');
+    if(chartCotiDiarias) chartCotiDiarias.destroy();
+    chartCotiDiarias = new Chart(document.getElementById('chartCotiDiarias').getContext('2d'), {type:'bar', data:{labels:lbls, datasets:[
+      {label:'Cotizaciones $', data:vals, order:0, backgroundColor:cotiFill, borderColor:cotiBorder, borderWidth:1},
+      {label:'Meta (día laboral)', data:metaL, type:'line', order:1, borderColor:'rgba(255,140,66,.9)', borderWidth:2.2, borderDash:[6,4], pointRadius:0, fill:false},
+      {label:'Ideal (+30%)', data:idealL, type:'line', order:2, borderColor:'rgba(0,229,160,.82)', borderWidth:2, borderDash:[3,5], pointRadius:0, fill:'-1', backgroundColor:'rgba(255,184,0,.16)'},
+    ]}, options:opts});
+  }catch(_){}
 }
 
 function asArrayCotizacionesDocs(raw){
