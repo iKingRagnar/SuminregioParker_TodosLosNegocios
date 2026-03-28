@@ -23,7 +23,7 @@
  *                 por CLIENTE_ID). En Microsip, CARGO y RECIBO tienen diferentes
  *                 DOCTO_CC_ID, por lo que nunca se podía netear por documento.
  *  • cxcCargosSQL() = docs cargo de clientes con saldo pendiente (para aging)
- *  • /api/cxc/top-deudores  → usa cxcClienteSQL + cxcCargosSQL combinados
+ *  • /api/cxc/top-deudores  → saldo por documento + DOCTOS_CC; condición COALESCE(dc.COND_PAGO_ID, cliente)
  *  • /api/cxc/historial     → usa cxcCargosSQL (CLIENTE_ID directo)
  *  • /api/cxc/por-condicion → saldo neto por DOCTO_CC y condición del documento (dc.COND_PAGO_ID); contado aparte
  *  • /api/director/resumen  → CXC: cxcClienteSQL (saldo) + cxcCargosSQL (aging)
@@ -918,8 +918,9 @@ function sqlCotiImporteExpr(alias = 'd') {
   return `COALESCE(${a}.IMPORTE_NETO, 0)`;
 }
 
-function cotizacionesSub() {
+function cotizacionesSub(extraWhere = '') {
   const ci = sqlVentaImporteBaseExpr('d');
+  const ew = String(extraWhere || '');
   return `(
     SELECT
       d.DOCTO_VE_ID,
@@ -931,8 +932,35 @@ function cotizacionesSub() {
       d.VENDEDOR_ID,
       ${ci} AS IMPORTE_NETO
     FROM DOCTOS_VE d
-    WHERE ${sqlWhereCotizacionActiva('d')}
+    WHERE ${sqlWhereCotizacionActiva('d')}${ew}
   )`;
+}
+
+/** Sufijo SQL (AND …) para excluir cotizaciones con fecha de vigencia vencida, si existe columna en DOCTOS_VE. MICROSIP_COTIZACIONES_INCLUIR_VENCIDAS=1 desactiva el filtro. */
+const cotizacionVigenciaCache = new Map();
+const cotizacionVigenciaInFlight = new Map();
+async function resolveCotizacionVigenciaSqlSuffix(dbo) {
+  const key = `${dbCacheKey(dbo)}:cotiVig`;
+  if (cotizacionVigenciaCache.has(key)) return cotizacionVigenciaCache.get(key);
+  if (cotizacionVigenciaInFlight.has(key)) return cotizacionVigenciaInFlight.get(key);
+  const p = (async () => {
+    if ((process.env.MICROSIP_COTIZACIONES_INCLUIR_VENCIDAS || '').match(/^(1|true|yes)$/i)) {
+      cotizacionVigenciaCache.set(key, '');
+      return '';
+    }
+    const cols = await getTableColumns('DOCTOS_VE', dbo).catch(() => new Set());
+    const col = firstExistingColumn(cols, ['FECHA_VENCIMIENTO', 'FECHA_VIGENCIA', 'FECHA_VALIDA', 'FECHA_CADUCIDAD']);
+    const suffix = col ? ` AND (d.${col} IS NULL OR CAST(d.${col} AS DATE) >= CURRENT_DATE)` : '';
+    cotizacionVigenciaCache.set(key, suffix);
+    // #region agent log
+    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '5e0522' }, body: JSON.stringify({ sessionId: '5e0522', runId: 'run-coti-vig', hypothesisId: 'H-coti-vig', location: 'server_corregido.js:resolveCotizacionVigenciaSqlSuffix', message: 'cotizacion vigencia suffix', data: { column: col || null, hasFilter: !!suffix }, timestamp: Date.now() }) }).catch(() => {});
+    // #endregion
+    return suffix;
+  })().finally(() => {
+    cotizacionVigenciaInFlight.delete(key);
+  });
+  cotizacionVigenciaInFlight.set(key, p);
+  return p;
 }
 
 /** Cache por base: columnas reales en DOCTOS_* (FECHA vs FECHA_DOCUMENTO, UNIDADES vs CANTIDAD). */
@@ -1327,6 +1355,7 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
     req.query.mes = now.getMonth() + 1;
   }
   const f = buildFiltros(req, 'd');
+  const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
   const ci = sqlCotiImporteExpr('d');
   const rows = await query(`
     SELECT
@@ -1335,7 +1364,7 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
       COALESCE(SUM(${ci}), 0)                              AS MES_ACTUAL,
       COUNT(*)                                                      AS COTIZACIONES_MES,
       COUNT(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 END) AS COTIZACIONES_HOY
-    FROM ${cotizacionesSub()} d
+    FROM ${cotizacionesSub(cotiEw)} d
     WHERE 1=1 ${f.sql}
   `, f.params, 12000, dbo).catch(() => []);
   return normalizeCotizacionResumenRow(rows[0]);
@@ -1416,10 +1445,11 @@ get('/api/ventas/cotizaciones/diarias', async (req) => {
   const desde = new Date();
   desde.setDate(desde.getDate() - dias);
   const desdeStr = desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-' + String(desde.getDate()).padStart(2, '0');
+  const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
   const ci = sqlCotiImporteExpr('d');
   const rows = await query(`
     SELECT CAST(d.FECHA AS DATE) AS DIA, COUNT(*) AS COTIZACIONES, COALESCE(SUM(${ci}),0) AS TOTAL_COTIZACIONES
-    FROM ${cotizacionesSub()} d
+    FROM ${cotizacionesSub(cotiEw)} d
     WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
     GROUP BY CAST(d.FECHA AS DATE) ORDER BY 1
   `, [desdeStr], 12000, dbo).catch(() => []);
@@ -1429,11 +1459,12 @@ get('/api/ventas/cotizaciones/diarias', async (req) => {
 get('/api/ventas/cotizaciones/semanales', async (req) => {
   const dbo = getReqDbOpts(req);
   const f = buildFiltros(req, 'd');
+  const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
   const ci = sqlCotiImporteExpr('d');
   return query(`
     SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(WEEK FROM d.FECHA) AS SEMANA,
       COUNT(*) AS COTIZACIONES, COALESCE(SUM(${ci}),0) AS TOTAL
-    FROM ${cotizacionesSub()} d WHERE 1=1 ${f.sql}
+    FROM ${cotizacionesSub(cotiEw)} d WHERE 1=1 ${f.sql}
     GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(WEEK FROM d.FECHA) ORDER BY 1, 2
   `, f.params, 12000, dbo).catch(() => []);
 });
@@ -1441,11 +1472,12 @@ get('/api/ventas/cotizaciones/semanales', async (req) => {
 get('/api/ventas/cotizaciones/mensuales', async (req) => {
   const dbo = getReqDbOpts(req);
   const f = buildFiltros(req, 'd');
+  const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
   const ci = sqlCotiImporteExpr('d');
   return query(`
     SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
       COUNT(*) AS COTIZACIONES, COALESCE(SUM(${ci}),0) AS TOTAL
-    FROM ${cotizacionesSub()} d WHERE 1=1 ${f.sql}
+    FROM ${cotizacionesSub(cotiEw)} d WHERE 1=1 ${f.sql}
     GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
   `, f.params, 12000, dbo).catch(() => []);
 });
@@ -1508,6 +1540,7 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
   const vendSql = Number.isFinite(vid) ? ' AND d.VENDEDOR_ID = ?' : '';
   const params = [...f.params];
   if (Number.isFinite(vid)) params.push(vid);
+  const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
   const ci = sqlCotiImporteExpr('d');
   return query(`
     SELECT
@@ -1516,7 +1549,7 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN ${ci} ELSE 0 END) AS COTIZACIONES_HOY,
       COALESCE(SUM(${ci}), 0) AS COTIZACIONES_MES,
       COUNT(*) AS NUM_COTI_MES
-    FROM ${cotizacionesSub()} d
+    FROM ${cotizacionesSub(cotiEw)} d
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
     WHERE d.VENDEDOR_ID > 0 ${f.sql} ${vendSql}
     GROUP BY v.NOMBRE, d.VENDEDOR_ID
@@ -1547,6 +1580,7 @@ get('/api/ventas/vs-cotizaciones', async (req) => {
   const desde = new Date();
   desde.setMonth(desde.getMonth() - mesesN);
   const desdeStr = desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-01';
+  const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
   const [ventasMes, cotizMes] = await Promise.all([
     query(`
       SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
@@ -1557,7 +1591,7 @@ get('/api/ventas/vs-cotizaciones', async (req) => {
     query(`
       SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
         COALESCE(SUM(${sqlCotiImporteExpr('d')}), 0) AS TOTAL_COTI, COUNT(*) AS NUM_COTI
-      FROM ${cotizacionesSub()} d
+      FROM ${cotizacionesSub(cotiEw)} d
       WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
       GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
     `, [desdeStr], 12000, dbo).catch(() => []),
@@ -2009,13 +2043,14 @@ get('/api/ventas/cotizaciones', async (req) => {
   const dbo = getReqDbOpts(req);
   const f = buildFiltros(req, 'd');
   const limit = Math.min(parseInt(req.query.limit, 10) || 50, 500);
+  const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
   const ci = sqlCotiImporteExpr('d');
   return query(`
     SELECT FIRST ${limit}
       d.DOCTO_VE_ID, d.FECHA, d.FOLIO, d.TIPO_DOCTO, ${ci} AS IMPORTE_NETO, d.CLIENTE_ID,
       c.NOMBRE AS CLIENTE, d.VENDEDOR_ID,
       COALESCE(v.NOMBRE, 'Vendedor ' || CAST(d.VENDEDOR_ID AS VARCHAR(12))) AS VENDEDOR
-    FROM ${cotizacionesSub()} d
+    FROM ${cotizacionesSub(cotiEw)} d
     LEFT JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
     WHERE 1=1 ${f.sql}
@@ -2155,6 +2190,7 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
     rq.query.mes = now.getMonth() + 1;
   }
   const f = buildFiltros(rq, 'd');
+  const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbOpts);
   const [vRow, remRow, cxcSnap, coRow] = await Promise.all([
     query(`
       SELECT
@@ -2180,7 +2216,7 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
         COALESCE(SUM(${sqlCotiImporteExpr('d')}), 0) AS IMPORTE_COTI_MES,
         SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 ELSE 0 END) AS COTI_HOY,
         COUNT(*) AS COTI_MES
-      FROM ${cotizacionesSub()} d
+      FROM ${cotizacionesSub(cotiEw)} d
       WHERE 1=1 ${f.sql}
     `, f.params, qms, dbOpts).catch(() => [{}]),
   ]);
@@ -2395,6 +2431,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
     query(`
       SELECT
         COUNT(DISTINCT doc.CLIENTE_ID) AS NUM_CLIENTES_DOC,
+        COUNT(DISTINCT CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.CLIENTE_ID END) AS NUM_CLI_VENC_DOC,
         SUM(doc.SALDO_NETO) AS TOTAL_C,
         SUM(CASE WHEN doc.DIAS_VENCIDO <= 0 THEN doc.SALDO_NETO ELSE 0 END) AS COR_C,
         SUM(CASE WHEN doc.DIAS_VENCIDO BETWEEN 1 AND 30 THEN doc.SALDO_NETO ELSE 0 END) AS B1_C,
@@ -2468,7 +2505,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
   ag3 = +docAgg.B3_C || 0;
   ag4 = +docAgg.B4_C || 0;
   porVencer = agCorr;
-  let numCliVenc = (Array.isArray(cxcAgingLegacy) ? cxcAgingLegacy.filter(r => (+r.VENC_C || 0) > 0.005).length : 0);
+  let numCliVenc = +(docAgg.NUM_CLI_VENC_DOC || 0);
   if (saldoTotal <= 0.005 && Array.isArray(cxcSaldosLegacy) && cxcSaldosLegacy.length) {
     saldoTotal = (cxcSaldosLegacy || []).reduce((s, r) => s + (+r.SALDO || 0), 0);
     const aggLegacy = (Array.isArray(cxcAgingLegacy) ? cxcAgingLegacy : []).reduce((a, r) => {
@@ -2494,6 +2531,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
       vencido = 0;
       agCorr = saldoTotal;
     }
+    numCliVenc = (Array.isArray(cxcAgingLegacy) ? cxcAgingLegacy.filter(r => (+r.VENC_C || 0) > 0.005).length : 0);
   }
   const resumen = {
     SALDO_TOTAL: Math.round(saldoTotal * 100) / 100,
@@ -2510,7 +2548,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
     DIAS_MAS_90: Math.round(ag4 * 100) / 100,
   };
   // #region agent log
-  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run30',hypothesisId:'H310',location:'server_corregido.js:cxcResumenAgingUnificado',message:'cxc summary from document aging aggregate',data:{cliente:cf||null,docAgg,docStats:(docStatsRows&&docStatsRows[0])||{},movStats:(movStatsRows&&movStatsRows[0])||{},saldoCut:(saldoCutRows&&saldoCutRows[0])||{},resumen,aging,rowsSaldos:(cxcSaldosLegacy||[]).length,rowsAging:(cxcAgingLegacy||[]).length,elapsedMs:(Date.now()-t0)},timestamp:Date.now()})}).catch(()=>{});
+  fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run30',hypothesisId:'H310',location:'server_corregido.js:cxcResumenAgingUnificado',message:'cxc summary from document aging aggregate',data:{cliente:cf||null,docAgg,NUM_CLI_VENC_DOC:+(docAgg.NUM_CLI_VENC_DOC||0),NUM_CLIENTES_VENCIDOS:numCliVenc,docStats:(docStatsRows&&docStatsRows[0])||{},movStats:(movStatsRows&&movStatsRows[0])||{},saldoCut:(saldoCutRows&&saldoCutRows[0])||{},resumen,aging,rowsSaldos:(cxcSaldosLegacy||[]).length,rowsAging:(cxcAgingLegacy||[]).length,elapsedMs:(Date.now()-t0)},timestamp:Date.now()})}).catch(()=>{});
   // #endregion
   // #region agent log
   fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run6',hypothesisId:'H14',location:'server_corregido.js:2140',message:'cxc unified resumen+aging snapshot',data:{cliente:cf||null,resumen,aging},timestamp:Date.now()})}).catch(()=>{});
@@ -2607,16 +2645,17 @@ get('/api/cxc/top-deudores', async (req) => {
     SELECT FIRST ${limit}
       doc.CLIENTE_ID,
       COALESCE(cl.NOMBRE, 'Cliente ' || CAST(doc.CLIENTE_ID AS VARCHAR(12))) AS CLIENTE,
-      COALESCE(cp.NOMBRE, 'S/D') AS CONDICION_PAGO,
+      COALESCE(MAX(cp.NOMBRE), 'S/D') AS CONDICION_PAGO,
       SUM(doc.SALDO_NETO) AS SALDO_TOTAL,
       SUM(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.SALDO_NETO ELSE 0 END) AS VENCIDO,
       MAX(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.DIAS_VENCIDO ELSE 0 END) AS MAX_DIAS_ATRASO,
       COUNT(*) AS NUM_DOCUMENTOS
     FROM ${cxcDocSaldosInnerSQL(cfSql)} doc
+    JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = doc.DOCTO_CC_ID
     LEFT JOIN CLIENTES cl ON cl.CLIENTE_ID = doc.CLIENTE_ID
-    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = cl.COND_PAGO_ID
+    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, cl.COND_PAGO_ID)
     WHERE doc.SALDO_NETO > 0.005
-    GROUP BY doc.CLIENTE_ID, cl.NOMBRE, cp.NOMBRE
+    GROUP BY doc.CLIENTE_ID, cl.NOMBRE
     ORDER BY SALDO_TOTAL DESC, VENCIDO DESC
   `, [], 12000, dbo).catch(err => { console.error('cxc top-deudores main error:', err && (err.message || err)); return []; });
   if ((rows || []).length) return rows;
@@ -6178,13 +6217,14 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
   return aiWithCache(cacheKey, 15000, async () => {
     if (toolId === 'cotizaciones') {
       const fCot = buildFiltros(aiReq, 'd');
+      const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbOpts);
       const [resumen] = await query(`
         SELECT
           COUNT(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 END) AS COT_HOY,
           COALESCE(SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN ${sqlCotiImporteExpr('d')} ELSE 0 END), 0) AS IMPORTE_HOY,
           COUNT(*) AS COT_PERIODO,
           COALESCE(SUM(${sqlCotiImporteExpr('d')}), 0) AS IMPORTE_PERIODO
-        FROM ${cotizacionesSub()} d
+        FROM ${cotizacionesSub(cotiEw)} d
         WHERE 1=1 ${fCot.sql}
       `, fCot.params, 12000, dbOpts).catch(() => [{}]);
       const rows = await query(`
@@ -6192,7 +6232,7 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
           CAST(d.FECHA AS DATE) AS FECHA, d.FOLIO,
           COALESCE(c.NOMBRE, '') AS CLIENTE,
           COALESCE(${sqlCotiImporteExpr('d')}, 0) AS IMPORTE_NETO
-        FROM ${cotizacionesSub()} d
+        FROM ${cotizacionesSub(cotiEw)} d
         LEFT JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
         WHERE 1=1 ${fCot.sql}
         ORDER BY d.FECHA DESC, d.FOLIO DESC
