@@ -339,7 +339,7 @@ nav{display:flex;align-items:center;gap:.25rem}
         </div>
       </div>
       <!-- Intelligence bar -->
-      <div id="cv-insight" style="background:var(--s3);border:1px solid var(--border);border-left:3px solid var(--orange);border-radius:8px;padding:.75rem 1rem;font-family:'DM Mono',monospace;font-size:.67rem;color:var(--text2);line-height:1.7;margin-bottom:1.1rem">Analizando conversión...</div>
+      <div id="cv-insight" style="background:var(--s3);border:1px solid var(--border);border-left:3px solid var(--orange);border-radius:8px;padding:.75rem 1rem;font-family:'DM Mono',monospace;font-size:.67rem;color:var(--text2);line-height:1.7;margin-bottom:1.1rem">Cargando conversión...</div>
       <!-- Chart -->
       <div style="height:220px"><canvas id="chartConversion"></canvas></div>
     </div>
@@ -439,7 +439,7 @@ async function loadConversion(){
   const cy=()=>cssVar('--chart-yellow','#d97706');
   const cyFill=()=>cssVar('--chart-yellow-fill','rgba(217,119,6,.28)');
   try{
-    const data = await fwt(buildApiUrl('/api/ventas/vs-cotizaciones','meses=6'), {}).catch(()=>({}));
+    const data = await fwt(buildApiUrl('/api/ventas/vs-cotizaciones','meses=6'), {}, 60000).catch(()=>({}));
     const ventasArr = Array.isArray(data.ventas) ? data.ventas : [];
     const cotiArr   = Array.isArray(data.cotizaciones) ? data.cotizaciones : [];
     if(!ventasArr.length && !cotiArr.length){

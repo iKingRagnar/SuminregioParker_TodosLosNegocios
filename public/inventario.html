@@ -473,7 +473,7 @@ async function loadSinMovimiento(){
 
 async function loadOperacionCritica(){
   try{
-    const payload = await apiFetch(apiDb('/api/inv/operacion-critica?limit=120'), 30000);
+    const payload = await apiFetch(apiDb('/api/inv/operacion-critica?limit=120'), 60000);
     const rows = Array.isArray(payload && payload.rows) ? payload.rows : [];
     const rs = (payload && payload.resumen) || {};
     setText('op-badge', `${rows.length} filas · ${Number(rs.criticos||0)} cr\u00edticos`);

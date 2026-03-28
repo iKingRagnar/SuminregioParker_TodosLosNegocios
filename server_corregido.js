@@ -180,7 +180,8 @@ async function getTableColumns(tableName, dbOptsOverride = null) {
     dbOptsOverride
   ).catch(() => []);
   const cols = new Set((rows || []).map((r) => String(r.N || '').trim().toUpperCase()).filter(Boolean));
-  tableColumnsCache.set(key, cols);
+  // Solo cachear si realmente se obtuvieron columnas; si está vacío (cold-start failure) se reintentará en el próximo request
+  if (cols.size > 0) tableColumnsCache.set(key, cols);
   return cols;
 }
 function firstExistingColumn(colsSet, candidates) {
