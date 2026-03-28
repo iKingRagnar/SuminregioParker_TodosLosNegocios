@@ -902,6 +902,15 @@ async function loadCotizaciones() {
       COTIZACIONES_MES: +(r.COTIZACIONES_MES ?? r.cotizaciones_mes ?? 0),
       NUM_COTI_MES: +(r.NUM_COTI_MES ?? r.num_coti_mes ?? 0),
     })) : derived.vends;
+    // Si resumen devolvió 0 pero pvArr tiene datos reales → derivar KPIs de pvArr
+    // (pvArr es el endpoint más robusto: por-vendedor/cotizaciones, siempre responde)
+    if (pvArr.length && +(resObj.MES_ACTUAL || 0) === 0) {
+      const totMes = pvArr.reduce((s, r) => s + +(r.COTIZACIONES_MES ?? r.cotizaciones_mes ?? 0), 0);
+      const cntMes = pvArr.reduce((s, r) => s + +(r.NUM_COTI_MES ?? r.num_coti_mes ?? 0), 0);
+      const totHoy = pvArr.reduce((s, r) => s + +(r.COTIZACIONES_HOY ?? r.cotizaciones_hoy ?? 0), 0);
+      if (totMes > 0 || cntMes > 0)
+        resObj = { HOY: totHoy, MES_ACTUAL: totMes, COTIZACIONES_MES: cntMes, COTIZACIONES_HOY: 0 };
+    }
     lastCotiData = { resObj, diarias, vends, ventasVE };
     applyCotiData(resObj, diarias, vends, ventasVE);
     if (btnReintentar) btnReintentar.style.display = 'none';

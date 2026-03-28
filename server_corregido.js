@@ -1045,16 +1045,7 @@ function consumosSubSql(tipo = '', parts) {
       CAST(${fePv} AS DATE) AS FECHA,
       COALESCE(det.${pvQty}, 0) AS UNIDADES,
       ${pvImp} AS IMPORTE_LINEA,
-      COALESCE(
-        CASE WHEN d.TIPO_DOCTO = 'F' THEN
-          (SELECT d2.VENDEDOR_ID
-           FROM DOCTOS_PV_LIGAS liga
-           JOIN DOCTOS_PV d2 ON d2.DOCTO_PV_ID = liga.DOCTO_PV_FTE_ID
-           WHERE liga.DOCTO_PV_DEST_ID = d.DOCTO_PV_ID
-           ROWS 1)
-        ELSE d.VENDEDOR_ID
-        END,
-      0) AS VENDEDOR_ID,
+      COALESCE(d.VENDEDOR_ID, 0) AS VENDEDOR_ID,
       COALESCE(d.CLIENTE_ID, 0) AS CLIENTE_ID,
       COALESCE(det.ARTICULO_ID, 0) AS ARTICULO_ID,
       'PV' AS TIPO_SRC
@@ -1295,14 +1286,14 @@ get('/api/ventas/resumen', async (req) => {
                THEN d.IMPORTE_NETO ELSE 0 END)                     AS HASTA_AYER_MES
     FROM ${ventasSub(tipo)} d
     WHERE 1=1 ${f.sql}
-  `, f.params, 12000, dbo).catch(() => []),
+  `, f.params, 30000, dbo).catch(() => []),
     query(`
     SELECT
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END) AS REMISIONES_HOY,
       COALESCE(SUM(d.IMPORTE_NETO), 0) AS REMISIONES_MES
     FROM ${remisionesSub(tipo)} d
     WHERE 1=1 ${f.sql}
-  `, f.params, 12000, dbo).catch(() => []),
+  `, f.params, 30000, dbo).catch(() => []),
   ]);
   const out = {
     HOY: +((rows[0] && rows[0].HOY) || 0),
@@ -1341,7 +1332,7 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
       COUNT(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 END) AS COTIZACIONES_HOY
     FROM ${cotizacionesSub(cotiEw)} d
     WHERE 1=1 ${f.sql}
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, 30000, dbo).catch(() => []);
   return normalizeCotizacionResumenRow(rows[0]);
 });
 
@@ -1383,7 +1374,7 @@ get('/api/ventas/semanales', async (req) => {
       COUNT(*) AS FACTURAS, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL
     FROM ${ventasSub(tipo)} d WHERE 1=1 ${f.sql}
     GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(WEEK FROM d.FECHA) ORDER BY 1, 2
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, 30000, dbo).catch(() => []);
 });
 
 get('/api/ventas/mensuales', async (req) => {
@@ -1403,7 +1394,7 @@ get('/api/ventas/mensuales', async (req) => {
         COALESCE(SUM(d.IMPORTE_NETO), 0) AS TOTAL
       FROM ${ventasSub()} d WHERE 1=1 ${f.sql}
       GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
-    `, f.params, 12000, dbo).catch(() => []);
+    `, f.params, 30000, dbo).catch(() => []);
     return (rows || []).map(r => ({ ANIO: r.ANIO, MES: r.MES, FACTURAS: r.FACTURAS, VENTAS_VE: r.VENTAS_VE, VENTAS_PV: r.VENTAS_PV, TOTAL: r.TOTAL }));
   }
   return query(`
@@ -1411,7 +1402,7 @@ get('/api/ventas/mensuales', async (req) => {
       COUNT(*) AS FACTURAS, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL
     FROM ${ventasSub(tipo)} d WHERE 1=1 ${f.sql}
     GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
-  `, f.params, 12000, dbo).catch(() => []).then(rows => (rows || []).map(r => ({ ANIO: r.ANIO, MES: r.MES, FACTURAS: r.FACTURAS, VENTAS_VE: tipo === 'VE' ? r.TOTAL : 0, VENTAS_PV: tipo === 'PV' ? r.TOTAL : 0, TOTAL: r.TOTAL })));
+  `, f.params, 30000, dbo).catch(() => []).then(rows => (rows || []).map(r => ({ ANIO: r.ANIO, MES: r.MES, FACTURAS: r.FACTURAS, VENTAS_VE: tipo === 'VE' ? r.TOTAL : 0, VENTAS_PV: tipo === 'PV' ? r.TOTAL : 0, TOTAL: r.TOTAL })));
 });
 
 get('/api/ventas/cotizaciones/diarias', async (req) => {
@@ -1441,7 +1432,7 @@ get('/api/ventas/cotizaciones/semanales', async (req) => {
       COUNT(*) AS COTIZACIONES, COALESCE(SUM(${ci}),0) AS TOTAL
     FROM ${cotizacionesSub(cotiEw)} d WHERE 1=1 ${f.sql}
     GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(WEEK FROM d.FECHA) ORDER BY 1, 2
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, 30000, dbo).catch(() => []);
 });
 
 get('/api/ventas/cotizaciones/mensuales', async (req) => {
@@ -1454,7 +1445,7 @@ get('/api/ventas/cotizaciones/mensuales', async (req) => {
       COUNT(*) AS COTIZACIONES, COALESCE(SUM(${ci}),0) AS TOTAL
     FROM ${cotizacionesSub(cotiEw)} d WHERE 1=1 ${f.sql}
     GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, 30000, dbo).catch(() => []);
 });
 
 get('/api/ventas/top-clientes', async (req) => {
@@ -1469,7 +1460,7 @@ get('/api/ventas/top-clientes', async (req) => {
     LEFT JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
     WHERE d.CLIENTE_ID > 0 ${f.sql}
     GROUP BY d.CLIENTE_ID, c.NOMBRE ORDER BY TOTAL DESC
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, 30000, dbo).catch(() => []);
 });
 
 // ventas (4).html y vendedores esperan: VENDEDOR, VENTAS_HOY, VENTAS_MES, VENTAS_MES_VE, VENTAS_MES_PV, FACTURAS_HOY, FACTURAS_MES
@@ -1500,7 +1491,7 @@ get('/api/ventas/por-vendedor', async (req) => {
         ELSE COALESCE(v.NOMBRE, 'Vendedor ' || CAST(d.VENDEDOR_ID AS VARCHAR(10)))
       END
     ORDER BY VENTAS_MES DESC
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, 30000, dbo).catch(() => []);
 });
 
 get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
@@ -1546,7 +1537,7 @@ get('/api/ventas/recientes', async (req) => {
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
     WHERE 1=1 ${f.sql}
     ORDER BY d.IMPORTE_NETO DESC, d.FECHA DESC, d.FOLIO DESC
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, 30000, dbo).catch(() => []);
 });
 
 get('/api/ventas/vs-cotizaciones', async (req) => {
@@ -1584,7 +1575,7 @@ get('/api/ventas/ranking-clientes', async (req) => {
     LEFT JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
     WHERE d.CLIENTE_ID > 0 ${f.sql}
     GROUP BY d.CLIENTE_ID, c.NOMBRE ORDER BY VENTA DESC
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, 30000, dbo).catch(() => []);
 });
 
 // Cobradas: ventas en periodo (d.FECHA) + cobro real por vendedor (IMPORTES_DOCTOS_CC tipo R). Fecha de periodo: COALESCE(i.FECHA, dc.FECHA) si i.FECHA viene nula.
@@ -1991,7 +1982,7 @@ get('/api/ventas/margen', async (req) => {
       OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS <> 'C')
     ) ${f.sql}
     GROUP BY d.VENDEDOR_ID, v.NOMBRE, EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA)
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, 30000, dbo).catch(() => []);
 });
 
 get('/api/ventas/margen-articulos', async (req) => {
@@ -2009,7 +2000,7 @@ get('/api/ventas/margen-articulos', async (req) => {
       OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS <> 'C')
     ) ${f.sql}
     GROUP BY a.ARTICULO_ID, a.DESCRIPCION ORDER BY MARGEN DESC
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, 30000, dbo).catch(() => []);
 });
 
 get('/api/ventas/cotizaciones', async (req) => {
@@ -2044,7 +2035,7 @@ get('/api/ventas/diario', async (req) => {
     SELECT CAST(d.FECHA AS DATE) AS FECHA, COUNT(*) AS FACTURAS, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL
     FROM ${ventasSub(tipo)} d WHERE 1=1 ${f.sql}
     GROUP BY CAST(d.FECHA AS DATE) ORDER BY 1
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, 30000, dbo).catch(() => []);
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -2316,7 +2307,7 @@ get('/api/director/top-clientes', async (req) => {
     LEFT JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
     WHERE d.CLIENTE_ID > 0 ${f.sql}
     GROUP BY d.CLIENTE_ID, c.NOMBRE ORDER BY TOTAL_VENTAS DESC
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, 30000, dbo).catch(() => []);
 });
 
 // director.html e index.html (Inicio): listado de vendedores con ventas en el periodo.
@@ -2336,7 +2327,7 @@ get('/api/director/vendedores', async (req) => {
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
     WHERE d.VENDEDOR_ID > 0 ${f.sql}
     GROUP BY d.VENDEDOR_ID, v.NOMBRE ORDER BY VENTAS_MES DESC
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, 30000, dbo).catch(() => []);
   return rows;
 });
 
@@ -2357,7 +2348,7 @@ get('/api/director/recientes', async (req) => {
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
     WHERE 1=1 ${f.sql}
     ORDER BY d.FECHA DESC, d.FOLIO DESC
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, 30000, dbo).catch(() => []);
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -4929,7 +4920,7 @@ get('/api/consumos/resumen', async (req) => {
         COUNT(DISTINCT d.ARTICULO_ID) AS ARTICULOS_CONSUMIDOS
       FROM ${sub} d
       WHERE d.UNIDADES > 0 ${f.sql}
-    `, f.params, 12000, dbo).catch(() => []),
+    `, f.params, 30000, dbo).catch(() => []),
     query(`
       SELECT FIRST 1
         CAST(d.FECHA AS DATE) AS DIA_MAXIMO,
@@ -4938,7 +4929,7 @@ get('/api/consumos/resumen', async (req) => {
       WHERE d.UNIDADES > 0 ${f.sql}
       GROUP BY CAST(d.FECHA AS DATE)
       ORDER BY MAXIMO_DIARIO DESC, DIA_MAXIMO DESC
-    `, f.params, 12000, dbo).catch(() => [])
+    `, f.params, 30000, dbo).catch(() => [])
   ]);
   const t = totRows[0] || {};
   const m = maxRows[0] || {};
@@ -4977,7 +4968,7 @@ get('/api/consumos/diarias', async (req) => {
     WHERE d.UNIDADES > 0 AND CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
     GROUP BY CAST(d.FECHA AS DATE)
     ORDER BY 1
-  `, [desdeStr], 12000, dbo).catch(() => []);
+  `, [desdeStr], 30000, dbo).catch(() => []);
   return rows || [];
 });
 
@@ -5000,7 +4991,7 @@ get('/api/consumos/top-articulos', async (req) => {
     WHERE d.UNIDADES > 0 ${f.sql}
     GROUP BY d.ARTICULO_ID, a.NOMBRE, a.UNIDAD_VENTA
     ORDER BY UNIDADES DESC
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, 30000, dbo).catch(() => []);
 });
 
 get('/api/consumos/por-vendedor', async (req) => {
@@ -5020,7 +5011,7 @@ get('/api/consumos/por-vendedor', async (req) => {
     WHERE d.UNIDADES > 0 AND d.VENDEDOR_ID > 0 ${f.sql}
     GROUP BY d.VENDEDOR_ID, v.NOMBRE
     ORDER BY UNIDADES DESC
-  `, f.params, 12000, dbo).catch(() => []);
+  `, f.params, 30000, dbo).catch(() => []);
   const total = (rows || []).reduce((s, r) => s + (+r.UNIDADES || 0), 0);
   const totalImp = (rows || []).reduce((s, r) => s + (+r.VENTA_IMPORTE || 0), 0);
   return (rows || []).map(r => ({
