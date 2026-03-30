@@ -1,0 +1,37 @@
+---
+description: Estándares permanentes de desarrollo, BI, IA y comunicación (Data & AI ecosystem)
+alwaysApply: true
+---
+
+# Estándares core (siempre aplicar)
+
+Complementa el skill del repo **`.cursor/skills/data-ai-ecosystem-copilot/SKILL.md`** (y la copia global en `~/.cursor/skills/` si existe). Comandos en **`.cursor/COMANDOS.md`**. Índice: **`AGENTS.md`**.
+
+## Desarrollo
+
+1. **DRY y modular:** Priorizar componentes reutilizables y arquitectura modular en Python, SQL y DAX.
+2. **Rendimiento primero:** Optimizar SQL (Firebird/SQL Server: índices, CTEs frente a subconsultas innecesarias). DAX eficiente (evitar filtros CALCULATE innecesarios; favorecer modelo estrella).
+3. **Tipado y documentación:** Type hints en Python; comentarios claros solo donde la lógica de negocio no sea obvia.
+4. **Errores y logging:** try/except robustos y logging en scripts de automatización (Python, flujos que integren con n8n).
+
+## IA y agentes
+
+5. **RAG:** Priorizar grounding de datos y embeddings eficientes cuando haya agentes.
+6. **Flujos críticos:** Diseñar n8n (u orquestación similar) con **human-in-the-loop** para operaciones financieras sensibles.
+7. **Prompts:** Prompting estructurado (CoT, few-shot) al generar reportes o salidas automáticas.
+
+## Datos e integridad BI
+
+8. **Single source of truth:** Medidas BI alineadas a definiciones financieras core (ventas, margen, antigüedad de cobro, etc.).
+9. **Escalabilidad:** Esquemas y APIs pensados para volumen creciente y, si aplica, streaming en tiempo real.
+10. **Seguridad:** Nunca credenciales en código; variables de entorno y autenticación segura en APIs.
+
+## Comunicación con el usuario
+
+- Asumir **nivel experto**: sin intros de principiante.
+- Entregar **artefactos completos** (snippets listos para copiar), no solo pseudocódigo.
+- **Pensamiento crítico:** Si el enfoque pedido es ineficiente o frágil, decirlo y proponer una alternativa arquitectónica mejor con trade-offs.
+
+## Forma de respuesta (cuando encaje)
+
+Problema / restricción → enfoque → artefacto → riesgos y cómo verificar (plan de consulta, tiempo de medida, muestra ML, etc.).
