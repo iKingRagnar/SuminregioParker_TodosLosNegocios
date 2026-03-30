@@ -350,7 +350,17 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     try {
       const qs = buildQS();
       const url = API + '/api/config/filtros' + (qs ? '?' + qs : '');
-      const data = await fetch(url).then(r => r.json());
+      const ac = new AbortController();
+      const t = setTimeout(function () {
+        try { ac.abort(); } catch (_) {}
+      }, 25000);
+      let r;
+      try {
+        r = await fetch(url, { signal: ac.signal });
+      } finally {
+        clearTimeout(t);
+      }
+      const data = await r.json();
       _vendedores = (data.vendedores || []).filter(v => v.NOMBRE);
     } catch (e) {
       _vendedores = [];
@@ -585,14 +595,18 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       applyPreset(_cfg.defaultPreset || 'mes');
       hydrateFiltersFromUrl();
 
-      if (_cfg.showVendedor !== false) {
-        await loadVendedores();
-      }
+      const vendPromise = (_cfg.showVendedor !== false) ? loadVendedores() : null;
 
       renderBar();
       syncFiltersToUrl();
 
       if (_cfg.onReady) await Promise.resolve(_cfg.onReady(getParams(), buildQS));
+
+      if (vendPromise) {
+        await vendPromise;
+        renderBar();
+        syncFiltersToUrl();
+      }
     } catch(e) {
       console.warn('[filters.js] initFilters error:', e);
       try { if (config && config.onReady) await Promise.resolve(config.onReady({}, () => '')); } catch(_) {}
