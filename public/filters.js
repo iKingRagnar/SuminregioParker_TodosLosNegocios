@@ -133,7 +133,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     return base.replace(/\.fdb$/i, '');
   }
 
-  const ALLOWED_DB_TERMS = ['suminregio', 'agua', 'medicos', 'madera', 'carton', 'empaque', 'especial', 'reciclaje'];
+  const ALLOWED_DB_TERMS = ['suminregio', 'agua', 'medicos', 'madera', 'carton', 'especial', 'reciclaje'];
   const DB_DISPLAY_STRIP_TERMS = ['suminregio', 'parker', 'grupo', 'suministros'];
   const DB_ALLOWED_SET = ALLOWED_DB_TERMS.reduce(function (acc, t) { acc[t] = 1; return acc; }, {});
   function isSnapshotOrTempDb(e) {
@@ -207,8 +207,8 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     }
     let html = '';
     const isAll = (urlDb === '__all__');
-    html += '<button type="button" class="biz-chip db-chip' + (isAll ? ' active' : '') + '" data-db="__all__" title="Agregar datos de todas las empresas">' +
-      '<span class="db-chip-main">Todos los Negocios</span><span class="db-chip-sub">Grupo Suminregio</span></button>';
+    html += '<button type="button" class="biz-chip db-chip' + (isAll ? ' active' : '') + '" data-db="__all__" title="Suma ventas/P&amp;L de todos los negocios de la barra">' +
+      '<span class="db-chip-main">Todos los Negocios</span><span class="db-chip-sub">Suma de negocios en barra</span></button>';
     (list || []).forEach(function (e) {
       const id = String(e.id || '');
       const fname = fdbBasename(e.database);

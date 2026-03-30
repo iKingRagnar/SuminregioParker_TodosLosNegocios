@@ -799,7 +799,7 @@ async function initBizBar(){
   try{
     if(window.filterDbCatalog) indexDbList = window.filterDbCatalog(indexDbList);
     else{
-      const terms=['suminregio','agua','medicos','madera','carton','empaque','especial','reciclaje'];
+      const terms=['suminregio','agua','medicos','madera','carton','especial','reciclaje'];
       const norm=s=>String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
       indexDbList=indexDbList.filter(e=>{
         const pool=norm([e&&e.id,e&&e.label,fdbBasenameIndex(e&&e.database),e&&e.database].join(' '));

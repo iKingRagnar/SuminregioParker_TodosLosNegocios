@@ -13,7 +13,6 @@
   {"id": "sp_paso", "label": "SP Paso", "database": "C:/Microsip datos/SP PASO.FDB"},
   {"id": "suminregio_agua", "label": "Suminregio Agua", "database": "C:/Microsip datos/SUMINREGIO AGUA.FDB"},
   {"id": "suminregio_carton", "label": "Suminregio Cartón", "database": "C:/Microsip datos/SUMINREGIO CARTON.FDB"},
-  {"id": "suminregio_empaque", "label": "Suminregio Empaque", "database": "C:/Microsip datos/SUMINREGIO EMPAQUE.FDB"},
   {"id": "suminregio_maderas", "label": "Suminregio Maderas", "database": "C:/Microsip datos/SUMINREGIO MADERAS.FDB"},
   {"id": "suminregio_reciclaje", "label": "Suminregio Reciclaje", "database": "C:/Microsip datos/SUMINREGIO RECICLAJE.FDB"},
   {"id": "suminregio_suministros_medicos", "label": "Suminregio Suministros Médicos", "database": "C:/Microsip datos/SUMINREGIO SUMINISTROS MEDICOS.FDB"},

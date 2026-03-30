@@ -449,8 +449,8 @@ function parseDatabaseRegistry() {
   }
 
   // Mostrar solo familias de negocio permitidas por dirección:
-  // suminregio, agua, medicos, madera, carton, empaque, especial y reciclaje.
-  const allowedDbTerms = ['suminregio', 'agua', 'medicos', 'madera', 'carton', 'empaque', 'especial', 'reciclaje'];
+  // suminregio, agua, medicos, madera, carton, especial y reciclaje (sin empaque).
+  const allowedDbTerms = ['suminregio', 'agua', 'medicos', 'madera', 'carton', 'especial', 'reciclaje'];
   /** Excluye bases que dirección pidió retirar del selector (sigue existiendo en disco / registry). */
   const isExcludedCatalogEntry = (e) => {
     const base = path.basename(String(e && e.options && e.options.database ? e.options.database : '')).toLowerCase();
@@ -460,6 +460,7 @@ function parseDatabaseRegistry() {
       base,
       e && e.options && e.options.database ? String(e.options.database).toLowerCase() : '',
     ].join(' ');
+    if (/empaque/i.test(pool)) return true;
     if (pool.includes('hamer')) return true;
     if (base === 'suminregio.fdb') return true;
     if (String(e && e.id).toLowerCase() === 'suminregio' && !pool.includes('parker')) return true;
@@ -555,8 +556,292 @@ async function runForAllDbs(queryFn) {
 }
 
 function isAllDbs(req) {
-  const id = req && req.query && req.query.db ? String(req.query.db).trim() : '';
+  const id = req && req.query && req.query.db != null ? String(req.query.db).trim().toLowerCase() : '';
   return id === '__all__';
+}
+
+/** Suma resúmenes de ventas de varias bases (db=__all__). */
+function mergeVentasResumen(outs) {
+  return outs.reduce(
+    (acc, out) => ({
+      HOY: acc.HOY + (+out.HOY || 0),
+      MES_ACTUAL: acc.MES_ACTUAL + (+out.MES_ACTUAL || 0),
+      FACTURAS_MES: acc.FACTURAS_MES + (+out.FACTURAS_MES || 0),
+      HASTA_AYER_MES: acc.HASTA_AYER_MES + (+out.HASTA_AYER_MES || 0),
+      REMISIONES_HOY: acc.REMISIONES_HOY + (+out.REMISIONES_HOY || 0),
+      REMISIONES_MES: acc.REMISIONES_MES + (+out.REMISIONES_MES || 0),
+    }),
+    { HOY: 0, MES_ACTUAL: 0, FACTURAS_MES: 0, HASTA_AYER_MES: 0, REMISIONES_HOY: 0, REMISIONES_MES: 0 },
+  );
+}
+
+function mergeCotizacionResumenRows(rows) {
+  return rows.reduce(
+    (acc, r) => ({
+      HOY: acc.HOY + (+r.HOY || 0),
+      MES_ACTUAL: acc.MES_ACTUAL + (+r.MES_ACTUAL || 0),
+      COTIZACIONES_MES: acc.COTIZACIONES_MES + (+r.COTIZACIONES_MES || 0),
+      COTIZACIONES_HOY: acc.COTIZACIONES_HOY + (+r.COTIZACIONES_HOY || 0),
+    }),
+    { HOY: 0, MES_ACTUAL: 0, COTIZACIONES_MES: 0, COTIZACIONES_HOY: 0 },
+  );
+}
+
+function mergeDiariasVentas(rowsList) {
+  const map = new Map();
+  for (const rows of rowsList) {
+    for (const r of rows || []) {
+      const k = String(r.DIA);
+      if (!map.has(k)) map.set(k, { DIA: r.DIA, VENTAS_VE: 0, VENTAS_PV: 0, TOTAL_VENTAS: 0 });
+      const m = map.get(k);
+      m.VENTAS_VE += +(r.VENTAS_VE || 0);
+      m.VENTAS_PV += +(r.VENTAS_PV || 0);
+      m.TOTAL_VENTAS += +(r.TOTAL_VENTAS || 0);
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => String(a.DIA).localeCompare(String(b.DIA)));
+}
+
+function mergeMensualesVentas(rowsList) {
+  const map = new Map();
+  for (const rows of rowsList) {
+    for (const r of rows || []) {
+      const k = `${+r.ANIO}-${+r.MES}`;
+      if (!map.has(k)) {
+        map.set(k, {
+          ANIO: +r.ANIO,
+          MES: +r.MES,
+          FACTURAS: 0,
+          VENTAS_VE: 0,
+          VENTAS_PV: 0,
+          TOTAL: 0,
+        });
+      }
+      const m = map.get(k);
+      m.FACTURAS += +(r.FACTURAS || 0);
+      m.VENTAS_VE += +(r.VENTAS_VE || 0);
+      m.VENTAS_PV += +(r.VENTAS_PV || 0);
+      m.TOTAL += +(r.TOTAL || 0);
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => (a.ANIO !== b.ANIO ? a.ANIO - b.ANIO : a.MES - b.MES));
+}
+
+function mergeSemanalesVentas(rowsList) {
+  const map = new Map();
+  for (const rows of rowsList) {
+    for (const r of rows || []) {
+      const k = `${+r.ANIO}-${+r.SEMANA}`;
+      if (!map.has(k)) map.set(k, { ANIO: +r.ANIO, SEMANA: +r.SEMANA, FACTURAS: 0, TOTAL: 0 });
+      const m = map.get(k);
+      m.FACTURAS += +(r.FACTURAS || 0);
+      m.TOTAL += +(r.TOTAL || 0);
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => (a.ANIO !== b.ANIO ? a.ANIO - b.ANIO : a.SEMANA - b.SEMANA));
+}
+
+function mergeSemanalesCotiz(rowsList) {
+  const map = new Map();
+  for (const rows of rowsList) {
+    for (const r of rows || []) {
+      const k = `${+r.ANIO}-${+r.SEMANA}`;
+      if (!map.has(k)) map.set(k, { ANIO: +r.ANIO, SEMANA: +r.SEMANA, COTIZACIONES: 0, TOTAL: 0 });
+      const m = map.get(k);
+      m.COTIZACIONES += +(r.COTIZACIONES || 0);
+      m.TOTAL += +(r.TOTAL || 0);
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => (a.ANIO !== b.ANIO ? a.ANIO - b.ANIO : a.SEMANA - b.SEMANA));
+}
+
+function mergeMensualesCotiz(rowsList) {
+  const map = new Map();
+  for (const rows of rowsList) {
+    for (const r of rows || []) {
+      const k = `${+r.ANIO}-${+r.MES}`;
+      if (!map.has(k)) map.set(k, { ANIO: +r.ANIO, MES: +r.MES, COTIZACIONES: 0, TOTAL: 0 });
+      const m = map.get(k);
+      m.COTIZACIONES += +(r.COTIZACIONES || 0);
+      m.TOTAL += +(r.TOTAL || 0);
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => (a.ANIO !== b.ANIO ? a.ANIO - b.ANIO : a.MES - b.MES));
+}
+
+function mergeDiariasCotiz(rowsList) {
+  const map = new Map();
+  for (const rows of rowsList) {
+    for (const r of rows || []) {
+      const k = String(r.DIA);
+      if (!map.has(k)) map.set(k, { DIA: r.DIA, COTIZACIONES: 0, TOTAL_COTIZACIONES: 0 });
+      const m = map.get(k);
+      m.COTIZACIONES += +(r.COTIZACIONES || 0);
+      m.TOTAL_COTIZACIONES += +(r.TOTAL_COTIZACIONES || 0);
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => String(a.DIA).localeCompare(String(b.DIA)));
+}
+
+/** Agrupa por nombre de vendedor (mismo nombre en distintas bases = una fila). */
+function mergePorVendedorVentas(rowsList) {
+  const map = new Map();
+  for (const rows of rowsList) {
+    for (const r of rows || []) {
+      const name = String(r.VENDEDOR || '').trim();
+      const key = name.toUpperCase() || `__ID_${r.VENDEDOR_ID}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          VENDEDOR_ID: +(r.VENDEDOR_ID || 0),
+          VENDEDOR: name || r.VENDEDOR,
+          VENTAS_HOY: 0,
+          VENTAS_MES: 0,
+          VENTAS_MES_VE: 0,
+          VENTAS_MES_PV: 0,
+          FACTURAS_HOY: 0,
+          FACTURAS_MES: 0,
+        });
+      }
+      const m = map.get(key);
+      m.VENTAS_HOY += +(r.VENTAS_HOY || 0);
+      m.VENTAS_MES += +(r.VENTAS_MES || 0);
+      m.VENTAS_MES_VE += +(r.VENTAS_MES_VE || 0);
+      m.VENTAS_MES_PV += +(r.VENTAS_MES_PV || 0);
+      m.FACTURAS_HOY += +(r.FACTURAS_HOY || 0);
+      m.FACTURAS_MES += +(r.FACTURAS_MES || 0);
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => b.VENTAS_MES - a.VENTAS_MES);
+}
+
+function mergePorVendedorCotiz(rowsList) {
+  const map = new Map();
+  for (const rows of rowsList) {
+    for (const r of rows || []) {
+      const name = String(r.VENDEDOR || '').trim();
+      const key = name.toUpperCase() || `__ID_${r.VENDEDOR_ID}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          VENDEDOR_ID: +(r.VENDEDOR_ID || 0),
+          VENDEDOR: name || r.VENDEDOR,
+          COTIZACIONES_HOY: 0,
+          COTIZACIONES_MES: 0,
+          NUM_COTI_MES: 0,
+        });
+      }
+      const m = map.get(key);
+      m.COTIZACIONES_HOY += +(r.COTIZACIONES_HOY || 0);
+      m.COTIZACIONES_MES += +(r.COTIZACIONES_MES || 0);
+      m.NUM_COTI_MES += +(r.NUM_COTI_MES || 0);
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => b.COTIZACIONES_MES - a.COTIZACIONES_MES);
+}
+
+function mergeTopClientes(rowsList, limit) {
+  const map = new Map();
+  for (const rows of rowsList) {
+    for (const r of rows || []) {
+      const name = String(r.CLIENTE || '').trim().toUpperCase();
+      if (!name) continue;
+      if (!map.has(name)) {
+        map.set(name, { CLIENTE_ID: r.CLIENTE_ID, CLIENTE: r.CLIENTE, FACTURAS: 0, TOTAL: 0 });
+      }
+      const m = map.get(name);
+      m.FACTURAS += +(r.FACTURAS || 0);
+      m.TOTAL += +(r.TOTAL || 0);
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => b.TOTAL - a.TOTAL).slice(0, limit);
+}
+
+function mergeRankingClientes(rowsList) {
+  const map = new Map();
+  for (const rows of rowsList) {
+    for (const r of rows || []) {
+      const name = String(r.NOMBRE || '').trim().toUpperCase();
+      if (!name) continue;
+      if (!map.has(name)) map.set(name, { CLIENTE_ID: r.CLIENTE_ID, NOMBRE: r.NOMBRE, VENTA: 0 });
+      map.get(name).VENTA += +(r.VENTA || 0);
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => b.VENTA - a.VENTA);
+}
+
+function mergeVsCotizaciones(parts) {
+  const vmap = new Map();
+  const cmap = new Map();
+  for (const { ventas, cotizaciones } of parts) {
+    for (const r of ventas || []) {
+      const k = `${+r.ANIO}-${+r.MES}`;
+      if (!vmap.has(k)) vmap.set(k, { ANIO: +r.ANIO, MES: +r.MES, TOTAL_VENTAS: 0, NUM_DOCS: 0 });
+      const mv = vmap.get(k);
+      mv.TOTAL_VENTAS += +(r.TOTAL_VENTAS || 0);
+      mv.NUM_DOCS += +(r.NUM_DOCS || 0);
+    }
+    for (const r of cotizaciones || []) {
+      const k = `${+r.ANIO}-${+r.MES}`;
+      if (!cmap.has(k)) cmap.set(k, { ANIO: +r.ANIO, MES: +r.MES, TOTAL_COTI: 0, NUM_COTI: 0 });
+      const mc = cmap.get(k);
+      mc.TOTAL_COTI += +(r.TOTAL_COTI || 0);
+      mc.NUM_COTI += +(r.NUM_COTI || 0);
+    }
+  }
+  const allKeys = [...new Set([...vmap.keys(), ...cmap.keys()])].sort((a, b) => {
+    const [ay, am] = a.split('-').map(Number);
+    const [by, bm] = b.split('-').map(Number);
+    return ay !== by ? ay - by : am - bm;
+  });
+  const ventas = allKeys.map((k) => {
+    if (vmap.has(k)) return vmap.get(k);
+    const c = cmap.get(k);
+    return { ANIO: c.ANIO, MES: c.MES, TOTAL_VENTAS: 0, NUM_DOCS: 0 };
+  });
+  const cotizaciones = allKeys.map((k) => {
+    if (cmap.has(k)) return cmap.get(k);
+    const v = vmap.get(k);
+    return { ANIO: v.ANIO, MES: v.MES, TOTAL_COTI: 0, NUM_COTI: 0 };
+  });
+  return { ventas, cotizaciones };
+}
+
+function mergeRecientes(rowsList, limit) {
+  const flat = rowsList.flat().filter(Boolean);
+  flat.sort((a, b) => {
+    const ta = +(a.TOTAL || 0) - +(b.TOTAL || 0);
+    if (ta !== 0) return -ta;
+    const fa = new Date(a.FECHA).getTime();
+    const fb = new Date(b.FECHA).getTime();
+    if (fa !== fb) return fb - fa;
+    return String(b.FOLIO || '').localeCompare(String(a.FOLIO || ''));
+  });
+  return flat.slice(0, limit);
+}
+
+/** Lista de cotizaciones consolidada (ordena por importe). */
+function mergeCotizacionesList(rowsList, limit) {
+  const flat = rowsList.flat().filter(Boolean);
+  flat.sort((a, b) => {
+    const ia = +(a.IMPORTE_NETO || 0) - +(b.IMPORTE_NETO || 0);
+    if (ia !== 0) return -ia;
+    const fa = new Date(a.FECHA).getTime();
+    const fb = new Date(b.FECHA).getTime();
+    if (fa !== fb) return fb - fa;
+    return String(b.FOLIO || '').localeCompare(String(a.FOLIO || ''));
+  });
+  return flat.slice(0, limit);
+}
+
+function mergeVendedoresList(rowsList) {
+  const map = new Map();
+  for (const rows of rowsList) {
+    for (const r of rows || []) {
+      const name = String(r.NOMBRE || '').trim().toUpperCase();
+      if (!name) continue;
+      if (!map.has(name)) map.set(name, { VENDEDOR_ID: r.VENDEDOR_ID, NOMBRE: r.NOMBRE });
+    }
+  }
+  return Array.from(map.values()).sort((a, b) => String(a.NOMBRE).localeCompare(String(b.NOMBRE), 'es'));
 }
 
 /** Ejecuta tareas con a lo sumo `limit` en vuelo (reduce carga en servidor transaccional). */
@@ -1262,13 +1547,12 @@ function cxcSaldosSub() { return cxcCargosSQL(); }
 const metasCache = new Map();
 
 get('/api/config/metas', async (req) => {
-  const dbKey = normalizeDbQueryId(req && req.query && req.query.db) || 'default';
+  const rawQ = normalizeDbQueryId(req && req.query && req.query.db) || 'default';
+  const dbKey = String(rawQ).trim().toLowerCase() === '__all__' ? '__all__' : rawQ;
   const cacheHit = metasCache.get(dbKey);
   if (cacheHit && cacheHit.expireAt > Date.now()) return cacheHit.payload;
 
-  const dbo = getReqDbOpts(req);
-  const [rows, activeRows] = await Promise.all([
-    query(`
+  const vendedorCountsSql = `
     SELECT COUNT(DISTINCT VENDEDOR_ID) AS NUM_VENDEDORES
     FROM DOCTOS_VE
     WHERE (
@@ -1278,12 +1562,44 @@ get('/api/config/metas', async (req) => {
     )
     AND EXTRACT(YEAR  FROM FECHA) = EXTRACT(YEAR  FROM CURRENT_DATE)
     AND EXTRACT(MONTH FROM FECHA) = EXTRACT(MONTH FROM CURRENT_DATE)
-  `, [], 30000, dbo).catch(() => [{ NUM_VENDEDORES: 0 }]),
-    query(`SELECT COUNT(*) AS N FROM VENDEDORES WHERE COALESCE(ESTATUS,'A') NOT IN ('I','B','0','N')`, [], 30000, dbo).catch(() => [{ N: 0 }]),
-  ]);
-  const numVConVenta = (rows[0] && rows[0].NUM_VENDEDORES) ? Number(rows[0].NUM_VENDEDORES) : 0;
-  const numVActivos = (activeRows[0] && activeRows[0].N) ? Number(activeRows[0].N) : 0;
-  const numV = Math.max(numVActivos || 0, numVConVenta || 0, 1);
+  `;
+  const activosSql = `SELECT COUNT(*) AS N FROM VENDEDORES WHERE COALESCE(ESTATUS,'A') NOT IN ('I','B','0','N')`;
+
+  async function vendedorCountsForDbo(dbo) {
+    const [rows, activeRows] = await Promise.all([
+      query(vendedorCountsSql, [], 30000, dbo).catch(() => [{ NUM_VENDEDORES: 0 }]),
+      query(activosSql, [], 30000, dbo).catch(() => [{ N: 0 }]),
+    ]);
+    const numVConVenta = (rows[0] && rows[0].NUM_VENDEDORES) ? Number(rows[0].NUM_VENDEDORES) : 0;
+    const numVActivos = (activeRows[0] && activeRows[0].N) ? Number(activeRows[0].N) : 0;
+    return { numVConVenta, numVActivos };
+  }
+
+  let numVConVenta;
+  let numVActivos;
+  let numV;
+  if (isAllDbs(req)) {
+    const pairs = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
+      try {
+        return await vendedorCountsForDbo(entry.options);
+      } catch (e) {
+        return { numVConVenta: 0, numVActivos: 0 };
+      }
+    });
+    numVConVenta = pairs.reduce((a, p) => a + (p.numVConVenta || 0), 0);
+    numVActivos = pairs.reduce((a, p) => a + (p.numVActivos || 0), 0);
+    const sumEffective = pairs.reduce(
+      (acc, p) => acc + Math.max(p.numVActivos || 0, p.numVConVenta || 0),
+      0,
+    );
+    numV = Math.max(sumEffective, 1);
+  } else {
+    const dbo = getReqDbOpts(req);
+    const p = await vendedorCountsForDbo(dbo);
+    numVConVenta = p.numVConVenta;
+    numVActivos = p.numVActivos;
+    numV = Math.max(numVActivos || 0, numVConVenta || 0, 1);
+  }
 
   const META_DIA_V   = 5650;
   const META_IDEAL_V = 5650 * 1.30;
@@ -1339,16 +1655,16 @@ get('/api/config/filtros', async (req) => {
 
 // Ventas del periodo: HOY = venta del d\u00eda actual; MES_ACTUAL = total del periodo filtrado (anio/mes o desde-hasta) para que cuadre con Power BI.
 get('/api/ventas/resumen', async (req) => {
-  const dbo = getReqDbOpts(req);
   if (!req.query.desde && !req.query.hasta && !req.query.anio) {
     const now = new Date();
     req.query.anio = now.getFullYear();
     req.query.mes = now.getMonth() + 1;
   }
-  const f    = buildFiltros(req, 'd');
-  const tipo = getTipo(req);
-  const [rows, remRows] = await Promise.all([
-    query(`
+  const run = async (dbo) => {
+    const f = buildFiltros(req, 'd');
+    const tipo = getTipo(req);
+    const [rows, remRows] = await Promise.all([
+      query(`
     SELECT
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE
                THEN d.IMPORTE_NETO ELSE 0 END)                      AS HOY,
@@ -1359,25 +1675,36 @@ get('/api/ventas/resumen', async (req) => {
     FROM ${ventasSub(tipo)} d
     WHERE 1=1 ${f.sql}
   `, f.params, 30000, dbo).catch(() => []),
-    query(`
+      query(`
     SELECT
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END) AS REMISIONES_HOY,
       COALESCE(SUM(d.IMPORTE_NETO), 0) AS REMISIONES_MES
     FROM ${remisionesSub(tipo)} d
     WHERE 1=1 ${f.sql}
   `, f.params, 30000, dbo).catch(() => []),
-  ]);
-  const out = {
-    HOY: +((rows[0] && rows[0].HOY) || 0),
-    MES_ACTUAL: +((rows[0] && rows[0].MES_ACTUAL) || 0),
-    FACTURAS_MES: +((rows[0] && rows[0].FACTURAS_MES) || 0),
-    HASTA_AYER_MES: +((rows[0] && rows[0].HASTA_AYER_MES) || 0),
+    ]);
+    const out = {
+      HOY: +((rows[0] && rows[0].HOY) || 0),
+      MES_ACTUAL: +((rows[0] && rows[0].MES_ACTUAL) || 0),
+      FACTURAS_MES: +((rows[0] && rows[0].FACTURAS_MES) || 0),
+      HASTA_AYER_MES: +((rows[0] && rows[0].HASTA_AYER_MES) || 0),
+    };
+    const rem = remRows[0] || {};
+    out.REMISIONES_HOY = +(rem.REMISIONES_HOY || 0);
+    out.REMISIONES_MES = +(rem.REMISIONES_MES || 0);
+    return out;
   };
-  const rem = remRows[0] || {};
-  out.REMISIONES_HOY = +(rem.REMISIONES_HOY || 0);
-  out.REMISIONES_MES = +(rem.REMISIONES_MES || 0);
-
-  return out;
+  if (isAllDbs(req)) {
+    const outs = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
+      try {
+        return await run(entry.options);
+      } catch (e) {
+        return { HOY: 0, MES_ACTUAL: 0, FACTURAS_MES: 0, HASTA_AYER_MES: 0, REMISIONES_HOY: 0, REMISIONES_MES: 0 };
+      }
+    });
+    return mergeVentasResumen(outs);
+  }
+  return run(getReqDbOpts(req));
 });
 
 // Cotizaciones: rango de fechas explícito (primer/último día del mes) para que Firebird use índice y no escanee toda la tabla.
@@ -1386,17 +1713,17 @@ function lastDayOfMonth(y, m) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 get('/api/ventas/cotizaciones/resumen', async (req) => {
-  const dbo = getReqDbOpts(req);
   if (!req.query.desde && !req.query.hasta && !req.query.anio) {
     const now = new Date();
     req.query.anio = now.getFullYear();
     req.query.mes = now.getMonth() + 1;
   }
-  const f = buildFiltros(req, 'd');
-  const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
-  const cotiSub = await resolveCotizacionesSubSql(dbo, cotiEw);
-  const ci = sqlCotiImporteExpr('d');
-  const rows = await query(`
+  const run = async (dbo) => {
+    const f = buildFiltros(req, 'd');
+    const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
+    const cotiSub = await resolveCotizacionesSubSql(dbo, cotiEw);
+    const ci = sqlCotiImporteExpr('d');
+    const rows = await query(`
     SELECT
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE
                THEN ${ci} ELSE 0 END)         AS HOY,
@@ -1406,11 +1733,22 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
     FROM ${cotiSub} d
     WHERE 1=1 ${f.sql}
   `, f.params, 30000, dbo).catch(() => []);
-  return normalizeCotizacionResumenRow(rows[0]);
+    return normalizeCotizacionResumenRow(rows[0]);
+  };
+  if (isAllDbs(req)) {
+    const rows = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
+      try {
+        return await run(entry.options);
+      } catch (e) {
+        return { HOY: 0, MES_ACTUAL: 0, COTIZACIONES_MES: 0, COTIZACIONES_HOY: 0 };
+      }
+    });
+    return mergeCotizacionResumenRows(rows);
+  }
+  return run(getReqDbOpts(req));
 });
 
 get('/api/ventas/diarias', async (req) => {
-  const dbo = getReqDbOpts(req);
   const tipo = getTipo(req);
   const dias = Math.min(parseInt(req.query.dias) || 30, 366);
   // Fecha "N días atrás" en Node (evita depender de DATEADD en Firebird)
@@ -1426,40 +1764,70 @@ get('/api/ventas/diarias', async (req) => {
     FROM ${ventasSub()} d
     WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
     GROUP BY CAST(d.FECHA AS DATE) ORDER BY 1
-    `
+  `
     : `
     SELECT CAST(d.FECHA AS DATE) AS DIA, COUNT(*) AS FACTURAS, COALESCE(SUM(d.IMPORTE_NETO), 0) AS TOTAL_VENTAS
     FROM ${ventasSub(tipo)} d
     WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
     GROUP BY CAST(d.FECHA AS DATE) ORDER BY 1
     `;
-  const rows = await query(sql, [desdeStr], 12000, dbo).catch(() => []);
-  if (tipo !== '') return (rows || []).map(r => ({ DIA: r.DIA, VENTAS_VE: tipo === 'VE' ? (r.TOTAL_VENTAS || 0) : 0, VENTAS_PV: tipo === 'PV' ? (r.TOTAL_VENTAS || 0) : 0, TOTAL_VENTAS: r.TOTAL_VENTAS || 0 }));
-  return rows || [];
+  const run = async (dbo) => {
+    const rows = await query(sql, [desdeStr], 12000, dbo).catch(() => []);
+    if (tipo !== '') {
+      return (rows || []).map(r => ({
+        DIA: r.DIA,
+        VENTAS_VE: tipo === 'VE' ? (r.TOTAL_VENTAS || 0) : 0,
+        VENTAS_PV: tipo === 'PV' ? (r.TOTAL_VENTAS || 0) : 0,
+        TOTAL_VENTAS: r.TOTAL_VENTAS || 0,
+      }));
+    }
+    return rows || [];
+  };
+  if (isAllDbs(req)) {
+    const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
+      try {
+        return await run(entry.options);
+      } catch (e) {
+        return [];
+      }
+    });
+    return mergeDiariasVentas(lists);
+  }
+  return run(getReqDbOpts(req));
 });
 
 get('/api/ventas/semanales', async (req) => {
-  const dbo = getReqDbOpts(req);
   const f = buildFiltros(req, 'd');
   const tipo = getTipo(req);
-  return query(`
+  const run = async (dbo) => query(`
     SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(WEEK FROM d.FECHA) AS SEMANA,
       COUNT(*) AS FACTURAS, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL
     FROM ${ventasSub(tipo)} d WHERE 1=1 ${f.sql}
     GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(WEEK FROM d.FECHA) ORDER BY 1, 2
   `, f.params, 30000, dbo).catch(() => []);
+  if (isAllDbs(req)) {
+    const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
+      try {
+        return await run(entry.options);
+      } catch (e) {
+        return [];
+      }
+    });
+    return mergeSemanalesVentas(lists);
+  }
+  return run(getReqDbOpts(req));
 });
 
 get('/api/ventas/mensuales', async (req) => {
-  const dbo = getReqDbOpts(req);
   const mesesN = Math.min(Math.max(parseInt(req.query.meses) || 12, 1), 24);
   const desde = new Date();
   desde.setMonth(desde.getMonth() - mesesN);
   const desdeStr = desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-01';
   const f = { sql: ' AND CAST(d.FECHA AS DATE) >= CAST(? AS DATE)', params: [desdeStr] };
   const tipo = getTipo(req);
-  if (tipo === '') {
-    const rows = await query(`
+  const run = async (dbo) => {
+    if (tipo === '') {
+      const rows = await query(`
       SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
         COUNT(*) AS FACTURAS,
         COALESCE(SUM(CASE WHEN d.TIPO_SRC = 'VE' THEN d.IMPORTE_NETO ELSE 0 END), 0) AS VENTAS_VE,
@@ -1468,68 +1836,130 @@ get('/api/ventas/mensuales', async (req) => {
       FROM ${ventasSub()} d WHERE 1=1 ${f.sql}
       GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
     `, f.params, 30000, dbo).catch(() => []);
-    return (rows || []).map(r => ({ ANIO: r.ANIO, MES: r.MES, FACTURAS: r.FACTURAS, VENTAS_VE: r.VENTAS_VE, VENTAS_PV: r.VENTAS_PV, TOTAL: r.TOTAL }));
-  }
-  return query(`
+      return (rows || []).map(r => ({
+        ANIO: r.ANIO,
+        MES: r.MES,
+        FACTURAS: r.FACTURAS,
+        VENTAS_VE: r.VENTAS_VE,
+        VENTAS_PV: r.VENTAS_PV,
+        TOTAL: r.TOTAL,
+      }));
+    }
+    const rows = await query(`
     SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
       COUNT(*) AS FACTURAS, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL
     FROM ${ventasSub(tipo)} d WHERE 1=1 ${f.sql}
     GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
-  `, f.params, 30000, dbo).catch(() => []).then(rows => (rows || []).map(r => ({ ANIO: r.ANIO, MES: r.MES, FACTURAS: r.FACTURAS, VENTAS_VE: tipo === 'VE' ? r.TOTAL : 0, VENTAS_PV: tipo === 'PV' ? r.TOTAL : 0, TOTAL: r.TOTAL })));
+  `, f.params, 30000, dbo).catch(() => []);
+    return (rows || []).map(r => ({
+      ANIO: r.ANIO,
+      MES: r.MES,
+      FACTURAS: r.FACTURAS,
+      VENTAS_VE: tipo === 'VE' ? r.TOTAL : 0,
+      VENTAS_PV: tipo === 'PV' ? r.TOTAL : 0,
+      TOTAL: r.TOTAL,
+    }));
+  };
+  if (isAllDbs(req)) {
+    const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
+      try {
+        return await run(entry.options);
+      } catch (e) {
+        return [];
+      }
+    });
+    return mergeMensualesVentas(lists);
+  }
+  return run(getReqDbOpts(req));
 });
 
 get('/api/ventas/cotizaciones/diarias', async (req) => {
-  const dbo = getReqDbOpts(req);
   const dias = Math.min(parseInt(req.query.dias) || 30, 366);
   const desde = new Date();
   desde.setDate(desde.getDate() - dias);
   const desdeStr = desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-' + String(desde.getDate()).padStart(2, '0');
-  const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
-  const cotiSub = await resolveCotizacionesSubSql(dbo, cotiEw);
-  const ci = sqlCotiImporteExpr('d');
-  const rows = await query(`
+  const run = async (dbo) => {
+    const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
+    const cotiSub = await resolveCotizacionesSubSql(dbo, cotiEw);
+    const ci = sqlCotiImporteExpr('d');
+    const rows = await query(`
     SELECT CAST(d.FECHA AS DATE) AS DIA, COUNT(*) AS COTIZACIONES, COALESCE(SUM(${ci}),0) AS TOTAL_COTIZACIONES
     FROM ${cotiSub} d
     WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
     GROUP BY CAST(d.FECHA AS DATE) ORDER BY 1
   `, [desdeStr], 12000, dbo).catch(() => []);
-  return (rows || []).map(r => ({ DIA: r.DIA, COTIZACIONES: r.COTIZACIONES, TOTAL_COTIZACIONES: r.TOTAL_COTIZACIONES || 0 }));
+    return (rows || []).map(r => ({ DIA: r.DIA, COTIZACIONES: r.COTIZACIONES, TOTAL_COTIZACIONES: r.TOTAL_COTIZACIONES || 0 }));
+  };
+  if (isAllDbs(req)) {
+    const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
+      try {
+        return await run(entry.options);
+      } catch (e) {
+        return [];
+      }
+    });
+    return mergeDiariasCotiz(lists);
+  }
+  return run(getReqDbOpts(req));
 });
 
 get('/api/ventas/cotizaciones/semanales', async (req) => {
-  const dbo = getReqDbOpts(req);
   const f = buildFiltros(req, 'd');
-  const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
-  const cotiSub = await resolveCotizacionesSubSql(dbo, cotiEw);
-  const ci = sqlCotiImporteExpr('d');
-  return query(`
+  const run = async (dbo) => {
+    const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
+    const cotiSub = await resolveCotizacionesSubSql(dbo, cotiEw);
+    const ci = sqlCotiImporteExpr('d');
+    return query(`
     SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(WEEK FROM d.FECHA) AS SEMANA,
       COUNT(*) AS COTIZACIONES, COALESCE(SUM(${ci}),0) AS TOTAL
     FROM ${cotiSub} d WHERE 1=1 ${f.sql}
     GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(WEEK FROM d.FECHA) ORDER BY 1, 2
   `, f.params, 30000, dbo).catch(() => []);
+  };
+  if (isAllDbs(req)) {
+    const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
+      try {
+        return await run(entry.options);
+      } catch (e) {
+        return [];
+      }
+    });
+    return mergeSemanalesCotiz(lists);
+  }
+  return run(getReqDbOpts(req));
 });
 
 get('/api/ventas/cotizaciones/mensuales', async (req) => {
-  const dbo = getReqDbOpts(req);
   const f = buildFiltros(req, 'd');
-  const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
-  const cotiSub = await resolveCotizacionesSubSql(dbo, cotiEw);
-  const ci = sqlCotiImporteExpr('d');
-  return query(`
+  const run = async (dbo) => {
+    const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
+    const cotiSub = await resolveCotizacionesSubSql(dbo, cotiEw);
+    const ci = sqlCotiImporteExpr('d');
+    return query(`
     SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
       COUNT(*) AS COTIZACIONES, COALESCE(SUM(${ci}),0) AS TOTAL
     FROM ${cotiSub} d WHERE 1=1 ${f.sql}
     GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
   `, f.params, 30000, dbo).catch(() => []);
+  };
+  if (isAllDbs(req)) {
+    const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
+      try {
+        return await run(entry.options);
+      } catch (e) {
+        return [];
+      }
+    });
+    return mergeMensualesCotiz(lists);
+  }
+  return run(getReqDbOpts(req));
 });
 
 get('/api/ventas/top-clientes', async (req) => {
-  const dbo = getReqDbOpts(req);
   const f = buildFiltros(req, 'd');
   const tipo = getTipo(req);
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-  return query(`
+  const run = async (dbo) => query(`
     SELECT FIRST ${limit}
       d.CLIENTE_ID, c.NOMBRE AS CLIENTE, COUNT(*) AS FACTURAS, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL
     FROM ${ventasSub(tipo)} d
@@ -1537,14 +1967,24 @@ get('/api/ventas/top-clientes', async (req) => {
     WHERE d.CLIENTE_ID > 0 ${f.sql}
     GROUP BY d.CLIENTE_ID, c.NOMBRE ORDER BY TOTAL DESC
   `, f.params, 30000, dbo).catch(() => []);
+  if (isAllDbs(req)) {
+    const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
+      try {
+        return await run(entry.options);
+      } catch (e) {
+        return [];
+      }
+    });
+    return mergeTopClientes(lists, limit);
+  }
+  return run(getReqDbOpts(req));
 });
 
 // ventas (4).html y vendedores esperan: VENDEDOR, VENTAS_HOY, VENTAS_MES, VENTAS_MES_VE, VENTAS_MES_PV, FACTURAS_HOY, FACTURAS_MES
 get('/api/ventas/por-vendedor', async (req) => {
-  const dbo = getReqDbOpts(req);
   const f = buildFiltros(req, 'd');
   const tipo = getTipo(req);
-  return query(`
+  const run = async (dbo) => query(`
     SELECT
       COALESCE(d.VENDEDOR_ID, 0) AS VENDEDOR_ID,
       CASE
@@ -1568,10 +2008,20 @@ get('/api/ventas/por-vendedor', async (req) => {
       END
     ORDER BY VENTAS_MES DESC
   `, f.params, 30000, dbo).catch(() => []);
+  if (isAllDbs(req)) {
+    const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
+      try {
+        return await run(entry.options);
+      } catch (e) {
+        return [];
+      }
+    });
+    return mergePorVendedorVentas(lists);
+  }
+  return run(getReqDbOpts(req));
 });
 
 get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
-  const dbo = getReqDbOpts(req);
   if (!req.query.desde && !req.query.hasta && !req.query.anio) {
     const now = new Date();
     req.query.anio = now.getFullYear();
@@ -1582,10 +2032,11 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
   const vendSql = Number.isFinite(vid) ? ' AND d.VENDEDOR_ID = ?' : '';
   const params = [...f.params];
   if (Number.isFinite(vid)) params.push(vid);
-  const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
-  const cotiSub = await resolveCotizacionesSubSql(dbo, cotiEw);
-  const ci = sqlCotiImporteExpr('d');
-  return query(`
+  const run = async (dbo) => {
+    const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
+    const cotiSub = await resolveCotizacionesSubSql(dbo, cotiEw);
+    const ci = sqlCotiImporteExpr('d');
+    return query(`
     SELECT
       COALESCE(d.VENDEDOR_ID, 0) AS VENDEDOR_ID,
       CASE WHEN COALESCE(d.VENDEDOR_ID, 0) = 0 THEN 'No asignado'
@@ -1600,14 +2051,25 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
     GROUP BY COALESCE(d.VENDEDOR_ID, 0)
     ORDER BY COTIZACIONES_MES DESC
   `, params, 30000, dbo).catch(() => []);
+  };
+  if (isAllDbs(req)) {
+    const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
+      try {
+        return await run(entry.options);
+      } catch (e) {
+        return [];
+      }
+    });
+    return mergePorVendedorCotiz(lists);
+  }
+  return run(getReqDbOpts(req));
 });
 
 get('/api/ventas/recientes', async (req) => {
-  const dbo = getReqDbOpts(req);
   const f = buildFiltros(req, 'd');
   const tipo = getTipo(req);
   const limit = Math.min(parseInt(req.query.limit) || 30, 100);
-  return query(`
+  const run = async (dbo) => query(`
     SELECT FIRST ${limit} d.FECHA, d.FOLIO, d.TIPO_DOCTO, d.TIPO_SRC, d.IMPORTE_NETO AS TOTAL, d.CLIENTE_ID,
       COALESCE(c.NOMBRE, 'Sin cliente') AS CLIENTE,
       COALESCE(v.NOMBRE, 'Sin vendedor') AS VENDEDOR
@@ -1617,45 +2079,78 @@ get('/api/ventas/recientes', async (req) => {
     WHERE 1=1 ${f.sql}
     ORDER BY d.IMPORTE_NETO DESC, d.FECHA DESC, d.FOLIO DESC
   `, f.params, 30000, dbo).catch(() => []);
+  if (isAllDbs(req)) {
+    const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
+      try {
+        return await run(entry.options);
+      } catch (e) {
+        return [];
+      }
+    });
+    return mergeRecientes(lists, limit);
+  }
+  return run(getReqDbOpts(req));
 });
 
 get('/api/ventas/vs-cotizaciones', async (req) => {
-  const dbo = getReqDbOpts(req);
   const mesesN = Math.min(parseInt(req.query.meses) || 6, 24);
   const desde = new Date();
   desde.setMonth(desde.getMonth() - mesesN);
   const desdeStr = desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-01';
-  const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
-  const cotiSub = await resolveCotizacionesSubSql(dbo, cotiEw);
-  const [ventasMes, cotizMes] = await Promise.all([
-    query(`
+  const run = async (dbo) => {
+    const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
+    const cotiSub = await resolveCotizacionesSubSql(dbo, cotiEw);
+    const [ventasMes, cotizMes] = await Promise.all([
+      query(`
       SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
         CAST(COALESCE(SUM(d.IMPORTE_NETO), 0) AS DOUBLE PRECISION) AS TOTAL_VENTAS, COUNT(*) AS NUM_DOCS
       FROM ${ventasSub()} d WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
       GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
     `, [desdeStr], 25000, dbo).catch(() => []),
-    query(`
+      query(`
       SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
         CAST(COALESCE(SUM(${sqlCotiImporteExpr('d')}), 0) AS DOUBLE PRECISION) AS TOTAL_COTI, COUNT(*) AS NUM_COTI
       FROM ${cotiSub} d
       WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
       GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
     `, [desdeStr], 25000, dbo).catch(() => []),
-  ]);
-  return { ventas: ventasMes || [], cotizaciones: cotizMes || [] };
+    ]);
+    return { ventas: ventasMes || [], cotizaciones: cotizMes || [] };
+  };
+  if (isAllDbs(req)) {
+    const parts = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
+      try {
+        return await run(entry.options);
+      } catch (e) {
+        return { ventas: [], cotizaciones: [] };
+      }
+    });
+    return mergeVsCotizaciones(parts);
+  }
+  return run(getReqDbOpts(req));
 });
 
 get('/api/ventas/ranking-clientes', async (req) => {
-  const dbo = getReqDbOpts(req);
   const f = buildFiltros(req, 'd');
   const tipo = getTipo(req);
-  return query(`
+  const run = async (dbo) => query(`
     SELECT d.CLIENTE_ID, c.NOMBRE, COALESCE(SUM(d.IMPORTE_NETO),0) AS VENTA
     FROM ${ventasSub(tipo)} d
     LEFT JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
     WHERE d.CLIENTE_ID > 0 ${f.sql}
     GROUP BY d.CLIENTE_ID, c.NOMBRE ORDER BY VENTA DESC
   `, f.params, 30000, dbo).catch(() => []);
+  if (isAllDbs(req)) {
+    const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
+      try {
+        return await run(entry.options);
+      } catch (e) {
+        return [];
+      }
+    });
+    return mergeRankingClientes(lists);
+  }
+  return run(getReqDbOpts(req));
 });
 
 // Cobradas: ventas en periodo (d.FECHA) + cobro real por vendedor (IMPORTES_DOCTOS_CC tipo R). Fecha de periodo: COALESCE(i.FECHA, dc.FECHA) si i.FECHA viene nula.
@@ -2084,13 +2579,13 @@ get('/api/ventas/margen-articulos', async (req) => {
 });
 
 get('/api/ventas/cotizaciones', async (req) => {
-  const dbo = getReqDbOpts(req);
   const f = buildFiltros(req, 'd');
   const limit = Math.min(parseInt(req.query.limit, 10) || 50, 500);
-  const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
-  const cotiSub = await resolveCotizacionesSubSql(dbo, cotiEw);
-  const ci = sqlCotiImporteExpr('d');
-  return query(`
+  const run = async (dbo) => {
+    const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
+    const cotiSub = await resolveCotizacionesSubSql(dbo, cotiEw);
+    const ci = sqlCotiImporteExpr('d');
+    return query(`
     SELECT FIRST ${limit}
       d.DOCTO_VE_ID, d.FECHA, d.FOLIO, d.TIPO_DOCTO, ${ci} AS IMPORTE_NETO, d.CLIENTE_ID,
       c.NOMBRE AS CLIENTE, d.VENDEDOR_ID,
@@ -2101,11 +2596,33 @@ get('/api/ventas/cotizaciones', async (req) => {
     WHERE 1=1 ${f.sql}
     ORDER BY ${ci} DESC, d.FECHA DESC, d.FOLIO DESC
   `, f.params, 30000, dbo).catch(() => []);
+  };
+  if (isAllDbs(req)) {
+    const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
+      try {
+        return await run(entry.options);
+      } catch (e) {
+        return [];
+      }
+    });
+    return mergeCotizacionesList(lists, limit);
+  }
+  return run(getReqDbOpts(req));
 });
 
 get('/api/ventas/vendedores', async (req) => {
-  const dbo = getReqDbOpts(req);
-  return query(`SELECT VENDEDOR_ID, NOMBRE FROM VENDEDORES WHERE COALESCE(ESTATUS,'A') NOT IN ('I','B','0','N') ORDER BY NOMBRE`, [], 12000, dbo).catch(() => []);
+  const run = async (dbo) => query(`SELECT VENDEDOR_ID, NOMBRE FROM VENDEDORES WHERE COALESCE(ESTATUS,'A') NOT IN ('I','B','0','N') ORDER BY NOMBRE`, [], 12000, dbo).catch(() => []);
+  if (isAllDbs(req)) {
+    const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
+      try {
+        return await run(entry.options);
+      } catch (e) {
+        return [];
+      }
+    });
+    return mergeVendedoresList(lists);
+  }
+  return run(getReqDbOpts(req));
 });
 
 get('/api/ventas/diario', async (req) => {
@@ -4459,9 +4976,149 @@ async function resultadosPnlCore(req, dbOpts) {
   return { meses, totales, tiene_costo, tiene_gastos_co, prefijos_labels, subconceptos, gastos_estimados: gastosEstimados, gastos_estimados_desde: gastosEstimadosDesde };
 }
 
+/** Consolida P&L contable sumando mes a mes todas las bases del registro (db=__all__). */
+async function resultadosPnlMergedAll(req) {
+  const outs = await mapPoolLimit(DATABASE_REGISTRY, 2, async (entry) => {
+    try {
+      return await resultadosPnlCore(req, entry.options);
+    } catch (e) {
+      return {
+        meses: [],
+        totales: {},
+        tiene_costo: false,
+        tiene_gastos_co: false,
+        prefijos_labels: {},
+        subconceptos: {},
+        gastos_estimados: false,
+        gastos_estimados_desde: null,
+      };
+    }
+  });
+  const mesMap = new Map();
+  for (const out of outs) {
+    for (const m of out.meses || []) {
+      const k = `${+m.ANIO}-${+m.MES}`;
+      if (!mesMap.has(k)) mesMap.set(k, { ANIO: +m.ANIO, MES: +m.MES });
+      const acc = mesMap.get(k);
+      Object.keys(m).forEach((key) => {
+        if (key === 'ANIO' || key === 'MES' || key === 'MARGEN_BRUTO_PCT') return;
+        const v = m[key];
+        if (typeof v === 'number' && Number.isFinite(v)) acc[key] = (acc[key] || 0) + v;
+      });
+    }
+  }
+  const meses = Array.from(mesMap.values()).sort((a, b) =>
+    (+a.ANIO !== +b.ANIO ? +a.ANIO - +b.ANIO : +a.MES - +b.MES));
+  meses.forEach((m) => {
+    m.MARGEN_BRUTO_PCT = m.VENTAS_NETAS > 0
+      ? Math.round((m.UTILIDAD_BRUTA / m.VENTAS_NETAS) * 1000) / 10 : 0;
+  });
+  const totales = meses.reduce(
+    (acc, m) => {
+      acc.VENTAS_BRUTAS += m.VENTAS_BRUTAS || 0;
+      acc.DESCUENTOS_DEV += m.DESCUENTOS_DEV || 0;
+      acc.VENTAS_NETAS += m.VENTAS_NETAS || 0;
+      acc.VENTAS_VE += m.VENTAS_VE || 0;
+      acc.VENTAS_PV += m.VENTAS_PV || 0;
+      acc.COSTO_VENTAS += m.COSTO_VENTAS || 0;
+      acc.UTILIDAD_BRUTA += m.UTILIDAD_BRUTA || 0;
+      acc.COBROS += m.COBROS || 0;
+      acc.NUM_FACTURAS += m.NUM_FACTURAS || 0;
+      acc.CO_A1 += m.CO_A1 || 0;
+      acc.CO_A2 += m.CO_A2 || 0;
+      acc.CO_A3 += m.CO_A3 || 0;
+      acc.CO_A4 += m.CO_A4 || 0;
+      acc.CO_A5 += m.CO_A5 || 0;
+      acc.CO_A6 += m.CO_A6 || 0;
+      acc.CO_B1 += m.CO_B1 || 0;
+      acc.CO_B2 += m.CO_B2 || 0;
+      acc.CO_B3 += m.CO_B3 || 0;
+      acc.CO_B4 += m.CO_B4 || 0;
+      acc.CO_B5 += m.CO_B5 || 0;
+      acc.CO_C1 += m.CO_C1 || 0;
+      acc.CO_C2 += m.CO_C2 || 0;
+      acc.CO_C3 += m.CO_C3 || 0;
+      acc.CO_C4 += m.CO_C4 || 0;
+      acc.CO_C5 += m.CO_C5 || 0;
+      acc.CO_C6 += m.CO_C6 || 0;
+      return acc;
+    },
+    {
+      VENTAS_BRUTAS: 0,
+      DESCUENTOS_DEV: 0,
+      VENTAS_NETAS: 0,
+      VENTAS_VE: 0,
+      VENTAS_PV: 0,
+      COSTO_VENTAS: 0,
+      UTILIDAD_BRUTA: 0,
+      COBROS: 0,
+      NUM_FACTURAS: 0,
+      CO_A1: 0,
+      CO_A2: 0,
+      CO_A3: 0,
+      CO_A4: 0,
+      CO_A5: 0,
+      CO_A6: 0,
+      CO_B1: 0,
+      CO_B2: 0,
+      CO_B3: 0,
+      CO_B4: 0,
+      CO_B5: 0,
+      CO_C1: 0,
+      CO_C2: 0,
+      CO_C3: 0,
+      CO_C4: 0,
+      CO_C5: 0,
+      CO_C6: 0,
+    },
+  );
+  totales.MARGEN_BRUTO_PCT = totales.VENTAS_NETAS > 0
+    ? Math.round((totales.UTILIDAD_BRUTA / totales.VENTAS_NETAS) * 1000) / 10 : 0;
+  const tiene_costo = outs.some((o) => o.tiene_costo);
+  const tiene_gastos_co = outs.some((o) => o.tiene_gastos_co);
+  const prefijos_labels = outs.find((o) => o.prefijos_labels && Object.keys(o.prefijos_labels).length)?.prefijos_labels || {};
+  const subMerged = {};
+  for (const out of outs) {
+    const sc = out.subconceptos || {};
+    for (const bucket of Object.keys(sc)) {
+      if (!subMerged[bucket]) subMerged[bucket] = {};
+      for (const item of sc[bucket] || []) {
+        const et = String(item.etiqueta || '');
+        if (!subMerged[bucket][et]) subMerged[bucket][et] = { etiqueta: et, total: 0, meses: {} };
+        subMerged[bucket][et].total += +item.total || 0;
+        const mx = item.meses || {};
+        Object.keys(mx).forEach((mk) => {
+          subMerged[bucket][et].meses[mk] = (subMerged[bucket][et].meses[mk] || 0) + (+mx[mk] || 0);
+        });
+      }
+    }
+  }
+  const subconceptos = {};
+  Object.keys(subMerged).forEach((bucket) => {
+    subconceptos[bucket] = Object.values(subMerged[bucket])
+      .sort((a, b) => (+b.total || 0) - (+a.total || 0))
+      .slice(0, 30);
+  });
+  const gastos_estimados = outs.some((o) => o.gastos_estimados);
+  const gastos_estimados_desde = outs.find((o) => o.gastos_estimados_desde)?.gastos_estimados_desde || null;
+  return {
+    meses,
+    totales,
+    tiene_costo,
+    tiene_gastos_co,
+    prefijos_labels,
+    subconceptos,
+    gastos_estimados,
+    gastos_estimados_desde,
+  };
+}
+
 get('/api/resultados/pnl', async (req) => {
   let dbId = req.query.db ? String(req.query.db).trim() : '';
   if (dbId.toLowerCase() === 'default') dbId = '';
+  if (dbId.toLowerCase() === '__all__') {
+    return resultadosPnlMergedAll(req);
+  }
   let out;
   if (dbId) {
     const idLc = dbId.toLowerCase();

@@ -16,7 +16,8 @@
   --suminregio:#E6A800;--suminregio-dim:rgba(230,168,0,.15);
   --green:#00E5A0;--green-dim:rgba(0,229,160,.10);
   --yellow:#FFB800;--yellow-dim:rgba(255,184,0,.12);
-  --yellow-ink:#facc15;--chart-yellow:#f59e0b;--chart-yellow-fill:rgba(245,158,11,.28);
+  --yellow-ink:#c9a227;--chart-yellow:#9a6b3a;--chart-yellow-fill:rgba(154,107,58,.24);
+  --brown-ink:#d4a574;--brown-mid:#8b5a2b;
   --orange:#FF8C42;--orange-dim:rgba(255,140,66,.10);
   --blue:#4DA6FF;--blue-dim:rgba(77,166,255,.10);
   --red:#FF4566;--red-dim:rgba(255,69,102,.12);
@@ -25,7 +26,8 @@
   --text:#F0F6FF;--text2:#C8D8EC;--muted:#6A85A6;--dim:#1E2E42;
 }
 html[data-theme=light]{
-  --yellow-ink:#92400e;--chart-yellow:#b45309;--chart-yellow-fill:rgba(180,83,9,.22);
+  --yellow-ink:#78350f;--chart-yellow:#92400e;--chart-yellow-fill:rgba(120,53,15,.2);
+  --brown-ink:#78350f;--brown-mid:#92400e;
 }
 html{font-size:16px;-webkit-font-smoothing:antialiased}
 body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh}
@@ -574,13 +576,24 @@ details.sr-gastos-blk>summary{cursor:pointer;font-family:'DM Mono',monospace;fon
 <script>
 const API = (window.__API_BASE != null ? String(window.__API_BASE).replace(/\/+$/, '') : (window.location.protocol === 'file:' ? 'http://localhost:7000' : (window.location.origin || '')));
 function fwt(url,fallback,ms=20000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
+/** true si consolidado (db=__all__ en URL, cualquier mayúsculas). */
+function isAllBizId(id){return id!=null&&String(id).trim().toLowerCase()==='__all__';}
+function normalizeBizSelectId(raw){
+  if(raw==null||raw==='')return raw;
+  const s=String(raw).trim();
+  return s.toLowerCase()==='__all__'?'__ALL__':s;
+}
+function canonicalDbForUrl(id){
+  if(id==null||id==='')return id;
+  return isAllBizId(id)?'__all__':String(id).trim();
+}
 let chartVC=null, chartCob=null, chartEmp=null, chartGastos=null;
 let bgGaugeChart=null, bgSparkChart=null, bgDonutChart=null;
 let currentMeses=3;
 let monthKeysSelected = new Set();
 let lastSubconceptos = {};
 /** null = una sola base por defecto; '__ALL__' = consolidado multi-empresa; string = id en FB_DATABASES_JSON */
-let selectedBizId=(function(){try{const p=new URLSearchParams(location.search).get('db');return p||null;}catch(_){return null;}})();
+let selectedBizId=(function(){try{const p=new URLSearchParams(location.search).get('db');return normalizeBizSelectId(p||null);}catch(_){return null;}})();
 let lastUniversePayload=null;
 
 // ── Helper: URL con filtros (otros módulos) ───────────────────────────────────
@@ -606,7 +619,7 @@ function buildPnlQuery(extra, opts) {
   }
   if (!opts.omitDb) {
     let dbId = '';
-    if (selectedBizId && selectedBizId !== '__ALL__') dbId = String(selectedBizId).trim();
+    if (selectedBizId && !isAllBizId(selectedBizId)) dbId = String(selectedBizId).trim();
     else {
       try {
         dbId = (new URLSearchParams(location.search).get('db') || '').trim();
@@ -627,9 +640,9 @@ function buildPnlApiUrl(path, extra, opts) {
 function getPinnedDbId(){
   try{
     const qdb=(new URLSearchParams(location.search).get('db')||'').trim();
-    if(qdb&&qdb.toLowerCase()!=='default')return qdb;
+    if(qdb&&qdb.toLowerCase()!=='default')return normalizeBizSelectId(qdb);
     const sdb=(sessionStorage.getItem('microsip_erp_db')||'').trim();
-    if(sdb&&sdb.toLowerCase()!=='default')return sdb;
+    if(sdb&&sdb.toLowerCase()!=='default')return normalizeBizSelectId(sdb);
   }catch(_){}
   return '';
 }
@@ -784,8 +797,11 @@ async function loadBalanceGeneral(){
     const diffEl=document.getElementById('bgDiff');
     if(diffEl){
       diffEl.textContent=fmtMNeg(diff);
-      // Regla contable: Activo = Pasivo + Capital; cualquier diferencia material es crítica.
-      diffEl.style.color = Math.abs(diff)<=1 ? 'var(--green)' : 'var(--red)';
+      // API: DIFERENCIA_BALANCE = (Pasivo+Capital) − Activo. Negativo ⇒ Activo mayor ⇒ lectura “positiva”.
+      const near=Math.abs(diff)<=1;
+      if(near)diffEl.style.color='var(--green)';
+      else if(diff<0)diffEl.style.color='var(--green)';
+      else diffEl.style.color='var(--red)';
     }
     if(badge) badge.textContent=`Cierre ${String(cierre.MES||'--').padStart(2,'0')}/${cierre.ANIO||'----'}`;
     const renderList=(id,list)=>{
@@ -856,13 +872,13 @@ async function loadBalanceGeneral(){
       el.textContent = val;
       if (color) el.style.color = color;
     };
-    setRatio('bgRatioLiquidez', liquidez.toFixed(2) + 'x', liquidez >= 1.5 ? 'var(--green)' : liquidez >= 1 ? 'var(--yellow-ink)' : 'var(--red)');
-    setRatio('bgRatioLeverage', fmtPct(leverage * 100), leverage <= 0.55 ? 'var(--green)' : leverage <= 0.75 ? 'var(--yellow-ink)' : 'var(--red)');
+    setRatio('bgRatioLiquidez', liquidez.toFixed(2) + 'x', liquidez >= 1.5 ? 'var(--green)' : liquidez >= 1 ? 'var(--brown-mid)' : 'var(--red)');
+    setRatio('bgRatioLeverage', fmtPct(leverage * 100), leverage <= 0.55 ? 'var(--green)' : leverage <= 0.75 ? 'var(--brown-mid)' : 'var(--red)');
     setRatio('bgRatioWorking', fmtM(workCap), workCap >= 0 ? 'var(--green)' : 'var(--red)');
-    setRatio('bgRatioDebtEq', debtEq > 0 ? debtEq.toFixed(2) + 'x' : '—', debtEq <= 1.2 ? 'var(--green)' : debtEq <= 2 ? 'var(--yellow-ink)' : 'var(--red)');
+    setRatio('bgRatioDebtEq', debtEq > 0 ? debtEq.toFixed(2) + 'x' : '—', debtEq <= 1.2 ? 'var(--green)' : debtEq <= 2 ? 'var(--brown-mid)' : 'var(--red)');
     const gaugeVal = Math.max(0, Math.min(3, liquidez));
     const gaugeRemainder = Math.max(0, 3 - gaugeVal);
-    const gaugeColor = liquidez >= 1.5 ? '#00E5A0' : liquidez >= 1 ? '#FFB800' : '#FF4566';
+    const gaugeColor = liquidez >= 1.5 ? '#00E5A0' : liquidez >= 1 ? '#8b5a2b' : '#FF4566';
     const gaugeEl = document.getElementById('bgGaugeLiquidez');
     if (gaugeEl) {
       const ctxG = gaugeEl.getContext('2d');
@@ -944,7 +960,7 @@ async function loadEstadoSrContable(mesesScope, totScope){
   const listRs=document.getElementById('srResumen');
   const cuWrap=document.getElementById('srCuentasDetWrap');
   const scopedMeses = Array.isArray(mesesScope) ? mesesScope : [];
-  const srRow2=(label,val,useNeg)=>`<div class="bg-row"><span class="n">${label}</span><span class="v">${useNeg?fmtMNeg(val):fmtM(val)}</span></div>`;
+  const srRow2=(label,val,useNeg)=>`<div class="bg-row"><span class="n">${label}</span><span class="v"${useNeg?' style="color:var(--brown-ink)"':''}>${useNeg?fmtMNeg(val):fmtM(val)}</span></div>`;
   if(scopedMeses.length){
     const ord=sortMesesByPeriodo(scopedMeses);
     const ssum=(k)=>ord.reduce((s,m)=>s+(+m[k]||0),0);
@@ -1066,7 +1082,7 @@ function setDbUrl(id){
   try{
     const u=new URL(location.href);
     if(id==null||id==='')u.searchParams.delete('db');
-    else u.searchParams.set('db',id);
+    else u.searchParams.set('db',canonicalDbForUrl(id));
     history.replaceState({},'',u);
   }catch(_){}
 }
@@ -1228,7 +1244,7 @@ async function loadData(){
   if(pinnedDb) selectedBizId=pinnedDb;
   try{
     const qdb=(new URLSearchParams(window.location.search||'').get('db')||'').trim();
-    if(qdb&&(!selectedBizId||selectedBizId==='')) selectedBizId=qdb;
+    if(qdb&&(!selectedBizId||selectedBizId==='')) selectedBizId=normalizeBizSelectId(qdb);
   }catch(_){}
   function getBase(){
     const a=typeof API!=='undefined'&&API?String(API).replace(/\/+$/,''):'';
@@ -1254,7 +1270,7 @@ async function loadData(){
   document.getElementById('monthPicker')&&(document.getElementById('monthPicker').style.display='none');
   try{
     // Si ya hay negocio concreto (URL/session), no escanear todo el registro — evita colgarse minutos en pnl-universe.
-    const uniOmitDb = !(selectedBizId && selectedBizId !== '__ALL__');
+    const uniOmitDb = !selectedBizId || isAllBizId(selectedBizId);
     const uniUrl=buildPnlApiUrl('/api/resultados/pnl-universe','meses='+currentMeses+'&concurrency=2',{ omitDb:uniOmitDb })+'&_='+Date.now();
 
     let uni=await tryFetch(uniUrl, 90000)||{};
@@ -1289,7 +1305,7 @@ async function loadData(){
           else selectedBizId='__ALL__';
         }catch(_){ selectedBizId='__ALL__'; }
       }
-      if(selectedBizId!=='__ALL__'){
+      if(!isAllBizId(selectedBizId)){
         const exists=okEmp.some(e=>String(e.id)===String(selectedBizId));
         if(!exists)selectedBizId='__ALL__';
       }
@@ -1300,7 +1316,7 @@ async function loadData(){
       renderPlMiniTable(empresas,'c='+(uni.concurrency||2)+' · '+okEmp.length+' empresas');
     }
 
-    const vistaConsolidado=multi&&selectedBizId==='__ALL__';
+    const vistaConsolidado=multi&&isAllBizId(selectedBizId);
 
     if(vistaConsolidado){
       lastSubconceptos = {};
@@ -1503,14 +1519,18 @@ function renderKPIs(tot,meses,hasCosto){
   document.getElementById('kpiUtilidad').textContent=hasCosto?fmtM(utilidad):fmtM(ventas);
   document.getElementById('kpiUtilidadSub').textContent=hasCosto?'Ventas netas − costo de ventas':'(sin costo en BD)';
   document.getElementById('kpiUtilidadTrend').innerHTML=trendUtil;
-  document.getElementById('kpiCosto').textContent=hasCosto?fmtM(costo):'Sin datos';
+  const kCosto=document.getElementById('kpiCosto');
+  if(kCosto){
+    kCosto.textContent=hasCosto?fmtM(costo):'Sin datos';
+    kCosto.style.color=hasCosto?'':'var(--brown-ink)';
+  }
   document.getElementById('kpiCostoSub').textContent=hasCosto
     ? fmtPct(ventas>0?costo/ventas*100:0)+' de ventas'
     : 'Sin costo en Contabilidad para este periodo (día/semana o mes en curso suelen registrarse al cierre)';
   document.getElementById('kpiCobros').textContent=fmtM(cobros);
   const efic=ventas>0?Math.round(cobros/ventas*100):0;
   document.getElementById('kpiCobrosSub').textContent=fmtPct(efic)+' de facturado cobrado';
-  const eficColor=efic>=80?'var(--green)':efic>=50?'var(--yellow-ink)':'var(--red)';
+  const eficColor=efic>=80?'var(--green)':efic>=50?'var(--brown-mid)':'var(--red)';
   document.getElementById('kpiCobrosEfic').innerHTML=`<span style="color:${eficColor}">${efic>=80?'✓ Eficiencia alta':efic>=50?'⚠ Mejorar cobro':'✗ Cobro bajo'}</span>`;
   document.getElementById('chartBadge1').textContent=currentMeses+' meses';
 
