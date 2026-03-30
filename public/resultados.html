@@ -649,6 +649,9 @@ setInterval(()=>{const n=new Date();document.getElementById('reloj').textContent
 // ── Formateo ───────────────────────────────────────────────────────────────────
 const fmtM=v=>{if(v===null||v===undefined||isNaN(+v))return'—';v=+v;return'$'+v.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2})};
 const fmtPct=v=>isNaN(+v)?'—':(+v).toFixed(1)+'%';
+function escHtml(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+}
 const MESES_ES=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 const PNL_ROW_NUM_KEYS=['VENTAS_BRUTAS','DESCUENTOS_DEV','VENTAS_NETAS','VENTAS_VE','VENTAS_PV','COSTO_VENTAS','UTILIDAD_BRUTA','MARGEN_BRUTO_PCT','COBROS','NUM_FACTURAS','CO_A1','CO_A2','CO_A3','CO_A4','CO_A5','CO_A6','CO_B1','CO_B2','CO_B3','CO_B4','CO_B5','CO_C1','CO_C2','CO_C3','CO_C4','CO_C5','CO_C6'];
 const GASTOS_NOTICE_SUBCO = '<br><br><strong>Subconceptos X2–X6 y F2–F5:</strong> Si el total en X1 o F1 tiene importe pero las filas inferiores muestran <strong>$0</strong>, en Microsip no hubo movimientos en esas subcuentas en el periodo; el movimiento puede estar concentrado en la cuenta principal (p. ej. un solo auxiliar). Las etiquetas son descriptivas; el c&oacute;digo CO_B* / CO_C* viene del cat&aacute;logo <code>CUENTAS_CO</code>.';
@@ -1204,6 +1207,10 @@ async function loadData(){
   let data={};
   const pinnedDb=getPinnedDbId();
   if(pinnedDb) selectedBizId=pinnedDb;
+  try{
+    const qdb=(new URLSearchParams(window.location.search||'').get('db')||'').trim();
+    if(qdb&&(!selectedBizId||selectedBizId==='')) selectedBizId=qdb;
+  }catch(_){}
   function getBase(){
     const a=typeof API!=='undefined'&&API?String(API).replace(/\/+$/,''):'';
     if(a)return a;
@@ -1232,9 +1239,6 @@ async function loadData(){
     const uniUrl=buildPnlApiUrl('/api/resultados/pnl-universe','meses='+currentMeses+'&concurrency=2',{ omitDb:uniOmitDb })+'&_='+Date.now();
 
     let uni=await tryFetch(uniUrl, 90000)||{};
-    // #region agent log
-    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',location:'resultados.html:loadData:uni',message:'pnl-universe client',data:{empLen:(uni.empresas||[]).length,uniUrlTail:uniUrl.slice(-100)},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     const base=getBase();
     if((!uni.empresas||!uni.empresas.length)&&base.indexOf(':7000')===-1&&window.location.protocol!=='file:'){
       const altU=uniUrl.replace(/^(https?:\/\/[^\/]+)/,(window.location.origin||'').replace(/:\d+$/,'')+':7000');
@@ -1339,9 +1343,6 @@ async function loadData(){
       : buildPnlApiUrl('/api/resultados/pnl','meses='+currentMeses)+'&_='+Date.now();
 
     data=await tryFetch(url, 120000)||{};
-    // #region agent log
-    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',location:'resultados.html:loadData:pnl',message:'pnl main client',data:{mesesLen:(data.meses||[]).length,urlTail:url.slice(-120)},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
     if((!data.meses||!data.meses.length)&&base.indexOf(':7000')===-1&&window.location.protocol!=='file:'){
       const altUrl=url.replace(/^(https?:\/\/[^\/]+)/,(window.location.origin||'').replace(/:\d+$/,'')+':7000');
       data=await tryFetch(altUrl)||data;
@@ -1416,9 +1417,6 @@ async function loadData(){
     try {
       mesesVista = setupMonthPicker(tablaMeses);
     } catch (ePicker) {
-      // #region agent log
-      fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',location:'resultados.html:loadData:monthPicker',message:'setupMonthPicker threw',data:{err:String(ePicker&&ePicker.message||ePicker)},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
       mesesVista = sortMesesByPeriodo(tablaMeses.slice());
     }
     const totVista = rebuildTotalesFromMeses(mesesVista);
@@ -1447,9 +1445,6 @@ async function loadData(){
       }
     }
     // Hero / subtítulo: actualizar aquí para no quedar en "Cargando..." si Balance/Estado SR tardan o fallan.
-    // #region agent log
-    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',location:'resultados.html:loadData:beforeHero',message:'hero update',data:{mesesLen:meses.length,ventas:+tot.VENTAS_NETAS||0},timestamp:Date.now(),hypothesisId:'E'})}).catch(()=>{});
-    // #endregion
     if(heroEl)heroEl.textContent=meses.length||tot.VENTAS_NETAS
       ?((multi?(okEmp.find(e=>e.id===selectedBizId)||{}).label+' · ':'')+currentMeses+' meses · '+fmtM(+tot.VENTAS_NETAS||0)+' ventas netas · '+(hasCosto?fmtPct(+tot.MARGEN_BRUTO_PCT||0)+' margen bruto':'Costo no en BD')+' · '+fmtM(+tot.COBROS||0)+' cobrado')
       :'Sin datos. ¿Servidor Node en marcha? Probar: '+url;
@@ -1460,9 +1455,6 @@ async function loadData(){
       ]);
     }catch(_){}
   }catch(e){
-    // #region agent log
-    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',location:'resultados.html:loadData:catch',message:'loadData error',data:{err:String(e&&e.message||e)},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
     applyCoLabelsDynamic(null);
     if(heroEl)heroEl.textContent='Error: '+e.message+'. Revisar consola (F12).';
     renderKPIs({},[],false);
