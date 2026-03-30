@@ -141,6 +141,24 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 .delta-tag{display:inline-flex;align-items:center;gap:.2rem;font-family:'DM Mono',monospace;font-size:.6rem;font-weight:500}
 .delta-tag.up{color:var(--green)}.delta-tag.dn{color:var(--red)}.delta-tag.flat{color:var(--muted)}
 
+/* Cuadrícula de columnas */
+.pnl-structured td,.pnl-structured th{border-right:1px solid rgba(255,255,255,.05)}
+.pnl-structured td:last-child,.pnl-structured th:last-child{border-right:none}
+/* Zebra striping */
+.pnl-structured tbody tr.data-row:nth-child(even) td{background:rgba(255,255,255,.016)}
+/* Expandable bucket rows (A/B/C/D) */
+.gasto-bucket-hdr{cursor:pointer}
+.gasto-bucket-hdr:hover td{background:rgba(255,255,255,.04)!important}
+.gasto-bucket-hdr td:first-child{padding-left:2.2rem!important;font-weight:700}
+.gasto-bucket-hdr .bkt-caret{font-size:.62rem;margin-right:.35rem;display:inline-block;transition:transform .14s;opacity:.55;user-select:none}
+.gasto-bucket-hdr.open .bkt-caret{transform:rotate(90deg);opacity:.9}
+/* Bucket sub-rows */
+.gasto-sub td{background:rgba(0,0,0,.15)!important;border-bottom:1px solid rgba(255,255,255,.025)!important}
+.gasto-sub td:first-child{padding-left:3.6rem!important;font-size:.73rem!important;color:var(--muted)!important;font-weight:400!important}
+.gasto-sub td:not(:first-child){font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted);text-align:right}
+/* Parentheses for negative values */
+.paren-neg{color:var(--red)}
+
 /* Gastos notice */
 .gastos-notice{background:rgba(255,184,0,.06);border:1px solid rgba(255,184,0,.2);border-radius:10px;padding:.85rem 1.1rem;margin-bottom:1.2rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--yellow-ink);line-height:1.65}
 .gastos-notice strong{font-weight:700;color:var(--yellow-ink)}
@@ -723,15 +741,12 @@ function rebuildTotalesFromMeses(meses){
   out.MARGEN_BRUTO_PCT=out.VENTAS_NETAS>0?Math.round((out.UTILIDAD_BRUTA/out.VENTAS_NETAS)*1000)/10:0;
   return out;
 }
-const DB_ALLOW_TERMS=['suminregio','agua','medicos','madera','carton','empaque','especial','reciclaje'];
+const DB_ALLOW_TERMS=['suminregio','agua','medicos','madera','carton','empaque','reciclaje'];
 function normDbTxt(v){return String(v==null?'':v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
 function allowEmpresa(e){
-  const pool=normDbTxt([
-    e&&e.id,
-    e&&e.label,
-    e&&e.database,
-    e&&e.path
-  ].join(' '));
+  const pool=normDbTxt([e&&e.id,e&&e.label,e&&e.database,e&&e.path].join(' '));
+  if(pool.includes('hamer')) return false;
+  if(pool.includes('suminregio')&&!pool.includes('parker')) return false;
   return DB_ALLOW_TERMS.some(t=>pool.includes(t));
 }
 
@@ -1653,6 +1668,12 @@ function chartOpts(cbY){
       y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6A85A6',font:{size:10,family:"'DM Mono'"},callback:cbY}}}};
 }
 
+function toggleBucketRow(hdr,bid){
+  const open=hdr.classList.toggle('open');
+  const tb=document.getElementById('pnlBody');
+  if(!tb) return;
+  tb.querySelectorAll('tr.gasto-sub[data-bid="'+bid+'"]').forEach(function(r){r.style.display=open?'':'none';});
+}
 function applyPnlDrilldown(){
   const tb=document.getElementById('pnlBody');
   if(!tb) return;
@@ -1666,22 +1687,26 @@ function applyPnlDrilldown(){
       return;
     }
     if(!cur) return;
-    if(r.classList.contains('data-row')) sectionRows[cur].push(r);
+    // gasto-sub rows are NOT controlled by section drill — only by bucket toggle
+    if(r.classList.contains('data-row')&&!r.classList.contains('gasto-sub')) sectionRows[cur].push(r);
   });
   Object.entries(sectionRows).forEach(([sec,list])=>{
-    const header=tb.querySelector(`tr.pnl-section-header[data-section="${sec}"] td`);
+    const header=tb.querySelector('tr.pnl-section-header[data-section="'+sec+'"] td');
     if(!header) return;
-    const open=false;
     const lbl=header.textContent;
-    header.innerHTML=`<button type="button" class="pnl-drill-btn ${open?'open':''}" data-sec="${sec}"><span class="caret">▶</span><span>${lbl}</span></button>`;
-    list.forEach(r=>{ r.style.display=open?'':'none'; r.setAttribute('data-sec',sec); });
+    header.innerHTML='<button type="button" class="pnl-drill-btn" data-sec="'+sec+'"><span class="caret">&#9654;</span><span>'+lbl+'</span></button>';
+    list.forEach(r=>{ r.style.display='none'; r.setAttribute('data-sec',sec); });
   });
-  tb.querySelectorAll('.pnl-drill-btn').forEach(btn=>{
-    btn.addEventListener('click',()=>{
+  tb.querySelectorAll('.pnl-drill-btn').forEach(function(btn){
+    btn.addEventListener('click',function(){
       const sec=btn.getAttribute('data-sec');
       const openNow=btn.classList.toggle('open');
-      tb.querySelectorAll(`tr.data-row[data-sec="${sec}"]`).forEach(r=>r.style.display=openNow?'':'none');
-
+      tb.querySelectorAll('tr.data-row[data-sec="'+sec+'"]').forEach(function(r){r.style.display=openNow?'':'none';});
+      // When section collapses, also collapse all open bucket sub-rows inside it
+      if(!openNow){
+        tb.querySelectorAll('tr.gasto-sub').forEach(function(r){r.style.display='none';});
+        tb.querySelectorAll('tr.gasto-bucket-hdr.open').forEach(function(r){r.classList.remove('open');});
+      }
     });
   });
 }
@@ -1796,171 +1821,95 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     const v=sumGastoKeys(tot,keys);
     return v>0?`(${fmtM(v)})`:fmtM(0);
   }
-  const renderSubRows=(bucket)=>{
+  // ── helpers de formato ──────────────────────────────────────────────────────
+  function fmtNeg(v){v=+v;if(isNaN(v))return'—';if(v<0)return'<span class="paren-neg">('+fmtM(-v)+')</span>';return fmtM(v);}
+  function fmtParens(v){v=+v;if(isNaN(v)||v<=0)return'—';return'<span class="paren-neg">('+fmtM(v)+')</span>';}
+
+  // ── sub-rows (drilldown, hidden by default) ──────────────────────────────
+  const renderSubRows=(bucket,bid)=>{
     const arr=(subData[bucket]&&Array.isArray(subData[bucket]))?subData[bucket]:[];
     if(!arr.length)return'';
-    return arr.map(r=>`
-      <tr class="data-row">
-        <td style="padding-left:2rem;color:var(--text2)">· ${r.etiqueta||'Sin etiqueta'}</td>
-        ${mesesOrd.map(m=>{
-          const mk=monthKey(m);
-          const v=+((r.meses&&r.meses[mk])||0);
-          return v>0?`<td style="color:var(--red)">(${fmtM(v)})</td>`:`<td style="color:var(--text2)">${fmtM(0)}</td>`;
-        }).join('')}
-        <td style="color:${(+r.total||0)>0?'var(--red)':'var(--text2)'}">${(+r.total||0)>0?`(${fmtM(+r.total||0)})`:fmtM(0)}</td>
-      </tr>
-    `).join('');
+    return arr.map(r=>{
+      const rtot=+r.total||0;
+      if(rtot<=0.005)return''; // skip zero
+      return`<tr class="gasto-sub" data-bid="${bid}" style="display:none"><td>· ${escHtml(r.etiqueta||'Sin etiqueta')}</td>${mesesOrd.map(m=>{const mk=monthKey(m);const v=+((r.meses&&r.meses[mk])||0);return v>0.005?`<td>${fmtParens(v)}</td>`:'<td>—</td>';}).join('')}<td>${fmtParens(rtot)}</td></tr>`;
+    }).join('');
   };
-  const rowGastoBucket=(bucket,lead)=>{const fv=+tot[bucket]||0;return`<tr class="data-row"><td style="padding-left:1rem;color:var(--muted)">${lead}. ${coLbl(bucket,'')}</td>${mesesOrd.map(m=>tdGasto(m,bucket)).join('')}<td style="color:${fv>0?'var(--red)':'var(--text2)'}">${footGasto(bucket)}</td></tr>${renderSubRows(bucket)}`;};
 
-  const remiCalc = (m) => {
-    const vb = +m.VENTAS_BRUTAS||0;
-    const vn = +m.VENTAS_NETAS||0;
-    return Math.max(0, vb - vn);
+  // ── bucket row (expandable header A/B/C/D) ──────────────────────────────
+  const rowGastoBucket=(bucket,letter,label)=>{
+    if(!tg)return''; // no accounting data at all
+    const fv=sumGastoKeys(tot,[bucket]);
+    if(fv<=0.005)return''; // skip zero buckets
+    const bid='bkt'+bucket;
+    const lbl=label||CO_PREFIX_LABELS[bucket]||bucket;
+    const subs=renderSubRows(bucket,bid);
+    const hasSubs=subs.length>0;
+    const caret=hasSubs?'<span class="bkt-caret">&#9654;</span>':'  ';
+    const clickAttr=hasSubs?` onclick="toggleBucketRow(this,'${bid}')" class="data-row gasto-bucket-hdr"`:' class="data-row gasto-bucket-hdr"';
+    return`<tr${clickAttr}><td>${caret}${letter}. ${escHtml(lbl)}</td>${mesesOrd.map(m=>{const v=sumGastoKeys(m,[bucket]);return v>0.005?`<td style="color:var(--red)">${fmtParens(v)}</td>`:'<td style="color:var(--muted)">—</td>';}).join('')}<td style="color:var(--red)">${fmtParens(fv)}</td></tr>${subs}`;
   };
-  const veNetaCalc = (m) => {
-    const ve=+m.VENTAS_VE||0, pv=+m.VENTAS_PV||0, rem=remiCalc(m);
-    const den=ve+pv;
-    const remVe=den>0 ? (rem*(ve/den)) : 0;
-    return ve-remVe;
-  };
-  const pvNetaCalc = (m) => {
-    const ve=+m.VENTAS_VE||0, pv=+m.VENTAS_PV||0, rem=remiCalc(m);
-    const den=ve+pv;
-    const remVe=den>0 ? (rem*(ve/den)) : 0;
-    const remPv=rem-remVe;
-    return pv-remPv;
-  };
-  const remVeCalc = (m) => {
-    const ve=+m.VENTAS_VE||0, pv=+m.VENTAS_PV||0, rem=remiCalc(m);
-    const den=ve+pv;
-    return den>0 ? (rem*(ve/den)) : 0;
-  };
-  const remPvCalc = (m) => remiCalc(m)-remVeCalc(m);
-  const remiTotal = mesesOrd.reduce((s,m)=>s+remiCalc(m),0);
+
+  // ── Totals for footer ────────────────────────────────────────────────────
+  const utilBrutaTot=hasCosto?(+tot.UTILIDAD_BRUTA||0):(+tot.VENTAS_NETAS||0);
+  const opexTot=tg?sumGastoKeys(tot,_GAS_OPEX):0;
+  const utilOpTot=utilBrutaTot-opexTot;
+  const gasB1Tot=tg?(+tot.CO_B1||0):0;
+  const gasC1Tot=tg?(+tot.CO_C1||0):0;
+  const mgTotCol=(+tot.MARGEN_BRUTO_PCT||0)>=30?'var(--green)':(+tot.MARGEN_BRUTO_PCT||0)>=15?'var(--yellow-ink)':'var(--red)';
+  const nc=mesesOrd.length+2;
+
   const pnl=`
-  <tr class="pnl-section-header" data-section="ingresos"><td colspan="${mesesOrd.length+2}">INGRESOS</td></tr>
-  <tr class="data-row">
-    <td>Ventas netas (base dashboard ventas)</td>
-    ${mesesOrd.map(m=>{
-      return`<td style="color:var(--text2)">${fmtM(+m.VENTAS_NETAS||0)}</td>`;
-    }).join('')}
-    <td style="color:var(--text2)">${fmtM(+tot.VENTAS_NETAS||0)}</td>
-  </tr>
-  <tr class="data-row">
-    <td>Remisiones / ajustes (brutas - netas)</td>
-    ${mesesOrd.map(m=>{
-      const d=remiCalc(m);
-      return`<td style="color:${d>0?'var(--red)':'var(--text2)'}">${d>0?'('+fmtM(d)+')':fmtM(0)}</td>`;
-    }).join('')}
-    <td style="color:${remiTotal>0?'var(--red)':'var(--text2)'}">${remiTotal>0?'('+fmtM(remiTotal)+')':fmtM(0)}</td>
-  </tr>
+  <tr class="pnl-section-header" data-section="ingresos"><td colspan="${nc}">INGRESOS</td></tr>
   <tr class="data-row">
     <td>Venta Industrial (VE) neta</td>
-    ${mesesOrd.map(m=>`<td style="color:var(--text2)">${fmtM(veNetaCalc(m))}</td>`).join('')}
-    <td style="color:var(--text2)">${fmtM(mesesOrd.reduce((s,m)=>s+veNetaCalc(m),0))}</td>
+    ${mesesOrd.map(m=>`<td style="color:var(--text2)">${fmtM(+m.VENTAS_VE||0)}</td>`).join('')}
+    <td style="color:var(--text2)">${fmtM(+tot.VENTAS_VE||0)}</td>
   </tr>
   <tr class="data-row">
-    <td>Ventas de Mostrador (PV) neta</td>
-    ${mesesOrd.map(m=>`<td style="color:var(--text2)">${fmtM(pvNetaCalc(m))}</td>`).join('')}
-    <td style="color:var(--text2)">${fmtM(mesesOrd.reduce((s,m)=>s+pvNetaCalc(m),0))}</td>
-  </tr>
-  <tr class="data-row">
-    <td>Remisiones total (base)</td>
-    ${mesesOrd.map(m=>`<td style="color:var(--red)">${remiCalc(m)>0?'('+fmtM(remiCalc(m))+')':fmtM(0)}</td>`).join('')}
-    <td style="color:var(--red)">${remiTotal>0?'('+fmtM(remiTotal)+')':fmtM(0)}</td>
-  </tr>
-  <tr class="data-row">
-    <td>Remisiones atribuibles a VE</td>
-    ${mesesOrd.map(m=>`<td style="color:var(--muted)">${remVeCalc(m)>0?'('+fmtM(remVeCalc(m))+')':fmtM(0)}</td>`).join('')}
-    <td style="color:var(--muted)">${fmtM(mesesOrd.reduce((s,m)=>s+remVeCalc(m),0))}</td>
-  </tr>
-  <tr class="data-row">
-    <td>Remisiones atribuibles a PV</td>
-    ${mesesOrd.map(m=>`<td style="color:var(--muted)">${remPvCalc(m)>0?'('+fmtM(remPvCalc(m))+')':fmtM(0)}</td>`).join('')}
-    <td style="color:var(--muted)">${fmtM(mesesOrd.reduce((s,m)=>s+remPvCalc(m),0))}</td>
+    <td>Venta Mostrador (PV) neta</td>
+    ${mesesOrd.map(m=>`<td style="color:var(--text2)">${fmtM(+m.VENTAS_PV||0)}</td>`).join('')}
+    <td style="color:var(--text2)">${fmtM(+tot.VENTAS_PV||0)}</td>
   </tr>
   <tr class="subtotal-row">
-    <td>▶ Total Ventas Netas</td>
+    <td>&#9654; Total Ventas Netas</td>
     ${mesesOrd.map(m=>`<td style="color:var(--blue)">${fmtM(+m.VENTAS_NETAS||0)}</td>`).join('')}
     <td style="color:var(--blue)">${fmtM(+tot.VENTAS_NETAS||0)}</td>
   </tr>
 
-  <tr class="pnl-section-header" data-section="costo"><td colspan="${mesesOrd.length+2}">COSTO DE VENTAS</td></tr>
+  <tr class="pnl-section-header" data-section="costo"><td colspan="${nc}">COSTO DE VENTAS</td></tr>
   <tr class="data-row">
     <td>Costo de Ventas</td>
     ${mesesOrd.map(m=>`<td style="color:var(--orange)">${hasCosto?fmtM(+m.COSTO_VENTAS||0):'—'}</td>`).join('')}
     <td style="color:var(--orange)">${hasCosto?fmtM(+tot.COSTO_VENTAS||0):'—'}</td>
   </tr>
-
   <tr class="subtotal-row">
-    <td>▶ Utilidad Bruta</td>
-    ${mesesOrd.map(m=>{
-      const u=+m.UTILIDAD_BRUTA||(hasCosto?0:+m.VENTAS_NETAS||0);
-      const mg=+m.MARGEN_BRUTO_PCT||0;
-      const mgCol=mg>=30?'var(--green)':mg>=15?'var(--yellow-ink)':'var(--red)';
-      return`<td><span style="color:${mgCol}">${hasCosto?fmtM(u):fmtM(+m.VENTAS_NETAS||0)}</span></td>`;
-    }).join('')}
-    <td style="color:${(+tot.MARGEN_BRUTO_PCT||0)>=30?'var(--green)':(+tot.MARGEN_BRUTO_PCT||0)>=15?'var(--yellow-ink)':'var(--red)'}">${hasCosto?fmtM(+tot.UTILIDAD_BRUTA||0):fmtM(+tot.VENTAS_NETAS||0)}</td>
+    <td>&#9654; Utilidad Bruta</td>
+    ${mesesOrd.map(m=>{const u=hasCosto?(+m.UTILIDAD_BRUTA||0):(+m.VENTAS_NETAS||0);const mg=+m.MARGEN_BRUTO_PCT||0;const col=mg>=30?'var(--green)':mg>=15?'var(--yellow-ink)':'var(--red)';return`<td style="color:${col}">${fmtM(u)}</td>`;}).join('')}
+    <td style="color:${mgTotCol}">${hasCosto?fmtM(+tot.UTILIDAD_BRUTA||0):fmtM(+tot.VENTAS_NETAS||0)}</td>
+  </tr>
+  <tr class="data-row">
+    <td>Margen Bruto %</td>
+    ${mesesOrd.map(m=>{const mg=+m.MARGEN_BRUTO_PCT||0;const col=mg>=30?'var(--green)':mg>=15?'var(--yellow-ink)':'var(--red)';return`<td><span style="color:${col};font-weight:600">${hasCosto?fmtPct(mg):'—'}</span></td>`;}).join('')}
+    <td><span style="color:${mgTotCol};font-weight:600">${hasCosto?fmtPct(+tot.MARGEN_BRUTO_PCT||0):'—'}</span></td>
   </tr>
 
-  ${!tg?`<tr><td colspan="${mesesOrd.length+2}" style="background:rgba(255,180,0,.08);color:var(--yellow-ink);font-size:.75rem;padding:.5rem 1rem;border-left:3px solid var(--chart-yellow)">⚠️ Sin pólizas contables en SALDOS_CO/DOCTOS_CO_DET para cuentas 52*/53*/54*. Las cifras de gastos son $0. Ingresa los movimientos en Microsip Contabilidad o verifica que el módulo de contabilidad esté activo. <a href="/api/debug/saldos-co-cuentas" target="_blank" style="color:var(--yellow-ink)">Ver diagnóstico →</a></td></tr>`:''}
-  <tr class="pnl-section-header" data-section="gastos"><td colspan="${mesesOrd.length+2}">GASTOS OPERATIVOS (ESTRUCTURA MICROsip SR)</td></tr>
+  <tr class="pnl-section-header" data-section="gastos"><td colspan="${nc}">GASTOS OPERATIVOS</td></tr>
   ${rowGastoBucket('CO_A1','A')}
   ${rowGastoBucket('CO_A2','B')}
   ${rowGastoBucket('CO_A3','C')}
-  ${rowGastoBucket('CO_A4','D')}
-  ${rowGastoBucket('CO_A5','E')}
-  ${rowGastoBucket('CO_A6','F')}
-  <tr class="subtotal-row"><td>▶ Subtotal gastos operativos (5201+5202+5203)</td>${mesesOrd.map(m=>{
-    const s=tg?sumGastoKeys(m,_GAS_OPEX):0;
-    return s>0?`<td style="color:var(--yellow-ink)">(${fmtM(s)})</td>`:`<td style="color:var(--text2)">${fmtM(0)}</td>`;
-  }).join('')}<td style="color:var(--yellow-ink)">${tg?'('+fmtM(sumGastoKeys(tot,_GAS_OPEX))+')':`(${fmtM(0)})`}</td></tr>
-  <tr class="data-row"><td colspan="${mesesOrd.length+2}" style="font-size:.72rem;color:var(--muted);line-height:1.35;padding:.35rem 1rem .5rem 1rem;border-left:3px solid var(--text2)">El subtotal amarillo <strong>no</strong> incluye 5204/5205, ni clase 53**, ni 54**. El total naranja suma <strong>clase 52** + 53** + 54**</strong>. Si solo miras la sección X/F (54** y 53**), falta la parte de <strong>clase 52** (filas A–F arriba)</strong>. Las dos filas de desglose antes del total naranja muestran esa suma en dos bloques.</td></tr>
-  <tr class="pnl-section-header" data-section="extra"><td colspan="${mesesOrd.length+2}">OTROS GASTOS (54**) Y GASTOS FINANCIEROS (53**)</td></tr>
-  ${rowGastoBucket('CO_C1','X1')}
-  ${rowGastoBucket('CO_C2','X2')}
-  ${rowGastoBucket('CO_C3','X3')}
-  ${rowGastoBucket('CO_C4','X4')}
-  ${rowGastoBucket('CO_C5','X5')}
-  ${rowGastoBucket('CO_C6','X6')}
-  ${rowGastoBucket('CO_B1','F1')}
-  ${rowGastoBucket('CO_B2','F2')}
-  ${rowGastoBucket('CO_B3','F3')}
-  ${rowGastoBucket('CO_B4','F4')}
-  ${rowGastoBucket('CO_B5','F5')}
-  <tr class="data-row" style="background:rgba(255,140,0,.07)">
-    <td style="font-size:.85rem;font-weight:500">Suma clase 52** (filas A–F: venta, operación, admin, 5204–5206)</td>
-    ${mesesOrd.map(m=>tdGastoSum(m,_GAS_52_ALL)).join('')}
-    <td style="color:var(--orange);font-weight:600">${footGastoSum(_GAS_52_ALL)}</td>
-  </tr>
-  <tr class="data-row" style="background:rgba(255,140,0,.07)">
-    <td style="font-size:.85rem;font-weight:500">Suma clases 53**+54** (filas X1–X6 + F1–F5)</td>
-    ${mesesOrd.map(m=>tdGastoSum(m,_GAS_5354)).join('')}
-    <td style="color:var(--orange);font-weight:600">${footGastoSum(_GAS_5354)}</td>
-  </tr>
-  <tr class="data-row">
-    <td style="color:var(--orange);font-weight:600">Total gastos 52+53+54 (= suma de las dos filas anteriores)</td>
-    ${mesesOrd.map(m=>{
-      const s=tg?sumGastoKeys(m,_GAS_ALL_CO):0;
-      return s>0?`<td style="color:var(--orange)">(${fmtM(s)})</td>`:`<td style="color:var(--text2)">${fmtM(0)}</td>`;
-    }).join('')}
-    <td style="color:var(--orange)">${tg?'('+fmtM(sumGastoKeys(tot,_GAS_ALL_CO))+')':'Sin datos en cuentas 52/53/54 (SALDOS_CO)'}</td>
-  </tr>
+  ${!tg?`<tr class="data-row"><td style="color:var(--muted);font-size:.75rem;padding:.6rem 1.2rem" colspan="${nc}">&#9888;&#xFE0F; Sin datos contables (cuentas 52*/53*/54*). Capturar movimientos en Microsip Contabilidad.</td></tr>`:''}
   <tr class="subtotal-row">
-    <td>▶ Utilidad de operación (Bruta - OPEX)</td>
-    ${mesesOrd.map(m=>{
-      if(!hasCosto)return '<td style="color:var(--muted)">—</td>';
-      const ub=+m.UTILIDAD_BRUTA||0;
-      const op=tg?sumGastoKeys(m,_GAS_OPEX):0;
-      const uop=ub-op;
-      const col=uop>=0?'var(--green)':'var(--red)';
-      return `<td style="color:${col}">${fmtM(uop)}</td>`;
-    }).join('')}
-    <td style="color:${hasCosto&&((+tot.UTILIDAD_BRUTA||0)-(tg?sumGastoKeys(tot,_GAS_OPEX):0))>=0?'var(--green)':'var(--red)'}">${hasCosto?fmtM((+tot.UTILIDAD_BRUTA||0)-(tg?sumGastoKeys(tot,_GAS_OPEX):0)):'—'}</td>
+    <td>&#9654; Utilidad de Operaci&#243;n</td>
+    ${mesesOrd.map(m=>{const ub=hasCosto?(+m.UTILIDAD_BRUTA||0):(+m.VENTAS_NETAS||0);const op=tg?sumGastoKeys(m,_GAS_OPEX):0;const uop=ub-op;return`<td style="color:${uop>=0?'var(--green)':'var(--red)'}">${fmtNeg(uop)}</td>`;}).join('')}
+    <td style="color:${utilOpTot>=0?'var(--green)':'var(--red)'}">${fmtNeg(utilOpTot)}</td>
   </tr>
 
-  <tr class="pnl-section-header" data-section="cobros"><td colspan="${mesesOrd.length+2}">COBROS Y LIQUIDEZ</td></tr>
+  <tr class="pnl-section-header" data-section="partidas"><td colspan="${nc}">PARTIDAS EXTRAORDINARIAS</td></tr>
+  ${rowGastoBucket('CO_B1','','Gastos financieros')}
+  ${rowGastoBucket('CO_C1','D','Otros gastos')}
+
+  <tr class="pnl-section-header" data-section="cobros"><td colspan="${nc}">COBROS Y LIQUIDEZ</td></tr>
   <tr class="data-row">
     <td>Cobros Recibidos</td>
     ${mesesOrd.map(m=>`<td style="color:var(--purple)">${fmtM(+m.COBROS||0)}</td>`).join('')}
@@ -1989,8 +1938,8 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   if(pnlFootEl)pnlFootEl.innerHTML=`
   <tr class="total-final">
     <td>${isYtdView?'UTILIDAD ANTES DE IMPUESTOS ACUMULADA':'UTILIDAD ANTES DE IMPUESTOS (PERIODO)'}</td>
-    ${mesesOrd.map(m=>`<td style="color:${uaiForMes(m)>=0?'var(--green)':'var(--red)'}">${fmtM(uaiForMes(m))}</td>`).join('')}
-    <td style="color:${uaiTotal>=0?'var(--green)':'var(--red)'}">${fmtM(uaiTotal)}</td>
+    ${mesesOrd.map(m=>`<td style="color:${uaiForMes(m)>=0?'var(--green)':'var(--red)'}">${fmtNeg(uaiForMes(m))}</td>`).join('')}
+    <td style="color:${uaiTotal>=0?'var(--green)':'var(--red)'}">${fmtNeg(uaiTotal)}</td>
   </tr>`;
 }
 
