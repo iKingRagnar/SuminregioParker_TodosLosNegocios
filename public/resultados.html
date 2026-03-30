@@ -495,7 +495,7 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
     </div>
     <div class="card-body">
       <div class="bg-classic">
-        <h4>Estructura base (primero) · estilo estado financiero</h4>
+        <h4>Estructura contable · Microsip</h4>
         <div class="bg-classic-grid" id="bgClassic"><div style="color:var(--muted);font-size:.68rem">Cargando estructura de activo/pasivo/capital...</div></div>
       </div>
       <div class="bg-grid">
@@ -553,7 +553,7 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
       </div>
       <div class="bg-cols">
         <div class="bg-box"><h4>Gastos de operación</h4><div class="bg-list" id="srGastosOp"><div class="bg-row"><span class="n">Cargando...</span><span class="v">—</span></div></div></div>
-        <div class="bg-box"><h4>Partidas extraordinarias</h4><div class="bg-list" id="srExtra"><div class="bg-row"><span class="n">Cargando...</span><span class="v">—</span></div></div></div>
+        <div class="bg-box"><h4>Gastos financieros y otros</h4><div class="bg-list" id="srExtra"><div class="bg-row"><span class="n">Cargando...</span><span class="v">—</span></div></div></div>
         <div class="bg-box"><h4>Resumen</h4><div class="bg-list" id="srResumen"><div class="bg-row"><span class="n">Cargando...</span><span class="v">—</span></div></div></div>
       </div>
     </div>
@@ -1844,7 +1844,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     <td style="color:var(--blue)">${fmtM(+tot.VENTAS_NETAS||0)}</td>
   </tr>
 
-  <tr class="pnl-section-header" data-section="costo"><td colspan="${nc}">COSTO DE VENTAS</td></tr>
+  <tr class="pnl-section-header" data-section="costo"><td colspan="${nc}">COSTO DE LOS BIENES VENDIDOS</td></tr>
   <tr class="data-row">
     <td>Costo de Ventas</td>
     ${mesesOrd.map(m=>`<td style="color:var(--orange)">${hasCosto?fmtM(+m.COSTO_VENTAS||0):'—'}</td>`).join('')}
@@ -1856,7 +1856,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     <td style="color:${mgTotCol}">${hasCosto?fmtM(+tot.UTILIDAD_BRUTA||0):fmtM(+tot.VENTAS_NETAS||0)}</td>
   </tr>
 
-  <tr class="pnl-section-header" data-section="gastos"><td colspan="${nc}">GASTOS OPERATIVOS</td></tr>
+  <tr class="pnl-section-header" data-section="gastos"><td colspan="${nc}">GASTOS DE OPERACI&#211;N</td></tr>
   ${rowGastoBucket('CO_A1','A')}
   ${rowGastoBucket('CO_A2','B')}
   ${rowGastoBucket('CO_A3','C')}
@@ -1867,7 +1867,6 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     <td style="color:${utilOpTot>=0?'var(--green)':'var(--red)'}">${fmtNeg(utilOpTot)}</td>
   </tr>
 
-  <tr class="pnl-section-header" data-section="partidas"><td colspan="${nc}">PARTIDAS EXTRAORDINARIAS</td></tr>
   ${rowGastoBucket('CO_B1','','Gastos financieros')}
   ${rowGastoBucket('CO_C1','D','Otros gastos')}
 
