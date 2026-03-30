@@ -782,6 +782,17 @@ function fdbBasenameIndex(p){
   const i=s.lastIndexOf('/');
   return i>=0?s.slice(i+1):s;
 }
+function isExcludedBizChip(e){
+  const base=fdbBasenameIndex(e&&e.database).toLowerCase();
+  const norm=s=>String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  const pool=norm([e&&e.id,e&&e.label,base,e&&e.database].join(' '));
+  if(pool.includes('hamer'))return true;
+  if(base==='suminregio.fdb')return true;
+  if(String(e&&e.id).toLowerCase()==='suminregio'&&!pool.includes('parker'))return true;
+  if(/suminregio\s*especial|suminregio_especial/.test(pool))return true;
+  if(base.includes('especial')&&base.includes('suminregio'))return true;
+  return false;
+}
 async function initBizBar(){
   indexDbList=await fwt(API+'/api/universe/databases',[]);
   if(!Array.isArray(indexDbList))indexDbList=[];
@@ -795,6 +806,7 @@ async function initBizBar(){
         return terms.some(t=>pool.includes(t));
       });
     }
+    indexDbList=indexDbList.filter(e=>!isExcludedBizChip(e));
   }catch(_){}
   const bar=document.getElementById('bizContextBar');
   const chips=document.getElementById('bizChips');

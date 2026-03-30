@@ -248,7 +248,16 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
 .bg-classic td.num{text-align:right;font-family:'DM Mono',monospace;color:var(--text)}
 .bg-classic td.pct{text-align:right;font-family:'DM Mono',monospace;color:var(--muted);width:72px}
 .bg-classic tr.sec td{font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding-top:.52rem;padding-bottom:.25rem;border-bottom:1px solid var(--border)}
-.bg-classic tr.total td{border-top:1px solid var(--border2);border-bottom:none;font-weight:700;color:var(--text)}
+.bg-classic tbody tr:nth-child(even):not(.total):not(.sec) td{background:rgba(255,255,255,.04)}
+.bg-classic tr.total td{border-top:1px solid var(--border2);border-bottom:none;font-weight:700;color:var(--text);background:rgba(30,46,66,.65)}
+.bg-list.grid-lines .bg-row{display:grid;grid-template-columns:1.1fr 1fr auto;gap:.35rem .5rem;padding:.32rem .2rem;border-bottom:1px dashed var(--border);align-items:baseline}
+.bg-list.grid-lines .bg-row .n{font-size:.62rem}
+.bg-list.grid-lines .bg-row .v{font-family:'DM Mono',monospace;text-align:right}
+.bg-list.sr-lines .bg-row{display:grid;grid-template-columns:1fr auto;gap:.35rem .5rem;padding:.32rem .2rem;border-bottom:1px dashed var(--border);align-items:baseline}
+.bg-list.sr-lines .bg-row .v{font-family:'DM Mono',monospace;text-align:right}
+.sr-acct{font-size:.58rem}
+details.sr-gastos-blk{margin-top:.35rem}
+details.sr-gastos-blk>summary{cursor:pointer;font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted);list-style-position:outside;user-select:none}
 .bg-ratios{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.7rem;margin-bottom:.9rem}
 @media(max-width:1100px){.bg-ratios{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .bg-ratio{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:.55rem .7rem}
@@ -553,8 +562,8 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
       </div>
       <div class="bg-cols">
         <div class="bg-box"><h4>Gastos de operación</h4><div class="bg-list" id="srGastosOp"><div class="bg-row"><span class="n">Cargando...</span><span class="v">—</span></div></div></div>
-        <div class="bg-box"><h4>Gastos financieros y otros</h4><div class="bg-list" id="srExtra"><div class="bg-row"><span class="n">Cargando...</span><span class="v">—</span></div></div></div>
-        <div class="bg-box"><h4>Resumen</h4><div class="bg-list" id="srResumen"><div class="bg-row"><span class="n">Cargando...</span><span class="v">—</span></div></div></div>
+        <div class="bg-box"><h4>Partidas extraordinarias</h4><div class="bg-list" id="srExtra"><div class="bg-row"><span class="n">Cargando...</span><span class="v">—</span></div></div><div id="srCuentasDetWrap"></div></div>
+        <div class="bg-box"><h4>Puente a utilidad antes de impuestos</h4><div class="bg-list" id="srResumen"><div class="bg-row"><span class="n">Cargando...</span><span class="v">—</span></div></div></div>
       </div>
     </div>
   </div>
@@ -630,6 +639,7 @@ setInterval(()=>{const n=new Date();document.getElementById('reloj').textContent
 
 // ── Formateo ───────────────────────────────────────────────────────────────────
 const fmtM=v=>{if(v===null||v===undefined||isNaN(+v))return'—';v=+v;return'$'+v.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2})};
+const fmtMNeg=v=>{if(v===null||v===undefined||isNaN(+v))return'—';const n=+v;const s='$'+Math.abs(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});return n<0?'('+s+')':s};
 const fmtPct=v=>isNaN(+v)?'—':(+v).toFixed(1)+'%';
 function escHtml(s){
   return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
@@ -767,21 +777,22 @@ async function loadBalanceGeneral(){
     const t=(bg&&bg.totales)||{};
     const d=(bg&&bg.detalle)||{};
     const cierre=(bg&&bg.cierre)||{};
-    document.getElementById('bgActivo').textContent=fmtM(+t.ACTIVO_TOTAL||0);
-    document.getElementById('bgPasivo').textContent=fmtM(+t.PASIVO_TOTAL||0);
-    document.getElementById('bgCapital').textContent=fmtM(+t.CAPITAL_TOTAL||0);
+    document.getElementById('bgActivo').textContent=fmtMNeg(+t.ACTIVO_TOTAL||0);
+    document.getElementById('bgPasivo').textContent=fmtMNeg(+t.PASIVO_TOTAL||0);
+    document.getElementById('bgCapital').textContent=fmtMNeg(+t.CAPITAL_TOTAL||0);
     const diff=+t.DIFERENCIA_BALANCE||0;
     const diffEl=document.getElementById('bgDiff');
     if(diffEl){
-      diffEl.textContent=fmtM(diff);
+      diffEl.textContent=fmtMNeg(diff);
       // Regla contable: Activo = Pasivo + Capital; cualquier diferencia material es crítica.
       diffEl.style.color = Math.abs(diff)<=1 ? 'var(--green)' : 'var(--red)';
     }
     if(badge) badge.textContent=`Cierre ${String(cierre.MES||'--').padStart(2,'0')}/${cierre.ANIO||'----'}`;
     const renderList=(id,list)=>{
       const el=document.getElementById(id); if(!el) return;
+      el.className='bg-list grid-lines';
       const arr=(Array.isArray(list)?list:[]).slice(0,8);
-      el.innerHTML=arr.length?arr.map(r=>`<div class="bg-row"><span class="n">${(r.CUENTA_PT||'')+' '+(r.NOMBRE||'')}</span><span class="v">${fmtM(+r.SALDO||0)}</span></div>`).join(''):'<div class="bg-row"><span class="n">Sin datos</span><span class="v">—</span></div>';
+      el.innerHTML=arr.length?arr.map(r=>`<div class="bg-row"><span class="n" style="font-family:'DM Mono',monospace;color:var(--yellow-ink)">${escHtml(r.CUENTA_PT||'')}</span><span class="n">${escHtml(r.NOMBRE||'')}</span><span class="v">${fmtMNeg(+r.SALDO||0)}</span></div>`).join(''):'<div class="bg-row"><span class="n">Sin datos</span><span class="n"></span><span class="v">—</span></div>';
     };
     const renderClassicBalance = () => {
       const wrap = document.getElementById('bgClassic');
@@ -931,7 +942,9 @@ async function loadEstadoSrContable(mesesScope, totScope){
   const listOp=document.getElementById('srGastosOp');
   const listEx=document.getElementById('srExtra');
   const listRs=document.getElementById('srResumen');
+  const cuWrap=document.getElementById('srCuentasDetWrap');
   const scopedMeses = Array.isArray(mesesScope) ? mesesScope : [];
+  const srRow2=(label,val,useNeg)=>`<div class="bg-row"><span class="n">${label}</span><span class="v">${useNeg?fmtMNeg(val):fmtM(val)}</span></div>`;
   if(scopedMeses.length){
     const ord=sortMesesByPeriodo(scopedMeses);
     const ssum=(k)=>ord.reduce((s,m)=>s+(+m[k]||0),0);
@@ -944,35 +957,42 @@ async function loadEstadoSrContable(mesesScope, totScope){
     const tg=gv+go+ga;
     const og=ssum('CO_C1');
     const gf=ssum('CO_B1');
-    const uop=bruta-tg;
-    const uai=uop-og-gf;
+    const uai=bruta-tg-og-gf;
     const p1=ord[0], p2=ord[ord.length-1];
+    if(cuWrap) cuWrap.innerHTML='';
     document.getElementById('srVentas').textContent=fmtM(ventas);
     document.getElementById('srCosto').textContent=fmtM(costo);
     document.getElementById('srBruta').textContent=fmtM(bruta);
-    document.getElementById('srUai').textContent=fmtM(uai);
+    const srBrutaEl0=document.getElementById('srBruta');
+    if(srBrutaEl0) srBrutaEl0.style.color=bruta>=0?'var(--green)':'var(--red)';
+    document.getElementById('srUai').textContent=fmtMNeg(uai);
     const srUaiEl=document.getElementById('srUai');
     if(srUaiEl) srUaiEl.style.color = uai < 0 ? 'var(--red)' : (uai > 0 ? 'var(--green)' : 'var(--yellow-ink)');
     if(badge) badge.textContent=`Ref ${mesLabel(p1)} a ${mesLabel(p2)}`;
     if(listOp){
-      listOp.innerHTML=[
+      listOp.className='bg-list sr-lines';
+      const opRows=[
         ['Gastos de venta',gv],
         ['Gastos de operación',go],
         ['Gastos de administración',ga],
-        ['Subtotal operativo (5201+5202+5203)',tg],
-      ].map(x=>`<div class="bg-row"><span class="n">${x[0]}</span><span class="v">${fmtM(x[1])}</span></div>`).join('');
+        ['Subtotal operativo',tg],
+      ].filter(x=>x[0]==='Subtotal operativo'||(+x[1]>=0.005));
+      listOp.innerHTML=opRows.length?opRows.map(x=>srRow2(x[0],x[1],false)).join(''):'<div class="bg-row"><span class="n">Sin partidas en periodo</span><span class="v">—</span></div>';
     }
     if(listEx){
-      listEx.innerHTML=[
+      listEx.className='bg-list sr-lines';
+      const exRows=[
         ['Otros gastos',og],
         ['Gastos financieros',gf],
-      ].map(x=>`<div class="bg-row"><span class="n">${x[0]}</span><span class="v">${fmtM(x[1])}</span></div>`).join('');
+      ].filter(x=>+x[1]>=0.005);
+      listEx.innerHTML=exRows.length?exRows.map(x=>srRow2(x[0],x[1],false)).join(''):'<div class="bg-row"><span class="n">Sin partidas extraordinarias</span><span class="v">—</span></div>';
     }
     if(listRs){
+      listRs.className='bg-list sr-lines';
       listRs.innerHTML=[
-        ['Utilidad de operación',uop],
-        ['Utilidad antes de impuestos',uai],
-      ].map(x=>`<div class="bg-row"><span class="n">${x[0]}</span><span class="v">${fmtM(x[1])}</span></div>`).join('');
+        ['Suma partidas extraordinarias',og+gf],
+        ['Utilidad antes de impuestos (periodo)',uai],
+      ].map(x=>srRow2(x[0],x[1],x[0].indexOf('Utilidad antes')===0)).join('');
     }
 
     return;
@@ -990,35 +1010,51 @@ async function loadEstadoSrContable(mesesScope, totScope){
     }
     const s=(data&&data.estado)||{};
     const p=(data&&data.periodo)||{};
+    const uaiApi=+s.utilidad_antes_impuestos||0;
+    const brutaApi=+s.utilidad_bruta||0;
+    const ogApi=+s.otros_gastos||0;
+    const gfApi=+s.gastos_financieros||0;
     document.getElementById('srVentas').textContent=fmtM(+s.ventas_netas||0);
     document.getElementById('srCosto').textContent=fmtM(+s.costo_ventas||0);
-    document.getElementById('srBruta').textContent=fmtM(+s.utilidad_bruta||0);
-    document.getElementById('srUai').textContent=fmtM(+s.utilidad_antes_impuestos||0);
+    document.getElementById('srBruta').textContent=fmtM(brutaApi);
+    const srBrutaFb=document.getElementById('srBruta');
+    if(srBrutaFb) srBrutaFb.style.color=brutaApi>=0?'var(--green)':'var(--red)';
+    document.getElementById('srUai').textContent=fmtMNeg(uaiApi);
     const srUaiElFb=document.getElementById('srUai');
     if(srUaiElFb){
-      const u=+s.utilidad_antes_impuestos||0;
-      srUaiElFb.style.color = u < 0 ? 'var(--red)' : (u > 0 ? 'var(--green)' : 'var(--yellow-ink)');
+      srUaiElFb.style.color = uaiApi < 0 ? 'var(--red)' : (uaiApi > 0 ? 'var(--green)' : 'var(--yellow-ink)');
     }
     if(badge) badge.textContent=`Ref ${String(p.MES||'--').padStart(2,'0')}/${p.ANIO||'----'}`;
     if(listOp){
-      listOp.innerHTML=[
+      listOp.className='bg-list sr-lines';
+      const opRows=[
         ['Gastos de venta',+s.gastos_venta||0],
         ['Gastos de operación',+s.gastos_operacion||0],
         ['Gastos de administración',+s.gastos_administracion||0],
-        ['Subtotal operativo (5201+5202+5203)',+s.total_gastos_operativos||0],
-      ].map(x=>`<div class="bg-row"><span class="n">${x[0]}</span><span class="v">${fmtM(x[1])}</span></div>`).join('');
+        ['Subtotal operativo',+s.total_gastos_operativos||0],
+      ].filter(x=>x[0]==='Subtotal operativo'||(+x[1]>=0.005));
+      listOp.innerHTML=opRows.length?opRows.map(x=>srRow2(x[0],x[1],false)).join(''):'<div class="bg-row"><span class="n">Sin partidas en periodo</span><span class="v">—</span></div>';
     }
     if(listEx){
-      listEx.innerHTML=[
-        ['Otros gastos',+s.otros_gastos||0],
-        ['Gastos financieros',+s.gastos_financieros||0],
-      ].map(x=>`<div class="bg-row"><span class="n">${x[0]}</span><span class="v">${fmtM(x[1])}</span></div>`).join('');
+      listEx.className='bg-list sr-lines';
+      const exRows=[
+        ['Otros gastos',ogApi],
+        ['Gastos financieros',gfApi],
+      ].filter(x=>+x[1]>=0.005);
+      listEx.innerHTML=exRows.length?exRows.map(x=>srRow2(x[0],x[1],false)).join(''):'<div class="bg-row"><span class="n">Sin partidas extraordinarias</span><span class="v">—</span></div>';
     }
     if(listRs){
+      listRs.className='bg-list sr-lines';
+      const extSum=ogApi+gfApi;
       listRs.innerHTML=[
-        ['Utilidad de operación',+s.utilidad_operacion||0],
-        ['Utilidad antes de impuestos',+s.utilidad_antes_impuestos||0],
-      ].map(x=>`<div class="bg-row"><span class="n">${x[0]}</span><span class="v">${fmtM(x[1])}</span></div>`).join('');
+        ['Suma partidas extraordinarias',extSum],
+        ['Utilidad antes de impuestos (periodo)',uaiApi],
+      ].map(x=>srRow2(x[0],x[1],x[0].indexOf('Utilidad antes')===0)).join('');
+    }
+    if(cuWrap){
+      const cuentas=Array.isArray(data.cuentas_muestra)?data.cuentas_muestra:[];
+      const lines=cuentas.filter(r=>(+r.IMP||0)>0.005).slice(0,40).map(r=>`<div class="bg-row"><span class="n"><span style="font-family:'DM Mono',monospace;color:var(--yellow-ink)">${escHtml(r.CUENTA_PT||'')}</span> · ${escHtml(r.NOMBRE||'')}</span><span class="v">${fmtM(+r.IMP||0)}</span></div>`).join('');
+      cuWrap.innerHTML=lines?`<details class="sr-gastos-blk"><summary>Detalle por cuenta · muestra SR</summary><div class="bg-list sr-lines" style="margin-top:.4rem">${lines}</div></details>`:'';
     }
 
   }catch(_){
