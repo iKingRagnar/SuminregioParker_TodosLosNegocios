@@ -682,21 +682,25 @@ function setupMonthPicker(meses){
   const list=document.getElementById('monthPickerList');
   const dd=document.getElementById('monthDd');
   const ddBtn=document.getElementById('monthDdBtn');
+  window._pnlMonthPickerKeys=keys;
   if(list){
     list.innerHTML=arr.map(m=>{
       const k=monthKey(m);
       const checked=monthKeysSelected.has(k)?'checked':'';
       return `<label class="month-chip"><input type="checkbox" data-mk="${k}" ${checked}/> ${mesLabel(m)}</label>`;
     }).join('');
-    list.querySelectorAll('input[data-mk]').forEach(i=>{
-      i.addEventListener('change',()=>{
+    if(!list._pnlMonthChangeDelegated){
+      list._pnlMonthChangeDelegated=true;
+      list.addEventListener('change',(ev)=>{
+        const i=ev.target;
+        if(!i||i.tagName!=='INPUT'||!i.getAttribute('data-mk'))return;
         const k=i.getAttribute('data-mk');
-        if(!k) return;
-        if(i.checked) monthKeysSelected.add(k); else monthKeysSelected.delete(k);
-        if(!monthKeysSelected.size && keys[0]) monthKeysSelected.add(keys[0]);
+        if(i.checked)monthKeysSelected.add(k);else monthKeysSelected.delete(k);
+        const kk=window._pnlMonthPickerKeys||[];
+        if(!monthKeysSelected.size&&kk[0])monthKeysSelected.add(kk[0]);
         loadData();
       });
-    });
+    }
   }
   if(dd && ddBtn){
     ddBtn.textContent = monthKeysSelected.size===keys.length
@@ -1184,6 +1188,11 @@ function clearResultadosUI(){
   el('kpiCosto');el('kpiCostoSub');
   el('kpiCobros');el('kpiCobrosSub');el('kpiCobrosEfic');
   const insightEl=document.getElementById('insightText'); if(insightEl)insightEl.textContent='Cargando...';
+  const headRow=document.getElementById('pnlHeadRow');
+  if(headRow){
+    headRow.innerHTML='<th style="width:22%">Concepto / Mes</th><th id="thMeses" colspan="99">— cargando —</th>';
+  }
+  const foot=document.getElementById('pnlFoot'); if(foot)foot.innerHTML='';
   const body=document.getElementById('pnlBody'); if(body)body.innerHTML='<tr><td colspan="99" style="text-align:center;padding:1rem;color:var(--muted)">Cargando...</td></tr>';
 }
 
@@ -1203,7 +1212,7 @@ async function loadData(){
     return o.replace(/\/+$/,'');
   }
   async function tryFetch(u, ms){
-    ms = ms || 60000;
+    ms = ms || 120000;
     const ctrl = new AbortController();
     const tid = setTimeout(()=>ctrl.abort(), ms);
     try {
@@ -1224,7 +1233,7 @@ async function loadData(){
 
     let uni=await tryFetch(uniUrl, 90000)||{};
     // #region agent log
-    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',hypothesisId:'H-pnl-uni',location:'resultados.html:loadData',message:'pnl-universe response',data:{empN:(uni.empresas&&uni.empresas.length)||0,hasCons:!!uni.consolidado},timestamp:Date.now()})}).catch(()=>{});
+    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',location:'resultados.html:loadData:uni',message:'pnl-universe client',data:{empLen:(uni.empresas||[]).length,uniUrlTail:uniUrl.slice(-100)},timestamp:Date.now(),hypothesisId:'A'})}).catch(()=>{});
     // #endregion
     const base=getBase();
     if((!uni.empresas||!uni.empresas.length)&&base.indexOf(':7000')===-1&&window.location.protocol!=='file:'){
@@ -1329,7 +1338,10 @@ async function loadData(){
       ? buildPnlApiUrl('/api/resultados/pnl',explicitParts.join('&'),{omitFilters:true})+'&_='+Date.now()
       : buildPnlApiUrl('/api/resultados/pnl','meses='+currentMeses)+'&_='+Date.now();
 
-    data=await tryFetch(url)||{};
+    data=await tryFetch(url, 120000)||{};
+    // #region agent log
+    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',location:'resultados.html:loadData:pnl',message:'pnl main client',data:{mesesLen:(data.meses||[]).length,urlTail:url.slice(-120)},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     if((!data.meses||!data.meses.length)&&base.indexOf(':7000')===-1&&window.location.protocol!=='file:'){
       const altUrl=url.replace(/^(https?:\/\/[^\/]+)/,(window.location.origin||'').replace(/:\d+$/,'')+':7000');
       data=await tryFetch(altUrl)||data;
@@ -1389,7 +1401,7 @@ async function loadData(){
     if(shouldExpandYtd){
       const ytdUrl=buildPnlApiUrl('/api/resultados/pnl',`anio=${anioRef}`,{omitFilters:true})+'&_='+Date.now();
 
-      const ytdData=await tryFetch(ytdUrl,25000)||{};
+      const ytdData=await tryFetch(ytdUrl,90000)||{};
       const ytdMesesRaw=Array.isArray(ytdData.meses)?ytdData.meses:tablaMeses;
       tablaMeses=completeYtdMeses(ytdMesesRaw,anioRef,mesFinYtd);
       const ytdTot = (ytdData && ytdData.totales) ? ytdData.totales : rebuildTotalesFromMeses(tablaMeses);
@@ -1400,11 +1412,23 @@ async function loadData(){
     tablaMeses=sortMesesByPeriodo(tablaMeses);
     const hasCosto=(+tot.COSTO_VENTAS>0)||(data.tiene_costo===true);
     try{ renderKPIs(tot,meses,hasCosto); }catch(e){ console.warn('renderKPIs',e); }
-    const mesesVista = setupMonthPicker(tablaMeses);
+    let mesesVista;
+    try {
+      mesesVista = setupMonthPicker(tablaMeses);
+    } catch (ePicker) {
+      // #region agent log
+      fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',location:'resultados.html:loadData:monthPicker',message:'setupMonthPicker threw',data:{err:String(ePicker&&ePicker.message||ePicker)},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
+      mesesVista = sortMesesByPeriodo(tablaMeses.slice());
+    }
     const totVista = rebuildTotalesFromMeses(mesesVista);
     try{ renderInsight(totVista,mesesVista,hasCosto); }catch(e){ console.warn('renderInsight',e); }
     try{ renderCharts(mesesVista,hasCosto); }catch(e){ console.warn('renderCharts',e); }
-    try{ renderTabla(mesesVista,totVista,hasCosto,tablaTieneGastos); }catch(e){ console.warn('renderTabla',e); }
+    try{ renderTabla(mesesVista,totVista,hasCosto,tablaTieneGastos); }catch(e){
+      console.warn('renderTabla',e);
+      const pe=document.getElementById('pnlBody');
+      if(pe) pe.innerHTML='<tr><td colspan="99" style="text-align:center;padding:1.25rem;color:var(--red);font-size:.8rem">No se pudo dibujar la tabla P&amp;L. '+String(e&&e.message||e)+'</td></tr>';
+    }
     const costNotice=document.getElementById('costNotice');
     if(costNotice)costNotice.style.display=hasCosto?'none':'block';
     const gastosNotice=document.getElementById('gastosNotice');
@@ -1423,6 +1447,9 @@ async function loadData(){
       }
     }
     // Hero / subtítulo: actualizar aquí para no quedar en "Cargando..." si Balance/Estado SR tardan o fallan.
+    // #region agent log
+    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',location:'resultados.html:loadData:beforeHero',message:'hero update',data:{mesesLen:meses.length,ventas:+tot.VENTAS_NETAS||0},timestamp:Date.now(),hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
     if(heroEl)heroEl.textContent=meses.length||tot.VENTAS_NETAS
       ?((multi?(okEmp.find(e=>e.id===selectedBizId)||{}).label+' · ':'')+currentMeses+' meses · '+fmtM(+tot.VENTAS_NETAS||0)+' ventas netas · '+(hasCosto?fmtPct(+tot.MARGEN_BRUTO_PCT||0)+' margen bruto':'Costo no en BD')+' · '+fmtM(+tot.COBROS||0)+' cobrado')
       :'Sin datos. ¿Servidor Node en marcha? Probar: '+url;
@@ -1433,10 +1460,13 @@ async function loadData(){
       ]);
     }catch(_){}
   }catch(e){
+    // #region agent log
+    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',location:'resultados.html:loadData:catch',message:'loadData error',data:{err:String(e&&e.message||e)},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
     applyCoLabelsDynamic(null);
     if(heroEl)heroEl.textContent='Error: '+e.message+'. Revisar consola (F12).';
     renderKPIs({},[],false);
-    renderTabla([],{},false);
+    try{ renderTabla([],{},false,false); }catch(_){ const pe=document.getElementById('pnlBody'); if(pe) pe.innerHTML='<tr><td colspan="99" style="text-align:center;padding:1rem;color:var(--red)">Error al cargar P&amp;L</td></tr>'; }
   }
 }
 

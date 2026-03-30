@@ -65,6 +65,23 @@ const path     = require('path');
   } catch (_) { /* ignore */ }
 })();
 
+// #region agent log
+const _DEBUG_LOG_PNL = path.join(__dirname, 'debug-5e0522.log');
+function _dbgPnl(location, message, data, hypothesisId) {
+  try {
+    fs.appendFileSync(_DEBUG_LOG_PNL, JSON.stringify({
+      sessionId: '5e0522',
+      timestamp: Date.now(),
+      location,
+      message,
+      data: data || {},
+      hypothesisId: hypothesisId || 'A',
+      runId: process.env.DEBUG_RUN_ID || 'pre-fix'
+    }) + '\n');
+  } catch (_) { /* ignore */ }
+}
+// #endregion
+
 const app  = express();
 const PORT = process.env.PORT || 7000;
 const BUILD_FINGERPRINT = 'cxc-dedupe-docto-maxdias-20250326';
@@ -3501,7 +3518,7 @@ get('/api/clientes/resumen-riesgo', async (req) => {
 // ═══════════════════════════════════════════════════════════
 
 async function resultadosPnlCore(req, dbOpts) {
-  const q = (sql, params, timeoutMs = 12000) => query(sql, params, timeoutMs, dbOpts);
+  const q = (sql, params, timeoutMs = 28000) => query(sql, params, timeoutMs, dbOpts);
   const reDate = /^\d{4}-\d{2}-\d{2}$/;
   let desdeStr, hastaStr;
   const { desde, hasta, anio, mes } = req.query;
@@ -4373,22 +4390,30 @@ async function resultadosPnlCore(req, dbOpts) {
 }
 
 get('/api/resultados/pnl', async (req) => {
+  const t0 = Date.now();
+  _dbgPnl('server_corregido.js:/api/resultados/pnl', 'enter', { db: req.query.db, meses: req.query.meses, anio: req.query.anio }, 'B');
   let dbId = req.query.db ? String(req.query.db).trim() : '';
   if (dbId.toLowerCase() === 'default') dbId = '';
+  let out;
   if (dbId) {
     const idLc = dbId.toLowerCase();
     const hit = DATABASE_REGISTRY.find(d => String(d.id).toLowerCase() === idLc);
     if (!hit) {
       console.warn('[resultados/pnl] db desconocido, usando default:', dbId);
-      return resultadosPnlCore(req, null);
+      out = await resultadosPnlCore(req, null);
+    } else {
+      out = await resultadosPnlCore(req, hit.options);
     }
-    return resultadosPnlCore(req, hit.options);
+  } else {
+    out = await resultadosPnlCore(req, null);
   }
-  return resultadosPnlCore(req, null);
+  _dbgPnl('server_corregido.js:/api/resultados/pnl', 'exit', { ms: Date.now() - t0, mesesLen: (out.meses || []).length }, 'B');
+  return out;
 });
 
 // Resumen P&L por cada empresa del registro (sin devolver series completas; ahorra ancho de banda).
 get('/api/resultados/pnl-universe', async (req) => {
+  const tUni = Date.now();
   const conc = Math.min(Math.max(parseInt(req.query.concurrency, 10) || 2, 1), 4);
   let registry = DATABASE_REGISTRY;
   const qdb = req.query.db ? String(req.query.db).trim().toLowerCase() : '';
@@ -4405,11 +4430,7 @@ get('/api/resultados/pnl-universe', async (req) => {
   } else if (!qdb && DATABASE_REGISTRY.length === 1) {
     registry = [DATABASE_REGISTRY[0]];
   }
-  // #region agent log
-  try {
-    fs.appendFileSync(path.join(__dirname, 'debug-5e0522.log'), JSON.stringify({ sessionId: '5e0522', hypothesisId: 'H-pnl-uni', location: 'server_corregido.js:pnl-universe', message: 'registry scope', data: { qdb: qdb || null, regLen: registry.length, totalReg: DATABASE_REGISTRY.length }, timestamp: Date.now() }) + '\n');
-  } catch (_) {}
-  // #endregion
+  _dbgPnl('server_corregido.js:/api/resultados/pnl-universe', 'registry', { qdb, regLen: registry.length, ids: registry.map(e => e.id) }, 'A');
   const rows = await mapPoolLimit(registry, conc, async (entry) => {
     try {
       const { meses, totales, tiene_costo, tiene_gastos_co } = await resultadosPnlCore(req, entry.options);
@@ -4455,6 +4476,7 @@ get('/api/resultados/pnl-universe', async (req) => {
   cons.MARGEN_BRUTO_PCT = cons.VENTAS_NETAS > 0
     ? Math.round((cons.UTILIDAD_BRUTA / cons.VENTAS_NETAS) * 1000) / 10 : 0;
   cons.tiene_costo = cons.COSTO_VENTAS > 0;
+  _dbgPnl('server_corregido.js:/api/resultados/pnl-universe', 'exit', { ms: Date.now() - tUni, nRows: rows.length, ok: rows.filter(r => r.ok).length }, 'A');
   return { generatedAt: new Date().toISOString(), concurrency: conc, empresas: rows, consolidado: cons };
 });
 
