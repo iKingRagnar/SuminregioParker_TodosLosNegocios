@@ -80,7 +80,7 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 
 /* KPI grid */
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:.9rem;margin-bottom:1.5rem}
-@media(max-width:1400px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:1400px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:700px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
 .kpi{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:1.2rem 1.3rem;position:relative;overflow:hidden;transition:all .3s}
 .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2.5px;background:linear-gradient(90deg,transparent,var(--kc) 40%,transparent)}
@@ -366,12 +366,6 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
       <div class="kpi-sub" id="kpiUtilidadSub">sobre ventas netas</div>
       <div class="kpi-trend" id="kpiUtilidadTrend">--</div>
     </div>
-    <div class="kpi yellow">
-      <div class="kpi-lbl">Margen Bruto %</div>
-      <div class="kpi-val" id="kpiMargen">--</div>
-      <div class="kpi-sub" id="kpiMargenSub">meta ≥ 30%</div>
-      <div class="kpi-trend" id="kpiMargenTrend">--</div>
-    </div>
     <div class="kpi orange">
       <div class="kpi-lbl">Costo de Ventas</div>
       <div class="kpi-val" id="kpiCosto">--</div>
@@ -412,7 +406,7 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
   </div>
 
   <!-- Charts grid (vista por empresa) -->
-  <div id="chartsNormal" class="grid-2" style="margin-bottom:1rem">
+  <div id="chartsNormal" class="grid-2" style="margin-bottom:1rem;grid-template-columns:1fr">
     <div class="card">
       <div class="card-head">
         <div class="card-title">
@@ -423,18 +417,6 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
       </div>
       <div class="card-body">
         <div class="chart-h220"><canvas id="chartVentasCosto"></canvas></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-head">
-        <div class="card-title">
-          <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-          Margen Bruto % · Tendencia
-        </div>
-        <div class="card-badge" id="chartBadge2">—</div>
-      </div>
-      <div class="card-body">
-        <div class="chart-h220"><canvas id="chartMargen"></canvas></div>
       </div>
     </div>
   </div>
@@ -583,7 +565,7 @@ html[data-theme=light] .chart-overlay-empty{background:rgba(255,255,255,.9);colo
 <script>
 const API = (window.__API_BASE != null ? String(window.__API_BASE).replace(/\/+$/, '') : (window.location.protocol === 'file:' ? 'http://localhost:7000' : (window.location.origin || '')));
 function fwt(url,fallback,ms=20000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
-let chartVC=null, chartMg=null, chartCob=null, chartEmp=null, chartGastos=null;
+let chartVC=null, chartCob=null, chartEmp=null, chartGastos=null;
 let bgGaugeChart=null, bgSparkChart=null, bgDonutChart=null;
 let currentMeses=3;
 let monthKeysSelected = new Set();
@@ -1097,7 +1079,7 @@ function renderPlScoreFromTotals(tot, hasCosto, label){
   const efic=vn>0?Math.round(cob/vn*100):0;
   const cards=[
     {l:'Ventas netas',v:fmtM(vn),s:label||'Periodo',cls:'ok'},
-    {l:'Utilidad bruta',v:fmtM(hasCosto?ub:vn),s:hasCosto?fmtPct(mg)+' margen':'Sin costo en BD',cls:hasCosto?(mg>=30?'ok':mg>=15?'warn':'bad'):'warn'},
+    {l:'Utilidad bruta',v:fmtM(hasCosto?ub:vn),s:hasCosto?'Ventas netas − costo':'Sin costo en BD',cls:hasCosto?(mg>=30?'ok':mg>=15?'warn':'bad'):'warn'},
     {l:'Costo / Cobros',v:fmtM(opx)+' / '+fmtM(cob),s:efic+'% cobro vs fact.',cls:efic>=80?'ok':efic>=50?'warn':'bad'},
     {l:'Facturas',v:String(+tot.NUM_FACTURAS||0),s:'Documentos periodo',cls:'ok'},
   ];
@@ -1187,7 +1169,6 @@ function clearResultadosUI(){
   const h=document.getElementById('heroSub'); if(h)h.textContent='Cargando...';
   el('kpiVentas');el('kpiVentasSub');el('kpiVentasTrend');
   el('kpiUtilidad');el('kpiUtilidadSub');el('kpiUtilidadTrend');
-  el('kpiMargen');el('kpiMargenSub');el('kpiMargenTrend');
   el('kpiCosto');el('kpiCostoSub');
   el('kpiCobros');el('kpiCobrosSub');el('kpiCobrosEfic');
   const insightEl=document.getElementById('insightText'); if(insightEl)insightEl.textContent='Cargando...';
@@ -1309,7 +1290,6 @@ async function loadData(){
       renderKPIs(tot,[],hasCosto);
       renderInsight(tot,[],hasCosto);
       if(chartVC){ chartVC.destroy(); chartVC=null; }
-      if(chartMg){ chartMg.destroy(); chartMg=null; }
       if(chartCob){ chartCob.destroy(); chartCob=null; }
       if(chartGastos){ chartGastos.destroy(); chartGastos=null; }
       const note=document.getElementById('pnlBody');
@@ -1446,7 +1426,7 @@ async function loadData(){
     }
     // Hero / subtítulo: actualizar aquí para no quedar en "Cargando..." si Balance/Estado SR tardan o fallan.
     if(heroEl)heroEl.textContent=meses.length||tot.VENTAS_NETAS
-      ?((multi?(okEmp.find(e=>e.id===selectedBizId)||{}).label+' · ':'')+currentMeses+' meses · '+fmtM(+tot.VENTAS_NETAS||0)+' ventas netas · '+(hasCosto?fmtPct(+tot.MARGEN_BRUTO_PCT||0)+' margen bruto':'Costo no en BD')+' · '+fmtM(+tot.COBROS||0)+' cobrado')
+      ?((multi?(okEmp.find(e=>e.id===selectedBizId)||{}).label+' · ':'')+currentMeses+' meses · '+fmtM(+tot.VENTAS_NETAS||0)+' ventas netas · '+(hasCosto?fmtM(+tot.UTILIDAD_BRUTA||0)+' util. bruta':'Costo no en BD')+' · '+fmtM(+tot.COBROS||0)+' cobrado')
       :'Sin datos. ¿Servidor Node en marcha? Probar: '+url;
     try{
       await Promise.all([
@@ -1473,15 +1453,12 @@ function renderKPIs(tot,meses,hasCosto){
 
   // Trends (last vs prev month)
   let trendVentas='<span class="trend-flat">— sin hist.</span>';
-  let trendMargen='<span class="trend-flat">— sin hist.</span>';
   let trendUtil='<span class="trend-flat">—</span>';
   if(meses.length>=2){
     const last=meses[meses.length-1];
     const prev=meses[meses.length-2];
     const pv=momPct(+last.VENTAS_NETAS||0,+prev.VENTAS_NETAS||1);
     if(pv!==null){const cls=pv>=0?'trend-up':'trend-dn';const arr=pv>=0?'▲':'▼';trendVentas=`<span class="${cls}">${arr} ${Math.abs(pv)}% vs ${mesLabel(prev)}</span>`;}
-    const pm=momPct(+last.MARGEN_BRUTO_PCT||0,+prev.MARGEN_BRUTO_PCT||1);
-    if(pm!==null&&hasCosto){const cls=pm>=0?'trend-up':'trend-dn';const arr=pm>=0?'▲':'▼';trendMargen=`<span class="${cls}">${arr} ${Math.abs(pm).toFixed(1)} pp vs ${mesLabel(prev)}</span>`;}
     const pu=momPct(+last.UTILIDAD_BRUTA||0,+prev.UTILIDAD_BRUTA||1);
     if(pu!==null&&hasCosto){const cls=pu>=0?'trend-up':'trend-dn';const arr=pu>=0?'▲':'▼';trendUtil=`<span class="${cls}">${arr} ${Math.abs(pu)}% vs ${mesLabel(prev)}</span>`;}
   }
@@ -1490,15 +1467,8 @@ function renderKPIs(tot,meses,hasCosto){
   document.getElementById('kpiVentasSub').textContent=facts+' facturas · '+currentMeses+' meses';
   document.getElementById('kpiVentasTrend').innerHTML=trendVentas;
   document.getElementById('kpiUtilidad').textContent=hasCosto?fmtM(utilidad):fmtM(ventas);
-  document.getElementById('kpiUtilidadSub').textContent=hasCosto?fmtPct(margen)+' sobre ventas':'(sin costo en BD)';
+  document.getElementById('kpiUtilidadSub').textContent=hasCosto?'Ventas netas − costo de ventas':'(sin costo en BD)';
   document.getElementById('kpiUtilidadTrend').innerHTML=trendUtil;
-  const sinDatos=ventas===0&&!hasCosto;
-  document.getElementById('kpiMargen').textContent=fmtPct(margen);
-  document.getElementById('kpiMargen').style.color=sinDatos?'var(--muted, #6A85A6)':(margen>=30?'var(--green)':margen>=15?'var(--yellow-ink)':'var(--red)');
-  document.getElementById('kpiMargenSub').innerHTML=hasCosto
-    ? `meta ≥ 30% · <span style="color:${margen>=30?'var(--green)':margen>=15?'var(--yellow-ink)':'var(--red)'}">${margen>=30?'✓ OK':margen>=15?'⚠ Revisar':'✗ Bajo'}</span>`
-    : 'Sin costo en BD · capturar en Microsip para margen real';
-  document.getElementById('kpiMargenTrend').innerHTML=trendMargen;
   document.getElementById('kpiCosto').textContent=hasCosto?fmtM(costo):'Sin datos';
   document.getElementById('kpiCostoSub').textContent=hasCosto
     ? fmtPct(ventas>0?costo/ventas*100:0)+' de ventas'
@@ -1509,7 +1479,6 @@ function renderKPIs(tot,meses,hasCosto){
   const eficColor=efic>=80?'var(--green)':efic>=50?'var(--yellow-ink)':'var(--red)';
   document.getElementById('kpiCobrosEfic').innerHTML=`<span style="color:${eficColor}">${efic>=80?'✓ Eficiencia alta':efic>=50?'⚠ Mejorar cobro':'✗ Cobro bajo'}</span>`;
   document.getElementById('chartBadge1').textContent=currentMeses+' meses';
-  document.getElementById('chartBadge2').textContent=fmtPct(margen)+' promedio';
 
   if (typeof dashboardApplySem === 'function') {
     const ring = (id, lvl) => {
@@ -1519,7 +1488,6 @@ function renderKPIs(tot,meses,hasCosto){
     };
     ring('kpiVentas', ventas > 0 ? 'info' : 'neutral');
     ring('kpiUtilidad', !hasCosto ? 'neutral' : (margen >= 30 ? 'ok' : margen >= 15 ? 'warn' : 'danger'));
-    ring('kpiMargen', !hasCosto ? 'neutral' : (margen >= 30 ? 'ok' : margen >= 15 ? 'warn' : 'danger'));
     ring('kpiCosto', hasCosto ? 'info' : 'warn');
     ring('kpiCobros', ventas <= 0 ? 'neutral' : (efic >= 80 ? 'ok' : efic >= 50 ? 'warn' : 'danger'));
   }
@@ -1549,13 +1517,8 @@ function renderInsight(tot,meses,hasCosto){
     parts.push(`Ventas del mes: <strong class="hi-blue">${fmtM(+meses[0].VENTAS_NETAS||0)}</strong>.`);
   }
 
-  // Margen
-  if(hasCosto){
-    const mgColor=margen>=30?'hi-green':margen>=15?'hi-yellow':'hi-red';
-    const mgMsg=margen>=30?'excelente — dentro del objetivo':margen>=15?'moderado — hay oportunidad de mejora':'bajo — requiere análisis de costos';
-    parts.push(`Margen bruto del periodo: <span class="${mgColor}"><strong>${fmtPct(margen)}</strong> — ${mgMsg}</span>.`);
-  }else{
-    parts.push(`<span class="hi-yellow">Sin costo en Contabilidad para este periodo.</span> Para d&#237;a, semana o mes en curso suele no haber datos; usa Mes Anterior, Este A&#241;o o A&#241;o Anterior para ver margen con costo.`);
+  if(!hasCosto){
+    parts.push(`<span class="hi-yellow">Sin costo de ventas en Contabilidad para este periodo.</span> Para d&#237;a, semana o mes en curso suele no haber datos; prueba Mes Anterior o Este A&#241;o.`);
   }
 
   // Cobros
@@ -1590,7 +1553,6 @@ function renderCharts(meses,hasCosto){
   const labels=(meses||[]).map(mesLabel);
   const ventas=(meses||[]).map(m=>+m.VENTAS_NETAS||0);
   const util=(meses||[]).map(m=>+m.UTILIDAD_BRUTA||0);
-  const margen=(meses||[]).map(m=>+m.MARGEN_BRUTO_PCT||0);
   const cobros=(meses||[]).map(m=>+m.COBROS||0);
   const ve=(meses||[]).map(m=>+m.VENTAS_VE||0);
   const pv=(meses||[]).map(m=>+m.VENTAS_PV||0);
@@ -1602,31 +1564,6 @@ function renderCharts(meses,hasCosto){
   const ds1=[{label:'Ventas Netas',data:ventas,backgroundColor:'rgba(77,166,255,.22)',borderColor:'#4DA6FF',borderWidth:1.5,borderRadius:5,type:'bar'}];
   if(hasCosto)ds1.push({label:'Utilidad Bruta',data:util,backgroundColor:'rgba(0,229,160,.35)',borderColor:'#00E5A0',borderWidth:1.5,borderRadius:5,type:'bar'});
   chartVC=new Chart(ctx1,{data:{labels,datasets:ds1},options:chartOpts(v=>fmtM(v))});
-
-  const el2=document.getElementById('chartMargen');
-  if(!el2)return;
-  const ctx2=el2.getContext('2d');
-  if(chartMg)chartMg.destroy();
-  const marginLabels = labels.length >= 2 ? labels : (labels.length === 1 ? [labels[0], 'Actual'] : ['Sin datos']);
-  const marginVals = labels.length >= 2 ? margen : (labels.length === 1 ? [margen[0], margen[0]] : [0]);
-  const yMaxMg = Math.max(40, ...marginVals.map(v => +v || 0), 30) + 10;
-  const chY=cssVar('--chart-yellow','#d97706'), chYf=cssVar('--chart-yellow-fill','rgba(217,119,6,.12)');
-  chartMg=new Chart(ctx2,{
-    type: labels.length >= 2 ? 'line' : 'bar',
-    data:{labels:marginLabels,datasets:[
-      labels.length >= 2
-        ? {label:'Margen %',data:marginVals,borderColor:chY,backgroundColor:chYf,borderWidth:2,pointRadius:4,pointBackgroundColor:chY,fill:true,tension:.38}
-        : {label:'Margen % (mes actual)',data:marginVals,backgroundColor:cssVar('--chart-yellow-fill','rgba(217,119,6,.35)'),borderColor:chY,borderWidth:1.6,borderRadius:6},
-      {type:'line',label:'Meta 30%',data:Array(marginLabels.length).fill(30),borderColor:'rgba(0,229,160,.45)',borderDash:[4,4],borderWidth:1.4,pointRadius:0,fill:false}
-    ]},
-    options:{
-      ...chartOpts(v=>v+'%'),
-      scales:{
-        x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6A85A6',font:{size:10,family:"'DM Mono'"}}},
-        y:{min:0,max:yMaxMg,grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6A85A6',font:{size:10,family:"'DM Mono'"},callback:v=>v+'%'}}
-      }
-    }
-  });
 
   const el3=document.getElementById('chartCobros');
   if(!el3)return;
@@ -1705,6 +1642,7 @@ function toggleBucketRow(hdr,bid){
 function applyPnlDrilldown(){
   const tb=document.getElementById('pnlBody');
   if(!tb) return;
+  const DEFAULT_OPEN=['ingresos','costo','gastos','partidas'];
   const rows=[...tb.querySelectorAll('tr')];
   let cur='';
   const sectionRows={};
@@ -1722,15 +1660,18 @@ function applyPnlDrilldown(){
     const header=tb.querySelector('tr.pnl-section-header[data-section="'+sec+'"] td');
     if(!header) return;
     const lbl=header.textContent;
-    header.innerHTML='<button type="button" class="pnl-drill-btn" data-sec="'+sec+'"><span class="caret">&#9654;</span><span>'+lbl+'</span></button>';
-    list.forEach(r=>{ r.style.display='none'; r.setAttribute('data-sec',sec); });
+    const startOpen=DEFAULT_OPEN.indexOf(sec)>=0;
+    header.innerHTML='<button type="button" class="pnl-drill-btn'+(startOpen?' open':'')+'" data-sec="'+sec+'"><span class="caret">&#9654;</span><span>'+lbl+'</span></button>';
+    list.forEach(r=>{
+      r.style.display=startOpen?'':'none';
+      r.setAttribute('data-sec',sec);
+    });
   });
   tb.querySelectorAll('.pnl-drill-btn').forEach(function(btn){
     btn.addEventListener('click',function(){
       const sec=btn.getAttribute('data-sec');
       const openNow=btn.classList.toggle('open');
       tb.querySelectorAll('tr.data-row[data-sec="'+sec+'"]').forEach(function(r){r.style.display=openNow?'':'none';});
-      // When section collapses, also collapse all open bucket sub-rows inside it
       if(!openNow){
         tb.querySelectorAll('tr.gasto-sub').forEach(function(r){r.style.display='none';});
         tb.querySelectorAll('tr.gasto-bucket-hdr.open').forEach(function(r){r.classList.remove('open');});
@@ -1915,11 +1856,6 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     <td>&#9654; Utilidad Bruta</td>
     ${mesesOrd.map(m=>{const u=hasCosto?(+m.UTILIDAD_BRUTA||0):(+m.VENTAS_NETAS||0);const mg=+m.MARGEN_BRUTO_PCT||0;const col=mg>=30?'var(--green)':mg>=15?'var(--yellow-ink)':'var(--red)';return`<td style="color:${col}">${fmtM(u)}</td>`;}).join('')}
     <td style="color:${mgTotCol}">${hasCosto?fmtM(+tot.UTILIDAD_BRUTA||0):fmtM(+tot.VENTAS_NETAS||0)}</td>
-  </tr>
-  <tr class="data-row">
-    <td>Margen Bruto %</td>
-    ${mesesOrd.map(m=>{const mg=+m.MARGEN_BRUTO_PCT||0;const col=mg>=30?'var(--green)':mg>=15?'var(--yellow-ink)':'var(--red)';return`<td><span style="color:${col};font-weight:600">${hasCosto?fmtPct(mg):'—'}</span></td>`;}).join('')}
-    <td><span style="color:${mgTotCol};font-weight:600">${hasCosto?fmtPct(+tot.MARGEN_BRUTO_PCT||0):'—'}</span></td>
   </tr>
 
   <tr class="pnl-section-header" data-section="gastos"><td colspan="${nc}">GASTOS OPERATIVOS</td></tr>

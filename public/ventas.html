@@ -974,15 +974,30 @@ async function loadCotizaciones() {
     // en lugar de derivar desde docs crudos (TIPO_DOCTO='C', igual que ventas usa 'F'/'V')
     const settled = await Promise.allSettled([
       fwt(buildApiUrl('/api/ventas/cotizaciones/resumen'), {}, 90000),
-      fwt(buildApiUrl('/api/ventas/cotizaciones/diarias'), [], 90000),
+      fwt(buildApiUrl('/api/ventas/cotizaciones/diarias', 'dias=35'), [], 90000),
       fwt(buildApiUrl('/api/ventas/por-vendedor/cotizaciones'), [], 90000),
       fwt(buildApiUrl('/api/ventas/resumen', 'tipo=VE'), {}, 30000),
     ]);
     const safe = (idx, fb) => (settled[idx] && settled[idx].status === 'fulfilled') ? settled[idx].value : fb;
-    const resObj  = (v => (v && typeof v === 'object' && !Array.isArray(v)) ? v : {})(safe(0, {}));
+    let resObj  = (v => (v && typeof v === 'object' && !Array.isArray(v)) ? v : {})(safe(0, {}));
     const diarias = Array.isArray(safe(1, [])) ? safe(1, []) : [];
     const vends   = Array.isArray(safe(2, [])) ? safe(2, []) : [];
     const ventasVE = (v => (v && typeof v === 'object' && !Array.isArray(v)) ? v : {})(safe(3, {}));
+    // Si resumen va en 0 (timeout/SQL) pero por-vendedor sí trae filas, reconstruir KPIs desde pv
+    if (vends.length && (+resObj.MES_ACTUAL || 0) === 0 && (+resObj.COTIZACIONES_MES || 0) === 0) {
+      const totMes = vends.reduce((s, r) => s + (+r.COTIZACIONES_MES || 0), 0);
+      const cntMes = vends.reduce((s, r) => s + (+r.NUM_COTI_MES || 0), 0);
+      const totHoy = vends.reduce((s, r) => s + (+r.COTIZACIONES_HOY || 0), 0);
+      if (totMes > 0 || cntMes > 0) {
+        resObj = {
+          ...resObj,
+          HOY: totHoy,
+          MES_ACTUAL: totMes,
+          COTIZACIONES_MES: cntMes,
+          COTIZACIONES_HOY: +resObj.COTIZACIONES_HOY || 0,
+        };
+      }
+    }
     lastCotiData = { resObj, diarias, vends, ventasVE };
     applyCotiData(resObj, diarias, vends, ventasVE);
     if (btnReintentar) btnReintentar.style.display = 'none';

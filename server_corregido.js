@@ -921,8 +921,12 @@ function cotizacionesSub(extraWhere = '') {
       d.ESTATUS,
       d.CLIENTE_ID,
       d.VENDEDOR_ID,
-      COALESCE(SUM(COALESCE(det.UNIDADES, 0) * COALESCE(det.PRECIO_UNITARIO, 0)), 0)
-        - COALESCE(MAX(d.DSCTO_IMPORTE), 0) AS IMPORTE_NETO
+      (
+        COALESCE(
+          NULLIF(COALESCE(SUM(COALESCE(det.UNIDADES, 0) * COALESCE(det.PRECIO_UNITARIO, 0)), 0), 0),
+          COALESCE(d.IMPORTE_NETO, 0)
+        ) - COALESCE(MAX(d.DSCTO_IMPORTE), 0)
+      ) AS IMPORTE_NETO
     FROM DOCTOS_VE d
     LEFT JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
     WHERE ${sqlWhereCotizacionActiva('d')}${ew}
@@ -1510,15 +1514,23 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
   const ci = sqlCotiImporteExpr('d');
   return query(`
     SELECT
-      COALESCE(v.NOMBRE, 'Vendedor ' || CAST(d.VENDEDOR_ID AS VARCHAR(12))) AS VENDEDOR,
-      d.VENDEDOR_ID,
+      CASE
+        WHEN COALESCE(d.VENDEDOR_ID, 0) <= 0 THEN 'No asignado'
+        ELSE COALESCE(v.NOMBRE, 'Vendedor ' || CAST(d.VENDEDOR_ID AS VARCHAR(12)))
+      END AS VENDEDOR,
+      COALESCE(d.VENDEDOR_ID, 0) AS VENDEDOR_ID,
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN ${ci} ELSE 0 END) AS COTIZACIONES_HOY,
       COALESCE(SUM(${ci}), 0) AS COTIZACIONES_MES,
       COUNT(*) AS NUM_COTI_MES
     FROM ${cotizacionesSub(cotiEw)} d
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
-    WHERE d.VENDEDOR_ID > 0 ${f.sql} ${vendSql}
-    GROUP BY v.NOMBRE, d.VENDEDOR_ID
+    WHERE 1=1 ${f.sql} ${vendSql}
+    GROUP BY
+      COALESCE(d.VENDEDOR_ID, 0),
+      CASE
+        WHEN COALESCE(d.VENDEDOR_ID, 0) <= 0 THEN 'No asignado'
+        ELSE COALESCE(v.NOMBRE, 'Vendedor ' || CAST(d.VENDEDOR_ID AS VARCHAR(12)))
+      END
     ORDER BY COTIZACIONES_MES DESC
   `, params, 12000, dbo).catch(() => []);
 });
