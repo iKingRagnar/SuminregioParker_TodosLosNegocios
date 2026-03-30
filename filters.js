@@ -143,7 +143,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     return String(fname).replace(/\.fdb$/i, '');
   }
 
-  const ALLOWED_DB_TERMS = ['suminregio', 'agua', 'medicos', 'madera', 'carton', 'empaque', 'especial', 'reciclaje'];
+  const ALLOWED_DB_TERMS = ['suminregio', 'agua', 'medicos', 'madera', 'carton', 'empaque', 'reciclaje'];
   function normDbText(v) {
     return String(v == null ? '' : v)
       .normalize('NFD')
@@ -173,6 +173,10 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
         e && e.label,
         fdbBasename(e && e.database)
       ].join(' '));
+      // Exclude hamer embarques
+      if (pool.indexOf('hamer') >= 0) return false;
+      // Exclude "Suminregio" and "Suminregio Especial" (suminregio without parker)
+      if (pool.indexOf('suminregio') >= 0 && pool.indexOf('parker') < 0) return false;
       return ALLOWED_DB_TERMS.some(function (t) { return pool.indexOf(t) >= 0; });
     });
   }

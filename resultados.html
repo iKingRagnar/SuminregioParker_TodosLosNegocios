@@ -120,6 +120,20 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 .delta-tag{display:inline-flex;align-items:center;gap:.2rem;font-family:'DM Mono',monospace;font-size:.6rem;font-weight:500}
 .delta-tag.up{color:var(--green)}.delta-tag.dn{color:var(--red)}.delta-tag.flat{color:var(--muted)}
 
+/* Expandable gastos groups */
+.expandable-group-header td{padding:.7rem 1.2rem;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle}
+.expandable-group-header td:first-child{font-size:.82rem;font-weight:600;color:var(--text);padding-left:2.5rem}
+.expandable-group-header td:not(:first-child){font-family:'DM Mono',monospace;font-size:.78rem;color:var(--text2);text-align:right}
+.expandable-group-header.clickable-group{cursor:pointer}
+.expandable-group-header.clickable-group:hover td{background:rgba(255,255,255,.03)}
+.expand-arrow{font-size:.68rem;margin-right:.3rem;display:inline-block;transition:transform .15s;user-select:none}
+.expandable-detail-row td{background:rgba(0,0,0,.14)!important;border-bottom:1px solid rgba(255,255,255,.025)!important}
+.expandable-detail-row td:first-child{padding-left:3.8rem;font-size:.74rem;color:var(--muted)}
+.expandable-detail-row td:not(:first-child){font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted);text-align:right}
+.paren-neg{color:var(--red)}
+/* Zebra striping on data rows */
+.pnl-structured tbody tr.data-row:nth-child(even) td{background:rgba(255,255,255,.016)}
+
 /* Gastos notice */
 .gastos-notice{background:rgba(255,184,0,.06);border:1px solid rgba(255,184,0,.2);border-radius:10px;padding:.85rem 1.1rem;margin-bottom:1.2rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--yellow);line-height:1.65}
 .gastos-notice strong{font-weight:700;color:var(--yellow)}
@@ -382,6 +396,15 @@ setInterval(()=>{const n=new Date();document.getElementById('reloj').textContent
 // ── Formateo ───────────────────────────────────────────────────────────────────
 const fmtM=v=>{if(v===null||v===undefined||isNaN(+v))return'—';v=+v;if(v>=1e6)return'$'+(v/1e6).toFixed(2)+'M';if(v>=1e3)return'$'+(v/1e3).toFixed(1)+'K';return'$'+Math.round(v).toLocaleString('es-MX')};
 const fmtPct=v=>isNaN(+v)?'—':(+v).toFixed(1)+'%';
+function fmtNeg(v){if(v===null||v===undefined||isNaN(+v))return'—';v=+v;if(v<0)return'<span class="paren-neg">('+fmtM(-v)+')</span>';return fmtM(v);}
+function toggleGroup(groupId,headerRow){
+  const rows=document.querySelectorAll('[data-group="'+groupId+'"]');
+  const arrow=headerRow?headerRow.querySelector('.expand-arrow'):null;
+  const isExp=headerRow?headerRow.classList.contains('expanded'):false;
+  rows.forEach(function(r){r.style.display=isExp?'none':'';});
+  if(arrow)arrow.textContent=isExp?'▶':'▼';
+  if(headerRow)headerRow.classList.toggle('expanded',!isExp);
+}
 const MESES_ES=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 function mesLabel(r){return (MESES_ES[+r.MES]||r.MES)+' '+(+r.ANIO||'')}
 function sortMesesByPeriodo(rows){
@@ -419,12 +442,15 @@ async function loadData(){
     const meses=sortMesesByPeriodo(Array.isArray(data.meses)?data.meses:[]);
     const tot=data.totales||{};
     const hasCosto=data.tiene_costo||false;
+    const hasGastos=data.tiene_gastos_co||false;
+    const prefLabels=data.prefijos_labels||{};
+    const subconcepts=data.subconceptos||{};
     renderKPIs(tot,meses,hasCosto);
     renderInsight(tot,meses,hasCosto);
     renderCharts(meses,hasCosto);
-    renderTabla(meses,tot,hasCosto);
+    renderTabla(meses,tot,hasCosto,hasGastos,prefLabels,subconcepts);
     document.getElementById('costNotice').style.display=hasCosto?'none':'block';
-    document.getElementById('gastosNotice').style.display='block';
+    document.getElementById('gastosNotice').style.display=hasCosto&&!hasGastos?'block':'none';
     document.getElementById('heroSub').textContent=
       currentMeses+' meses · '+fmtM(+tot.VENTAS_NETAS||0)+' ventas netas · '
       +(hasCosto?fmtPct(+tot.MARGEN_BRUTO_PCT||0)+' margen bruto':'Costo no en BD')
@@ -454,7 +480,13 @@ async function loadUniversePnl(){
       if (badge) badge.textContent = 'Error';
       return;
     }
-    const rows = data.empresas;
+    function allowUnivEmpresa(r){
+      const pool=String(r.label||r.id||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+      if(pool.indexOf('hamer')>=0) return false;
+      if(pool.indexOf('suminregio')>=0&&pool.indexOf('parker')<0) return false;
+      return true;
+    }
+    const rows = data.empresas.filter(allowUnivEmpresa);
     const okN = rows.filter(function (r) { return r.ok; }).length;
     if (badge) badge.textContent = okN + '/' + rows.length + ' OK';
     const sorted = rows.slice().sort(function (a, b) {
@@ -644,126 +676,138 @@ function chartOpts(cbY){
 }
 
 // ── P&L Table — columnas por mes + fila de concepto ──────────────────────────
-function renderTabla(meses,tot,hasCosto){
+function renderTabla(meses,tot,hasCosto,hasGastos,prefLabels,subconcepts){
   const mesesOrd=sortMesesByPeriodo(meses);
   if(!mesesOrd.length){
     document.getElementById('pnlBody').innerHTML='<tr><td colspan="99" style="text-align:center;padding:2rem;font-family:DM Mono,monospace;font-size:.78rem;color:var(--muted)">Sin datos para el periodo seleccionado</td></tr>';
     return;
   }
+  const nc=mesesOrd.length+2;
+  prefLabels=prefLabels||{};
+  subconcepts=subconcepts||{};
+
   // Build column headers
-  const thEl=document.getElementById('thMeses');
   const thRowEl=document.getElementById('pnlHeadRow');
-  let thHtml=mesesOrd.map((m,i)=>{
+  const thHtml=mesesOrd.map(function(m,i){
     let mom='';
-    if(i>0){
-      const pct=momPct(+m.VENTAS_NETAS||0,+mesesOrd[i-1].VENTAS_NETAS||1);
-      if(pct!==null){const cls=pct>=0?'mom-positive':'mom-negative';const arr=pct>=0?'↑':'↓';mom=` <span class="${cls}">${arr}${Math.abs(pct)}%</span>`;}
-    }
-    return`<th>${mesLabel(m)}${mom}</th>`;
+    if(i>0){const pct=momPct(+m.VENTAS_NETAS||0,+mesesOrd[i-1].VENTAS_NETAS||1);if(pct!==null){const cls=pct>=0?'mom-positive':'mom-negative';const arr=pct>=0?'↑':'↓';mom=' <span class="'+cls+'">'+arr+Math.abs(pct)+'%</span>';}}
+    return'<th>'+mesLabel(m)+mom+'</th>';
   }).join('');
-  if(thRowEl){
-    thRowEl.innerHTML=`<th style="width:22%;text-align:left;padding:.55rem 1.4rem">Concepto</th>${thHtml}<th>Total</th>`;
-  }else{
-    thEl.outerHTML=`<th style="width:22%;text-align:left;padding:.55rem 1.4rem">Concepto</th>${thHtml}<th>Total</th>`;
+  if(thRowEl) thRowEl.innerHTML='<th style="width:22%;text-align:left;padding:.55rem 1.4rem">Concepto</th>'+thHtml+'<th>Total</th>';
+
+  const sumOf=function(key){return mesesOrd.reduce(function(s,m){return s+(+m[key]||0);},0);};
+  let grpUid=0;
+
+  // Render expandable group row (returns HTML string)
+  function expandGroup(bucket,label,monthVals,totVal,color){
+    const subs=subconcepts[bucket]||[];
+    const id='eg'+(++grpUid);
+    if(totVal<0.01) return '';
+    const hasSubs=subs.length>0;
+    const arrow=hasSubs?'<span class="expand-arrow" data-group="'+id+'">&#9654;</span> ':'  ';
+    let html='<tr class="expandable-group-header'+(hasSubs?' clickable-group':'')+'"'+(hasSubs?' data-group-id="'+id+'" onclick="toggleGroup(\''+id+'\',this)"':'')+'>'+
+      '<td>'+arrow+escHtml(label)+'</td>'+
+      monthVals+
+      '<td style="color:'+color+'">'+fmtM(totVal)+'</td></tr>';
+    if(hasSubs){
+      html+=subs.map(function(s){
+        return '<tr class="expandable-detail-row" data-group="'+id+'" style="display:none">'+
+          '<td>'+escHtml(s.etiqueta)+'</td>'+
+          mesesOrd.map(function(m){const mk=(+m.ANIO)+'-'+String(+m.MES).padStart(2,'0');const v=+(s.meses&&s.meses[mk])||0;return'<td>'+(v>0.01?fmtM(v):'—')+'</td>';}).join('')+
+          '<td>'+fmtM(s.total)+'</td></tr>';
+      }).join('');
+    }
+    return html;
   }
 
-  // Rows
-  const rows=(key,color,fmt)=>mesesOrd.map(m=>`<td style="color:${color}">${fmt(+m[key]||0)}</td>`).join('');
-  const sumOf=key=>mesesOrd.reduce((s,m)=>s+(+m[key]||0),0);
+  // ── INGRESOS ──
+  const remMeses=mesesOrd.map(function(m){return(+m.VENTAS_NETAS||0)-(+m.VENTAS_VE||0)-(+m.VENTAS_PV||0);});
+  const remTot=remMeses.reduce(function(s,v){return s+v;},0);
+  const remRow=Math.abs(remTot)>0.5?
+    '<tr class="data-row"><td>Remisiones / ajustes (brutos &minus; netas)</td>'+
+    remMeses.map(function(v){return'<td style="color:'+(v<0?'var(--red)':'var(--text2)')+'">'+fmtNeg(v)+'</td>';}).join('')+
+    '<td style="color:'+(remTot<0?'var(--red)':'var(--text2)')+'">'+fmtNeg(remTot)+'</td></tr>':
+    '';
 
-  const pnl=`
-  <tr class="pnl-section-header"><td colspan="${mesesOrd.length+2}">INGRESOS</td></tr>
-  <tr class="data-row">
-    <td>Ventas Industrial (VE)</td>
-    ${mesesOrd.map(m=>`<td style="color:var(--text2)">${fmtM(+m.VENTAS_VE||0)}</td>`).join('')}
-    <td style="color:var(--text2)">${fmtM(sumOf('VENTAS_VE'))}</td>
-  </tr>
-  <tr class="data-row">
-    <td>Ventas Mostrador (PV)</td>
-    ${mesesOrd.map(m=>`<td style="color:var(--text2)">${fmtM(+m.VENTAS_PV||0)}</td>`).join('')}
-    <td style="color:var(--text2)">${fmtM(sumOf('VENTAS_PV'))}</td>
-  </tr>
-  <tr class="subtotal-row">
-    <td>▶ Total Ventas Netas</td>
-    ${mesesOrd.map(m=>`<td style="color:var(--blue)">${fmtM(+m.VENTAS_NETAS||0)}</td>`).join('')}
-    <td style="color:var(--blue)">${fmtM(+tot.VENTAS_NETAS||0)}</td>
-  </tr>
+  // ── GASTOS OPERATIVOS ──
+  const gasA1=sumOf('CO_A1'), gasA2=sumOf('CO_A2'), gasA3=sumOf('CO_A3');
+  const gasB1=sumOf('CO_B1'), gasC1=sumOf('CO_C1');
+  const totalOpex=gasA1+gasA2+gasA3;
+  const utilBrutaTot=hasCosto?(+tot.UTILIDAD_BRUTA||0):(+tot.VENTAS_NETAS||0);
+  const utilOpTot=utilBrutaTot-totalOpex;
+  const utilAntesTot=utilOpTot-gasB1-gasC1;
 
-  <tr class="pnl-section-header"><td colspan="${mesesOrd.length+2}">COSTO DE VENTAS</td></tr>
-  <tr class="data-row">
-    <td>Costo de Ventas</td>
-    ${mesesOrd.map(m=>`<td style="color:var(--orange)">${hasCosto?fmtM(+m.COSTO_VENTAS||0):'—'}</td>`).join('')}
-    <td style="color:var(--orange)">${hasCosto?fmtM(+tot.COSTO_VENTAS||0):'—'}</td>
-  </tr>
-  <tr class="data-row">
-    <td>% Costo / Ventas</td>
-    ${mesesOrd.map(m=>{
-      const v=+m.VENTAS_NETAS||0;const c=+m.COSTO_VENTAS||0;
-      const p=v>0?Math.round(c/v*100):0;
-      const col=p>75?'var(--red)':p>60?'var(--yellow)':'var(--text2)';
-      return`<td style="color:${col}">${hasCosto?p+'%':'—'}</td>`;
-    }).join('')}
-    <td style="color:var(--text2)">${hasCosto&&(+tot.VENTAS_NETAS||0)>0?Math.round((+tot.COSTO_VENTAS||0)/(+tot.VENTAS_NETAS||1)*100)+'%':'—'}</td>
-  </tr>
+  let gastosSection='';
+  if(hasGastos){
+    gastosSection+=
+      '<tr class="pnl-section-header"><td colspan="'+nc+'">GASTOS OPERATIVOS</td></tr>'+
+      expandGroup('CO_A1',prefLabels.CO_A1||'Total gastos de venta',
+        mesesOrd.map(function(m){const v=+m.CO_A1||0;return'<td style="color:var(--orange)">'+(v>0.01?fmtM(v):'—')+'</td>';}).join(''),gasA1,'var(--orange)')+
+      expandGroup('CO_A2',prefLabels.CO_A2||'Total gastos de operación',
+        mesesOrd.map(function(m){const v=+m.CO_A2||0;return'<td style="color:var(--orange)">'+(v>0.01?fmtM(v):'—')+'</td>';}).join(''),gasA2,'var(--orange)')+
+      expandGroup('CO_A3',prefLabels.CO_A3||'Total gastos de administración',
+        mesesOrd.map(function(m){const v=+m.CO_A3||0;return'<td style="color:var(--orange)">'+(v>0.01?fmtM(v):'—')+'</td>';}).join(''),gasA3,'var(--orange)')+
+      '<tr class="subtotal-row"><td>&#9654; Utilidad de Operación</td>'+
+      mesesOrd.map(function(m){
+        const ub=hasCosto?(+m.UTILIDAD_BRUTA||0):(+m.VENTAS_NETAS||0);
+        const uo=ub-(+m.CO_A1||0)-(+m.CO_A2||0)-(+m.CO_A3||0);
+        return'<td style="color:'+(uo>=0?'var(--green)':'var(--red)')+'">'+fmtNeg(uo)+'</td>';
+      }).join('')+
+      '<td style="color:'+(utilOpTot>=0?'var(--green)':'var(--red)')+'">'+fmtNeg(utilOpTot)+'</td></tr>'+
+      '<tr class="pnl-section-header"><td colspan="'+nc+'">PARTIDAS EXTRAORDINARIAS</td></tr>'+
+      expandGroup('CO_B1',prefLabels.CO_B1||'Gastos financieros',
+        mesesOrd.map(function(m){const v=+m.CO_B1||0;return'<td style="color:var(--yellow)">'+(v>0.01?fmtM(v):'—')+'</td>';}).join(''),gasB1,'var(--yellow)')+
+      expandGroup('CO_C1',prefLabels.CO_C1||'Otros gastos',
+        mesesOrd.map(function(m){const v=+m.CO_C1||0;return'<td style="color:var(--yellow)">'+(v>0.01?fmtM(v):'—')+'</td>';}).join(''),gasC1,'var(--yellow)');
+  }else{
+    gastosSection=
+      '<tr class="pnl-section-header"><td colspan="'+nc+'">GASTOS OPERATIVOS</td></tr>'+
+      '<tr class="data-row"><td style="color:var(--muted)">&#9655; A Total Gastos de Venta</td>'+mesesOrd.map(function(){return'<td style="color:var(--muted);font-size:.65rem">N/D</td>';}).join('')+'<td style="color:var(--muted);font-size:.65rem">N/D</td></tr>'+
+      '<tr class="data-row"><td style="color:var(--muted)">&#9655; Total Gastos de Operación</td>'+mesesOrd.map(function(){return'<td style="color:var(--muted);font-size:.65rem">N/D</td>';}).join('')+'<td style="color:var(--muted);font-size:.65rem">N/D</td></tr>'+
+      '<tr class="pnl-section-header"><td colspan="'+nc+'">PARTIDAS EXTRAORDINARIAS</td></tr>'+
+      '<tr class="data-row"><td style="color:var(--muted)">&#9655; Otros gastos</td>'+mesesOrd.map(function(){return'<td style="color:var(--muted);font-size:.65rem">N/D</td>';}).join('')+'<td style="color:var(--muted);font-size:.65rem">N/D</td></tr>';
+  }
 
-  <tr class="subtotal-row">
-    <td>▶ Utilidad Bruta</td>
-    ${mesesOrd.map(m=>{
-      const u=+m.UTILIDAD_BRUTA||(hasCosto?0:+m.VENTAS_NETAS||0);
-      const mg=+m.MARGEN_BRUTO_PCT||0;
-      const mgCol=mg>=30?'var(--green)':mg>=15?'var(--yellow)':'var(--red)';
-      return`<td><span style="color:${mgCol}">${hasCosto?fmtM(u):fmtM(+m.VENTAS_NETAS||0)}</span></td>`;
-    }).join('')}
-    <td style="color:${(+tot.MARGEN_BRUTO_PCT||0)>=30?'var(--green)':(+tot.MARGEN_BRUTO_PCT||0)>=15?'var(--yellow)':'var(--red)'}">${hasCosto?fmtM(+tot.UTILIDAD_BRUTA||0):fmtM(+tot.VENTAS_NETAS||0)}</td>
-  </tr>
-  <tr class="data-row">
-    <td>Margen Bruto %</td>
-    ${mesesOrd.map(m=>{
-      const mg=+m.MARGEN_BRUTO_PCT||0;
-      const col=mg>=30?'var(--green)':mg>=15?'var(--yellow)':'var(--red)';
-      return`<td><span style="color:${col};font-weight:600">${hasCosto?fmtPct(mg):'—'}</span></td>`;
-    }).join('')}
-    <td><span style="color:${(+tot.MARGEN_BRUTO_PCT||0)>=30?'var(--green)':(+tot.MARGEN_BRUTO_PCT||0)>=15?'var(--yellow)':'var(--red)'};font-weight:600">${hasCosto?fmtPct(+tot.MARGEN_BRUTO_PCT||0):'—'}</span></td>
-  </tr>
+  // ── ASSEMBLE ──
+  const mgTotCol=(+tot.MARGEN_BRUTO_PCT||0)>=30?'var(--green)':(+tot.MARGEN_BRUTO_PCT||0)>=15?'var(--yellow)':'var(--red)';
+  const pnl=
+    '<tr class="pnl-section-header"><td colspan="'+nc+'">INGRESOS</td></tr>'+
+    '<tr class="data-row"><td>Venta Industrial (VE) neta</td>'+mesesOrd.map(function(m){return'<td style="color:var(--text2)">'+fmtM(+m.VENTAS_VE||0)+'</td>';}).join('')+'<td style="color:var(--text2)">'+fmtM(sumOf('VENTAS_VE'))+'</td></tr>'+
+    '<tr class="data-row"><td>Venta Mostrador (PV) neta</td>'+mesesOrd.map(function(m){return'<td style="color:var(--text2)">'+fmtM(+m.VENTAS_PV||0)+'</td>';}).join('')+'<td style="color:var(--text2)">'+fmtM(sumOf('VENTAS_PV'))+'</td></tr>'+
+    remRow+
+    '<tr class="subtotal-row"><td>&#9654; Total Ventas Netas</td>'+mesesOrd.map(function(m){return'<td style="color:var(--blue)">'+fmtM(+m.VENTAS_NETAS||0)+'</td>';}).join('')+'<td style="color:var(--blue)">'+fmtM(+tot.VENTAS_NETAS||0)+'</td></tr>'+
 
-  <tr class="pnl-section-header"><td colspan="${mesesOrd.length+2}">GASTOS OPERATIVOS (Módulo Contabilidad Microsip)</td></tr>
-  <tr class="data-row">
-    <td style="color:var(--muted)">Gastos de Operación</td>
-    ${mesesOrd.map(()=>'<td style="color:var(--muted);font-size:.65rem">N/D</td>').join('')}
-    <td style="color:var(--muted);font-size:.65rem">No disponible</td>
-  </tr>
+    '<tr class="pnl-section-header"><td colspan="'+nc+'">COSTO DE VENTAS</td></tr>'+
+    '<tr class="data-row"><td>Costo de Ventas</td>'+mesesOrd.map(function(m){return'<td style="color:var(--orange)">'+(hasCosto?fmtM(+m.COSTO_VENTAS||0):'—')+'</td>';}).join('')+'<td style="color:var(--orange)">'+(hasCosto?fmtM(+tot.COSTO_VENTAS||0):'—')+'</td></tr>'+
+    '<tr class="data-row"><td>% Costo / Ventas</td>'+mesesOrd.map(function(m){const v=+m.VENTAS_NETAS||0,c=+m.COSTO_VENTAS||0,p=v>0?Math.round(c/v*100):0,col=p>75?'var(--red)':p>60?'var(--yellow)':'var(--text2)';return'<td style="color:'+col+'">'+(hasCosto?p+'%':'—')+'</td>';}).join('')+'<td style="color:var(--text2)">'+(hasCosto&&(+tot.VENTAS_NETAS||0)>0?Math.round((+tot.COSTO_VENTAS||0)/(+tot.VENTAS_NETAS||1)*100)+'%':'—')+'</td></tr>'+
+    '<tr class="subtotal-row"><td>&#9654; Utilidad Bruta</td>'+mesesOrd.map(function(m){const u=hasCosto?(+m.UTILIDAD_BRUTA||0):(+m.VENTAS_NETAS||0),mg=+m.MARGEN_BRUTO_PCT||0,col=mg>=30?'var(--green)':mg>=15?'var(--yellow)':'var(--red)';return'<td style="color:'+col+'">'+fmtM(u)+'</td>';}).join('')+'<td style="color:'+mgTotCol+'">'+(hasCosto?fmtM(+tot.UTILIDAD_BRUTA||0):fmtM(+tot.VENTAS_NETAS||0))+'</td></tr>'+
+    '<tr class="data-row"><td>Margen Bruto %</td>'+mesesOrd.map(function(m){const mg=+m.MARGEN_BRUTO_PCT||0,col=mg>=30?'var(--green)':mg>=15?'var(--yellow)':'var(--red)';return'<td><span style="color:'+col+';font-weight:600">'+(hasCosto?fmtPct(mg):'—')+'</span></td>';}).join('')+'<td><span style="color:'+mgTotCol+';font-weight:600">'+(hasCosto?fmtPct(+tot.MARGEN_BRUTO_PCT||0):'—')+'</span></td></tr>'+
 
-  <tr class="pnl-section-header"><td colspan="${mesesOrd.length+2}">COBROS Y LIQUIDEZ</td></tr>
-  <tr class="data-row">
-    <td>Cobros Recibidos</td>
-    ${mesesOrd.map(m=>`<td style="color:var(--purple)">${fmtM(+m.COBROS||0)}</td>`).join('')}
-    <td style="color:var(--purple)">${fmtM(+tot.COBROS||0)}</td>
-  </tr>
-  <tr class="data-row">
-    <td>Eficiencia de Cobro</td>
-    ${mesesOrd.map(m=>{
-      const v=+m.VENTAS_NETAS||0;const cob=+m.COBROS||0;
-      const e=v>0?Math.round(cob/v*100):0;
-      const col=e>=80?'var(--green)':e>=50?'var(--yellow)':'var(--red)';
-      return`<td style="color:${col}">${v>0?e+'%':'—'}</td>`;
-    }).join('')}
-    <td style="color:${(+tot.VENTAS_NETAS||0)>0&&Math.round((+tot.COBROS||0)/(+tot.VENTAS_NETAS||1)*100)>=80?'var(--green)':(+tot.VENTAS_NETAS||0)>0&&Math.round((+tot.COBROS||0)/(+tot.VENTAS_NETAS||1)*100)>=50?'var(--yellow)':'var(--red)'}">${(+tot.VENTAS_NETAS||0)>0?Math.round((+tot.COBROS||0)/(+tot.VENTAS_NETAS||1)*100)+'%':'—'}</td>
-  </tr>
-  <tr class="data-row">
-    <td>Número de Facturas</td>
-    ${mesesOrd.map(m=>`<td style="color:var(--muted)">${+m.NUM_FACTURAS||0}</td>`).join('')}
-    <td style="color:var(--muted)">${+tot.NUM_FACTURAS||0}</td>
-  </tr>`;
+    gastosSection+
+
+    '<tr class="pnl-section-header"><td colspan="'+nc+'">COBROS Y LIQUIDEZ</td></tr>'+
+    '<tr class="data-row"><td>Cobros Recibidos</td>'+mesesOrd.map(function(m){return'<td style="color:var(--purple)">'+fmtM(+m.COBROS||0)+'</td>';}).join('')+'<td style="color:var(--purple)">'+fmtM(+tot.COBROS||0)+'</td></tr>'+
+    '<tr class="data-row"><td>Eficiencia de Cobro</td>'+mesesOrd.map(function(m){const v=+m.VENTAS_NETAS||0,cob=+m.COBROS||0,e=v>0?Math.round(cob/v*100):0,col=e>=80?'var(--green)':e>=50?'var(--yellow)':'var(--red)';return'<td style="color:'+col+'">'+(v>0?e+'%':'—')+'</td>';}).join('')+'<td style="color:'+((+tot.VENTAS_NETAS||0)>0&&Math.round((+tot.COBROS||0)/(+tot.VENTAS_NETAS||1)*100)>=80?'var(--green)':(+tot.VENTAS_NETAS||0)>0&&Math.round((+tot.COBROS||0)/(+tot.VENTAS_NETAS||1)*100)>=50?'var(--yellow)':'var(--red)')+'">'+((+tot.VENTAS_NETAS||0)>0?Math.round((+tot.COBROS||0)/(+tot.VENTAS_NETAS||1)*100)+'%':'—')+'</td></tr>'+
+    '<tr class="data-row"><td>Número de Facturas</td>'+mesesOrd.map(function(m){return'<td style="color:var(--muted)">'+(+m.NUM_FACTURAS||0)+'</td>';}).join('')+'<td style="color:var(--muted)">'+(+tot.NUM_FACTURAS||0)+'</td></tr>';
 
   document.getElementById('pnlBody').innerHTML=pnl;
 
-  const isYtdView = mesesOrd.length>=2 && (+mesesOrd[0].MES===1) && mesesOrd.every(m=>+m.ANIO===+mesesOrd[0].ANIO);
-  document.getElementById('pnlFoot').innerHTML=`
-  <tr class="total-final">
-    <td>${isYtdView?'ACUMULADO DEL AÑO':'RESUMEN DEL PERIODO'}</td>
-    ${mesesOrd.map(m=>`<td style="color:var(--blue)">${fmtM(+m.VENTAS_NETAS||0)}</td>`).join('')}
-    <td style="color:var(--green)">${fmtM(+tot.VENTAS_NETAS||0)}</td>
-  </tr>`;
+  // ── FOOTER: UTILIDAD ANTES DE IMPUESTOS ──
+  const footLabel=hasGastos?'UTILIDAD ANTES DE IMPUESTOS (PERIODO)':(hasCosto?'UTILIDAD BRUTA (PERIODO)':'VENTAS NETAS (PERIODO)');
+  const footTotVal=hasGastos?utilAntesTot:(hasCosto?(+tot.UTILIDAD_BRUTA||0):(+tot.VENTAS_NETAS||0));
+  const footTotCol=hasGastos?(utilAntesTot>=0?'var(--green)':'var(--red)'):'var(--green)';
+  document.getElementById('pnlFoot').innerHTML=
+    '<tr class="total-final"><td>'+footLabel+'</td>'+
+    mesesOrd.map(function(m){
+      if(hasGastos){
+        const ub=hasCosto?(+m.UTILIDAD_BRUTA||0):(+m.VENTAS_NETAS||0);
+        const uo=ub-(+m.CO_A1||0)-(+m.CO_A2||0)-(+m.CO_A3||0);
+        const ua=uo-(+m.CO_B1||0)-(+m.CO_C1||0);
+        return'<td style="color:'+(ua>=0?'var(--green)':'var(--red)')+'">'+fmtNeg(ua)+'</td>';
+      }
+      return'<td style="color:var(--blue)">'+fmtM(hasCosto?(+m.UTILIDAD_BRUTA||0):(+m.VENTAS_NETAS||0))+'</td>';
+    }).join('')+
+    '<td style="color:'+footTotCol+'">'+(hasGastos?fmtNeg(footTotVal):fmtM(footTotVal))+'</td></tr>';
 }
 
 initFilters({
