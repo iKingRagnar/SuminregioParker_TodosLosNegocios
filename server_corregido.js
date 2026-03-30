@@ -3564,6 +3564,10 @@ async function resultadosPnlCore(req, dbOpts) {
   const detGastoExpr = `ABS(${detDeltaExpr})`;
   const detDateExpr = detCols.has('FECHA') ? 'd.FECHA' : 'c.FECHA';
   const detNeedsDoctoJoin = !detCols.has('FECHA');
+  // Misma lógica que gastoBucket(): "Otros Gastos" en 5203* va a partidas extraordinarias (CO_C1), no a administración (CO_A3).
+  const sqlCoNombreUp = `UPPER(TRIM(COALESCE(NULLIF(cu.NOMBRE, ''), NULLIF(cu.CUENTA_JT, ''), '')))`;
+  const sqlCoA35203SoloAdmin = `cu.CUENTA_PT STARTING WITH '5203' AND ${sqlCoNombreUp} <> 'OTROS GASTOS'`;
+  const sqlCoC15201Mas5203Otros = `(cu.CUENTA_PT STARTING WITH '5401' OR (cu.CUENTA_PT STARTING WITH '5203' AND ${sqlCoNombreUp} = 'OTROS GASTOS'))`;
 
   // FIX: usar el mismo divisor IVA que ventasSub() para que resultados.html
   // sea consistente con ventas.html, director.html, vendedores.html, etc.
@@ -3874,7 +3878,7 @@ async function resultadosPnlCore(req, dbOpts) {
       SELECT ${salYearExpr} AS ANIO, ${salMonthExpr} AS MES,
         SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5201' THEN ${salGastoExpr} ELSE 0 END) AS CO_A1,
         SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5202' THEN ${salGastoExpr} ELSE 0 END) AS CO_A2,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5203' THEN ${salGastoExpr} ELSE 0 END) AS CO_A3,
+        SUM(CASE WHEN ${sqlCoA35203SoloAdmin} THEN ${salGastoExpr} ELSE 0 END) AS CO_A3,
         SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5204' THEN ${salGastoExpr} ELSE 0 END) AS CO_A4,
         SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5205' THEN ${salGastoExpr} ELSE 0 END) AS CO_A5,
         SUM(CASE
@@ -3891,7 +3895,7 @@ async function resultadosPnlCore(req, dbOpts) {
            AND NOT (cu.CUENTA_PT STARTING WITH '5301' OR cu.CUENTA_PT STARTING WITH '5302'
              OR cu.CUENTA_PT STARTING WITH '5303' OR cu.CUENTA_PT STARTING WITH '5304')
          THEN ${salGastoExpr} ELSE 0 END) AS CO_B5,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5401' THEN ${salGastoExpr} ELSE 0 END) AS CO_C1,
+        SUM(CASE WHEN ${sqlCoC15201Mas5203Otros} THEN ${salGastoExpr} ELSE 0 END) AS CO_C1,
         SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5402' THEN ${salGastoExpr} ELSE 0 END) AS CO_C2,
         SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5403' THEN ${salGastoExpr} ELSE 0 END) AS CO_C3,
         SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5404' THEN ${salGastoExpr} ELSE 0 END) AS CO_C4,
@@ -3914,7 +3918,7 @@ async function resultadosPnlCore(req, dbOpts) {
       SELECT EXTRACT(YEAR FROM ${detDateExpr}) AS ANIO, EXTRACT(MONTH FROM ${detDateExpr}) AS MES,
         SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5201' THEN ${detGastoExpr} ELSE 0 END) AS CO_A1,
         SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5202' THEN ${detGastoExpr} ELSE 0 END) AS CO_A2,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5203' THEN ${detGastoExpr} ELSE 0 END) AS CO_A3,
+        SUM(CASE WHEN ${sqlCoA35203SoloAdmin} THEN ${detGastoExpr} ELSE 0 END) AS CO_A3,
         SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5204' THEN ${detGastoExpr} ELSE 0 END) AS CO_A4,
         SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5205' THEN ${detGastoExpr} ELSE 0 END) AS CO_A5,
         SUM(CASE
@@ -3931,7 +3935,7 @@ async function resultadosPnlCore(req, dbOpts) {
            AND NOT (cu.CUENTA_PT STARTING WITH '5301' OR cu.CUENTA_PT STARTING WITH '5302'
              OR cu.CUENTA_PT STARTING WITH '5303' OR cu.CUENTA_PT STARTING WITH '5304')
          THEN ${detGastoExpr} ELSE 0 END) AS CO_B5,
-        SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5401' THEN ${detGastoExpr} ELSE 0 END) AS CO_C1,
+        SUM(CASE WHEN ${sqlCoC15201Mas5203Otros} THEN ${detGastoExpr} ELSE 0 END) AS CO_C1,
         SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5402' THEN ${detGastoExpr} ELSE 0 END) AS CO_C2,
         SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5403' THEN ${detGastoExpr} ELSE 0 END) AS CO_C3,
         SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5404' THEN ${detGastoExpr} ELSE 0 END) AS CO_C4,
@@ -4056,7 +4060,7 @@ async function resultadosPnlCore(req, dbOpts) {
         SELECT ${salYearExpr} AS ANIO, ${salMonthExpr} AS MES,
           SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5201' THEN ${salGastoExpr} ELSE 0 END) AS CO_A1,
           SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5202' THEN ${salGastoExpr} ELSE 0 END) AS CO_A2,
-          SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5203' THEN ${salGastoExpr} ELSE 0 END) AS CO_A3,
+          SUM(CASE WHEN ${sqlCoA35203SoloAdmin} THEN ${salGastoExpr} ELSE 0 END) AS CO_A3,
           SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5204' THEN ${salGastoExpr} ELSE 0 END) AS CO_A4,
           SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5205' THEN ${salGastoExpr} ELSE 0 END) AS CO_A5,
           SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '52' THEN ${salGastoExpr} ELSE 0 END) AS CO_A6,
@@ -4065,7 +4069,7 @@ async function resultadosPnlCore(req, dbOpts) {
           SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5303' THEN ${salGastoExpr} ELSE 0 END) AS CO_B3,
           SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5304' THEN ${salGastoExpr} ELSE 0 END) AS CO_B4,
           SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '53' THEN ${salGastoExpr} ELSE 0 END) AS CO_B5,
-          SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5401' THEN ${salGastoExpr} ELSE 0 END) AS CO_C1,
+          SUM(CASE WHEN ${sqlCoC15201Mas5203Otros} THEN ${salGastoExpr} ELSE 0 END) AS CO_C1,
           SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5402' THEN ${salGastoExpr} ELSE 0 END) AS CO_C2,
           SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5403' THEN ${salGastoExpr} ELSE 0 END) AS CO_C3,
           SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5404' THEN ${salGastoExpr} ELSE 0 END) AS CO_C4,
@@ -4087,7 +4091,7 @@ async function resultadosPnlCore(req, dbOpts) {
           SELECT EXTRACT(YEAR FROM ${detDateExpr}) AS ANIO, EXTRACT(MONTH FROM ${detDateExpr}) AS MES,
             SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5201' THEN ${detGastoExpr} ELSE 0 END) AS CO_A1,
             SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5202' THEN ${detGastoExpr} ELSE 0 END) AS CO_A2,
-            SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5203' THEN ${detGastoExpr} ELSE 0 END) AS CO_A3,
+            SUM(CASE WHEN ${sqlCoA35203SoloAdmin} THEN ${detGastoExpr} ELSE 0 END) AS CO_A3,
             SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5204' THEN ${detGastoExpr} ELSE 0 END) AS CO_A4,
             SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5205' THEN ${detGastoExpr} ELSE 0 END) AS CO_A5,
             SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '52' THEN ${detGastoExpr} ELSE 0 END) AS CO_A6,
@@ -4096,7 +4100,7 @@ async function resultadosPnlCore(req, dbOpts) {
             SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5303' THEN ${detGastoExpr} ELSE 0 END) AS CO_B3,
             SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5304' THEN ${detGastoExpr} ELSE 0 END) AS CO_B4,
             SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '53' THEN ${detGastoExpr} ELSE 0 END) AS CO_B5,
-            SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5401' THEN ${detGastoExpr} ELSE 0 END) AS CO_C1,
+            SUM(CASE WHEN ${sqlCoC15201Mas5203Otros} THEN ${detGastoExpr} ELSE 0 END) AS CO_C1,
             SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5402' THEN ${detGastoExpr} ELSE 0 END) AS CO_C2,
             SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5403' THEN ${detGastoExpr} ELSE 0 END) AS CO_C3,
             SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '5404' THEN ${detGastoExpr} ELSE 0 END) AS CO_C4,
@@ -4253,6 +4257,7 @@ async function resultadosPnlCore(req, dbOpts) {
         CASE
           WHEN cu.CUENTA_PT STARTING WITH '5201' THEN 'CO_A1'
           WHEN cu.CUENTA_PT STARTING WITH '5202' THEN 'CO_A2'
+          WHEN cu.CUENTA_PT STARTING WITH '5203' AND ${sqlCoNombreUp} = 'OTROS GASTOS' THEN 'CO_C1'
           WHEN cu.CUENTA_PT STARTING WITH '5203' THEN 'CO_A3'
           WHEN cu.CUENTA_PT STARTING WITH '5204' THEN 'CO_A4'
           WHEN cu.CUENTA_PT STARTING WITH '5205' THEN 'CO_A5'
@@ -4290,6 +4295,7 @@ async function resultadosPnlCore(req, dbOpts) {
         CASE
           WHEN cu.CUENTA_PT STARTING WITH '5201' THEN 'CO_A1'
           WHEN cu.CUENTA_PT STARTING WITH '5202' THEN 'CO_A2'
+          WHEN cu.CUENTA_PT STARTING WITH '5203' AND ${sqlCoNombreUp} = 'OTROS GASTOS' THEN 'CO_C1'
           WHEN cu.CUENTA_PT STARTING WITH '5203' THEN 'CO_A3'
           WHEN cu.CUENTA_PT STARTING WITH '5204' THEN 'CO_A4'
           WHEN cu.CUENTA_PT STARTING WITH '5205' THEN 'CO_A5'
