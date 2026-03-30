@@ -604,7 +604,10 @@ function buildPnlQuery(extra, opts) {
         if (!dbId) dbId = (sessionStorage.getItem('microsip_erp_db') || '').trim();
       } catch (_) {}
     }
-    if (dbId && dbId.toLowerCase() !== 'default') parts.push('db=' + encodeURIComponent(dbId));
+    if (dbId) {
+      const pre = parts.filter(Boolean).join('&');
+      if (!/(^|&)db=/.test(pre)) parts.push('db=' + encodeURIComponent(dbId));
+    }
   }
   return parts.join('&');
 }
@@ -1204,7 +1207,10 @@ async function loadData(){
     const uniOmitDb = !(selectedBizId && selectedBizId !== '__ALL__');
     const uniUrl=buildPnlApiUrl('/api/resultados/pnl-universe','meses='+currentMeses+'&concurrency=2',{ omitDb:uniOmitDb })+'&_='+Date.now();
 
-    let uni=await tryFetch(uniUrl)||{};
+    let uni=await tryFetch(uniUrl, 90000)||{};
+    // #region agent log
+    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',hypothesisId:'H-pnl-uni',location:'resultados.html:loadData',message:'pnl-universe response',data:{empN:(uni.empresas&&uni.empresas.length)||0,hasCons:!!uni.consolidado},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     const base=getBase();
     if((!uni.empresas||!uni.empresas.length)&&base.indexOf(':7000')===-1&&window.location.protocol!=='file:'){
       const altU=uniUrl.replace(/^(https?:\/\/[^\/]+)/,(window.location.origin||'').replace(/:\d+$/,'')+':7000');

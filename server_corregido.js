@@ -4392,10 +4392,24 @@ get('/api/resultados/pnl-universe', async (req) => {
   const conc = Math.min(Math.max(parseInt(req.query.concurrency, 10) || 2, 1), 4);
   let registry = DATABASE_REGISTRY;
   const qdb = req.query.db ? String(req.query.db).trim().toLowerCase() : '';
-  if (qdb && qdb !== 'default' && qdb !== '__all__') {
+  // db=default debe acotar a UNA base (la entrada "default" o la primera). Antes se ignoraba
+  // y se escaneaban todas las empresas → timeout en el cliente → tabla P&L en "Cargando...".
+  if (qdb === '__all__') {
+    registry = DATABASE_REGISTRY;
+  } else if (qdb && qdb !== 'default') {
     const hit = DATABASE_REGISTRY.find((d) => String(d.id).toLowerCase() === qdb);
     if (hit) registry = [hit];
+  } else if (qdb === 'default') {
+    const def = DATABASE_REGISTRY.find((d) => String(d.id).toLowerCase() === 'default') || DATABASE_REGISTRY[0];
+    if (def) registry = [def];
+  } else if (!qdb && DATABASE_REGISTRY.length === 1) {
+    registry = [DATABASE_REGISTRY[0]];
   }
+  // #region agent log
+  try {
+    fs.appendFileSync(path.join(__dirname, 'debug-5e0522.log'), JSON.stringify({ sessionId: '5e0522', hypothesisId: 'H-pnl-uni', location: 'server_corregido.js:pnl-universe', message: 'registry scope', data: { qdb: qdb || null, regLen: registry.length, totalReg: DATABASE_REGISTRY.length }, timestamp: Date.now() }) + '\n');
+  } catch (_) {}
+  // #endregion
   const rows = await mapPoolLimit(registry, conc, async (entry) => {
     try {
       const { meses, totales, tiene_costo, tiene_gastos_co } = await resultadosPnlCore(req, entry.options);
