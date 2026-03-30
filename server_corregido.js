@@ -1514,25 +1514,19 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
   const ci = sqlCotiImporteExpr('d');
   return query(`
     SELECT
-      CASE
-        WHEN COALESCE(d.VENDEDOR_ID, 0) <= 0 THEN 'No asignado'
-        ELSE COALESCE(v.NOMBRE, 'Vendedor ' || CAST(d.VENDEDOR_ID AS VARCHAR(12)))
-      END AS VENDEDOR,
       COALESCE(d.VENDEDOR_ID, 0) AS VENDEDOR_ID,
+      CASE WHEN COALESCE(d.VENDEDOR_ID, 0) = 0 THEN 'No asignado'
+           ELSE COALESCE(MAX(v.NOMBRE), 'Vendedor ' || CAST(COALESCE(d.VENDEDOR_ID, 0) AS VARCHAR(12)))
+      END AS VENDEDOR,
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN ${ci} ELSE 0 END) AS COTIZACIONES_HOY,
       COALESCE(SUM(${ci}), 0) AS COTIZACIONES_MES,
       COUNT(*) AS NUM_COTI_MES
     FROM ${cotizacionesSub(cotiEw)} d
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
     WHERE 1=1 ${f.sql} ${vendSql}
-    GROUP BY
-      COALESCE(d.VENDEDOR_ID, 0),
-      CASE
-        WHEN COALESCE(d.VENDEDOR_ID, 0) <= 0 THEN 'No asignado'
-        ELSE COALESCE(v.NOMBRE, 'Vendedor ' || CAST(d.VENDEDOR_ID AS VARCHAR(12)))
-      END
+    GROUP BY COALESCE(d.VENDEDOR_ID, 0)
     ORDER BY COTIZACIONES_MES DESC
-  `, params, 12000, dbo).catch(() => []);
+  `, params, 30000, dbo).catch(() => []);
 });
 
 get('/api/ventas/recientes', async (req) => {
