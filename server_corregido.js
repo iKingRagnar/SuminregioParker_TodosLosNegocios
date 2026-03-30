@@ -924,7 +924,7 @@ function cotizacionesSub(extraWhere = '') {
       (
         COALESCE(
           NULLIF(COALESCE(SUM(COALESCE(det.UNIDADES, 0) * COALESCE(det.PRECIO_UNITARIO, 0)), 0), 0),
-          COALESCE(d.IMPORTE_NETO, 0)
+          MAX(COALESCE(d.IMPORTE_NETO, 0))
         ) - COALESCE(MAX(d.DSCTO_IMPORTE), 0)
       ) AS IMPORTE_NETO
     FROM DOCTOS_VE d
