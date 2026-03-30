@@ -733,12 +733,14 @@ function rebuildTotalesFromMeses(meses){
   out.MARGEN_BRUTO_PCT=out.VENTAS_NETAS>0?Math.round((out.UTILIDAD_BRUTA/out.VENTAS_NETAS)*1000)/10:0;
   return out;
 }
-const DB_ALLOW_TERMS=['suminregio','agua','medicos','madera','carton','empaque','reciclaje'];
+const DB_ALLOW_TERMS=['suminregio','agua','medicos','madera','carton','reciclaje'];
 function normDbTxt(v){return String(v==null?'':v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
 function allowEmpresa(e){
   const pool=normDbTxt([e&&e.id,e&&e.label,e&&e.database,e&&e.path].join(' '));
   if(pool.includes('hamer')) return false;
-  if(pool.includes('suminregio')&&!pool.includes('parker')) return false;
+  if(pool.includes('empaque')) return false;
+  if(pool.includes('especial')) return false;
+  if(pool.includes('suminregio')&&!pool.includes('parker')&&!pool.includes('grupo')) return false;
   return DB_ALLOW_TERMS.some(t=>pool.includes(t));
 }
 
@@ -1256,10 +1258,6 @@ async function loadData(){
         if(!exists)selectedBizId='__ALL__';
       }
       const consProbe=uni.consolidado||{};
-      if(selectedBizId==='__ALL__'&&!(+consProbe.VENTAS_NETAS>0)){
-        const withSales=okEmp.find(e=>+(e.totales&&e.totales.VENTAS_NETAS)>0);
-        if(withSales)selectedBizId=String(withSales.id);
-      }
       const selBiz=document.getElementById('bizSelect');
       if(selBiz&&[...selBiz.options].some(o=>String(o.value)===String(selectedBizId)))selBiz.value=selectedBizId;
       setDbUrl(selectedBizId);

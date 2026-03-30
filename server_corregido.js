@@ -2523,8 +2523,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
 // Resumen CxC: Vencido y No vencido (suma Saldo_Documento). Contado cuenta como vigente (sin días de atraso).
 get('/api/cxc/resumen', async (req) => {
   const dbo = getReqDbOpts(req);
-  const snap = await cxcResumenAgingUnificado(req, dbo, 12000);
-
+  const snap = await cxcResumenAgingUnificado(req, dbo, 30000);
   return snap.resumen;
 });
 
