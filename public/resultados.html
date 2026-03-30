@@ -619,8 +619,11 @@ function buildPnlQuery(extra, opts) {
   }
   if (!opts.omitDb) {
     let dbId = '';
-    if (selectedBizId && !isAllBizId(selectedBizId)) dbId = String(selectedBizId).trim();
-    else {
+    if (selectedBizId && isAllBizId(selectedBizId)) {
+      dbId = '__all__';
+    } else if (selectedBizId && !isAllBizId(selectedBizId)) {
+      dbId = String(selectedBizId).trim();
+    } else {
       try {
         dbId = (new URLSearchParams(location.search).get('db') || '').trim();
         if (!dbId) dbId = (sessionStorage.getItem('microsip_erp_db') || '').trim();

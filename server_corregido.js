@@ -36,7 +36,7 @@
  *  • Ventas: UNION ALL de DOCTOS_VE (Industrial) + DOCTOS_PV (Mostrador)
  *            Parámetro ?tipo=VE o ?tipo=PV para filtrar por fuente
  *  • Cotizaciones: misma macro que ventas (UNION DOCTOS_VE + DOCTOS_PV), mismo IMPORTE_NETO (sqlVentaImporteBaseExpr),
- *            TIPO_DOCTO = 'C' y mismas reglas ESTATUS/APLICADO que facturas; ?tipo=VE|PV igual que ventas.
+ *            TIPO_DOCTO en MICROSIP_COTIZACION_TIPOS (por defecto C); ESTATUS <> cancelada; ?tipo=VE|PV igual que ventas.
  *            MICROSIP_COTIZACION_REQUIERE_APLICADO=1 para exigir APLICADO='S' como facturas (por defecto no se filtra APLICADO).
  *  • Nuevos endpoints:
  *      /api/ventas/cobradas         Facturas cobradas por vendedor
@@ -587,6 +587,227 @@ function mergeCotizacionResumenRows(rows) {
     }),
     { HOY: 0, MES_ACTUAL: 0, COTIZACIONES_MES: 0, COTIZACIONES_HOY: 0 },
   );
+}
+
+/** Lista SQL IN para TIPO_DOCTO de cotizaciones (env MICROSIP_COTIZACION_TIPOS, ej. C,O). */
+function sqlCotizacionTiposInList() {
+  const raw = (process.env.MICROSIP_COTIZACION_TIPOS || 'C').trim();
+  const parts = raw.split(/[,;|\s]+/).map((s) => s.trim().toUpperCase()).filter(Boolean);
+  const tipos = parts.length ? parts : ['C'];
+  return tipos.map((t) => `'${String(t).replace(/'/g, "''")}'`).join(', ');
+}
+
+function mergeBalanceDetalleSide(arrays) {
+  const map = new Map();
+  for (const arr of arrays) {
+    for (const r of arr || []) {
+      const cu = String(r.CUENTA_PT || '').trim();
+      if (!cu) continue;
+      const saldo = Math.round((+r.SALDO || 0) * 100) / 100;
+      const prev = map.get(cu);
+      if (!prev) {
+        map.set(cu, { CUENTA_PT: r.CUENTA_PT, NOMBRE: r.NOMBRE || '', SALDO: saldo });
+      } else {
+        prev.SALDO = Math.round((prev.SALDO + saldo) * 100) / 100;
+        const n = String(r.NOMBRE || '').trim();
+        if (n.length > String(prev.NOMBRE || '').length) prev.NOMBRE = n;
+      }
+    }
+  }
+  return Array.from(map.values())
+    .filter((r) => Math.abs(+r.SALDO || 0) >= 0.005)
+    .sort((a, b) => Math.abs(+b.SALDO || 0) - Math.abs(+a.SALDO || 0));
+}
+
+function mergeBalanceGeneralFromPayloads(parts) {
+  const ok = (parts || []).filter(Boolean);
+  if (!ok.length) {
+    const z = {
+      ACTIVO_TOTAL: 0,
+      PASIVO_TOTAL: 0,
+      CAPITAL_TOTAL: 0,
+      PASIVO_MAS_CAPITAL: 0,
+      DIFERENCIA_BALANCE: 0,
+    };
+    return { cierre: {}, totales: z, detalleFull: { activo: [], pasivo: [], capital: [] } };
+  }
+  const cierre = ok[0].cierre || {};
+  const detalleFull = {
+    activo: mergeBalanceDetalleSide(ok.map((p) => p.detalleFull && p.detalleFull.activo)),
+    pasivo: mergeBalanceDetalleSide(ok.map((p) => p.detalleFull && p.detalleFull.pasivo)),
+    capital: mergeBalanceDetalleSide(ok.map((p) => p.detalleFull && p.detalleFull.capital)),
+  };
+  const activo_total = ok.reduce((s, p) => s + (+((p.totales || {}).ACTIVO_TOTAL) || 0), 0);
+  const pasivo_total = ok.reduce((s, p) => s + (+((p.totales || {}).PASIVO_TOTAL) || 0), 0);
+  const capital_total = ok.reduce((s, p) => s + (+((p.totales || {}).CAPITAL_TOTAL) || 0), 0);
+  const round2 = (x) => Math.round(x * 100) / 100;
+  const at = round2(activo_total);
+  const pmc = round2(pasivo_total + capital_total);
+  return {
+    cierre,
+    totales: {
+      ACTIVO_TOTAL: at,
+      PASIVO_TOTAL: round2(pasivo_total),
+      CAPITAL_TOTAL: round2(capital_total),
+      PASIVO_MAS_CAPITAL: pmc,
+      DIFERENCIA_BALANCE: round2(pmc - at),
+    },
+    detalleFull,
+  };
+}
+
+function sliceBalanceGeneralPublic(p) {
+  const df = p.detalleFull || { activo: [], pasivo: [], capital: [] };
+  return {
+    cierre: p.cierre,
+    totales: p.totales,
+    detalle: {
+      activo: (df.activo || []).slice(0, 20),
+      pasivo: (df.pasivo || []).slice(0, 20),
+      capital: (df.capital || []).slice(0, 20),
+    },
+  };
+}
+
+function mergeCxcResumenAgingSnaps(snaps) {
+  const out = {
+    resumen: {
+      SALDO_TOTAL: 0,
+      NUM_CLIENTES: 0,
+      NUM_CLIENTES_VENCIDOS: 0,
+      VENCIDO: 0,
+      POR_VENCER: 0,
+    },
+    aging: {
+      CORRIENTE: 0,
+      DIAS_1_30: 0,
+      DIAS_31_60: 0,
+      DIAS_61_90: 0,
+      DIAS_MAS_90: 0,
+    },
+  };
+  for (const s of snaps || []) {
+    if (!s || !s.resumen) continue;
+    out.resumen.SALDO_TOTAL += +s.resumen.SALDO_TOTAL || 0;
+    out.resumen.NUM_CLIENTES += +s.resumen.NUM_CLIENTES || 0;
+    out.resumen.NUM_CLIENTES_VENCIDOS += +s.resumen.NUM_CLIENTES_VENCIDOS || 0;
+    out.resumen.VENCIDO += +s.resumen.VENCIDO || 0;
+    out.resumen.POR_VENCER += +s.resumen.POR_VENCER || 0;
+    if (s.aging) {
+      out.aging.CORRIENTE += +s.aging.CORRIENTE || 0;
+      out.aging.DIAS_1_30 += +s.aging.DIAS_1_30 || 0;
+      out.aging.DIAS_31_60 += +s.aging.DIAS_31_60 || 0;
+      out.aging.DIAS_61_90 += +s.aging.DIAS_61_90 || 0;
+      out.aging.DIAS_MAS_90 += +s.aging.DIAS_MAS_90 || 0;
+    }
+  }
+  const r2 = (x) => Math.round(x * 100) / 100;
+  out.resumen.SALDO_TOTAL = r2(out.resumen.SALDO_TOTAL);
+  out.resumen.VENCIDO = r2(out.resumen.VENCIDO);
+  out.resumen.POR_VENCER = r2(out.resumen.POR_VENCER);
+  Object.keys(out.aging).forEach((k) => { out.aging[k] = r2(out.aging[k]); });
+  return out;
+}
+
+function mergeCxcPorCondicionPayloads(payloads) {
+  const map = new Map();
+  for (const data of payloads || []) {
+    const grupos = (data && data.grupos) || [];
+    for (const g of grupos) {
+      const key = `${g.CONDICION_PAGO}|${g.DIAS_CREDITO}|${g.ES_CONTADO ? 1 : 0}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          CONDICION_PAGO: g.CONDICION_PAGO,
+          DIAS_CREDITO: g.DIAS_CREDITO,
+          NUM_CLIENTES: 0,
+          NUM_DOCUMENTOS: 0,
+          SALDO_TOTAL: 0,
+          VENCIDO: 0,
+          CORRIENTE: 0,
+          ES_CONTADO: !!g.ES_CONTADO,
+        });
+      }
+      const a = map.get(key);
+      a.NUM_CLIENTES += +g.NUM_CLIENTES || 0;
+      a.NUM_DOCUMENTOS += +g.NUM_DOCUMENTOS || 0;
+      a.SALDO_TOTAL += +g.SALDO_TOTAL || 0;
+      a.VENCIDO += +g.VENCIDO || 0;
+      a.CORRIENTE += +g.CORRIENTE || 0;
+    }
+  }
+  const grupos = Array.from(map.values())
+    .map((g) => ({
+      CONDICION_PAGO: g.CONDICION_PAGO,
+      DIAS_CREDITO: g.DIAS_CREDITO,
+      NUM_CLIENTES: g.NUM_CLIENTES,
+      NUM_DOCUMENTOS: g.NUM_DOCUMENTOS,
+      SALDO_TOTAL: Math.round(g.SALDO_TOTAL * 100) / 100,
+      VENCIDO: Math.round(g.VENCIDO * 100) / 100,
+      CORRIENTE: Math.round(g.CORRIENTE * 100) / 100,
+      ES_CONTADO: !!g.ES_CONTADO,
+    }))
+    .sort((a, b) => b.SALDO_TOTAL - a.SALDO_TOTAL);
+  return { grupos, pendiente_contado: null };
+}
+
+function mergeDirectorResumenSnapshots(parts) {
+  const ventas = {
+    HOY: 0,
+    MES_ACTUAL: 0,
+    FACTURAS_MES: 0,
+    MES_VE: 0,
+    MES_PV: 0,
+    REMISIONES_HOY: 0,
+    REMISIONES_MES: 0,
+  };
+  const cxc = {
+    SALDO_TOTAL: 0,
+    NUM_CLIENTES: 0,
+    NUM_CLIENTES_VENCIDOS: 0,
+    VENCIDO: 0,
+    POR_VENCER: 0,
+  };
+  const cotizaciones = {
+    COTI_HOY: 0,
+    IMPORTE_COTI_HOY: 0,
+    IMPORTE_COTI_MES: 0,
+    COTI_MES: 0,
+  };
+  for (const p of parts || []) {
+    if (!p) continue;
+    const v = p.ventas || {};
+    ventas.HOY += +v.HOY || 0;
+    ventas.MES_ACTUAL += +v.MES_ACTUAL || 0;
+    ventas.FACTURAS_MES += +v.FACTURAS_MES || 0;
+    ventas.MES_VE += +v.MES_VE || 0;
+    ventas.MES_PV += +v.MES_PV || 0;
+    ventas.REMISIONES_HOY += +v.REMISIONES_HOY || 0;
+    ventas.REMISIONES_MES += +v.REMISIONES_MES || 0;
+    const cx = p.cxc || {};
+    cxc.SALDO_TOTAL += +cx.SALDO_TOTAL || 0;
+    cxc.NUM_CLIENTES += +cx.NUM_CLIENTES || 0;
+    cxc.NUM_CLIENTES_VENCIDOS += +cx.NUM_CLIENTES_VENCIDOS || 0;
+    cxc.VENCIDO += +cx.VENCIDO || 0;
+    cxc.POR_VENCER += +cx.POR_VENCER || 0;
+    const co = p.cotizaciones || {};
+    cotizaciones.COTI_HOY += +co.COTI_HOY || 0;
+    cotizaciones.IMPORTE_COTI_HOY += +co.IMPORTE_COTI_HOY || 0;
+    cotizaciones.IMPORTE_COTI_MES += +co.IMPORTE_COTI_MES || 0;
+    cotizaciones.COTI_MES += +co.COTI_MES || 0;
+  }
+  const r2 = (x) => Math.round(x * 100) / 100;
+  cxc.SALDO_TOTAL = r2(cxc.SALDO_TOTAL);
+  cxc.VENCIDO = r2(cxc.VENCIDO);
+  cxc.POR_VENCER = r2(cxc.POR_VENCER);
+  cotizaciones.IMPORTE_COTI_HOY = r2(cotizaciones.IMPORTE_COTI_HOY);
+  cotizaciones.IMPORTE_COTI_MES = r2(cotizaciones.IMPORTE_COTI_MES);
+  ventas.HOY = r2(ventas.HOY);
+  ventas.MES_ACTUAL = r2(ventas.MES_ACTUAL);
+  ventas.MES_VE = r2(ventas.MES_VE);
+  ventas.MES_PV = r2(ventas.MES_PV);
+  ventas.REMISIONES_HOY = r2(ventas.REMISIONES_HOY);
+  ventas.REMISIONES_MES = r2(ventas.REMISIONES_MES);
+  return { ventas, cxc, cotizaciones };
 }
 
 function mergeDiariasVentas(rowsList) {
@@ -1178,8 +1399,8 @@ function remisionesSub(tipo = '') {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  COTIZACIONES — misma macro que ventas (UNION DOCTOS_VE + DOCTOS_PV), misma base de importe
-//  (sqlVentaImporteBaseExpr = IMPORTE_NETO cabecera ± divisor IVA). Única variante: TIPO_DOCTO = 'C'.
-//  ESTATUS: mismo criterio que ventas (NOT IN C,D,S). APLICADO='S' solo si MICROSIP_COTIZACION_REQUIERE_APLICADO=1.
+//  (sqlVentaImporteBaseExpr). TIPO_DOCTO ∈ MICROSIP_COTIZACION_TIPOS (default C; ej. C,O si aplica).
+//  ESTATUS <> C (no cancelada). APLICADO='S' solo si MICROSIP_COTIZACION_REQUIERE_APLICADO=1.
 //  Vigencia (FECHA_VENCIMIENTO…) solo en rama VE, vía resolveCotizacionVigenciaSqlSuffix.
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1187,9 +1408,10 @@ function sqlWhereCotizacionComoVenta(alias = 'd') {
   const a = alias;
   const reqAplicado = (process.env.MICROSIP_COTIZACION_REQUIERE_APLICADO || '').match(/^(1|true|yes)$/i);
   const aplicado = reqAplicado ? ` AND COALESCE(${a}.APLICADO, 'N') = 'S'` : '';
+  // TIPO C con TRIM (Microsip a veces guarda espacios). Solo excluir cancelada; D/S pueden aparecer en cotizaciones.
   return `(
-      ${a}.TIPO_DOCTO = 'C'
-      AND COALESCE(${a}.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
+      UPPER(TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(10)))) IN (${sqlCotizacionTiposInList()})
+      AND UPPER(TRIM(CAST(COALESCE(${a}.ESTATUS, 'N') AS VARCHAR(8)))) <> 'C'
     )${aplicado}`;
 }
 
@@ -2776,7 +2998,23 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
   };
 }
 
-get('/api/director/resumen', async (req) => directorResumenSnapshot(req, getReqDbOpts(req), 12000));
+get('/api/director/resumen', async (req) => {
+  if (isAllDbs(req)) {
+    const parts = await mapPoolLimit(DATABASE_REGISTRY, 2, async (entry) => {
+      try {
+        return await directorResumenSnapshot(req, entry.options, 12000);
+      } catch (e) {
+        return {
+          ventas: { HOY: 0, MES_ACTUAL: 0, FACTURAS_MES: 0, MES_VE: 0, MES_PV: 0, REMISIONES_HOY: 0, REMISIONES_MES: 0 },
+          cxc: { SALDO_TOTAL: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: 0, VENCIDO: 0, POR_VENCER: 0 },
+          cotizaciones: { COTI_HOY: 0, IMPORTE_COTI_HOY: 0, IMPORTE_COTI_MES: 0, COTI_MES: 0 },
+        };
+      }
+    });
+    return mergeDirectorResumenSnapshots(parts);
+  }
+  return directorResumenSnapshot(req, getReqDbOpts(req), 12000);
+});
 
 // Catálogo de bases (sin credenciales) + scorecard multi-empresa (misma lógica que director, concurrencia acotada).
 get('/api/universe/databases', async () =>
@@ -3096,6 +3334,16 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
 
 // Resumen CxC: Vencido y No vencido (suma Saldo_Documento). Contado cuenta como vigente (sin días de atraso).
 get('/api/cxc/resumen', async (req) => {
+  if (isAllDbs(req)) {
+    const snaps = await mapPoolLimit(DATABASE_REGISTRY, 2, async (entry) => {
+      try {
+        return await cxcResumenAgingUnificado(req, entry.options, 30000);
+      } catch (e) {
+        return { resumen: { SALDO_TOTAL: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: 0, VENCIDO: 0, POR_VENCER: 0 }, aging: {} };
+      }
+    });
+    return mergeCxcResumenAgingSnaps(snaps).resumen;
+  }
   const dbo = getReqDbOpts(req);
   const snap = await cxcResumenAgingUnificado(req, dbo, 30000);
   return snap.resumen;
@@ -3103,6 +3351,16 @@ get('/api/cxc/resumen', async (req) => {
 
 // Aging por documento: suma de Saldo_Documento por rango de días (igual que Power BI). Buckets suman = SALDO_TOTAL.
 get('/api/cxc/aging', async (req) => {
+  if (isAllDbs(req)) {
+    const snaps = await mapPoolLimit(DATABASE_REGISTRY, 2, async (entry) => {
+      try {
+        return await cxcResumenAgingUnificado(req, entry.options, 12000);
+      } catch (e) {
+        return { resumen: {}, aging: { CORRIENTE: 0, DIAS_1_30: 0, DIAS_31_60: 0, DIAS_61_90: 0, DIAS_MAS_90: 0 } };
+      }
+    });
+    return mergeCxcResumenAgingSnaps(snaps).aging;
+  }
   const dbo = getReqDbOpts(req);
   const snap = await cxcResumenAgingUnificado(req, dbo, 12000);
   return snap.aging;
@@ -3110,6 +3368,16 @@ get('/api/cxc/aging', async (req) => {
 
 // Un solo snapshot: evita que el cliente llame /resumen y /aging en paralelo (duplicaba cxcResumenAgingUnificado y saturaba Firebird en Render).
 get('/api/cxc/resumen-aging', async (req) => {
+  if (isAllDbs(req)) {
+    const snaps = await mapPoolLimit(DATABASE_REGISTRY, 2, async (entry) => {
+      try {
+        return await cxcResumenAgingUnificado(req, entry.options, 30000);
+      } catch (e) {
+        return { resumen: { SALDO_TOTAL: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: 0, VENCIDO: 0, POR_VENCER: 0 }, aging: { CORRIENTE: 0, DIAS_1_30: 0, DIAS_31_60: 0, DIAS_61_90: 0, DIAS_MAS_90: 0 } };
+      }
+    });
+    return mergeCxcResumenAgingSnaps(snaps);
+  }
   const dbo = getReqDbOpts(req);
   const snap = await cxcResumenAgingUnificado(req, dbo, 30000);
   return { resumen: snap.resumen, aging: snap.aging };
@@ -3117,12 +3385,14 @@ get('/api/cxc/resumen-aging', async (req) => {
 
 // Facturas vencidas: misma base que aging (cxcDocSaldosSQL). Sin subconsultas anidadas extra (Firebird).
 get('/api/cxc/vencidas', async (req) => {
-  const dbo = getReqDbOpts(req);
   const limit = Math.min(parseInt(req.query.limit) || 100, 500);
+  const perDb = Math.min(Math.max(limit, 30), 250);
   const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
   const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
-  const rows = await query(`
-    SELECT FIRST ${limit}
+  const run = async (dbo, firstN) => {
+    const n = Math.min(firstN, 500);
+    return query(`
+    SELECT FIRST ${n}
       dc.FOLIO,
       COALESCE(c.NOMBRE, 'Sin cliente') AS CLIENTE,
       COALESCE(cp.NOMBRE, 'S/D') AS CONDICION_PAGO,
@@ -3148,23 +3418,35 @@ get('/api/cxc/vencidas', async (req) => {
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, c.COND_PAGO_ID)
     ORDER BY x.SALDO_NETO DESC, x.DIAS_ATRASO DESC
   `, [], 30000, dbo).catch((err) => {
-    const msg = err && (err.message || String(err));
-    console.error('cxc /api/cxc/vencidas query error:', msg);
-
-    return [];
-  });
-
-  return rows;
+      const msg = err && (err.message || String(err));
+      console.error('cxc /api/cxc/vencidas query error:', msg);
+      return [];
+    });
+  };
+  if (isAllDbs(req)) {
+    const lists = await mapPoolLimit(DATABASE_REGISTRY, 2, async (entry) => {
+      const rows = await run(entry.options, perDb);
+      const label = entry.label || entry.id || '';
+      return (rows || []).map((r) => Object.assign({}, r, { NEGOCIO: label }));
+    });
+    const flat = lists.flat();
+    flat.sort((a, b) => (+b.SALDO || 0) - (+a.SALDO || 0));
+    return flat.slice(0, limit);
+  }
+  const dbo = getReqDbOpts(req);
+  return run(dbo, limit);
 });
 
 // Top Deudores: saldo neto + condición + vencido proporcional al saldo (igual que /api/cxc/resumen). Acepta ?cliente= para filtrar.
 get('/api/cxc/top-deudores', async (req) => {
-  const dbo = getReqDbOpts(req);
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+  const perDb = Math.min(Math.max(limit, 15), 80);
   const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
   const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
-  const rows = await query(`
-    SELECT FIRST ${limit}
+  const runMain = async (dbo, firstN) => {
+    const n = Math.min(firstN, 100);
+    return query(`
+    SELECT FIRST ${n}
       doc.CLIENTE_ID,
       COALESCE(cl.NOMBRE, 'Cliente ' || CAST(doc.CLIENTE_ID AS VARCHAR(12))) AS CLIENTE,
       COALESCE(MAX(cp.NOMBRE), 'S/D') AS CONDICION_PAGO,
@@ -3180,9 +3462,11 @@ get('/api/cxc/top-deudores', async (req) => {
     GROUP BY doc.CLIENTE_ID, cl.NOMBRE
     ORDER BY SALDO_TOTAL DESC, VENCIDO DESC
   `, [], 12000, dbo).catch(err => { console.error('cxc top-deudores main error:', err && (err.message || err)); return []; });
-  if ((rows || []).length) return rows;
-  const fbRows = await query(`
-    SELECT FIRST ${limit}
+  };
+  const runFb = async (dbo, firstN) => {
+    const n = Math.min(firstN, 100);
+    return query(`
+    SELECT FIRST ${n}
       c.CLIENTE_ID,
       COALESCE(cl.NOMBRE, 'Cliente ' || CAST(c.CLIENTE_ID AS VARCHAR(12))) AS CLIENTE,
       COALESCE(cp.NOMBRE, 'S/D') AS CONDICION_PAGO,
@@ -3196,8 +3480,24 @@ get('/api/cxc/top-deudores', async (req) => {
     WHERE c.SALDO > 0.005 ${cf ? `AND c.CLIENTE_ID = ${cf}` : ''}
     ORDER BY c.SALDO DESC
   `, [], 12000, dbo).catch(err => { console.error('cxc top-deudores fallback error:', err && (err.message || err)); return []; });
-
-  return fbRows;
+  };
+  const oneDb = async (dbo, firstN) => {
+    const rows = await runMain(dbo, firstN);
+    if ((rows || []).length) return rows;
+    return runFb(dbo, firstN);
+  };
+  if (isAllDbs(req)) {
+    const lists = await mapPoolLimit(DATABASE_REGISTRY, 2, async (entry) => {
+      const rows = await oneDb(entry.options, perDb);
+      const label = entry.label || entry.id || '';
+      return (rows || []).map((r) => Object.assign({}, r, { NEGOCIO: label }));
+    });
+    const flat = lists.flat();
+    flat.sort((a, b) => (+b.SALDO_TOTAL || 0) - (+a.SALDO_TOTAL || 0));
+    return flat.slice(0, limit);
+  }
+  const dbo = getReqDbOpts(req);
+  return oneDb(dbo, limit);
 });
 
 get('/api/cxc/historial', async (req) => {
@@ -3212,8 +3512,7 @@ get('/api/cxc/historial', async (req) => {
 });
 
 // Por condición: saldo neto por documento CC, agrupado por COND_PAGO del documento (excluye contado/inmediato).
-get('/api/cxc/por-condicion', async (req) => {
-  const dbo = getReqDbOpts(req);
+async function cxcPorCondicionPayload(req, dbo) {
   const docs = await query(`
     SELECT
       dc.DOCTO_CC_ID,
@@ -3338,6 +3637,20 @@ get('/api/cxc/por-condicion', async (req) => {
     .sort((a, b) => b.SALDO_TOTAL - a.SALDO_TOTAL);
 
   return { grupos, pendiente_contado: null };
+}
+
+get('/api/cxc/por-condicion', async (req) => {
+  if (isAllDbs(req)) {
+    const outs = await mapPoolLimit(DATABASE_REGISTRY, 2, async (entry) => {
+      try {
+        return await cxcPorCondicionPayload(req, entry.options);
+      } catch (e) {
+        return { grupos: [], pendiente_contado: null };
+      }
+    });
+    return mergeCxcPorCondicionPayloads(outs);
+  }
+  return cxcPorCondicionPayload(req, getReqDbOpts(req));
 });
 
 // Calendario Pagos / Buro: por documento, con CLIENTE, ANIO, MES_EMISION, saldo restante, fechas. Sin ?cliente= devuelve todos.
@@ -5207,8 +5520,8 @@ function resolveDateRangeFromQuery(q) {
 }
 
 // Balance General resumido por naturaleza contable (activo/pasivo/capital) al cierre del periodo filtrado.
-get('/api/resultados/balance-general', async (req) => {
-  const dbo = getReqDbOpts(req);
+// db=__all__: suma por CUENTA_PT en todas las bases del registro (misma lógica que P&L consolidado).
+async function buildBalanceGeneralForDbo(req, dbo) {
   const { desdeStr, hastaStr } = resolveDateRangeFromQuery(req.query || {});
   const y = parseInt(String(hastaStr).slice(0, 4), 10);
   const m = parseInt(String(hastaStr).slice(5, 7), 10);
@@ -5217,7 +5530,6 @@ get('/api/resultados/balance-general', async (req) => {
   const salMesCol = firstExistingColumn(salCols, ['MES', 'PERIODO']) || 'MES';
   const salCargoCol = firstExistingColumn(salCols, ['CARGOS', 'DEBE']) || 'CARGOS';
   const salAbonoCol = firstExistingColumn(salCols, ['ABONOS', 'HABER']) || 'ABONOS';
-  // Por defecto: saldos del mes de cierre del periodo (hastaStr). MICROSIP_BALANCE_CO_YTD=1 suma meses 1..m (solo si su contador lo usa así).
   const balanceCoYtd = (process.env.MICROSIP_BALANCE_CO_YTD || '').match(/^(1|true|yes)$/i);
   const mesCond = balanceCoYtd ? `s.${salMesCol} <= ?` : `s.${salMesCol} = ?`;
   const rows = await query(`
@@ -5242,8 +5554,8 @@ get('/api/resultados/balance-general', async (req) => {
     const cargos = +r.CARGOS || 0;
     const abonos = +r.ABONOS || 0;
     let saldo = 0;
-    if (g === '1') saldo = cargos - abonos; // activos naturaleza deudora
-    if (g === '2' || g === '3') saldo = abonos - cargos; // pasivo/capital naturaleza acreedora
+    if (g === '1') saldo = cargos - abonos;
+    if (g === '2' || g === '3') saldo = abonos - cargos;
     saldo = Math.round(saldo * 100) / 100;
     if (Math.abs(saldo) < 0.005) return;
     const rec = { CUENTA_PT: r.CUENTA_PT, NOMBRE: r.NOMBRE, SALDO: saldo };
@@ -5254,7 +5566,7 @@ get('/api/resultados/balance-general', async (req) => {
   detail.activo.sort((a, b) => Math.abs(+b.SALDO || 0) - Math.abs(+a.SALDO || 0));
   detail.pasivo.sort((a, b) => Math.abs(+b.SALDO || 0) - Math.abs(+a.SALDO || 0));
   detail.capital.sort((a, b) => Math.abs(+b.SALDO || 0) - Math.abs(+a.SALDO || 0));
-  const payload = {
+  return {
     cierre: { ANIO: y, MES: m, hasta: hastaStr },
     totales: {
       ACTIVO_TOTAL: Math.round(activo * 100) / 100,
@@ -5263,14 +5575,28 @@ get('/api/resultados/balance-general', async (req) => {
       PASIVO_MAS_CAPITAL: Math.round((pasivo + capital) * 100) / 100,
       DIFERENCIA_BALANCE: Math.round(((pasivo + capital) - activo) * 100) / 100,
     },
-    detalle: {
-      activo: detail.activo.slice(0, 20),
-      pasivo: detail.pasivo.slice(0, 20),
-      capital: detail.capital.slice(0, 20),
+    detalleFull: {
+      activo: detail.activo,
+      pasivo: detail.pasivo,
+      capital: detail.capital,
     },
   };
+}
 
-  return payload;
+get('/api/resultados/balance-general', async (req) => {
+  if (isAllDbs(req)) {
+    const parts = await mapPoolLimit(DATABASE_REGISTRY, 2, async (entry) => {
+      try {
+        return await buildBalanceGeneralForDbo(req, entry.options);
+      } catch (e) {
+        return null;
+      }
+    });
+    return sliceBalanceGeneralPublic(mergeBalanceGeneralFromPayloads(parts));
+  }
+  const dbo = getReqDbOpts(req);
+  const one = await buildBalanceGeneralForDbo(req, dbo);
+  return sliceBalanceGeneralPublic(one);
 });
 
 // Estado de resultados SR (contable): desglosa gastos operativos y extraordinarios por cuentas.
