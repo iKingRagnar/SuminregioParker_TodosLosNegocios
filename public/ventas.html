@@ -265,7 +265,7 @@ nav{display:flex;align-items:center;gap:.25rem}
   <div id="coti-section" style="padding-top:.5rem">
     <div style="margin-bottom:1rem;padding-top:.5rem;border-top:1px solid var(--border)">
       <div style="font-size:1.1rem;font-weight:700;color:var(--text);margin-bottom:.25rem">Cotizaciones</div>
-      <div style="font-size:.8rem;color:var(--muted)">Solo m&#243;dulo Industrial &#183; DOCTOS_VE, TIPO_DOCTO = C
+      <div style="font-size:.8rem;color:var(--muted)">Misma l&#243;gica que ventas (VE+PV) &#183; TIPO_DOCTO = C &#183; importe cabecera como facturas
         <button type="button" id="coti-reintentar" style="display:none;margin-left:.6rem;padding:.25rem .6rem;font-size:.7rem;background:var(--orange);color:#050B14;border:none;border-radius:6px;cursor:pointer;font-weight:600">Reintentar</button>
       </div>
     </div>
@@ -447,7 +447,7 @@ async function loadConversion(){
   const cy=()=>cssVar('--chart-yellow','#d97706');
   const cyFill=()=>cssVar('--chart-yellow-fill','rgba(217,119,6,.28)');
   try{
-    const data = await fwt(buildApiUrl('/api/ventas/vs-cotizaciones','meses=6'), {}, 90000).catch(()=>({}));
+    const data = await fwt(buildApiUrl('/api/ventas/vs-cotizaciones', 'meses=6' + tipoQ()), {}, 90000).catch(()=>({}));
     const ventasArr = Array.isArray(data.ventas) ? data.ventas : [];
     const cotiArr   = Array.isArray(data.cotizaciones) ? data.cotizaciones : [];
     if(!ventasArr.length && !cotiArr.length){
@@ -974,9 +974,9 @@ async function loadCotizaciones() {
     // Misma estructura que ventas: llamar endpoints dedicados de resumen/diarias/por-vendedor
     // en lugar de derivar desde docs crudos (TIPO_DOCTO='C', igual que ventas usa 'F'/'V')
     const settled = await Promise.allSettled([
-      fwt(buildApiUrl('/api/ventas/cotizaciones/resumen'), {}, 90000),
-      fwt(buildApiUrl('/api/ventas/cotizaciones/diarias', 'dias=35'), [], 90000),
-      fwt(buildApiUrl('/api/ventas/por-vendedor/cotizaciones'), [], 90000),
+      fwt(buildApiUrl('/api/ventas/cotizaciones/resumen', tipoQ()), {}, 90000),
+      fwt(buildApiUrl('/api/ventas/cotizaciones/diarias', 'dias=35' + tipoQ()), [], 90000),
+      fwt(buildApiUrl('/api/ventas/por-vendedor/cotizaciones', tipoQ()), [], 90000),
       fwt(buildApiUrl('/api/ventas/resumen', 'tipo=VE'), {}, 30000),
     ]);
     const safe = (idx, fb) => (settled[idx] && settled[idx].status === 'fulfilled') ? settled[idx].value : fb;

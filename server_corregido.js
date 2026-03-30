@@ -35,7 +35,9 @@
  *               Fallback: DOCTOS_CC.FECHA + CONDICIONES_PAGO.DIAS_PPAG
  *  • Ventas: UNION ALL de DOCTOS_VE (Industrial) + DOCTOS_PV (Mostrador)
  *            Parámetro ?tipo=VE o ?tipo=PV para filtrar por fuente
- *  • Cotizaciones: solo DOCTOS_VE; predicado único sqlWhereCotizacionActiva() en todos los endpoints
+ *  • Cotizaciones: misma macro que ventas (UNION DOCTOS_VE + DOCTOS_PV), mismo IMPORTE_NETO (sqlVentaImporteBaseExpr),
+ *            TIPO_DOCTO = 'C' y mismas reglas ESTATUS/APLICADO que facturas; ?tipo=VE|PV igual que ventas.
+ *            MICROSIP_COTIZACION_REQUIERE_APLICADO=1 para exigir APLICADO='S' como facturas (por defecto no se filtra APLICADO).
  *  • Nuevos endpoints:
  *      /api/ventas/cobradas         Facturas cobradas por vendedor
  *      /api/ventas/margen           Margen por vendedor/mes (precio venta)
@@ -1175,24 +1177,73 @@ function remisionesSub(tipo = '') {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-//  COTIZACIONES (solo DOCTOS_VE) — mismo predicado en todos los endpoints
-//  TIPO_DOCTO: 'C' cotización estándar; 'O' usado en algunas plantas Microsip.
-//  Excluye canceladas. (Sin PV: mostrador no maneja cotización en esta API.)
+//  COTIZACIONES — misma macro que ventas (UNION DOCTOS_VE + DOCTOS_PV), misma base de importe
+//  (sqlVentaImporteBaseExpr = IMPORTE_NETO cabecera ± divisor IVA). Única variante: TIPO_DOCTO = 'C'.
+//  ESTATUS: mismo criterio que ventas (NOT IN C,D,S). APLICADO='S' solo si MICROSIP_COTIZACION_REQUIERE_APLICADO=1.
+//  Vigencia (FECHA_VENCIMIENTO…) solo en rama VE, vía resolveCotizacionVigenciaSqlSuffix.
 // ═══════════════════════════════════════════════════════════════════════════════
-function sqlWhereCotizacionActiva(alias = 'd') {
+
+function sqlWhereCotizacionComoVenta(alias = 'd') {
   const a = alias;
-  const raw = process.env.MICROSIP_COTIZACION_TIPOS || 'C,O';
-  const tips = raw
-    .split(/[,;|]+/)
-    .map((s) => String(s || '').trim().toUpperCase().replace(/^['"]|['"]$/g, ''))
-    .filter(Boolean);
-  const list = tips.length ? tips : ['C', 'O'];
-  const esc = (t) => String(t).replace(/'/g, "''").slice(0, 8);
-  const inList = list.map((t) => `'${esc(t)}'`).join(', ');
-  // Cotización activa: tipos configurables (default C,O); no cancelada (ESTATUS <> C).
+  const reqAplicado = (process.env.MICROSIP_COTIZACION_REQUIERE_APLICADO || '').match(/^(1|true|yes)$/i);
+  const aplicado = reqAplicado ? ` AND COALESCE(${a}.APLICADO, 'N') = 'S'` : '';
   return `(
-    UPPER(TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(10)))) IN (${inList})
-  ) AND UPPER(TRIM(CAST(COALESCE(${a}.ESTATUS, 'N') AS VARCHAR(8)))) <> 'C'`;
+      ${a}.TIPO_DOCTO = 'C'
+      AND COALESCE(${a}.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
+    )${aplicado}`;
+}
+
+/**
+ * Sub-SELECT cotizaciones: paralelo a ventasSub(), con TIPO_DOCTO 'C' y opcional sufijo de vigencia en VE.
+ * @param {string} tipo - 'VE', 'PV' o '' (ambos)
+ * @param {{ vigenciaVeSuffix?: string }} opts
+ */
+function cotizacionesSub(tipo = '', opts = {}) {
+  const vigVe = String((opts && opts.vigenciaVeSuffix) || '');
+  const imp = sqlVentaImporteBaseExpr('d');
+  const w = sqlWhereCotizacionComoVenta('d');
+  const ve = `
+    SELECT
+      d.FECHA,
+      ${imp} AS IMPORTE_NETO,
+      COALESCE(d.VENDEDOR_ID, 0)  AS VENDEDOR_ID,
+      COALESCE(d.CLIENTE_ID,  0)  AS CLIENTE_ID,
+      d.FOLIO,
+      d.TIPO_DOCTO,
+      d.ESTATUS,
+      d.DOCTO_VE_ID,
+      CAST(NULL AS INTEGER) AS DOCTO_PV_ID,
+      'VE' AS TIPO_SRC
+    FROM DOCTOS_VE d
+    WHERE (${w})${vigVe}
+  `;
+  const pv = `
+    SELECT
+      d.FECHA,
+      ${imp} AS IMPORTE_NETO,
+      COALESCE(
+        CASE WHEN d.TIPO_DOCTO = 'F' THEN
+          (SELECT d2.VENDEDOR_ID
+           FROM DOCTOS_PV_LIGAS liga
+           JOIN DOCTOS_PV d2 ON d2.DOCTO_PV_ID = liga.DOCTO_PV_FTE_ID
+           WHERE liga.DOCTO_PV_DEST_ID = d.DOCTO_PV_ID
+           ROWS 1)
+        ELSE d.VENDEDOR_ID
+        END,
+      0) AS VENDEDOR_ID,
+      COALESCE(d.CLIENTE_ID,  0)  AS CLIENTE_ID,
+      d.FOLIO,
+      d.TIPO_DOCTO,
+      d.ESTATUS,
+      CAST(NULL AS INTEGER) AS DOCTO_VE_ID,
+      d.DOCTO_PV_ID,
+      'PV' AS TIPO_SRC
+    FROM DOCTOS_PV d
+    WHERE (${w})
+  `;
+  if (tipo === 'VE') return `(${ve})`;
+  if (tipo === 'PV') return `(${pv})`;
+  return `(${ve} UNION ALL ${pv})`;
 }
 
 function normalizeCotizacionResumenRow(row) {
@@ -1205,86 +1256,9 @@ function normalizeCotizacionResumenRow(row) {
   };
 }
 
-/** Importe cotización desde subconsulta: COALESCE(alias.IMPORTE_NETO, 0). */
+/** Importe cotización: misma base que ventas (cabecera IMPORTE_NETO / divisor IVA). */
 function sqlCotiImporteExpr(alias = 'd') {
-  return `COALESCE(${alias}.IMPORTE_NETO, 0)`;
-}
-
-const cotizacionesSubSqlCache = new Map();
-const cotizacionesSubSqlInFlight = new Map();
-
-/**
- * Subconsulta de cotizaciones: detecta FECHA vs FECHA_DOCUMENTO, columnas de renglón y DSCTO_IMPORTE.
- * Evita SQL inválido (p.ej. sin DSCTO_IMPORTE o sin PRECIO_UNITARIO) que dejaba todos los KPI en 0.
- */
-async function resolveCotizacionesSubSql(dbOpts, extraWhere = '') {
-  const ew = String(extraWhere || '');
-  const key = `${dbCacheKey(dbOpts)}::cotiSub::${ew}`;
-  if (cotizacionesSubSqlCache.has(key)) return cotizacionesSubSqlCache.get(key);
-  if (cotizacionesSubSqlInFlight.has(key)) return cotizacionesSubSqlInFlight.get(key);
-  const p = (async () => {
-    const [veCols, detCols] = await Promise.all([
-      getTableColumns('DOCTOS_VE', dbOpts),
-      getTableColumns('DOCTOS_VE_DET', dbOpts),
-    ]);
-    const fe1 = firstExistingColumn(veCols, ['FECHA', 'FECHA_DOCUMENTO']) || 'FECHA';
-    const fe2 = firstExistingColumn(veCols, fe1 === 'FECHA' ? ['FECHA_DOCUMENTO'] : ['FECHA']);
-    const feExpr =
-      fe1 && fe2 && fe1 !== fe2 && veCols.has(fe2)
-        ? `COALESCE(d.${fe1}, d.${fe2})`
-        : `d.${fe1 || 'FECHA'}`;
-    const qty = firstExistingColumn(detCols, ['UNIDADES', 'CANTIDAD']) || 'UNIDADES';
-    const price = firstExistingColumn(detCols, [
-      'PRECIO_UNITARIO',
-      'PRECIO_U',
-      'PRECIO',
-      'PRECIO_LISTA',
-      'PRECIO_UNIT',
-    ]);
-    const lineAmt = firstExistingColumn(detCols, [
-      'PRECIO_TOTAL',
-      'IMPORTE',
-      'IMPORTE_TOTAL',
-      'SUBTOTAL',
-      'TOTAL_LINEA',
-      'IMPORTE_LINEA',
-      'IMPORTE_NETO',
-      'TOTAL',
-      'NETO',
-      'TOTAL_RENGLON',
-      'PRECIO_NETO',
-    ]);
-    const hasDscto = veCols.has('DSCTO_IMPORTE');
-    const dsctoSql = hasDscto ? 'COALESCE(MAX(d.DSCTO_IMPORTE), 0)' : '0';
-    let lineSumSql = '0';
-    if (price) {
-      lineSumSql = `COALESCE(SUM(COALESCE(det.${qty}, 0) * COALESCE(det.${price}, 0)), 0)`;
-    } else if (lineAmt) {
-      lineSumSql = `COALESCE(SUM(COALESCE(det.${lineAmt}, 0)), 0)`;
-    }
-    const importeExpr = `(COALESCE(NULLIF(${lineSumSql}, 0), MAX(COALESCE(d.IMPORTE_NETO, 0))) - ${dsctoSql})`;
-    const sql = `(
-    SELECT
-      d.DOCTO_VE_ID,
-      CAST(${feExpr} AS DATE) AS FECHA,
-      d.FOLIO,
-      d.TIPO_DOCTO,
-      d.ESTATUS,
-      d.CLIENTE_ID,
-      d.VENDEDOR_ID,
-      ${importeExpr} AS IMPORTE_NETO
-    FROM DOCTOS_VE d
-    LEFT JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
-    WHERE ${sqlWhereCotizacionActiva('d')}${ew}
-    GROUP BY d.DOCTO_VE_ID, CAST(${feExpr} AS DATE), d.FOLIO, d.TIPO_DOCTO, d.ESTATUS, d.CLIENTE_ID, d.VENDEDOR_ID
-  )`;
-    cotizacionesSubSqlCache.set(key, sql);
-    return sql;
-  })().finally(() => {
-    cotizacionesSubSqlInFlight.delete(key);
-  });
-  cotizacionesSubSqlInFlight.set(key, p);
-  return p;
+  return sqlVentaImporteBaseExpr(alias);
 }
 
 /** Sufijo SQL (AND …) para excluir cotizaciones con vigencia vencida SOLO si MICROSIP_COTIZACIONES_SOLO_VIGENTES=1.
@@ -1718,10 +1692,11 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
     req.query.anio = now.getFullYear();
     req.query.mes = now.getMonth() + 1;
   }
+  const tipoCoti = getTipo(req);
   const run = async (dbo) => {
     const f = buildFiltros(req, 'd');
     const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
-    const cotiSub = await resolveCotizacionesSubSql(dbo, cotiEw);
+    const cotiSub = cotizacionesSub(tipoCoti, { vigenciaVeSuffix: cotiEw });
     const ci = sqlCotiImporteExpr('d');
     const rows = await query(`
     SELECT
@@ -1874,13 +1849,14 @@ get('/api/ventas/mensuales', async (req) => {
 });
 
 get('/api/ventas/cotizaciones/diarias', async (req) => {
+  const tipoCoti = getTipo(req);
   const dias = Math.min(parseInt(req.query.dias) || 30, 366);
   const desde = new Date();
   desde.setDate(desde.getDate() - dias);
   const desdeStr = desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-' + String(desde.getDate()).padStart(2, '0');
   const run = async (dbo) => {
     const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
-    const cotiSub = await resolveCotizacionesSubSql(dbo, cotiEw);
+    const cotiSub = cotizacionesSub(tipoCoti, { vigenciaVeSuffix: cotiEw });
     const ci = sqlCotiImporteExpr('d');
     const rows = await query(`
     SELECT CAST(d.FECHA AS DATE) AS DIA, COUNT(*) AS COTIZACIONES, COALESCE(SUM(${ci}),0) AS TOTAL_COTIZACIONES
@@ -1905,9 +1881,10 @@ get('/api/ventas/cotizaciones/diarias', async (req) => {
 
 get('/api/ventas/cotizaciones/semanales', async (req) => {
   const f = buildFiltros(req, 'd');
+  const tipoCoti = getTipo(req);
   const run = async (dbo) => {
     const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
-    const cotiSub = await resolveCotizacionesSubSql(dbo, cotiEw);
+    const cotiSub = cotizacionesSub(tipoCoti, { vigenciaVeSuffix: cotiEw });
     const ci = sqlCotiImporteExpr('d');
     return query(`
     SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(WEEK FROM d.FECHA) AS SEMANA,
@@ -1931,9 +1908,10 @@ get('/api/ventas/cotizaciones/semanales', async (req) => {
 
 get('/api/ventas/cotizaciones/mensuales', async (req) => {
   const f = buildFiltros(req, 'd');
+  const tipoCoti = getTipo(req);
   const run = async (dbo) => {
     const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
-    const cotiSub = await resolveCotizacionesSubSql(dbo, cotiEw);
+    const cotiSub = cotizacionesSub(tipoCoti, { vigenciaVeSuffix: cotiEw });
     const ci = sqlCotiImporteExpr('d');
     return query(`
     SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
@@ -2028,13 +2006,14 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
     req.query.mes = now.getMonth() + 1;
   }
   const f = buildFiltros(req, 'd');
+  const tipoCoti = getTipo(req);
   const vid = req.query.vendedor ? parseInt(req.query.vendedor, 10) : null;
   const vendSql = Number.isFinite(vid) ? ' AND d.VENDEDOR_ID = ?' : '';
   const params = [...f.params];
   if (Number.isFinite(vid)) params.push(vid);
   const run = async (dbo) => {
     const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
-    const cotiSub = await resolveCotizacionesSubSql(dbo, cotiEw);
+    const cotiSub = cotizacionesSub(tipoCoti, { vigenciaVeSuffix: cotiEw });
     const ci = sqlCotiImporteExpr('d');
     return query(`
     SELECT
@@ -2097,14 +2076,15 @@ get('/api/ventas/vs-cotizaciones', async (req) => {
   const desde = new Date();
   desde.setMonth(desde.getMonth() - mesesN);
   const desdeStr = desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-01';
+  const tipoCoti = getTipo(req);
   const run = async (dbo) => {
     const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
-    const cotiSub = await resolveCotizacionesSubSql(dbo, cotiEw);
+    const cotiSub = cotizacionesSub(tipoCoti, { vigenciaVeSuffix: cotiEw });
     const [ventasMes, cotizMes] = await Promise.all([
       query(`
       SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
         CAST(COALESCE(SUM(d.IMPORTE_NETO), 0) AS DOUBLE PRECISION) AS TOTAL_VENTAS, COUNT(*) AS NUM_DOCS
-      FROM ${ventasSub()} d WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
+      FROM ${ventasSub(tipoCoti)} d WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
       GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
     `, [desdeStr], 25000, dbo).catch(() => []),
       query(`
@@ -2580,14 +2560,15 @@ get('/api/ventas/margen-articulos', async (req) => {
 
 get('/api/ventas/cotizaciones', async (req) => {
   const f = buildFiltros(req, 'd');
+  const tipoCoti = getTipo(req);
   const limit = Math.min(parseInt(req.query.limit, 10) || 50, 500);
   const run = async (dbo) => {
     const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
-    const cotiSub = await resolveCotizacionesSubSql(dbo, cotiEw);
+    const cotiSub = cotizacionesSub(tipoCoti, { vigenciaVeSuffix: cotiEw });
     const ci = sqlCotiImporteExpr('d');
     return query(`
     SELECT FIRST ${limit}
-      d.DOCTO_VE_ID, d.FECHA, d.FOLIO, d.TIPO_DOCTO, ${ci} AS IMPORTE_NETO, d.CLIENTE_ID,
+      d.DOCTO_VE_ID, d.DOCTO_PV_ID, d.FECHA, d.FOLIO, d.TIPO_DOCTO, d.TIPO_SRC, ${ci} AS IMPORTE_NETO, d.CLIENTE_ID,
       c.NOMBRE AS CLIENTE, d.VENDEDOR_ID,
       COALESCE(v.NOMBRE, 'Vendedor ' || CAST(d.VENDEDOR_ID AS VARCHAR(12))) AS VENDEDOR
     FROM ${cotiSub} d
@@ -2742,7 +2723,7 @@ get('/api/ventas/cumplimiento', async (req) => {
 
 // director.html espera: dir.ventas (HOY, MES_ACTUAL, FACTURAS_MES, MES_VE, MES_PV), dir.cxc, dir.cotizaciones
 // Respeta preset/filtro de fechas: ventas y cotizaciones del periodo (desde/hasta o anio/mes).
-// Cotizaciones: DOCTOS_VE TIPO_DOCTO='C' ESTATUS<>'C' SUM(IMPORTE_NETO); mismo criterio que Power BI si BI usa igual (ver COTIZACIONES_WEB_VS_POWERBI.md).
+// Cotizaciones: misma macro que ventas con TIPO_DOCTO='C' e IMPORTE_NETO vía sqlVentaImporteBaseExpr.
 async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
   const qms = perQueryMs != null ? perQueryMs : 12000;
   const rq = { query: { ...req.query } };
@@ -2753,7 +2734,7 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
   }
   const f = buildFiltros(rq, 'd');
   const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbOpts);
-  const cotiSub = await resolveCotizacionesSubSql(dbOpts, cotiEw);
+  const cotiSub = cotizacionesSub(getTipo(rq), { vigenciaVeSuffix: cotiEw });
   const [vRow, remRow, cxcSnap, coRow] = await Promise.all([
     query(`
       SELECT
@@ -6851,7 +6832,7 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
     if (toolId === 'cotizaciones') {
       const fCot = buildFiltros(aiReq, 'd');
       const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbOpts);
-      const cotiSub = await resolveCotizacionesSubSql(dbOpts, cotiEw);
+      const cotiSub = cotizacionesSub(getTipo(aiReq), { vigenciaVeSuffix: cotiEw });
       const [resumen] = await query(`
         SELECT
           COUNT(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 END) AS COT_HOY,
