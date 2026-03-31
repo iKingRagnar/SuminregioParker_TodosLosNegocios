@@ -506,7 +506,7 @@ details.sr-gastos-blk>summary{cursor:pointer;font-family:'DM Mono',monospace;fon
     </div>
     <div class="card-body">
       <div class="bg-classic">
-        <h4>Estructura contable · Microsip</h4>
+        <h4>Estructura contable · Microsip <span style="font-size:.62rem;font-weight:600;color:var(--green);margin-left:.35rem">· Activo: fijo / diferidos / otros</span></h4>
         <div class="bg-classic-grid" id="bgClassic"><div style="color:var(--muted);font-size:.68rem">Cargando estructura de activo/pasivo/capital...</div></div>
       </div>
       <div class="bg-grid">
@@ -780,7 +780,8 @@ function setMeses(m,btn){
 async function loadBalanceGeneral(){
   const badge=document.getElementById('bgBadge');
   try{
-    const url=buildPnlApiUrl('/api/resultados/balance-general','');
+    const _bgBase = buildPnlApiUrl('/api/resultados/balance-general','');
+    const url = _bgBase + (_bgBase.indexOf('?') >= 0 ? '&' : '?') + '_=' + Date.now();
     const ctrl = new AbortController();
     const tid = setTimeout(()=>ctrl.abort(), 25000);
     let bg = {};
@@ -837,7 +838,20 @@ async function loadBalanceGeneral(){
         actDif = +t.CARGOS_DIFERIDOS || 0;
         actOtros = +t.OTROS_ACTIVOS || 0;
       } else {
-        actOtros = Math.max(0, activoTotal - actCirculante);
+        const reFijo = /activo fijo|activo\s+fijo|fijo neto|depreciac|equipo de|equipos|maquin|mobiliario|mueble|veh[ií]culo|transporte|inmueble|terreno|edificio|instalacion(es)?\s+en|inversion(es)?\s+en bienes/i;
+        const reDif = /cargos?\s+diferidos?|gasto(s)?\s+diferidos?|diferido|organizaci|constituci|gastos?\s+de\s+instalaci/i;
+        for (const row of activoRows) {
+          const sal = +row.SALDO || 0;
+          const nom = String(row.NOMBRE || '');
+          if (/caja|banco|efectivo/i.test(nom)) continue;
+          if (/cobrar|cliente/i.test(nom)) continue;
+          if (/invent/i.test(nom)) continue;
+          if (reFijo.test(nom)) actFijo += sal;
+          else if (reDif.test(nom)) actDif += sal;
+          else actOtros += sal;
+        }
+        const drift = activoTotal - actCirculante - actFijo - actDif - actOtros;
+        actOtros += drift;
       }
       const bancosCorto = sumBy(pasivoRows, r => /banco|credito|financ/i.test(String(r.NOMBRE || '')));
       const proveedores = sumBy(pasivoRows, r => /provee|pagar/i.test(String(r.NOMBRE || '')));
