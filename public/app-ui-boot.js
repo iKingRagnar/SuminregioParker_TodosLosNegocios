@@ -36,6 +36,7 @@
       ".page > .card",
       /* CxC (main sin .page) */
       "main > .cxc-hero",
+      "main > .cxc-invite-strip",
       "main > .cxc-kpi-journey",
       "main > #filter-bar",
       "main > .client-filter-bar",

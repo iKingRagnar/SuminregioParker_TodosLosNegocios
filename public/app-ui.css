@@ -257,7 +257,8 @@ body.app-dark .uni-entity-card .m-v-cotiz {
 }
 
 /* --- ERP premium (theme-premium-light): títulos legibles, sin texto amarillo “fantasma” */
-html.theme-premium-light[data-theme="light"] :where(.hero-title, .page-title) {
+/* CxC usa body.ms-page-cxc: no aplanar .kpi-val/.tbl aquí (semántica rojo/verde + bloque CXC abajo). */
+html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) :where(.hero-title, .page-title) {
   background: none !important;
   background-image: none !important;
   -webkit-background-clip: unset !important;
@@ -265,63 +266,63 @@ html.theme-premium-light[data-theme="light"] :where(.hero-title, .page-title) {
   background-clip: unset !important;
   color: #0f172a !important;
 }
-html.theme-premium-light[data-theme="light"] :where(.kpi-value, .kpi-val, .kpi-v) {
+html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) :where(.kpi-value, .kpi-val, .kpi-v) {
   color: #0f172a !important;
 }
-html.theme-premium-light[data-theme="light"] :where(.kpi-val, .kpi-v).text-amber,
-html.theme-premium-light[data-theme="light"] .vendor-pct,
-html.theme-premium-light[data-theme="light"] .meta-pct {
+html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) :where(.kpi-val, .kpi-v).text-amber,
+html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) .vendor-pct,
+html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) .meta-pct {
   color: #b45309 !important;
 }
-html.theme-premium-light[data-theme="light"] :where(.kpi-val, .kpi-v).text-green-600,
-html.theme-premium-light[data-theme="light"] .ms-sem-good {
+html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) :where(.kpi-val, .kpi-v).text-green-600,
+html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) .ms-sem-good {
   color: #15803d !important;
 }
-html.theme-premium-light[data-theme="light"] :where(.kpi-val, .kpi-v).text-red-600,
-html.theme-premium-light[data-theme="light"] .ms-sem-red {
+html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) :where(.kpi-val, .kpi-v).text-red-600,
+html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) .ms-sem-red {
   color: #b91c1c !important;
 }
-html.theme-premium-light[data-theme="light"] table thead th,
-html.theme-premium-light[data-theme="light"] .tbl th {
+html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) table thead th,
+html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) .tbl th {
   color: #1e293b !important;
   background: #e2e8f0 !important;
 }
 
 /* Páginas con <style> oscuro inline (p. ej. vendedores): forzar canvas claro */
-html.theme-premium-light[data-theme="light"] body {
+html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) {
   background: #f1f5f9 !important;
   color: #0f172a !important;
 }
-html.theme-premium-light[data-theme="light"] header {
+html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) header {
   background: rgba(255, 255, 255, 0.92) !important;
   border-bottom-color: rgba(15, 23, 42, 0.08) !important;
 }
-html.theme-premium-light[data-theme="light"] .kpi,
-html.theme-premium-light[data-theme="light"] .sc-card {
+html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) .kpi,
+html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) .sc-card {
   background: #fff !important;
   border-color: rgba(15, 23, 42, 0.1) !important;
   color: #0f172a !important;
 }
-html.theme-premium-light[data-theme="light"] .kpi-lbl,
-html.theme-premium-light[data-theme="light"] .hero-eyebrow,
-html.theme-premium-light[data-theme="light"] .hero-sub,
-html.theme-premium-light[data-theme="light"] .kpi-sub {
+html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) .kpi-lbl,
+html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) .hero-eyebrow,
+html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) .hero-sub,
+html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) .kpi-sub {
   color: #475569 !important;
 }
-html.theme-premium-light[data-theme="light"] .kpi.green .kpi-val {
+html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) .kpi.green .kpi-val {
   color: #15803d !important;
 }
-html.theme-premium-light[data-theme="light"] .kpi.blue .kpi-val {
+html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) .kpi.blue .kpi-val {
   color: #1d4ed8 !important;
 }
-html.theme-premium-light[data-theme="light"] .kpi.yellow .kpi-val,
-html.theme-premium-light[data-theme="light"] .kpi.orange .kpi-val {
+html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) .kpi.yellow .kpi-val,
+html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) .kpi.orange .kpi-val {
   color: #b45309 !important;
 }
-html.theme-premium-light[data-theme="light"] .kpi.purple .kpi-val {
+html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) .kpi.purple .kpi-val {
   color: #6d28d9 !important;
 }
-html.theme-premium-light[data-theme="light"] .kpi.red .kpi-val {
+html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) .kpi.red .kpi-val {
   color: #b91c1c !important;
 }
 
@@ -381,8 +382,8 @@ html[data-theme="light"] table td[style*="color: var(--text2)"] {
   color: #334155 !important;
 }
 
-/* Tarjetas genéricas (fondo claro) */
-html[data-theme="light"] .card {
+/* Tarjetas genéricas (fondo claro) — no CxC */
+html[data-theme="light"] body:not(.ms-page-cxc) .card {
   background: #ffffff !important;
   border-color: rgba(15, 23, 42, 0.1) !important;
   color: #0f172a !important;
@@ -525,10 +526,10 @@ html[data-theme="light"] .kpi-card {
   background: #ffffff !important;
   border-color: rgba(15, 23, 42, 0.1) !important;
 }
-html[data-theme="light"] .kpi-label {
+html[data-theme="light"] body:not(.ms-page-cxc) .kpi-label {
   color: #475569 !important;
 }
-html[data-theme="light"] .kpi-sub {
+html[data-theme="light"] body:not(.ms-page-cxc) .kpi-sub {
   color: #64748b !important;
 }
 html[data-theme="light"] .meta-bar-bg {
@@ -581,6 +582,14 @@ html[data-theme="light"] .biz-chip.active {
 }
 
 /* --- CXC (theme-premium-light + data-theme=light): contraste del select nativo, hero, tabs --- */
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc header#app-header {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-bottom-color: rgba(15, 23, 42, 0.08) !important;
+}
 html.theme-premium-light[data-theme="light"] {
   color-scheme: light;
 }
