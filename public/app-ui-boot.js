@@ -23,6 +23,7 @@
       ".page > .biz-context-bar",
       ".page > .source-tabs",
       ".page > .ms-ai-page-banner",
+      "body > .ms-alive-strip",
       ".page > .exec-mission",
       ".page > .intel-bar",
       ".uni-portfolio",

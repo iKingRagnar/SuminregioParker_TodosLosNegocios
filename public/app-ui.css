@@ -767,3 +767,137 @@ html.theme-premium-light[data-theme="light"] .kpi-share-cap {
 html[data-theme="light"] .kpi-composition-legend {
   color: #64748b !important;
 }
+
+/* --- Franja "vivo" / latido (index, director, ventas) ------------------------ */
+.ms-alive-strip {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  max-width: min(1120px, 96vw);
+  margin: 0.35rem auto 1rem;
+  padding: 0.75rem 1rem 0.75rem 0.95rem;
+  border-radius: 14px;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text2, #c8d8ec);
+  background: linear-gradient(
+    135deg,
+    rgba(0, 229, 160, 0.09),
+    rgba(77, 166, 255, 0.06),
+    rgba(230, 168, 0, 0.07)
+  );
+  border: 1px solid rgba(0, 229, 160, 0.22);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  position: relative;
+  overflow: hidden;
+}
+.ms-alive-strip::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.06) 45%,
+    transparent 70%
+  );
+  animation: msAliveSheen 7s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes msAliveSheen {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: translateX(-8%);
+  }
+  50% {
+    opacity: 0.85;
+    transform: translateX(8%);
+  }
+}
+.ms-alive-dot {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  margin-top: 0.28rem;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #7dffcf, #00e5a0);
+  box-shadow: 0 0 0 0 rgba(0, 229, 160, 0.45), 0 0 14px rgba(0, 229, 160, 0.55);
+  animation: msAlivePulse 2.1s ease-out infinite;
+}
+@keyframes msAlivePulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(0, 229, 160, 0.35), 0 0 12px rgba(0, 229, 160, 0.5);
+  }
+  50% {
+    transform: scale(1.12);
+    box-shadow: 0 0 0 6px rgba(0, 229, 160, 0.12), 0 0 18px rgba(0, 229, 160, 0.65);
+  }
+}
+.ms-alive-text {
+  position: relative;
+  z-index: 1;
+}
+.ms-alive-beat {
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: var(--green, #00e5a0);
+  text-shadow: 0 0 18px rgba(0, 229, 160, 0.35);
+  animation: msAliveBeat 2.8s ease-in-out infinite;
+}
+@keyframes msAliveBeat {
+  0%,
+  100% {
+    opacity: 0.92;
+  }
+  50% {
+    opacity: 1;
+    filter: brightness(1.08);
+  }
+}
+.ms-alive-strip--director {
+  margin-top: 0.5rem;
+  margin-bottom: 1.1rem;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ms-alive-strip::before,
+  .ms-alive-dot,
+  .ms-alive-beat {
+    animation: none !important;
+  }
+  .ms-alive-dot {
+    box-shadow: 0 0 10px rgba(0, 229, 160, 0.4);
+  }
+}
+
+/* KPI vencido CxC: refuerzo de color sobre anillos semánticos */
+.kpi-cxc-venc-val {
+  font-weight: 800 !important;
+  letter-spacing: -0.02em !important;
+}
+
+html.theme-premium-light[data-theme="light"] .ms-alive-strip {
+  color: #334155 !important;
+  background: linear-gradient(135deg, #ecfdf5, #f0fdf4, #fffbeb) !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08) !important;
+}
+html.theme-premium-light[data-theme="light"] .ms-alive-beat {
+  color: #047857 !important;
+  text-shadow: none !important;
+}
+html.theme-premium-light[data-theme="light"] .ms-alive-dot {
+  background: radial-gradient(circle at 30% 30%, #6ee7b7, #10b981);
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.35), 0 0 12px rgba(16, 185, 129, 0.45);
+}
+
+/* Módulo CxC en index: pie de estado más legible */
+.module-card.orange .mod-status {
+  color: #b45309 !important;
+  font-weight: 600 !important;
+}
+html.theme-premium-light[data-theme="light"] .module-card.orange .mod-status {
+  color: #9a3412 !important;
+}

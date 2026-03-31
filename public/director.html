@@ -177,6 +177,11 @@ html[data-theme=light] .chart-empty-msg{background:rgba(255,255,255,.85);color:#
   <!-- Barra de filtros compartida -->
   <div id="filter-bar"></div>
 
+  <p class="ms-alive-strip ms-alive-strip--director ms-reveal" role="status">
+    <span class="ms-alive-dot" aria-hidden="true"></span>
+    <span class="ms-alive-text"><span class="ms-alive-beat">I'm breathing.</span> Qu&eacute;date aqu&iacute; &mdash; cartera, meta y riesgo en una sola lectura.</span>
+  </p>
+
   <section class="exec-mission" aria-label="Enfoque ejecutivo">
     <h2>Qué mira un director aquí</h2>
     <p>Un solo tablero para decidir hoy: <strong>¿vamos a meta?</strong> (venta vs meta e ideal), <strong>¿de dónde viene el ingreso?</strong> (VE vs PV), <strong>¿la cartera aguanta?</strong> (CxC y vencido) y <strong>¿quién empuja el resultado?</strong> (vendedores y clientes). Use el filtro de periodo para alinear la lectura con cierres y comités.</p>
@@ -457,8 +462,9 @@ async function loadAll() {
     const cxcObj = (cxcRes.status === 'fulfilled' && cxcRes.value && typeof cxcRes.value === 'object') ? cxcRes.value : {};
     const metas = (metasRes.status === 'fulfilled' && metasRes.value && typeof metasRes.value === 'object') ? metasRes.value : {};
 
-    // reasignar cxc desde director si cxcObj falla
-    const cxc   = (cxcObj && Object.keys(cxcObj).length>0) ? cxcObj : (dir.cxc||{});
+    const cxc   = (typeof window.mergeCxcKpiWithDirector === 'function')
+      ? window.mergeCxcKpiWithDirector(cxcObj, dir)
+      : ((cxcObj && Object.keys(cxcObj).length>0) ? cxcObj : (dir.cxc||{}));
     const v = dir.ventas||{}, c = cxc, co = dir.cotizaciones||{};
     const nV = getVendedoresEnContexto(metas);
     const metaBase = +(metas.META_DIARIA_POR_VENDEDOR||5650);
@@ -527,6 +533,13 @@ async function loadAll() {
     setText('cxc-clientes', `${cxc.NUM_CLIENTES||0} clientes activos`);
     setSem('sem-cxc','info',fmtK(cTotal)+' total');
     setText('cxc-vencido', fmtK(cVenc));
+    (function(){
+      var el=document.getElementById('cxc-vencido');
+      if(!el)return;
+      el.classList.add('kpi-cxc-venc-val');
+      if(cTotal<=0){el.style.color='var(--muted)';return;}
+      el.style.color=pVenc>50?'var(--red)':pVenc>25?'var(--yellow)':'var(--green)';
+    })();
     const ncv = (cxc.NUM_CLIENTES_VENCIDOS != null && cxc.NUM_CLIENTES_VENCIDOS !== '') ? cxc.NUM_CLIENTES_VENCIDOS : '\u2014';
     setText('cxc-pct-venc', cTotal>0?`${pVenc}% del total \u00b7 ${ncv} clientes c/vencido`:'Sin datos');
     setSem('sem-venc',pVenc>50?'danger':pVenc>25?'warn':'ok',pVenc>50?'Cartera crítica':pVenc>25?'Atención cobranza':pVenc+'% vencido');

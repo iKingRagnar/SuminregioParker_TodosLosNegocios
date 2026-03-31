@@ -613,6 +613,58 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     }
   }
 
+  /**
+   * Une el snapshot de GET /api/cxc/resumen con dir.cxc de /api/director/resumen.
+   * Cubre timeout/fetch vacío y el caso en que el resumen aislado llegue sin VENCIDO coherente
+   * mientras el director ya trae la misma cartera con mora correcta (misma fuente servidor).
+   */
+  function mergeCxcKpiWithDirector(cxcRaw, directorRaw) {
+    function norm(o) {
+      if (!o || typeof o !== 'object') {
+        return { SALDO_TOTAL: 0, VENCIDO: 0, POR_VENCER: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: null };
+      }
+      var r = o.resumen && typeof o.resumen === 'object' ? o.resumen : o;
+      function pickNum() {
+        for (var i = 0; i < arguments.length; i++) {
+          var k = arguments[i];
+          if (r[k] != null && r[k] !== '' && !isNaN(+r[k])) return +r[k];
+        }
+        return 0;
+      }
+      var nv = r.NUM_CLIENTES_VENCIDOS;
+      if (nv == null || nv === '') nv = r.num_clientes_vencidos;
+      return {
+        SALDO_TOTAL: pickNum('SALDO_TOTAL', 'saldo_total'),
+        VENCIDO: pickNum('VENCIDO', 'vencido'),
+        POR_VENCER: pickNum('POR_VENCER', 'por_vencer'),
+        NUM_CLIENTES: pickNum('NUM_CLIENTES', 'num_clientes'),
+        NUM_CLIENTES_VENCIDOS: nv != null && nv !== '' ? nv : null
+      };
+    }
+    var a = norm(cxcRaw);
+    var b = norm(directorRaw && directorRaw.cxc ? directorRaw.cxc : {});
+    if (a.SALDO_TOTAL <= 0 && a.VENCIDO <= 0 && (b.SALDO_TOTAL > 0 || b.VENCIDO > 0)) return b;
+    var out = {
+      SALDO_TOTAL: a.SALDO_TOTAL,
+      VENCIDO: a.VENCIDO,
+      POR_VENCER: a.POR_VENCER,
+      NUM_CLIENTES: a.NUM_CLIENTES,
+      NUM_CLIENTES_VENCIDOS: a.NUM_CLIENTES_VENCIDOS
+    };
+    if (a.SALDO_TOTAL > 0 && b.SALDO_TOTAL > 0) {
+      var mx = Math.max(a.SALDO_TOTAL, b.SALDO_TOTAL);
+      var relDiff = Math.abs(a.SALDO_TOTAL - b.SALDO_TOTAL) / mx;
+      if (relDiff <= 0.02) {
+        if (b.VENCIDO > a.VENCIDO) out.VENCIDO = b.VENCIDO;
+        if (b.POR_VENCER > a.POR_VENCER) out.POR_VENCER = b.POR_VENCER;
+        if ((out.NUM_CLIENTES_VENCIDOS == null || out.NUM_CLIENTES_VENCIDOS === '') && b.NUM_CLIENTES_VENCIDOS != null) {
+          out.NUM_CLIENTES_VENCIDOS = b.NUM_CLIENTES_VENCIDOS;
+        }
+      }
+    }
+    return out;
+  }
+
   window.initFilters              = initFilters;
   window.filterBuildQS            = buildQS;
   window.filterGetParams          = getParams;
@@ -621,5 +673,6 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   window.apiPathWithDb            = apiPathWithDb;
   window.initGlobalDbBarAfterNav  = initGlobalDbBarAfterNav;
   window.filterSyncFiltersToUrl   = syncFiltersToUrl;
+  window.mergeCxcKpiWithDirector  = mergeCxcKpiWithDirector;
 
 })();
