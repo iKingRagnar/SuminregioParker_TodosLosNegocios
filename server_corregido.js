@@ -589,12 +589,18 @@ function mergeCotizacionResumenRows(rows) {
   );
 }
 
-/** Lista SQL IN para TIPO_DOCTO de cotizaciones (env MICROSIP_COTIZACION_TIPOS; default C,O). */
-function sqlCotizacionTiposInList() {
-  const raw = (process.env.MICROSIP_COTIZACION_TIPOS || 'C,O').trim();
+/** Tipos de documento considerados cotización (env MICROSIP_COTIZACION_TIPOS; default C,O,Q,P). */
+function parseCotizacionTipos() {
+  const raw = (process.env.MICROSIP_COTIZACION_TIPOS || 'C,O,Q,P').trim();
   const parts = raw.split(/[,;|\s]+/).map((s) => s.trim().toUpperCase()).filter(Boolean);
-  const tipos = parts.length ? parts : ['C'];
-  return tipos.map((t) => `'${String(t).replace(/'/g, "''")}'`).join(', ');
+  return parts.length ? parts : ['C', 'O'];
+}
+
+/** Lista SQL IN (legado / herramientas). */
+function sqlCotizacionTiposInList() {
+  return parseCotizacionTipos()
+    .map((t) => `'${String(t).replace(/'/g, "''")}'`)
+    .join(', ');
 }
 
 function mergeBalanceDetalleSide(arrays) {
@@ -1435,18 +1441,27 @@ function remisionesSub(tipo = '') {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  COTIZACIONES — misma macro que ventas (UNION DOCTOS_VE + DOCTOS_PV), misma base de importe
-//  (sqlVentaImporteBaseExpr). TIPO_DOCTO ∈ MICROSIP_COTIZACION_TIPOS (default C,O).
+//  (sqlVentaImporteBaseExpr). TIPO_DOCTO vía MICROSIP_COTIZACION_TIPOS (default C,O,Q,P; 1ª letra o texto completo).
 //  ESTATUS <> C (no cancelada). APLICADO='S' solo si MICROSIP_COTIZACION_REQUIERE_APLICADO=1.
 //  Vigencia (FECHA_VENCIMIENTO…) solo en rama VE, vía resolveCotizacionVigenciaSqlSuffix.
+//  Por defecto getCotizacionesTipo() = '' (VE+PV): el filtro Industrial/Mostrador no vacía cotizaciones.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 function sqlWhereCotizacionComoVenta(alias = 'd') {
   const a = alias;
   const reqAplicado = (process.env.MICROSIP_COTIZACION_REQUIERE_APLICADO || '').match(/^(1|true|yes)$/i);
   const aplicado = reqAplicado ? ` AND COALESCE(${a}.APLICADO, 'N') = 'S'` : '';
-  // TIPO C con TRIM (Microsip a veces guarda espacios). Solo excluir cancelada; D/S pueden aparecer en cotizaciones.
+  const tipos = parseCotizacionTipos();
+  const trimmed = `UPPER(TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(24))))`;
+  const one = tipos.filter((t) => t.length === 1);
+  const multi = tipos.filter((t) => t.length > 1);
+  const esc = (t) => `'${String(t).replace(/'/g, "''")}'`;
+  const parts = [];
+  if (one.length) parts.push(`SUBSTRING(${trimmed} FROM 1 FOR 1) IN (${one.map(esc).join(', ')})`);
+  if (multi.length) parts.push(`${trimmed} IN (${multi.map(esc).join(', ')})`);
+  const tipoSql = parts.length ? `(${parts.join(' OR ')})` : '1=0';
   return `(
-      UPPER(TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(10)))) IN (${sqlCotizacionTiposInList()})
+      ${tipoSql}
       AND UPPER(TRIM(CAST(COALESCE(${a}.ESTATUS, 'N') AS VARCHAR(8)))) <> 'C'
     )${aplicado}`;
 }
@@ -1458,11 +1473,13 @@ function sqlWhereCotizacionComoVenta(alias = 'd') {
  */
 function cotizacionesSub(tipo = '', opts = {}) {
   const vigVe = String((opts && opts.vigenciaVeSuffix) || '');
+  const feVe = (opts && opts.sqlFeVe) || 'd.FECHA';
+  const fePv = (opts && opts.sqlFePv) || 'd.FECHA';
   const imp = sqlVentaImporteBaseExpr('d');
   const w = sqlWhereCotizacionComoVenta('d');
   const ve = `
     SELECT
-      d.FECHA,
+      ${feVe} AS FECHA,
       ${imp} AS IMPORTE_NETO,
       COALESCE(d.VENDEDOR_ID, 0)  AS VENDEDOR_ID,
       COALESCE(d.CLIENTE_ID,  0)  AS CLIENTE_ID,
@@ -1477,7 +1494,7 @@ function cotizacionesSub(tipo = '', opts = {}) {
   `;
   const pv = `
     SELECT
-      d.FECHA,
+      ${fePv} AS FECHA,
       ${imp} AS IMPORTE_NETO,
       COALESCE(
         CASE WHEN d.TIPO_DOCTO = 'F' THEN
@@ -1547,6 +1564,38 @@ async function resolveCotizacionVigenciaSqlSuffix(dbo) {
   });
   cotizacionVigenciaInFlight.set(key, p);
   return p;
+}
+
+/** Fecha de cabecera VE/PV: COALESCE(FECHA, FECHA_DOCUMENTO) si existen ambas (cotizaciones a veces solo documentan una). */
+const doctosHeaderFechaCache = new Map();
+async function resolveDoctosHeaderFechaSqlPair(dbo) {
+  const key = `${dbCacheKey(dbo)}:docHdrFe`;
+  if (doctosHeaderFechaCache.has(key)) return doctosHeaderFechaCache.get(key);
+  const [veCols, pvCols] = await Promise.all([
+    getTableColumns('DOCTOS_VE', dbo),
+    getTableColumns('DOCTOS_PV', dbo),
+  ]);
+  const expr = (cols) => {
+    const fe = firstExistingColumn(cols, ['FECHA']);
+    const fd = firstExistingColumn(cols, ['FECHA_DOCUMENTO']);
+    if (fe && fd) return `COALESCE(d.${fe}, d.${fd})`;
+    return `d.${fe || fd || 'FECHA'}`;
+  };
+  const out = { ve: expr(veCols), pv: expr(pvCols) };
+  doctosHeaderFechaCache.set(key, out);
+  return out;
+}
+
+async function cotizacionSqlOpts(dbo) {
+  const [fePair, cotiEw] = await Promise.all([
+    resolveDoctosHeaderFechaSqlPair(dbo),
+    resolveCotizacionVigenciaSqlSuffix(dbo),
+  ]);
+  return {
+    vigenciaVeSuffix: cotiEw,
+    sqlFeVe: fePair.ve,
+    sqlFePv: fePair.pv,
+  };
 }
 
 /** Cache por base: columnas reales en DOCTOS_* (FECHA vs FECHA_DOCUMENTO, UNIDADES vs CANTIDAD). */
@@ -1655,6 +1704,12 @@ function consumosSubSql(tipo = '', parts) {
 function getTipo(req) {
   const t = (req.query.tipo || '').toUpperCase();
   return t === 'VE' ? 'VE' : t === 'PV' ? 'PV' : '';
+}
+
+/** Cotizaciones: por defecto siempre VE+PV (evita $0 si el panel está en un solo módulo). MICROSIP_COTIZACIONES_RESPETAR_TIPO_PANEL=1 para acatar `tipo`. */
+function getCotizacionesTipo(req) {
+  if ((process.env.MICROSIP_COTIZACIONES_RESPETAR_TIPO_PANEL || '').match(/^(1|true|yes)$/i)) return getTipo(req);
+  return '';
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1958,11 +2013,10 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
     req.query.anio = now.getFullYear();
     req.query.mes = now.getMonth() + 1;
   }
-  const tipoCoti = getTipo(req);
   const run = async (dbo) => {
     const f = buildFiltros(req, 'd');
-    const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
-    const cotiSub = cotizacionesSub(tipoCoti, { vigenciaVeSuffix: cotiEw });
+    const cotiOpts = await cotizacionSqlOpts(dbo);
+    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
     const ci = sqlCotiImporteExpr('d');
     const rows = await query(`
     SELECT
@@ -1973,7 +2027,10 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
       COUNT(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 END) AS COTIZACIONES_HOY
     FROM ${cotiSub} d
     WHERE 1=1 ${f.sql}
-  `, f.params, 30000, dbo).catch(() => []);
+  `, f.params, 30000, dbo).catch((err) => {
+      console.error('[cotizaciones/resumen]', err && (err.message || err));
+      return [];
+    });
     return normalizeCotizacionResumenRow(rows[0]);
   };
   if (isAllDbs(req)) {
@@ -2115,21 +2172,23 @@ get('/api/ventas/mensuales', async (req) => {
 });
 
 get('/api/ventas/cotizaciones/diarias', async (req) => {
-  const tipoCoti = getTipo(req);
   const dias = Math.min(parseInt(req.query.dias) || 30, 366);
   const desde = new Date();
   desde.setDate(desde.getDate() - dias);
   const desdeStr = desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-' + String(desde.getDate()).padStart(2, '0');
   const run = async (dbo) => {
-    const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
-    const cotiSub = cotizacionesSub(tipoCoti, { vigenciaVeSuffix: cotiEw });
+    const cotiOpts = await cotizacionSqlOpts(dbo);
+    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
     const ci = sqlCotiImporteExpr('d');
     const rows = await query(`
     SELECT CAST(d.FECHA AS DATE) AS DIA, COUNT(*) AS COTIZACIONES, COALESCE(SUM(${ci}),0) AS TOTAL_COTIZACIONES
     FROM ${cotiSub} d
     WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
     GROUP BY CAST(d.FECHA AS DATE) ORDER BY 1
-  `, [desdeStr], 12000, dbo).catch(() => []);
+  `, [desdeStr], 12000, dbo).catch((err) => {
+      console.error('[cotizaciones/diarias]', err && (err.message || err));
+      return [];
+    });
     return (rows || []).map(r => ({ DIA: r.DIA, COTIZACIONES: r.COTIZACIONES, TOTAL_COTIZACIONES: r.TOTAL_COTIZACIONES || 0 }));
   };
   if (isAllDbs(req)) {
@@ -2147,10 +2206,9 @@ get('/api/ventas/cotizaciones/diarias', async (req) => {
 
 get('/api/ventas/cotizaciones/semanales', async (req) => {
   const f = buildFiltros(req, 'd');
-  const tipoCoti = getTipo(req);
   const run = async (dbo) => {
-    const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
-    const cotiSub = cotizacionesSub(tipoCoti, { vigenciaVeSuffix: cotiEw });
+    const cotiOpts = await cotizacionSqlOpts(dbo);
+    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
     const ci = sqlCotiImporteExpr('d');
     return query(`
     SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(WEEK FROM d.FECHA) AS SEMANA,
@@ -2174,10 +2232,9 @@ get('/api/ventas/cotizaciones/semanales', async (req) => {
 
 get('/api/ventas/cotizaciones/mensuales', async (req) => {
   const f = buildFiltros(req, 'd');
-  const tipoCoti = getTipo(req);
   const run = async (dbo) => {
-    const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
-    const cotiSub = cotizacionesSub(tipoCoti, { vigenciaVeSuffix: cotiEw });
+    const cotiOpts = await cotizacionSqlOpts(dbo);
+    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
     const ci = sqlCotiImporteExpr('d');
     return query(`
     SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
@@ -2272,14 +2329,13 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
     req.query.mes = now.getMonth() + 1;
   }
   const f = buildFiltros(req, 'd');
-  const tipoCoti = getTipo(req);
   const vid = req.query.vendedor ? parseInt(req.query.vendedor, 10) : null;
   const vendSql = Number.isFinite(vid) ? ' AND d.VENDEDOR_ID = ?' : '';
   const params = [...f.params];
   if (Number.isFinite(vid)) params.push(vid);
   const run = async (dbo) => {
-    const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
-    const cotiSub = cotizacionesSub(tipoCoti, { vigenciaVeSuffix: cotiEw });
+    const cotiOpts = await cotizacionSqlOpts(dbo);
+    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
     const ci = sqlCotiImporteExpr('d');
     return query(`
     SELECT
@@ -2295,7 +2351,10 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
     WHERE 1=1 ${f.sql} ${vendSql}
     GROUP BY COALESCE(d.VENDEDOR_ID, 0)
     ORDER BY COTIZACIONES_MES DESC
-  `, params, 30000, dbo).catch(() => []);
+  `, params, 30000, dbo).catch((err) => {
+      console.error('[por-vendedor/cotizaciones]', err && (err.message || err));
+      return [];
+    });
   };
   if (isAllDbs(req)) {
     const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
@@ -2342,24 +2401,30 @@ get('/api/ventas/vs-cotizaciones', async (req) => {
   const desde = new Date();
   desde.setMonth(desde.getMonth() - mesesN);
   const desdeStr = desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-01';
-  const tipoCoti = getTipo(req);
+  const tipoVentas = getTipo(req);
   const run = async (dbo) => {
-    const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
-    const cotiSub = cotizacionesSub(tipoCoti, { vigenciaVeSuffix: cotiEw });
+    const cotiOpts = await cotizacionSqlOpts(dbo);
+    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
     const [ventasMes, cotizMes] = await Promise.all([
       query(`
       SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
         CAST(COALESCE(SUM(d.IMPORTE_NETO), 0) AS DOUBLE PRECISION) AS TOTAL_VENTAS, COUNT(*) AS NUM_DOCS
-      FROM ${ventasSub(tipoCoti)} d WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
+      FROM ${ventasSub(tipoVentas)} d WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
       GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
-    `, [desdeStr], 25000, dbo).catch(() => []),
+    `, [desdeStr], 25000, dbo).catch((err) => {
+        console.error('[vs-cotizaciones ventas]', err && (err.message || err));
+        return [];
+      }),
       query(`
       SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
         CAST(COALESCE(SUM(${sqlCotiImporteExpr('d')}), 0) AS DOUBLE PRECISION) AS TOTAL_COTI, COUNT(*) AS NUM_COTI
       FROM ${cotiSub} d
       WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
       GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
-    `, [desdeStr], 25000, dbo).catch(() => []),
+    `, [desdeStr], 25000, dbo).catch((err) => {
+        console.error('[vs-cotizaciones cotiz]', err && (err.message || err));
+        return [];
+      }),
     ]);
     return { ventas: ventasMes || [], cotizaciones: cotizMes || [] };
   };
@@ -2826,11 +2891,10 @@ get('/api/ventas/margen-articulos', async (req) => {
 
 get('/api/ventas/cotizaciones', async (req) => {
   const f = buildFiltros(req, 'd');
-  const tipoCoti = getTipo(req);
   const limit = Math.min(parseInt(req.query.limit, 10) || 50, 500);
   const run = async (dbo) => {
-    const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbo);
-    const cotiSub = cotizacionesSub(tipoCoti, { vigenciaVeSuffix: cotiEw });
+    const cotiOpts = await cotizacionSqlOpts(dbo);
+    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
     const ci = sqlCotiImporteExpr('d');
     return query(`
     SELECT FIRST ${limit}
@@ -2842,7 +2906,10 @@ get('/api/ventas/cotizaciones', async (req) => {
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
     WHERE 1=1 ${f.sql}
     ORDER BY ${ci} DESC, d.FECHA DESC, d.FOLIO DESC
-  `, f.params, 30000, dbo).catch(() => []);
+  `, f.params, 30000, dbo).catch((err) => {
+      console.error('[ventas/cotizaciones]', err && (err.message || err));
+      return [];
+    });
   };
   if (isAllDbs(req)) {
     const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
@@ -2999,8 +3066,8 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
     rq.query.mes = now.getMonth() + 1;
   }
   const f = buildFiltros(rq, 'd');
-  const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbOpts);
-  const cotiSub = cotizacionesSub(getTipo(rq), { vigenciaVeSuffix: cotiEw });
+  const cotiOpts = await cotizacionSqlOpts(dbOpts);
+  const cotiSub = cotizacionesSub(getCotizacionesTipo(rq), cotiOpts);
   const [vRow, remRow, cxcSnap, coRow] = await Promise.all([
     query(`
       SELECT
@@ -7211,8 +7278,8 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
   return aiWithCache(cacheKey, 15000, async () => {
     if (toolId === 'cotizaciones') {
       const fCot = buildFiltros(aiReq, 'd');
-      const cotiEw = await resolveCotizacionVigenciaSqlSuffix(dbOpts);
-      const cotiSub = cotizacionesSub(getTipo(aiReq), { vigenciaVeSuffix: cotiEw });
+      const cotiOpts = await cotizacionSqlOpts(dbOpts);
+      const cotiSub = cotizacionesSub(getCotizacionesTipo(aiReq), cotiOpts);
       const [resumen] = await query(`
         SELECT
           COUNT(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 END) AS COT_HOY,
