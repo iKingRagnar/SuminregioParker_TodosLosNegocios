@@ -78,8 +78,89 @@ main{padding-top:24px;padding-bottom:48px;max-width:1520px;margin:0 auto;
 .kpi-label{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--txt3);margin-bottom:10px}
 .kpi-val{font-family:var(--mono);font-size:26px;font-weight:500;color:var(--txt);line-height:1}
 .kpi-val.red{color:var(--red)} .kpi-val.grn{color:var(--grn)} .kpi-val.ylw{color:var(--ylw)}
-.kpi-sub{font-size:11px;color:var(--txt3);margin-top:6px;font-family:var(--mono)}
+.kpi-sub{font-size:11px;color:var(--txt3);margin-top:10px;font-family:var(--mono);line-height:1.35}
 .kpi-badge{position:absolute;top:16px;right:16px;font-size:18px;opacity:.25}
+
+/* --- Viaje narrativo KPI (CxC): contexto → número → proporción --- */
+.cxc-kpi-journey{
+  margin-bottom:28px;padding:0 2px;
+}
+.cxc-kpi-journey-head{margin-bottom:18px;max-width:72ch}
+.cxc-kpi-eyebrow{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--txt3);margin-bottom:6px;
+  display:flex;align-items:center;gap:8px}
+.cxc-kpi-eyebrow::before{content:'';width:28px;height:2px;border-radius:2px;background:linear-gradient(90deg,var(--suminregio),transparent)}
+.cxc-kpi-storytitle{font-size:clamp(1.05rem,2vw,1.35rem);font-weight:800;letter-spacing:-.02em;color:var(--txt);line-height:1.2;margin:0 0 6px}
+.cxc-kpi-lead{font-size:12.5px;color:var(--txt2);line-height:1.55;margin:0}
+.kpi-grid--story{grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;position:relative}
+@media(min-width:1100px){
+  .kpi-grid--story::before{
+    content:'';position:absolute;left:12px;right:12px;top:52px;height:2px;
+    background:linear-gradient(90deg,rgba(230,168,0,.35),rgba(6,182,212,.25),rgba(34,197,94,.3),rgba(230,168,0,.2));
+    border-radius:2px;opacity:.45;pointer-events:none;z-index:0
+  }
+  .kpi-story{position:relative;z-index:1}
+}
+.kpi-story{
+  padding-top:20px;padding-bottom:20px;
+  border-left:3px solid transparent;
+  transition:border-color .3s ease, box-shadow .35s ease, transform .35s cubic-bezier(.2,.8,.2,1);
+}
+.kpi-story::before{
+  content:'';position:absolute;inset:-1px;border-radius:16px;opacity:0;transition:opacity .4s ease;pointer-events:none;
+  background:radial-gradient(120% 80% at 10% 0%,rgba(230,168,0,.08),transparent 55%)
+}
+.kpi-story:hover::before{opacity:1}
+.kpi--total.kpi-story{border-left-color:rgba(230,168,0,.45)}
+.kpi--venc.kpi-story{border-left-color:rgba(239,68,68,.35)}
+.kpi--vig.kpi-story{border-left-color:rgba(34,197,94,.35)}
+.kpi--health.kpi-story{border-left-color:rgba(6,182,212,.35)}
+.kpi-story-step{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.kpi-step-num{
+  width:32px;height:32px;border-radius:10px;display:grid;place-items:center;
+  font-size:13px;font-weight:800;font-family:var(--mono);
+  background:linear-gradient(145deg,rgba(230,168,0,.18),rgba(17,34,51,.9));
+  border:1px solid rgba(230,168,0,.25);color:var(--suminregio);flex-shrink:0;
+  box-shadow:0 4px 14px rgba(0,0,0,.2)
+}
+.kpi--venc .kpi-step-num{background:linear-gradient(145deg,rgba(239,68,68,.2),rgba(17,34,51,.9));border-color:rgba(239,68,68,.25);color:#fca5a5}
+.kpi--vig .kpi-step-num{background:linear-gradient(145deg,rgba(34,197,94,.22),rgba(17,34,51,.9));border-color:rgba(34,197,94,.28);color:#86efac}
+.kpi--health .kpi-step-num{background:linear-gradient(145deg,rgba(6,182,212,.2),rgba(17,34,51,.9));border-color:rgba(6,182,212,.28);color:#67e8f9}
+.kpi-step-label{font-size:11px;font-weight:700;color:var(--txt2);letter-spacing:.04em;text-transform:uppercase}
+.kpi-narrative{
+  font-size:12px;line-height:1.55;color:var(--txt2);margin:0 0 14px;
+  min-height:3.1em;
+  transition:color .3s ease
+}
+.kpi-narrative strong{color:var(--txt);font-weight:700}
+.kpi-val{transition:transform .45s cubic-bezier(.34,1.56,.64,1), opacity .4s ease}
+.kpi-story--in .kpi-val{animation:cxcKpiValPop .65s cubic-bezier(.34,1.56,.64,1) both}
+.kpi-story.kpi-story--in{animation:cxcKpiCardIn .58s cubic-bezier(.2,.8,.2,1) both}
+@keyframes cxcKpiCardIn{
+  from{opacity:.72;transform:translateY(10px)}
+  to{opacity:1;transform:translateY(0)}
+}
+@keyframes cxcKpiValPop{
+  0%{transform:scale(.92);opacity:.5}
+  100%{transform:scale(1);opacity:1}
+}
+@media(prefers-reduced-motion:reduce){
+  .kpi-story.kpi-story--in{animation:none}
+  .kpi-story--in .kpi-val{animation:none}
+}
+.kpi-composition{margin-top:14px;padding-top:12px;border-top:1px solid var(--brd)}
+.kpi-composition-legend{display:flex;align-items:center;gap:12px;font-size:10px;color:var(--txt3);margin-bottom:8px;flex-wrap:wrap}
+.kpi-composition-legend .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:middle}
+.kpi-composition-legend .dot.venc{background:linear-gradient(135deg,#f87171,#ef4444)}
+.kpi-composition-legend .dot.vig{background:linear-gradient(135deg,#4ade80,#22c55e)}
+.kpi-composition-bar{display:flex;height:8px;border-radius:99px;overflow:hidden;background:var(--s3);box-shadow:inset 0 1px 2px rgba(0,0,0,.2)}
+.kpi-composition-bar .seg{height:100%;transition:width 1s cubic-bezier(.4,0,.2,1)}
+.kpi-composition-bar .seg.venc{background:linear-gradient(90deg,#dc2626,#ef4444)}
+.kpi-composition-bar .seg.vig{background:linear-gradient(90deg,#16a34a,#22c55e)}
+.kpi-share-track{height:6px;border-radius:99px;background:var(--s3);margin-top:12px;overflow:hidden}
+.kpi-share-fill{height:100%;border-radius:99px;transition:width 1.1s cubic-bezier(.4,0,.2,1);transform-origin:left}
+.kpi-share-fill--venc{background:linear-gradient(90deg,#b91c1c,#ef4444)}
+.kpi-share-fill--vig{background:linear-gradient(90deg,#15803d,#22c55e)}
+.kpi-share-cap{font-size:10px;color:var(--txt3);margin-top:6px;font-family:var(--mono);letter-spacing:.02em}
 
 .aging-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px}
 .aging-bkt{background:var(--s1);border:1px solid var(--brd);border-radius:12px;padding:16px;text-align:center}
@@ -217,33 +298,60 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
     </span>
   </div>
 
-  <!-- KPIs (nombres alineados con Power BI Cuentas por Cobrar: Deuda total, Vencido, No vencido) -->
-  <div class="kpi-grid">
-    <div class="kpi kpi--total" title="Power BI: Saldo_Documento = Cargo − Cobro">
-      <div class="kpi-label">Deuda total <span style="font-weight:400;color:var(--txt3)">(Saldo CxC)</span></div>
-      <div class="kpi-val" id="kSaldo">$&mdash;</div>
-      <div class="kpi-sub" id="kCli">&mdash; clientes</div>
-      <div class="kpi-badge" aria-hidden="true"></div>
+  <!-- KPIs: narrativa + datos (alineado Power BI: saldo, vencido, por vencer) -->
+  <section class="cxc-kpi-journey ms-reveal" aria-labelledby="cxcKpiStoryTitle">
+    <header class="cxc-kpi-journey-head">
+      <p class="cxc-kpi-eyebrow">Leer la cartera</p>
+      <h2 id="cxcKpiStoryTitle" class="cxc-kpi-storytitle">Cuatro miradas que se explican solas</h2>
+      <p class="cxc-kpi-lead">Cada tarjeta te dice <strong>qué mirar</strong> antes del monto: primero el panorama, luego el riesgo (vencido), el colch&oacute;n (vigente) y la lectura r&aacute;pida de salud. Los n&uacute;meros aparecen con animaci&oacute;n cuando llegan del servidor.</p>
+    </header>
+    <div class="kpi-grid kpi-grid--story">
+      <article class="kpi kpi--total kpi-story" title="Power BI: Saldo_Documento = Cargo − Cobro">
+        <div class="kpi-story-step"><span class="kpi-step-num" aria-hidden="true">1</span><span class="kpi-step-label">Panorama</span></div>
+        <div class="kpi-label">Deuda total <span style="font-weight:400;color:var(--txt3)">(Saldo CxC)</span></div>
+        <p class="kpi-narrative" id="kNarrTotal">Aqu&iacute; ver&aacute;s la <strong>exposici&oacute;n</strong> neta: todo lo pendiente a cr&eacute;dito despu&eacute;s de cobros aplicados.</p>
+        <div class="kpi-val" id="kSaldo">$&mdash;</div>
+        <div class="kpi-sub" id="kCli">&mdash; clientes</div>
+        <div class="kpi-composition" aria-label="Composici&oacute;n del saldo: vencido vs vigente">
+          <div class="kpi-composition-legend">
+            <span><span class="dot venc" aria-hidden="true"></span>Vencido del total</span>
+            <span><span class="dot vig" aria-hidden="true"></span>Vigente del total</span>
+          </div>
+          <div class="kpi-composition-bar">
+            <div class="seg venc" id="kCompVenc" style="width:0%"></div>
+            <div class="seg vig" id="kCompVig" style="width:0%"></div>
+          </div>
+        </div>
+      </article>
+      <article class="kpi kpi--venc kpi-story" title="Power BI: Saldo Cartera Vencido">
+        <div class="kpi-story-step"><span class="kpi-step-num" aria-hidden="true">2</span><span class="kpi-step-label">Riesgo</span></div>
+        <div class="kpi-label">Vencido <span style="font-weight:400;color:var(--txt3)">(cr&eacute;dito)</span></div>
+        <p class="kpi-narrative" id="kNarrVenc">El dinero que <strong>ya debi&oacute;</strong> entrar: mientras mayor sea su peso sobre el total, m&aacute;s presi&oacute;n en caja.</p>
+        <div class="kpi-val red" id="kVencido">$&mdash;</div>
+        <div class="kpi-sub" id="kPctV">&mdash; % del saldo</div>
+        <div class="kpi-share-track" aria-hidden="true"><div class="kpi-share-fill kpi-share-fill--venc" id="kShareVenc" style="width:0%"></div></div>
+        <div class="kpi-share-cap" id="kShareVencCap">Parte del saldo en mora</div>
+      </article>
+      <article class="kpi kpi--vig kpi-story" title="Power BI: Saldo Cartera Vigente">
+        <div class="kpi-story-step"><span class="kpi-step-num" aria-hidden="true">3</span><span class="kpi-step-label">Colch&oacute;n</span></div>
+        <div class="kpi-label">No vencido <span style="font-weight:400;color:var(--txt3)">(vigente)</span></div>
+        <p class="kpi-narrative" id="kNarrVig">Lo que a&uacute;n est&aacute; <strong>dentro de plazo</strong>: te da margen para negociar sin perder ritmo con clientes al d&iacute;a.</p>
+        <div class="kpi-val grn" id="kVigente">$&mdash;</div>
+        <div class="kpi-sub" id="kPctVig">&mdash; % del saldo</div>
+        <div class="kpi-share-track" aria-hidden="true"><div class="kpi-share-fill kpi-share-fill--vig" id="kShareVig" style="width:0%"></div></div>
+        <div class="kpi-share-cap" id="kShareVigCap">Parte del saldo al corriente</div>
+      </article>
+      <article class="kpi kpi--health kpi-story">
+        <div class="kpi-story-step"><span class="kpi-step-num" aria-hidden="true">4</span><span class="kpi-step-label">Diagn&oacute;stico</span></div>
+        <div class="kpi-label">Salud cartera</div>
+        <p class="kpi-narrative" id="kNarrSalud">Traducci&oacute;n r&aacute;pida del <strong>mix</strong> vencido vs total: un sem&aacute;foro para decidir si hoy es d&iacute;a de cobranza fuerte o de monitoreo.</p>
+        <div class="kpi-val" id="kSalud" style="font-size:clamp(17px,2.5vw,20px);font-weight:700;letter-spacing:-.02em">&mdash;</div>
+        <div class="kpi-sub" id="kSaludSub">&mdash;</div>
+        <div class="kpi-share-track" aria-hidden="true"><div class="kpi-share-fill" id="kShareHealth" style="width:0%;background:linear-gradient(90deg,#64748b,#94a3b8)"></div></div>
+        <div class="kpi-share-cap" id="kShareHealthCap">&nbsp;</div>
+      </article>
     </div>
-    <div class="kpi kpi--venc" title="Power BI: Saldo Cartera Vencido">
-      <div class="kpi-label">Vencido <span style="font-weight:400;color:var(--txt3)">(cr&eacute;dito)</span></div>
-      <div class="kpi-val red" id="kVencido">$&mdash;</div>
-      <div class="kpi-sub" id="kPctV">&mdash; % del saldo</div>
-      <div class="kpi-badge" aria-hidden="true"></div>
-    </div>
-    <div class="kpi kpi--vig" title="Power BI: Saldo Cartera Vigente">
-      <div class="kpi-label">No vencido <span style="font-weight:400;color:var(--txt3)">(vigente)</span></div>
-      <div class="kpi-val grn" id="kVigente">$&mdash;</div>
-      <div class="kpi-sub" id="kPctVig">&mdash; % del saldo</div>
-      <div class="kpi-badge" aria-hidden="true"></div>
-    </div>
-    <div class="kpi kpi--health">
-      <div class="kpi-label">Salud cartera</div>
-      <div class="kpi-val" id="kSalud" style="font-size:18px">&mdash;</div>
-      <div class="kpi-sub" id="kSaludSub">&mdash;</div>
-      <div class="kpi-badge" aria-hidden="true"></div>
-    </div>
-  </div>
+  </section>
 
   <!-- AGING -->
   <div class="aging-grid">
@@ -362,6 +470,118 @@ const fmtSaldoDoc = v => {
 };
 const fmtM = v => '$'+(+v||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 const setText = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
+
+function staggerKpiStoryCards(){
+  const cards = document.querySelectorAll('.kpi-grid--story .kpi-story');
+  cards.forEach(function (el) { el.classList.remove('kpi-story--in'); });
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    cards.forEach(function (el) { el.classList.add('kpi-story--in'); });
+    return;
+  }
+  cards.forEach(function (el, i) {
+    setTimeout(function () {
+      void el.offsetWidth;
+      el.classList.add('kpi-story--in');
+    }, 80 + i * 110);
+  });
+}
+
+/** Texto que guía al usuario: qué significa cada KPI con los números reales. */
+function updateCxcKpiNarrative(saldo, venc, pvenc, numCli){
+  const pV = (saldo > 0 && typeof venc === 'number') ? (venc / saldo) * 100 : NaN;
+  const pVig = (saldo > 0 && typeof pvenc === 'number') ? (pvenc / saldo) * 100 : NaN;
+  const nT = document.getElementById('kNarrTotal');
+  const nV = document.getElementById('kNarrVenc');
+  const nG = document.getElementById('kNarrVig');
+  const nS = document.getElementById('kNarrSalud');
+  if (nT) {
+    if (saldo <= 0) {
+      nT.innerHTML = 'En este filtro <strong>no hay saldo pendiente</strong>: nada que cobrar en cartera a cr&eacute;dito, o ya est&aacute; liquidado.';
+    } else {
+      const c = (numCli|0) || 0;
+      nT.innerHTML = 'Todo lo que, sumado, <strong>a&uacute;n deben</strong> tus clientes a cr&eacute;dito despu&eacute;s de aplicar cobros. ' +
+        (c ? ('<strong>' + c + '</strong> ' + (c === 1 ? 'cliente concentra' : 'clientes concentran') + ' esta exposici&oacute;n.') : 'Revisa el filtro de periodo si el monto no cuadra con tu expectativa.');
+    }
+  }
+  if (nV) {
+    if (saldo <= 0) nV.textContent = 'Sin saldo total no hay lectura de mora.';
+    else if (venc <= 0) {
+      nV.innerHTML = '<strong>Nada vencido</strong> en este corte: los saldos siguen dentro de plazo o el filtro deja la cartera limpia.';
+    } else if (!isNaN(pV) && pV > 40) {
+      nV.innerHTML = 'La mora es <strong>una fracci&oacute;n grande</strong> del saldo: prioriza caja, top deudores y acuerdos; aqu&iacute; vive el riesgo principal.';
+    } else if (!isNaN(pV) && pV > 20) {
+      nV.innerHTML = 'Ya pas&oacute; el umbral que suele <strong>encender alarmas</strong> (~20&nbsp;%): conviene un plan de cobranza expl&iacute;cito esta semana.';
+    } else {
+      nV.innerHTML = 'El vencido es <strong>una parte acotada</strong> del total; el seguimiento sistem&aacute;tico normalmente lo mantiene estable.';
+    }
+  }
+  if (nG) {
+    if (saldo <= 0) nG.textContent = '—';
+    else if (pvenc <= 0 && venc > 0) {
+      nG.innerHTML = 'Todo el pendiente est&aacute; <strong>vencido</strong>: no hay colch&oacute;n vigente que suavice la negociaci&oacute;n.';
+    } else if (!isNaN(pVig) && pVig >= 60) {
+      nG.innerHTML = 'La mayor parte sigue <strong>al corriente</strong>: eso te da tiempo para trabajar la mora sin romper la relaci&oacute;n con quienes s&iacute; pagan al d&iacute;a.';
+    } else if (!isNaN(pVig) && pVig >= 35) {
+      nG.innerHTML = 'Hay <strong>equilibrio</strong> entre lo al d&iacute;a y lo atrasado: evita que la fracci&oacute;n vencida roba puntos de porcentaje mes a mes.';
+    } else {
+      nG.innerHTML = 'Predomina lo vencido; <strong>cada peso vigente cuenta</strong> para recuperar ritmo y confianza en la cartera.';
+    }
+  }
+  if (nS) {
+    if (saldo <= 0 || isNaN(pV)) {
+      nS.innerHTML = 'Cuando hay saldo, este bloque resume si el <strong>mix</strong> mora/total est&aacute; por debajo o por encima del umbral t&iacute;pico (~20&nbsp;% vencido).';
+    } else if (pV > 20) {
+      nS.innerHTML = 'Por encima del umbral: el peso del vencido <strong>presiona liquidez</strong>; hoy tiene sentido revisar aging y facturas cr&iacute;ticas antes que promociones nuevas.';
+    } else {
+      nS.innerHTML = 'Por debajo del umbral: lectura <strong>favorable</strong> si se mantiene; usa el tiempo para apretar procesos antes de que la mora escale.';
+    }
+  }
+}
+
+function setKpiCompositionBars(saldo, venc, pvenc){
+  const a = document.getElementById('kCompVenc');
+  const b = document.getElementById('kCompVig');
+  if (!a || !b) return;
+  if (saldo <= 0) { a.style.width = '0%'; b.style.width = '0%'; return; }
+  const pv = Math.min(100, Math.max(0, (venc / saldo) * 100));
+  const pg = Math.min(100, Math.max(0, (pvenc / saldo) * 100));
+  const round = function (x) { return Math.round(x * 10) / 10; };
+  a.style.width = round(pv) + '%';
+  b.style.width = round(pg) + '%';
+}
+
+function setKpiShareMeters(saldo, venc, pvenc, porcVencidoDec){
+  const sv = document.getElementById('kShareVenc');
+  const sg = document.getElementById('kShareVig');
+  const sh = document.getElementById('kShareHealth');
+  const cv = document.getElementById('kShareVencCap');
+  const cg = document.getElementById('kShareVigCap');
+  const ch = document.getElementById('kShareHealthCap');
+  const pV = saldo > 0 ? (venc / saldo) * 100 : 0;
+  const pG = saldo > 0 ? (pvenc / saldo) * 100 : 0;
+  if (sv) sv.style.width = (saldo > 0 ? Math.min(100, pV) : 0) + '%';
+  if (sg) sg.style.width = (saldo > 0 ? Math.min(100, pG) : 0) + '%';
+  if (cv) cv.textContent = saldo > 0 ? ('Peso sobre el saldo: ' + pV.toFixed(1) + '% en mora') : '—';
+  if (cg) cg.textContent = saldo > 0 ? ('Peso sobre el saldo: ' + pG.toFixed(1) + '% al corriente') : '—';
+  if (sh && ch) {
+    if (saldo <= 0) {
+      sh.style.width = '0%';
+      ch.textContent = '';
+    } else {
+      const healthPct = Math.max(6, Math.min(100, 100 - pV));
+      sh.style.width = healthPct + '%';
+      if (typeof porcVencidoDec === 'number' && !isNaN(porcVencidoDec)) {
+        if (porcVencidoDec > 0.2) {
+          sh.style.background = 'linear-gradient(90deg,#b91c1c,#ef4444)';
+          ch.textContent = 'Menos “margen” ante mora: barra corta = mezcla exigente';
+        } else {
+          sh.style.background = 'linear-gradient(90deg,#15803d,#22c55e)';
+          ch.textContent = 'Mezcla tolerable: la mora no domina el saldo total';
+        }
+      }
+    }
+  }
+}
 /** Respuestas CxC: siempre array (top/por-condición a veces envuelven en { rows } / { grupos }). */
 function asArrayCxC(x) {
   if (Array.isArray(x)) return x;
@@ -513,6 +733,10 @@ async function loadResumen() {
     if (elVig)  { elVig.textContent = fmtK(pvenc); elVig.style.color = '#22C55E'; elVig.classList.add('grn'); }
     setText('kPctV', (saldo>0?((venc/saldo)*100).toFixed(1):0)+'% del saldo');
     setText('kPctVig', (saldo>0?((pvenc/saldo)*100).toFixed(1):0)+'% del saldo');
+    updateCxcKpiNarrative(saldo, venc, pvenc, res.NUM_CLIENTES|0);
+    setKpiCompositionBars(saldo, venc, pvenc);
+    setKpiShareMeters(saldo, venc, pvenc, porcVencidoDec);
+    staggerKpiStoryCards();
     if (salEl) {
       if (saldo <= 0 || typeof pV !== 'number' || isNaN(pV)) {
         salEl.textContent = 'Sin dato';
@@ -563,6 +787,13 @@ async function loadResumen() {
     setText('kVigente','\u2014');
     setText('kPctV','');
     setText('kPctVig','');
+    setKpiCompositionBars(0,0,0);
+    setKpiShareMeters(0,0,0,0);
+    ['kNarrTotal','kNarrVenc','kNarrVig','kNarrSalud'].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = 'Sin datos hasta que la API responda. Revisa conexi\u00f3n o vuelve a aplicar el filtro.';
+    });
+    document.querySelectorAll('.kpi-grid--story .kpi-story').forEach(function (el) { el.classList.remove('kpi-story--in'); });
     const salEl=document.getElementById('kSalud');
     const salSub=document.getElementById('kSaludSub');
     if(salEl){ salEl.textContent='Error'; salEl.style.color='var(--red)'; }

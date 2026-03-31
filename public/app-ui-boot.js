@@ -34,6 +34,17 @@
       ".secondary-grid > .card",
       ".page > .grid-2",
       ".page > .card",
+      /* CxC (main sin .page) */
+      "main > .cxc-hero",
+      "main > .cxc-kpi-journey",
+      "main > #filter-bar",
+      "main > .client-filter-bar",
+      "main > .kpi-grid",
+      "main > .aging-grid",
+      "main > .tabs",
+      "main > .card",
+      "main > .grid-2",
+      "main > .grid-32",
     ];
 
     var seen = new Set();

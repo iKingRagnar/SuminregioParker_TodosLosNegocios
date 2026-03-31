@@ -579,3 +579,182 @@ html[data-theme="light"] .biz-chip.active {
   border-color: rgba(124, 45, 18, 0.4) !important;
   background: rgba(124, 45, 18, 0.08) !important;
 }
+
+/* --- CXC (theme-premium-light + data-theme=light): contraste del select nativo, hero, tabs --- */
+html.theme-premium-light[data-theme="light"] {
+  color-scheme: light;
+}
+html.theme-premium-light[data-theme="light"] .cxc-hero {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.14), #ffffff 48%, #f8fafc) !important;
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+  box-shadow: 0 10px 40px rgba(15, 23, 42, 0.08) !important;
+}
+html.theme-premium-light[data-theme="light"] .cxc-hero h1 {
+  font-family: "Fraunces", "Syne", serif !important;
+  color: #422006 !important;
+  text-shadow: none !important;
+}
+html.theme-premium-light[data-theme="light"] .cxc-hero p {
+  color: #475569 !important;
+  font-size: 0.95rem !important;
+  line-height: 1.55 !important;
+}
+html.theme-premium-light[data-theme="light"] .cxc-hero-meta {
+  color: #b45309 !important;
+  font-family: "JetBrains Mono", "DM Mono", monospace !important;
+}
+
+html.theme-premium-light[data-theme="light"] .client-filter-bar {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
+  border: 1px solid rgba(15, 23, 42, 0.1) !important;
+  box-shadow: 0 4px 22px rgba(15, 23, 42, 0.07) !important;
+}
+html.theme-premium-light[data-theme="light"] .client-filter-bar .filter-label {
+  color: #64748b !important;
+}
+/* Select cliente (#fCliente): lista nativa legible en Windows/Chrome */
+html.theme-premium-light[data-theme="light"] .client-filter-bar select,
+html.theme-premium-light[data-theme="light"] #fCliente {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid rgba(15, 23, 42, 0.14) !important;
+  border-radius: 10px !important;
+  padding: 10px 14px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  min-height: 44px !important;
+  min-width: min(320px, 100%) !important;
+  color-scheme: light !important;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.05) !important;
+}
+html.theme-premium-light[data-theme="light"] .client-filter-bar select:focus,
+html.theme-premium-light[data-theme="light"] #fCliente:focus {
+  border-color: #d97706 !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.35) !important;
+}
+html.theme-premium-light[data-theme="light"] .client-filter-bar select option,
+html.theme-premium-light[data-theme="light"] #fCliente option {
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  font-weight: 500 !important;
+}
+
+html.theme-premium-light[data-theme="light"] .client-filter-bar .btn {
+  background: linear-gradient(135deg, #fbbf24, #d97706) !important;
+  color: #422006 !important;
+  font-weight: 700 !important;
+  padding: 10px 22px !important;
+  border-radius: 10px !important;
+  box-shadow: 0 4px 16px rgba(217, 119, 6, 0.35) !important;
+  transition: transform 0.18s ease, filter 0.18s ease, box-shadow 0.18s ease !important;
+}
+html.theme-premium-light[data-theme="light"] .client-filter-bar .btn:hover {
+  filter: brightness(1.04) !important;
+  transform: translateY(-1px) !important;
+}
+
+html.theme-premium-light[data-theme="light"] main .tabs {
+  background: #f1f5f9 !important;
+  border: 1px solid rgba(15, 23, 42, 0.1) !important;
+  padding: 6px !important;
+  gap: 6px !important;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.05) !important;
+}
+html.theme-premium-light[data-theme="light"] main .tab {
+  color: #475569 !important;
+  border-radius: 8px !important;
+  padding: 8px 20px !important;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease !important;
+}
+html.theme-premium-light[data-theme="light"] main .tab:hover {
+  color: #0f172a !important;
+  background: rgba(255, 255, 255, 0.85) !important;
+}
+html.theme-premium-light[data-theme="light"] main .tab.active {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b) !important;
+  color: #422006 !important;
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.4) !important;
+}
+
+html.theme-premium-light[data-theme="light"] main .kpi {
+  box-shadow: 0 6px 28px rgba(15, 23, 42, 0.09) !important;
+}
+html.theme-premium-light[data-theme="light"] main .aging-bkt {
+  background: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
+  box-shadow: 0 2px 14px rgba(15, 23, 42, 0.05) !important;
+}
+html.theme-premium-light[data-theme="light"] main .cond-row {
+  background: #ffffff !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.04) !important;
+}
+html.theme-premium-light[data-theme="light"] main .cond-row:hover {
+  border-color: rgba(217, 119, 6, 0.35) !important;
+}
+html.theme-premium-light[data-theme="light"] main tbody td {
+  color: #334155 !important;
+}
+html.theme-premium-light[data-theme="light"] main .card-note {
+  color: #64748b !important;
+}
+html.theme-premium-light[data-theme="light"] main .card-title {
+  color: #92400e !important;
+}
+
+/* CXC: bloque narrativo KPI */
+html.theme-premium-light[data-theme="light"] .cxc-kpi-storytitle {
+  color: #0f172a !important;
+}
+html.theme-premium-light[data-theme="light"] .cxc-kpi-lead,
+html.theme-premium-light[data-theme="light"] .cxc-kpi-eyebrow {
+  color: #64748b !important;
+}
+html.theme-premium-light[data-theme="light"] .cxc-kpi-lead strong {
+  color: #334155 !important;
+}
+html.theme-premium-light[data-theme="light"] .kpi-narrative {
+  color: #475569 !important;
+}
+html.theme-premium-light[data-theme="light"] .kpi-narrative strong {
+  color: #0f172a !important;
+}
+html.theme-premium-light[data-theme="light"] .kpi-step-label {
+  color: #64748b !important;
+}
+html.theme-premium-light[data-theme="light"] .kpi-step-num {
+  background: linear-gradient(145deg, rgba(251, 191, 36, 0.35), #fff) !important;
+  border-color: rgba(217, 119, 6, 0.35) !important;
+  color: #92400e !important;
+}
+html.theme-premium-light[data-theme="light"] .kpi--venc .kpi-step-num {
+  background: linear-gradient(145deg, rgba(254, 202, 202, 0.9), #fff) !important;
+  border-color: rgba(220, 38, 38, 0.3) !important;
+  color: #b91c1c !important;
+}
+html.theme-premium-light[data-theme="light"] .kpi--vig .kpi-step-num {
+  background: linear-gradient(145deg, rgba(187, 247, 208, 0.85), #fff) !important;
+  border-color: rgba(22, 101, 52, 0.28) !important;
+  color: #166534 !important;
+}
+html.theme-premium-light[data-theme="light"] .kpi--health .kpi-step-num {
+  background: linear-gradient(145deg, rgba(165, 243, 252, 0.85), #fff) !important;
+  border-color: rgba(8, 145, 178, 0.35) !important;
+  color: #0e7490 !important;
+}
+html.theme-premium-light[data-theme="light"] .kpi-composition {
+  border-top-color: rgba(15, 23, 42, 0.08) !important;
+}
+html.theme-premium-light[data-theme="light"] .kpi-composition-bar,
+html.theme-premium-light[data-theme="light"] .kpi-share-track {
+  background: #e2e8f0 !important;
+}
+html.theme-premium-light[data-theme="light"] .kpi-share-cap {
+  color: #64748b !important;
+}
+html[data-theme="light"] .kpi-composition-legend {
+  color: #64748b !important;
+}
