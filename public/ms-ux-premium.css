@@ -1,0 +1,237 @@
+/**
+ * ms-ux-premium.css — UX de referencia: PAGINA 2BI (mesh, Outfit+Fraunces, sombras)
+ * + PAGINA WEB EVENTOS (grain, orbes, acentos oro/rosa). Capa opcional cargada vía app-ui.css.
+ */
+
+:root {
+  --ms-font-sans: "Outfit", system-ui, -apple-system, sans-serif;
+  --ms-font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --ms-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --ms-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ms-shadow-soft: 0 16px 48px rgba(0, 0, 0, 0.28);
+  --ms-shadow-lift: 0 22px 64px rgba(0, 0, 0, 0.38);
+  --ms-inset-top: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --ms-focus: 0 0 0 3px rgba(230, 168, 0, 0.45);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+::selection {
+  background: rgba(230, 168, 0, 0.28);
+  color: inherit;
+}
+
+html[data-theme="light"] ::selection {
+  background: rgba(29, 142, 240, 0.22);
+  color: #0f172a;
+}
+
+/* Tipografía: sans UI + display en títulos (estilo 2BI / sitios premium datos) */
+body {
+  font-family: var(--ms-font-sans);
+  font-weight: 450;
+  letter-spacing: 0.01em;
+}
+
+.logo-text,
+.page-title,
+.hero-title,
+.uni-title,
+.card-title,
+.scorecard-title,
+.mod-name {
+  font-family: var(--ms-font-display);
+  font-optical-sizing: auto;
+  letter-spacing: -0.02em;
+}
+
+.logo-sub,
+.kpi-label,
+.live-pill,
+.clock,
+.meta-pct,
+.card-badge {
+  font-family: "DM Mono", ui-monospace, monospace;
+}
+
+/* Textura sutil (Eventos) — encima del fondo, bajo el contenido */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.042;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+html[data-theme="light"] body::before {
+  opacity: 0.028;
+}
+
+/* Rejilla + brillo sobre orbes (2BI ambient--rich simplificado) */
+.bg-orbs {
+  position: fixed;
+}
+.bg-orbs::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+  background-size: 52px 52px;
+  mask-image: radial-gradient(ellipse 75% 65% at 50% 35%, #000 12%, transparent 68%);
+  opacity: 0.55;
+  animation: ms-grid-drift 42s linear infinite;
+}
+@keyframes ms-grid-drift {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 52px 52px, -52px 52px; }
+}
+
+html[data-theme="light"] .bg-orbs::after {
+  background-image:
+    linear-gradient(rgba(10, 74, 124, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(10, 74, 124, 0.06) 1px, transparent 1px);
+  opacity: 0.45;
+}
+
+/* Contenido por encima del grain (no tocar position de header sticky ni .bg-orbs fixed) */
+.page {
+  z-index: 2;
+}
+
+/* Cabecera más “vidrio” */
+header {
+  backdrop-filter: blur(22px) saturate(1.25);
+  -webkit-backdrop-filter: blur(22px) saturate(1.25);
+  transition: border-color 0.25s var(--ms-ease), box-shadow 0.25s var(--ms-ease);
+}
+
+/* KPI y tarjetas: profundidad, radio, hover */
+.kpi-card,
+.card,
+.uni-entity-card,
+.module-card,
+.kpi,
+.sc-card {
+  border-radius: clamp(14px, 2vw, 20px) !important;
+  box-shadow: var(--ms-shadow-soft), var(--ms-inset-top) !important;
+  transition:
+    transform 0.35s var(--ms-ease),
+    border-color 0.25s var(--ms-ease),
+    box-shadow 0.35s var(--ms-ease) !important;
+}
+
+.kpi-card:hover,
+.card:hover {
+  box-shadow: var(--ms-shadow-lift), var(--ms-inset-top) !important;
+}
+
+.kpi-card:hover {
+  transform: translateY(-3px);
+}
+
+/* Gráficos: contenedor más “producto BI” */
+.chart-wrap {
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 0.35rem;
+}
+
+html[data-theme="light"] .chart-wrap {
+  background: rgba(248, 250, 252, 0.9);
+  border-color: rgba(15, 23, 42, 0.08);
+}
+
+/* Tabs y chips */
+.tab-btn,
+.nav-link {
+  transition:
+    color 0.2s var(--ms-ease),
+    background 0.2s var(--ms-ease),
+    border-color 0.2s var(--ms-ease),
+    transform 0.2s var(--ms-ease);
+}
+
+.tab-btn:active,
+.nav-link:active {
+  transform: scale(0.98);
+}
+
+/* Estados vacíos / sin datos */
+.ms-empty,
+.ms-empty-state {
+  text-align: center;
+  padding: 2rem 1.5rem;
+  color: var(--muted, #64748b);
+  font-size: 0.88rem;
+  line-height: 1.55;
+  border-radius: 14px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.02);
+  margin: 0.5rem 0;
+}
+
+html[data-theme="light"] .ms-empty,
+html[data-theme="light"] .ms-empty-state {
+  border-color: rgba(15, 23, 42, 0.12);
+  background: rgba(241, 245, 249, 0.65);
+  color: #64748b;
+}
+
+.ms-empty::before,
+.ms-empty-state::before {
+  content: "◇";
+  display: block;
+  font-size: 1.4rem;
+  opacity: 0.35;
+  margin-bottom: 0.5rem;
+  font-family: var(--ms-font-display);
+}
+
+td.ms-empty::before {
+  display: none;
+}
+
+td.ms-empty {
+  text-align: center;
+  padding: 1.5rem 1rem !important;
+}
+
+/* Accesibilidad foco */
+a:focus-visible,
+button:focus-visible,
+.tab-btn:focus-visible,
+.biz-chip:focus-visible,
+.periodo-btn:focus-visible,
+.top-cli-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--ms-focus);
+}
+
+/* Tablas */
+.tbl tbody tr {
+  transition: background 0.2s var(--ms-ease);
+}
+
+/* Reducir movimiento */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .bg-orbs::after,
+  .orb {
+    animation: none !important;
+  }
+  .kpi-card,
+  .card {
+    transition: none !important;
+  }
+}

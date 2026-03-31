@@ -2,6 +2,8 @@
  * app-ui.css — capa global de legibilidad, jerarquía y contraste
  * Cargar al final del <head> (después de los <style> inline de cada página).
  */
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;450;500;600;700&family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,650;0,9..144,700&display=swap");
+@import url("ms-ux-premium.css");
 
 html {
   text-rendering: optimizeLegibility;

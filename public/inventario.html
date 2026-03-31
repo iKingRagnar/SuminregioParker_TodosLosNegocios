@@ -27,6 +27,7 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
 .orb{position:absolute;border-radius:50%;filter:blur(130px);opacity:.12;animation:drift 20s ease-in-out infinite alternate}
 .orb-1{width:600px;height:600px;background:radial-gradient(circle,#1E7FD9,transparent 70%);bottom:-100px;right:-100px}
 .orb-2{width:500px;height:500px;background:radial-gradient(circle,#FFB800,transparent 70%);top:-100px;left:-100px;animation-delay:-5s}
+.orb-3{width:400px;height:400px;background:radial-gradient(circle,rgba(230,168,0,.5),transparent 72%);top:42%;right:15%;opacity:.07;animation-delay:-11s}
 @keyframes drift{0%{transform:translate(0,0)}100%{transform:translate(15px,15px)}}
 header{position:sticky;top:0;z-index:100;background:rgba(5,11,20,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
 .header-inner{max-width:1600px;margin:0 auto;height:64px;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;padding:0 2rem}
@@ -92,7 +93,7 @@ nav{display:flex;align-items:center;gap:.25rem}
 <script src="app-ui-boot.js" defer></script>
 </head>
 <body>
-<div class="bg-orbs"><div class="orb orb-1"></div><div class="orb orb-2"></div></div>
+<div class="bg-orbs" aria-hidden="true"><div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div></div>
 
 <header>
   <div class="header-inner">
