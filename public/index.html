@@ -322,22 +322,52 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 
 <div class="page">
 
-  <!-- HERO -->
-  <div class="hero">
+  <!-- HERO — panel IA + imagen + red neuronal SVG -->
+  <div class="hero hero--ai">
     <div class="hero-left">
-      <div class="hero-eyebrow">Executive Overview</div>
+      <div class="hero-eyebrow">Executive Overview · IA + datos en vivo</div>
       <div class="hero-title">SCORECARD</div>
       <div class="hero-sub" id="heroSub">Cargando inteligencia del sistema...</div>
       <div class="hero-data-hint" id="heroDataHint" hidden></div>
     </div>
-    <div class="hero-right">
-      <div class="hero-date">
-        <svg viewBox="0 0 24 24" width="13" height="13" fill="var(--muted)"><path d="M19 3h-1V1h-2v2H8V1H6v2H5C3.89 3 3 3.9 3 5v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>
-        <span class="hero-date-val" id="heroDate">--</span>
-      </div>
-      <div id="situationBadge" class="situation-badge neutral">
-        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-        Evaluando&hellip;
+    <div class="hero-ai-panel">
+      <figure class="hero-ai-figure">
+        <img
+          src="https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&amp;fit=crop&amp;w=900&amp;q=80"
+          alt=""
+          width="640"
+          height="400"
+          loading="lazy"
+          decoding="async"
+          referrerpolicy="no-referrer-when-downgrade" />
+        <div class="hero-ai-figure__glow" aria-hidden="true"></div>
+        <div class="hero-ai-svg-wrap" aria-hidden="true">
+          <svg viewBox="0 0 200 160" xmlns="http://www.w3.org/2000/svg" role="img">
+            <defs>
+              <linearGradient id="msAiGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.9"/>
+                <stop offset="50%" stop-color="#e6a800" stop-opacity="0.85"/>
+                <stop offset="100%" stop-color="#a78bfa" stop-opacity="0.9"/>
+              </linearGradient>
+            </defs>
+            <path fill="none" stroke="url(#msAiGrad)" stroke-width="0.8" opacity="0.55"
+              d="M30 80 L70 40 L130 50 L170 90 M70 40 L70 120 M130 50 L130 130 M70 120 L130 130 M30 80 L70 120 M170 90 L130 130"/>
+            <g class="hero-ai-nodes" fill="url(#msAiGrad)">
+              <circle cx="30" cy="80" r="3.5"/><circle cx="70" cy="40" r="3"/><circle cx="130" cy="50" r="3.5"/>
+              <circle cx="170" cy="90" r="3"/><circle cx="70" cy="120" r="3.2"/><circle cx="130" cy="130" r="3.5"/>
+            </g>
+          </svg>
+        </div>
+      </figure>
+      <div class="hero-right hero-right--stack">
+        <div class="hero-date">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="var(--muted)"><path d="M19 3h-1V1h-2v2H8V1H6v2H5C3.89 3 3 3.9 3 5v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>
+          <span class="hero-date-val" id="heroDate">--</span>
+        </div>
+        <div id="situationBadge" class="situation-badge neutral">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+          Evaluando&hellip;
+        </div>
       </div>
     </div>
   </div>

@@ -1,0 +1,468 @@
+/**
+ * ms-ai-super.css — capa “IA mamalona”: aurora, neón, bordes vivos, más movimiento.
+ * Inspiración: interfaces copilot / labs + mesh generativo.
+ */
+
+:root {
+  --ai-cyan: #22d3ee;
+  --ai-violet: #a78bfa;
+  --ai-magenta: #e879f9;
+  --ai-gold: #fbbf24;
+  --ai-glow-cyan: rgba(34, 211, 238, 0.45);
+  --ai-glow-gold: rgba(251, 191, 36, 0.4);
+  --ai-ring: conic-gradient(from 180deg at 50% 50%, var(--ai-cyan), var(--ai-violet), var(--suminregio, #e6a800), var(--ai-cyan));
+}
+
+/* Aurora animada (capa sobre grain, bajo contenido) */
+body::after {
+  content: "";
+  position: fixed;
+  inset: -20%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.55;
+  background:
+    radial-gradient(ellipse 55% 45% at 15% 25%, rgba(34, 211, 238, 0.14), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 85% 15%, rgba(167, 139, 250, 0.12), transparent 50%),
+    radial-gradient(ellipse 45% 35% at 70% 75%, rgba(230, 168, 0, 0.1), transparent 52%),
+    radial-gradient(ellipse 40% 30% at 30% 80%, rgba(232, 121, 249, 0.08), transparent 50%);
+  animation: ms-ai-aurora 22s ease-in-out infinite alternate;
+}
+
+html[data-theme="light"] body::after {
+  opacity: 0.35;
+  background:
+    radial-gradient(ellipse 60% 50% at 20% 20%, rgba(29, 142, 240, 0.18), transparent 55%),
+    radial-gradient(ellipse 50% 40% at 90% 30%, rgba(94, 184, 255, 0.14), transparent 50%),
+    radial-gradient(ellipse 45% 35% at 50% 90%, rgba(251, 191, 36, 0.12), transparent 52%);
+  animation-name: ms-ai-aurora-light;
+}
+
+@keyframes ms-ai-aurora {
+  0% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  100% { transform: translate(-3%, 4%) rotate(4deg) scale(1.05); }
+}
+
+@keyframes ms-ai-aurora-light {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(2%, -2%) scale(1.04); }
+}
+
+/* Partículas / polvo luminoso (SVG data-uri) */
+.ms-ai-sparkle {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.35;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Cg fill='%23fff' opacity='0.5'%3E%3Ccircle cx='40' cy='60' r='1.2'/%3E%3Ccircle cx='180' cy='20' r='0.8'/%3E%3Ccircle cx='320' cy='90' r='1'/%3E%3Ccircle cx='90' cy='200' r='0.7'/%3E%3Ccircle cx='280' cy='240' r='1.1'/%3E%3Ccircle cx='360' cy='320' r='0.9'/%3E%3Ccircle cx='50' cy='340' r='0.6'/%3E%3Ccircle cx='220' cy='380' r='1'/%3E%3C/g%3E%3C/svg%3E");
+  background-size: 400px 400px;
+  animation: ms-ai-sparkle-drift 80s linear infinite;
+}
+
+html[data-theme="light"] .ms-ai-sparkle {
+  opacity: 0.2;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400'%3E%3Cg fill='%230a4a7c' opacity='0.35'%3E%3Ccircle cx='40' cy='60' r='1.2'/%3E%3Ccircle cx='180' cy='20' r='0.8'/%3E%3Ccircle cx='320' cy='90' r='1'/%3E%3Ccircle cx='90' cy='200' r='0.7'/%3E%3Ccircle cx='280' cy='240' r='1.1'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+@keyframes ms-ai-sparkle-drift {
+  from { background-position: 0 0; }
+  to { background-position: 400px 240px; }
+}
+
+/* Logo — pulso neón */
+.logo-icon {
+  animation: ms-ai-logo-pulse 4s ease-in-out infinite;
+}
+
+@keyframes ms-ai-logo-pulse {
+  0%, 100% {
+    box-shadow:
+      0 0 20px rgba(230, 168, 0, 0.35),
+      0 0 40px rgba(34, 211, 238, 0.08);
+  }
+  50% {
+    box-shadow:
+      0 0 28px rgba(230, 168, 0, 0.55),
+      0 0 56px rgba(34, 211, 238, 0.18);
+  }
+}
+
+/* LIVE pill — brillo recorre */
+.live-pill {
+  position: relative;
+  overflow: hidden;
+}
+
+.live-pill::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+  animation: ms-ai-shine 3.5s ease-in-out infinite;
+}
+
+@keyframes ms-ai-shine {
+  0% { left: -100%; }
+  40%, 100% { left: 120%; }
+}
+
+/* Nav — subrayado gradiente al hover */
+.nav-link {
+  position: relative;
+}
+
+.nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0.65rem;
+  right: 0.65rem;
+  bottom: 0.2rem;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--ai-cyan), var(--suminregio, #e6a800), var(--ai-violet));
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.35s var(--ms-ease, cubic-bezier(0.22, 1, 0.36, 1));
+  opacity: 0.9;
+}
+
+.nav-link:hover::after,
+.nav-link.active::after {
+  transform: scaleX(1);
+}
+
+/* Tarjetas con stacking claro para futuros efectos */
+.kpi-card,
+.module-card,
+.uni-entity-card,
+.scorecard-wrap,
+.uni-portfolio {
+  position: relative;
+}
+
+/* Anillo neón opcional (envoltura) */
+.ms-ai-ring {
+  position: relative;
+}
+.ms-ai-ring::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  padding: 2px;
+  background: var(--ai-ring);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: ms-ai-spin 6s linear infinite;
+  opacity: 0.55;
+  pointer-events: none;
+  z-index: -1;
+}
+
+@keyframes ms-ai-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Hero index — panel visual IA */
+.hero--ai {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 380px);
+  gap: 1.5rem 2rem;
+  align-items: stretch;
+}
+
+@media (max-width: 960px) {
+  .hero--ai {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hero-ai-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 0;
+}
+
+.hero-ai-figure {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(34, 211, 238, 0.12),
+    0 0 48px rgba(230, 168, 0, 0.08);
+  aspect-ratio: 16 / 10;
+  max-height: 220px;
+}
+
+html[data-theme="light"] .hero-ai-figure {
+  border-color: rgba(10, 74, 124, 0.15);
+  box-shadow: 0 20px 50px rgba(4, 18, 33, 0.12);
+}
+
+.hero-ai-figure img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transform: scale(1.02);
+  transition: transform 6s var(--ms-ease, ease-out);
+}
+
+.hero-ai-figure:hover img {
+  transform: scale(1.08);
+}
+
+.hero-ai-figure__glow {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(230, 168, 0, 0.25), transparent 45%, rgba(34, 211, 238, 0.2));
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  animation: ms-ai-figure-pulse 5s ease-in-out infinite alternate;
+}
+
+@keyframes ms-ai-figure-pulse {
+  from { opacity: 0.7; }
+  to { opacity: 1; }
+}
+
+.hero-ai-svg-wrap {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+.hero-ai-svg-wrap svg {
+  width: 72%;
+  max-width: 260px;
+  height: auto;
+  filter: drop-shadow(0 0 20px rgba(34, 211, 238, 0.35));
+  animation: ms-ai-svg-float 7s ease-in-out infinite;
+}
+
+@keyframes ms-ai-svg-float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-8px) scale(1.03); }
+}
+
+.hero-ai-nodes circle {
+  animation: ms-ai-node 2.4s ease-in-out infinite;
+}
+.hero-ai-nodes circle:nth-child(2) { animation-delay: 0.3s; }
+.hero-ai-nodes circle:nth-child(3) { animation-delay: 0.6s; }
+.hero-ai-nodes circle:nth-child(4) { animation-delay: 0.9s; }
+.hero-ai-nodes circle:nth-child(5) { animation-delay: 1.2s; }
+
+@keyframes ms-ai-node {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+.hero-right--stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 0.65rem;
+}
+
+/* Entrada escalonada (activada por .ms-inview en JS) */
+.ms-reveal {
+  opacity: 0;
+  transform: translateY(28px) scale(0.98);
+  filter: blur(6px);
+  transition:
+    opacity 0.75s var(--ms-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    transform 0.75s var(--ms-ease, cubic-bezier(0.22, 1, 0.36, 1)),
+    filter 0.65s ease;
+}
+
+.ms-reveal.ms-inview {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  filter: blur(0);
+}
+
+/* Retrasos por hijo (fallback sin JS: solo primera carga hero) */
+.hero--ai .hero-left > *:nth-child(1) { transition-delay: 0.05s; }
+.hero--ai .hero-left > *:nth-child(2) { transition-delay: 0.12s; }
+.hero--ai .hero-left > *:nth-child(3) { transition-delay: 0.18s; }
+.hero--ai .hero-left > *:nth-child(4) { transition-delay: 0.24s; }
+
+/* Módulos — pulso de sombra (no toca transform: hover sigue funcionando) */
+.modules-grid .module-card {
+  animation: ms-ai-mod-glow 6s ease-in-out infinite;
+}
+.modules-grid .module-card:nth-child(2) { animation-delay: 1s; }
+.modules-grid .module-card:nth-child(3) { animation-delay: 2s; }
+.modules-grid .module-card:nth-child(4) { animation-delay: 3s; }
+.modules-grid .module-card:nth-child(5) { animation-delay: 4s; }
+.modules-grid .module-card:nth-child(6) { animation-delay: 5s; }
+
+@keyframes ms-ai-mod-glow {
+  0%, 100% {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
+  }
+  50% {
+    box-shadow:
+      0 14px 44px rgba(0, 0, 0, 0.38),
+      0 0 32px rgba(34, 211, 238, 0.06),
+      0 0 48px rgba(230, 168, 0, 0.05);
+  }
+}
+
+html[data-theme="light"] .modules-grid .module-card {
+  animation: ms-ai-mod-glow-light 6s ease-in-out infinite;
+}
+
+@keyframes ms-ai-mod-glow-light {
+  0%, 100% { box-shadow: 0 4px 18px rgba(4, 18, 33, 0.07); }
+  50% { box-shadow: 0 12px 36px rgba(4, 18, 33, 0.12), 0 0 28px rgba(29, 142, 240, 0.08); }
+}
+
+/* Scorecard / universo — brillo borde */
+.scorecard-wrap,
+.uni-portfolio {
+  animation: ms-ai-border-glow 5s ease-in-out infinite alternate;
+}
+
+@keyframes ms-ai-border-glow {
+  from {
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.32), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  }
+  to {
+    box-shadow: 0 16px 56px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(34, 211, 238, 0.12), 0 0 40px rgba(230, 168, 0, 0.06);
+  }
+}
+
+html[data-theme="light"] .scorecard-wrap,
+html[data-theme="light"] .uni-portfolio {
+  animation: ms-ai-border-glow-light 5s ease-in-out infinite alternate;
+}
+
+@keyframes ms-ai-border-glow-light {
+  from { box-shadow: 0 4px 20px rgba(4, 18, 33, 0.06); }
+  to { box-shadow: 0 12px 40px rgba(4, 18, 33, 0.1), 0 0 0 1px rgba(29, 142, 240, 0.15); }
+}
+
+/* Ventas: página hero título */
+.page-header .page-title {
+  animation: ms-ai-title-shimmer 10s ease-in-out infinite;
+  background-size: 200% auto;
+}
+
+@keyframes ms-ai-title-shimmer {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.12); }
+}
+
+/* Botones tab — rebote */
+.tab-btn {
+  transition: transform 0.25s var(--ms-ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)), box-shadow 0.25s ease;
+}
+
+.tab-btn.active {
+  box-shadow: 0 0 20px rgba(0, 229, 160, 0.15);
+}
+
+/* Chart.js canvas contenedor */
+.chart-wrap canvas {
+  transition: opacity 0.4s ease;
+}
+
+/* Franja visual “IA” en páginas tipo ventas / director */
+.ms-ai-page-banner {
+  margin: 0 0 1.35rem;
+  border-radius: 18px;
+  overflow: hidden;
+  height: clamp(76px, 16vw, 128px);
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25), 0 0 40px rgba(34, 211, 238, 0.06);
+}
+
+html[data-theme="light"] .ms-ai-page-banner {
+  border-color: rgba(15, 23, 42, 0.1);
+  box-shadow: 0 8px 28px rgba(4, 18, 33, 0.08);
+}
+
+.ms-ai-page-banner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  opacity: 0.55;
+  transform: scale(1.03);
+  animation: ms-ai-banner-pan 18s ease-in-out infinite alternate;
+}
+
+@keyframes ms-ai-banner-pan {
+  from { transform: scale(1.03) translateX(-2%); }
+  to { transform: scale(1.08) translateX(2%); }
+}
+
+.ms-ai-page-banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, rgba(6, 14, 26, 0.75) 0%, transparent 45%, rgba(230, 168, 0, 0.12) 100%);
+  pointer-events: none;
+}
+
+html[data-theme="light"] .ms-ai-page-banner::after {
+  background: linear-gradient(105deg, rgba(248, 250, 252, 0.85) 0%, transparent 50%, rgba(29, 142, 240, 0.08) 100%);
+}
+
+.ms-ai-page-banner__label {
+  position: absolute;
+  left: 1rem;
+  bottom: 0.65rem;
+  font-family: var(--ms-font-sans, system-ui), system-ui, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.88);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  z-index: 1;
+}
+
+html[data-theme="light"] .ms-ai-page-banner__label {
+  color: #0f172a;
+  text-shadow: none;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  body::after,
+  .ms-ai-sparkle,
+  .live-pill::after,
+  .logo-icon,
+  .modules-grid .module-card,
+  .scorecard-wrap,
+  .uni-portfolio,
+  .hero-ai-figure__glow,
+  .hero-ai-svg-wrap svg,
+  .nav-link::after,
+  .hero-ai-nodes circle,
+  .ms-ai-page-banner img {
+    animation: none !important;
+  }
+  .ms-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+}
