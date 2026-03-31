@@ -127,7 +127,6 @@ body.ms-page-cxc.cxc-present .aging-val{font-size:clamp(1.15rem,2.2vw,1.45rem)}
 body.ms-page-cxc.cxc-present .chart-wrap{min-height:280px;height:min(320px,42vh)}
 body.ms-page-cxc.cxc-present .tabs{gap:8px;padding:8px}
 body.ms-page-cxc.cxc-present .tab{padding:10px 22px;font-size:13px}
-body.ms-page-cxc.cxc-present .cxc-invite-strip{font-size:14px;padding:16px 22px}
 @media (prefers-reduced-motion:reduce){
   body.ms-page-cxc{scroll-behavior:auto}
 }
@@ -197,8 +196,8 @@ main{padding-top:24px;padding-bottom:48px;max-width:1520px;margin:0 auto;
 .cxc-kpi-eyebrow{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--txt3);margin-bottom:6px;
   display:flex;align-items:center;gap:8px}
 .cxc-kpi-eyebrow::before{content:'';width:28px;height:2px;border-radius:2px;background:linear-gradient(90deg,var(--suminregio),transparent)}
-.cxc-kpi-storytitle{font-size:clamp(1.05rem,2vw,1.35rem);font-weight:800;letter-spacing:-.02em;color:var(--txt);line-height:1.2;margin:0 0 6px}
-.cxc-kpi-lead{font-size:12.5px;color:var(--txt2);line-height:1.55;margin:0}
+.cxc-kpi-storytitle{font-size:clamp(1.05rem,2vw,1.35rem);font-weight:800;letter-spacing:-.02em;color:#f8fafc;line-height:1.2;margin:0 0 6px}
+.cxc-kpi-lead{font-size:12.5px;color:#cbd5e1;line-height:1.55;margin:0}
 .kpi-grid--story{grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;position:relative}
 @media(min-width:1100px){
   .kpi-grid--story::before{
@@ -233,13 +232,14 @@ main{padding-top:24px;padding-bottom:48px;max-width:1520px;margin:0 auto;
 .kpi--venc .kpi-step-num{background:linear-gradient(145deg,rgba(239,68,68,.2),rgba(17,34,51,.9));border-color:rgba(239,68,68,.25);color:#fca5a5}
 .kpi--vig .kpi-step-num{background:linear-gradient(145deg,rgba(34,197,94,.22),rgba(17,34,51,.9));border-color:rgba(34,197,94,.28);color:#86efac}
 .kpi--health .kpi-step-num{background:linear-gradient(145deg,rgba(6,182,212,.2),rgba(17,34,51,.9));border-color:rgba(6,182,212,.28);color:#67e8f9}
-.kpi-step-label{font-size:11px;font-weight:700;color:var(--txt2);letter-spacing:.04em;text-transform:uppercase}
+.kpi-step-label{font-size:11px;font-weight:700;color:#cbd5e1;letter-spacing:.04em;text-transform:uppercase}
 .kpi-narrative{
-  font-size:12px;line-height:1.55;color:var(--txt2);margin:0 0 14px;
-  min-height:3.1em;
+  font-size:12.5px;line-height:1.55;color:#d1d5db;margin:0 0 14px;
+  min-height:2.75em;
   transition:color .3s ease
 }
-.kpi-narrative strong{color:var(--txt);font-weight:700}
+.kpi-narrative strong{color:#f1f5f9;font-weight:700}
+.cxc-kpi-eyebrow{color:#a8b8c9!important}
 .kpi-val{transition:transform .45s cubic-bezier(.34,1.56,.64,1), opacity .4s ease}
 .kpi-story--in .kpi-val{animation:cxcKpiValPop .65s cubic-bezier(.34,1.56,.64,1) both}
 .kpi-story.kpi-story--in{animation:cxcKpiCardIn .58s cubic-bezier(.2,.8,.2,1) both}
@@ -390,7 +390,7 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
   .cond-amt{text-align:left}
 }
 
-/* ========== CxC “vivo”: ritmo, invitación y micro-movimiento (respeta reduced-motion) ========== */
+/* ========== CxC: micro-movimiento decorativo (respeta reduced-motion) ========== */
 @media (prefers-reduced-motion:no-preference){
   body.ms-page-cxc .orb-1{
     animation:cxcOrbDriftA 32s ease-in-out infinite alternate;
@@ -406,47 +406,6 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
 @keyframes cxcOrbDriftB{
   0%{opacity:.09;transform:translate(0,0) scale(1)}
   100%{opacity:.14;transform:translate(-3vw,-4vh) scale(1.1)}
-}
-
-.cxc-invite-strip{
-  display:flex;align-items:flex-start;gap:14px;margin:-8px 0 20px;padding:14px 18px;
-  border-radius:14px;border:1px solid rgba(230,168,0,.22);
-  background:linear-gradient(135deg,rgba(230,168,0,.07),rgba(6,182,212,.06) 45%,rgba(34,197,94,.05));
-  box-shadow:0 4px 24px rgba(15,23,42,.06),inset 0 1px 0 rgba(255,255,255,.5);
-  position:relative;overflow:hidden;
-}
-.cxc-invite-strip::before{
-  content:'';position:absolute;inset:0;
-  background:linear-gradient(110deg,transparent 40%,rgba(255,255,255,.35) 50%,transparent 60%);
-  background-size:220% 100%;
-  animation:cxcInviteSheen 9s ease-in-out infinite;
-  pointer-events:none;opacity:.55
-}
-@keyframes cxcInviteSheen{
-  0%,100%{background-position:120% 0}
-  50%{background-position:-20% 0}
-}
-.cxc-invite-pulse{
-  flex-shrink:0;margin-top:3px;width:11px;height:11px;border-radius:50%;
-  background:radial-gradient(circle,#22c55e 30%,rgba(34,197,94,.45));
-  box-shadow:0 0 0 0 rgba(34,197,94,.45);
-  animation:cxcHeartDot 2.2s ease-out infinite;
-}
-@keyframes cxcHeartDot{
-  0%{box-shadow:0 0 0 0 rgba(34,197,94,.5)}
-  55%{box-shadow:0 0 0 10px rgba(34,197,94,0)}
-  100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}
-}
-.cxc-invite-text{
-  position:relative;z-index:1;
-  font-size:13px;line-height:1.55;color:#334155;
-  max-width:62ch;
-}
-.cxc-invite-text strong{color:#0f172a;font-weight:800;letter-spacing:-.01em}
-
-@media (prefers-reduced-motion:reduce){
-  .cxc-invite-strip::before,.cxc-invite-pulse{animation:none}
-  .cxc-invite-pulse{box-shadow:none}
 }
 
 @keyframes cxcKpiBreathe{
@@ -578,6 +537,23 @@ body.ms-page-cxc .cond-row{
 @media (prefers-reduced-motion:reduce){
   body.ms-page-cxc main::after{display:none}
 }
+
+/* Tema claro (nav + app-ui): buckets aging legibles — &aacute;mbar/coral oscuro, sin amarillo p&aacute;lido sobre blanco */
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .aging-bkt.c0 .aging-val,
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .c0 .aging-val{color:#166534!important}
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .aging-bkt.c1 .aging-val,
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .c1 .aging-val{color:#92400e!important}
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .aging-bkt.c2 .aging-val,
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .c2 .aging-val{color:#9a3412!important}
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .aging-bkt.c3 .aging-val,
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .c3 .aging-val{color:#b91c1c!important}
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .aging-bkt.c4 .aging-val,
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .c4 .aging-val{color:#7f1d1d!important}
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .c0 .bar-fill{background:#15803d!important}
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .c1 .bar-fill{background:#b45309!important}
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .c2 .bar-fill{background:#c2410c!important}
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .c3 .bar-fill{background:#b91c1c!important}
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .c4 .bar-fill{background:#991b1b!important}
 </style>
 <link rel="stylesheet" href="app-ui.css">
 <script src="app-ui-boot.js" defer></script>
@@ -603,10 +579,6 @@ body.ms-page-cxc .cond-row{
     </div>
     <div class="cxc-hero-meta" id="cxcDbHint" title="Negocio activo">Cargando contexto&hellip;</div>
   </div>
-  <p class="cxc-invite-strip ms-reveal" role="status">
-    <span class="cxc-invite-pulse" aria-hidden="true"></span>
-    <span class="cxc-invite-text"><strong>Qu&eacute;date un momento.</strong> Esta vista est&aacute; viva: n&uacute;meros que laten con tu cartera, contexto claro y lectura que vale oro en operaci&oacute;n. No es decoraci&oacute;n &mdash; es se&ntilde;al para decidir con calma.</span>
-  </p>
   <div id="filter-bar"></div>
   <div class="client-filter-bar">
     <div class="filter-group">
@@ -624,15 +596,15 @@ body.ms-page-cxc .cond-row{
   <!-- KPIs: narrativa + datos (alineado Power BI: saldo, vencido, por vencer) -->
   <section class="cxc-kpi-journey ms-reveal" aria-labelledby="cxcKpiStoryTitle">
     <header class="cxc-kpi-journey-head">
-      <p class="cxc-kpi-eyebrow">Leer la cartera</p>
-      <h2 id="cxcKpiStoryTitle" class="cxc-kpi-storytitle">Cuatro miradas que se explican solas</h2>
-      <p class="cxc-kpi-lead">Cada tarjeta te dice <strong>qué mirar</strong> antes del monto: primero el panorama, luego el riesgo (vencido), el colch&oacute;n (vigente) y la lectura r&aacute;pida de salud. Los n&uacute;meros aparecen con animaci&oacute;n cuando llegan del servidor.</p>
+      <p class="cxc-kpi-eyebrow">Resumen de cartera</p>
+      <h2 id="cxcKpiStoryTitle" class="cxc-kpi-storytitle">Indicadores clave</h2>
+      <p class="cxc-kpi-lead">Saldo total, cartera vencida, cartera vigente y salud del mix. Los textos debajo se actualizan con los datos del filtro aplicado.</p>
     </header>
     <div class="kpi-grid kpi-grid--story">
       <article class="kpi kpi--total kpi-story" title="Power BI: Saldo_Documento = Cargo − Cobro">
         <div class="kpi-story-step"><span class="kpi-step-num" aria-hidden="true">1</span><span class="kpi-step-label">Panorama</span></div>
         <div class="kpi-label">Deuda total <span style="font-weight:400;color:var(--txt3)">(Saldo CxC)</span></div>
-        <p class="kpi-narrative" id="kNarrTotal">Aqu&iacute; ver&aacute;s la <strong>exposici&oacute;n</strong> neta: todo lo pendiente a cr&eacute;dito despu&eacute;s de cobros aplicados.</p>
+        <p class="kpi-narrative" id="kNarrTotal">Saldo neto de cartera a cr&eacute;dito (cargos menos cobros aplicados).</p>
         <div class="kpi-val" id="kSaldo">$&mdash;</div>
         <div class="kpi-sub" id="kCli">&mdash; clientes</div>
         <div class="kpi-composition" aria-label="Composici&oacute;n del saldo: vencido vs vigente">
@@ -649,7 +621,7 @@ body.ms-page-cxc .cond-row{
       <article class="kpi kpi--venc kpi-story" title="Power BI: Saldo Cartera Vencido">
         <div class="kpi-story-step"><span class="kpi-step-num" aria-hidden="true">2</span><span class="kpi-step-label">Riesgo</span></div>
         <div class="kpi-label">Vencido <span style="font-weight:400;color:var(--txt3)">(cr&eacute;dito)</span></div>
-        <p class="kpi-narrative" id="kNarrVenc">El dinero que <strong>ya debi&oacute;</strong> entrar: mientras mayor sea su peso sobre el total, m&aacute;s presi&oacute;n en caja.</p>
+        <p class="kpi-narrative" id="kNarrVenc">Importe vencido seg&uacute;n condiciones de pago y aging.</p>
         <div class="kpi-val red" id="kVencido">$&mdash;</div>
         <div class="kpi-sub" id="kPctV">&mdash; % del saldo</div>
         <div class="kpi-share-track" aria-hidden="true"><div class="kpi-share-fill kpi-share-fill--venc" id="kShareVenc" style="width:0%"></div></div>
@@ -658,7 +630,7 @@ body.ms-page-cxc .cond-row{
       <article class="kpi kpi--vig kpi-story" title="Power BI: Saldo Cartera Vigente">
         <div class="kpi-story-step"><span class="kpi-step-num" aria-hidden="true">3</span><span class="kpi-step-label">Colch&oacute;n</span></div>
         <div class="kpi-label">No vencido <span style="font-weight:400;color:var(--txt3)">(vigente)</span></div>
-        <p class="kpi-narrative" id="kNarrVig">Lo que a&uacute;n est&aacute; <strong>dentro de plazo</strong>: te da margen para negociar sin perder ritmo con clientes al d&iacute;a.</p>
+        <p class="kpi-narrative" id="kNarrVig">Importe al corriente (no vencido) dentro del filtro.</p>
         <div class="kpi-val grn" id="kVigente">$&mdash;</div>
         <div class="kpi-sub" id="kPctVig">&mdash; % del saldo</div>
         <div class="kpi-share-track" aria-hidden="true"><div class="kpi-share-fill kpi-share-fill--vig" id="kShareVig" style="width:0%"></div></div>
@@ -667,7 +639,7 @@ body.ms-page-cxc .cond-row{
       <article class="kpi kpi--health kpi-story">
         <div class="kpi-story-step"><span class="kpi-step-num" aria-hidden="true">4</span><span class="kpi-step-label">Diagn&oacute;stico</span></div>
         <div class="kpi-label">Salud cartera</div>
-        <p class="kpi-narrative" id="kNarrSalud">Traducci&oacute;n r&aacute;pida del <strong>mix</strong> vencido vs total: un sem&aacute;foro para decidir si hoy es d&iacute;a de cobranza fuerte o de monitoreo.</p>
+        <p class="kpi-narrative" id="kNarrSalud">Estado seg&uacute;n el porcentaje de vencido sobre el saldo (umbral de referencia ~20&nbsp;%).</p>
         <div class="kpi-val" id="kSalud" style="font-size:clamp(17px,2.5vw,20px);font-weight:700;letter-spacing:-.02em">&mdash;</div>
         <div class="kpi-sub" id="kSaludSub">&mdash;</div>
         <div class="kpi-share-track" aria-hidden="true"><div class="kpi-share-fill" id="kShareHealth" style="width:0%;background:linear-gradient(90deg,#64748b,#94a3b8)"></div></div>
@@ -829,7 +801,7 @@ function staggerAgingBuckets(){
   });
 }
 
-/** Texto que guía al usuario: qué significa cada KPI con los números reales. */
+/** Descripciones breves por KPI (datos reales del filtro). */
 function updateCxcKpiNarrative(saldo, venc, pvenc, numCli){
   const pV = (saldo > 0 && typeof venc === 'number') ? (venc / saldo) * 100 : NaN;
   const pVig = (saldo > 0 && typeof pvenc === 'number') ? (pvenc / saldo) * 100 : NaN;
@@ -839,44 +811,45 @@ function updateCxcKpiNarrative(saldo, venc, pvenc, numCli){
   const nS = document.getElementById('kNarrSalud');
   if (nT) {
     if (saldo <= 0) {
-      nT.innerHTML = 'En este filtro <strong>no hay saldo pendiente</strong>: nada que cobrar en cartera a cr&eacute;dito, o ya est&aacute; liquidado.';
+      nT.textContent = 'Sin saldo pendiente en este filtro (cartera liquidada o sin documentos a cr\u00e9dito).';
     } else {
-      const c = (numCli|0) || 0;
-      nT.innerHTML = 'Todo lo que, sumado, <strong>a&uacute;n deben</strong> tus clientes a cr&eacute;dito despu&eacute;s de aplicar cobros. ' +
-        (c ? ('<strong>' + c + '</strong> ' + (c === 1 ? 'cliente concentra' : 'clientes concentran') + ' esta exposici&oacute;n.') : 'Revisa el filtro de periodo si el monto no cuadra con tu expectativa.');
+      const c = (numCli | 0) || 0;
+      nT.textContent = c
+        ? 'Clientes con saldo en el filtro: ' + c + '.'
+        : 'Saldo neto seg\u00fan cargos y cobros aplicados.';
     }
   }
   if (nV) {
-    if (saldo <= 0) nV.textContent = 'Sin saldo total no hay lectura de mora.';
+    if (saldo <= 0) nV.textContent = 'Sin saldo no aplica lectura de vencido.';
     else if (venc <= 0) {
-      nV.innerHTML = '<strong>Nada vencido</strong> en este corte: los saldos siguen dentro de plazo o el filtro deja la cartera limpia.';
+      nV.textContent = 'Sin importe vencido en este corte.';
     } else if (!isNaN(pV) && pV > 40) {
-      nV.innerHTML = 'La mora es <strong>una fracci&oacute;n grande</strong> del saldo: prioriza caja, top deudores y acuerdos; aqu&iacute; vive el riesgo principal.';
+      nV.textContent = 'Vencido alto vs saldo (>40 %): revisar cobranza y top deudores.';
     } else if (!isNaN(pV) && pV > 20) {
-      nV.innerHTML = 'Ya pas&oacute; el umbral que suele <strong>encender alarmas</strong> (~20&nbsp;%): conviene un plan de cobranza expl&iacute;cito esta semana.';
+      nV.textContent = 'Vencido por encima del umbral usual (~20 % del saldo). Conviene plan de cobranza.';
     } else {
-      nV.innerHTML = 'El vencido es <strong>una parte acotada</strong> del total; el seguimiento sistem&aacute;tico normalmente lo mantiene estable.';
+      nV.textContent = 'Vencido contenido respecto al saldo total.';
     }
   }
   if (nG) {
-    if (saldo <= 0) nG.textContent = '—';
+    if (saldo <= 0) nG.textContent = '\u2014';
     else if (pvenc <= 0 && venc > 0) {
-      nG.innerHTML = 'Todo el pendiente est&aacute; <strong>vencido</strong>: no hay colch&oacute;n vigente que suavice la negociaci&oacute;n.';
+      nG.textContent = 'Todo el saldo mostrado corresponde a cartera vencida.';
     } else if (!isNaN(pVig) && pVig >= 60) {
-      nG.innerHTML = 'La mayor parte sigue <strong>al corriente</strong>: eso te da tiempo para trabajar la mora sin romper la relaci&oacute;n con quienes s&iacute; pagan al d&iacute;a.';
+      nG.textContent = 'Mayor\u00eda del saldo al corriente (>60 %).';
     } else if (!isNaN(pVig) && pVig >= 35) {
-      nG.innerHTML = 'Hay <strong>equilibrio</strong> entre lo al d&iacute;a y lo atrasado: evita que la fracci&oacute;n vencida roba puntos de porcentaje mes a mes.';
+      nG.textContent = 'Mezcla relevante de vigente y vencido; monitorear tendencia.';
     } else {
-      nG.innerHTML = 'Predomina lo vencido; <strong>cada peso vigente cuenta</strong> para recuperar ritmo y confianza en la cartera.';
+      nG.textContent = 'Predomina cartera vencida en el saldo mostrado.';
     }
   }
   if (nS) {
     if (saldo <= 0 || isNaN(pV)) {
-      nS.innerHTML = 'Cuando hay saldo, este bloque resume si el <strong>mix</strong> mora/total est&aacute; por debajo o por encima del umbral t&iacute;pico (~20&nbsp;% vencido).';
+      nS.textContent = 'Con saldo, compara % vencido vs ~20 % como referencia operativa.';
     } else if (pV > 20) {
-      nS.innerHTML = 'Por encima del umbral: el peso del vencido <strong>presiona liquidez</strong>; hoy tiene sentido revisar aging y facturas cr&iacute;ticas antes que promociones nuevas.';
+      nS.textContent = 'Por encima del umbral de referencia: priorizar liquidez y seguimiento de aging.';
     } else {
-      nS.innerHTML = 'Por debajo del umbral: lectura <strong>favorable</strong> si se mantiene; usa el tiempo para apretar procesos antes de que la mora escale.';
+      nS.textContent = 'Por debajo del umbral de referencia: mantener disciplina de cobro.';
     }
   }
 }
@@ -916,10 +889,10 @@ function setKpiShareMeters(saldo, venc, pvenc, porcVencidoDec){
       if (typeof porcVencidoDec === 'number' && !isNaN(porcVencidoDec)) {
         if (porcVencidoDec > 0.2) {
           sh.style.background = 'linear-gradient(90deg,#b91c1c,#ef4444)';
-          ch.textContent = 'Menos “margen” ante mora: barra corta = mezcla exigente';
+          ch.textContent = 'Alto peso de vencido: menor margen operativo en cartera';
         } else {
           sh.style.background = 'linear-gradient(90deg,#15803d,#22c55e)';
-          ch.textContent = 'Mezcla tolerable: la mora no domina el saldo total';
+          ch.textContent = 'Vencido bajo referencia: mix m\u00e1s favorable';
         }
       }
     }
@@ -1060,10 +1033,16 @@ async function loadResumen() {
     const vencFromAging = (+age.DIAS_1_30||0) + (+age.DIAS_31_60||0) + (+age.DIAS_61_90||0) + (+age.DIAS_MAS_90||0);
     const corrienteAging = +age.CORRIENTE || 0;
     const sumAging = vencFromAging + corrienteAging;
-    // KPIs: mismos que devuelve /resumen-aging (VENCIDO / POR_VENCER) — misma fuente que buckets.
-    const venc = +res.VENCIDO || 0;
-    const pvenc = +res.POR_VENCER || 0;
-    const vencSource = 'resumen-api';
+    // KPIs: API unificada; si el resumen marca 0 vencido pero los buckets sí tienen mora, alinear con aging (defensa + coherencia).
+    let venc = +res.VENCIDO || 0;
+    let pvenc = +res.POR_VENCER || 0;
+    if (venc <= 0.005 && vencFromAging > 0.005) {
+      venc = vencFromAging;
+      pvenc = corrienteAging;
+    }
+    if (saldo > 0.005 && Math.abs(venc + pvenc - saldo) / saldo > 0.08) {
+      pvenc = Math.max(0, saldo - venc);
+    }
 
 
     setText('kSaldo', fmtK(saldo));
@@ -1119,9 +1098,7 @@ async function loadResumen() {
     setText('ag4',  fmtK(age.DIAS_MAS_90));setPct('ag4Bar',  age.DIAS_MAS_90);
     setText('agingBreakdown', 'Aging: Corriente '+fmtK(corrienteAging)+' · Mora (1-30 … +90) '+fmtK(vencFromAging)+' · Suma buckets '+fmtK(sumAging)+'. KPI: Vencido '+fmtK(venc)+' · No vencido '+fmtK(pvenc)+' · Deuda total '+fmtK(saldo)+'.');
     const agCorriente = document.getElementById('agC');
-    if (agCorriente) agCorriente.style.color = '#22C55E';
-    const agingCols = { ag1:'#F59E0B', ag2:'#FB923C', ag3:'#F97316', ag4:'#EF4444' };
-    Object.keys(agingCols).forEach(id => { const e = document.getElementById(id); if (e) e.style.color = agingCols[id]; });
+    if (agCorriente) agCorriente.style.color = '';
     if(chartAging){
       chartAging.data.datasets[0].data=[age.CORRIENTE||0,age.DIAS_1_30||0,age.DIAS_31_60||0,age.DIAS_61_90||0,age.DIAS_MAS_90||0];
       chartAging.update();
@@ -1150,7 +1127,7 @@ async function loadResumen() {
     setKpiShareMeters(0,0,0,0);
     ['kNarrTotal','kNarrVenc','kNarrVig','kNarrSalud'].forEach(function (id) {
       const el = document.getElementById(id);
-      if (el) el.textContent = 'Sin datos hasta que la API responda. Revisa conexi\u00f3n o vuelve a aplicar el filtro.';
+      if (el) el.textContent = 'Sin datos: revise conexi\u00f3n al servidor o el filtro aplicado.';
     });
     document.querySelectorAll('.kpi-grid--story .kpi-story').forEach(function (el) { el.classList.remove('kpi-story--in'); });
     const salEl=document.getElementById('kSalud');

@@ -3453,6 +3453,45 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
     }
     numCliVenc = (Array.isArray(cxcAgingLegacy) ? cxcAgingLegacy.filter(r => (+r.VENC_C || 0) > 0.005).length : 0);
   }
+
+  // Reconciliación: agregado por documento (docAgg) puede dejar todo en corriente si DIAS_VENCIDO no cuadra con líneas de cargo;
+  // el aging por cliente (cxcAgingLegacy) suele ser el que cuadraba con Power BI / lectura histórica.
+  const aggLegacyFlat = (Array.isArray(cxcAgingLegacy) ? cxcAgingLegacy : []).reduce(
+    (a, r) => {
+      a.cor += +r.COR_C || 0;
+      a.b1 += +r.B1_C || 0;
+      a.b2 += +r.B2_C || 0;
+      a.b3 += +r.B3_C || 0;
+      a.b4 += +r.B4_C || 0;
+      a.venc += +r.VENC_C || 0;
+      return a;
+    },
+    { cor: 0, b1: 0, b2: 0, b3: 0, b4: 0, venc: 0 }
+  );
+  const legacySum = aggLegacyFlat.cor + aggLegacyFlat.b1 + aggLegacyFlat.b2 + aggLegacyFlat.b3 + aggLegacyFlat.b4;
+  if (
+    saldoTotal > 0.005 &&
+    vencido <= 0.005 &&
+    aggLegacyFlat.venc > 0.005 &&
+    legacySum > 0.005 &&
+    Array.isArray(cxcAgingLegacy) &&
+    cxcAgingLegacy.length
+  ) {
+    const mx = Math.max(saldoTotal, legacySum);
+    const relDiff = mx > 0 ? Math.abs(saldoTotal - legacySum) / mx : 1;
+    if (relDiff <= 0.08) {
+      vencido = aggLegacyFlat.venc;
+      agCorr = aggLegacyFlat.cor;
+      ag1 = aggLegacyFlat.b1;
+      ag2 = aggLegacyFlat.b2;
+      ag3 = aggLegacyFlat.b3;
+      ag4 = aggLegacyFlat.b4;
+      porVencer = agCorr;
+      saldoTotal = legacySum;
+      numCliVenc = cxcAgingLegacy.filter((r) => (+r.VENC_C || 0) > 0.005).length;
+    }
+  }
+
   const resumen = {
     SALDO_TOTAL: Math.round(saldoTotal * 100) / 100,
     NUM_CLIENTES: cf ? ((cxcSaldosLegacy || []).length ? 1 : 0) : Math.max(+(docAgg.NUM_CLIENTES_DOC || 0), (cxcSaldosLegacy || []).length),

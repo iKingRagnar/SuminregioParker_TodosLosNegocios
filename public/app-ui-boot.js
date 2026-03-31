@@ -23,7 +23,6 @@
       ".page > .biz-context-bar",
       ".page > .source-tabs",
       ".page > .ms-ai-page-banner",
-      "body > .ms-alive-strip",
       ".page > .exec-mission",
       ".page > .intel-bar",
       ".uni-portfolio",
@@ -37,7 +36,6 @@
       ".page > .card",
       /* CxC (main sin .page) */
       "main > .cxc-hero",
-      "main > .cxc-invite-strip",
       "main > .cxc-kpi-journey",
       "main > #filter-bar",
       "main > .client-filter-bar",
