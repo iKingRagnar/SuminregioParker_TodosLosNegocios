@@ -376,6 +376,41 @@ html[data-theme="light"] .hero-bi-grid {
   filter: blur(0);
 }
 
+/* Contenido por encima de aurora / sparkle */
+.dash,
+body > .page,
+main {
+  position: relative;
+  z-index: 1;
+}
+
+/* Dashboards clásicos (.dash): encabezado y KPIs con vida */
+.dash > .hdr {
+  animation: ms-dash-hdr-shift 18s ease-in-out infinite alternate;
+}
+@keyframes ms-dash-hdr-shift {
+  0% { filter: saturate(1) hue-rotate(0deg); }
+  100% { filter: saturate(1.08) hue-rotate(6deg); }
+}
+
+.dash .kpi-row .kpi,
+.dash .kpi-panel .kpi {
+  animation: ms-ai-dash-kpi 7s ease-in-out infinite;
+}
+.dash .kpi-row .kpi:nth-child(2),
+.dash .kpi-panel .kpi:nth-child(2) { animation-delay: 0.9s; }
+.dash .kpi-row .kpi:nth-child(3),
+.dash .kpi-panel .kpi:nth-child(3) { animation-delay: 1.8s; }
+.dash .kpi-row .kpi:nth-child(4),
+.dash .kpi-panel .kpi:nth-child(4) { animation-delay: 2.6s; }
+.dash .kpi-row .kpi:nth-child(5),
+.dash .kpi-panel .kpi:nth-child(5) { animation-delay: 3.4s; }
+
+@keyframes ms-ai-dash-kpi {
+  0%, 100% { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 0 0 0 rgba(34, 211, 238, 0); }
+  50% { box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08), 0 0 22px rgba(34, 211, 238, 0.12); }
+}
+
 /* Retrasos por hijo (fallback sin JS: solo primera carga hero) */
 .hero--ai .hero-left > *:nth-child(1) { transition-delay: 0.05s; }
 .hero--ai .hero-left > *:nth-child(2) { transition-delay: 0.12s; }
@@ -613,5 +648,10 @@ html[data-theme="light"] .ms-ai-page-banner__label {
     opacity: 1 !important;
     transform: none !important;
     filter: none !important;
+  }
+  .dash > .hdr,
+  .dash .kpi-row .kpi,
+  .dash .kpi-panel .kpi {
+    animation: none !important;
   }
 }

@@ -471,9 +471,26 @@
         }
       }
       if (isCxc) {
-        const resp = await fetch(API + '/api/cxc/resumen' + qs, { signal: AbortSignal.timeout(20000) });
-        const data = await resp.json().catch(() => ({}));
-        if (resp.ok && data) {
+        const resp = await fetch(API + '/api/cxc/resumen-aging' + qs, { signal: AbortSignal.timeout(20000) });
+        const snap = await resp.json().catch(() => ({}));
+        if (resp.ok && snap && (snap.resumen || snap.SALDO_TOTAL != null)) {
+          let data = snap.resumen && typeof snap.resumen === 'object' ? { ...snap.resumen } : { ...snap };
+          const aging = snap.aging && typeof snap.aging === 'object' ? snap.aging : {};
+          if (typeof window.reconcileCxcResumenWithAging === 'function') {
+            data = window.reconcileCxcResumenWithAging(data, aging);
+          } else {
+            const v0 = Number(data.VENCIDO || 0);
+            const mora =
+              Number(aging.DIAS_1_30 || 0) +
+              Number(aging.DIAS_31_60 || 0) +
+              Number(aging.DIAS_61_90 || 0) +
+              Number(aging.DIAS_MAS_90 || 0);
+            const corA = Number(aging.CORRIENTE || 0);
+            if (v0 <= 0.005 && mora > 0.005) {
+              data.VENCIDO = mora;
+              if (Number(data.POR_VENCER || 0) <= 0.005) data.POR_VENCER = corA;
+            }
+          }
           const saldo = Number(data.SALDO_TOTAL || 0);
           const venc = Number(data.VENCIDO || 0);
           const corriente = Number(data.CORRIENTE || data.POR_VENCER || data.VIGENTE || 0);

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Suminregio">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22d3ee"/>
+      <stop offset="55%" stop-color="#a78bfa"/>
+      <stop offset="100%" stop-color="#e6a800"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="8" fill="#0f172a"/>
+  <path fill="url(#g)" d="M8 22V10l6 6 10-7v14l-10-7-6 6z" opacity="0.95"/>
+  <circle cx="24" cy="8" r="2" fill="#fbbf24" opacity="0.9"/>
+</svg>

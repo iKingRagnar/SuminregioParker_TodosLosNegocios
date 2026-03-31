@@ -37,18 +37,41 @@ async function selfFetch(path, ms = 30000) {
   }
 }
 
+/** Misma lógica que public/filters.js — alinea VENCIDO con buckets de mora. */
+function reconcileCxcResumenWithAging(resumen, aging) {
+  const out = resumen && typeof resumen === 'object' ? { ...resumen } : {};
+  if (!aging || typeof aging !== 'object') aging = {};
+  let venc = +(out.VENCIDO || 0);
+  const mora =
+    (+aging.DIAS_1_30 || 0) +
+    (+aging.DIAS_31_60 || 0) +
+    (+aging.DIAS_61_90 || 0) +
+    (+aging.DIAS_MAS_90 || 0);
+  const cor = +aging.CORRIENTE || 0;
+  if (venc <= 0.005 && mora > 0.005) {
+    out.VENCIDO = mora;
+    const pv = +(out.POR_VENCER || 0);
+    if (pv <= 0.005) out.POR_VENCER = cor;
+  }
+  return out;
+}
+
 // ── Recolector de KPIs en tiempo real ────────────────────────────────────────
 async function gatherKpiSnapshot(db) {
   const qs = db ? `?db=${encodeURIComponent(db)}` : '';
-  const [ventas, cxc, metas, pnl, vendedores, cumpl, inv] = await Promise.all([
+  const [ventas, cxcSnap, metas, pnl, vendedores, cumpl, inv] = await Promise.all([
     selfFetch(`/api/ventas/resumen${qs}`, 25000),
-    selfFetch(`/api/cxc/resumen${qs}`, 20000),
+    selfFetch(`/api/cxc/resumen-aging${qs}`, 20000),
     selfFetch(`/api/config/metas`, 10000),
     selfFetch(`/api/resultados/pnl?meses=3${qs}`, 45000),
     selfFetch(`/api/director/vendedores${qs}`, 20000),
     selfFetch(`/api/ventas/cumplimiento${qs}`, 25000),
     selfFetch(`/api/inv/resumen${qs}`, 15000),
   ]);
+  const cxc =
+    cxcSnap && cxcSnap.resumen
+      ? reconcileCxcResumenWithAging(cxcSnap.resumen, cxcSnap.aging)
+      : cxcSnap;
   return { ventas, cxc, metas, pnl, vendedores, cumpl, inv };
 }
 

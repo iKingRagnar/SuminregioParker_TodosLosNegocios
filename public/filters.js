@@ -651,16 +651,51 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       NUM_CLIENTES: a.NUM_CLIENTES,
       NUM_CLIENTES_VENCIDOS: a.NUM_CLIENTES_VENCIDOS
     };
+    function saldoAligned(am, bm, maxRel) {
+      if (am <= 0 || bm <= 0) return false;
+      var mx = Math.max(am, bm);
+      return Math.abs(am - bm) / mx <= maxRel;
+    }
+    if (a.SALDO_TOTAL > 0 && a.VENCIDO <= 0.005 && b.VENCIDO > 0.005 && saldoAligned(a.SALDO_TOTAL, b.SALDO_TOTAL, 0.08)) {
+      out.VENCIDO = b.VENCIDO;
+      out.POR_VENCER = b.POR_VENCER > 0.005 ? b.POR_VENCER : Math.max(0, a.SALDO_TOTAL - b.VENCIDO);
+      if (b.NUM_CLIENTES_VENCIDOS != null && b.NUM_CLIENTES_VENCIDOS !== '') out.NUM_CLIENTES_VENCIDOS = b.NUM_CLIENTES_VENCIDOS;
+    }
     if (a.SALDO_TOTAL > 0 && b.SALDO_TOTAL > 0) {
       var mx = Math.max(a.SALDO_TOTAL, b.SALDO_TOTAL);
       var relDiff = Math.abs(a.SALDO_TOTAL - b.SALDO_TOTAL) / mx;
-      if (relDiff <= 0.02) {
-        if (b.VENCIDO > a.VENCIDO) out.VENCIDO = b.VENCIDO;
-        if (b.POR_VENCER > a.POR_VENCER) out.POR_VENCER = b.POR_VENCER;
+      if (relDiff <= 0.08) {
+        if (b.VENCIDO > out.VENCIDO) out.VENCIDO = b.VENCIDO;
+        if (b.POR_VENCER > out.POR_VENCER) out.POR_VENCER = b.POR_VENCER;
         if ((out.NUM_CLIENTES_VENCIDOS == null || out.NUM_CLIENTES_VENCIDOS === '') && b.NUM_CLIENTES_VENCIDOS != null) {
           out.NUM_CLIENTES_VENCIDOS = b.NUM_CLIENTES_VENCIDOS;
         }
       }
+    }
+    return out;
+  }
+
+  /**
+   * Alinea VENCIDO / POR_VENCER con la suma de buckets de mora del mismo snapshot que cxc.html (resumen-aging).
+   */
+  function reconcileCxcResumenWithAging(resumen, aging) {
+    if (!resumen || typeof resumen !== 'object') resumen = {};
+    if (!aging || typeof aging !== 'object') aging = {};
+    var out = {};
+    for (var k in resumen) {
+      if (Object.prototype.hasOwnProperty.call(resumen, k)) out[k] = resumen[k];
+    }
+    var venc = +out.VENCIDO || 0;
+    var mora =
+      (+aging.DIAS_1_30 || 0) +
+      (+aging.DIAS_31_60 || 0) +
+      (+aging.DIAS_61_90 || 0) +
+      (+aging.DIAS_MAS_90 || 0);
+    var cor = +aging.CORRIENTE || 0;
+    if (venc <= 0.005 && mora > 0.005) {
+      out.VENCIDO = mora;
+      var pv = +out.POR_VENCER || 0;
+      if (pv <= 0.005) out.POR_VENCER = cor;
     }
     return out;
   }
@@ -674,5 +709,6 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   window.initGlobalDbBarAfterNav  = initGlobalDbBarAfterNav;
   window.filterSyncFiltersToUrl   = syncFiltersToUrl;
   window.mergeCxcKpiWithDirector  = mergeCxcKpiWithDirector;
+  window.reconcileCxcResumenWithAging = reconcileCxcResumenWithAging;
 
 })();

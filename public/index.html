@@ -5,6 +5,7 @@
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Suminregio Parker &mdash; SCORECARD</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <script>window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -1058,7 +1059,7 @@ async function loadAll(){
     const [v,m,c,inv,dir,vends,cot,cumpl,cliRes,pnlData]=await Promise.all([
       fwt(buildApiUrl('/api/ventas/resumen'),{},tKpi),
       fwt(buildApiUrl('/api/config/metas'),{},tKpi),
-      fwt(buildApiUrl('/api/cxc/resumen'),{},tKpi),
+      fwt(buildApiUrl('/api/cxc/resumen-aging'),{},tKpi),
       fwt(buildApiUrl('/api/inv/resumen'),{},tKpi),
       fwt(buildApiUrl('/api/director/resumen'),{},tKpi),
       fwt(buildApiUrl('/api/director/vendedores'),[],tKpi),
@@ -1153,8 +1154,12 @@ async function loadAll(){
     setBar('barCotiHoy','pctCotiHoy', isVistaHoy ? pCotiHoy : pCotiMes);
     sem('semCotiHoy', isVistaHoy ? pCotiHoy : pCotiMes, {labels:['Cumplido','En riesgo','Bajo']});
 
-    // CxC (fusionar con director si /cxc/resumen vino vacío o sin vencido coherente)
-    const cx=(typeof window.mergeCxcKpiWithDirector==='function')?window.mergeCxcKpiWithDirector(c,dir):c;
+    // CxC: mismo snapshot que cxc.html (resumen-aging) + reconciliación aging + director
+    var cxcResumen = c && c.resumen ? c.resumen : c;
+    if (typeof window.reconcileCxcResumenWithAging === 'function' && c && c.aging) {
+      cxcResumen = window.reconcileCxcResumenWithAging(cxcResumen, c.aging);
+    }
+    const cx=(typeof window.mergeCxcKpiWithDirector==='function')?window.mergeCxcKpiWithDirector(cxcResumen,dir):cxcResumen;
     const cxcTotal=+cx.SALDO_TOTAL||0;
     const cxcVenc=+cx.VENCIDO||0;
     const cxcClientes=+cx.NUM_CLIENTES||0;
