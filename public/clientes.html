@@ -6,7 +6,9 @@
 <title>Suminregio Parker &mdash; Clientes</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app-ui.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="app-ui-boot.js" defer></script>
 <script>
 window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');
 if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/i.test(window.location.hostname)) {
@@ -38,6 +40,9 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
 .orb-2{width:600px;height:600px;background:radial-gradient(circle,#FFB800,transparent 70%);bottom:-150px;right:-150px;animation-delay:-7s}
 .orb-3{width:400px;height:400px;background:radial-gradient(circle,#1E7FD9,transparent 70%);top:40%;left:45%;transform:translate(-50%,-50%);animation-delay:-12s;opacity:.06}
 @keyframes drift{0%{transform:translate(0,0)}100%{transform:translate(20px,15px)}}
+@media (prefers-reduced-motion: reduce){
+  .orb,.live-dot{animation:none!important}
+}
 header{position:sticky;top:0;z-index:100;background:rgba(5,11,20,.88);backdrop-filter:blur(24px);border-bottom:1px solid var(--border)}
 .header-inner{max-width:1800px;margin:0 auto;height:64px;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;padding:0 2rem}
 .logo{display:flex;align-items:center;gap:.75rem;text-decoration:none}
@@ -352,21 +357,48 @@ function fwt(url, fallback, ms=15000){
   ]);
 }
 
+function resumenRiesgoBucketsEmpty(res){
+  if(!res||typeof res!=='object')return true;
+  const t=[+res.MONTO_LEVE||0,+res.MONTO_MEDIO||0,+res.MONTO_ALTO||0,+res.MONTO_CRITICO||0];
+  return t.every(v=>v<=0.005);
+}
+function normAgingFromSnap(snap){
+  const raw=(snap&&snap.aging)||{};
+  if(raw&&typeof raw==='object'&&!Array.isArray(raw))return raw;
+  if(Array.isArray(raw)&&raw[0]&&typeof raw[0]==='object')return raw[0];
+  return {};
+}
+function enrichResumenRiesgoFromCxcAging(res,cxcSnap){
+  res=res&&typeof res==='object'?Object.assign({},res):{};
+  if(!resumenRiesgoBucketsEmpty(res))return res;
+  const age=normAgingFromSnap(cxcSnap);
+  const le=+age.DIAS_1_30||0,me=+age.DIAS_31_60||0,al=+age.DIAS_61_90||0,cr=+age.DIAS_MAS_90||0;
+  const mora=le+me+al+cr;
+  if(mora<=0.005)return res;
+  res.MONTO_LEVE=le;
+  res.MONTO_MEDIO=me;
+  res.MONTO_ALTO=al;
+  res.MONTO_CRITICO=cr;
+  return res;
+}
+
 async function loadData(){
   const heroSub = document.getElementById('heroSub');
   try{
     if(heroSub) heroSub.textContent = 'Conectando con el servidor…';
 
-    const [riesgo, resumen, comercial, inactivos] = await Promise.all([
+    const [riesgo, resumen, comercial, inactivos, cxcSnap] = await Promise.all([
       fwt(apiDb('/api/clientes/inteligencia?limit=400'), [], 35000),
       fwt(apiDb('/api/clientes/resumen-riesgo'), {}, 35000),
       fwt(apiDb('/api/clientes/comercial-atraso?limit=300'), [], 35000),
       fwt(apiDb('/api/clientes/inactivos?limit=300'), [], 25000),
+      fwt(apiDb('/api/cxc/resumen-aging'), {}, 35000),
     ]);
     riesgoData = Array.isArray(riesgo) ? riesgo : [];
     comercialData = Array.isArray(comercial) ? comercial : [];
     inactivosData = Array.isArray(inactivos) ? inactivos : [];
-    const res = resumen && typeof resumen==='object' ? resumen : {};
+    let res = resumen && typeof resumen==='object' ? Object.assign({},resumen) : {};
+    res = enrichResumenRiesgoFromCxcAging(res, cxcSnap && typeof cxcSnap==='object' ? cxcSnap : {});
     renderComercial(comercialData);
     renderInactivos(inactivosData);
     renderKPIs(riesgoData, inactivosData, res, comercialData);
@@ -578,17 +610,25 @@ function renderInactivos(data){
 
 function renderChartRiesgo(res){
   if(!res || typeof res!=='object')return;
-  const vals = [+res.MONTO_CRITICO||0, +res.MONTO_ALTO||0, +res.MONTO_MEDIO||0, +res.MONTO_LEVE||0];
-  if(vals.every(v=>v===0))return;
   const ctx=document.getElementById('chartRiesgo');
+  if(!ctx)return;
+  const vals = [+res.MONTO_CRITICO||0, +res.MONTO_ALTO||0, +res.MONTO_MEDIO||0, +res.MONTO_LEVE||0];
+  const sum = vals.reduce((a,b)=>a+b,0);
+  const labels = sum > 0.005
+    ? ['Cr\u00edtico (+90d)','Alto (61-90d)','Medio (31-60d)','Leve (1-30d)']
+    : ['Sin mora en buckets CxC'];
+  const data = sum > 0.005 ? vals : [1];
+  const bg = sum > 0.005
+    ? ['rgba(255,69,102,.7)','rgba(255,140,66,.7)','rgba(255,184,0,.7)','rgba(77,166,255,.7)']
+    : ['rgba(148,163,184,.25)'];
   if(chartRiesgoInst)chartRiesgoInst.destroy();
   chartRiesgoInst=new Chart(ctx,{
     type:'doughnut',
     data:{
-      labels:['Cr\u00edtico (+90d)','Alto (61-90d)','Medio (31-60d)','Leve (1-30d)'],
-      datasets:[{data:vals,backgroundColor:['rgba(255,69,102,.7)','rgba(255,140,66,.7)','rgba(255,184,0,.7)','rgba(77,166,255,.7)'],borderColor:'#0A1628',borderWidth:3}]
+      labels,
+      datasets:[{data,backgroundColor:bg,borderColor:'#0A1628',borderWidth:3}]
     },
-    options:{cutout:'65%',interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{color:'#5A7090',font:{size:10,family:"'DM Mono'"},padding:12}},tooltip:{mode:'index',intersect:false,backgroundColor:'#0D1D35',borderColor:'rgba(255,255,255,.1)',borderWidth:1,callbacks:{label:c=>' '+c.label+': $'+Math.round(+c.raw).toLocaleString()}}}}
+    options:{cutout:'65%',interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{color:'#5A7090',font:{size:10,family:"'DM Mono'"},padding:12}},tooltip:{mode:'index',intersect:false,backgroundColor:'#0D1D35',borderColor:'rgba(255,255,255,.1)',borderWidth:1,callbacks:{label:c=>' '+c.label+': '+(sum>0.005?'$'+Math.round(+c.raw).toLocaleString():'sin saldo moroso en esta vista')}}}}
   });
 }
 
@@ -597,11 +637,12 @@ function renderChartBuckets(res){
   const ctx=document.getElementById('chartBuckets');
   if(!ctx)return;
   if(chartBucketsInst)chartBucketsInst.destroy();
+  const bVals=[+res.MONTO_LEVE||0,+res.MONTO_MEDIO||0,+res.MONTO_ALTO||0,+res.MONTO_CRITICO||0];
   chartBucketsInst=new Chart(ctx,{
     type:'bar',
     data:{
       labels:['Leve\n1-30d','Medio\n31-60d','Alto\n61-90d','Cr\u00edtico\n+90d'],
-      datasets:[{data:[+res.MONTO_LEVE||0,+res.MONTO_MEDIO||0,+res.MONTO_ALTO||0,+res.MONTO_CRITICO||0],
+      datasets:[{data:bVals,
         backgroundColor:['rgba(77,166,255,.5)','rgba(255,184,0,.5)','rgba(255,140,66,.5)','rgba(255,69,102,.5)'],
         borderColor:['#4DA6FF','#FFB800','#FF8C42','#FF4566'],borderWidth:1.5,borderRadius:5}]
     },

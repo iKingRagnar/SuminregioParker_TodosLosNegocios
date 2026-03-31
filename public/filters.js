@@ -108,9 +108,10 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     return p;
   }
 
-  /** extras: objeto opcional. opts.omitDb = true no a�ade ?db= (p. ej. universe/scorecard). */
+  /** extras: objeto opcional. opts.omitDb = true no a�ade ?db= (p. ej. universe/scorecard). opts.omitVendedor = true quita vendedor del QS (p. ej. vista global de ventas-diarias). */
   function buildQS(extras, opts) {
     const p = Object.assign({}, getParams(), (extras && typeof extras === 'object') ? extras : {});
+    if (opts && opts.omitVendedor) delete p.vendedor;
     if (!opts || !opts.omitDb) {
       const db = getSelectedDbId();
       if (db) p.db = db;
@@ -700,6 +701,37 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     return out;
   }
 
+  /**
+   * Misma coherencia que cxc.html tras cargar resumen-aging: alinear venc/vigente con buckets y con saldo total.
+   */
+  function finalizeCxcKpiDisplay(resumen, aging) {
+    if (!resumen || typeof resumen !== 'object') resumen = {};
+    if (!aging || typeof aging !== 'object') aging = {};
+    var out = {};
+    for (var k in resumen) {
+      if (Object.prototype.hasOwnProperty.call(resumen, k)) out[k] = resumen[k];
+    }
+    var saldo = +out.SALDO_TOTAL || 0;
+    var vencFromAging =
+      (+aging.DIAS_1_30 || 0) +
+      (+aging.DIAS_31_60 || 0) +
+      (+aging.DIAS_61_90 || 0) +
+      (+aging.DIAS_MAS_90 || 0);
+    var corrienteAging = +aging.CORRIENTE || 0;
+    var venc = +out.VENCIDO || 0;
+    var pvenc = +out.POR_VENCER || 0;
+    if (venc <= 0.005 && vencFromAging > 0.005) {
+      venc = vencFromAging;
+      pvenc = corrienteAging;
+    }
+    if (saldo > 0.005 && Math.abs(venc + pvenc - saldo) / saldo > 0.08) {
+      pvenc = Math.max(0, saldo - venc);
+    }
+    out.VENCIDO = venc;
+    out.POR_VENCER = pvenc;
+    return out;
+  }
+
   window.initFilters              = initFilters;
   window.filterBuildQS            = buildQS;
   window.filterGetParams          = getParams;
@@ -710,5 +742,6 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   window.filterSyncFiltersToUrl   = syncFiltersToUrl;
   window.mergeCxcKpiWithDirector  = mergeCxcKpiWithDirector;
   window.reconcileCxcResumenWithAging = reconcileCxcResumenWithAging;
+  window.finalizeCxcKpiDisplay      = finalizeCxcKpiDisplay;
 
 })();

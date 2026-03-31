@@ -372,8 +372,8 @@ function setDirTopCli(n) {
 }
 
 // -- Helper: URL con filtros ------------------------------------------------
-function buildApiUrl(path, extra) {
-  const qs    = window.filterBuildQS ? filterBuildQS() : '';
+function buildApiUrl(path, extra, qsOpts) {
+  const qs    = window.filterBuildQS ? filterBuildQS(undefined, qsOpts || {}) : '';
   const e     = extra ? String(extra).replace(/^[?&]+/, '') : '';
   const parts = [qs, e].filter(Boolean).join('&');
   return API + path + (parts ? '?' + parts : '');
@@ -462,9 +462,12 @@ async function loadAll() {
     }
     const metas = (metasRes.status === 'fulfilled' && metasRes.value && typeof metasRes.value === 'object') ? metasRes.value : {};
 
-    const cxc   = (typeof window.mergeCxcKpiWithDirector === 'function')
+    let cxcMerged = (typeof window.mergeCxcKpiWithDirector === 'function')
       ? window.mergeCxcKpiWithDirector(cxcRaw, dir)
       : ((cxcRaw && Object.keys(cxcRaw).length > 0) ? cxcRaw : (dir.cxc||{}));
+    const cxc = (typeof window.finalizeCxcKpiDisplay === 'function' && cxcSnap.aging)
+      ? window.finalizeCxcKpiDisplay(cxcMerged, cxcSnap.aging)
+      : cxcMerged;
     const v = dir.ventas||{}, c = cxc, co = dir.cotizaciones||{};
     const nV = getVendedoresEnContexto(metas);
     const metaBase = +(metas.META_DIARIA_POR_VENDEDOR||5650);
@@ -597,9 +600,30 @@ async function loadAll() {
   setText('page-sub', `Actualizado: ${new Date().toLocaleTimeString('es-MX')}`);
 }
 
+function parseVentasDiariasDay(raw) {
+  if (raw instanceof Date && !isNaN(raw.getTime())) return raw;
+  if (typeof raw === 'number' && isFinite(raw)) {
+    const d0 = new Date(raw);
+    if (!isNaN(d0.getTime())) return d0;
+  }
+  const s = raw == null ? '' : String(raw).trim();
+  if (!s) return null;
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return new Date(iso[1] + '-' + iso[2] + '-' + iso[3] + 'T12:00:00');
+  const slash = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+  if (slash) {
+    let dd = +slash[1], mm = +slash[2], yy = +slash[3];
+    if (yy < 100) yy += 2000;
+    const d1 = new Date(yy, mm - 1, dd, 12, 0, 0);
+    return isNaN(d1.getTime()) ? null : d1;
+  }
+  const d2 = new Date(s);
+  return isNaN(d2.getTime()) ? null : d2;
+}
+
 async function loadDiarias() {
   try {
-    const url = buildApiUrl('/api/director/ventas-diarias', 'dias=30');
+    const url = buildApiUrl('/api/director/ventas-diarias', 'dias=400', { omitVendedor: true });
     const rows = await fetchJson(url, []);
     const emptyEl = document.getElementById('chartVentas-empty');
     if (!Array.isArray(rows) || !rows.length) {
@@ -612,9 +636,8 @@ async function loadDiarias() {
     if (emptyEl) emptyEl.style.display = 'none';
     const monthAgg = new Map();
     rows.forEach(r => {
-      const raw = r.DIA;
-      const d = (raw instanceof Date) ? raw : new Date(typeof raw === 'string' && raw.includes('-') ? raw.substring(0,10)+'T12:00:00' : raw);
-      if (isNaN(d.getTime())) return;
+      const d = parseVentasDiariasDay(r.DIA);
+      if (!d || isNaN(d.getTime())) return;
       const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
       if (!monthAgg.has(key)) {
         monthAgg.set(key, { y:d.getFullYear(), m:d.getMonth(), ve:0, pv:0, meta:0, ideal:0 });

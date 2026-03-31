@@ -1159,7 +1159,10 @@ async function loadAll(){
     if (typeof window.reconcileCxcResumenWithAging === 'function' && c && c.aging) {
       cxcResumen = window.reconcileCxcResumenWithAging(cxcResumen, c.aging);
     }
-    const cx=(typeof window.mergeCxcKpiWithDirector==='function')?window.mergeCxcKpiWithDirector(cxcResumen,dir):cxcResumen;
+    let cx=(typeof window.mergeCxcKpiWithDirector==='function')?window.mergeCxcKpiWithDirector(cxcResumen,dir):cxcResumen;
+    if (typeof window.finalizeCxcKpiDisplay === 'function' && c && c.aging) {
+      cx = window.finalizeCxcKpiDisplay(cx, c.aging);
+    }
     const cxcTotal=+cx.SALDO_TOTAL||0;
     const cxcVenc=+cx.VENCIDO||0;
     const cxcClientes=+cx.NUM_CLIENTES||0;
