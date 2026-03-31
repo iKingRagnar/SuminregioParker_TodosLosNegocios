@@ -820,12 +820,25 @@ async function loadBalanceGeneral(){
       const activoRows = Array.isArray(d.activo) ? d.activo : [];
       const pasivoRows = Array.isArray(d.pasivo) ? d.pasivo : [];
       const capitalRows = Array.isArray(d.capital) ? d.capital : [];
-      const caja = sumBy(activoRows, r => /caja|banco|efectivo/i.test(String(r.NOMBRE || '')));
-      const cxc = sumBy(activoRows, r => /cobrar|cliente/i.test(String(r.NOMBRE || '')));
-      const invent = sumBy(activoRows, r => /invent/i.test(String(r.NOMBRE || '')));
-      const actCirculante = caja + cxc + invent;
+      const num = (v, fb) => (Number.isFinite(Number(v)) ? Number(v) : fb);
+      const cajaLegacy = sumBy(activoRows, r => /caja|banco|efectivo/i.test(String(r.NOMBRE || '')));
+      const cxcLegacy = sumBy(activoRows, r => /cobrar|cliente/i.test(String(r.NOMBRE || '')));
+      const inventLegacy = sumBy(activoRows, r => /invent/i.test(String(r.NOMBRE || '')));
+      const circLegacy = cajaLegacy + cxcLegacy + inventLegacy;
+      const caja = num(t.ACTIVO_CAJA_BANCOS, cajaLegacy);
+      const cxc = num(t.ACTIVO_CXC, cxcLegacy);
+      const invent = num(t.ACTIVO_INVENTARIO, inventLegacy);
+      const actCirculante = num(t.ACTIVO_CIRCULANTE, circLegacy);
       const activoTotal = +t.ACTIVO_TOTAL || 0;
-      const activoNoCirculante = activoTotal - actCirculante;
+      const useActBreak = typeof t.ACTIVO_FIJO_NETO !== 'undefined';
+      let actFijo = 0; let actDif = 0; let actOtros = 0;
+      if (useActBreak) {
+        actFijo = +t.ACTIVO_FIJO_NETO || 0;
+        actDif = +t.CARGOS_DIFERIDOS || 0;
+        actOtros = +t.OTROS_ACTIVOS || 0;
+      } else {
+        actOtros = Math.max(0, activoTotal - actCirculante);
+      }
       const bancosCorto = sumBy(pasivoRows, r => /banco|credito|financ/i.test(String(r.NOMBRE || '')));
       const proveedores = sumBy(pasivoRows, r => /provee|pagar/i.test(String(r.NOMBRE || '')));
       const pasivoTotal = +t.PASIVO_TOTAL || 0;
@@ -841,7 +854,9 @@ async function loadBalanceGeneral(){
             <tr><td>Cuentas por cobrar</td><td class="num">${fmtM(cxc)}</td><td class="pct">${pct(cxc,activoTotal)}</td></tr>
             <tr><td>Inventario</td><td class="num">${fmtM(invent)}</td><td class="pct">${pct(invent,activoTotal)}</td></tr>
             <tr class="total"><td>Total Activo Circulante</td><td class="num">${fmtM(actCirculante)}</td><td class="pct">${pct(actCirculante,activoTotal)}</td></tr>
-            <tr><td>Activo no circulante</td><td class="num">${fmtM(activoNoCirculante)}</td><td class="pct">${pct(activoNoCirculante,activoTotal)}</td></tr>
+            <tr><td>Activo Fijo Neto</td><td class="num">${fmtM(actFijo)}</td><td class="pct">${pct(actFijo,activoTotal)}</td></tr>
+            <tr><td>Cargos Diferidos</td><td class="num">${fmtM(actDif)}</td><td class="pct">${pct(actDif,activoTotal)}</td></tr>
+            <tr><td>Otros Activos</td><td class="num">${fmtM(actOtros)}</td><td class="pct">${pct(actOtros,activoTotal)}</td></tr>
             <tr class="total"><td>Total Activo</td><td class="num">${fmtM(activoTotal)}</td><td class="pct">100.0%</td></tr>
           </tbody>
         </table>
@@ -1928,18 +1943,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
 
   ${rowGastoBucket('CO_B1','','Gastos financieros')}
   ${rowGastoBucket('CO_C1','D','Otros gastos')}
-
-  <tr class="pnl-section-header" data-section="cobros"><td colspan="${nc}">COBROS Y LIQUIDEZ</td></tr>
-  <tr class="data-row">
-    <td>Cobros Recibidos</td>
-    ${mesesOrd.map(m=>`<td style="color:var(--purple)">${fmtM(+m.COBROS||0)}</td>`).join('')}
-    <td style="color:var(--purple)">${fmtM(+tot.COBROS||0)}</td>
-  </tr>
-  <tr class="data-row">
-    <td>N&uacute;mero de Facturas</td>
-    ${mesesOrd.map(m=>`<td style="color:var(--muted)">${+m.NUM_FACTURAS||0}</td>`).join('')}
-    <td style="color:var(--muted)">${+tot.NUM_FACTURAS||0}</td>
-  </tr>`;
+`;
 
   if(pnlBodyEl)pnlBodyEl.innerHTML=pnl;
   applyPnlDrilldown();

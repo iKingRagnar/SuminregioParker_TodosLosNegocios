@@ -589,9 +589,9 @@ function mergeCotizacionResumenRows(rows) {
   );
 }
 
-/** Lista SQL IN para TIPO_DOCTO de cotizaciones (env MICROSIP_COTIZACION_TIPOS, ej. C,O). */
+/** Lista SQL IN para TIPO_DOCTO de cotizaciones (env MICROSIP_COTIZACION_TIPOS; default C,O). */
 function sqlCotizacionTiposInList() {
-  const raw = (process.env.MICROSIP_COTIZACION_TIPOS || 'C').trim();
+  const raw = (process.env.MICROSIP_COTIZACION_TIPOS || 'C,O').trim();
   const parts = raw.split(/[,;|\s]+/).map((s) => s.trim().toUpperCase()).filter(Boolean);
   const tipos = parts.length ? parts : ['C'];
   return tipos.map((t) => `'${String(t).replace(/'/g, "''")}'`).join(', ');
@@ -619,6 +619,39 @@ function mergeBalanceDetalleSide(arrays) {
     .sort((a, b) => Math.abs(+b.SALDO || 0) - Math.abs(+a.SALDO || 0));
 }
 
+/** Desglose Activo (balance clásico) por nombre de cuenta; una fila → un solo rubro. */
+function balanceActivoBreakdownFromRows(activoRows) {
+  const reFijo = /activo fijo|activo\s+fijo|fijo neto|depreciac|equipo de|equipos|maquin|mobiliario|mueble|veh[ií]culo|transporte|inmueble|terreno|edificio|instalacion(es)?\s+en|inversion(es)?\s+en bienes/i;
+  const reDif = /cargos?\s+diferidos?|gasto(s)?\s+diferidos?|diferido|organizaci|constituci|gastos?\s+de\s+instalaci/i;
+  let caja = 0;
+  let cxc = 0;
+  let invent = 0;
+  let fijo = 0;
+  let dif = 0;
+  let otros = 0;
+  for (const row of activoRows || []) {
+    const sal = +row.SALDO || 0;
+    const nom = String(row.NOMBRE || '');
+    if (/caja|banco|efectivo/i.test(nom)) caja += sal;
+    else if (/cobrar|cliente/i.test(nom)) cxc += sal;
+    else if (/invent/i.test(nom)) invent += sal;
+    else if (reFijo.test(nom)) fijo += sal;
+    else if (reDif.test(nom)) dif += sal;
+    else otros += sal;
+  }
+  const round2 = (x) => Math.round(x * 100) / 100;
+  const circ = caja + cxc + invent;
+  return {
+    ACTIVO_CAJA_BANCOS: round2(caja),
+    ACTIVO_CXC: round2(cxc),
+    ACTIVO_INVENTARIO: round2(invent),
+    ACTIVO_CIRCULANTE: round2(circ),
+    ACTIVO_FIJO_NETO: round2(fijo),
+    CARGOS_DIFERIDOS: round2(dif),
+    OTROS_ACTIVOS: round2(otros),
+  };
+}
+
 function mergeBalanceGeneralFromPayloads(parts) {
   const ok = (parts || []).filter(Boolean);
   if (!ok.length) {
@@ -628,6 +661,7 @@ function mergeBalanceGeneralFromPayloads(parts) {
       CAPITAL_TOTAL: 0,
       PASIVO_MAS_CAPITAL: 0,
       DIFERENCIA_BALANCE: 0,
+      ...balanceActivoBreakdownFromRows([]),
     };
     return { cierre: {}, totales: z, detalleFull: { activo: [], pasivo: [], capital: [] } };
   }
@@ -643,6 +677,7 @@ function mergeBalanceGeneralFromPayloads(parts) {
   const round2 = (x) => Math.round(x * 100) / 100;
   const at = round2(activo_total);
   const pmc = round2(pasivo_total + capital_total);
+  const actBreak = balanceActivoBreakdownFromRows(detalleFull.activo);
   return {
     cierre,
     totales: {
@@ -651,6 +686,7 @@ function mergeBalanceGeneralFromPayloads(parts) {
       CAPITAL_TOTAL: round2(capital_total),
       PASIVO_MAS_CAPITAL: pmc,
       DIFERENCIA_BALANCE: round2(pmc - at),
+      ...actBreak,
     },
     detalleFull,
   };
@@ -1399,7 +1435,7 @@ function remisionesSub(tipo = '') {
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //  COTIZACIONES — misma macro que ventas (UNION DOCTOS_VE + DOCTOS_PV), misma base de importe
-//  (sqlVentaImporteBaseExpr). TIPO_DOCTO ∈ MICROSIP_COTIZACION_TIPOS (default C; ej. C,O si aplica).
+//  (sqlVentaImporteBaseExpr). TIPO_DOCTO ∈ MICROSIP_COTIZACION_TIPOS (default C,O).
 //  ESTATUS <> C (no cancelada). APLICADO='S' solo si MICROSIP_COTIZACION_REQUIERE_APLICADO=1.
 //  Vigencia (FECHA_VENCIMIENTO…) solo en rama VE, vía resolveCotizacionVigenciaSqlSuffix.
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1640,6 +1676,10 @@ const CXC_EXCLUIR_CONTADO = ` AND (
     POSITION('CONTADO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) = 0
     AND POSITION('EFECTIVO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) = 0
     AND POSITION('INMEDIATO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) = 0
+    AND POSITION('PREPAGO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) = 0
+    AND POSITION('ANTICIPO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) = 0
+    AND POSITION('CONTRA ENTREGA' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) = 0
+    AND POSITION('AL CONTADO' IN UPPER(COALESCE(TRIM(cp.NOMBRE), ''))) = 0
   )
 ) `;
 const CXC_EXCLUIR_CONTADO_SUB = ` AND (
@@ -1647,6 +1687,10 @@ const CXC_EXCLUIR_CONTADO_SUB = ` AND (
     POSITION('CONTADO' IN UPPER(COALESCE(TRIM(cp2.NOMBRE), ''))) = 0
     AND POSITION('EFECTIVO' IN UPPER(COALESCE(TRIM(cp2.NOMBRE), ''))) = 0
     AND POSITION('INMEDIATO' IN UPPER(COALESCE(TRIM(cp2.NOMBRE), ''))) = 0
+    AND POSITION('PREPAGO' IN UPPER(COALESCE(TRIM(cp2.NOMBRE), ''))) = 0
+    AND POSITION('ANTICIPO' IN UPPER(COALESCE(TRIM(cp2.NOMBRE), ''))) = 0
+    AND POSITION('CONTRA ENTREGA' IN UPPER(COALESCE(TRIM(cp2.NOMBRE), ''))) = 0
+    AND POSITION('AL CONTADO' IN UPPER(COALESCE(TRIM(cp2.NOMBRE), ''))) = 0
   )
 ) `;
 /** Condición de pago tipo contado / inmediato: no debe computar atraso ni buckets de morosidad. */
@@ -3176,15 +3220,23 @@ get('/api/director/recientes', async (req) => {
 // Filas por documento con DIAS_VENCIDO y SALDO_NETO (Cargo − Cobro). Sin filtro de saldo > 0 (para poder combinar WHERE en vencidas).
 // Una sola fila por DOCTO_CC_ID: cxcCargosSQL puede repetir el mismo documento con distinto DIAS_VENCIDO (varias líneas de cargo / join a vencimientos).
 // Antes GROUP BY (... DIAS_VENCIDO) duplicaba el mismo saldo en docAgg y dejaba VENCIDO=0 al repartir mal corriente vs mora.
+/** Importe recibo/cobro en base (ex-IVA) alineado a cxcClienteSQL / DAX. */
+const CXC_RECIBO_BASE_EXPR = `CASE WHEN COALESCE(i2.IMPUESTO,0) > 0 THEN i2.IMPORTE ELSE i2.IMPORTE/1.16 END`;
+
 function cxcDocSaldosInnerSQL(cfSql) {
+  // Cobros (R): además de DOCTO_CC_ACR_ID = factura, algunas instalaciones registran el recibo con DOCTO_CC_ID = factura y ACR nulo.
   return `(
     SELECT d.DOCTO_CC_ID, d.CLIENTE_ID, d.DIAS_VENCIDO,
       CAST(
         COALESCE((SELECT SUM(i.IMPORTE) FROM IMPORTES_DOCTOS_CC i
           WHERE i.DOCTO_CC_ID = d.DOCTO_CC_ID AND i.TIPO_IMPTE = 'C' AND COALESCE(i.CANCELADO,'N') = 'N'), 0)
-        - COALESCE((SELECT SUM(CASE WHEN COALESCE(i2.IMPUESTO,0) > 0 THEN i2.IMPORTE ELSE i2.IMPORTE/1.16 END)
+        - COALESCE((SELECT SUM(${CXC_RECIBO_BASE_EXPR})
           FROM IMPORTES_DOCTOS_CC i2
-          WHERE i2.DOCTO_CC_ACR_ID = d.DOCTO_CC_ID AND i2.TIPO_IMPTE = 'R' AND COALESCE(i2.CANCELADO,'N') = 'N'), 0)
+          WHERE i2.TIPO_IMPTE = 'R' AND COALESCE(i2.CANCELADO,'N') = 'N'
+            AND (
+              i2.DOCTO_CC_ACR_ID = d.DOCTO_CC_ID
+              OR (i2.DOCTO_CC_ID = d.DOCTO_CC_ID AND i2.DOCTO_CC_ACR_ID IS NULL)
+            )), 0)
       AS DECIMAL(18,2)) AS SALDO_NETO
     FROM (
       SELECT cd.DOCTO_CC_ID, cd.CLIENTE_ID,
@@ -5566,6 +5618,7 @@ async function buildBalanceGeneralForDbo(req, dbo) {
   detail.activo.sort((a, b) => Math.abs(+b.SALDO || 0) - Math.abs(+a.SALDO || 0));
   detail.pasivo.sort((a, b) => Math.abs(+b.SALDO || 0) - Math.abs(+a.SALDO || 0));
   detail.capital.sort((a, b) => Math.abs(+b.SALDO || 0) - Math.abs(+a.SALDO || 0));
+  const actBreak = balanceActivoBreakdownFromRows(detail.activo);
   return {
     cierre: { ANIO: y, MES: m, hasta: hastaStr },
     totales: {
@@ -5574,6 +5627,7 @@ async function buildBalanceGeneralForDbo(req, dbo) {
       CAPITAL_TOTAL: Math.round(capital * 100) / 100,
       PASIVO_MAS_CAPITAL: Math.round((pasivo + capital) * 100) / 100,
       DIFERENCIA_BALANCE: Math.round(((pasivo + capital) - activo) * 100) / 100,
+      ...actBreak,
     },
     detalleFull: {
       activo: detail.activo,
