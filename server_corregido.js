@@ -577,13 +577,33 @@ function mergeVentasResumen(outs) {
   );
 }
 
+/** Número desde fila Firebird / driver (string con coma, distintas mayúsculas en alias). */
+function sqlRowNumber(v) {
+  if (v == null || v === '') return 0;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+  const n = parseFloat(String(v).replace(/,/g, '').trim());
+  return Number.isFinite(n) ? n : 0;
+}
+
+function pickCotizacionResumenField(r, upperKeys) {
+  if (!r || typeof r !== 'object') return 0;
+  const byUpper = new Map();
+  for (const [k, v] of Object.entries(r)) {
+    byUpper.set(String(k).toUpperCase(), v);
+  }
+  for (const k of upperKeys) {
+    if (byUpper.has(k)) return sqlRowNumber(byUpper.get(k));
+  }
+  return 0;
+}
+
 function mergeCotizacionResumenRows(rows) {
   return rows.reduce(
     (acc, r) => ({
-      HOY: acc.HOY + (+r.HOY || 0),
-      MES_ACTUAL: acc.MES_ACTUAL + (+r.MES_ACTUAL || 0),
-      COTIZACIONES_MES: acc.COTIZACIONES_MES + (+r.COTIZACIONES_MES || 0),
-      COTIZACIONES_HOY: acc.COTIZACIONES_HOY + (+r.COTIZACIONES_HOY || 0),
+      HOY: acc.HOY + pickCotizacionResumenField(r, ['HOY']),
+      MES_ACTUAL: acc.MES_ACTUAL + pickCotizacionResumenField(r, ['MES_ACTUAL']),
+      COTIZACIONES_MES: acc.COTIZACIONES_MES + pickCotizacionResumenField(r, ['COTIZACIONES_MES']),
+      COTIZACIONES_HOY: acc.COTIZACIONES_HOY + pickCotizacionResumenField(r, ['COTIZACIONES_HOY']),
     }),
     { HOY: 0, MES_ACTUAL: 0, COTIZACIONES_MES: 0, COTIZACIONES_HOY: 0 },
   );
@@ -938,11 +958,12 @@ function mergeDiariasCotiz(rowsList) {
   const map = new Map();
   for (const rows of rowsList) {
     for (const r of rows || []) {
-      const k = String(r.DIA);
-      if (!map.has(k)) map.set(k, { DIA: r.DIA, COTIZACIONES: 0, TOTAL_COTIZACIONES: 0 });
+      const diaVal = r.DIA ?? r.dia;
+      const k = String(diaVal);
+      if (!map.has(k)) map.set(k, { DIA: diaVal, COTIZACIONES: 0, TOTAL_COTIZACIONES: 0 });
       const m = map.get(k);
-      m.COTIZACIONES += +(r.COTIZACIONES || 0);
-      m.TOTAL_COTIZACIONES += +(r.TOTAL_COTIZACIONES || 0);
+      m.COTIZACIONES += pickCotizacionResumenField(r, ['COTIZACIONES']);
+      m.TOTAL_COTIZACIONES += pickCotizacionResumenField(r, ['TOTAL_COTIZACIONES']);
     }
   }
   return Array.from(map.values()).sort((a, b) => String(a.DIA).localeCompare(String(b.DIA)));
@@ -995,9 +1016,9 @@ function mergePorVendedorCotiz(rowsList) {
         });
       }
       const m = map.get(key);
-      m.COTIZACIONES_HOY += +(r.COTIZACIONES_HOY || 0);
-      m.COTIZACIONES_MES += +(r.COTIZACIONES_MES || 0);
-      m.NUM_COTI_MES += +(r.NUM_COTI_MES || 0);
+      m.COTIZACIONES_HOY += pickCotizacionResumenField(r, ['COTIZACIONES_HOY']);
+      m.COTIZACIONES_MES += pickCotizacionResumenField(r, ['COTIZACIONES_MES']);
+      m.NUM_COTI_MES += pickCotizacionResumenField(r, ['NUM_COTI_MES']);
     }
   }
   return Array.from(map.values()).sort((a, b) => b.COTIZACIONES_MES - a.COTIZACIONES_MES);
@@ -1524,10 +1545,10 @@ function cotizacionesSub(tipo = '', opts = {}) {
 function normalizeCotizacionResumenRow(row) {
   const r = row && typeof row === 'object' ? row : {};
   return {
-    HOY: Number(r.HOY) || 0,
-    MES_ACTUAL: Number(r.MES_ACTUAL) || 0,
-    COTIZACIONES_MES: Number(r.COTIZACIONES_MES) || 0,
-    COTIZACIONES_HOY: Number(r.COTIZACIONES_HOY) || 0,
+    HOY: pickCotizacionResumenField(r, ['HOY']),
+    MES_ACTUAL: pickCotizacionResumenField(r, ['MES_ACTUAL']),
+    COTIZACIONES_MES: pickCotizacionResumenField(r, ['COTIZACIONES_MES']),
+    COTIZACIONES_HOY: pickCotizacionResumenField(r, ['COTIZACIONES_HOY']),
   };
 }
 

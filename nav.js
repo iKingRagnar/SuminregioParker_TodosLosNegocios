@@ -175,10 +175,10 @@ header#app-header {
 }
 .logo-mark {
   display:block;
-  width:min(260px, 28vw);
-  min-width:180px;
-  max-width:260px;
-  height:34px;
+  width:auto;
+  min-width:min(200px, 44vw);
+  max-width:min(280px, 38vw);
+  height:44px;
   object-fit:contain;
   object-position:left center;
   color:var(--text);
@@ -346,8 +346,8 @@ html[data-theme="light"] .ms-story-pill{
   border-color:rgba(15,23,42,.14)!important;
 }
 html[data-theme="light"] .logo-mark{
-  height:40px!important;
-  min-height:36px!important;
+  height:48px!important;
+  min-height:44px!important;
 }
 html[data-theme="dark"] :where(.card-note,.hero-sub,.page-sub,.sd-label,.bg-row,.kpi-sub,.ins-sub,.aging-sub){
   color:#9fb3c9!important;
@@ -433,7 +433,7 @@ html[data-theme="dark"] :where(.card-note,.hero-sub,.page-sub,.sd-label,.bg-row,
   white-space:nowrap;
 }
 @media (max-width: 900px){
-  .logo-mark{width:min(210px,58vw);min-width:140px;height:30px}
+  .logo-mark{width:auto;max-width:min(240px,62vw);min-width:120px;height:38px}
   .ms-story{grid-template-columns:1fr}
 }
 

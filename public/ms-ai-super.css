@@ -203,22 +203,40 @@ html[data-theme="light"] .ms-ai-sparkle {
   max-height: 220px;
 }
 
+.hero-bi-figure {
+  background:
+    radial-gradient(120% 90% at 18% 12%, rgba(77, 166, 255, 0.16), transparent 52%),
+    radial-gradient(90% 70% at 92% 78%, rgba(230, 168, 0, 0.12), transparent 48%),
+    linear-gradient(165deg, rgba(12, 27, 41, 0.98), rgba(8, 18, 30, 0.92));
+}
+
 html[data-theme="light"] .hero-ai-figure {
   border-color: rgba(10, 74, 124, 0.15);
   box-shadow: 0 20px 50px rgba(4, 18, 33, 0.12);
 }
 
-.hero-ai-figure img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  transform: scale(1.02);
-  transition: transform 6s var(--ms-ease, ease-out);
+html[data-theme="light"] .hero-bi-figure {
+  background:
+    radial-gradient(120% 90% at 18% 12%, rgba(30, 127, 217, 0.12), transparent 52%),
+    radial-gradient(90% 70% at 92% 78%, rgba(217, 119, 6, 0.1), transparent 48%),
+    linear-gradient(165deg, #f8fafc, #eef2f6);
 }
 
-.hero-ai-figure:hover img {
-  transform: scale(1.08);
+.hero-bi-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse 85% 75% at 50% 45%, black 18%, transparent 72%);
+  pointer-events: none;
+}
+
+html[data-theme="light"] .hero-bi-grid {
+  background-image:
+    linear-gradient(rgba(15, 23, 42, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.055) 1px, transparent 1px);
 }
 
 .hero-ai-figure__glow {
@@ -228,6 +246,11 @@ html[data-theme="light"] .hero-ai-figure {
   mix-blend-mode: overlay;
   pointer-events: none;
   animation: ms-ai-figure-pulse 5s ease-in-out infinite alternate;
+}
+
+.hero-bi-glow {
+  mix-blend-mode: soft-light;
+  opacity: 0.85;
 }
 
 @keyframes ms-ai-figure-pulse {
@@ -244,12 +267,70 @@ html[data-theme="light"] .hero-ai-figure {
   opacity: 0.85;
 }
 
+.hero-bi-svg-wrap {
+  opacity: 1;
+  padding: 0.5rem 0.75rem;
+}
+
 .hero-ai-svg-wrap svg {
   width: 72%;
   max-width: 260px;
   height: auto;
   filter: drop-shadow(0 0 20px rgba(34, 211, 238, 0.35));
   animation: ms-ai-svg-float 7s ease-in-out infinite;
+}
+
+.hero-bi-dashboard {
+  width: min(94%, 320px);
+  max-width: 340px;
+  height: auto;
+  filter: drop-shadow(0 10px 28px rgba(0, 0, 0, 0.35));
+  animation: ms-ai-svg-float 8s ease-in-out infinite;
+}
+
+.hero-bi-bar {
+  transform-origin: center bottom;
+  transform: scaleY(0.65);
+  animation: hero-bi-bar-pulse 2.8s ease-in-out infinite;
+}
+
+.hero-bi-bar:nth-child(1) { animation-delay: 0s; }
+.hero-bi-bar:nth-child(2) { animation-delay: 0.12s; }
+.hero-bi-bar:nth-child(3) { animation-delay: 0.24s; }
+.hero-bi-bar:nth-child(4) { animation-delay: 0.08s; }
+.hero-bi-bar:nth-child(5) { animation-delay: 0.32s; }
+.hero-bi-bar:nth-child(6) { animation-delay: 0.04s; }
+.hero-bi-bar:nth-child(7) { animation-delay: 0.2s; }
+.hero-bi-bar:nth-child(8) { animation-delay: 0.16s; }
+.hero-bi-bar:nth-child(9) { animation-delay: 0.28s; }
+.hero-bi-bar:nth-child(10) { animation-delay: 0.06s; }
+
+@keyframes hero-bi-bar-pulse {
+  0%, 100% { transform: scaleY(0.58); }
+  50% { transform: scaleY(1); }
+}
+
+.hero-bi-spark {
+  stroke-dasharray: 420;
+  stroke-dashoffset: 420;
+  animation: hero-bi-draw 3.6s ease-in-out infinite;
+}
+
+@keyframes hero-bi-draw {
+  0% { stroke-dashoffset: 420; opacity: 0.5; }
+  45%, 70% { stroke-dashoffset: 0; opacity: 1; }
+  100% { stroke-dashoffset: -120; opacity: 0.65; }
+}
+
+.hero-bi-dot {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: hero-bi-dot 2s ease-in-out infinite;
+}
+
+@keyframes hero-bi-dot {
+  0%, 100% { opacity: 0.72; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
 }
 
 @keyframes ms-ai-svg-float {
@@ -382,7 +463,7 @@ html[data-theme="light"] .uni-portfolio {
   transition: opacity 0.4s ease;
 }
 
-/* Franja visual “IA” en páginas tipo ventas / director */
+/* Franja visual en páginas tipo ventas / director */
 .ms-ai-page-banner {
   margin: 0 0 1.35rem;
   border-radius: 18px;
@@ -391,6 +472,60 @@ html[data-theme="light"] .uni-portfolio {
   position: relative;
   border: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25), 0 0 40px rgba(34, 211, 238, 0.06);
+}
+
+.ms-ai-page-banner--data {
+  background:
+    linear-gradient(105deg, rgba(6, 14, 26, 0.96) 0%, rgba(17, 45, 78, 0.88) 42%, rgba(230, 168, 0, 0.12) 100%),
+    radial-gradient(80% 120% at 90% 20%, rgba(77, 166, 255, 0.14), transparent 55%);
+}
+
+html[data-theme="light"] .ms-ai-page-banner--data {
+  background:
+    linear-gradient(105deg, #f1f5f9 0%, #e2e8f0 45%, rgba(251, 191, 36, 0.15) 100%),
+    radial-gradient(70% 100% at 85% 30%, rgba(59, 130, 246, 0.12), transparent 50%);
+}
+
+.ms-ai-page-banner--data .ms-ai-page-banner__viz {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 1.25rem;
+  pointer-events: none;
+  opacity: 0.88;
+}
+
+.ms-ai-page-banner--data .ms-ai-page-banner__viz svg {
+  width: min(420px, 55vw);
+  max-height: 100%;
+  height: auto;
+}
+
+.ms-ai-page-banner--data .vbanner-bar {
+  transform-origin: center bottom;
+  transform: scaleY(0.75);
+  animation: vbanner-bar 2.6s ease-in-out infinite;
+}
+
+.ms-ai-page-banner--data .vbanner-bar:nth-child(2) { animation-delay: 0.1s; }
+.ms-ai-page-banner--data .vbanner-bar:nth-child(3) { animation-delay: 0.2s; }
+.ms-ai-page-banner--data .vbanner-bar:nth-child(4) { animation-delay: 0.05s; }
+.ms-ai-page-banner--data .vbanner-bar:nth-child(5) { animation-delay: 0.25s; }
+.ms-ai-page-banner--data .vbanner-bar:nth-child(6) { animation-delay: 0.12s; }
+.ms-ai-page-banner--data .vbanner-bar:nth-child(7) { animation-delay: 0.18s; }
+.ms-ai-page-banner--data .vbanner-bar:nth-child(8) { animation-delay: 0.08s; }
+.ms-ai-page-banner--data .vbanner-bar:nth-child(9) { animation-delay: 0.22s; }
+.ms-ai-page-banner--data .vbanner-bar:nth-child(10) { animation-delay: 0.15s; }
+
+@keyframes vbanner-bar {
+  0%, 100% { transform: scaleY(0.62); }
+  50% { transform: scaleY(1); }
+}
+
+.ms-ai-page-banner--data img {
+  display: none !important;
 }
 
 html[data-theme="light"] .ms-ai-page-banner {
@@ -455,10 +590,24 @@ html[data-theme="light"] .ms-ai-page-banner__label {
   .uni-portfolio,
   .hero-ai-figure__glow,
   .hero-ai-svg-wrap svg,
+  .hero-bi-dashboard,
+  .hero-bi-bar,
+  .hero-bi-spark,
+  .hero-bi-dot,
   .nav-link::after,
   .hero-ai-nodes circle,
-  .ms-ai-page-banner img {
+  .ms-ai-page-banner img,
+  .ms-ai-page-banner--data .vbanner-bar {
     animation: none !important;
+  }
+  .ms-ai-page-banner--data .vbanner-bar {
+    transform: scaleY(1) !important;
+  }
+  .hero-bi-bar {
+    transform: scaleY(1) !important;
+  }
+  .hero-bi-spark {
+    stroke-dashoffset: 0 !important;
   }
   .ms-reveal {
     opacity: 1 !important;

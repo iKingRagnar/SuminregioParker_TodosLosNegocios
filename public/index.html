@@ -322,40 +322,52 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 
 <div class="page">
 
-  <!-- HERO — panel IA + imagen + red neuronal SVG -->
+  <!-- HERO — visual analítico (KPI / tendencia) sin stock «IA» genérico -->
   <div class="hero hero--ai">
     <div class="hero-left">
-      <div class="hero-eyebrow">Executive Overview · IA + datos en vivo</div>
+      <div class="hero-eyebrow">Executive Overview · Analítica operativa en vivo</div>
       <div class="hero-title">SCORECARD</div>
       <div class="hero-sub" id="heroSub">Cargando inteligencia del sistema...</div>
       <div class="hero-data-hint" id="heroDataHint" hidden></div>
     </div>
     <div class="hero-ai-panel">
-      <figure class="hero-ai-figure">
-        <img
-          src="https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&amp;fit=crop&amp;w=900&amp;q=80"
-          alt=""
-          width="640"
-          height="400"
-          loading="lazy"
-          decoding="async"
-          referrerpolicy="no-referrer-when-downgrade" />
-        <div class="hero-ai-figure__glow" aria-hidden="true"></div>
-        <div class="hero-ai-svg-wrap" aria-hidden="true">
-          <svg viewBox="0 0 200 160" xmlns="http://www.w3.org/2000/svg" role="img">
+      <figure class="hero-ai-figure hero-bi-figure" aria-hidden="true">
+        <div class="hero-bi-grid"></div>
+        <div class="hero-ai-figure__glow hero-bi-glow" aria-hidden="true"></div>
+        <div class="hero-ai-svg-wrap hero-bi-svg-wrap">
+          <svg class="hero-bi-dashboard" viewBox="0 0 320 200" xmlns="http://www.w3.org/2000/svg" role="presentation">
             <defs>
-              <linearGradient id="msAiGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#22d3ee" stop-opacity="0.9"/>
-                <stop offset="50%" stop-color="#e6a800" stop-opacity="0.85"/>
-                <stop offset="100%" stop-color="#a78bfa" stop-opacity="0.9"/>
+              <linearGradient id="heroBiBar" x1="0" y1="1" x2="0" y2="0">
+                <stop offset="0%" stop-color="rgba(77,166,255,.35)"/>
+                <stop offset="55%" stop-color="rgba(230,168,0,.9)"/>
+                <stop offset="100%" stop-color="rgba(255,184,0,1)"/>
               </linearGradient>
+              <linearGradient id="heroBiLine" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#4DA6FF"/>
+                <stop offset="45%" stop-color="#E6A800"/>
+                <stop offset="100%" stop-color="#00E5A0"/>
+              </linearGradient>
+              <filter id="heroBiBlur" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="0.8"/>
+              </filter>
             </defs>
-            <path fill="none" stroke="url(#msAiGrad)" stroke-width="0.8" opacity="0.55"
-              d="M30 80 L70 40 L130 50 L170 90 M70 40 L70 120 M130 50 L130 130 M70 120 L130 130 M30 80 L70 120 M170 90 L130 130"/>
-            <g class="hero-ai-nodes" fill="url(#msAiGrad)">
-              <circle cx="30" cy="80" r="3.5"/><circle cx="70" cy="40" r="3"/><circle cx="130" cy="50" r="3.5"/>
-              <circle cx="170" cy="90" r="3"/><circle cx="70" cy="120" r="3.2"/><circle cx="130" cy="130" r="3.5"/>
+            <text x="24" y="34" fill="rgba(240,246,255,.72)" font-family="DM Mono, ui-monospace, monospace" font-size="11" letter-spacing="0.14em">TENDENCIA · IMPORTE</text>
+            <g class="hero-bi-bars" opacity="0.95">
+              <rect class="hero-bi-bar" x="32" y="118" width="18" height="52" rx="4" fill="url(#heroBiBar)"/>
+              <rect class="hero-bi-bar" x="58" y="98" width="18" height="72" rx="4" fill="url(#heroBiBar)"/>
+              <rect class="hero-bi-bar" x="84" y="108" width="18" height="62" rx="4" fill="url(#heroBiBar)"/>
+              <rect class="hero-bi-bar" x="110" y="84" width="18" height="86" rx="4" fill="url(#heroBiBar)"/>
+              <rect class="hero-bi-bar" x="136" y="94" width="18" height="76" rx="4" fill="url(#heroBiBar)"/>
+              <rect class="hero-bi-bar" x="162" y="72" width="18" height="98" rx="4" fill="url(#heroBiBar)"/>
+              <rect class="hero-bi-bar" x="188" y="102" width="18" height="68" rx="4" fill="url(#heroBiBar)"/>
+              <rect class="hero-bi-bar" x="214" y="88" width="18" height="82" rx="4" fill="url(#heroBiBar)"/>
+              <rect class="hero-bi-bar" x="240" y="68" width="18" height="102" rx="4" fill="url(#heroBiBar)"/>
+              <rect class="hero-bi-bar" x="266" y="96" width="18" height="74" rx="4" fill="url(#heroBiBar)"/>
             </g>
+            <path class="hero-bi-spark" fill="none" stroke="url(#heroBiLine)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" filter="url(#heroBiBlur)"
+              d="M28 142 Q72 120 108 132 T196 96 T268 78 T308 88"/>
+            <circle class="hero-bi-dot" cx="308" cy="88" r="5" fill="#00E5A0" opacity="0.95"/>
+            <text x="24" y="186" fill="rgba(106,133,166,.85)" font-family="DM Mono, ui-monospace, monospace" font-size="9.5" letter-spacing="0.06em">KPI · META · REAL (ilustración)</text>
           </svg>
         </div>
       </figure>

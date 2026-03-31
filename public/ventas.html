@@ -75,6 +75,14 @@ nav{display:flex;align-items:center;gap:.25rem}
 .kpi-label{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem}
 .kpi-value{font-family:'DM Mono',monospace;font-size:1.4rem;font-weight:500;letter-spacing:-.02em;line-height:1}
 .kpi-card.blue .kpi-value{color:var(--blue)}.kpi-card.green .kpi-value{color:var(--green)}.kpi-card.yellow .kpi-value{color:var(--yellow-ink)}.kpi-card.orange .kpi-value{color:var(--orange)}.kpi-card.purple .kpi-value{color:var(--purple)}
+#coti-section .kpi-grid .kpi-card{animation:coti-kpi-rise .58s cubic-bezier(.22,1,.36,1) both}
+#coti-section .kpi-grid .kpi-card:nth-child(2){animation-delay:.08s}
+#coti-section .kpi-grid .kpi-card:nth-child(3){animation-delay:.16s}
+#coti-section .kpi-grid .kpi-card:nth-child(4){animation-delay:.24s}
+@keyframes coti-kpi-rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+#coti-section .kpi-value{transition:transform .35s cubic-bezier(.34,1.56,.64,1)}
+#coti-section .kpi-card:hover .kpi-value{transform:scale(1.05)}
+@media (prefers-reduced-motion:reduce){#coti-section .kpi-grid .kpi-card{animation:none}#coti-section .kpi-card:hover .kpi-value{transform:none}}
 .kpi-sub{margin-top:.4rem;font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted)}
 .meta-bar-wrap{margin-top:.6rem}.meta-bar-bg{height:4px;background:var(--s3);border-radius:99px;overflow:hidden}.meta-bar-fill{height:100%;border-radius:99px;background:var(--kpi-c);transition:width 1.2s cubic-bezier(.4,0,.2,1)}.meta-pct{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);margin-top:.2rem}
 .tag{display:inline-block;padding:.1rem .4rem;border-radius:4px;font-size:.6rem;font-weight:500}
@@ -151,9 +159,31 @@ nav{display:flex;align-items:center;gap:.25rem}
     </div>
   </div>
 
-  <figure class="ms-ai-page-banner" aria-hidden="true">
-    <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&amp;fit=crop&amp;w=1400&amp;q=80" alt="" width="1400" height="400" loading="lazy" decoding="async" referrerpolicy="no-referrer-when-downgrade" />
-    <span class="ms-ai-page-banner__label">Pulse en vivo · analítica</span>
+  <figure class="ms-ai-page-banner ms-ai-page-banner--data" aria-hidden="true">
+    <div class="ms-ai-page-banner__viz">
+      <svg viewBox="0 0 420 56" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="vbannerBars" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stop-color="rgba(77,166,255,.4)"/>
+            <stop offset="100%" stop-color="rgba(230,168,0,.95)"/>
+          </linearGradient>
+        </defs>
+        <g fill="url(#vbannerBars)" opacity=".9">
+          <rect class="vbanner-bar" x="12" y="28" width="14" height="22" rx="3"/>
+          <rect class="vbanner-bar" x="34" y="18" width="14" height="32" rx="3"/>
+          <rect class="vbanner-bar" x="56" y="24" width="14" height="26" rx="3"/>
+          <rect class="vbanner-bar" x="78" y="12" width="14" height="38" rx="3"/>
+          <rect class="vbanner-bar" x="100" y="20" width="14" height="30" rx="3"/>
+          <rect class="vbanner-bar" x="122" y="8" width="14" height="42" rx="3"/>
+          <rect class="vbanner-bar" x="144" y="22" width="14" height="28" rx="3"/>
+          <rect class="vbanner-bar" x="166" y="14" width="14" height="36" rx="3"/>
+          <rect class="vbanner-bar" x="188" y="10" width="14" height="40" rx="3"/>
+          <rect class="vbanner-bar" x="210" y="20" width="14" height="30" rx="3"/>
+        </g>
+        <path fill="none" stroke="rgba(0,229,160,.75)" stroke-width="1.8" d="M8 38 Q110 14 210 26 T400 20"/>
+      </svg>
+    </div>
+    <span class="ms-ai-page-banner__label">Datos en contexto · KPIs y cotizaciones alineadas a operación</span>
   </figure>
 
   <!-- Barra de filtros compartida -->
@@ -382,6 +412,35 @@ function fnum(x) {
   const n = parseFloat(String(x).trim().replace(/,/g, ''));
   return Number.isFinite(n) ? n : 0;
 }
+/** Lee un campo numérico aunque el driver envíe otro casing en las claves. */
+function fnumKeys(obj, ...keys) {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return 0;
+  const up = new Map();
+  for (const [k, v] of Object.entries(obj)) up.set(String(k).toUpperCase(), v);
+  for (const k of keys) {
+    const v = up.get(String(k).toUpperCase());
+    if (v !== undefined) return fnum(v);
+  }
+  return 0;
+}
+function unwrapApiRow(v) {
+  if (v == null) return {};
+  if (Array.isArray(v)) return (v.length && typeof v[0] === 'object' && !Array.isArray(v[0])) ? v[0] : {};
+  if (typeof v !== 'object') return {};
+  if (Array.isArray(v.rows) && v.rows.length && typeof v.rows[0] === 'object') return v.rows[0];
+  if (v.data && typeof v.data === 'object' && !Array.isArray(v.data)) return v.data;
+  if (Array.isArray(v.data) && v.data.length && typeof v.data[0] === 'object') return v.data[0];
+  return v;
+}
+function canonCotiResumen(raw) {
+  const o = unwrapApiRow(raw);
+  return {
+    HOY: fnumKeys(o, 'HOY'),
+    MES_ACTUAL: fnumKeys(o, 'MES_ACTUAL'),
+    COTIZACIONES_MES: fnumKeys(o, 'COTIZACIONES_MES'),
+    COTIZACIONES_HOY: fnumKeys(o, 'COTIZACIONES_HOY'),
+  };
+}
 let chartDiarias, chartMensuales, chartCotiDiarias, chartConvInst;
 let currentTipo = '';
 let currentDias = 30;
@@ -555,12 +614,8 @@ async function loadConversion(){
 }
 
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-const fmt  = n => isNaN(+n)||n==null?'?':'$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
-const fmtK = n => {
-  if(isNaN(+n)||n==null) return '?';
-  n = +n;
-  return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
-};
+const fmt  = n => '$'+fnum(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
+const fmtK = n => '$'+fnum(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 const setText = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
 const setWid  = (id,p) => { const e=document.getElementById(id); if(e) e.style.width=Math.min(+p||0,100)+'%'; };
 
@@ -875,24 +930,27 @@ async function loadClientes() {
 }
 
 function applyCotiData(resObj, diarias, vends, ventasVE) {
-  resObj = resObj && typeof resObj === 'object' ? resObj : {};
+  resObj = canonCotiResumen(resObj);
 
   // ── 1. Vendedores: PRIMER paso, siempre se ejecuta antes que cualquier otra cosa ──
   const vendsArr = Array.isArray(vends) ? vends : [];
-  const maxV = vendsArr.reduce((m,r)=>Math.max(m,+(r.COTIZACIONES_MES||0)),0);
+  const maxV = vendsArr.reduce((m,r)=>Math.max(m, fnumKeys(r, 'COTIZACIONES_MES')), 0);
   document.getElementById('coti-vendedores-list').innerHTML = vendsArr.length ?
     `<div class="vendor-list">${vendsArr.map((r,i)=>{
-      const pct = maxV>0?((+(r.COTIZACIONES_MES||0))/maxV*100).toFixed(0):0;
+      const cMes = fnumKeys(r, 'COTIZACIONES_MES');
+      const nCoti = fnumKeys(r, 'NUM_COTI_MES');
+      const pct = maxV>0 ? (cMes/maxV*100).toFixed(0) : 0;
+      const vendName = r.VENDEDOR ?? r.vendedor ?? '—';
       return `<div class="vendor-item">
         <div class="vendor-head">
-          <span class="vendor-name"><span class="rank-num">${i+1}</span>${r.VENDEDOR}</span>
-          <span><span class="vendor-amount" style="color:var(--yellow-ink)">${fmtK(r.COTIZACIONES_MES)}</span><span class="vendor-pct">${r.NUM_COTI_MES} coti</span></span>
+          <span class="vendor-name"><span class="rank-num">${i+1}</span>${vendName}</span>
+          <span><span class="vendor-amount" style="color:var(--yellow-ink)">${fmtK(cMes)}</span><span class="vendor-pct">${Math.round(nCoti)} coti</span></span>
         </div>
         <div class="vendor-bar-bg"><div style="height:5px;border-radius:99px;background:linear-gradient(90deg,var(--chart-yellow),var(--orange));width:${pct}%;transition:width 1.2s"></div></div>
       </div>`;
     }).join('')}</div>` : '<div class="ms-empty" role="status">Sin cotizaciones por vendedor en este periodo.</div>';
 
-  // ── 2. KPIs, metas y gráfica — en try-catch para que nunca bloqueen los vendedores ──
+  // ── 2. KPIs y metas (aislado: si el gráfico falla, los números ya quedaron) ──
   try {
     const bloq = ventasMetaBloqueadasPorTipo();
     const nV = getVendedoresEnContexto(metas);
@@ -902,25 +960,36 @@ function applyCotiData(resObj, diarias, vends, ventasVE) {
     const metaAcumMes = bloq ? 0 : metaCBase * nV * laborMes;
     const idealAcumMes = bloq ? 0 : idealCBase * nV * laborMes;
 
-    setText('kc-hoy', resObj.COTIZACIONES_HOY||0);
+    setText('kc-hoy', String(Math.round(fnum(resObj.COTIZACIONES_HOY))));
     setText('kc-hoy-imp', fmt(resObj.HOY));
-    setText('kc-mes', resObj.COTIZACIONES_MES||0);
+    setText('kc-mes', String(Math.round(fnum(resObj.COTIZACIONES_MES))));
     setText('kc-mes-imp', fmt(resObj.MES_ACTUAL));
     setText('kc-imp', fmt(resObj.MES_ACTUAL));
     if (bloq) {
       setWid('bar-coti', 0);
       setText('pct-coti', 'Metas cotización no aplican en solo mostrador (DAX).');
     } else {
-      setWid('bar-coti', metaAcumMes > 0 ? ((+(resObj.MES_ACTUAL||0))/metaAcumMes)*100 : 0);
-      setText('pct-coti', `${metaAcumMes > 0 ? (((+(resObj.MES_ACTUAL||0))/metaAcumMes)*100).toFixed(0) : '0'}% vs meta acum. (${laborMes} d. lab. × ${nV} vend.) · ideal ${fmtK(idealAcumMes)}`);
+      const mesImp = fnum(resObj.MES_ACTUAL);
+      setWid('bar-coti', metaAcumMes > 0 ? (mesImp/metaAcumMes)*100 : 0);
+      setText('pct-coti', `${metaAcumMes > 0 ? ((mesImp/metaAcumMes)*100).toFixed(0) : '0'}% vs meta acum. (${laborMes} d. lab. × ${nV} vend.) · ideal ${fmtK(idealAcumMes)}`);
     }
-    const conv = +(resObj.MES_ACTUAL||0)>0 ? ((+(ventasVE&&ventasVE.MES_ACTUAL)||0)/+(resObj.MES_ACTUAL||0)*100).toFixed(0) : 0;
+    const cotiMes = fnum(resObj.MES_ACTUAL);
+    const venMes = fnumKeys(ventasVE, 'MES_ACTUAL');
+    const conv = cotiMes > 0 ? ((venMes / cotiMes) * 100).toFixed(0) : '0';
     setText('kc-conv', `${conv}%`);
+  } catch(e) { console.error('applyCotiData KPIs', e); }
+
+  // ── 3. Gráfica diaria (no bloquea KPIs) ──
+  try {
+    const bloq = ventasMetaBloqueadasPorTipo();
+    const nV = getVendedoresEnContexto(metas);
+    const metaCBase = +(metas.META_COTI_POR_VENDEDOR||10000);
+    const idealCBase = +(metas.META_COTI_IDEAL||metaCBase*1.3);
 
     const diariasArr = Array.isArray(diarias) ? diarias : (diarias && (Array.isArray(diarias.data) ? diarias.data : Array.isArray(diarias.rows) ? diarias.rows : [])) || [];
     const arr = diariasArr.map(r => ({
       DIA: r.DIA ?? r.FECHA ?? r.dia ?? r.fecha,
-      TOTAL_COTIZACIONES: +(r.TOTAL_COTIZACIONES ?? r.total_cotizaciones ?? r.TOTAL ?? r.total ?? 0)
+      TOTAL_COTIZACIONES: fnumKeys(r, 'TOTAL_COTIZACIONES', 'TOTAL', 'total_cotizaciones')
     }));
     function cotiMetaForDate(d) {
       if (bloq) return { m: 0, i: 0 };
@@ -969,7 +1038,7 @@ function applyCotiData(resObj, diarias, vends, ventasVE) {
       {label:'Meta (día laboral)', data:metaL, type:'line', order:1, borderColor:'rgba(255,140,66,.9)', borderWidth:2.2, borderDash:[6,4], pointRadius:0, fill:false},
       {label:'Ideal (+30%)', data:idealL, type:'line', order:2, borderColor:'rgba(0,229,160,.82)', borderWidth:2, borderDash:[3,5], pointRadius:0, fill:'-1', backgroundColor:'rgba(255,184,0,.16)'},
     ]}, options:opts});
-  } catch(e) { console.error('applyCotiData', e); }
+  } catch(e) { console.error('applyCotiData chart', e); }
 }
 
 async function loadCotizaciones() {
@@ -986,15 +1055,15 @@ async function loadCotizaciones() {
       fwt(buildApiUrl('/api/ventas/resumen', 'tipo=VE'), {}, 30000),
     ]);
     const safe = (idx, fb) => (settled[idx] && settled[idx].status === 'fulfilled') ? settled[idx].value : fb;
-    let resObj  = (v => (v && typeof v === 'object' && !Array.isArray(v)) ? v : {})(safe(0, {}));
+    let resObj = canonCotiResumen(safe(0, {}));
     const diarias = Array.isArray(safe(1, [])) ? safe(1, []) : [];
     const vends   = Array.isArray(safe(2, [])) ? safe(2, []) : [];
-    const ventasVE = (v => (v && typeof v === 'object' && !Array.isArray(v)) ? v : {})(safe(3, {}));
+    const ventasVE = (v => { const u = unwrapApiRow(v); return u && typeof u === 'object' && !Array.isArray(u) ? u : {}; })(safe(3, {}));
     // Si resumen va en 0 (timeout/SQL) pero por-vendedor sí trae filas, reconstruir KPIs desde pv
     if (vends.length && (+resObj.MES_ACTUAL || 0) === 0 && (+resObj.COTIZACIONES_MES || 0) === 0) {
-      const totMes = vends.reduce((s, r) => s + (+r.COTIZACIONES_MES || 0), 0);
-      const cntMes = vends.reduce((s, r) => s + (+r.NUM_COTI_MES || 0), 0);
-      const totHoy = vends.reduce((s, r) => s + (+r.COTIZACIONES_HOY || 0), 0);
+      const totMes = vends.reduce((s, r) => s + fnumKeys(r, 'COTIZACIONES_MES'), 0);
+      const cntMes = vends.reduce((s, r) => s + fnumKeys(r, 'NUM_COTI_MES'), 0);
+      const totHoy = vends.reduce((s, r) => s + fnumKeys(r, 'COTIZACIONES_HOY'), 0);
       if (totMes > 0 || cntMes > 0) {
         resObj = {
           ...resObj,

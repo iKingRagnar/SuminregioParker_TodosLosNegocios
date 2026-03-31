@@ -1,16 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 112" role="img" aria-label="Suminregio Industrial">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 108" role="img" aria-label="Suminregio Industrial">
   <defs>
     <style>
       .ink { fill: currentColor; }
       .gold { fill: #f0b323; }
     </style>
   </defs>
-  <g transform="translate(8 10)">
+  <!-- Marca geométrica centrada arriba (sin solapar el wordmark) -->
+  <g transform="translate(122 4)">
     <path class="ink" d="M98 12l-34 0 -20 20 20 20 34 0 -20 -20z"/>
     <path class="ink" d="M108 22l24 0 22 22 -22 22 -24 0 20 -22z"/>
     <polygon class="gold" points="92,12 126,12 110,28 76,28"/>
     <polygon class="gold" points="92,76 126,76 110,60 76,60"/>
   </g>
-  <text x="120" y="78" class="ink" font-family="Plus Jakarta Sans, Syne, Arial, sans-serif" font-size="56" font-weight="800" letter-spacing="1">SUMINREGIO</text>
-  <text x="194" y="104" class="ink" font-family="JetBrains Mono, DM Mono, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="6">INDUSTRIAL</text>
+  <text x="170" y="86" class="ink" text-anchor="middle" font-family="Syne, Plus Jakarta Sans, Arial, sans-serif" font-size="30" font-weight="800" letter-spacing="3">SUMINREGIO</text>
+  <text x="170" y="102" class="ink" text-anchor="middle" font-family="'DM Mono', JetBrains Mono, Arial, sans-serif" font-size="11" font-weight="600" letter-spacing="9">INDUSTRIAL</text>
 </svg>

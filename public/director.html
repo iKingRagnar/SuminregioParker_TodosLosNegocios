@@ -147,9 +147,31 @@ html[data-theme=light] .chart-empty-msg{background:rgba(255,255,255,.85);color:#
     <div class="page-sub" id="page-sub">Cargando datos...</div>
   </div>
 
-  <figure class="ms-ai-page-banner" aria-hidden="true">
-    <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&amp;fit=crop&amp;w=1400&amp;q=80" alt="" width="1400" height="400" loading="lazy" decoding="async" referrerpolicy="no-referrer-when-downgrade" />
-    <span class="ms-ai-page-banner__label">Director · vista unificada</span>
+  <figure class="ms-ai-page-banner ms-ai-page-banner--data" aria-hidden="true">
+    <div class="ms-ai-page-banner__viz">
+      <svg viewBox="0 0 420 56" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="vbannerBarsDir" x1="0" y1="1" x2="0" y2="0">
+            <stop offset="0%" stop-color="rgba(77,166,255,.4)"/>
+            <stop offset="100%" stop-color="rgba(230,168,0,.95)"/>
+          </linearGradient>
+        </defs>
+        <g fill="url(#vbannerBarsDir)" opacity=".9">
+          <rect class="vbanner-bar" x="12" y="28" width="14" height="22" rx="3"/>
+          <rect class="vbanner-bar" x="34" y="18" width="14" height="32" rx="3"/>
+          <rect class="vbanner-bar" x="56" y="24" width="14" height="26" rx="3"/>
+          <rect class="vbanner-bar" x="78" y="12" width="14" height="38" rx="3"/>
+          <rect class="vbanner-bar" x="100" y="20" width="14" height="30" rx="3"/>
+          <rect class="vbanner-bar" x="122" y="8" width="14" height="42" rx="3"/>
+          <rect class="vbanner-bar" x="144" y="22" width="14" height="28" rx="3"/>
+          <rect class="vbanner-bar" x="166" y="14" width="14" height="36" rx="3"/>
+          <rect class="vbanner-bar" x="188" y="10" width="14" height="40" rx="3"/>
+          <rect class="vbanner-bar" x="210" y="20" width="14" height="30" rx="3"/>
+        </g>
+        <path fill="none" stroke="rgba(0,229,160,.75)" stroke-width="1.8" d="M8 38 Q110 14 210 26 T400 20"/>
+      </svg>
+    </div>
+    <span class="ms-ai-page-banner__label">Director · KPIs y riesgo en una sola lectura</span>
   </figure>
 
   <!-- Barra de filtros compartida -->
