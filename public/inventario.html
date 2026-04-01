@@ -67,7 +67,15 @@ nav{display:flex;align-items:center;gap:.25rem}
 @media(max-width:1000px){.grid-2{grid-template-columns:1fr}}
 .card{background:var(--s1);border:1px solid var(--border);border-radius:16px;overflow:hidden}
 .card-head{padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
-.card-title{font-size:.88rem;font-weight:600;color:var(--text);display:flex;align-items:center;gap:.6rem}
+.inv-card-head{align-items:flex-start}
+.inv-collapse-btn{display:grid;place-items:center;width:32px;height:32px;margin:0;padding:0;border:1px solid var(--border2);border-radius:8px;background:var(--s2);color:var(--muted);cursor:pointer;flex-shrink:0;transition:background .15s,border-color .15s,color .15s}
+.inv-collapse-btn:hover{background:var(--s3);color:var(--text);border-color:var(--border2)}
+.inv-collapse-btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.inv-chevron{width:18px;height:18px;fill:currentColor;transition:transform .2s ease}
+.inv-collapsible.is-collapsed .inv-chevron{transform:rotate(-90deg)}
+@media (prefers-reduced-motion:reduce){.inv-chevron{transition:none}}
+.inv-collapsible.is-collapsed .inv-collapsible-panel{display:none}
+.card-title{font-size:.88rem;font-weight:600;color:var(--text);display:flex;align-items:center;gap:.6rem;flex:1;min-width:0}
 .card-title svg{width:16px;height:16px;fill:var(--muted)}
 .card-badge{font-family:'DM Mono',monospace;font-size:.63rem;padding:.2rem .6rem;border-radius:99px;border:1px solid var(--border2);color:var(--muted)}
 .card-body{padding:1.5rem}
@@ -140,9 +148,13 @@ nav{display:flex;align-items:center;gap:.25rem}
     <div class="kpi-card orange"><div class="kpi-label">Sin Stock</div><div class="kpi-value" id="kpi-cero">&mdash;</div><div class="kpi-sub">Con m&iacute;nimo definido y existencia 0</div></div>
   </div>
 
-  <div class="card" style="margin-bottom:1.25rem">
-    <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>Buscar Art&iacute;culo</div><div class="card-badge" id="busq-badge">Escribe m&iacute;nimo 2 caracteres</div></div>
-    <div class="card-body">
+  <div class="card inv-collapsible" id="inv-card-busqueda" style="margin-bottom:1.25rem">
+    <div class="card-head inv-card-head">
+      <button type="button" class="inv-collapse-btn" id="inv-btn-busqueda" aria-expanded="true" aria-controls="inv-panel-busqueda" title="Plegar o desplegar secci&oacute;n">
+        <svg class="inv-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="card-title"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>Buscar Art&iacute;culo</div><div class="card-badge" id="busq-badge">Escribe m&iacute;nimo 2 caracteres</div></div>
+    <div class="card-body inv-collapsible-panel" id="inv-panel-busqueda" role="region" aria-labelledby="inv-btn-busqueda">
       <div class="search-wrap">
         <input class="search-input" id="busq-input" type="text" placeholder="Nombre o c&oacute;digo de art&iacute;culo..." oninput="doBusqueda(this.value)">
       </div>
@@ -151,9 +163,13 @@ nav{display:flex;align-items:center;gap:.25rem}
   </div>
 
   <div class="grid-2">
-    <div class="card">
-      <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69zM12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6c3.31 0 6 2.69 6 6s-2.69 6-6 6z"/></svg>Art&iacute;culos Bajo M&iacute;nimo</div><div class="card-badge" id="minimo-badge">&mdash;</div></div>
-      <div class="card-body" style="padding:0">
+    <div class="card inv-collapsible" id="inv-card-bajo-minimo">
+      <div class="card-head inv-card-head">
+        <button type="button" class="inv-collapse-btn" id="inv-btn-bajo-minimo" aria-expanded="true" aria-controls="inv-panel-bajo-minimo" title="Plegar o desplegar secci&oacute;n">
+          <svg class="inv-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="card-title"><svg viewBox="0 0 24 24"><path d="M20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69zM12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6c3.31 0 6 2.69 6 6s-2.69 6-6 6z"/></svg>Art&iacute;culos Bajo M&iacute;nimo</div><div class="card-badge" id="minimo-badge">&mdash;</div></div>
+      <div class="card-body inv-collapsible-panel" id="inv-panel-bajo-minimo" role="region" aria-labelledby="inv-btn-bajo-minimo" style="padding:0">
         <table class="tbl" id="tbl-minimo">
           <thead><tr><th>Art&iacute;culo</th><th>Unidad</th><th class="num">Exist.</th><th class="num">M&iacute;nimo</th><th class="num">Faltante</th></tr></thead>
           <tbody><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tbody>
@@ -161,9 +177,13 @@ nav{display:flex;align-items:center;gap:.25rem}
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>Consumo Semanal (stock cr&iacute;tico)</div><div class="card-badge">Seg&uacute;n periodo arriba</div></div>
-      <div class="card-body" style="padding:0">
+    <div class="card inv-collapsible" id="inv-card-consumo-sem">
+      <div class="card-head inv-card-head">
+        <button type="button" class="inv-collapse-btn" id="inv-btn-consumo-sem" aria-expanded="true" aria-controls="inv-panel-consumo-sem" title="Plegar o desplegar secci&oacute;n">
+          <svg class="inv-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="card-title"><svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>Consumo Semanal (stock cr&iacute;tico)</div><div class="card-badge">Seg&uacute;n periodo arriba</div></div>
+      <div class="card-body inv-collapsible-panel" id="inv-panel-consumo-sem" role="region" aria-labelledby="inv-btn-consumo-sem" style="padding:0">
         <table class="tbl" id="tbl-consumo">
           <thead><tr><th>Art&iacute;culo</th><th class="num">Exist.</th><th class="num">Cons/Sem</th><th class="num">Semanas</th></tr></thead>
           <tbody><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tbody>
@@ -172,9 +192,13 @@ nav{display:flex;align-items:center;gap:.25rem}
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 4l6 2.67V11c0 3.94-2.71 7.62-6 8.93-3.29-1.31-6-4.99-6-8.93V7.67L12 5z"/></svg>Top Art&iacute;culos por Valor de Inventario</div><div class="card-badge">Mayor valor en stock</div></div>
-    <div class="card-body" style="padding:0">
+  <div class="card inv-collapsible" id="inv-card-topstock">
+    <div class="card-head inv-card-head">
+      <button type="button" class="inv-collapse-btn" id="inv-btn-topstock" aria-expanded="true" aria-controls="inv-panel-topstock" title="Plegar o desplegar secci&oacute;n">
+        <svg class="inv-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 4l6 2.67V11c0 3.94-2.71 7.62-6 8.93-3.29-1.31-6-4.99-6-8.93V7.67L12 5z"/></svg>Top Art&iacute;culos por Valor de Inventario</div><div class="card-badge">Mayor valor en stock</div></div>
+    <div class="card-body inv-collapsible-panel" id="inv-panel-topstock" role="region" aria-labelledby="inv-btn-topstock" style="padding:0">
       <table class="tbl" id="tbl-topstock">
         <thead><tr><th>#</th><th>Art&iacute;culo</th><th>Unidad</th><th class="num">Existencia</th><th class="num">Precio</th><th class="num">Valor Total</th></tr></thead>
         <tbody><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tbody>
@@ -182,15 +206,18 @@ nav{display:flex;align-items:center;gap:.25rem}
     </div>
   </div>
 
-  <div class="card" style="margin-top:1.25rem">
-    <div class="card-head">
+  <div class="card inv-collapsible" id="inv-card-forecast" style="margin-top:1.25rem">
+    <div class="card-head inv-card-head">
+      <button type="button" class="inv-collapse-btn" id="inv-btn-forecast" aria-expanded="true" aria-controls="inv-panel-forecast" title="Plegar o desplegar secci&oacute;n">
+        <svg class="inv-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
       <div class="card-title">
         <svg viewBox="0 0 24 24"><path d="M2.5 19h19v2h-19zm19.57-9.36c-.21-.8-1.04-1.28-1.84-1.06L14.92 10l-6.9-6.43-1.93.51 4.14 7.17-4.97 1.33-1.97-1.54-1.45.39 2.59 4.49s7.12-1.9 14.35-3.84c.81-.23 1.28-1.05 1.07-1.86z"/></svg>
         Forecast: Consumo &amp; Reposici&oacute;n (periodo seleccionado)
       </div>
       <div class="card-badge" id="consumo-badge">--</div>
     </div>
-    <div class="card-body" style="padding:0">
+    <div class="card-body inv-collapsible-panel" id="inv-panel-forecast" role="region" aria-labelledby="inv-btn-forecast" style="padding:0">
       <table class="tbl" id="tbl-forecast">
         <thead><tr>
           <th>Art&iacute;culo</th><th>Unidad</th>
@@ -203,15 +230,18 @@ nav{display:flex;align-items:center;gap:.25rem}
     </div>
   </div>
 
-  <div class="card" style="margin-top:1.25rem;margin-bottom:1.5rem">
-    <div class="card-head">
+  <div class="card inv-collapsible" id="inv-card-sinmov180" style="margin-top:1.25rem;margin-bottom:1.5rem">
+    <div class="card-head inv-card-head">
+      <button type="button" class="inv-collapse-btn" id="inv-btn-sinmov180" aria-expanded="true" aria-controls="inv-panel-sinmov180" title="Plegar o desplegar secci&oacute;n">
+        <svg class="inv-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
       <div class="card-title">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
         Art&iacute;culos Sin Movimiento (&gt;180 d&iacute;as con existencia)
       </div>
       <div class="card-badge" id="sinmov-badge">--</div>
     </div>
-    <div class="card-body" style="padding:0">
+    <div class="card-body inv-collapsible-panel" id="inv-panel-sinmov180" role="region" aria-labelledby="inv-btn-sinmov180" style="padding:0">
       <table class="tbl" id="tbl-sinmov">
         <thead><tr>
           <th>Art&iacute;culo</th><th>Unidad</th>
@@ -223,15 +253,18 @@ nav{display:flex;align-items:center;gap:.25rem}
     </div>
   </div>
 
-  <div class="card" style="margin-top:1.25rem;margin-bottom:1.5rem">
-    <div class="card-head">
+  <div class="card inv-collapsible" id="inv-card-sinmov365" style="margin-top:1.25rem;margin-bottom:1.5rem">
+    <div class="card-head inv-card-head">
+      <button type="button" class="inv-collapse-btn" id="inv-btn-sinmov365" aria-expanded="true" aria-controls="inv-panel-sinmov365" title="Plegar o desplegar secci&oacute;n">
+        <svg class="inv-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
       <div class="card-title">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
         Art&iacute;culos Sin Movimiento (&ge;365 d&iacute;as con existencia)
       </div>
       <div class="card-badge" id="sinmov365-badge">--</div>
     </div>
-    <div class="card-body" style="padding:0">
+    <div class="card-body inv-collapsible-panel" id="inv-panel-sinmov365" role="region" aria-labelledby="inv-btn-sinmov365" style="padding:0">
       <table class="tbl" id="tbl-sinmov365">
         <thead><tr>
           <th>Art&iacute;culo</th><th>Unidad</th>
@@ -243,15 +276,18 @@ nav{display:flex;align-items:center;gap:.25rem}
     </div>
   </div>
 
-  <div class="card" style="margin-bottom:1.5rem">
-    <div class="card-head">
+  <div class="card inv-collapsible" id="inv-card-operacion" style="margin-bottom:1.5rem">
+    <div class="card-head inv-card-head">
+      <button type="button" class="inv-collapse-btn" id="inv-btn-operacion" aria-expanded="true" aria-controls="inv-panel-operacion" title="Plegar o desplegar secci&oacute;n">
+        <svg class="inv-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
       <div class="card-title">
         <svg viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.5 9.5-8 10-4.5-.5-8-5-8-10V6l8-4z"/><path d="M8 12h8"/></svg>
         Operaci&oacute;n Inventario (cero persistente + cobertura cr&iacute;tica)
       </div>
       <div class="card-badge" id="op-badge">--</div>
     </div>
-    <div class="card-body" style="padding:0">
+    <div class="card-body inv-collapsible-panel" id="inv-panel-operacion" role="region" aria-labelledby="inv-btn-operacion" style="padding:0">
       <table class="tbl" id="tbl-operacion">
         <thead><tr>
           <th>Art&iacute;culo</th><th class="num">Exist.</th><th class="num">Entradas Hist.</th>
@@ -600,6 +636,34 @@ function scheduleInvReload() {
     loadAll();
   }, 450);
 }
+
+var INV_COLLAPSE_KEY = 'inv-collapse-';
+function initInvCollapsible() {
+  document.querySelectorAll('.inv-collapsible').forEach(function (card) {
+    var btn = card.querySelector('.inv-collapse-btn');
+    var panel = card.querySelector('.inv-collapsible-panel');
+    if (!btn || !panel) return;
+    var sid = card.id || btn.id || '';
+    var storageKey = INV_COLLAPSE_KEY + sid;
+    try {
+      if (sessionStorage.getItem(storageKey) === '1') {
+        card.classList.add('is-collapsed');
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    } catch (e) {}
+    btn.addEventListener('click', function () {
+      card.classList.toggle('is-collapsed');
+      var isCollapsed = card.classList.contains('is-collapsed');
+      btn.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+      try {
+        if (isCollapsed) sessionStorage.setItem(storageKey, '1');
+        else sessionStorage.removeItem(storageKey);
+      } catch (e2) {}
+    });
+  });
+}
+initInvCollapsible();
+
 if (typeof initFilters === 'function') {
   initFilters({ containerId:'filter-bar', showVendedor:false, onReady:function(){ loadAll(); }, onChange:function(){ scheduleInvReload(); } });
 } else {
