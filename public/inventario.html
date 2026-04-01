@@ -279,25 +279,23 @@ function apiDb(rel){
 }
 /** Evita que una recarga lenta pise datos de una recarga nueva (cambio de filtro). */
 let invLoadGen = 0;
-function apiFetchErrMsg(e) {
-  if (!e) return '';
-  const name = e.name || '';
-  const msg = String(e.message || '');
-  if (name === 'AbortError' || /aborted|AbortError/i.test(msg)) {
-    return 'Tiempo de espera agotado: el servidor no respondió a tiempo (Render o Firebird lento). Recarga o espera un momento.';
-  }
-  return msg;
+/**
+ * Misma estrategia que ventas.html → fwt: Promise.race sin AbortController.
+ * Si vence el tiempo devuelve `fallback` (no lanza "signal is aborted").
+ */
+function invFwt(url, fallback, ms) {
+  ms = ms == null ? 45000 : ms;
+  const urlFull = (typeof url === 'string' && url.indexOf('http') === 0) ? url : (API + url);
+  const isNgrok = /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/i.test(urlFull);
+  const opts = isNgrok ? { headers: { 'ngrok-skip-browser-warning': '1' } } : {};
+  return Promise.race([
+    fetch(urlFull, opts).then(function (r) {
+      return r.json().then(function (data) { return r.ok ? data : fallback; }).catch(function () { return fallback; });
+    }).catch(function () { return fallback; }),
+    new Promise(function (r) { setTimeout(function () { r(fallback); }, ms); })
+  ]);
 }
-async function apiFetch(url, ms){
-  ms = ms || 20000;
-  const ctrl = new AbortController();
-  const tid = setTimeout(()=>ctrl.abort(), ms);
-  try {
-    const r = await fetch(url, {signal: ctrl.signal});
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    return r.json();
-  } finally { clearTimeout(tid); }
-}
+const INV_RES_TIMEOUT = { __invTimeout: true };
 const fmt  = n => isNaN(+n)||n==null?'&mdash;':'$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 const fmtK = n => { if(isNaN(+n)||n==null) return '&mdash;'; n=+n; return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2}); };
 const setText = (id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
@@ -310,7 +308,7 @@ function doBusqueda(val) {
   if(val.trim().length < 2) { document.getElementById('busq-resultado').innerHTML=''; setText('busq-badge','Escribe m&iacute;nimo 2 caracteres'); return; }
   busqTimer = setTimeout(async ()=>{
     try {
-      const rows = await apiFetch(apiDb('/api/inv/existencias?q='+encodeURIComponent(val)), 15000);
+      const rows = await invFwt(apiDb('/api/inv/existencias?q='+encodeURIComponent(val)), [], 15000);
       setText('busq-badge', rows.length+' resultados');
       document.getElementById('busq-resultado').innerHTML = rows.length ?
         `<table class="tbl"><thead><tr><th>Art&iacute;culo</th><th>Unidad</th><th class="num">Existencia</th><th class="num">M&iacute;nimo</th><th class="num">Precio</th></tr></thead><tbody>${
@@ -331,8 +329,16 @@ function doBusqueda(val) {
 async function loadAll() {
   const g = ++invLoadGen;
   try {
-    const d = await apiFetch(apiDb('/api/inv/resumen'), 90000);
+    const d = await invFwt(apiDb('/api/inv/resumen'), INV_RES_TIMEOUT, 90000);
     if (g !== invLoadGen) return;
+    if (d && d.__invTimeout) {
+      setText('kpi-total', '—');
+      setText('kpi-valor', '—');
+      setText('kpi-minimo', '—');
+      setText('kpi-cero', '—');
+      setText('page-sub', 'El resumen de inventario tardó demasiado (consultas más pesadas que Ventas). Reintenta con recarga o espera un momento.');
+      return;
+    }
     setText('kpi-total', Number(d.TOTAL_ARTICULOS||0).toLocaleString());
     setText('kpi-valor', fmtK(d.VALOR_INVENTARIO));
     setText('kpi-minimo', Number(d.BAJO_MINIMO||0).toLocaleString());
@@ -356,7 +362,7 @@ async function loadAll() {
     setText('kpi-valor', '—');
     setText('kpi-minimo', '—');
     setText('kpi-cero', '—');
-    setText('page-sub', 'Error al cargar resumen. ' + apiFetchErrMsg(e));
+    setText('page-sub', 'Error al cargar resumen. ' + (e && e.message ? String(e.message) : ''));
     return;
   }
 
@@ -374,7 +380,7 @@ async function loadAll() {
 
 async function loadMinimo(g) {
   try {
-    const rows = (await apiFetch(apiDb('/api/inv/bajo-minimo?limit=50'), 60000)).slice().sort((a,b)=>(+b.FALTANTE||0)-(+a.FALTANTE||0));
+    const rows = (await invFwt(apiDb('/api/inv/bajo-minimo?limit=50'), [], 60000)).slice().sort((a,b)=>(+b.FALTANTE||0)-(+a.FALTANTE||0));
     if (g !== invLoadGen) return;
     document.querySelector('#tbl-minimo tbody').innerHTML = rows.map(r=>{
       const pct = r.EXISTENCIA_MINIMA>0?(r.EXISTENCIA/r.EXISTENCIA_MINIMA*100):0;
@@ -401,7 +407,7 @@ async function loadMinimo(g) {
 
 async function loadConsumo(g) {
   try {
-    const rows = (await apiFetch(apiDb('/api/inv/consumo-semanal?limit=30'), 60000)).slice().sort((a,b)=>(+b.CONSUMO_SEMANAL_PROM||0)-(+a.CONSUMO_SEMANAL_PROM||0));
+    const rows = (await invFwt(apiDb('/api/inv/consumo-semanal?limit=30'), [], 60000)).slice().sort((a,b)=>(+b.CONSUMO_SEMANAL_PROM||0)-(+a.CONSUMO_SEMANAL_PROM||0));
     if (g !== invLoadGen) return;
     document.querySelector('#tbl-consumo tbody').innerHTML = rows.map(r=>{
       const sem = +(r.SEMANAS_STOCK||0);
@@ -425,7 +431,7 @@ async function loadConsumo(g) {
 
 async function loadTopStock(g) {
   try {
-    const rows = (await apiFetch(apiDb('/api/inv/top-stock?limit=30'), 60000)).slice().sort((a,b)=>(+b.VALOR_TOTAL||0)-(+a.VALOR_TOTAL||0));
+    const rows = (await invFwt(apiDb('/api/inv/top-stock?limit=30'), [], 60000)).slice().sort((a,b)=>(+b.VALOR_TOTAL||0)-(+a.VALOR_TOTAL||0));
     if (g !== invLoadGen) return;
     document.querySelector('#tbl-topstock tbody').innerHTML = rows.map((r,i)=>`<tr>
       <td style="font-family:'DM Mono',monospace;font-size:.7rem;color:var(--muted)">${i+1}</td>
@@ -445,7 +451,7 @@ async function loadTopStock(g) {
 
 async function loadForecast(g){
   try{
-    const rows = (await apiFetch(apiDb('/api/inv/consumo?limit=50&lead=15'), 60000)).slice().sort((a,b)=>{
+    const rows = (await invFwt(apiDb('/api/inv/consumo?limit=50&lead=15'), [], 60000)).slice().sort((a,b)=>{
       const da = +a.DIAS_STOCK, db = +b.DIAS_STOCK;
       const na = isNaN(da) ? 999999 : da;
       const nb = isNaN(db) ? 999999 : db;
@@ -499,7 +505,7 @@ async function loadSinMovimiento(g){
   }, 130000);
   const fin = ()=>{ done=true; clearTimeout(tWarm); clearTimeout(tHard); };
   try{
-    const all = (await apiFetch(apiDb('/api/inv/sin-movimiento?dias=180&limit=60'), 180000)).slice().sort((a,b)=>(+b.DIAS_SIN_VENTA||0)-(+a.DIAS_SIN_VENTA||0));
+    const all = (await invFwt(apiDb('/api/inv/sin-movimiento?dias=180&limit=60'), [], 180000)).slice().sort((a,b)=>(+b.DIAS_SIN_VENTA||0)-(+a.DIAS_SIN_VENTA||0));
     fin();
     if (g !== invLoadGen) return;
     const rowHtml = r => {
@@ -531,7 +537,7 @@ async function loadSinMovimiento(g){
 
 async function loadOperacionCritica(g){
   try{
-    const payload = await apiFetch(apiDb('/api/inv/operacion-critica?limit=120'), 180000);
+    const payload = await invFwt(apiDb('/api/inv/operacion-critica?limit=120'), { rows: [], resumen: {} }, 180000);
     if (g !== invLoadGen) return;
     const rows = Array.isArray(payload && payload.rows) ? payload.rows : [];
     const rs = (payload && payload.resumen) || {};
