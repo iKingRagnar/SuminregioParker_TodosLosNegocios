@@ -3933,7 +3933,8 @@ get('/api/inv/resumen', async (req) => {
     LEFT JOIN ${SQL_MINIMO_SUB} n ON n.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A'
   `;
-  const countsRows = await query(qCounts, [], 12000, dbo).catch(() => [{}]);
+  const invQTimeout = 60000;
+  const countsRows = await query(qCounts, [], invQTimeout, dbo).catch(() => [{}]);
   const precioSub = await invPrecioSubSql(dbo);
   const qValor = `
     SELECT COALESCE(SUM(COALESCE(s.EXISTENCIA, 0) * COALESCE(pr.PRECIO1, 0)), 0) AS VALOR_INVENTARIO
@@ -3942,7 +3943,7 @@ get('/api/inv/resumen', async (req) => {
     LEFT JOIN ${precioSub} pr ON pr.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A'
   `;
-  const valorRows = await query(qValor, [], 12000, dbo).catch(() => [{ VALOR_INVENTARIO: 0 }]);
+  const valorRows = await query(qValor, [], invQTimeout, dbo).catch(() => [{ VALOR_INVENTARIO: 0 }]);
   const c = countsRows[0] || {};
   const v = valorRows[0] || {};
   const r = Object.assign({}, c, v);
