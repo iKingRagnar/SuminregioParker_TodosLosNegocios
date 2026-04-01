@@ -332,6 +332,10 @@ function invFwt(url, fallback, ms) {
   ]);
 }
 const INV_RES_TIMEOUT = { __invTimeout: true };
+/** API debe devolver array; si no, evita .slice() y romper todo el lote de loadAll. */
+function invRows(x) {
+  return Array.isArray(x) ? x : [];
+}
 /** Texto del filtro activo (como ventas.html) para el subtítulo. */
 function invPeriodLabel() {
   try {
@@ -406,7 +410,7 @@ async function loadAll() {
       ap('kpi-cero', cero === 0 ? 'ok' : cero <= 3 ? 'warn' : 'danger');
     }
     const pl = invPeriodLabel();
-    setText('page-sub', 'KPI = existencias al momento (no cambian con el chip). Cargando tablas' + (pl ? ' · periodo: ' + pl : '') + '…');
+    setText('page-sub', 'KPI = existencias al momento. Cargando tablas y forecast' + (pl ? ' · periodo: ' + pl : '') + '…');
   } catch(e){
     if (g !== invLoadGen) return;
     console.error('inv-resumen', e);
@@ -419,10 +423,8 @@ async function loadAll() {
   }
 
   if (g !== invLoadGen) return;
-  await Promise.all([loadMinimo(g), loadConsumo(g), loadTopStock(g)]);
-  if (g !== invLoadGen) return;
-  setText('page-sub', 'Cargando forecast… · ' + (invPeriodLabel() || 'periodo seleccionado'));
-  await loadForecast(g);
+  // Forecast en el mismo lote que consumo semanal: si consumo tarda, el forecast no debe quedar en "Cargando…" por orden secuencial.
+  await Promise.all([loadMinimo(g), loadTopStock(g), loadConsumo(g), loadForecast(g)]);
   if (g !== invLoadGen) return;
   setText('page-sub', 'Cargando sin movimiento y operación (consultas pesadas, 1–3 min posibles)…');
   await Promise.all([loadSinMovimiento(g), loadOperacionCritica(g)]);
@@ -460,7 +462,7 @@ async function loadMinimo(g) {
 
 async function loadConsumo(g) {
   try {
-    const rows = (await invFwt(apiDb('/api/inv/consumo-semanal?limit=30'), [], 95000)).slice().sort((a,b)=>(+b.CONSUMO_SEMANAL_PROM||0)-(+a.CONSUMO_SEMANAL_PROM||0));
+    const rows = invRows(await invFwt(apiDb('/api/inv/consumo-semanal?limit=30'), [], 95000)).slice().sort((a,b)=>(+b.CONSUMO_SEMANAL_PROM||0)-(+a.CONSUMO_SEMANAL_PROM||0));
     if (g !== invLoadGen) return;
     document.querySelector('#tbl-consumo tbody').innerHTML = rows.map(r=>{
       const sem = +(r.SEMANAS_STOCK||0);
@@ -484,7 +486,7 @@ async function loadConsumo(g) {
 
 async function loadTopStock(g) {
   try {
-    const rows = (await invFwt(apiDb('/api/inv/top-stock?limit=30'), [], 60000)).slice().sort((a,b)=>(+b.VALOR_TOTAL||0)-(+a.VALOR_TOTAL||0));
+    const rows = invRows(await invFwt(apiDb('/api/inv/top-stock?limit=30'), [], 65000)).slice().sort((a,b)=>(+b.VALOR_TOTAL||0)-(+a.VALOR_TOTAL||0));
     if (g !== invLoadGen) return;
     document.querySelector('#tbl-topstock tbody').innerHTML = rows.map((r,i)=>`<tr>
       <td style="font-family:'DM Mono',monospace;font-size:.7rem;color:var(--muted)">${i+1}</td>
@@ -504,7 +506,7 @@ async function loadTopStock(g) {
 
 async function loadForecast(g){
   try{
-    const rows = (await invFwt(apiDb('/api/inv/consumo?limit=50&lead=15'), [], 95000)).slice().sort((a,b)=>{
+    const rows = invRows(await invFwt(apiDb('/api/inv/consumo?limit=50&lead=15'), [], 95000)).slice().sort((a,b)=>{
       const da = +a.DIAS_STOCK, db = +b.DIAS_STOCK;
       const na = isNaN(da) ? 999999 : da;
       const nb = isNaN(db) ? 999999 : db;
@@ -558,7 +560,7 @@ async function loadSinMovimiento(g){
   }, 130000);
   const fin = ()=>{ done=true; clearTimeout(tWarm); clearTimeout(tHard); };
   try{
-    const all = (await invFwt(apiDb('/api/inv/sin-movimiento?dias=180&limit=60'), [], 180000)).slice().sort((a,b)=>(+b.DIAS_SIN_VENTA||0)-(+a.DIAS_SIN_VENTA||0));
+    const all = invRows(await invFwt(apiDb('/api/inv/sin-movimiento?dias=180&limit=60'), [], 180000)).slice().sort((a,b)=>(+b.DIAS_SIN_VENTA||0)-(+a.DIAS_SIN_VENTA||0));
     fin();
     if (g !== invLoadGen) return;
     const rowHtml = r => {

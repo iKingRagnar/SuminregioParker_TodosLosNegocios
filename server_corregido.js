@@ -3898,6 +3898,8 @@ const SQL_MINIMO_SUB = `( SELECT ARTICULO_ID, MAX(INVENTARIO_MINIMO) AS INVENTAR
 const SQL_PRECIO_SUB = `( SELECT ARTICULO_ID, MIN(PRECIO) AS PRECIO1 FROM PRECIOS_ARTICULOS WHERE MONEDA_ID = 1 AND PRECIO > 0 GROUP BY ARTICULO_ID )`;
 /** Timeout Firebird para consumo semanal / forecast inventario (antes 12s → [] vacío en hosts lentos). */
 const INV_CONSUMO_Q_MS = 90000;
+/** Listados inventario (bajo mínimo, existencias, top stock): evitar [] por timeout 12s en servidor lento. */
+const INV_LIST_Q_MS = 60000;
 
 const invPrecioSubCache = new Map();
 /** Precio mínimo por artículo (PRECIO vs PRECIO_VENTA; MONEDA_ID opcional). Falla común: MONEDA_ID o PRECIO distintos → rompe solo el KPI agregado con precios. */
@@ -4026,7 +4028,7 @@ get('/api/inv/bajo-minimo', async (req) => {
     LEFT JOIN ${SQL_EXIST_SUB} s ON s.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND COALESCE(s.EXISTENCIA, 0) < n.INVENTARIO_MINIMO ${extra}
     ORDER BY FALTANTE DESC
-  `, [], 12000, dbo).catch(() => []);
+  `, [], INV_LIST_Q_MS, dbo).catch(() => []);
 });
 
 get('/api/inv/existencias', async (req) => {
@@ -4044,7 +4046,7 @@ get('/api/inv/existencias', async (req) => {
     LEFT JOIN ${precioSub} pr ON pr.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND (UPPER(a.NOMBRE) LIKE ? OR UPPER(CAST(a.ARTICULO_ID AS VARCHAR(50))) LIKE ?)
     ORDER BY a.NOMBRE
-  `, [like, like], 12000, dbo).catch(() => []);
+  `, [like, like], INV_LIST_Q_MS, dbo).catch(() => []);
 });
 
 get('/api/inv/top-stock', async (req) => {
@@ -4059,17 +4061,18 @@ get('/api/inv/top-stock', async (req) => {
     LEFT JOIN ${precioSub} pr ON pr.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND COALESCE(s.EXISTENCIA, 0) > 0
     ORDER BY VALOR_TOTAL DESC
-  `, [], 12000, dbo).catch(() => []);
+  `, [], INV_LIST_Q_MS, dbo).catch(() => []);
 });
 
-// Consumo semanal desde ventas (VE + PV, mismo criterio que el panel de ventas). Respeta periodo del filtro.
+// Consumo semanal desde ventas (VE; PV opcional vía MICROSIP_INV_CONSUMO_VE_PV=1 si hace falta). Respeta periodo del filtro.
 get('/api/inv/consumo-semanal', async (req) => {
   const dbo = getReqDbOpts(req);
   const limit = Math.min(parseInt(req.query.limit) || 30, 100);
   const { desdeStr, hastaStr, periodDays } = invPeriodDaysFromReq(req);
   const weeksInPeriod = Math.max(periodDays / 7.0, 0.01);
   const csp = await resolveConsumosSchema(dbo);
-  const subDoc = consumosSubSql('', csp);
+  const useVePv = (process.env.MICROSIP_INV_CONSUMO_VE_PV || '').match(/^(1|true|yes)$/i);
+  const subDoc = consumosSubSql(useVePv ? '' : 'VE', csp);
   return query(`
     SELECT FIRST ${limit} a.NOMBRE AS DESCRIPCION, a.ARTICULO_ID, COALESCE(s.EXISTENCIA, 0) AS EXISTENCIA,
       SUM(d.UNIDADES) / ${weeksInPeriod} AS CONSUMO_SEMANAL_PROM,
@@ -4084,14 +4087,15 @@ get('/api/inv/consumo-semanal', async (req) => {
   `, [desdeStr, hastaStr], INV_CONSUMO_Q_MS, dbo).catch(() => []);
 });
 
-// Forecast consumo — periodo = filtro (desde/hasta / preset). VE+PV.
+// Forecast consumo — periodo = filtro (desde/hasta / preset).
 get('/api/inv/consumo', async (req) => {
   const dbo = getReqDbOpts(req);
   const { desdeStr, hastaStr, periodDays } = invPeriodDaysFromReq(req);
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
   const lead = Math.min(parseInt(req.query.lead) || 15, 60);
   const csp = await resolveConsumosSchema(dbo);
-  const subDoc = consumosSubSql('', csp);
+  const useVePv = (process.env.MICROSIP_INV_CONSUMO_VE_PV || '').match(/^(1|true|yes)$/i);
+  const subDoc = consumosSubSql(useVePv ? '' : 'VE', csp);
   const rows = await query(`
     SELECT FIRST ${limit} a.NOMBRE AS DESCRIPCION, a.ARTICULO_ID, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
       COALESCE(ex.EXISTENCIA, 0) AS EXISTENCIA_ACTUAL, COALESCE(mn.INVENTARIO_MINIMO, 0) AS MIN_ACTUAL,
@@ -4107,7 +4111,8 @@ get('/api/inv/consumo', async (req) => {
     HAVING SUM(d.UNIDADES) > 0
     ORDER BY DIAS_STOCK ASC
   `, [desdeStr, hastaStr], INV_CONSUMO_Q_MS, dbo).catch(() => []);
-  return rows.map(r => ({
+  const rowArr = Array.isArray(rows) ? rows : [];
+  return rowArr.map(r => ({
     ...r,
     ALERTA: +r.DIAS_STOCK < lead ? 'CRITICO' : +r.DIAS_STOCK < lead * 2 ? 'BAJO' : +r.EXISTENCIA_ACTUAL <= +r.MIN_ACTUAL ? 'BAJO_MINIMO' : 'OK',
     NECESITA_REPONER: +r.EXISTENCIA_ACTUAL < +r.STOCK_MINIMO_RECOMENDADO,
@@ -4120,7 +4125,8 @@ get('/api/inv/sin-movimiento', async (req) => {
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
   async function sinMovimientoForDb(dbo) {
     const csp = await resolveConsumosSchema(dbo);
-    const subDoc = consumosSubSql('', csp);
+    const useVePv = (process.env.MICROSIP_INV_CONSUMO_VE_PV || '').match(/^(1|true|yes)$/i);
+    const subDoc = consumosSubSql(useVePv ? '' : 'VE', csp);
     return query(`
     SELECT FIRST ${limit} a.NOMBRE AS DESCRIPCION, a.ARTICULO_ID, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
       COALESCE(ex.EXISTENCIA, 0) AS EXISTENCIA_ACTUAL, COALESCE(mn.INVENTARIO_MINIMO, 0) AS MIN_ACTUAL,
@@ -4151,7 +4157,8 @@ get('/api/inv/operacion-critica', async (req) => {
     const limit2 = Math.min(parseInt(req.query.limit) || 120, 300);
     async function opCritForDb(dbo) {
       const csp2 = await resolveConsumosSchema(dbo);
-      const subOc2 = consumosSubSql('', csp2);
+      const useVePv2 = (process.env.MICROSIP_INV_CONSUMO_VE_PV || '').match(/^(1|true|yes)$/i);
+      const subOc2 = consumosSubSql(useVePv2 ? '' : 'VE', csp2);
       const rows2 = await query(`
     SELECT FIRST ${limit2}
       a.ARTICULO_ID, a.NOMBRE AS DESCRIPCION, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
@@ -4187,7 +4194,8 @@ get('/api/inv/operacion-critica', async (req) => {
   }
   const dbo = getReqDbOpts(req);
   const csp = await resolveConsumosSchema(dbo);
-  const subOc = consumosSubSql('', csp);
+  const useVePvOc = (process.env.MICROSIP_INV_CONSUMO_VE_PV || '').match(/^(1|true|yes)$/i);
+  const subOc = consumosSubSql(useVePvOc ? '' : 'VE', csp);
   const limit = Math.min(parseInt(req.query.limit) || 120, 300);
   const rows = await query(`
     SELECT FIRST ${limit}
