@@ -4059,30 +4059,32 @@ get('/api/inv/top-stock', async (req) => {
   `, [], 12000, dbo).catch(() => []);
 });
 
-// Consumo semanal desde ventas (VE unificado con resolveConsumosSchema: FECHA/FECHA_DOCUMENTO, UNIDADES/CANTIDAD)
+// Consumo semanal desde ventas (VE). Respeta periodo del filtro (desde/hasta, anio/mes, preset).
 get('/api/inv/consumo-semanal', async (req) => {
   const dbo = getReqDbOpts(req);
   const limit = Math.min(parseInt(req.query.limit) || 30, 100);
+  const { desdeStr, hastaStr, periodDays } = invPeriodDaysFromReq(req);
+  const weeksInPeriod = Math.max(periodDays / 7.0, 0.01);
   const csp = await resolveConsumosSchema(dbo);
   const subVe = consumosSubSql('VE', csp);
   return query(`
     SELECT FIRST ${limit} a.NOMBRE AS DESCRIPCION, a.ARTICULO_ID, COALESCE(s.EXISTENCIA, 0) AS EXISTENCIA,
-      SUM(d.UNIDADES) / 4.0 AS CONSUMO_SEMANAL_PROM,
-      CASE WHEN SUM(d.UNIDADES) > 0 THEN COALESCE(s.EXISTENCIA, 0) / (SUM(d.UNIDADES) / 4.0) ELSE 9999 END AS SEMANAS_STOCK
+      SUM(d.UNIDADES) / ${weeksInPeriod} AS CONSUMO_SEMANAL_PROM,
+      CASE WHEN SUM(d.UNIDADES) > 0 THEN COALESCE(s.EXISTENCIA, 0) / (SUM(d.UNIDADES) / ${weeksInPeriod}) ELSE 9999 END AS SEMANAS_STOCK
     FROM ${subVe} d
     JOIN ARTICULOS a ON a.ARTICULO_ID = d.ARTICULO_ID
     LEFT JOIN ${SQL_EXIST_SUB} s ON s.ARTICULO_ID = a.ARTICULO_ID
-    WHERE CAST(d.FECHA AS DATE) >= (CURRENT_DATE - 28)
+    WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(d.FECHA AS DATE) <= CAST(? AS DATE)
     GROUP BY a.NOMBRE, a.ARTICULO_ID, s.EXISTENCIA
     HAVING SUM(d.UNIDADES) > 0
     ORDER BY SEMANAS_STOCK ASC
-  `, [], 12000, dbo).catch(() => []);
+  `, [desdeStr, hastaStr], 12000, dbo).catch(() => []);
 });
 
-// Forecast consumo — inventario.html espera DESCRIPCION, UNIDAD, EXISTENCIA_ACTUAL, CONSUMO_DIARIO, DIAS_STOCK, STOCK_MINIMO_RECOMENDADO, ALERTA, CANTIDAD_REPONER
+// Forecast consumo — periodo = filtro (desde/hasta / preset). Misma ventana que el resto del dashboard.
 get('/api/inv/consumo', async (req) => {
   const dbo = getReqDbOpts(req);
-  const dias = Math.min(parseInt(req.query.dias) || 90, 365);
+  const { desdeStr, hastaStr, periodDays } = invPeriodDaysFromReq(req);
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
   const lead = Math.min(parseInt(req.query.lead) || 15, 60);
   const csp = await resolveConsumosSchema(dbo);
@@ -4090,18 +4092,18 @@ get('/api/inv/consumo', async (req) => {
   const rows = await query(`
     SELECT FIRST ${limit} a.NOMBRE AS DESCRIPCION, a.ARTICULO_ID, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
       COALESCE(ex.EXISTENCIA, 0) AS EXISTENCIA_ACTUAL, COALESCE(mn.INVENTARIO_MINIMO, 0) AS MIN_ACTUAL,
-      SUM(d.UNIDADES) AS CONSUMO_PERIODO, SUM(d.UNIDADES) / ${dias}.0 AS CONSUMO_DIARIO,
-      CASE WHEN SUM(d.UNIDADES) > 0 THEN CAST(COALESCE(ex.EXISTENCIA, 0) / (SUM(d.UNIDADES) / ${dias}.0) AS INTEGER) ELSE 9999 END AS DIAS_STOCK,
-      CASE WHEN SUM(d.UNIDADES) > 0 THEN CAST(SUM(d.UNIDADES) / ${dias}.0 * ${lead} + 0.9999 AS INTEGER) ELSE 0 END AS STOCK_MINIMO_RECOMENDADO
+      SUM(d.UNIDADES) AS CONSUMO_PERIODO, SUM(d.UNIDADES) / ${periodDays}.0 AS CONSUMO_DIARIO,
+      CASE WHEN SUM(d.UNIDADES) > 0 THEN CAST(COALESCE(ex.EXISTENCIA, 0) / (SUM(d.UNIDADES) / ${periodDays}.0) AS INTEGER) ELSE 9999 END AS DIAS_STOCK,
+      CASE WHEN SUM(d.UNIDADES) > 0 THEN CAST(SUM(d.UNIDADES) / ${periodDays}.0 * ${lead} + 0.9999 AS INTEGER) ELSE 0 END AS STOCK_MINIMO_RECOMENDADO
     FROM ${subVe} d
     JOIN ARTICULOS a ON a.ARTICULO_ID = d.ARTICULO_ID
     LEFT JOIN ${SQL_EXIST_SUB} ex ON ex.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${SQL_MINIMO_SUB} mn ON mn.ARTICULO_ID = a.ARTICULO_ID
-    WHERE CAST(d.FECHA AS DATE) >= (CURRENT_DATE - ${dias}) AND COALESCE(a.ESTATUS, 'A') = 'A'
+    WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(d.FECHA AS DATE) <= CAST(? AS DATE) AND COALESCE(a.ESTATUS, 'A') = 'A'
     GROUP BY a.NOMBRE, a.ARTICULO_ID, a.UNIDAD_VENTA, ex.EXISTENCIA, mn.INVENTARIO_MINIMO
     HAVING SUM(d.UNIDADES) > 0
     ORDER BY DIAS_STOCK ASC
-  `, [], 12000, dbo).catch(() => []);
+  `, [desdeStr, hastaStr], 12000, dbo).catch(() => []);
   return rows.map(r => ({
     ...r,
     ALERTA: +r.DIAS_STOCK < lead ? 'CRITICO' : +r.DIAS_STOCK < lead * 2 ? 'BAJO' : +r.EXISTENCIA_ACTUAL <= +r.MIN_ACTUAL ? 'BAJO_MINIMO' : 'OK',
@@ -4128,13 +4130,13 @@ get('/api/inv/sin-movimiento', async (req) => {
       SELECT d.ARTICULO_ID, MAX(d.FECHA) AS ULTIMO_MOVIMIENTO
       FROM ${subVe} d
       WHERE d.UNIDADES > 0
-        AND d.FECHA >= (CURRENT_DATE - ${Math.min(dias * 2, 730)})
+        AND CAST(d.FECHA AS DATE) >= (CURRENT_DATE - ${Math.min(dias * 2, 540)})
       GROUP BY d.ARTICULO_ID
     ) um ON um.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND COALESCE(ex.EXISTENCIA, 0) > 0
       AND (um.ULTIMO_MOVIMIENTO IS NULL OR (CURRENT_DATE - um.ULTIMO_MOVIMIENTO) > ${dias})
     ORDER BY DIAS_SIN_VENTA DESC NULLS FIRST, ex.EXISTENCIA DESC
-  `, [], 120000, dbo).catch(() => []);
+  `, [], 180000, dbo).catch(() => []);
   }
   if (isAllDbs(req)) return runForAllDbs((dbo) => sinMovimientoForDb(dbo));
   return sinMovimientoForDb(getReqDbOpts(req));
@@ -4146,7 +4148,7 @@ get('/api/inv/operacion-critica', async (req) => {
     const limit2 = Math.min(parseInt(req.query.limit) || 120, 300);
     async function opCritForDb(dbo) {
       const csp2 = await resolveConsumosSchema(dbo);
-      const subOc2 = consumosSubSql('', csp2);
+      const subOc2 = consumosSubSql('VE', csp2);
       const rows2 = await query(`
     SELECT FIRST ${limit2}
       a.ARTICULO_ID, a.NOMBRE AS DESCRIPCION, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
@@ -4158,7 +4160,7 @@ get('/api/inv/operacion-critica', async (req) => {
     LEFT JOIN ${SQL_EXIST_SUB} ex ON ex.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${SQL_MINIMO_SUB} mn ON mn.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN (SELECT si.ARTICULO_ID, SUM(COALESCE(si.ENTRADAS_UNIDADES,0)) AS ENTRADAS_TOTAL, SUM(COALESCE(si.SALIDAS_UNIDADES,0)) AS SALIDAS_TOTAL FROM SALDOS_IN si GROUP BY si.ARTICULO_ID) hs ON hs.ARTICULO_ID = a.ARTICULO_ID
-    LEFT JOIN (SELECT d.ARTICULO_ID, SUM(CASE WHEN CAST(d.FECHA AS DATE)>=(CURRENT_DATE-28) THEN COALESCE(d.UNIDADES,0) ELSE 0 END) AS CONSUMO_4S, SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA)=EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA)=EXTRACT(MONTH FROM CURRENT_DATE) THEN COALESCE(d.UNIDADES,0) ELSE 0 END) AS CONSUMO_MES, MAX(CAST(d.FECHA AS DATE)) AS ULTIMO_MOVIMIENTO, (CURRENT_DATE-MAX(CAST(d.FECHA AS DATE))) AS DIAS_SIN_VENTA FROM ${subOc2} d WHERE d.UNIDADES>0 GROUP BY d.ARTICULO_ID) cs ON cs.ARTICULO_ID=a.ARTICULO_ID
+    LEFT JOIN (SELECT d.ARTICULO_ID, SUM(CASE WHEN CAST(d.FECHA AS DATE)>=(CURRENT_DATE-28) THEN COALESCE(d.UNIDADES,0) ELSE 0 END) AS CONSUMO_4S, SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA)=EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA)=EXTRACT(MONTH FROM CURRENT_DATE) THEN COALESCE(d.UNIDADES,0) ELSE 0 END) AS CONSUMO_MES, MAX(CAST(d.FECHA AS DATE)) AS ULTIMO_MOVIMIENTO, (CURRENT_DATE-MAX(CAST(d.FECHA AS DATE))) AS DIAS_SIN_VENTA FROM ${subOc2} d WHERE d.UNIDADES>0 AND CAST(d.FECHA AS DATE)>=(CURRENT_DATE-400) GROUP BY d.ARTICULO_ID) cs ON cs.ARTICULO_ID=a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS,'A')='A' AND (COALESCE(ex.EXISTENCIA,0)<=0 OR (COALESCE(cs.CONSUMO_4S,0)>0 AND COALESCE(ex.EXISTENCIA,0)<=COALESCE(mn.INVENTARIO_MINIMO,0)))
     ORDER BY CASE WHEN COALESCE(ex.EXISTENCIA,0)<=0 AND COALESCE(cs.CONSUMO_4S,0)>0 THEN 0 ELSE 1 END, COALESCE(cs.CONSUMO_4S,0) DESC, COALESCE(ex.EXISTENCIA,0) ASC
       `, [], 120000, dbo).catch(() => []);
@@ -4182,7 +4184,7 @@ get('/api/inv/operacion-critica', async (req) => {
   }
   const dbo = getReqDbOpts(req);
   const csp = await resolveConsumosSchema(dbo);
-  const subOc = consumosSubSql('', csp);
+  const subOc = consumosSubSql('VE', csp);
   const limit = Math.min(parseInt(req.query.limit) || 120, 300);
   const rows = await query(`
     SELECT FIRST ${limit}
@@ -4219,7 +4221,7 @@ get('/api/inv/operacion-critica', async (req) => {
         (CURRENT_DATE - MAX(CAST(d.FECHA AS DATE))) AS DIAS_SIN_VENTA
       FROM ${subOc} d
       WHERE d.UNIDADES > 0
-        AND d.FECHA >= (CURRENT_DATE - 45)
+        AND CAST(d.FECHA AS DATE) >= (CURRENT_DATE - 400)
       GROUP BY d.ARTICULO_ID
     ) cs ON cs.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A'
@@ -4234,7 +4236,7 @@ get('/api/inv/operacion-critica', async (req) => {
       CASE WHEN COALESCE(ex.EXISTENCIA, 0) <= 0 AND COALESCE(cs.CONSUMO_4S, 0) > 0 THEN 0 ELSE 1 END,
       COALESCE(cs.CONSUMO_4S, 0) DESC,
       COALESCE(ex.EXISTENCIA, 0) ASC
-  `, [], 120000, dbo).catch(() => []);
+  `, [], 180000, dbo).catch(() => []);
 
   const enriched = (rows || []).map((r) => {
     const existencia = +r.EXISTENCIA_ACTUAL || 0;
@@ -5689,6 +5691,49 @@ function resolveDateRangeFromQuery(q) {
   if (!isNaN(y) && isNaN(m)) {
     return { desdeStr: `${y}-01-01`, hastaStr: `${y}-12-31` };
   }
+  const preset = String((q || {}).preset || '').toLowerCase();
+  const now = new Date();
+  const yNow = now.getFullYear();
+  const moNow = now.getMonth() + 1;
+  const iso = (d) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  if (preset === 'hoy') {
+    const s = iso(now);
+    return { desdeStr: s, hastaStr: s };
+  }
+  if (preset === 'semana') {
+    const dow = now.getDay();
+    const start = new Date(now);
+    start.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1));
+    return { desdeStr: iso(start), hastaStr: iso(now) };
+  }
+  if (preset === 'mes') {
+    const lastDay = new Date(yNow, moNow, 0).getDate();
+    return {
+      desdeStr: `${yNow}-${String(moNow).padStart(2, '0')}-01`,
+      hastaStr: `${yNow}-${String(moNow).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`,
+    };
+  }
+  if (preset === 'mes_ant') {
+    let pm = moNow - 1;
+    let py = yNow;
+    if (pm < 1) {
+      pm = 12;
+      py--;
+    }
+    const lastDay = new Date(py, pm, 0).getDate();
+    return {
+      desdeStr: `${py}-${String(pm).padStart(2, '0')}-01`,
+      hastaStr: `${py}-${String(pm).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`,
+    };
+  }
+  if (preset === 'anio') {
+    return { desdeStr: `${yNow}-01-01`, hastaStr: `${yNow}-12-31` };
+  }
+  if (preset === 'anio_ant') {
+    const yy = yNow - 1;
+    return { desdeStr: `${yy}-01-01`, hastaStr: `${yy}-12-31` };
+  }
   const mesesN = Math.min(Math.max(parseInt((q || {}).meses, 10) || 3, 1), 24);
   const d = new Date();
   d.setMonth(d.getMonth() - mesesN);
@@ -5696,6 +5741,15 @@ function resolveDateRangeFromQuery(q) {
   const h = new Date();
   const hastaStr = `${h.getFullYear()}-${String(h.getMonth() + 1).padStart(2, '0')}-${String(h.getDate()).padStart(2, '0')}`;
   return { desdeStr, hastaStr };
+}
+
+/** Periodo del filtro (inventario consumo/forecast): días calendario inclusivos. */
+function invPeriodDaysFromReq(req) {
+  const { desdeStr, hastaStr } = resolveDateRangeFromQuery(req.query || {});
+  const d0 = new Date(String(desdeStr) + 'T12:00:00');
+  const d1 = new Date(String(hastaStr) + 'T12:00:00');
+  const periodDays = Math.max(1, Math.round((d1 - d0) / 86400000) + 1);
+  return { desdeStr, hastaStr, periodDays };
 }
 
 // Balance General resumido por naturaleza contable (activo/pasivo/capital) al cierre del periodo filtrado.

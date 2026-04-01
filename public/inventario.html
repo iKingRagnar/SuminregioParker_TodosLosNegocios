@@ -127,6 +127,11 @@ nav{display:flex;align-items:center;gap:.25rem}
     </div>
   </div>
   <div id="filter-bar"></div>
+  <p class="inv-filter-hint" style="font-size:.78rem;color:var(--muted);margin:-0.5rem 0 1.25rem;line-height:1.45;max-width:56rem">
+    Los KPI de arriba y el stock son <strong style="color:var(--text2)">al momento</strong>.
+    <strong style="color:var(--text2)">Consumo semanal</strong> y <strong style="color:var(--text2)">forecast</strong> usan ventas del <strong style="color:var(--text2)">periodo</strong> que elijas (Hoy, Este mes, etc.).
+    <strong style="color:var(--text2)">Sin movimiento</strong> y <strong style="color:var(--text2)">Operaci&oacute;n</strong> siguen reglas fijas de an&aacute;lisis (no cambian con el chip).
+  </p>
 
   <div class="kpi-grid">
     <div class="kpi-card blue"><div class="kpi-label">Total Art&iacute;culos</div><div class="kpi-value" id="kpi-total">&mdash;</div><div class="kpi-sub">Activos en cat&aacute;logo</div></div>
@@ -157,7 +162,7 @@ nav{display:flex;align-items:center;gap:.25rem}
     </div>
 
     <div class="card">
-      <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>Consumo Semanal (stock cr&iacute;tico)</div><div class="card-badge">&Uacute;ltimas 4 semanas</div></div>
+      <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>Consumo Semanal (stock cr&iacute;tico)</div><div class="card-badge">Seg&uacute;n periodo arriba</div></div>
       <div class="card-body" style="padding:0">
         <table class="tbl" id="tbl-consumo">
           <thead><tr><th>Art&iacute;culo</th><th class="num">Exist.</th><th class="num">Cons/Sem</th><th class="num">Semanas</th></tr></thead>
@@ -181,7 +186,7 @@ nav{display:flex;align-items:center;gap:.25rem}
     <div class="card-head">
       <div class="card-title">
         <svg viewBox="0 0 24 24"><path d="M2.5 19h19v2h-19zm19.57-9.36c-.21-.8-1.04-1.28-1.84-1.06L14.92 10l-6.9-6.43-1.93.51 4.14 7.17-4.97 1.33-1.97-1.54-1.45.39 2.59 4.49s7.12-1.9 14.35-3.84c.81-.23 1.28-1.05 1.07-1.86z"/></svg>
-        Forecast: Consumo &amp; Reposici&oacute;n (&uacute;ltimos 90 d&iacute;as)
+        Forecast: Consumo &amp; Reposici&oacute;n (periodo seleccionado)
       </div>
       <div class="card-badge" id="consumo-badge">--</div>
     </div>
@@ -430,7 +435,7 @@ async function loadTopStock(g) {
 
 async function loadForecast(g){
   try{
-    const rows = (await apiFetch(apiDb('/api/inv/consumo?dias=90&limit=50&lead=15'), 25000)).slice().sort((a,b)=>{
+    const rows = (await apiFetch(apiDb('/api/inv/consumo?limit=50&lead=15'), 30000)).slice().sort((a,b)=>{
       const da = +a.DIAS_STOCK, db = +b.DIAS_STOCK;
       const na = isNaN(da) ? 999999 : da;
       const nb = isNaN(db) ? 999999 : db;
@@ -484,7 +489,7 @@ async function loadSinMovimiento(g){
   }, 130000);
   const fin = ()=>{ done=true; clearTimeout(tWarm); clearTimeout(tHard); };
   try{
-    const all = (await apiFetch(apiDb('/api/inv/sin-movimiento?dias=180&limit=100'), 120000)).slice().sort((a,b)=>(+b.DIAS_SIN_VENTA||0)-(+a.DIAS_SIN_VENTA||0));
+    const all = (await apiFetch(apiDb('/api/inv/sin-movimiento?dias=180&limit=60'), 180000)).slice().sort((a,b)=>(+b.DIAS_SIN_VENTA||0)-(+a.DIAS_SIN_VENTA||0));
     fin();
     if (g !== invLoadGen) return;
     const rowHtml = r => {
@@ -516,7 +521,7 @@ async function loadSinMovimiento(g){
 
 async function loadOperacionCritica(g){
   try{
-    const payload = await apiFetch(apiDb('/api/inv/operacion-critica?limit=120'), 120000);
+    const payload = await apiFetch(apiDb('/api/inv/operacion-critica?limit=120'), 180000);
     if (g !== invLoadGen) return;
     const rows = Array.isArray(payload && payload.rows) ? payload.rows : [];
     const rs = (payload && payload.resumen) || {};
