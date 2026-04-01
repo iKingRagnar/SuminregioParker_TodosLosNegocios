@@ -260,10 +260,20 @@ nav{display:flex;align-items:center;gap:.25rem}
 
 <script>
 const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : '';
+/** Incluye ?db=, preset, desde/hasta (mismo criterio que el resto del dashboard). */
 function apiDb(rel){
   const p = rel.startsWith('/') ? rel : '/' + rel;
+  if (typeof filterBuildQS === 'function') {
+    const qs = filterBuildQS();
+    if (qs) {
+      const sep = p.indexOf('?') >= 0 ? '&' : '?';
+      return API + p + sep + qs;
+    }
+  }
   return API + (typeof apiPathWithDb === 'function' ? apiPathWithDb(p) : p);
 }
+/** Evita que una recarga lenta pise datos de una recarga nueva (cambio de filtro). */
+let invLoadGen = 0;
 async function apiFetch(url, ms){
   ms = ms || 20000;
   const ctrl = new AbortController();
@@ -305,8 +315,10 @@ function doBusqueda(val) {
 }
 
 async function loadAll() {
+  const g = ++invLoadGen;
   try {
     const d = await apiFetch(apiDb('/api/inv/resumen'), 20000);
+    if (g !== invLoadGen) return;
     setText('kpi-total', Number(d.TOTAL_ARTICULOS||0).toLocaleString());
     setText('kpi-valor', fmtK(d.VALOR_INVENTARIO));
     setText('kpi-minimo', Number(d.BAJO_MINIMO||0).toLocaleString());
@@ -323,15 +335,32 @@ async function loadAll() {
       ap('kpi-minimo', bajo === 0 ? 'ok' : bajo <= 5 ? 'warn' : 'danger');
       ap('kpi-cero', cero === 0 ? 'ok' : cero <= 3 ? 'warn' : 'danger');
     }
-  } catch(e){}
+  } catch(e){
+    if (g !== invLoadGen) return;
+    console.error('inv-resumen', e);
+    setText('kpi-total', '—');
+    setText('kpi-valor', '—');
+    setText('kpi-minimo', '—');
+    setText('kpi-cero', '—');
+    setText('page-sub', 'Error al cargar resumen (revisa red o servidor). ' + (e && e.message ? e.message : ''));
+  }
 
-  await Promise.all([loadMinimo(), loadConsumo(), loadTopStock(), loadForecast(), loadSinMovimiento(), loadOperacionCritica()]);
+  if (g !== invLoadGen) return;
+  await Promise.all([loadMinimo(g), loadConsumo(g), loadTopStock(g)]);
+  if (g !== invLoadGen) return;
+  await loadForecast(g);
+  if (g !== invLoadGen) return;
+  await loadSinMovimiento(g);
+  if (g !== invLoadGen) return;
+  await loadOperacionCritica(g);
+  if (g !== invLoadGen) return;
   setText('page-sub', 'Actualizado: '+new Date().toLocaleTimeString('es-MX'));
 }
 
-async function loadMinimo() {
+async function loadMinimo(g) {
   try {
     const rows = (await apiFetch(apiDb('/api/inv/bajo-minimo?limit=50'), 20000)).slice().sort((a,b)=>(+b.FALTANTE||0)-(+a.FALTANTE||0));
+    if (g !== invLoadGen) return;
     document.querySelector('#tbl-minimo tbody').innerHTML = rows.map(r=>{
       const pct = r.EXISTENCIA_MINIMA>0?(r.EXISTENCIA/r.EXISTENCIA_MINIMA*100):0;
       const barColor = r.EXISTENCIA<=0?'var(--red)':'var(--orange)';
@@ -348,15 +377,17 @@ async function loadMinimo() {
     }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted)">Sin art&iacute;culos bajo m&iacute;nimo</td></tr>';
     setText('minimo-badge', rows.length+' art&iacute;culos');
   } catch(e){
+    if (g !== invLoadGen) return;
     console.error('bajo-minimo',e);
     const tb=document.querySelector('#tbl-minimo tbody');
     if(tb) tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--red);padding:1.5rem">Error al cargar bajo m&iacute;nimo.</td></tr>';
   }
 }
 
-async function loadConsumo() {
+async function loadConsumo(g) {
   try {
     const rows = (await apiFetch(apiDb('/api/inv/consumo-semanal?limit=30'), 20000)).slice().sort((a,b)=>(+b.CONSUMO_SEMANAL_PROM||0)-(+a.CONSUMO_SEMANAL_PROM||0));
+    if (g !== invLoadGen) return;
     document.querySelector('#tbl-consumo tbody').innerHTML = rows.map(r=>{
       const sem = +(r.SEMANAS_STOCK||0);
       const semColor = sem<1?'var(--red)':sem<2?'var(--orange)':sem<4?'var(--yellow)':'var(--green)';
@@ -370,15 +401,17 @@ async function loadConsumo() {
       </tr>`;
     }).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sin datos de consumo</td></tr>';
   } catch(e){
+    if (g !== invLoadGen) return;
     console.error('consumo',e);
     const tb=document.querySelector('#tbl-consumo tbody');
     if(tb) tb.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--red);padding:1.5rem">Error al cargar consumo semanal. Revisa consola o API.</td></tr>';
   }
 }
 
-async function loadTopStock() {
+async function loadTopStock(g) {
   try {
     const rows = (await apiFetch(apiDb('/api/inv/top-stock?limit=30'), 20000)).slice().sort((a,b)=>(+b.VALOR_TOTAL||0)-(+a.VALOR_TOTAL||0));
+    if (g !== invLoadGen) return;
     document.querySelector('#tbl-topstock tbody').innerHTML = rows.map((r,i)=>`<tr>
       <td style="font-family:'DM Mono',monospace;font-size:.7rem;color:var(--muted)">${i+1}</td>
       <td class="lbl">${r.DESCRIPCION}</td>
@@ -387,10 +420,15 @@ async function loadTopStock() {
       <td class="num">${fmt(r.PRECIO_VENTA)}</td>
       <td class="num"><span style="color:var(--yellow)">${fmt(r.VALOR_TOTAL)}</span></td>
     </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted)">Sin datos</td></tr>';
-  } catch(e){}
+  } catch(e){
+    if (g !== invLoadGen) return;
+    console.error('top-stock', e);
+    const tb = document.querySelector('#tbl-topstock tbody');
+    if (tb) tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--red);padding:1.5rem">Error al cargar top stock.</td></tr>';
+  }
 }
 
-async function loadForecast(){
+async function loadForecast(g){
   try{
     const rows = (await apiFetch(apiDb('/api/inv/consumo?dias=90&limit=50&lead=15'), 25000)).slice().sort((a,b)=>{
       const da = +a.DIAS_STOCK, db = +b.DIAS_STOCK;
@@ -398,6 +436,7 @@ async function loadForecast(){
       const nb = isNaN(db) ? 999999 : db;
       return na - nb;
     });
+    if (g !== invLoadGen) return;
     setText('consumo-badge', rows.length+' art\u00edculos');
     document.getElementById('tbl-forecast-body').innerHTML = rows.map(r=>{
       const dias = +(r.DIAS_STOCK||0);
@@ -416,10 +455,15 @@ async function loadForecast(){
         <td><span style="font-family:\'DM Mono\',monospace;font-size:.65rem;color:${alertaCol}">${alertaTxt}</span></td>
       </tr>`;
     }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.5rem">Sin datos</td></tr>';
-  }catch(e){console.error('forecast',e);}
+  }catch(e){
+    if (g !== invLoadGen) return;
+    console.error('forecast',e);
+    const fb = document.getElementById('tbl-forecast-body');
+    if (fb) fb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--red);padding:1.5rem">Error al cargar forecast.</td></tr>';
+  }
 }
 
-async function loadSinMovimiento(){
+async function loadSinMovimiento(g){
   const b180 = document.getElementById('tbl-sinmov-body');
   const b365 = document.getElementById('tbl-sinmov365-body');
   const errRow = '<tr><td colspan="6" style="text-align:center;color:var(--red);padding:1.5rem">Error al cargar &mdash; recarga la p&aacute;gina</td></tr>';
@@ -427,13 +471,13 @@ async function loadSinMovimiento(){
   let done = false;
   // After 20s show "connecting" state so user knows it's not stuck
   const tWarm = setTimeout(()=>{
-    if(done) return;
+    if(done || g !== invLoadGen) return;
     if(b180) b180.innerHTML = warmRow;
     if(b365) b365.innerHTML = warmRow;
   }, 20000);
   // Hard deadline: guarantee DOM update even if catch block fails for any reason
   const tHard = setTimeout(()=>{
-    if(done) return;
+    if(done || g !== invLoadGen) return;
     done = true;
     if(b180) b180.innerHTML = errRow;
     if(b365) b365.innerHTML = errRow;
@@ -442,6 +486,7 @@ async function loadSinMovimiento(){
   try{
     const all = (await apiFetch(apiDb('/api/inv/sin-movimiento?dias=180&limit=100'), 120000)).slice().sort((a,b)=>(+b.DIAS_SIN_VENTA||0)-(+a.DIAS_SIN_VENTA||0));
     fin();
+    if (g !== invLoadGen) return;
     const rowHtml = r => {
       const dias = +(r.DIAS_SIN_VENTA||9999);
       const col  = dias>=365?'var(--red)':dias>180?'var(--orange)':'var(--yellow)';
@@ -462,15 +507,17 @@ async function loadSinMovimiento(){
     document.getElementById('sinmov365-badge').textContent = badge(rows365.length);
   }catch(e){
     fin();
+    if (g !== invLoadGen) return;
     console.error('sin-movimiento',e);
     if(b180) b180.innerHTML = errRow;
     if(b365) b365.innerHTML = errRow;
   }
 }
 
-async function loadOperacionCritica(){
+async function loadOperacionCritica(g){
   try{
     const payload = await apiFetch(apiDb('/api/inv/operacion-critica?limit=120'), 120000);
+    if (g !== invLoadGen) return;
     const rows = Array.isArray(payload && payload.rows) ? payload.rows : [];
     const rs = (payload && payload.resumen) || {};
     setText('op-badge', `${rows.length} filas · ${Number(rs.criticos||0)} cr\u00edticos`);
@@ -500,14 +547,23 @@ async function loadOperacionCritica(){
       </tr>`;
     }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.5rem">Sin art&iacute;culos para este an&aacute;lisis</td></tr>';
   }catch(e){
+    if (g !== invLoadGen) return;
     console.error('operacion-critica',e);
     const tb=document.getElementById('tbl-operacion-body');
-    if(tb) tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--red);padding:1.5rem">Error al cargar operaci&oacute;n inventario.</td></tr>';
+    if(tb) tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--red);padding:1.5rem">Error al cargar operaci&oacute;n inventario.</td></tr>';
   }
 }
 
+let invFilterDebounce = null;
+function scheduleInvReload() {
+  clearTimeout(invFilterDebounce);
+  invFilterDebounce = setTimeout(function () {
+    invFilterDebounce = null;
+    loadAll();
+  }, 450);
+}
 if (typeof initFilters === 'function') {
-  initFilters({ containerId:'filter-bar', showVendedor:false, onReady:()=>loadAll(), onChange:()=>loadAll() });
+  initFilters({ containerId:'filter-bar', showVendedor:false, onReady:function(){ loadAll(); }, onChange:function(){ scheduleInvReload(); } });
 } else {
   loadAll();
 }
