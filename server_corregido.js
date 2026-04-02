@@ -3900,6 +3900,10 @@ const SQL_PRECIO_SUB = `( SELECT ARTICULO_ID, MIN(PRECIO) AS PRECIO1 FROM PRECIO
 const INV_CONSUMO_Q_MS = 90000;
 /** Listados inventario (bajo mínimo, existencias, top stock): evitar [] por timeout 12s en servidor lento. */
 const INV_LIST_Q_MS = 60000;
+/** Por defecto VE+PV en consumos inventario; si MICROSIP_INV_CONSUMO_VE_ONLY=1 → solo VE (más liviano). */
+function invUseVePvUnion() {
+  return !(process.env.MICROSIP_INV_CONSUMO_VE_ONLY || '').match(/^(1|true|yes)$/i);
+}
 
 const invPrecioSubCache = new Map();
 /** Precio mínimo por artículo (PRECIO vs PRECIO_VENTA; MONEDA_ID opcional). Falla común: MONEDA_ID o PRECIO distintos → rompe solo el KPI agregado con precios. */
@@ -4064,15 +4068,14 @@ get('/api/inv/top-stock', async (req) => {
   `, [], INV_LIST_Q_MS, dbo).catch(() => []);
 });
 
-// Consumo semanal desde ventas (VE; PV opcional vía MICROSIP_INV_CONSUMO_VE_PV=1 si hace falta). Respeta periodo del filtro.
+// Consumo semanal desde ventas (VE+PV por defecto; MICROSIP_INV_CONSUMO_VE_ONLY=1 → solo VE). Respeta periodo del filtro.
 get('/api/inv/consumo-semanal', async (req) => {
   const dbo = getReqDbOpts(req);
   const limit = Math.min(parseInt(req.query.limit) || 30, 100);
   const { desdeStr, hastaStr, periodDays } = invPeriodDaysFromReq(req);
   const weeksInPeriod = Math.max(periodDays / 7.0, 0.01);
   const csp = await resolveConsumosSchema(dbo);
-  const useVePv = (process.env.MICROSIP_INV_CONSUMO_VE_PV || '').match(/^(1|true|yes)$/i);
-  const subDoc = consumosSubSql(useVePv ? '' : 'VE', csp);
+  const subDoc = consumosSubSql(invUseVePvUnion() ? '' : 'VE', csp);
   return query(`
     SELECT FIRST ${limit} a.NOMBRE AS DESCRIPCION, a.ARTICULO_ID, COALESCE(s.EXISTENCIA, 0) AS EXISTENCIA,
       SUM(d.UNIDADES) / ${weeksInPeriod} AS CONSUMO_SEMANAL_PROM,
@@ -4094,8 +4097,7 @@ get('/api/inv/consumo', async (req) => {
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
   const lead = Math.min(parseInt(req.query.lead) || 15, 60);
   const csp = await resolveConsumosSchema(dbo);
-  const useVePv = (process.env.MICROSIP_INV_CONSUMO_VE_PV || '').match(/^(1|true|yes)$/i);
-  const subDoc = consumosSubSql(useVePv ? '' : 'VE', csp);
+  const subDoc = consumosSubSql(invUseVePvUnion() ? '' : 'VE', csp);
   const rows = await query(`
     SELECT FIRST ${limit} a.NOMBRE AS DESCRIPCION, a.ARTICULO_ID, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
       COALESCE(ex.EXISTENCIA, 0) AS EXISTENCIA_ACTUAL, COALESCE(mn.INVENTARIO_MINIMO, 0) AS MIN_ACTUAL,
@@ -4125,8 +4127,7 @@ get('/api/inv/sin-movimiento', async (req) => {
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
   async function sinMovimientoForDb(dbo) {
     const csp = await resolveConsumosSchema(dbo);
-    const useVePv = (process.env.MICROSIP_INV_CONSUMO_VE_PV || '').match(/^(1|true|yes)$/i);
-    const subDoc = consumosSubSql(useVePv ? '' : 'VE', csp);
+    const subDoc = consumosSubSql(invUseVePvUnion() ? '' : 'VE', csp);
     return query(`
     SELECT FIRST ${limit} a.NOMBRE AS DESCRIPCION, a.ARTICULO_ID, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
       COALESCE(ex.EXISTENCIA, 0) AS EXISTENCIA_ACTUAL, COALESCE(mn.INVENTARIO_MINIMO, 0) AS MIN_ACTUAL,
@@ -4157,8 +4158,7 @@ get('/api/inv/operacion-critica', async (req) => {
     const limit2 = Math.min(parseInt(req.query.limit) || 120, 300);
     async function opCritForDb(dbo) {
       const csp2 = await resolveConsumosSchema(dbo);
-      const useVePv2 = (process.env.MICROSIP_INV_CONSUMO_VE_PV || '').match(/^(1|true|yes)$/i);
-      const subOc2 = consumosSubSql(useVePv2 ? '' : 'VE', csp2);
+      const subOc2 = consumosSubSql(invUseVePvUnion() ? '' : 'VE', csp2);
       const rows2 = await query(`
     SELECT FIRST ${limit2}
       a.ARTICULO_ID, a.NOMBRE AS DESCRIPCION, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
@@ -4173,7 +4173,7 @@ get('/api/inv/operacion-critica', async (req) => {
     LEFT JOIN (SELECT d.ARTICULO_ID, SUM(CASE WHEN CAST(d.FECHA AS DATE)>=(CURRENT_DATE-28) THEN COALESCE(d.UNIDADES,0) ELSE 0 END) AS CONSUMO_4S, SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA)=EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA)=EXTRACT(MONTH FROM CURRENT_DATE) THEN COALESCE(d.UNIDADES,0) ELSE 0 END) AS CONSUMO_MES, MAX(CAST(d.FECHA AS DATE)) AS ULTIMO_MOVIMIENTO, (CURRENT_DATE-MAX(CAST(d.FECHA AS DATE))) AS DIAS_SIN_VENTA FROM ${subOc2} d WHERE d.UNIDADES>0 AND CAST(d.FECHA AS DATE)>=(CURRENT_DATE-400) GROUP BY d.ARTICULO_ID) cs ON cs.ARTICULO_ID=a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS,'A')='A' AND (COALESCE(ex.EXISTENCIA,0)<=0 OR (COALESCE(cs.CONSUMO_4S,0)>0 AND COALESCE(ex.EXISTENCIA,0)<=COALESCE(mn.INVENTARIO_MINIMO,0)))
     ORDER BY CASE WHEN COALESCE(ex.EXISTENCIA,0)<=0 AND COALESCE(cs.CONSUMO_4S,0)>0 THEN 0 ELSE 1 END, COALESCE(cs.CONSUMO_4S,0) DESC, COALESCE(ex.EXISTENCIA,0) ASC
-      `, [], 120000, dbo).catch(() => []);
+      `, [], 180000, dbo).catch(() => []);
       return (rows2 || []).map(r => {
         const existencia=+r.EXISTENCIA_ACTUAL||0, minimo=+r.MIN_ACTUAL||0, c4=+r.CONSUMO_4_SEMANAS||0, cm=+r.CONSUMO_MES_ACTUAL||0;
         const semanal=c4>0?c4/4:0, diario=semanal/7, semanas=semanal>0?existencia/semanal:null, dias=diario>0?existencia/diario:null;
@@ -4194,8 +4194,7 @@ get('/api/inv/operacion-critica', async (req) => {
   }
   const dbo = getReqDbOpts(req);
   const csp = await resolveConsumosSchema(dbo);
-  const useVePvOc = (process.env.MICROSIP_INV_CONSUMO_VE_PV || '').match(/^(1|true|yes)$/i);
-  const subOc = consumosSubSql(useVePvOc ? '' : 'VE', csp);
+  const subOc = consumosSubSql(invUseVePvUnion() ? '' : 'VE', csp);
   const limit = Math.min(parseInt(req.query.limit) || 120, 300);
   const rows = await query(`
     SELECT FIRST ${limit}

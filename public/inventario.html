@@ -410,7 +410,7 @@ async function loadAll() {
       ap('kpi-cero', cero === 0 ? 'ok' : cero <= 3 ? 'warn' : 'danger');
     }
     const pl = invPeriodLabel();
-    setText('page-sub', 'KPI = existencias al momento. Cargando tablas y forecast' + (pl ? ' · periodo: ' + pl : '') + '…');
+    setText('page-sub', 'KPI = existencias al momento. Cargando inventario completo' + (pl ? ' · periodo: ' + pl : '') + '…');
   } catch(e){
     if (g !== invLoadGen) return;
     console.error('inv-resumen', e);
@@ -423,11 +423,15 @@ async function loadAll() {
   }
 
   if (g !== invLoadGen) return;
-  // Forecast en el mismo lote que consumo semanal: si consumo tarda, el forecast no debe quedar en "Cargando…" por orden secuencial.
-  await Promise.all([loadMinimo(g), loadTopStock(g), loadConsumo(g), loadForecast(g)]);
-  if (g !== invLoadGen) return;
-  setText('page-sub', 'Cargando sin movimiento y operación (consultas pesadas, 1–3 min posibles)…');
-  await Promise.all([loadSinMovimiento(g), loadOperacionCritica(g)]);
+  // Todo en paralelo: consumo semanal, sin movimiento y operación no esperan a que termine el forecast.
+  await Promise.all([
+    loadMinimo(g),
+    loadTopStock(g),
+    loadConsumo(g),
+    loadForecast(g),
+    loadSinMovimiento(g),
+    loadOperacionCritica(g)
+  ]);
   if (g !== invLoadGen) return;
   const pl = invPeriodLabel();
   setText('page-sub', 'Actualizado: ' + new Date().toLocaleTimeString('es-MX') + (pl ? ' · ' + pl : ''));
@@ -435,7 +439,7 @@ async function loadAll() {
 
 async function loadMinimo(g) {
   try {
-    const rows = (await invFwt(apiDb('/api/inv/bajo-minimo?limit=50'), [], 60000)).slice().sort((a,b)=>(+b.FALTANTE||0)-(+a.FALTANTE||0));
+    const rows = invRows(await invFwt(apiDb('/api/inv/bajo-minimo?limit=50'), [], 65000)).slice().sort((a,b)=>(+b.FALTANTE||0)-(+a.FALTANTE||0));
     if (g !== invLoadGen) return;
     document.querySelector('#tbl-minimo tbody').innerHTML = rows.map(r=>{
       const pct = r.EXISTENCIA_MINIMA>0?(r.EXISTENCIA/r.EXISTENCIA_MINIMA*100):0;
@@ -475,7 +479,7 @@ async function loadConsumo(g) {
         <td class="num">${+(r.CONSUMO_SEMANAL_PROM||0).toFixed(1)}</td>
         <td class="num"><span class="semanas-tag tag ${semTag}" style="color:${semColor}">${semTxt}</span></td>
       </tr>`;
-    }).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sin datos de consumo en el periodo (no hubo salidas VE/PV en las fechas del filtro).</td></tr>';
+    }).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sin datos de consumo en el periodo (no hubo salidas en las fechas del filtro).</td></tr>';
   } catch(e){
     if (g !== invLoadGen) return;
     console.error('consumo',e);
@@ -551,13 +555,13 @@ async function loadSinMovimiento(g){
     if(b180) b180.innerHTML = warmRow;
     if(b365) b365.innerHTML = warmRow;
   }, 20000);
-  // Hard deadline: guarantee DOM update even if catch block fails for any reason
+  // Después del timeout del fetch (180s) no mostrar error falso; solo si algo rompe el flujo
   const tHard = setTimeout(()=>{
     if(done || g !== invLoadGen) return;
     done = true;
     if(b180) b180.innerHTML = errRow;
     if(b365) b365.innerHTML = errRow;
-  }, 130000);
+  }, 195000);
   const fin = ()=>{ done=true; clearTimeout(tWarm); clearTimeout(tHard); };
   try{
     const all = invRows(await invFwt(apiDb('/api/inv/sin-movimiento?dias=180&limit=60'), [], 180000)).slice().sort((a,b)=>(+b.DIAS_SIN_VENTA||0)-(+a.DIAS_SIN_VENTA||0));
