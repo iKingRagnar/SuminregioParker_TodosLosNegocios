@@ -606,7 +606,7 @@ async function loadSinMovimiento(g){
   const fin = ()=>{ done=true; clearTimeout(tWarm); };
   const sinMovTimeoutFallback = {
     __invTimeout: true,
-    __invErr: 'Sin respuesta en 135 s (sin movimiento). Consulta optimizada en servidor; si persiste, Render suele cortar ~60–120 s: revisa logs o variable MICROSIP_INV_SIN_MOV_HIST_DIAS.'
+    __invErr: 'Tiempo agotado (135 s) en sin movimiento. Suele ser límite de red/proxy (Render ~60–120 s), no reglas mal calculadas. En el API: modo rápido por defecto si RENDER=true; si forzaste MICROSIP_INV_SIN_MOV_FAST=0, quita o pon =1, o sirve inventario contra el servidor Parker sin proxy corto.'
   };
   try{
     const raw = await invFwt(apiDb('/api/inv/sin-movimiento?dias=180&limit=60'), sinMovTimeoutFallback, 135000);
@@ -666,7 +666,7 @@ async function loadOperacionCritica(g){
   try{
     const opTimeoutFallback = {
       __invTimeout: true,
-      __invErr: 'Sin respuesta en 115 s (operaci\u00f3n inventario). El proxy de Render a menudo corta antes: reintenta o revisa logs.'
+      __invErr: 'Tiempo agotado (115 s) en operaci\u00f3n inventario. Consulta pesada; el proxy (p. ej. Render) suele cortar antes que acabe Firebird. No implica reglas incorrectas. En Render el API acorta ventana de consumo si est\u00e1 en modo r\u00e1pido (RENDER); revisa logs o MICROSIP_INV_OP_CONSUMO_DIAS (menor = m\u00e1s liviano).'
     };
     const payload = await invFwt(apiDb('/api/inv/operacion-critica?limit=120'), opTimeoutFallback, 115000);
     if (g !== invLoadGen) return;

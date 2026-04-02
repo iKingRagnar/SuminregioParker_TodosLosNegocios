@@ -3945,14 +3945,16 @@ function invHeavySubTipo() {
 }
 
 /**
- * Sin movimiento: modo rápido = un solo scan de ventas recientes (más barato; DIAS/ULTIMO NULL en cliente).
- * Por defecto: modo completo (idle_um + días). En Render el proxy puede cortar ~60–120 s; si falla por tiempo, poner MICROSIP_INV_SIN_MOV_FAST=1.
- * Forzar rápido: MICROSIP_INV_SIN_MOV_FAST=1. Forzar completo: MICROSIP_INV_SIN_MOV_FAST=0.
+ * Sin movimiento: modo rápido = un solo scan de ventas recientes (DIAS/ULTIMO NULL en respuesta; tabla ≥365 en cliente suele vaciarse).
+ * Modo completo = idle_um + días (correcto para 365 días) pero suele superar el proxy de Render (~60–120 s).
+ * Prioridad env: MICROSIP_INV_SIN_MOV_FAST=0 fuerza completo; =1 fuerza rápido.
+ * Sin variable: en Render (RENDER=true) por defecto rápido; en otro host (p. ej. Parker directo) por defecto completo.
  */
 function invSinMovFastDefault() {
   const e = String(process.env.MICROSIP_INV_SIN_MOV_FAST || '').trim().toLowerCase();
+  if (e === '0' || e === 'false' || e === 'no') return false;
   if (e === '1' || e === 'true' || e === 'yes') return true;
-  return false;
+  return String(process.env.RENDER || '').toLowerCase() === 'true';
 }
 
 /** Días de historial de ventas en subquery cs de operación crítica (default 400; en modo liviano 120). Env: MICROSIP_INV_OP_CONSUMO_DIAS (28–730). */
