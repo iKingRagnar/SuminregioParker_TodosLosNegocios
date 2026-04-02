@@ -130,7 +130,7 @@ nav{display:flex;align-items:center;gap:.25rem}
   <p class="inv-filter-hint" style="font-size:.78rem;color:var(--muted);margin:-0.5rem 0 1.25rem;line-height:1.45;max-width:56rem">
     Las <strong style="color:var(--text2)">cuatro tarjetas KPI</strong> (totales, valor, bajo m&iacute;nimo, sin stock) son <strong style="color:var(--text2)">siempre al momento</strong> &mdash; <em>no</em> cambian al tocar Hoy / Esta semana / Este a&ntilde;o (es normal ver los mismos n&uacute;meros).
     <strong style="color:var(--text2)">Consumo semanal</strong> (tabla) y <strong style="color:var(--text2)">forecast</strong> s&iacute; usan ventas del <strong style="color:var(--text2)">periodo</strong> del chip.
-    <strong style="color:var(--text2)">Sin movimiento</strong> (bloques &gt;180 y &ge;365 d&iacute;as, justo debajo de consumo semanal) y <strong style="color:var(--text2)">Operaci&oacute;n</strong> usan reglas fijas, no el chip de fechas.
+    <strong style="color:var(--text2)">Sin movimiento</strong> (&gt;180 y &ge;365 d&iacute;as, al final de la p&aacute;gina despu&eacute;s de Top y Forecast) y <strong style="color:var(--text2)">Operaci&oacute;n</strong> usan reglas fijas, no el chip de fechas.
   </p>
 
   <div class="kpi-grid">
@@ -175,46 +175,6 @@ nav{display:flex;align-items:center;gap:.25rem}
     </div>
   </div>
 
-  <div class="card" id="inv-card-sinmov180" style="margin-top:1.25rem;margin-bottom:1.25rem;scroll-margin-top:88px">
-    <div class="card-head">
-      <div class="card-title">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
-        Art&iacute;culos Sin Movimiento (&gt;180 d&iacute;as con existencia)
-      </div>
-      <div class="card-badge" id="sinmov-badge">--</div>
-    </div>
-    <div class="card-body" id="inv-panel-sinmov180" style="padding:0">
-      <table class="tbl" id="tbl-sinmov">
-        <thead><tr>
-          <th>Art&iacute;culo</th><th>Unidad</th>
-          <th class="num">Existencia</th><th class="num">M&iacute;nimo</th>
-          <th class="num">D&iacute;as Sin Venta</th><th class="num">&Uacute;lt. Movimiento</th>
-        </tr></thead>
-        <tbody id="tbl-sinmov-body"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="card" id="inv-card-sinmov365" style="margin-bottom:1.25rem;scroll-margin-top:88px">
-    <div class="card-head">
-      <div class="card-title">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
-        Art&iacute;culos Sin Movimiento (&ge;365 d&iacute;as con existencia)
-      </div>
-      <div class="card-badge" id="sinmov365-badge">--</div>
-    </div>
-    <div class="card-body" id="inv-panel-sinmov365" style="padding:0">
-      <table class="tbl" id="tbl-sinmov365">
-        <thead><tr>
-          <th>Art&iacute;culo</th><th>Unidad</th>
-          <th class="num">Existencia</th><th class="num">M&iacute;nimo</th>
-          <th class="num">D&iacute;as Sin Venta</th><th class="num">&Uacute;lt. Movimiento</th>
-        </tr></thead>
-        <tbody id="tbl-sinmov365-body"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tbody>
-      </table>
-    </div>
-  </div>
-
   <div class="card" id="inv-card-topstock">
     <div class="card-head">
       <div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 4l6 2.67V11c0 3.94-2.71 7.62-6 8.93-3.29-1.31-6-4.99-6-8.93V7.67L12 5z"/></svg>Top Art&iacute;culos por Valor de Inventario</div><div class="card-badge">Mayor valor en stock</div></div>
@@ -247,7 +207,52 @@ nav{display:flex;align-items:center;gap:.25rem}
     </div>
   </div>
 
-  <div class="card" id="inv-card-operacion" style="margin-bottom:1.5rem">
+  <section id="inv-seccion-sin-movimiento" class="inv-sinmov-section" style="margin-top:1.5rem;scroll-margin-top:88px" aria-labelledby="inv-sinmov-heading">
+    <h2 id="inv-sinmov-heading" style="font-size:0.95rem;font-weight:700;color:var(--text);margin:0 0 0.35rem;padding:0;border:none">Sin movimiento de ventas</h2>
+    <p style="font-size:0.74rem;color:var(--muted);margin:0 0 1rem;line-height:1.45;max-width:54rem">Dos tablas con la misma carga del servidor: primero todo lo que lleva <strong style="color:var(--text2)">m&aacute;s de 180 d&iacute;as</strong> sin venta (con existencia); debajo el recorte <strong style="color:var(--text2)">&ge;365 d&iacute;as</strong> cuando el servidor env&iacute;a d&iacute;as calculados.</p>
+
+    <div class="card" id="inv-card-sinmov180" style="margin-bottom:1.25rem">
+      <div class="card-head">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+          <span>1) Art&iacute;culos sin venta <strong>&gt;180 d&iacute;as</strong> (con existencia)</span>
+        </div>
+        <div class="card-badge" id="sinmov-badge">--</div>
+      </div>
+      <div class="card-body" id="inv-panel-sinmov180" style="padding:0">
+        <table class="tbl" id="tbl-sinmov">
+          <thead><tr>
+            <th>Art&iacute;culo</th><th>Unidad</th>
+            <th class="num">Existencia</th><th class="num">M&iacute;nimo</th>
+            <th class="num">D&iacute;as Sin Venta</th><th class="num">&Uacute;lt. Movimiento</th>
+          </tr></thead>
+          <tbody id="tbl-sinmov-body"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" id="inv-card-sinmov365" style="margin-bottom:0">
+      <div class="card-head">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+          <span>2) Mismo listado: solo <strong>&ge;365 d&iacute;as</strong> (con existencia)</span>
+        </div>
+        <div class="card-badge" id="sinmov365-badge">--</div>
+      </div>
+      <div class="card-body" id="inv-panel-sinmov365" style="padding:0">
+        <table class="tbl" id="tbl-sinmov365">
+          <thead><tr>
+            <th>Art&iacute;culo</th><th>Unidad</th>
+            <th class="num">Existencia</th><th class="num">M&iacute;nimo</th>
+            <th class="num">D&iacute;as Sin Venta</th><th class="num">&Uacute;lt. Movimiento</th>
+          </tr></thead>
+          <tbody id="tbl-sinmov365-body"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <div class="card" id="inv-card-operacion" style="margin-top:1.5rem;margin-bottom:1.5rem">
     <div class="card-head">
       <div class="card-title">
         <svg viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.5 9.5-8 10-4.5-.5-8-5-8-10V6l8-4z"/><path d="M8 12h8"/></svg>
@@ -676,7 +681,7 @@ async function loadSinMovimiento(g){
       var rawD = r.DIAS_SIN_VENTA;
       return rawD != null && rawD !== '' && !isNaN(+rawD) && (+rawD) >= 365;
     });
-    var empty365 = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Sin art&iacute;culos con 365+ d&iacute;as sin venta (con existencia). Si aqu&iacute; ves N/D en d&iacute;as pero s&iacute; filas en 180 d&iacute;as, el servidor puede estar en modo r&aacute;pido (<code style="font-size:.75rem">MICROSIP_INV_SIN_MOV_FAST=1</code>).</td></tr>';
+    var empty365 = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Sin art&iacute;culos con 365+ d&iacute;as sin venta (con existencia). Si en la <strong>tabla 1</strong> ves filas con N/D en d&iacute;as, el servidor puede estar en modo r&aacute;pido (<code style="font-size:.75rem">MICROSIP_INV_SIN_MOV_FAST=1</code>).</td></tr>';
     if(b365) b365.innerHTML = rows365.map(rowHtml).join('') || empty365;
     const sb365 = document.getElementById('sinmov365-badge');
     if (sb365) sb365.textContent = badge(rows365.length);
