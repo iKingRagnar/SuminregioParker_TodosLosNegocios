@@ -302,14 +302,16 @@ let invLoadGen = 0;
 let invLoadAllRunning = false;
 let invLoadAllQueued = false;
 /**
- * Misma estrategia que ventas.html → fwt: Promise.race sin AbortController.
- * Errores HTTP (502/504 de Render) y cuerpos no JSON se devuelven como { __invErr } para mostrarlos en tabla.
+ * Fetch con tope de tiempo + AbortController (evita quedar colgado si el proxy corta el stream).
+ * Errores HTTP y JSON inválido → { __invErr }.
  */
 function invFwt(url, fallback, ms) {
   ms = ms == null ? 45000 : ms;
   const urlFull = (typeof url === 'string' && url.indexOf('http') === 0) ? url : (API + url);
   const isNgrok = /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/i.test(urlFull);
-  const opts = isNgrok ? { headers: { 'ngrok-skip-browser-warning': '1' } } : {};
+  const ac = new AbortController();
+  const fetchOpts = { signal: ac.signal };
+  if (isNgrok) fetchOpts.headers = { 'ngrok-skip-browser-warning': '1' };
   function timeoutPayload() {
     if (fallback && typeof fallback === 'object' && fallback.__invTimeout) return fallback;
     return {
@@ -317,8 +319,12 @@ function invFwt(url, fallback, ms) {
       __invErr: 'Sin respuesta en ' + Math.round(ms / 1000) + ' s (timeout cliente). En Render el proxy suele cortar antes (~30–60 s): revisa logs del servicio o acorta el periodo.'
     };
   }
-  return Promise.race([
-    fetch(urlFull, opts).then(function (r) {
+  const tid = setTimeout(function () {
+    try { ac.abort(); } catch (abErr) {}
+  }, ms);
+  return fetch(urlFull, fetchOpts)
+    .then(function (r) {
+      clearTimeout(tid);
       return r.text().then(function (text) {
         var data = null;
         try { data = text ? JSON.parse(text) : null; } catch (e1) { data = null; }
@@ -332,11 +338,13 @@ function invFwt(url, fallback, ms) {
         }
         return data !== null && data !== undefined ? data : fallback;
       });
-    }).catch(function (e) {
+    })
+    .catch(function (e) {
+      clearTimeout(tid);
+      var aborted = e && (e.name === 'AbortError' || /aborted|AbortError/i.test(String(e && e.message)));
+      if (aborted) return timeoutPayload();
       return { __invErr: 'Red: ' + (e && e.message ? e.message : 'fetch'), __invStatus: 0 };
-    }),
-    new Promise(function (r) { setTimeout(function () { r(timeoutPayload()); }, ms); })
-  ]);
+    });
 }
 const INV_RES_TIMEOUT = { __invTimeout: true };
 function invRespErr(raw) {
@@ -693,7 +701,13 @@ async function loadSinMovimiento(g){
       var rawD = r.DIAS_SIN_VENTA;
       return rawD != null && rawD !== '' && !isNaN(+rawD) && (+rawD) >= 365;
     });
-    var empty365 = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Sin art&iacute;culos con 365+ d&iacute;as sin venta (con existencia). Si en la <strong>tabla 1</strong> ves filas con N/D en d&iacute;as, el servidor puede estar en modo r&aacute;pido (<code style="font-size:.75rem">MICROSIP_INV_SIN_MOV_FAST=1</code>).</td></tr>';
+    var allNd = all.length > 0 && all.every(function (r) {
+      var rawD = r.DIAS_SIN_VENTA;
+      return rawD == null || rawD === '' || isNaN(+rawD);
+    });
+    var empty365 = allNd
+      ? '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem"><strong>Modo r&aacute;pido activo</strong> (t&iacute;pico en Render): el API no env&iacute;a d&iacute;as por art&iacute;culo, as&iacute; que <strong>no se puede armar el recorte &ge;365</strong> aqu&iacute;. La tabla 1 s&iacute; lista candidatos sin venta reciente. Para llenar esta tabla: en el servicio pon <code style="font-size:.75rem">MICROSIP_INV_SIN_MOV_FAST=0</code> (consulta m&aacute;s pesada) o deja solo la tabla 1.</td></tr>'
+      : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Sin art&iacute;culos con 365+ d&iacute;as sin venta (con existencia) entre los que tienen d&iacute;as calculados.</td></tr>';
     if(b365) b365.innerHTML = rows365.map(rowHtml).join('') || empty365;
     const sb365 = document.getElementById('sinmov365-badge');
     if (sb365) sb365.textContent = badge(rows365.length);
