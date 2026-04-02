@@ -4026,6 +4026,29 @@ function invHeavySubTipo() {
   return invUseVePvUnion() ? '' : 'VE';
 }
 
+function invIsRender() {
+  return String(process.env.RENDER || '').toLowerCase() === 'true';
+}
+
+/** WHERE de ventas VE/PV en cabecera (misma lógica que consumosSubSql, pero reusable). */
+function invDocWhereSql(alias = 'd') {
+  const strictVentas = (process.env.MICROSIP_CONSUMOS_FILTRO_VENTAS_SUB || '').match(/^(1|true|yes)$/i);
+  const inclRem = (process.env.MICROSIP_CONSUMOS_INCLUYE_REMISIONES || '').match(/^(1|true|yes)$/i);
+  const tiposDoc = inclRem ? "('V', 'F')" : "('F')";
+  if (strictVentas) {
+    return `(
+      ${alias}.TIPO_DOCTO IN ${tiposDoc}
+      AND COALESCE(${alias}.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
+      AND COALESCE(${alias}.APLICADO, 'N') = 'S'
+    )`;
+  }
+  return `(
+    (${alias}.TIPO_DOCTO = 'F' AND ${alias}.ESTATUS <> 'C')
+    OR (${alias}.TIPO_DOCTO = 'V' AND ${alias}.ESTATUS NOT IN ('C','T'))
+    OR (${alias}.TIPO_DOCTO = 'R' AND ${alias}.ESTATUS <> 'C')
+  )`;
+}
+
 /**
  * Sin movimiento: modo rápido = un solo scan de ventas recientes (DIAS/ULTIMO NULL en respuesta; tabla ≥365 en cliente suele vaciarse).
  * Modo completo = idle_um + días (correcto para 365 días) pero suele superar el proxy de Render (~60–120 s).
@@ -4408,11 +4431,50 @@ get('/api/inv/sin-movimiento', async (req) => {
   const histDias = Math.min(1460, Math.max(Number.isFinite(histParsed) ? histParsed : 600, dias + 1));
   async function sinMovimientoForDb(dbo) {
     const csp = await resolveConsumosSchema(dbo);
+    // Render ultra-liviano (fast): evitar scan masivo (DISTINCT/UNION) y usar EXISTS con corte temprano
+    // sobre un set de candidatos con stock. Esto privilegia "que responda" en Render.
+    const useUltra = invIsRender() && invSinMovFastDefault() && !(process.env.MICROSIP_INV_SIN_MOV_ULTRA || '').match(/^(0|false|no)$/i);
     // Pushdown de fecha: evita full-scan de consumos cuando el filtro está fuera del subquery.
     // histDias se usa en modo completo; para modo rápido solo interesa la ventana "dias".
     const lookback = invSinMovFastDefault() ? dias : histDias;
-    const subDoc = consumosSubSqlWithLookback(invHeavySubTipo(), csp, lookback);
+    const subDoc = useUltra ? null : consumosSubSqlWithLookback(invHeavySubTipo(), csp, lookback);
     if (invSinMovFastDefault()) {
+      if (useUltra) {
+        // Candidatos: top existencia; filtro "no vendió" con EXISTS (ROWS 1) para cortar rápido.
+        const candLim = Math.min(limit * 12, 2400);
+        return query(`
+    WITH cand AS (
+      SELECT FIRST ${candLim}
+        a.ARTICULO_ID,
+        a.NOMBRE AS DESCRIPCION,
+        COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
+        COALESCE(ex.EXISTENCIA, 0) AS EXISTENCIA_ACTUAL,
+        COALESCE(mn.INVENTARIO_MINIMO, 0) AS MIN_ACTUAL
+      FROM ARTICULOS a
+      JOIN ${SQL_EXIST_SUB} ex ON ex.ARTICULO_ID = a.ARTICULO_ID
+      LEFT JOIN ${SQL_MINIMO_SUB} mn ON mn.ARTICULO_ID = a.ARTICULO_ID
+      WHERE COALESCE(a.ESTATUS, 'A') = 'A'
+        AND COALESCE(ex.EXISTENCIA, 0) > 0
+      ORDER BY ex.EXISTENCIA DESC NULLS LAST
+    )
+    SELECT FIRST ${limit}
+      c.DESCRIPCION, c.ARTICULO_ID, c.UNIDAD,
+      c.EXISTENCIA_ACTUAL, c.MIN_ACTUAL,
+      CAST(NULL AS DATE) AS ULTIMO_MOVIMIENTO,
+      CAST(NULL AS INTEGER) AS DIAS_SIN_VENTA
+    FROM cand c
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM DOCTOS_VE d
+      JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
+      WHERE ${invDocWhereSql('d')}
+        AND d.FECHA >= (CURRENT_DATE - ${dias})
+        AND det.ARTICULO_ID = c.ARTICULO_ID
+      ROWS 1
+    )
+    ORDER BY c.EXISTENCIA_ACTUAL DESC NULLS LAST
+  `, [], invHeavyQueryTimeoutMs(), dbo);
+      }
       return query(`
     WITH recent AS (
       SELECT DISTINCT d.ARTICULO_ID AS AID
