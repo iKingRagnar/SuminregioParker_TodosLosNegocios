@@ -3924,6 +3924,14 @@ const INV_LIST_Q_MS = 60000;
 function invUseVePvUnion() {
   return !(process.env.MICROSIP_INV_CONSUMO_VE_ONLY || '').match(/^(1|true|yes)$/i);
 }
+/**
+ * Sin movimiento / operación crítica: por defecto solo VE (más rápido en Render).
+ * MICROSIP_INV_HEAVY_INCLUYE_PV=1 y sin VE_ONLY → misma unión VE+PV que consumo semanal.
+ */
+function invHeavySubTipo() {
+  if ((process.env.MICROSIP_INV_HEAVY_INCLUYE_PV || '').match(/^(1|true|yes)$/i) && invUseVePvUnion()) return '';
+  return 'VE';
+}
 
 const invPrecioSubCache = new Map();
 /** Precio mínimo por artículo (PRECIO vs PRECIO_VENTA; MONEDA_ID opcional). Falla común: MONEDA_ID o PRECIO distintos → rompe solo el KPI agregado con precios. */
@@ -4183,7 +4191,7 @@ get('/api/inv/sin-movimiento', async (req) => {
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
   async function sinMovimientoForDb(dbo) {
     const csp = await resolveConsumosSchema(dbo);
-    const subDoc = consumosSubSql(invUseVePvUnion() ? '' : 'VE', csp);
+    const subDoc = consumosSubSql(invHeavySubTipo(), csp);
     return query(`
     SELECT FIRST ${limit} a.NOMBRE AS DESCRIPCION, a.ARTICULO_ID, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
       COALESCE(ex.EXISTENCIA, 0) AS EXISTENCIA_ACTUAL, COALESCE(mn.INVENTARIO_MINIMO, 0) AS MIN_ACTUAL,
@@ -4217,7 +4225,7 @@ get('/api/inv/operacion-critica', async (req) => {
     const limit2 = Math.min(parseInt(req.query.limit) || 120, 300);
     async function opCritForDb(dbo) {
       const csp2 = await resolveConsumosSchema(dbo);
-      const subOc2 = consumosSubSql(invUseVePvUnion() ? '' : 'VE', csp2);
+      const subOc2 = consumosSubSql(invHeavySubTipo(), csp2);
       const rows2 = await query(`
     SELECT FIRST ${limit2}
       a.ARTICULO_ID, a.NOMBRE AS DESCRIPCION, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
@@ -4256,7 +4264,7 @@ get('/api/inv/operacion-critica', async (req) => {
   }
   const dbo = getReqDbOpts(req);
   const csp = await resolveConsumosSchema(dbo);
-  const subOc = consumosSubSql(invUseVePvUnion() ? '' : 'VE', csp);
+  const subOc = consumosSubSql(invHeavySubTipo(), csp);
   const limit = Math.min(parseInt(req.query.limit) || 120, 300);
   const rows = await query(`
     SELECT FIRST ${limit}
