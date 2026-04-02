@@ -3938,12 +3938,16 @@ function invUseVePvUnion() {
   return !(process.env.MICROSIP_INV_CONSUMO_VE_ONLY || '').match(/^(1|true|yes)$/i);
 }
 /**
- * Sin movimiento / operación crítica: por defecto misma unión VE+PV que consumo (invUseVePvUnion).
- * MICROSIP_INV_HEAVY_VE_ONLY=1 → solo VE (más liviano en Render si hace falta).
- * (MICROSIP_INV_HEAVY_INCLUYE_PV queda obsoleto: la unión ya es el default.)
+ * Sin movimiento / operación crítica (subconsulta consumos):
+ * - MICROSIP_INV_HEAVY_VE_ONLY=1 → solo VE.
+ * - MICROSIP_INV_HEAVY_INCLUYE_PV=1 y consumo no VE-only → VE+PV.
+ * - Render sin INCLUYE_PV → solo VE (evita timeout 90s+ en union pesada).
+ * - Otro host → VE+PV si invUseVePvUnion.
  */
 function invHeavySubTipo() {
   if ((process.env.MICROSIP_INV_HEAVY_VE_ONLY || '').match(/^(1|true|yes)$/i)) return 'VE';
+  if ((process.env.MICROSIP_INV_HEAVY_INCLUYE_PV || '').match(/^(1|true|yes)$/i) && invUseVePvUnion()) return '';
+  if (String(process.env.RENDER || '').toLowerCase() === 'true') return 'VE';
   return invUseVePvUnion() ? '' : 'VE';
 }
 
@@ -3965,6 +3969,16 @@ function invOperacionConsumoLookbackDays() {
   const n = parseInt(process.env.MICROSIP_INV_OP_CONSUMO_DIAS, 10);
   if (Number.isFinite(n) && n >= 28 && n <= 730) return n;
   return invSinMovFastDefault() ? 120 : 400;
+}
+
+/**
+ * Timeout Firebird para sin-movimiento y operación crítica (Promise.race en query()).
+ * Env: MICROSIP_INV_HEAVY_Q_MS (45000–300000). Por defecto 180s modo rápido, 240s modo completo.
+ */
+function invHeavyQueryTimeoutMs() {
+  const n = parseInt(process.env.MICROSIP_INV_HEAVY_Q_MS, 10);
+  if (Number.isFinite(n) && n >= 45000 && n <= 300000) return n;
+  return invSinMovFastDefault() ? 180000 : 240000;
 }
 
 const invPrecioSubCache = new Map();
@@ -4107,7 +4121,7 @@ app.get('/api/debug/inv-sin-movimiento-counts', async (req, res) => {
            AND COALESCE(d.ARTICULO_ID, 0) <> 0
            AND CAST(d.FECHA AS DATE) > (CURRENT_DATE - ${dias})`,
         [],
-        90000,
+        invHeavyQueryTimeoutMs(),
         dbo,
       ),
     ]);
@@ -4339,7 +4353,7 @@ get('/api/inv/sin-movimiento', async (req) => {
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND COALESCE(ex.EXISTENCIA, 0) > 0
       AND NOT EXISTS (SELECT 1 FROM recent r WHERE r.AID = a.ARTICULO_ID)
     ORDER BY ex.EXISTENCIA DESC NULLS LAST
-  `, [], 90000, dbo);
+  `, [], invHeavyQueryTimeoutMs(), dbo);
     }
     // Modo completo: recent + idle_um (2× scan) — usar MICROSIP_INV_SIN_MOV_FAST=0 en Render si el proxy aguanta.
     return query(`
@@ -4371,7 +4385,7 @@ get('/api/inv/sin-movimiento', async (req) => {
       AND NOT EXISTS (SELECT 1 FROM recent r WHERE r.AID = a.ARTICULO_ID)
       AND (um.ULTIMO_MOVIMIENTO IS NULL OR (CURRENT_DATE - um.ULTIMO_MOVIMIENTO) > ${dias})
     ORDER BY DIAS_SIN_VENTA DESC NULLS FIRST, ex.EXISTENCIA DESC
-  `, [], 150000, dbo);
+  `, [], invHeavyQueryTimeoutMs(), dbo);
   }
   if (isAllDbs(req)) return runForAllDbs((dbo) => sinMovimientoForDb(dbo));
   return sinMovimientoForDb(getReqDbOpts(req));
@@ -4399,7 +4413,7 @@ get('/api/inv/operacion-critica', async (req) => {
     LEFT JOIN (SELECT d.ARTICULO_ID, SUM(CASE WHEN CAST(d.FECHA AS DATE)>=(CURRENT_DATE-28) THEN ABS(COALESCE(d.UNIDADES,0)) ELSE 0 END) AS CONSUMO_4S, SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA)=EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA)=EXTRACT(MONTH FROM CURRENT_DATE) THEN ABS(COALESCE(d.UNIDADES,0)) ELSE 0 END) AS CONSUMO_MES, MAX(CAST(d.FECHA AS DATE)) AS ULTIMO_MOVIMIENTO, (CURRENT_DATE-MAX(CAST(d.FECHA AS DATE))) AS DIAS_SIN_VENTA FROM ${subOc2} d WHERE ABS(COALESCE(d.UNIDADES,0))>0 AND COALESCE(d.ARTICULO_ID,0)<>0 AND CAST(d.FECHA AS DATE)>=(CURRENT_DATE-${opLb}) GROUP BY d.ARTICULO_ID) cs ON cs.ARTICULO_ID=a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS,'A')='A' AND (COALESCE(ex.EXISTENCIA,0)<=0 OR ((COALESCE(cs.CONSUMO_4S,0)>0 OR COALESCE(cs.CONSUMO_MES,0)>0) AND COALESCE(ex.EXISTENCIA,0)<=COALESCE(mn.INVENTARIO_MINIMO,0)))
     ORDER BY CASE WHEN COALESCE(ex.EXISTENCIA,0)<=0 AND (COALESCE(cs.CONSUMO_4S,0)>0 OR COALESCE(cs.CONSUMO_MES,0)>0) THEN 0 ELSE 1 END, COALESCE(cs.CONSUMO_4S,0) DESC, COALESCE(cs.CONSUMO_MES,0) DESC, COALESCE(ex.EXISTENCIA,0) ASC
-      `, [], invSinMovFastDefault() ? 90000 : 180000, dbo);
+      `, [], invHeavyQueryTimeoutMs(), dbo);
       return (rows2 || []).map(r => {
         const existencia=+r.EXISTENCIA_ACTUAL||0, minimo=+r.MIN_ACTUAL||0, c4=+r.CONSUMO_4_SEMANAS||0, cm=+r.CONSUMO_MES_ACTUAL||0;
         const semanal=c4>0?c4/4:0, diario=semanal/7, semanas=semanal>0?existencia/semanal:null, dias=diario>0?existencia/diario:null;
@@ -4474,7 +4488,7 @@ get('/api/inv/operacion-critica', async (req) => {
       COALESCE(cs.CONSUMO_4S, 0) DESC,
       COALESCE(cs.CONSUMO_MES, 0) DESC,
       COALESCE(ex.EXISTENCIA, 0) ASC
-  `, [], invSinMovFastDefault() ? 90000 : 180000, dbo);
+  `, [], invHeavyQueryTimeoutMs(), dbo);
 
   const enriched = (rows || []).map((r) => {
     const existencia = +r.EXISTENCIA_ACTUAL || 0;

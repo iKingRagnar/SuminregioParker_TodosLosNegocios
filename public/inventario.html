@@ -308,7 +308,7 @@ function invFwt(url, fallback, ms) {
           var msg = (data && (data.error || data.message)) ? String(data.error || data.message) : '';
           if (!msg) msg = (r.status ? ('HTTP ' + r.status + ' ') : '') + (text ? String(text).slice(0, 280) : '');
           if (r.status === 500 && msg.toLowerCase().indexOf('timeout') >= 0) {
-            msg += ' (Firebird). Si es Render, sube timeout de consulta o usa MICROSIP_INV_HEAVY_VE_ONLY=1 para aligerar.';
+            msg += ' (Firebird). En Render ya va solo VE por defecto; puedes subir MICROSIP_INV_HEAVY_Q_MS (máx. 300000) o forzar MICROSIP_INV_HEAVY_INCLUYE_PV=1 para VE+PV si el host aguanta.';
           }
           return { __invErr: (msg || 'Error del servidor').trim(), __invStatus: r.status };
         }
@@ -611,10 +611,10 @@ async function loadSinMovimiento(g){
   const fin = ()=>{ done=true; clearTimeout(tWarm); };
   const sinMovTimeoutFallback = {
     __invTimeout: true,
-    __invErr: 'Tiempo agotado (135 s) en sin movimiento. Suele ser límite de red/proxy (Render ~60–120 s), no reglas mal calculadas. En el API: modo rápido por defecto si RENDER=true; si forzaste MICROSIP_INV_SIN_MOV_FAST=0, quita o pon =1, o sirve inventario contra el servidor Parker sin proxy corto.'
+    __invErr: 'Tiempo agotado (210 s) en sin movimiento. Puede ser proxy (Render ~60–120 s) o Firebird lento. Revisa MICROSIP_INV_HEAVY_Q_MS en el API y que el deploy tenga último server_corregido.js.'
   };
   try{
-    const raw = await invFwt(apiDb('/api/inv/sin-movimiento?dias=180&limit=60'), sinMovTimeoutFallback, 135000);
+    const raw = await invFwt(apiDb('/api/inv/sin-movimiento?dias=180&limit=60'), sinMovTimeoutFallback, 210000);
     fin();
     if (g !== invLoadGen) return;
     const smErr = invRespErr(raw);
@@ -671,9 +671,9 @@ async function loadOperacionCritica(g){
   try{
     const opTimeoutFallback = {
       __invTimeout: true,
-      __invErr: 'Tiempo agotado (115 s) en operaci\u00f3n inventario. Consulta pesada; el proxy (p. ej. Render) suele cortar antes que acabe Firebird. No implica reglas incorrectas. En Render el API acorta ventana de consumo si est\u00e1 en modo r\u00e1pido (RENDER); revisa logs o MICROSIP_INV_OP_CONSUMO_DIAS (menor = m\u00e1s liviano).'
+      __invErr: 'Tiempo agotado (210 s) en operaci\u00f3n inventario. Consulta pesada; revisa MICROSIP_INV_HEAVY_Q_MS y MICROSIP_INV_OP_CONSUMO_DIAS en el API.'
     };
-    const payload = await invFwt(apiDb('/api/inv/operacion-critica?limit=120'), opTimeoutFallback, 115000);
+    const payload = await invFwt(apiDb('/api/inv/operacion-critica?limit=120'), opTimeoutFallback, 210000);
     if (g !== invLoadGen) return;
     const oerr = invRespErr(payload);
     if (oerr) {
