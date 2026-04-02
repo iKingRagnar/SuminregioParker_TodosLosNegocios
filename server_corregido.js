@@ -1671,6 +1671,12 @@ async function resolveConsumosSchema(dbo) {
  * Subconsulta de consumo por unidades vendidas (VE + PV)
  * tipo: 'VE' | 'PV' | '' (ambos)
  * parts: salida de resolveConsumosSchema(dbo)
+ *
+ * Por defecto el filtro de documento coincide con ventasSub() (Facturas aplicadas), no con el criterio
+ * antiguo F/V/R sin APLICADO — en bases Microsip reales casi todo el movimiento válido exige APLICADO = 'S',
+ * y el panel de Ventas usa ese mismo criterio; si no, consumo semanal / sin movimiento quedaban vacíos o
+ * escaneaban demasiado. MICROSIP_CONSUMOS_LEGACY_VR=1 restaura el WHERE antiguo (F/V/R sin APLICADO).
+ * MICROSIP_CONSUMOS_INCLUYE_REMISIONES=1 → TIPO_DOCTO IN ('V','F') como ventasSub con remisiones.
  */
 function consumosSubSql(tipo = '', parts) {
   const p = parts || {};
@@ -1680,7 +1686,31 @@ function consumosSubSql(tipo = '', parts) {
   const pvQty = p.pvQty || 'UNIDADES';
   const veImp = p.veAmt ? `COALESCE(det.${p.veAmt}, 0)` : '0';
   const pvImp = p.pvAmt ? `COALESCE(det.${p.pvAmt}, 0)` : '0';
-  // Incluye F (Factura), V (Venta), R (Remisión). Excluye cotizaciones/devoluciones y cancelados.
+  const legacyVr = (process.env.MICROSIP_CONSUMOS_LEGACY_VR || '').match(/^(1|true|yes)$/i);
+  const inclRem = (process.env.MICROSIP_CONSUMOS_INCLUYE_REMISIONES || '').match(/^(1|true|yes)$/i);
+  const tiposDoc = inclRem ? "('V', 'F')" : "('F')";
+  const veDocWhere = legacyVr
+    ? `(
+      (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
+      OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
+      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS NOT IN ('C','T'))
+    )`
+    : `(
+      d.TIPO_DOCTO IN ${tiposDoc}
+      AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
+      AND COALESCE(d.APLICADO, 'N') = 'S'
+    )`;
+  const pvDocWhere = legacyVr
+    ? `(
+      (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
+      OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
+      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS NOT IN ('C','T'))
+    )`
+    : `(
+      d.TIPO_DOCTO IN ${tiposDoc}
+      AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
+      AND COALESCE(d.APLICADO, 'N') = 'S'
+    )`;
   // Proyectar siempre CAST(... AS DATE) AS FECHA para que buildFiltros y KPIs usen d.FECHA en el exterior.
   const ve = `
     SELECT
@@ -1693,11 +1723,7 @@ function consumosSubSql(tipo = '', parts) {
       'VE' AS TIPO_SRC
     FROM DOCTOS_VE d
     JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
-    WHERE (
-      (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
-      OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
-      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS NOT IN ('C','T'))
-    )`;
+    WHERE ${veDocWhere}`;
 
   const pv = `
     SELECT
@@ -1710,11 +1736,7 @@ function consumosSubSql(tipo = '', parts) {
       'PV' AS TIPO_SRC
     FROM DOCTOS_PV d
     JOIN DOCTOS_PV_DET det ON det.DOCTO_PV_ID = d.DOCTO_PV_ID
-    WHERE (
-      (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
-      OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
-      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS NOT IN ('C','T'))
-    )`;
+    WHERE ${pvDocWhere}`;
 
   if (tipo === 'VE') return `(${ve})`;
   if (tipo === 'PV') return `(${pv})`;

@@ -479,7 +479,7 @@ async function loadConsumo(g) {
         <td class="num">${+(r.CONSUMO_SEMANAL_PROM||0).toFixed(1)}</td>
         <td class="num"><span class="semanas-tag tag ${semTag}" style="color:${semColor}">${semTxt}</span></td>
       </tr>`;
-    }).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sin datos de consumo en el periodo (no hubo salidas en las fechas del filtro).</td></tr>';
+    }).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sin consumo en el periodo (mismas reglas que Ventas: facturas aplicadas). Prueba otro rango o revisa que haya ventas en esas fechas.</td></tr>';
   } catch(e){
     if (g !== invLoadGen) return;
     console.error('consumo',e);
