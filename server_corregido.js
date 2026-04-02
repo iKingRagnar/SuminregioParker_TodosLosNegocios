@@ -1753,6 +1753,81 @@ function consumosSubSql(tipo = '', parts) {
   return `(${ve} UNION ALL ${pv})`;
 }
 
+/**
+ * Variante "pushdown": genera subquery de consumo con filtro de fecha ADENTRO del SQL
+ * para que Firebird use mejor índices (evita escaneo completo cuando el filtro está fuera).
+ *
+ * limitDays: N días hacia atrás desde CURRENT_DATE (p. ej. 180 o 400)
+ * tipo: 'VE' | 'PV' | '' (ambos)
+ */
+function consumosSubSqlWithLookback(tipo = '', parts, limitDays) {
+  const p = parts || {};
+  const feVe = p.feExprVe || 'd.FECHA';
+  const fePv = p.feExprPv || 'd.FECHA';
+  const veQty = p.veQty || 'UNIDADES';
+  const pvQty = p.pvQty || 'UNIDADES';
+  const veImp = p.veAmt ? `COALESCE(det.${p.veAmt}, 0)` : '0';
+  const pvImp = p.pvAmt ? `COALESCE(det.${p.pvAmt}, 0)` : '0';
+  const strictVentas = (process.env.MICROSIP_CONSUMOS_FILTRO_VENTAS_SUB || '').match(/^(1|true|yes)$/i);
+  const inclRem = (process.env.MICROSIP_CONSUMOS_INCLUYE_REMISIONES || '').match(/^(1|true|yes)$/i);
+  const tiposDoc = inclRem ? "('V', 'F')" : "('F')";
+  const veDocWhere = strictVentas
+    ? `(
+      d.TIPO_DOCTO IN ${tiposDoc}
+      AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
+      AND COALESCE(d.APLICADO, 'N') = 'S'
+    )`
+    : `(
+      (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
+      OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
+      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS <> 'C')
+    )`;
+  const pvDocWhere = strictVentas
+    ? `(
+      d.TIPO_DOCTO IN ${tiposDoc}
+      AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
+      AND COALESCE(d.APLICADO, 'N') = 'S'
+    )`
+    : `(
+      (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
+      OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
+      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS <> 'C')
+    )`;
+
+  const days = Math.max(1, parseInt(limitDays, 10) || 1);
+  const ve = `
+    SELECT
+      CAST(${feVe} AS DATE) AS FECHA,
+      COALESCE(det.${veQty}, 0) AS UNIDADES,
+      ${veImp} AS IMPORTE_LINEA,
+      COALESCE(d.VENDEDOR_ID, 0) AS VENDEDOR_ID,
+      COALESCE(d.CLIENTE_ID, 0) AS CLIENTE_ID,
+      COALESCE(det.ARTICULO_ID, 0) AS ARTICULO_ID,
+      'VE' AS TIPO_SRC
+    FROM DOCTOS_VE d
+    JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
+    WHERE ${veDocWhere}
+      AND CAST(${feVe} AS DATE) >= (CURRENT_DATE - ${days})`;
+
+  const pv = `
+    SELECT
+      CAST(${fePv} AS DATE) AS FECHA,
+      COALESCE(det.${pvQty}, 0) AS UNIDADES,
+      ${pvImp} AS IMPORTE_LINEA,
+      COALESCE(d.VENDEDOR_ID, 0) AS VENDEDOR_ID,
+      COALESCE(d.CLIENTE_ID, 0) AS CLIENTE_ID,
+      COALESCE(det.ARTICULO_ID, 0) AS ARTICULO_ID,
+      'PV' AS TIPO_SRC
+    FROM DOCTOS_PV d
+    JOIN DOCTOS_PV_DET det ON det.DOCTO_PV_ID = d.DOCTO_PV_ID
+    WHERE ${pvDocWhere}
+      AND CAST(${fePv} AS DATE) >= (CURRENT_DATE - ${days})`;
+
+  if (tipo === 'VE') return `(${ve})`;
+  if (tipo === 'PV') return `(${pv})`;
+  return `(${ve} UNION ALL ${pv})`;
+}
+
 // ── Filtro de tipo de ventas desde request ────────────────────────────────────
 function getTipo(req) {
   const t = (req.query.tipo || '').toUpperCase();
@@ -4333,7 +4408,10 @@ get('/api/inv/sin-movimiento', async (req) => {
   const histDias = Math.min(1460, Math.max(Number.isFinite(histParsed) ? histParsed : 600, dias + 1));
   async function sinMovimientoForDb(dbo) {
     const csp = await resolveConsumosSchema(dbo);
-    const subDoc = consumosSubSql(invHeavySubTipo(), csp);
+    // Pushdown de fecha: evita full-scan de consumos cuando el filtro está fuera del subquery.
+    // histDias se usa en modo completo; para modo rápido solo interesa la ventana "dias".
+    const lookback = invSinMovFastDefault() ? dias : histDias;
+    const subDoc = consumosSubSqlWithLookback(invHeavySubTipo(), csp, lookback);
     if (invSinMovFastDefault()) {
       return query(`
     WITH recent AS (
@@ -4434,7 +4512,8 @@ get('/api/inv/operacion-critica', async (req) => {
   }
   const dbo = getReqDbOpts(req);
   const csp = await resolveConsumosSchema(dbo);
-  const subOc = consumosSubSql(invHeavySubTipo(), csp);
+  // Pushdown: el subquery ya trae fecha >= (CURRENT_DATE - opLb) en el FROM.
+  const subOc = consumosSubSqlWithLookback(invHeavySubTipo(), csp, opLb);
   const limit = Math.min(parseInt(req.query.limit) || 120, 300);
   const rows = await query(`
     SELECT FIRST ${limit}
@@ -4472,7 +4551,6 @@ get('/api/inv/operacion-critica', async (req) => {
       FROM ${subOc} d
       WHERE ABS(COALESCE(d.UNIDADES, 0)) > 0
         AND COALESCE(d.ARTICULO_ID, 0) <> 0
-        AND CAST(d.FECHA AS DATE) >= (CURRENT_DATE - ${opLb})
       GROUP BY d.ARTICULO_ID
     ) cs ON cs.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A'
