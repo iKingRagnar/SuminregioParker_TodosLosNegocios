@@ -628,7 +628,7 @@ async function loadSinMovimiento(g){
   const errRowHtml = function (msg) {
     return '<tr><td colspan="6" style="text-align:center;color:var(--red);padding:1.5rem">' + invEsc(msg) + '</td></tr>';
   };
-  const warmRow = '<tr><td colspan="6" style="text-align:center;color:var(--yellow);padding:1.5rem">&#9677; Conectando con servidor&hellip;</td></tr>';
+  const warmRow = '<tr><td colspan="6" style="text-align:center;color:var(--yellow);padding:1.5rem">&#9677; Consulta pesada en curso (puede tardar 1&ndash;2 min). Si se corta, Render suele limitar ~60&ndash;120 s por petici&oacute;n.</td></tr>';
   let done = false;
   const tWarm = setTimeout(()=>{
     if(done || g !== invLoadGen) return;
@@ -636,8 +636,12 @@ async function loadSinMovimiento(g){
     if(b365) b365.innerHTML = warmRow;
   }, 20000);
   const fin = ()=>{ done=true; clearTimeout(tWarm); };
+  const sinMovTimeoutFallback = {
+    __invTimeout: true,
+    __invErr: 'Sin respuesta en 115 s (sin movimiento). El proxy de Render a menudo corta antes: reintenta, reduce carga o revisa logs del servicio.'
+  };
   try{
-    const raw = await invFwt(apiDb('/api/inv/sin-movimiento?dias=180&limit=60'), [], 180000);
+    const raw = await invFwt(apiDb('/api/inv/sin-movimiento?dias=180&limit=60'), sinMovTimeoutFallback, 115000);
     fin();
     if (g !== invLoadGen) return;
     const smErr = invRespErr(raw);
@@ -680,7 +684,11 @@ async function loadSinMovimiento(g){
 
 async function loadOperacionCritica(g){
   try{
-    const payload = await invFwt(apiDb('/api/inv/operacion-critica?limit=120'), { rows: [], resumen: {} }, 180000);
+    const opTimeoutFallback = {
+      __invTimeout: true,
+      __invErr: 'Sin respuesta en 115 s (operaci\u00f3n inventario). El proxy de Render a menudo corta antes: reintenta o revisa logs.'
+    };
+    const payload = await invFwt(apiDb('/api/inv/operacion-critica?limit=120'), opTimeoutFallback, 115000);
     if (g !== invLoadGen) return;
     const oerr = invRespErr(payload);
     if (oerr) {

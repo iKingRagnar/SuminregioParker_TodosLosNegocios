@@ -4105,10 +4105,19 @@ get('/api/inv/consumo-semanal', async (req) => {
   const weeksInPeriod = Math.max(periodDays / 7.0, 0.01);
   const csp = await resolveConsumosSchema(dbo);
   const subDoc = consumosSubSql(invUseVePvUnion() ? '' : 'VE', csp);
+  // Firebird: divisiones en entero / ratios enormes → "Arithmetic exception, numeric overflow".
+  // Todo en DOUBLE PRECISION + NULLIF evita desborde al calcular semanas de cobertura.
   const rows = await query(`
-    SELECT FIRST ${limit} a.NOMBRE AS DESCRIPCION, a.ARTICULO_ID, COALESCE(s.EXISTENCIA, 0) AS EXISTENCIA,
-      SUM(d.UNIDADES) / ${weeksInPeriod} AS CONSUMO_SEMANAL_PROM,
-      CASE WHEN SUM(d.UNIDADES) > 0 THEN COALESCE(s.EXISTENCIA, 0) / (SUM(d.UNIDADES) / ${weeksInPeriod}) ELSE 9999 END AS SEMANAS_STOCK
+    SELECT FIRST ${limit} a.NOMBRE AS DESCRIPCION, a.ARTICULO_ID,
+      CAST(COALESCE(s.EXISTENCIA, 0) AS DOUBLE PRECISION) AS EXISTENCIA,
+      CAST(SUM(d.UNIDADES) AS DOUBLE PRECISION) / CAST(? AS DOUBLE PRECISION) AS CONSUMO_SEMANAL_PROM,
+      CAST(
+        CASE WHEN CAST(SUM(d.UNIDADES) AS DOUBLE PRECISION) > 0 THEN
+          COALESCE(CAST(s.EXISTENCIA AS DOUBLE PRECISION), 0)
+            / NULLIF(CAST(SUM(d.UNIDADES) AS DOUBLE PRECISION) / CAST(? AS DOUBLE PRECISION), 0)
+        ELSE 9999.0
+        END AS DOUBLE PRECISION
+      ) AS SEMANAS_STOCK
     FROM ${subDoc} d
     JOIN ARTICULOS a ON a.ARTICULO_ID = d.ARTICULO_ID
     LEFT JOIN ${SQL_EXIST_SUB} s ON s.ARTICULO_ID = a.ARTICULO_ID
@@ -4116,7 +4125,7 @@ get('/api/inv/consumo-semanal', async (req) => {
     GROUP BY a.NOMBRE, a.ARTICULO_ID, s.EXISTENCIA
     HAVING SUM(d.UNIDADES) > 0
     ORDER BY SEMANAS_STOCK ASC
-  `, [desdeStr, hastaStr], INV_CONSUMO_Q_MS, dbo);
+  `, [weeksInPeriod, weeksInPeriod, desdeStr, hastaStr], INV_CONSUMO_Q_MS, dbo);
   return {
     rows: rows || [],
     meta: {
@@ -4174,9 +4183,24 @@ get('/api/inv/consumo', async (req) => {
   const rows = await query(`
     SELECT FIRST ${limit} a.NOMBRE AS DESCRIPCION, a.ARTICULO_ID, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
       COALESCE(ex.EXISTENCIA, 0) AS EXISTENCIA_ACTUAL, COALESCE(mn.INVENTARIO_MINIMO, 0) AS MIN_ACTUAL,
-      SUM(d.UNIDADES) AS CONSUMO_PERIODO, SUM(d.UNIDADES) / ${periodDays}.0 AS CONSUMO_DIARIO,
-      CASE WHEN SUM(d.UNIDADES) > 0 THEN CAST(COALESCE(ex.EXISTENCIA, 0) / (SUM(d.UNIDADES) / ${periodDays}.0) AS INTEGER) ELSE 9999 END AS DIAS_STOCK,
-      CASE WHEN SUM(d.UNIDADES) > 0 THEN CAST(SUM(d.UNIDADES) / ${periodDays}.0 * ${lead} + 0.9999 AS INTEGER) ELSE 0 END AS STOCK_MINIMO_RECOMENDADO
+      SUM(d.UNIDADES) AS CONSUMO_PERIODO,
+      CAST(SUM(d.UNIDADES) AS DOUBLE PRECISION) / CAST(? AS DOUBLE PRECISION) AS CONSUMO_DIARIO,
+      CASE WHEN CAST(SUM(d.UNIDADES) AS DOUBLE PRECISION) > 0 THEN
+        CAST(
+          CASE WHEN COALESCE(CAST(ex.EXISTENCIA AS DOUBLE PRECISION), 0) / NULLIF(CAST(SUM(d.UNIDADES) AS DOUBLE PRECISION) / CAST(? AS DOUBLE PRECISION), 0) > 2147483647
+            THEN 2147483647
+            ELSE COALESCE(CAST(ex.EXISTENCIA AS DOUBLE PRECISION), 0) / NULLIF(CAST(SUM(d.UNIDADES) AS DOUBLE PRECISION) / CAST(? AS DOUBLE PRECISION), 0)
+          END AS INTEGER
+        )
+      ELSE 9999 END AS DIAS_STOCK,
+      CASE WHEN CAST(SUM(d.UNIDADES) AS DOUBLE PRECISION) > 0 THEN
+        CAST(
+          CASE WHEN (CAST(SUM(d.UNIDADES) AS DOUBLE PRECISION) / CAST(? AS DOUBLE PRECISION)) * CAST(? AS DOUBLE PRECISION) + 0.9999 > 2147483647
+            THEN 2147483647
+            ELSE (CAST(SUM(d.UNIDADES) AS DOUBLE PRECISION) / CAST(? AS DOUBLE PRECISION)) * CAST(? AS DOUBLE PRECISION) + 0.9999
+          END AS INTEGER
+        )
+      ELSE 0 END AS STOCK_MINIMO_RECOMENDADO
     FROM ${subDoc} d
     JOIN ARTICULOS a ON a.ARTICULO_ID = d.ARTICULO_ID
     LEFT JOIN ${SQL_EXIST_SUB} ex ON ex.ARTICULO_ID = a.ARTICULO_ID
@@ -4185,7 +4209,7 @@ get('/api/inv/consumo', async (req) => {
     GROUP BY a.NOMBRE, a.ARTICULO_ID, a.UNIDAD_VENTA, ex.EXISTENCIA, mn.INVENTARIO_MINIMO
     HAVING SUM(d.UNIDADES) > 0
     ORDER BY DIAS_STOCK ASC
-  `, [desdeStr, hastaStr], INV_CONSUMO_Q_MS, dbo).catch((err) => {
+  `, [periodDays, periodDays, periodDays, periodDays, lead, periodDays, lead, desdeStr, hastaStr], INV_CONSUMO_Q_MS, dbo).catch((err) => {
     console.error('[api/inv/consumo]', err && (err.message || err));
     return [];
   });
@@ -4216,7 +4240,7 @@ get('/api/inv/sin-movimiento', async (req) => {
       SELECT d.ARTICULO_ID, MAX(d.FECHA) AS ULTIMO_MOVIMIENTO
       FROM ${subDoc} d
       WHERE d.UNIDADES > 0
-        AND CAST(d.FECHA AS DATE) >= (CURRENT_DATE - ${Math.min(dias * 2, 540)})
+        AND CAST(d.FECHA AS DATE) >= (CURRENT_DATE - ${Math.min(dias * 2, 365)})
       GROUP BY d.ARTICULO_ID
     ) um ON um.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND COALESCE(ex.EXISTENCIA, 0) > 0
