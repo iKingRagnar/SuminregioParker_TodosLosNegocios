@@ -1807,7 +1807,7 @@ function consumosSubSqlWithLookback(tipo = '', parts, limitDays) {
     FROM DOCTOS_VE d
     JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
     WHERE ${veDocWhere}
-      AND CAST(${feVe} AS DATE) >= (CURRENT_DATE - ${days})`;
+      AND ${feVe} >= (CURRENT_DATE - ${days})`;
 
   const pv = `
     SELECT
@@ -1821,7 +1821,7 @@ function consumosSubSqlWithLookback(tipo = '', parts, limitDays) {
     FROM DOCTOS_PV d
     JOIN DOCTOS_PV_DET det ON det.DOCTO_PV_ID = d.DOCTO_PV_ID
     WHERE ${pvDocWhere}
-      AND CAST(${fePv} AS DATE) >= (CURRENT_DATE - ${days})`;
+      AND ${fePv} >= (CURRENT_DATE - ${days})`;
 
   if (tipo === 'VE') return `(${ve})`;
   if (tipo === 'PV') return `(${pv})`;
