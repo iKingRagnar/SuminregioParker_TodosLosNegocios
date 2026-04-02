@@ -307,6 +307,9 @@ function invFwt(url, fallback, ms) {
         if (!r.ok) {
           var msg = (data && (data.error || data.message)) ? String(data.error || data.message) : '';
           if (!msg) msg = (r.status ? ('HTTP ' + r.status + ' ') : '') + (text ? String(text).slice(0, 280) : '');
+          if (r.status === 500 && msg.toLowerCase().indexOf('timeout') >= 0) {
+            msg += ' (Firebird). Si es Render, sube timeout de consulta o usa MICROSIP_INV_HEAVY_VE_ONLY=1 para aligerar.';
+          }
           return { __invErr: (msg || 'Error del servidor').trim(), __invStatus: r.status };
         }
         return data !== null && data !== undefined ? data : fallback;
