@@ -393,32 +393,39 @@ async function loadAll() {
   try {
     const d = await invFwt(apiDb('/api/inv/resumen'), INV_RES_TIMEOUT, 90000);
     if (g !== invLoadGen) return;
+    const resErr = d && invRespErr(d);
     if (d && d.__invTimeout) {
       setText('kpi-total', '—');
       setText('kpi-valor', '—');
       setText('kpi-minimo', '—');
       setText('kpi-cero', '—');
-      setText('page-sub', 'El resumen de inventario tardó demasiado (consultas más pesadas que Ventas). Reintenta con recarga o espera un momento.');
-      return;
+      setText('page-sub', 'Resumen de inventario tardó (90 s). Las tablas de abajo siguen cargando; si los KPI quedan en —, revisa el API o recarga.');
+    } else if (resErr) {
+      setText('kpi-total', '—');
+      setText('kpi-valor', '—');
+      setText('kpi-minimo', '—');
+      setText('kpi-cero', '—');
+      setText('page-sub', 'Resumen: ' + invEsc(resErr) + ' · Cargando tablas…');
+    } else {
+      setText('kpi-total', Number(d.TOTAL_ARTICULOS||0).toLocaleString());
+      setText('kpi-valor', fmtK(d.VALOR_INVENTARIO));
+      setText('kpi-minimo', Number(d.BAJO_MINIMO||0).toLocaleString());
+      setText('kpi-cero', Number(d.SIN_STOCK||0).toLocaleString());
+      if (typeof dashboardApplySem === 'function') {
+        const bajo = +d.BAJO_MINIMO || 0, cero = +d.SIN_STOCK || 0, total = +d.TOTAL_ARTICULOS || 0;
+        const ap = (id, lvl) => {
+          const el = document.getElementById(id);
+          const card = el && el.closest('.kpi-card');
+          if (card) dashboardApplySem(card, lvl);
+        };
+        ap('kpi-total', total > 0 ? 'info' : 'neutral');
+        ap('kpi-valor', 'info');
+        ap('kpi-minimo', bajo === 0 ? 'ok' : bajo <= 5 ? 'warn' : 'danger');
+        ap('kpi-cero', cero === 0 ? 'ok' : cero <= 3 ? 'warn' : 'danger');
+      }
+      const pl = invPeriodLabel();
+      setText('page-sub', 'KPI = existencias al momento. Cargando inventario completo' + (pl ? ' · periodo: ' + pl : '') + '…');
     }
-    setText('kpi-total', Number(d.TOTAL_ARTICULOS||0).toLocaleString());
-    setText('kpi-valor', fmtK(d.VALOR_INVENTARIO));
-    setText('kpi-minimo', Number(d.BAJO_MINIMO||0).toLocaleString());
-    setText('kpi-cero', Number(d.SIN_STOCK||0).toLocaleString());
-    if (typeof dashboardApplySem === 'function') {
-      const bajo = +d.BAJO_MINIMO || 0, cero = +d.SIN_STOCK || 0, total = +d.TOTAL_ARTICULOS || 0;
-      const ap = (id, lvl) => {
-        const el = document.getElementById(id);
-        const card = el && el.closest('.kpi-card');
-        if (card) dashboardApplySem(card, lvl);
-      };
-      ap('kpi-total', total > 0 ? 'info' : 'neutral');
-      ap('kpi-valor', 'info');
-      ap('kpi-minimo', bajo === 0 ? 'ok' : bajo <= 5 ? 'warn' : 'danger');
-      ap('kpi-cero', cero === 0 ? 'ok' : cero <= 3 ? 'warn' : 'danger');
-    }
-    const pl = invPeriodLabel();
-    setText('page-sub', 'KPI = existencias al momento. Cargando inventario completo' + (pl ? ' · periodo: ' + pl : '') + '…');
   } catch(e){
     if (g !== invLoadGen) return;
     console.error('inv-resumen', e);
@@ -426,8 +433,7 @@ async function loadAll() {
     setText('kpi-valor', '—');
     setText('kpi-minimo', '—');
     setText('kpi-cero', '—');
-    setText('page-sub', 'Error al cargar resumen. ' + (e && e.message ? String(e.message) : ''));
-    return;
+    setText('page-sub', 'Error al cargar resumen. ' + (e && e.message ? String(e.message) : '') + ' · Cargando tablas…');
   }
 
   if (g !== invLoadGen) return;
