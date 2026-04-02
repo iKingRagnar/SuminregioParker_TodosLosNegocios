@@ -4430,6 +4430,57 @@ get('/api/inv/consumo', async (req) => {
   }));
 });
 
+/**
+ * Modo rápido devuelve filas sin DIAS_SIN_VENTA. Para la tabla ≥365 en cliente: segunda consulta
+ * solo sobre los ARTICULO_ID ya devueltos (acotada). Desactivar: MICROSIP_INV_SIN_MOV_ENRICH_DIAS=0.
+ */
+async function enrichSinMovIdleDias(rows, dias, histDias, dbo, csp) {
+  const dis = String(process.env.MICROSIP_INV_SIN_MOV_ENRICH_DIAS || '').trim().toLowerCase();
+  if (dis === '0' || dis === 'false' || dis === 'no') return rows;
+  if (!Array.isArray(rows) || rows.length === 0) return rows;
+  const ids = [...new Set(rows.map((r) => +r.ARTICULO_ID).filter((n) => Number.isFinite(n) && n > 0))];
+  if (ids.length === 0) return rows;
+  const subDocHist = consumosSubSqlWithLookback(invHeavySubTipo(), csp, histDias);
+  const idList = ids.join(',');
+  const enrichMs = Math.min(invHeavyQueryTimeoutMs(), 120000);
+  try {
+    const idleRows = await query(
+      `
+      SELECT t.ARTICULO_ID, t.ULTIMO_MOVIMIENTO, (CURRENT_DATE - t.ULTIMO_MOVIMIENTO) AS DIAS_SIN_VENTA
+      FROM (
+        SELECT d.ARTICULO_ID, MAX(CAST(d.FECHA AS DATE)) AS ULTIMO_MOVIMIENTO
+        FROM ${subDocHist} d
+        WHERE ABS(COALESCE(d.UNIDADES, 0)) > 0
+          AND COALESCE(d.ARTICULO_ID, 0) <> 0
+          AND CAST(d.FECHA AS DATE) <= (CURRENT_DATE - ${dias})
+          AND CAST(d.FECHA AS DATE) >= (CURRENT_DATE - ${histDias})
+          AND d.ARTICULO_ID IN (${idList})
+        GROUP BY d.ARTICULO_ID
+      ) t
+    `,
+      [],
+      enrichMs,
+      dbo,
+    );
+    const map = new Map();
+    for (const ir of idleRows || []) {
+      map.set(+ir.ARTICULO_ID, { ult: ir.ULTIMO_MOVIMIENTO, dias: ir.DIAS_SIN_VENTA });
+    }
+    return rows.map((r) => {
+      const m = map.get(+r.ARTICULO_ID);
+      if (!m) return r;
+      return {
+        ...r,
+        ULTIMO_MOVIMIENTO: m.ult != null ? m.ult : r.ULTIMO_MOVIMIENTO,
+        DIAS_SIN_VENTA: m.dias != null ? m.dias : r.DIAS_SIN_VENTA,
+      };
+    });
+  } catch (e) {
+    console.error('[api/inv/sin-movimiento enrich dias]', e && (e.message || e));
+    return rows;
+  }
+}
+
 get('/api/inv/sin-movimiento', async (req) => {
   const dias = Math.min(parseInt(req.query.dias) || 180, 730);
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
@@ -4449,7 +4500,7 @@ get('/api/inv/sin-movimiento', async (req) => {
       if (useUltra) {
         // Candidatos: top existencia; filtro "no vendió" con EXISTS (ROWS 1) para cortar rápido.
         const candLim = Math.min(limit * 12, 2400);
-        return query(`
+        let rowsUltra = await query(`
     WITH cand AS (
       SELECT FIRST ${candLim}
         a.ARTICULO_ID,
@@ -4480,8 +4531,10 @@ get('/api/inv/sin-movimiento', async (req) => {
     )
     ORDER BY c.EXISTENCIA_ACTUAL DESC NULLS LAST
   `, [], invHeavyQueryTimeoutMs(), dbo);
+        rowsUltra = await enrichSinMovIdleDias(rowsUltra, dias, histDias, dbo, csp);
+        return rowsUltra;
       }
-      return query(`
+      let rowsFast = await query(`
     WITH recent AS (
       SELECT DISTINCT d.ARTICULO_ID AS AID
       FROM ${subDoc} d
@@ -4500,6 +4553,8 @@ get('/api/inv/sin-movimiento', async (req) => {
       AND NOT EXISTS (SELECT 1 FROM recent r WHERE r.AID = a.ARTICULO_ID)
     ORDER BY ex.EXISTENCIA DESC NULLS LAST
   `, [], invHeavyQueryTimeoutMs(), dbo);
+      rowsFast = await enrichSinMovIdleDias(rowsFast, dias, histDias, dbo, csp);
+      return rowsFast;
     }
     // Modo completo: recent + idle_um (2× scan) — usar MICROSIP_INV_SIN_MOV_FAST=0 en Render si el proxy aguanta.
     return query(`
