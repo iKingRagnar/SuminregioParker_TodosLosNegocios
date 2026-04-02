@@ -638,10 +638,10 @@ async function loadSinMovimiento(g){
   const fin = ()=>{ done=true; clearTimeout(tWarm); };
   const sinMovTimeoutFallback = {
     __invTimeout: true,
-    __invErr: 'Sin respuesta en 115 s (sin movimiento). El proxy de Render a menudo corta antes: reintenta, reduce carga o revisa logs del servicio.'
+    __invErr: 'Sin respuesta en 135 s (sin movimiento). Consulta optimizada en servidor; si persiste, Render suele cortar ~60–120 s: revisa logs o variable MICROSIP_INV_SIN_MOV_HIST_DIAS.'
   };
   try{
-    const raw = await invFwt(apiDb('/api/inv/sin-movimiento?dias=180&limit=60'), sinMovTimeoutFallback, 115000);
+    const raw = await invFwt(apiDb('/api/inv/sin-movimiento?dias=180&limit=60'), sinMovTimeoutFallback, 135000);
     fin();
     if (g !== invLoadGen) return;
     const smErr = invRespErr(raw);

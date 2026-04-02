@@ -4225,10 +4225,30 @@ get('/api/inv/consumo', async (req) => {
 get('/api/inv/sin-movimiento', async (req) => {
   const dias = Math.min(parseInt(req.query.dias) || 180, 730);
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+  /** Días hacia atrás para calcular último movimiento (tabla 365+ en cliente). Env: MICROSIP_INV_SIN_MOV_HIST_DIAS (máx. 1460). */
+  const histParsed = parseInt(process.env.MICROSIP_INV_SIN_MOV_HIST_DIAS, 10);
+  const histDias = Math.min(1460, Math.max(Number.isFinite(histParsed) ? histParsed : 800, dias + 1));
   async function sinMovimientoForDb(dbo) {
     const csp = await resolveConsumosSchema(dbo);
     const subDoc = consumosSubSql(invHeavySubTipo(), csp);
+    // Antes: un solo MAX(FECHA) agrupando todos los artículos en ventana ancha → muy lento en Render.
+    // Ahora: (1) recent = DISTINCT en solo últimos `dias` de ventas; (2) idle_um = MAX solo para artículos
+    // que no están en recent (conjunto mucho menor sobre ventana histDias).
     return query(`
+    WITH recent AS (
+      SELECT DISTINCT d.ARTICULO_ID AS AID
+      FROM ${subDoc} d
+      WHERE d.UNIDADES > 0
+        AND CAST(d.FECHA AS DATE) > (CURRENT_DATE - ${dias})
+    ),
+    idle_um AS (
+      SELECT d.ARTICULO_ID, MAX(CAST(d.FECHA AS DATE)) AS ULTIMO_MOVIMIENTO
+      FROM ${subDoc} d
+      WHERE d.UNIDADES > 0
+        AND CAST(d.FECHA AS DATE) <= (CURRENT_DATE - ${dias})
+        AND CAST(d.FECHA AS DATE) >= (CURRENT_DATE - ${histDias})
+      GROUP BY d.ARTICULO_ID
+    )
     SELECT FIRST ${limit} a.NOMBRE AS DESCRIPCION, a.ARTICULO_ID, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
       COALESCE(ex.EXISTENCIA, 0) AS EXISTENCIA_ACTUAL, COALESCE(mn.INVENTARIO_MINIMO, 0) AS MIN_ACTUAL,
       um.ULTIMO_MOVIMIENTO,
@@ -4236,17 +4256,12 @@ get('/api/inv/sin-movimiento', async (req) => {
     FROM ARTICULOS a
     LEFT JOIN ${SQL_EXIST_SUB} ex ON ex.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${SQL_MINIMO_SUB} mn ON mn.ARTICULO_ID = a.ARTICULO_ID
-    LEFT JOIN (
-      SELECT d.ARTICULO_ID, MAX(d.FECHA) AS ULTIMO_MOVIMIENTO
-      FROM ${subDoc} d
-      WHERE d.UNIDADES > 0
-        AND CAST(d.FECHA AS DATE) >= (CURRENT_DATE - ${Math.min(dias * 2, 365)})
-      GROUP BY d.ARTICULO_ID
-    ) um ON um.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN idle_um um ON um.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND COALESCE(ex.EXISTENCIA, 0) > 0
+      AND NOT EXISTS (SELECT 1 FROM recent r WHERE r.AID = a.ARTICULO_ID)
       AND (um.ULTIMO_MOVIMIENTO IS NULL OR (CURRENT_DATE - um.ULTIMO_MOVIMIENTO) > ${dias})
     ORDER BY DIAS_SIN_VENTA DESC NULLS FIRST, ex.EXISTENCIA DESC
-  `, [], 180000, dbo).catch((err) => {
+  `, [], 150000, dbo).catch((err) => {
     console.error('[api/inv/sin-movimiento]', err && (err.message || err));
     return [];
   });
