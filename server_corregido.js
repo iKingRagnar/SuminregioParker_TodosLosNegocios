@@ -1672,11 +1672,9 @@ async function resolveConsumosSchema(dbo) {
  * tipo: 'VE' | 'PV' | '' (ambos)
  * parts: salida de resolveConsumosSchema(dbo)
  *
- * Por defecto el filtro de documento coincide con ventasSub() (Facturas aplicadas), no con el criterio
- * antiguo F/V/R sin APLICADO — en bases Microsip reales casi todo el movimiento válido exige APLICADO = 'S',
- * y el panel de Ventas usa ese mismo criterio; si no, consumo semanal / sin movimiento quedaban vacíos o
- * escaneaban demasiado. MICROSIP_CONSUMOS_LEGACY_VR=1 restaura el WHERE antiguo (F/V/R sin APLICADO).
- * MICROSIP_CONSUMOS_INCLUYE_REMISIONES=1 → TIPO_DOCTO IN ('V','F') como ventasSub con remisiones.
+ * Por defecto el WHERE de cabecera coincide con /api/ventas/margen-articulos (DOCTOS_VE+DET con F/V/R),
+ * que en producción sí devuelve renglones. El criterio ventasSub() (APLICADO='S', solo F) es más estricto
+ * y en muchas bases deja consumo/sin-movimiento en cero — activar con MICROSIP_CONSUMOS_FILTRO_VENTAS_SUB=1.
  */
 function consumosSubSql(tipo = '', parts) {
   const p = parts || {};
@@ -1686,30 +1684,30 @@ function consumosSubSql(tipo = '', parts) {
   const pvQty = p.pvQty || 'UNIDADES';
   const veImp = p.veAmt ? `COALESCE(det.${p.veAmt}, 0)` : '0';
   const pvImp = p.pvAmt ? `COALESCE(det.${p.pvAmt}, 0)` : '0';
-  const legacyVr = (process.env.MICROSIP_CONSUMOS_LEGACY_VR || '').match(/^(1|true|yes)$/i);
+  const strictVentas = (process.env.MICROSIP_CONSUMOS_FILTRO_VENTAS_SUB || '').match(/^(1|true|yes)$/i);
   const inclRem = (process.env.MICROSIP_CONSUMOS_INCLUYE_REMISIONES || '').match(/^(1|true|yes)$/i);
   const tiposDoc = inclRem ? "('V', 'F')" : "('F')";
-  const veDocWhere = legacyVr
+  const veDocWhere = strictVentas
     ? `(
-      (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
-      OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
-      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS NOT IN ('C','T'))
-    )`
-    : `(
       d.TIPO_DOCTO IN ${tiposDoc}
       AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
       AND COALESCE(d.APLICADO, 'N') = 'S'
+    )`
+    : `(
+      (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
+      OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
+      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS <> 'C')
     )`;
-  const pvDocWhere = legacyVr
+  const pvDocWhere = strictVentas
     ? `(
-      (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
-      OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
-      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS NOT IN ('C','T'))
-    )`
-    : `(
       d.TIPO_DOCTO IN ${tiposDoc}
       AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
       AND COALESCE(d.APLICADO, 'N') = 'S'
+    )`
+    : `(
+      (d.TIPO_DOCTO = 'F' AND d.ESTATUS <> 'C')
+      OR (d.TIPO_DOCTO = 'V' AND d.ESTATUS NOT IN ('C','T'))
+      OR (d.TIPO_DOCTO = 'R' AND d.ESTATUS <> 'C')
     )`;
   // Proyectar siempre CAST(... AS DATE) AS FECHA para que buildFiltros y KPIs usen d.FECHA en el exterior.
   const ve = `
@@ -4109,7 +4107,40 @@ get('/api/inv/consumo-semanal', async (req) => {
     GROUP BY a.NOMBRE, a.ARTICULO_ID, s.EXISTENCIA
     HAVING SUM(d.UNIDADES) > 0
     ORDER BY SEMANAS_STOCK ASC
-  `, [desdeStr, hastaStr], INV_CONSUMO_Q_MS, dbo).catch(() => []);
+  `, [desdeStr, hastaStr], INV_CONSUMO_Q_MS, dbo).catch((err) => {
+    console.error('[api/inv/consumo-semanal]', err && (err.message || err));
+    return [];
+  });
+});
+
+// Diagnóstico rápido: cuenta renglones de consumo en el periodo (misma subconsulta que consumo semanal).
+get('/api/inv/consumo-diagnostico', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const { desdeStr, hastaStr } = invPeriodDaysFromReq(req);
+  const csp = await resolveConsumosSchema(dbo);
+  const sub = consumosSubSql(invUseVePvUnion() ? '' : 'VE', csp);
+  const rows = await query(
+    `
+    SELECT COUNT(*) AS C FROM (
+      SELECT 1
+      FROM ${sub} d
+      WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
+        AND CAST(d.FECHA AS DATE) <= CAST(? AS DATE)
+        AND COALESCE(d.UNIDADES, 0) > 0
+    ) x
+  `,
+    [desdeStr, hastaStr],
+    60000,
+    dbo
+  );
+  const c = rows && rows[0] ? +rows[0].C : 0;
+  return {
+    ok: true,
+    desde: desdeStr,
+    hasta: hastaStr,
+    renglones_venta_en_periodo: c,
+    nota: 'Mismo criterio que consumo semanal. Si es 0, prueba otro periodo o revisa servidor (log si hay error SQL).',
+  };
 });
 
 // Forecast consumo — periodo = filtro (desde/hasta / preset).
@@ -4134,7 +4165,10 @@ get('/api/inv/consumo', async (req) => {
     GROUP BY a.NOMBRE, a.ARTICULO_ID, a.UNIDAD_VENTA, ex.EXISTENCIA, mn.INVENTARIO_MINIMO
     HAVING SUM(d.UNIDADES) > 0
     ORDER BY DIAS_STOCK ASC
-  `, [desdeStr, hastaStr], INV_CONSUMO_Q_MS, dbo).catch(() => []);
+  `, [desdeStr, hastaStr], INV_CONSUMO_Q_MS, dbo).catch((err) => {
+    console.error('[api/inv/consumo]', err && (err.message || err));
+    return [];
+  });
   const rowArr = Array.isArray(rows) ? rows : [];
   return rowArr.map(r => ({
     ...r,
@@ -4168,7 +4202,10 @@ get('/api/inv/sin-movimiento', async (req) => {
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND COALESCE(ex.EXISTENCIA, 0) > 0
       AND (um.ULTIMO_MOVIMIENTO IS NULL OR (CURRENT_DATE - um.ULTIMO_MOVIMIENTO) > ${dias})
     ORDER BY DIAS_SIN_VENTA DESC NULLS FIRST, ex.EXISTENCIA DESC
-  `, [], 180000, dbo).catch(() => []);
+  `, [], 180000, dbo).catch((err) => {
+    console.error('[api/inv/sin-movimiento]', err && (err.message || err));
+    return [];
+  });
   }
   if (isAllDbs(req)) return runForAllDbs((dbo) => sinMovimientoForDb(dbo));
   return sinMovimientoForDb(getReqDbOpts(req));
@@ -4195,7 +4232,10 @@ get('/api/inv/operacion-critica', async (req) => {
     LEFT JOIN (SELECT d.ARTICULO_ID, SUM(CASE WHEN CAST(d.FECHA AS DATE)>=(CURRENT_DATE-28) THEN COALESCE(d.UNIDADES,0) ELSE 0 END) AS CONSUMO_4S, SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA)=EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA)=EXTRACT(MONTH FROM CURRENT_DATE) THEN COALESCE(d.UNIDADES,0) ELSE 0 END) AS CONSUMO_MES, MAX(CAST(d.FECHA AS DATE)) AS ULTIMO_MOVIMIENTO, (CURRENT_DATE-MAX(CAST(d.FECHA AS DATE))) AS DIAS_SIN_VENTA FROM ${subOc2} d WHERE d.UNIDADES>0 AND CAST(d.FECHA AS DATE)>=(CURRENT_DATE-400) GROUP BY d.ARTICULO_ID) cs ON cs.ARTICULO_ID=a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS,'A')='A' AND (COALESCE(ex.EXISTENCIA,0)<=0 OR (COALESCE(cs.CONSUMO_4S,0)>0 AND COALESCE(ex.EXISTENCIA,0)<=COALESCE(mn.INVENTARIO_MINIMO,0)))
     ORDER BY CASE WHEN COALESCE(ex.EXISTENCIA,0)<=0 AND COALESCE(cs.CONSUMO_4S,0)>0 THEN 0 ELSE 1 END, COALESCE(cs.CONSUMO_4S,0) DESC, COALESCE(ex.EXISTENCIA,0) ASC
-      `, [], 180000, dbo).catch(() => []);
+      `, [], 180000, dbo).catch((err) => {
+        console.error('[api/inv/operacion-critica __all__]', err && (err.message || err));
+        return [];
+      });
       return (rows2 || []).map(r => {
         const existencia=+r.EXISTENCIA_ACTUAL||0, minimo=+r.MIN_ACTUAL||0, c4=+r.CONSUMO_4_SEMANAS||0, cm=+r.CONSUMO_MES_ACTUAL||0;
         const semanal=c4>0?c4/4:0, diario=semanal/7, semanas=semanal>0?existencia/semanal:null, dias=diario>0?existencia/diario:null;
@@ -4268,7 +4308,10 @@ get('/api/inv/operacion-critica', async (req) => {
       CASE WHEN COALESCE(ex.EXISTENCIA, 0) <= 0 AND COALESCE(cs.CONSUMO_4S, 0) > 0 THEN 0 ELSE 1 END,
       COALESCE(cs.CONSUMO_4S, 0) DESC,
       COALESCE(ex.EXISTENCIA, 0) ASC
-  `, [], 180000, dbo).catch(() => []);
+  `, [], 180000, dbo).catch((err) => {
+    console.error('[api/inv/operacion-critica]', err && (err.message || err));
+    return [];
+  });
 
   const enriched = (rows || []).map((r) => {
     const existencia = +r.EXISTENCIA_ACTUAL || 0;
