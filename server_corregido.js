@@ -3945,15 +3945,14 @@ function invHeavySubTipo() {
 }
 
 /**
- * Sin movimiento: en Render el proxy corta ~60–120 s; el modo completo (2× scan subDoc) suele no alcanzar.
- * Por defecto en Render (RENDER=true): modo rápido — un solo scan de ventas recientes; ULTIMO_MOV/DIAS_SIN_VENTA quedan NULL (tabla 365+ en cliente puede vaciarse).
- * Desactivar en Render: MICROSIP_INV_SIN_MOV_FAST=0. Forzar rápido en cualquier host: MICROSIP_INV_SIN_MOV_FAST=1.
+ * Sin movimiento: modo rápido = un solo scan de ventas recientes (más barato; DIAS/ULTIMO NULL en cliente).
+ * Por defecto: modo completo (idle_um + días). En Render el proxy puede cortar ~60–120 s; si falla por tiempo, poner MICROSIP_INV_SIN_MOV_FAST=1.
+ * Forzar rápido: MICROSIP_INV_SIN_MOV_FAST=1. Forzar completo: MICROSIP_INV_SIN_MOV_FAST=0.
  */
 function invSinMovFastDefault() {
   const e = String(process.env.MICROSIP_INV_SIN_MOV_FAST || '').trim().toLowerCase();
-  if (e === '0' || e === 'false' || e === 'no') return false;
   if (e === '1' || e === 'true' || e === 'yes') return true;
-  return String(process.env.RENDER || '').toLowerCase() === 'true';
+  return false;
 }
 
 /** Días de historial de ventas en subquery cs de operación crítica (default 400; en modo liviano 120). Env: MICROSIP_INV_OP_CONSUMO_DIAS (28–730). */
