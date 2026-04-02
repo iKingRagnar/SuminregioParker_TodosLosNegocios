@@ -151,6 +151,16 @@ function query(sql, params = [], timeoutMs = 12000, dbOptsOverride = null) {
   return Promise.race([queryPromise, timeoutPromise]);
 }
 
+/**
+ * cxcResumenAgingUnificado lanza varias consultas pesadas en paralelo; 12–30 s suele ser poco en Firebird remoto (Render).
+ * Env: MICROSIP_CXC_AGING_Q_MS (mín. 5000, por defecto 45000, tope 120000).
+ */
+function cxcAgingQueryMs() {
+  const n = parseInt(process.env.MICROSIP_CXC_AGING_Q_MS, 10);
+  const t = Number.isFinite(n) && n >= 5000 ? n : 45000;
+  return Math.min(120000, Math.max(15000, t));
+}
+
 const tableColumnsCache = new Map();
 function dbCacheKey(dbOptsOverride = null) {
   const o = dbOptsOverride || DB_OPTIONS;
@@ -3127,7 +3137,7 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
       FROM ${remisionesSub()} d
       WHERE 1=1 ${f.sql}
     `, f.params, qms, dbOpts).catch(() => [{}]),
-    cxcResumenAgingUnificado(rq, dbOpts, qms).catch(() => ({ resumen: { SALDO_TOTAL: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: 0, VENCIDO: 0, POR_VENCER: 0 }, aging: {} })),
+    cxcResumenAgingUnificado(rq, dbOpts).catch(() => ({ resumen: { SALDO_TOTAL: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: 0, VENCIDO: 0, POR_VENCER: 0 }, aging: {} })),
     query(`
       SELECT
         SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN ${sqlCotiImporteExpr('d')} ELSE 0 END) AS IMPORTE_COTI_HOY,
@@ -3362,7 +3372,8 @@ function cxcDocSaldosSQL(cfSql) {
   return `${cxcDocSaldosInnerSQL(cfSql)} doc WHERE doc.SALDO_NETO > 0`;
 }
 
-async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
+async function cxcResumenAgingUnificado(req, dbo, qms) {
+  const ms = typeof qms === 'number' && qms > 0 ? Math.min(qms, 120000) : cxcAgingQueryMs();
   const t0 = Date.now();
   const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
   const whereCliDoc = cf ? ` AND doc.CLIENTE_ID = ${cf}` : '';
@@ -3381,8 +3392,8 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
         SUM(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.SALDO_NETO ELSE 0 END) AS VENC_C
       FROM ${cxcDocSaldosInnerSQL('')} doc
       WHERE doc.SALDO_NETO > 0.005 ${whereCliDoc}
-    `, [], qms, dbo).catch((err) => { console.error('cxcResumenAgingUnificado docAgg error:', err && (err.message || err)); return []; }),
-    query(`SELECT cs.CLIENTE_ID, cs.SALDO FROM ${cxcClienteSQL()} cs${whereCliSaldo}`, [], qms, dbo).catch((err) => { console.error('cxcResumenAgingUnificado saldosLegacy error:', err && (err.message || err)); return []; }),
+    `, [], ms, dbo).catch((err) => { console.error('cxcResumenAgingUnificado docAgg error:', err && (err.message || err)); return []; }),
+    query(`SELECT cs.CLIENTE_ID, cs.SALDO FROM ${cxcClienteSQL()} cs${whereCliSaldo}`, [], ms, dbo).catch((err) => { console.error('cxcResumenAgingUnificado saldosLegacy error:', err && (err.message || err)); return []; }),
     query(`
       SELECT
         cd.CLIENTE_ID,
@@ -3396,7 +3407,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
       FROM ${cxcCargosSQL()} cd
       ${cf ? `WHERE cd.CLIENTE_ID = ${cf}` : ''}
       GROUP BY cd.CLIENTE_ID
-    `, [], qms, dbo).catch((err) => { console.error('cxcResumenAgingUnificado agingLegacy error:', err && (err.message || err)); return []; }),
+    `, [], ms, dbo).catch((err) => { console.error('cxcResumenAgingUnificado agingLegacy error:', err && (err.message || err)); return []; }),
     query(`
       SELECT
         COUNT(*) AS DOCS_SALDO,
@@ -3406,7 +3417,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
         SUM(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.SALDO_NETO ELSE 0 END) AS SALDO_VENCIDO
       FROM ${cxcDocSaldosInnerSQL('')} doc
       WHERE doc.SALDO_NETO > 0.005 ${whereCliDoc}
-    `, [], qms, dbo).catch((err) => { console.error('cxcResumenAgingUnificado docStats error:', err && (err.message || err)); return []; }),
+    `, [], ms, dbo).catch((err) => { console.error('cxcResumenAgingUnificado docStats error:', err && (err.message || err)); return []; }),
     query(`
       SELECT
         SUM(CASE WHEN i.TIPO_IMPTE = 'C' THEN 1 ELSE 0 END) AS MOV_C,
@@ -3423,7 +3434,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
       LEFT JOIN CLIENTES clx ON clx.CLIENTE_ID = dc.CLIENTE_ID
       LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, clx.COND_PAGO_ID)
       WHERE COALESCE(i.CANCELADO, 'N') = 'N' ${CXC_EXCLUIR_CONTADO} ${cf ? ` AND dc.CLIENTE_ID = ${cf}` : ''}
-    `, [], qms, dbo).catch((err) => { console.error('cxcResumenAgingUnificado movStats error:', err && (err.message || err)); return []; }),
+    `, [], ms, dbo).catch((err) => { console.error('cxcResumenAgingUnificado movStats error:', err && (err.message || err)); return []; }),
     query(`
       SELECT
         COUNT(*) AS DOCS_ALL,
@@ -3431,7 +3442,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms = 12000) {
         SUM(CASE WHEN doc.SALDO_NETO <= 0.005 THEN 1 ELSE 0 END) AS DOCS_PAGADOS_O_CERRADOS
       FROM ${cxcDocSaldosInnerSQL('')} doc
       WHERE 1 = 1 ${whereCliDoc}
-    `, [], qms, dbo).catch((err) => { console.error('cxcResumenAgingUnificado saldoCut error:', err && (err.message || err)); return []; }),
+    `, [], ms, dbo).catch((err) => { console.error('cxcResumenAgingUnificado saldoCut error:', err && (err.message || err)); return []; }),
   ]);
 
   let saldoTotal = 0, vencido = 0, porVencer = 0;
@@ -3536,7 +3547,7 @@ get('/api/cxc/resumen', async (req) => {
   if (isAllDbs(req)) {
     const snaps = await mapPoolLimit(DATABASE_REGISTRY, 2, async (entry) => {
       try {
-        return await cxcResumenAgingUnificado(req, entry.options, 30000);
+        return await cxcResumenAgingUnificado(req, entry.options);
       } catch (e) {
         return { resumen: { SALDO_TOTAL: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: 0, VENCIDO: 0, POR_VENCER: 0 }, aging: {} };
       }
@@ -3544,7 +3555,7 @@ get('/api/cxc/resumen', async (req) => {
     return mergeCxcResumenAgingSnaps(snaps).resumen;
   }
   const dbo = getReqDbOpts(req);
-  const snap = await cxcResumenAgingUnificado(req, dbo, 30000);
+  const snap = await cxcResumenAgingUnificado(req, dbo);
   return snap.resumen;
 });
 
@@ -3553,7 +3564,7 @@ get('/api/cxc/aging', async (req) => {
   if (isAllDbs(req)) {
     const snaps = await mapPoolLimit(DATABASE_REGISTRY, 2, async (entry) => {
       try {
-        return await cxcResumenAgingUnificado(req, entry.options, 12000);
+        return await cxcResumenAgingUnificado(req, entry.options);
       } catch (e) {
         return { resumen: {}, aging: { CORRIENTE: 0, DIAS_1_30: 0, DIAS_31_60: 0, DIAS_61_90: 0, DIAS_MAS_90: 0 } };
       }
@@ -3561,7 +3572,7 @@ get('/api/cxc/aging', async (req) => {
     return mergeCxcResumenAgingSnaps(snaps).aging;
   }
   const dbo = getReqDbOpts(req);
-  const snap = await cxcResumenAgingUnificado(req, dbo, 12000);
+  const snap = await cxcResumenAgingUnificado(req, dbo);
   return snap.aging;
 });
 
@@ -3570,7 +3581,7 @@ get('/api/cxc/resumen-aging', async (req) => {
   if (isAllDbs(req)) {
     const snaps = await mapPoolLimit(DATABASE_REGISTRY, 2, async (entry) => {
       try {
-        return await cxcResumenAgingUnificado(req, entry.options, 30000);
+        return await cxcResumenAgingUnificado(req, entry.options);
       } catch (e) {
         return { resumen: { SALDO_TOTAL: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: 0, VENCIDO: 0, POR_VENCER: 0 }, aging: { CORRIENTE: 0, DIAS_1_30: 0, DIAS_31_60: 0, DIAS_61_90: 0, DIAS_MAS_90: 0 } };
       }
@@ -3578,7 +3589,7 @@ get('/api/cxc/resumen-aging', async (req) => {
     return mergeCxcResumenAgingSnaps(snaps);
   }
   const dbo = getReqDbOpts(req);
-  const snap = await cxcResumenAgingUnificado(req, dbo, 30000);
+  const snap = await cxcResumenAgingUnificado(req, dbo);
   return { resumen: snap.resumen, aging: snap.aging };
 });
 
@@ -7559,7 +7570,7 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
     }
 
     if (toolId === 'cxc') {
-      const snap = await cxcResumenAgingUnificado({ query: (aiReq && aiReq.query) || {} }, dbOpts, 30000).catch(() => ({ resumen: { SALDO_TOTAL: 0 }, aging: {} }));
+      const snap = await cxcResumenAgingUnificado({ query: (aiReq && aiReq.query) || {} }, dbOpts).catch(() => ({ resumen: { SALDO_TOTAL: 0 }, aging: {} }));
       let saldoTotal = +(((snap || {}).resumen || {}).SALDO_TOTAL || 0);
       if (saldoTotal <= 0.005) {
         const [sumRow] = await query(`SELECT COALESCE(SUM(cs.SALDO),0) AS TOTAL FROM ${cxcClienteSQL()} cs`, [], 15000, dbOpts).catch(() => [{ TOTAL: 0 }]);
