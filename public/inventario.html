@@ -473,12 +473,10 @@ async function loadAll() {
       loadMinimo(g),
       loadTopStock(g),
       loadConsumo(g),
-      loadForecast(g)
+      loadForecast(g),
+      loadSinMovimiento(g),
+      loadOperacionCritica(g)
     ]);
-    if (g !== invLoadGen) return;
-    await loadSinMovimiento(g);
-    if (g !== invLoadGen) return;
-    await loadOperacionCritica(g);
     if (g !== invLoadGen) return;
     const pl = invPeriodLabel();
     setText('page-sub', 'Actualizado: ' + new Date().toLocaleTimeString('es-MX') + (pl ? ' · ' + pl : ''));

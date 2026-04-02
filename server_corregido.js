@@ -4537,29 +4537,132 @@ get('/api/inv/sin-movimiento', async (req) => {
   return sinMovimientoForDb(getReqDbOpts(req));
 });
 
+/**
+ * Render: no recorrer todo el catálogo en operación crítica (JOIN masivo ARTICULOS × bal × cs).
+ * Ultra = candidatos = SKUs con consumo en ventana ∪ primeros N con existencia ≤ 0 en bal.
+ * Desactivar: MICROSIP_INV_OPERACION_ULTRA=0. Tope ceros: MICROSIP_INV_OPERACION_CERO_CAP (100–1200, default 400).
+ */
+function invOperacionCriticaUltraEnabled() {
+  const e = String(process.env.MICROSIP_INV_OPERACION_ULTRA || '').trim().toLowerCase();
+  if (e === '0' || e === 'false' || e === 'no') return false;
+  if (e === '1' || e === 'true' || e === 'yes') return true;
+  return invIsRender();
+}
+
+function invOperacionCeroCap() {
+  const n = parseInt(process.env.MICROSIP_INV_OPERACION_CERO_CAP, 10);
+  if (Number.isFinite(n) && n >= 100 && n <= 1200) return n;
+  return 400;
+}
+
+/** SQL principal operación crítica: ultra (CTE zid) o scan completo. */
+function operacionCriticaSelectSql(subOc, limit, opLb, ultra) {
+  const csInner = `SELECT
+        d.ARTICULO_ID,
+        SUM(CASE WHEN CAST(d.FECHA AS DATE) >= (CURRENT_DATE - 28) THEN ABS(COALESCE(d.UNIDADES, 0)) ELSE 0 END) AS CONSUMO_4S,
+        SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE)
+                      AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE)
+                 THEN ABS(COALESCE(d.UNIDADES, 0)) ELSE 0 END) AS CONSUMO_MES,
+        MAX(CAST(d.FECHA AS DATE)) AS ULTIMO_MOVIMIENTO,
+        (CURRENT_DATE - MAX(CAST(d.FECHA AS DATE))) AS DIAS_SIN_VENTA
+      FROM ${subOc} d
+      WHERE ABS(COALESCE(d.UNIDADES, 0)) > 0
+        AND COALESCE(d.ARTICULO_ID, 0) <> 0
+      GROUP BY d.ARTICULO_ID`;
+  if (ultra) {
+    const capCero = invOperacionCeroCap();
+    return `
+WITH bal AS (
+  SELECT ARTICULO_ID,
+    SUM(COALESCE(ENTRADAS_UNIDADES, 0)) AS ENTRADAS_TOTAL,
+    SUM(COALESCE(SALIDAS_UNIDADES, 0)) AS SALIDAS_TOTAL,
+    SUM(COALESCE(ENTRADAS_UNIDADES, 0) - COALESCE(SALIDAS_UNIDADES, 0)) AS EXISTENCIA
+  FROM SALDOS_IN GROUP BY ARTICULO_ID
+),
+cs AS (
+  ${csInner}
+),
+zid AS (
+  SELECT ARTICULO_ID FROM cs
+  UNION
+  SELECT FIRST ${capCero} b.ARTICULO_ID FROM bal b WHERE COALESCE(b.EXISTENCIA, 0) <= 0
+)
+SELECT FIRST ${limit}
+  a.ARTICULO_ID,
+  a.NOMBRE AS DESCRIPCION,
+  COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
+  COALESCE(bal.EXISTENCIA, 0) AS EXISTENCIA_ACTUAL,
+  COALESCE(mn.INVENTARIO_MINIMO, 0) AS MIN_ACTUAL,
+  COALESCE(bal.ENTRADAS_TOTAL, 0) AS ENTRADAS_TOTAL,
+  COALESCE(bal.SALIDAS_TOTAL, 0) AS SALIDAS_TOTAL,
+  COALESCE(cs.CONSUMO_4S, 0) AS CONSUMO_4_SEMANAS,
+  COALESCE(cs.CONSUMO_MES, 0) AS CONSUMO_MES_ACTUAL,
+  cs.ULTIMO_MOVIMIENTO,
+  cs.DIAS_SIN_VENTA
+FROM zid
+JOIN ARTICULOS a ON a.ARTICULO_ID = zid.ARTICULO_ID
+LEFT JOIN bal ON bal.ARTICULO_ID = a.ARTICULO_ID
+LEFT JOIN ${SQL_MINIMO_SUB} mn ON mn.ARTICULO_ID = a.ARTICULO_ID
+LEFT JOIN cs ON cs.ARTICULO_ID = a.ARTICULO_ID
+WHERE COALESCE(a.ESTATUS, 'A') = 'A'
+  AND (
+    COALESCE(bal.EXISTENCIA, 0) <= 0
+    OR (
+      (COALESCE(cs.CONSUMO_4S, 0) > 0 OR COALESCE(cs.CONSUMO_MES, 0) > 0)
+      AND COALESCE(bal.EXISTENCIA, 0) <= COALESCE(mn.INVENTARIO_MINIMO, 0)
+    )
+  )
+ORDER BY
+  CASE WHEN COALESCE(bal.EXISTENCIA, 0) <= 0 AND (COALESCE(cs.CONSUMO_4S, 0) > 0 OR COALESCE(cs.CONSUMO_MES, 0) > 0) THEN 0 ELSE 1 END,
+  COALESCE(cs.CONSUMO_4S, 0) DESC,
+  COALESCE(cs.CONSUMO_MES, 0) DESC,
+  COALESCE(bal.EXISTENCIA, 0) ASC`;
+  }
+  return `
+    SELECT FIRST ${limit}
+      a.ARTICULO_ID,
+      a.NOMBRE AS DESCRIPCION,
+      COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
+      COALESCE(bal.EXISTENCIA, 0) AS EXISTENCIA_ACTUAL,
+      COALESCE(mn.INVENTARIO_MINIMO, 0) AS MIN_ACTUAL,
+      COALESCE(bal.ENTRADAS_TOTAL, 0) AS ENTRADAS_TOTAL,
+      COALESCE(bal.SALIDAS_TOTAL, 0) AS SALIDAS_TOTAL,
+      COALESCE(cs.CONSUMO_4S, 0) AS CONSUMO_4_SEMANAS,
+      COALESCE(cs.CONSUMO_MES, 0) AS CONSUMO_MES_ACTUAL,
+      cs.ULTIMO_MOVIMIENTO,
+      cs.DIAS_SIN_VENTA
+    FROM ARTICULOS a
+    LEFT JOIN ${SQL_SALDOS_BAL_SUB} bal ON bal.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN ${SQL_MINIMO_SUB} mn ON mn.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN (
+      ${csInner}
+    ) cs ON cs.ARTICULO_ID = a.ARTICULO_ID
+    WHERE COALESCE(a.ESTATUS, 'A') = 'A'
+      AND (
+        COALESCE(bal.EXISTENCIA, 0) <= 0
+        OR (
+          (COALESCE(cs.CONSUMO_4S, 0) > 0 OR COALESCE(cs.CONSUMO_MES, 0) > 0)
+          AND COALESCE(bal.EXISTENCIA, 0) <= COALESCE(mn.INVENTARIO_MINIMO, 0)
+        )
+      )
+    ORDER BY
+      CASE WHEN COALESCE(bal.EXISTENCIA, 0) <= 0 AND (COALESCE(cs.CONSUMO_4S, 0) > 0 OR COALESCE(cs.CONSUMO_MES, 0) > 0) THEN 0 ELSE 1 END,
+      COALESCE(cs.CONSUMO_4S, 0) DESC,
+      COALESCE(cs.CONSUMO_MES, 0) DESC,
+      COALESCE(bal.EXISTENCIA, 0) ASC`;
+}
+
 // Operación inventario: existencia 0 persistente + consumo activo + cobertura de críticos.
 get('/api/inv/operacion-critica', async (req) => {
   const opLb = invOperacionConsumoLookbackDays();
+  const ultraOp = invOperacionCriticaUltraEnabled();
   if (isAllDbs(req)) {
     const limit2 = Math.min(parseInt(req.query.limit) || 120, 300);
     async function opCritForDb(dbo) {
       const csp2 = await resolveConsumosSchema(dbo);
       const subOc2 = consumosSubSqlWithLookback(invHeavySubTipo(), csp2, opLb);
-      const rows2 = await query(`
-    SELECT FIRST ${limit2}
-      a.ARTICULO_ID, a.NOMBRE AS DESCRIPCION, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
-      COALESCE(bal.EXISTENCIA, 0) AS EXISTENCIA_ACTUAL, COALESCE(mn.INVENTARIO_MINIMO, 0) AS MIN_ACTUAL,
-      COALESCE(bal.ENTRADAS_TOTAL, 0) AS ENTRADAS_TOTAL, COALESCE(bal.SALIDAS_TOTAL, 0) AS SALIDAS_TOTAL,
-      COALESCE(cs.CONSUMO_4S, 0) AS CONSUMO_4_SEMANAS,
-      COALESCE(cs.CONSUMO_MES, 0) AS CONSUMO_MES_ACTUAL,
-      cs.ULTIMO_MOVIMIENTO, cs.DIAS_SIN_VENTA
-    FROM ARTICULOS a
-    LEFT JOIN ${SQL_SALDOS_BAL_SUB} bal ON bal.ARTICULO_ID = a.ARTICULO_ID
-    LEFT JOIN ${SQL_MINIMO_SUB} mn ON mn.ARTICULO_ID = a.ARTICULO_ID
-    LEFT JOIN (SELECT d.ARTICULO_ID, SUM(CASE WHEN CAST(d.FECHA AS DATE)>=(CURRENT_DATE-28) THEN ABS(COALESCE(d.UNIDADES,0)) ELSE 0 END) AS CONSUMO_4S, SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA)=EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA)=EXTRACT(MONTH FROM CURRENT_DATE) THEN ABS(COALESCE(d.UNIDADES,0)) ELSE 0 END) AS CONSUMO_MES, MAX(CAST(d.FECHA AS DATE)) AS ULTIMO_MOVIMIENTO, (CURRENT_DATE-MAX(CAST(d.FECHA AS DATE))) AS DIAS_SIN_VENTA FROM ${subOc2} d WHERE ABS(COALESCE(d.UNIDADES,0))>0 AND COALESCE(d.ARTICULO_ID,0)<>0 AND CAST(d.FECHA AS DATE)>=(CURRENT_DATE-${opLb}) GROUP BY d.ARTICULO_ID) cs ON cs.ARTICULO_ID=a.ARTICULO_ID
-    WHERE COALESCE(a.ESTATUS,'A')='A' AND (COALESCE(bal.EXISTENCIA,0)<=0 OR ((COALESCE(cs.CONSUMO_4S,0)>0 OR COALESCE(cs.CONSUMO_MES,0)>0) AND COALESCE(bal.EXISTENCIA,0)<=COALESCE(mn.INVENTARIO_MINIMO,0)))
-    ORDER BY CASE WHEN COALESCE(bal.EXISTENCIA,0)<=0 AND (COALESCE(cs.CONSUMO_4S,0)>0 OR COALESCE(cs.CONSUMO_MES,0)>0) THEN 0 ELSE 1 END, COALESCE(cs.CONSUMO_4S,0) DESC, COALESCE(cs.CONSUMO_MES,0) DESC, COALESCE(bal.EXISTENCIA,0) ASC
-      `, [], invHeavyQueryTimeoutMs(), dbo);
+      const sqlOp2 = operacionCriticaSelectSql(subOc2, limit2, opLb, ultraOp);
+      const rows2 = await query(sqlOp2, [], invHeavyQueryTimeoutMs(), dbo);
       return (rows2 || []).map(r => {
         const existencia=+r.EXISTENCIA_ACTUAL||0, minimo=+r.MIN_ACTUAL||0, c4=+r.CONSUMO_4_SEMANAS||0, cm=+r.CONSUMO_MES_ACTUAL||0;
         const semanal=c4>0?c4/4:0, diario=semanal/7, semanas=semanal>0?existencia/semanal:null, dias=diario>0?existencia/diario:null;
@@ -4580,53 +4683,10 @@ get('/api/inv/operacion-critica', async (req) => {
   }
   const dbo = getReqDbOpts(req);
   const csp = await resolveConsumosSchema(dbo);
-  // Pushdown: el subquery ya trae fecha >= (CURRENT_DATE - opLb) en el FROM.
   const subOc = consumosSubSqlWithLookback(invHeavySubTipo(), csp, opLb);
   const limit = Math.min(parseInt(req.query.limit) || 120, 300);
-  const rows = await query(`
-    SELECT FIRST ${limit}
-      a.ARTICULO_ID,
-      a.NOMBRE AS DESCRIPCION,
-      COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
-      COALESCE(bal.EXISTENCIA, 0) AS EXISTENCIA_ACTUAL,
-      COALESCE(mn.INVENTARIO_MINIMO, 0) AS MIN_ACTUAL,
-      COALESCE(bal.ENTRADAS_TOTAL, 0) AS ENTRADAS_TOTAL,
-      COALESCE(bal.SALIDAS_TOTAL, 0) AS SALIDAS_TOTAL,
-      COALESCE(cs.CONSUMO_4S, 0) AS CONSUMO_4_SEMANAS,
-      COALESCE(cs.CONSUMO_MES, 0) AS CONSUMO_MES_ACTUAL,
-      cs.ULTIMO_MOVIMIENTO,
-      cs.DIAS_SIN_VENTA
-    FROM ARTICULOS a
-    LEFT JOIN ${SQL_SALDOS_BAL_SUB} bal ON bal.ARTICULO_ID = a.ARTICULO_ID
-    LEFT JOIN ${SQL_MINIMO_SUB} mn ON mn.ARTICULO_ID = a.ARTICULO_ID
-    LEFT JOIN (
-      SELECT
-        d.ARTICULO_ID,
-        SUM(CASE WHEN CAST(d.FECHA AS DATE) >= (CURRENT_DATE - 28) THEN ABS(COALESCE(d.UNIDADES, 0)) ELSE 0 END) AS CONSUMO_4S,
-        SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE)
-                      AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE)
-                 THEN ABS(COALESCE(d.UNIDADES, 0)) ELSE 0 END) AS CONSUMO_MES,
-        MAX(CAST(d.FECHA AS DATE)) AS ULTIMO_MOVIMIENTO,
-        (CURRENT_DATE - MAX(CAST(d.FECHA AS DATE))) AS DIAS_SIN_VENTA
-      FROM ${subOc} d
-      WHERE ABS(COALESCE(d.UNIDADES, 0)) > 0
-        AND COALESCE(d.ARTICULO_ID, 0) <> 0
-      GROUP BY d.ARTICULO_ID
-    ) cs ON cs.ARTICULO_ID = a.ARTICULO_ID
-    WHERE COALESCE(a.ESTATUS, 'A') = 'A'
-      AND (
-        COALESCE(bal.EXISTENCIA, 0) <= 0
-        OR (
-          (COALESCE(cs.CONSUMO_4S, 0) > 0 OR COALESCE(cs.CONSUMO_MES, 0) > 0)
-          AND COALESCE(bal.EXISTENCIA, 0) <= COALESCE(mn.INVENTARIO_MINIMO, 0)
-        )
-      )
-    ORDER BY
-      CASE WHEN COALESCE(bal.EXISTENCIA, 0) <= 0 AND (COALESCE(cs.CONSUMO_4S, 0) > 0 OR COALESCE(cs.CONSUMO_MES, 0) > 0) THEN 0 ELSE 1 END,
-      COALESCE(cs.CONSUMO_4S, 0) DESC,
-      COALESCE(cs.CONSUMO_MES, 0) DESC,
-      COALESCE(bal.EXISTENCIA, 0) ASC
-  `, [], invHeavyQueryTimeoutMs(), dbo);
+  const sqlOp = operacionCriticaSelectSql(subOc, limit, opLb, ultraOp);
+  const rows = await query(sqlOp, [], invHeavyQueryTimeoutMs(), dbo);
 
   const enriched = (rows || []).map((r) => {
     const existencia = +r.EXISTENCIA_ACTUAL || 0;
