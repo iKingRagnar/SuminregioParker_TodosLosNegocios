@@ -89,6 +89,12 @@ nav{display:flex;align-items:center;gap:.25rem}
 .estado-chip.crit{color:var(--red);background:var(--red-dim)}
 .estado-chip.warn{color:var(--yellow);background:var(--yellow-dim)}
 .estado-chip.ok{color:var(--green);background:var(--green-dim)}
+/* Tablas con muchas filas: no empujar tabla 2 y Operación fuera de pantalla */
+.inv-tbl-scroll{max-height:min(420px,52vh);overflow-y:auto;-webkit-overflow-scrolling:touch;border-top:1px solid var(--border);overscroll-behavior:contain}
+.inv-tbl-scroll .tbl thead th{position:sticky;top:0;background:var(--s1);z-index:1;box-shadow:0 1px 0 var(--border)}
+@media(min-width:960px){.inv-tbl-scroll{max-height:min(460px,48vh)}}
+/* app-ui-boot pone .ms-reveal en .page > .card: Operación puede quedar invisible hasta IO; aquí siempre visible */
+#inv-card-operacion.ms-reveal{opacity:1;transform:none;filter:none;transition:none}
 </style>
 <link rel="stylesheet" href="app-ui.css">
 <script src="app-ui-boot.js" defer></script>
@@ -209,7 +215,7 @@ nav{display:flex;align-items:center;gap:.25rem}
 
   <section id="inv-seccion-sin-movimiento" class="inv-sinmov-section" style="margin-top:1.5rem;scroll-margin-top:88px" aria-labelledby="inv-sinmov-heading">
     <h2 id="inv-sinmov-heading" style="font-size:0.95rem;font-weight:700;color:var(--text);margin:0 0 0.35rem;padding:0;border:none">Sin movimiento de ventas</h2>
-    <p style="font-size:0.74rem;color:var(--muted);margin:0 0 1rem;line-height:1.45;max-width:54rem">Dos tablas con la misma carga del servidor: primero todo lo que lleva <strong style="color:var(--text2)">m&aacute;s de 180 d&iacute;as</strong> sin venta (con existencia); debajo el recorte <strong style="color:var(--text2)">&ge;365 d&iacute;as</strong> cuando el servidor env&iacute;a d&iacute;as calculados.</p>
+    <p style="font-size:0.74rem;color:var(--muted);margin:0 0 1rem;line-height:1.45;max-width:54rem">Dos tablas con la misma carga del servidor: primero todo lo que lleva <strong style="color:var(--text2)">m&aacute;s de 180 d&iacute;as</strong> sin venta (con existencia); debajo el recorte <strong style="color:var(--text2)">&ge;365 d&iacute;as</strong> cuando el servidor env&iacute;a d&iacute;as calculados. La primera tabla tiene scroll si hay muchas filas; <strong style="color:var(--text2)">tabla 2 y Operaci&oacute;n</strong> quedan justo debajo.</p>
 
     <div class="card" id="inv-card-sinmov180" style="margin-bottom:1.25rem">
       <div class="card-head">
@@ -220,14 +226,16 @@ nav{display:flex;align-items:center;gap:.25rem}
         <div class="card-badge" id="sinmov-badge">--</div>
       </div>
       <div class="card-body" id="inv-panel-sinmov180" style="padding:0">
-        <table class="tbl" id="tbl-sinmov">
-          <thead><tr>
-            <th>Art&iacute;culo</th><th>Unidad</th>
-            <th class="num">Existencia</th><th class="num">M&iacute;nimo</th>
-            <th class="num">D&iacute;as Sin Venta</th><th class="num">&Uacute;lt. Movimiento</th>
-          </tr></thead>
-          <tbody id="tbl-sinmov-body"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tbody>
-        </table>
+        <div class="inv-tbl-scroll" role="region" aria-label="Listado sin venta mayor a 180 d&iacute;as">
+          <table class="tbl" id="tbl-sinmov">
+            <thead><tr>
+              <th>Art&iacute;culo</th><th>Unidad</th>
+              <th class="num">Existencia</th><th class="num">M&iacute;nimo</th>
+              <th class="num">D&iacute;as Sin Venta</th><th class="num">&Uacute;lt. Movimiento</th>
+            </tr></thead>
+            <tbody id="tbl-sinmov-body"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -240,14 +248,16 @@ nav{display:flex;align-items:center;gap:.25rem}
         <div class="card-badge" id="sinmov365-badge">--</div>
       </div>
       <div class="card-body" id="inv-panel-sinmov365" style="padding:0">
-        <table class="tbl" id="tbl-sinmov365">
-          <thead><tr>
-            <th>Art&iacute;culo</th><th>Unidad</th>
-            <th class="num">Existencia</th><th class="num">M&iacute;nimo</th>
-            <th class="num">D&iacute;as Sin Venta</th><th class="num">&Uacute;lt. Movimiento</th>
-          </tr></thead>
-          <tbody id="tbl-sinmov365-body"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tbody>
-        </table>
+        <div class="inv-tbl-scroll" role="region" aria-label="Recorte mayor o igual a 365 d&iacute;as">
+          <table class="tbl" id="tbl-sinmov365">
+            <thead><tr>
+              <th>Art&iacute;culo</th><th>Unidad</th>
+              <th class="num">Existencia</th><th class="num">M&iacute;nimo</th>
+              <th class="num">D&iacute;as Sin Venta</th><th class="num">&Uacute;lt. Movimiento</th>
+            </tr></thead>
+            <tbody id="tbl-sinmov365-body"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </section>
@@ -455,10 +465,12 @@ async function loadAll() {
       loadMinimo(g),
       loadTopStock(g),
       loadConsumo(g),
-      loadForecast(g),
-      loadSinMovimiento(g),
-      loadOperacionCritica(g)
+      loadForecast(g)
     ]);
+    if (g !== invLoadGen) return;
+    await loadSinMovimiento(g);
+    if (g !== invLoadGen) return;
+    await loadOperacionCritica(g);
     if (g !== invLoadGen) return;
     const pl = invPeriodLabel();
     setText('page-sub', 'Actualizado: ' + new Date().toLocaleTimeString('es-MX') + (pl ? ' · ' + pl : ''));
