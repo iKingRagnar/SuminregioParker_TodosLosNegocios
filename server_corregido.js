@@ -3944,6 +3944,25 @@ function invHeavySubTipo() {
   return 'VE';
 }
 
+/**
+ * Sin movimiento: en Render el proxy corta ~60–120 s; el modo completo (2× scan subDoc) suele no alcanzar.
+ * Por defecto en Render (RENDER=true): modo rápido — un solo scan de ventas recientes; ULTIMO_MOV/DIAS_SIN_VENTA quedan NULL (tabla 365+ en cliente puede vaciarse).
+ * Desactivar en Render: MICROSIP_INV_SIN_MOV_FAST=0. Forzar rápido en cualquier host: MICROSIP_INV_SIN_MOV_FAST=1.
+ */
+function invSinMovFastDefault() {
+  const e = String(process.env.MICROSIP_INV_SIN_MOV_FAST || '').trim().toLowerCase();
+  if (e === '0' || e === 'false' || e === 'no') return false;
+  if (e === '1' || e === 'true' || e === 'yes') return true;
+  return String(process.env.RENDER || '').toLowerCase() === 'true';
+}
+
+/** Días de historial de ventas en subquery cs de operación crítica (default 400; en modo liviano 120). Env: MICROSIP_INV_OP_CONSUMO_DIAS (28–730). */
+function invOperacionConsumoLookbackDays() {
+  const n = parseInt(process.env.MICROSIP_INV_OP_CONSUMO_DIAS, 10);
+  if (Number.isFinite(n) && n >= 28 && n <= 730) return n;
+  return invSinMovFastDefault() ? 120 : 400;
+}
+
 const invPrecioSubCache = new Map();
 /** Precio mínimo por artículo (PRECIO vs PRECIO_VENTA; MONEDA_ID opcional). Falla común: MONEDA_ID o PRECIO distintos → rompe solo el KPI agregado con precios. */
 async function invPrecioSubSql(dbo) {
@@ -4238,13 +4257,34 @@ get('/api/inv/sin-movimiento', async (req) => {
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
   /** Días hacia atrás para calcular último movimiento (tabla 365+ en cliente). Env: MICROSIP_INV_SIN_MOV_HIST_DIAS (máx. 1460). */
   const histParsed = parseInt(process.env.MICROSIP_INV_SIN_MOV_HIST_DIAS, 10);
-  const histDias = Math.min(1460, Math.max(Number.isFinite(histParsed) ? histParsed : 800, dias + 1));
+  const histDias = Math.min(1460, Math.max(Number.isFinite(histParsed) ? histParsed : 600, dias + 1));
   async function sinMovimientoForDb(dbo) {
     const csp = await resolveConsumosSchema(dbo);
     const subDoc = consumosSubSql(invHeavySubTipo(), csp);
-    // Antes: un solo MAX(FECHA) agrupando todos los artículos en ventana ancha → muy lento en Render.
-    // Ahora: (1) recent = DISTINCT en solo últimos `dias` de ventas; (2) idle_um = MAX solo para artículos
-    // que no están en recent (conjunto mucho menor sobre ventana histDias).
+    if (invSinMovFastDefault()) {
+      return query(`
+    WITH recent AS (
+      SELECT DISTINCT d.ARTICULO_ID AS AID
+      FROM ${subDoc} d
+      WHERE d.UNIDADES > 0
+        AND CAST(d.FECHA AS DATE) > (CURRENT_DATE - ${dias})
+    )
+    SELECT FIRST ${limit} a.NOMBRE AS DESCRIPCION, a.ARTICULO_ID, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
+      COALESCE(ex.EXISTENCIA, 0) AS EXISTENCIA_ACTUAL, COALESCE(mn.INVENTARIO_MINIMO, 0) AS MIN_ACTUAL,
+      CAST(NULL AS DATE) AS ULTIMO_MOVIMIENTO,
+      CAST(NULL AS INTEGER) AS DIAS_SIN_VENTA
+    FROM ARTICULOS a
+    LEFT JOIN ${SQL_EXIST_SUB} ex ON ex.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN ${SQL_MINIMO_SUB} mn ON mn.ARTICULO_ID = a.ARTICULO_ID
+    WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND COALESCE(ex.EXISTENCIA, 0) > 0
+      AND NOT EXISTS (SELECT 1 FROM recent r WHERE r.AID = a.ARTICULO_ID)
+    ORDER BY ex.EXISTENCIA DESC NULLS LAST
+  `, [], 90000, dbo).catch((err) => {
+        console.error('[api/inv/sin-movimiento fast]', err && (err.message || err));
+        return [];
+      });
+    }
+    // Modo completo: recent + idle_um (2× scan) — usar MICROSIP_INV_SIN_MOV_FAST=0 en Render si el proxy aguanta.
     return query(`
     WITH recent AS (
       SELECT DISTINCT d.ARTICULO_ID AS AID
@@ -4283,6 +4323,7 @@ get('/api/inv/sin-movimiento', async (req) => {
 
 // Operación inventario: existencia 0 persistente + consumo activo + cobertura de críticos.
 get('/api/inv/operacion-critica', async (req) => {
+  const opLb = invOperacionConsumoLookbackDays();
   if (isAllDbs(req)) {
     const limit2 = Math.min(parseInt(req.query.limit) || 120, 300);
     async function opCritForDb(dbo) {
@@ -4299,10 +4340,10 @@ get('/api/inv/operacion-critica', async (req) => {
     LEFT JOIN ${SQL_EXIST_SUB} ex ON ex.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${SQL_MINIMO_SUB} mn ON mn.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN (SELECT si.ARTICULO_ID, SUM(COALESCE(si.ENTRADAS_UNIDADES,0)) AS ENTRADAS_TOTAL, SUM(COALESCE(si.SALIDAS_UNIDADES,0)) AS SALIDAS_TOTAL FROM SALDOS_IN si GROUP BY si.ARTICULO_ID) hs ON hs.ARTICULO_ID = a.ARTICULO_ID
-    LEFT JOIN (SELECT d.ARTICULO_ID, SUM(CASE WHEN CAST(d.FECHA AS DATE)>=(CURRENT_DATE-28) THEN COALESCE(d.UNIDADES,0) ELSE 0 END) AS CONSUMO_4S, SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA)=EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA)=EXTRACT(MONTH FROM CURRENT_DATE) THEN COALESCE(d.UNIDADES,0) ELSE 0 END) AS CONSUMO_MES, MAX(CAST(d.FECHA AS DATE)) AS ULTIMO_MOVIMIENTO, (CURRENT_DATE-MAX(CAST(d.FECHA AS DATE))) AS DIAS_SIN_VENTA FROM ${subOc2} d WHERE d.UNIDADES>0 AND CAST(d.FECHA AS DATE)>=(CURRENT_DATE-400) GROUP BY d.ARTICULO_ID) cs ON cs.ARTICULO_ID=a.ARTICULO_ID
+    LEFT JOIN (SELECT d.ARTICULO_ID, SUM(CASE WHEN CAST(d.FECHA AS DATE)>=(CURRENT_DATE-28) THEN COALESCE(d.UNIDADES,0) ELSE 0 END) AS CONSUMO_4S, SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA)=EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA)=EXTRACT(MONTH FROM CURRENT_DATE) THEN COALESCE(d.UNIDADES,0) ELSE 0 END) AS CONSUMO_MES, MAX(CAST(d.FECHA AS DATE)) AS ULTIMO_MOVIMIENTO, (CURRENT_DATE-MAX(CAST(d.FECHA AS DATE))) AS DIAS_SIN_VENTA FROM ${subOc2} d WHERE d.UNIDADES>0 AND CAST(d.FECHA AS DATE)>=(CURRENT_DATE-${opLb}) GROUP BY d.ARTICULO_ID) cs ON cs.ARTICULO_ID=a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS,'A')='A' AND (COALESCE(ex.EXISTENCIA,0)<=0 OR (COALESCE(cs.CONSUMO_4S,0)>0 AND COALESCE(ex.EXISTENCIA,0)<=COALESCE(mn.INVENTARIO_MINIMO,0)))
     ORDER BY CASE WHEN COALESCE(ex.EXISTENCIA,0)<=0 AND COALESCE(cs.CONSUMO_4S,0)>0 THEN 0 ELSE 1 END, COALESCE(cs.CONSUMO_4S,0) DESC, COALESCE(ex.EXISTENCIA,0) ASC
-      `, [], 180000, dbo).catch((err) => {
+      `, [], invSinMovFastDefault() ? 90000 : 180000, dbo).catch((err) => {
         console.error('[api/inv/operacion-critica __all__]', err && (err.message || err));
         return [];
       });
@@ -4363,7 +4404,7 @@ get('/api/inv/operacion-critica', async (req) => {
         (CURRENT_DATE - MAX(CAST(d.FECHA AS DATE))) AS DIAS_SIN_VENTA
       FROM ${subOc} d
       WHERE d.UNIDADES > 0
-        AND CAST(d.FECHA AS DATE) >= (CURRENT_DATE - 400)
+        AND CAST(d.FECHA AS DATE) >= (CURRENT_DATE - ${opLb})
       GROUP BY d.ARTICULO_ID
     ) cs ON cs.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A'
@@ -4378,7 +4419,7 @@ get('/api/inv/operacion-critica', async (req) => {
       CASE WHEN COALESCE(ex.EXISTENCIA, 0) <= 0 AND COALESCE(cs.CONSUMO_4S, 0) > 0 THEN 0 ELSE 1 END,
       COALESCE(cs.CONSUMO_4S, 0) DESC,
       COALESCE(ex.EXISTENCIA, 0) ASC
-  `, [], 180000, dbo).catch((err) => {
+  `, [], invSinMovFastDefault() ? 90000 : 180000, dbo).catch((err) => {
     console.error('[api/inv/operacion-critica]', err && (err.message || err));
     return [];
   });

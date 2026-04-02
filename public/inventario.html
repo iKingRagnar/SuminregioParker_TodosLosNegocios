@@ -652,25 +652,37 @@ async function loadSinMovimiento(g){
       const b365b = document.getElementById('sinmov365-badge'); if(b365b) b365b.textContent = '—';
       return;
     }
-    const all = invRows(raw).slice().sort((a,b)=>(+b.DIAS_SIN_VENTA||0)-(+a.DIAS_SIN_VENTA||0));
+    const all = invRows(raw).slice().sort(function (a, b) {
+      var da = (a.DIAS_SIN_VENTA == null || a.DIAS_SIN_VENTA === '') ? 1e9 : +a.DIAS_SIN_VENTA;
+      var db = (b.DIAS_SIN_VENTA == null || b.DIAS_SIN_VENTA === '') ? 1e9 : +b.DIAS_SIN_VENTA;
+      if (db !== da) return db - da;
+      return (+b.EXISTENCIA_ACTUAL || 0) - (+a.EXISTENCIA_ACTUAL || 0);
+    });
     if (g !== invLoadGen) return;
-    const rowHtml = r => {
-      const dias = +(r.DIAS_SIN_VENTA||9999);
-      const col  = dias>=365?'var(--red)':dias>180?'var(--orange)':'var(--yellow)';
+    const rowHtml = function (r) {
+      var rawD = r.DIAS_SIN_VENTA;
+      var diasKnown = rawD != null && rawD !== '' && !isNaN(+rawD);
+      var dias = diasKnown ? +rawD : null;
+      var col = dias == null ? 'var(--muted)' : (dias >= 365 ? 'var(--red)' : dias > 180 ? 'var(--orange)' : 'var(--yellow)');
+      var diasTxt = dias == null ? 'N/D' : (dias > 9000 ? 'Sin hist.' : dias + ' d&iacute;as');
       return `<tr>
         <td class="lbl">${r.DESCRIPCION}</td>
         <td style="color:var(--muted)">${r.UNIDAD||''}</td>
         <td class="num" style="color:var(--yellow)">${(+(r.EXISTENCIA_ACTUAL||0)).toFixed(1)}</td>
         <td class="num">${+(r.MIN_ACTUAL||0)}</td>
-        <td class="num"><span style="color:${col};font-weight:600">${dias>9000?'Sin hist.':dias+' d&iacute;as'}</span></td>
+        <td class="num"><span style="color:${col};font-weight:600">${diasTxt}</span></td>
         <td class="num" style="color:var(--muted)">${r.ULTIMO_MOVIMIENTO||'Sin registro'}</td>
       </tr>`;
     };
     const badge = n => n+' art\u00edculo'+(n===1?'':'s');
     if(b180) b180.innerHTML = all.map(rowHtml).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Sin art&iacute;culos sin movimiento</td></tr>';
     document.getElementById('sinmov-badge').textContent = badge(all.length);
-    const rows365 = all.filter(r=>(+r.DIAS_SIN_VENTA||0)>=365);
-    if(b365) b365.innerHTML = rows365.map(rowHtml).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Sin art&iacute;culos con 365+ d&iacute;as sin movimiento</td></tr>';
+    const rows365 = all.filter(function (r) {
+      var rawD = r.DIAS_SIN_VENTA;
+      return rawD != null && rawD !== '' && !isNaN(+rawD) && (+rawD) >= 365;
+    });
+    var empty365 = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Sin art&iacute;culos con 365+ d&iacute;as calculadas. Si el servidor usa modo r&aacute;pido (p. ej. Render), aqu&iacute; no hay d&iacute;as por fila; usa <code style="font-size:.75rem">MICROSIP_INV_SIN_MOV_FAST=0</code> para el detalle completo si el proxy aguanta.</td></tr>';
+    if(b365) b365.innerHTML = rows365.map(rowHtml).join('') || empty365;
     document.getElementById('sinmov365-badge').textContent = badge(rows365.length);
   }catch(e){
     fin();
