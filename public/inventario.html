@@ -327,10 +327,12 @@ function invRespErr(raw) {
 function invEsc(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
-/** API debe devolver array; respuestas de error { __invErr } → []. */
+/** API debe devolver array; a veces { rows: [] }; respuestas de error { __invErr } → []. */
 function invRows(x) {
-  if (!x || (typeof x === 'object' && (x.__invErr || x.__invTimeout))) return [];
-  return Array.isArray(x) ? x : [];
+  if (!x || typeof x !== 'object' || x.__invErr || x.__invTimeout) return [];
+  if (Array.isArray(x)) return x;
+  if (Array.isArray(x.rows)) return x.rows;
+  return [];
 }
 /** Texto del filtro activo (como ventas.html) para el subtítulo. */
 function invPeriodLabel() {

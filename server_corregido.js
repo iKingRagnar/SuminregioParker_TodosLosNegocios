@@ -4077,6 +4077,61 @@ app.get('/api/debug/firebird-inv', async (req, res) => {
   }
 });
 
+/** Diagnóstico liviano: explica por qué "sin movimiento" puede salir en 0 sin ser bug de UI (timeout vs reglas). */
+app.get('/api/debug/inv-sin-movimiento-counts', async (req, res) => {
+  const dbo = getReqDbOpts(req);
+  const dias = Math.min(Math.max(parseInt(req.query.dias, 10) || 180, 1), 730);
+  const dbId = req && req.query && req.query.db != null ? String(req.query.db) : 'default';
+  if (!dbo) {
+    return res.status(400).json({ ok: false, db: dbId, error: 'Sin opciones de base (db inválida o no configurada).' });
+  }
+  try {
+    const csp = await resolveConsumosSchema(dbo);
+    const subDoc = consumosSubSql(invHeavySubTipo(), csp);
+    const [r1, r2, r3] = await Promise.all([
+      query(`SELECT COUNT(*) AS N FROM ARTICULOS a WHERE COALESCE(a.ESTATUS, 'A') = 'A'`, [], 20000, dbo),
+      query(
+        `SELECT COUNT(*) AS N FROM ARTICULOS a
+         LEFT JOIN ${SQL_EXIST_SUB} ex ON ex.ARTICULO_ID = a.ARTICULO_ID
+         WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND COALESCE(ex.EXISTENCIA, 0) > 0`,
+        [],
+        45000,
+        dbo,
+      ),
+      query(
+        `SELECT COUNT(DISTINCT d.ARTICULO_ID) AS N FROM ${subDoc} d
+         WHERE ABS(COALESCE(d.UNIDADES, 0)) > 0
+           AND COALESCE(d.ARTICULO_ID, 0) <> 0
+           AND CAST(d.FECHA AS DATE) > (CURRENT_DATE - ${dias})`,
+        [],
+        90000,
+        dbo,
+      ),
+    ]);
+    const activos = +(r1[0] && r1[0].N) || 0;
+    const conStock = +(r2[0] && r2[0].N) || 0;
+    const conVentaReciente = +(r3[0] && r3[0].N) || 0;
+    return res.json({
+      ok: true,
+      db: dbId,
+      dias_ventana: dias,
+      inv_heavy_subtipo_ve_o_union: invHeavySubTipo() || 'VE+PV',
+      sin_mov_fast_default: invSinMovFastDefault(),
+      articulos_activos: activos,
+      activos_con_existencia_mayor_cero: conStock,
+      skus_distintos_con_venta_en_ventana: conVentaReciente,
+      lectura: conStock <= 0
+        ? 'No hay artículos activos con existencia > 0 en SALDOS_IN agregado; la tabla sin movimiento vacía es coherente.'
+        : conVentaReciente >= conStock
+          ? 'Casi todos los SKUs con stock tienen al menos una línea de venta en la ventana; lista "sin movimiento" puede ser legítimamente vacía.'
+          : 'Hay stock y no todos los SKUs vendieron en la ventana; si la UI sigue en 0, revisar proxy/timeout o respuesta JSON (no array).',
+    });
+  } catch (e) {
+    const errMsg = e && e.message ? String(e.message) : String(e || 'Error');
+    return res.status(500).json({ ok: false, db: dbId, error: errMsg });
+  }
+});
+
 get('/api/inv/bajo-minimo', async (req) => {
   const dbo = getReqDbOpts(req);
   const limit = Math.min(parseInt(req.query.limit) || 50, 200);
@@ -4267,7 +4322,8 @@ get('/api/inv/sin-movimiento', async (req) => {
     WITH recent AS (
       SELECT DISTINCT d.ARTICULO_ID AS AID
       FROM ${subDoc} d
-      WHERE d.UNIDADES > 0
+      WHERE ABS(COALESCE(d.UNIDADES, 0)) > 0
+        AND COALESCE(d.ARTICULO_ID, 0) <> 0
         AND CAST(d.FECHA AS DATE) > (CURRENT_DATE - ${dias})
     )
     SELECT FIRST ${limit} a.NOMBRE AS DESCRIPCION, a.ARTICULO_ID, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
@@ -4290,13 +4346,15 @@ get('/api/inv/sin-movimiento', async (req) => {
     WITH recent AS (
       SELECT DISTINCT d.ARTICULO_ID AS AID
       FROM ${subDoc} d
-      WHERE d.UNIDADES > 0
+      WHERE ABS(COALESCE(d.UNIDADES, 0)) > 0
+        AND COALESCE(d.ARTICULO_ID, 0) <> 0
         AND CAST(d.FECHA AS DATE) > (CURRENT_DATE - ${dias})
     ),
     idle_um AS (
       SELECT d.ARTICULO_ID, MAX(CAST(d.FECHA AS DATE)) AS ULTIMO_MOVIMIENTO
       FROM ${subDoc} d
-      WHERE d.UNIDADES > 0
+      WHERE ABS(COALESCE(d.UNIDADES, 0)) > 0
+        AND COALESCE(d.ARTICULO_ID, 0) <> 0
         AND CAST(d.FECHA AS DATE) <= (CURRENT_DATE - ${dias})
         AND CAST(d.FECHA AS DATE) >= (CURRENT_DATE - ${histDias})
       GROUP BY d.ARTICULO_ID
@@ -4341,9 +4399,9 @@ get('/api/inv/operacion-critica', async (req) => {
     LEFT JOIN ${SQL_EXIST_SUB} ex ON ex.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${SQL_MINIMO_SUB} mn ON mn.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN (SELECT si.ARTICULO_ID, SUM(COALESCE(si.ENTRADAS_UNIDADES,0)) AS ENTRADAS_TOTAL, SUM(COALESCE(si.SALIDAS_UNIDADES,0)) AS SALIDAS_TOTAL FROM SALDOS_IN si GROUP BY si.ARTICULO_ID) hs ON hs.ARTICULO_ID = a.ARTICULO_ID
-    LEFT JOIN (SELECT d.ARTICULO_ID, SUM(CASE WHEN CAST(d.FECHA AS DATE)>=(CURRENT_DATE-28) THEN COALESCE(d.UNIDADES,0) ELSE 0 END) AS CONSUMO_4S, SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA)=EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA)=EXTRACT(MONTH FROM CURRENT_DATE) THEN COALESCE(d.UNIDADES,0) ELSE 0 END) AS CONSUMO_MES, MAX(CAST(d.FECHA AS DATE)) AS ULTIMO_MOVIMIENTO, (CURRENT_DATE-MAX(CAST(d.FECHA AS DATE))) AS DIAS_SIN_VENTA FROM ${subOc2} d WHERE d.UNIDADES>0 AND CAST(d.FECHA AS DATE)>=(CURRENT_DATE-${opLb}) GROUP BY d.ARTICULO_ID) cs ON cs.ARTICULO_ID=a.ARTICULO_ID
-    WHERE COALESCE(a.ESTATUS,'A')='A' AND (COALESCE(ex.EXISTENCIA,0)<=0 OR (COALESCE(cs.CONSUMO_4S,0)>0 AND COALESCE(ex.EXISTENCIA,0)<=COALESCE(mn.INVENTARIO_MINIMO,0)))
-    ORDER BY CASE WHEN COALESCE(ex.EXISTENCIA,0)<=0 AND COALESCE(cs.CONSUMO_4S,0)>0 THEN 0 ELSE 1 END, COALESCE(cs.CONSUMO_4S,0) DESC, COALESCE(ex.EXISTENCIA,0) ASC
+    LEFT JOIN (SELECT d.ARTICULO_ID, SUM(CASE WHEN CAST(d.FECHA AS DATE)>=(CURRENT_DATE-28) THEN ABS(COALESCE(d.UNIDADES,0)) ELSE 0 END) AS CONSUMO_4S, SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA)=EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA)=EXTRACT(MONTH FROM CURRENT_DATE) THEN ABS(COALESCE(d.UNIDADES,0)) ELSE 0 END) AS CONSUMO_MES, MAX(CAST(d.FECHA AS DATE)) AS ULTIMO_MOVIMIENTO, (CURRENT_DATE-MAX(CAST(d.FECHA AS DATE))) AS DIAS_SIN_VENTA FROM ${subOc2} d WHERE ABS(COALESCE(d.UNIDADES,0))>0 AND COALESCE(d.ARTICULO_ID,0)<>0 AND CAST(d.FECHA AS DATE)>=(CURRENT_DATE-${opLb}) GROUP BY d.ARTICULO_ID) cs ON cs.ARTICULO_ID=a.ARTICULO_ID
+    WHERE COALESCE(a.ESTATUS,'A')='A' AND (COALESCE(ex.EXISTENCIA,0)<=0 OR ((COALESCE(cs.CONSUMO_4S,0)>0 OR COALESCE(cs.CONSUMO_MES,0)>0) AND COALESCE(ex.EXISTENCIA,0)<=COALESCE(mn.INVENTARIO_MINIMO,0)))
+    ORDER BY CASE WHEN COALESCE(ex.EXISTENCIA,0)<=0 AND (COALESCE(cs.CONSUMO_4S,0)>0 OR COALESCE(cs.CONSUMO_MES,0)>0) THEN 0 ELSE 1 END, COALESCE(cs.CONSUMO_4S,0) DESC, COALESCE(cs.CONSUMO_MES,0) DESC, COALESCE(ex.EXISTENCIA,0) ASC
       `, [], invSinMovFastDefault() ? 90000 : 180000, dbo).catch((err) => {
         console.error('[api/inv/operacion-critica __all__]', err && (err.message || err));
         return [];
@@ -4397,14 +4455,15 @@ get('/api/inv/operacion-critica', async (req) => {
     LEFT JOIN (
       SELECT
         d.ARTICULO_ID,
-        SUM(CASE WHEN CAST(d.FECHA AS DATE) >= (CURRENT_DATE - 28) THEN COALESCE(d.UNIDADES, 0) ELSE 0 END) AS CONSUMO_4S,
+        SUM(CASE WHEN CAST(d.FECHA AS DATE) >= (CURRENT_DATE - 28) THEN ABS(COALESCE(d.UNIDADES, 0)) ELSE 0 END) AS CONSUMO_4S,
         SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE)
                       AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE)
-                 THEN COALESCE(d.UNIDADES, 0) ELSE 0 END) AS CONSUMO_MES,
+                 THEN ABS(COALESCE(d.UNIDADES, 0)) ELSE 0 END) AS CONSUMO_MES,
         MAX(CAST(d.FECHA AS DATE)) AS ULTIMO_MOVIMIENTO,
         (CURRENT_DATE - MAX(CAST(d.FECHA AS DATE))) AS DIAS_SIN_VENTA
       FROM ${subOc} d
-      WHERE d.UNIDADES > 0
+      WHERE ABS(COALESCE(d.UNIDADES, 0)) > 0
+        AND COALESCE(d.ARTICULO_ID, 0) <> 0
         AND CAST(d.FECHA AS DATE) >= (CURRENT_DATE - ${opLb})
       GROUP BY d.ARTICULO_ID
     ) cs ON cs.ARTICULO_ID = a.ARTICULO_ID
@@ -4412,13 +4471,14 @@ get('/api/inv/operacion-critica', async (req) => {
       AND (
         COALESCE(ex.EXISTENCIA, 0) <= 0
         OR (
-          COALESCE(cs.CONSUMO_4S, 0) > 0
+          (COALESCE(cs.CONSUMO_4S, 0) > 0 OR COALESCE(cs.CONSUMO_MES, 0) > 0)
           AND COALESCE(ex.EXISTENCIA, 0) <= COALESCE(mn.INVENTARIO_MINIMO, 0)
         )
       )
     ORDER BY
-      CASE WHEN COALESCE(ex.EXISTENCIA, 0) <= 0 AND COALESCE(cs.CONSUMO_4S, 0) > 0 THEN 0 ELSE 1 END,
+      CASE WHEN COALESCE(ex.EXISTENCIA, 0) <= 0 AND (COALESCE(cs.CONSUMO_4S, 0) > 0 OR COALESCE(cs.CONSUMO_MES, 0) > 0) THEN 0 ELSE 1 END,
       COALESCE(cs.CONSUMO_4S, 0) DESC,
+      COALESCE(cs.CONSUMO_MES, 0) DESC,
       COALESCE(ex.EXISTENCIA, 0) ASC
   `, [], invSinMovFastDefault() ? 90000 : 180000, dbo).catch((err) => {
     console.error('[api/inv/operacion-critica]', err && (err.message || err));
