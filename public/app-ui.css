@@ -788,3 +788,22 @@ html.theme-premium-light[data-theme="light"] .hero-sub,
 html.theme-premium-light[data-theme="light"] .page-header p {
   color: #475569 !important;
 }
+
+/*
+ * ERP (Ventas, Inventario, CxC, etc.): app-ui-boot.js añade .ms-reveal y
+ * ms-ai-super.css arranca con opacity:0 hasta IntersectionObserver o ~2.8s.
+ * Los datos ya llegan por fetch pero la UI parece “vacía”. Este override
+ * aplica solo donde ya hay .page / main / .dash de los paneles Microsip.
+ * No modifica app-ui-boot.js.
+ */
+body .page .ms-reveal,
+body .page .ms-reveal.ms-inview,
+main .ms-reveal,
+main .ms-reveal.ms-inview,
+.dash .ms-reveal,
+.dash .ms-reveal.ms-inview {
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
+  transition: none !important;
+}
