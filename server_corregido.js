@@ -4097,6 +4097,7 @@ get('/api/inv/top-stock', async (req) => {
 });
 
 // Consumo semanal desde ventas (VE+PV por defecto; MICROSIP_INV_CONSUMO_VE_ONLY=1 → solo VE). Respeta periodo del filtro.
+// Respuesta: { rows, meta } — meta evita confusión “sin datos” vs periodo mal resuelto; errores SQL → 500 (visible en UI).
 get('/api/inv/consumo-semanal', async (req) => {
   const dbo = getReqDbOpts(req);
   const limit = Math.min(parseInt(req.query.limit) || 30, 100);
@@ -4104,7 +4105,7 @@ get('/api/inv/consumo-semanal', async (req) => {
   const weeksInPeriod = Math.max(periodDays / 7.0, 0.01);
   const csp = await resolveConsumosSchema(dbo);
   const subDoc = consumosSubSql(invUseVePvUnion() ? '' : 'VE', csp);
-  return query(`
+  const rows = await query(`
     SELECT FIRST ${limit} a.NOMBRE AS DESCRIPCION, a.ARTICULO_ID, COALESCE(s.EXISTENCIA, 0) AS EXISTENCIA,
       SUM(d.UNIDADES) / ${weeksInPeriod} AS CONSUMO_SEMANAL_PROM,
       CASE WHEN SUM(d.UNIDADES) > 0 THEN COALESCE(s.EXISTENCIA, 0) / (SUM(d.UNIDADES) / ${weeksInPeriod}) ELSE 9999 END AS SEMANAS_STOCK
@@ -4115,10 +4116,17 @@ get('/api/inv/consumo-semanal', async (req) => {
     GROUP BY a.NOMBRE, a.ARTICULO_ID, s.EXISTENCIA
     HAVING SUM(d.UNIDADES) > 0
     ORDER BY SEMANAS_STOCK ASC
-  `, [desdeStr, hastaStr], INV_CONSUMO_Q_MS, dbo).catch((err) => {
-    console.error('[api/inv/consumo-semanal]', err && (err.message || err));
-    return [];
-  });
+  `, [desdeStr, hastaStr], INV_CONSUMO_Q_MS, dbo);
+  return {
+    rows: rows || [],
+    meta: {
+      desde: desdeStr,
+      hasta: hastaStr,
+      periodDays,
+      weeksInPeriod: Math.round(weeksInPeriod * 100) / 100,
+      database: dbo && dbo.database ? path.basename(String(dbo.database)) : '',
+    },
+  };
 });
 
 // Diagnóstico rápido: cuenta renglones de consumo en el periodo (misma subconsulta que consumo semanal).
@@ -4142,12 +4150,16 @@ get('/api/inv/consumo-diagnostico', async (req) => {
     dbo
   );
   const c = rows && rows[0] ? +rows[0].C : 0;
+  const dbFile = dbo && dbo.database ? path.basename(String(dbo.database)) : '';
   return {
     ok: true,
     desde: desdeStr,
     hasta: hastaStr,
     renglones_venta_en_periodo: c,
-    nota: 'Mismo criterio que consumo semanal. Si es 0, prueba otro periodo o revisa servidor (log si hay error SQL).',
+    database: dbFile,
+    queryEcho: req.query || {},
+    nota:
+      'Mismo criterio que consumo semanal (VE+PV salvo env). Si renglones_venta_en_periodo es 0 pero en Ventas > Margen por artículo sí hay filas en el mismo periodo, compara queryEcho con la barra de filtros (?preset, ?anio, ?mes, ?desde, ?hasta).',
   };
 });
 

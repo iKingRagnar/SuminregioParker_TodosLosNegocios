@@ -516,8 +516,22 @@ async function loadConsumo(g) {
       document.querySelector('#tbl-consumo tbody').innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--red);padding:1.5rem">' + invEsc(err) + '</td></tr>';
       return;
     }
-    const rows = invRows(raw).slice().sort((a,b)=>(+b.CONSUMO_SEMANAL_PROM||0)-(+a.CONSUMO_SEMANAL_PROM||0));
+    var rows;
+    var meta = null;
+    if (raw && typeof raw === 'object' && !Array.isArray(raw) && Array.isArray(raw.rows)) {
+      rows = raw.rows;
+      meta = raw.meta || null;
+    } else {
+      rows = invRows(raw);
+    }
+    rows = rows.slice().sort((a,b)=>(+b.CONSUMO_SEMANAL_PROM||0)-(+a.CONSUMO_SEMANAL_PROM||0));
     if (g !== invLoadGen) return;
+    var emptyExtra = '';
+    if (meta && meta.desde && meta.hasta) {
+      emptyExtra = ' Periodo en servidor: ' + invEsc(meta.desde + ' \u2192 ' + meta.hasta) + ' (' + invEsc(String(meta.periodDays)) + ' d\u00edas)';
+      if (meta.database) emptyExtra += ' · ' + invEsc(meta.database);
+      emptyExtra += '. ';
+    }
     document.querySelector('#tbl-consumo tbody').innerHTML = rows.map(r=>{
       const sem = +(r.SEMANAS_STOCK||0);
       const semColor = sem<1?'var(--red)':sem<2?'var(--orange)':sem<4?'var(--yellow)':'var(--green)';
@@ -529,7 +543,7 @@ async function loadConsumo(g) {
         <td class="num">${+(r.CONSUMO_SEMANAL_PROM||0).toFixed(1)}</td>
         <td class="num"><span class="semanas-tag tag ${semTag}" style="color:${semColor}">${semTxt}</span></td>
       </tr>`;
-    }).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sin consumo en el periodo (mismo criterio que Margen por art&iacute;culo en Ventas). Prueba &laquo;Este a&ntilde;o&raquo; o revisa /api/inv/consumo-diagnostico en el servidor.</td></tr>';
+    }).join('') || ('<tr><td colspan="4" style="text-align:center;color:var(--muted)">' + emptyExtra + 'Sin movimiento de unidades en ese rango (mismo criterio que Margen por art&iacute;culo). Abre en el navegador <code style="font-size:.75rem">/api/inv/consumo-diagnostico</code> con los mismos filtros de la barra: si <b>renglones_venta_en_periodo</b> es 0, la base remota no tiene ventas VE/PV en fechas; si es &gt;0 y esta tabla sigue vac&iacute;a, avisa.</td></tr>');
   } catch(e){
     if (g !== invLoadGen) return;
     console.error('consumo',e);
