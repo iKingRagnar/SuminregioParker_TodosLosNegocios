@@ -535,7 +535,28 @@ async function loadAll() {
       dbgWrap('config/metas', fetchJson(buildApiUrl('/api/config/metas'), {}, tDir)),
     ]);
     const dir = (dirRes.status === 'fulfilled' && dirRes.value && typeof dirRes.value === 'object') ? dirRes.value : {};
-    const cxcSnap = (cxcRes.status === 'fulfilled' && cxcRes.value && typeof cxcRes.value === 'object') ? cxcRes.value : {};
+    let cxcSnap = (cxcRes.status === 'fulfilled' && cxcRes.value && typeof cxcRes.value === 'object') ? cxcRes.value : {};
+    // Evitar que un snapshot degradado (timeout parcial) pise un CxC vencido válido durante la sesión.
+    try{
+      const dbKey = (new URLSearchParams(location.search).get('db') || 'default').trim() || 'default';
+      const last = (window.__LAST_CXC_SNAP && window.__LAST_CXC_SNAP[dbKey]) ? window.__LAST_CXC_SNAP[dbKey] : null;
+      const res = cxcSnap && cxcSnap.resumen ? cxcSnap.resumen : (cxcSnap || {});
+      const sal = +res.SALDO_TOTAL || 0;
+      const venc = +res.VENCIDO || 0;
+      const isDeg = (sal > 1000 && venc <= 0.005);
+      const lastRes = last && (last.resumen || last) ? (last.resumen || last) : null;
+      const lastSal = lastRes ? (+lastRes.SALDO_TOTAL || 0) : 0;
+      const lastVenc = lastRes ? (+lastRes.VENCIDO || 0) : 0;
+      const mx = Math.max(sal, lastSal);
+      const rel = mx > 0 ? Math.abs(sal - lastSal) / mx : 1;
+      if (isDeg && last && lastVenc > 0.005 && rel <= 0.25) {
+        cxcSnap = last;
+        if (dbgEnabled() && window.__DBG_STATE) window.__DBG_STATE.note = 'cxc: usando último snapshot válido (evita overwrite a 0)';
+      } else if (sal > 1000 && venc > 0.005) {
+        window.__LAST_CXC_SNAP = window.__LAST_CXC_SNAP || {};
+        window.__LAST_CXC_SNAP[dbKey] = cxcSnap;
+      }
+    }catch(_){}
     const metas = (metasRes.status === 'fulfilled' && metasRes.value && typeof metasRes.value === 'object') ? metasRes.value : {};
 
     let cxc;
