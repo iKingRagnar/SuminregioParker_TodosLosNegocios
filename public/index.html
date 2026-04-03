@@ -1155,14 +1155,19 @@ async function loadAll(){
     setBar('barCotiHoy','pctCotiHoy', isVistaHoy ? pCotiHoy : pCotiMes);
     sem('semCotiHoy', isVistaHoy ? pCotiHoy : pCotiMes, {labels:['Cumplido','En riesgo','Bajo']});
 
-    // CxC: mismo snapshot que cxc.html (resumen-aging) + reconciliación aging + director
-    var cxcResumen = c && c.resumen ? c.resumen : c;
-    if (typeof window.reconcileCxcResumenWithAging === 'function' && c && c.aging) {
-      cxcResumen = window.reconcileCxcResumenWithAging(cxcResumen, c.aging);
-    }
-    let cx=(typeof window.mergeCxcKpiWithDirector==='function')?window.mergeCxcKpiWithDirector(cxcResumen,dir):cxcResumen;
-    if (typeof window.finalizeCxcKpiDisplay === 'function' && c && c.aging) {
-      cx = window.finalizeCxcKpiDisplay(cx, c.aging);
+    // CxC: mismo pipeline que cxc.html (aging normalizado + reconcile + merge director + finalize)
+    var cx;
+    if (typeof window.applyCxcSnapshotForKpis === 'function') {
+      cx = window.applyCxcSnapshotForKpis(c, dir);
+    } else {
+      var cxcResumen = c && c.resumen ? c.resumen : c;
+      if (typeof window.reconcileCxcResumenWithAging === 'function' && c && c.aging) {
+        cxcResumen = window.reconcileCxcResumenWithAging(cxcResumen, c.aging);
+      }
+      cx = (typeof window.mergeCxcKpiWithDirector === 'function') ? window.mergeCxcKpiWithDirector(cxcResumen, dir) : cxcResumen;
+      if (typeof window.finalizeCxcKpiDisplay === 'function' && c && c.aging) {
+        cx = window.finalizeCxcKpiDisplay(cx, c.aging);
+      }
     }
     const cxcTotal=+cx.SALDO_TOTAL||0;
     const cxcVenc=+cx.VENCIDO||0;

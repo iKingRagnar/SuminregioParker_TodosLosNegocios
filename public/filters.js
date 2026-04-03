@@ -614,6 +614,15 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     }
   }
 
+  /** Misma forma que cxc.html: aging plano o envuelto en array (proxies / merges raros). */
+  function normalizeCxcAging(ageRaw) {
+    if (!ageRaw || typeof ageRaw !== 'object') return {};
+    if (Array.isArray(ageRaw)) {
+      return ageRaw[0] && typeof ageRaw[0] === 'object' && !Array.isArray(ageRaw[0]) ? ageRaw[0] : {};
+    }
+    return ageRaw;
+  }
+
   /**
    * Une el snapshot de GET /api/cxc/resumen con dir.cxc de /api/director/resumen.
    * Cubre timeout/fetch vacío y el caso en que el resumen aislado llegue sin VENCIDO coherente
@@ -657,7 +666,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       var mx = Math.max(am, bm);
       return Math.abs(am - bm) / mx <= maxRel;
     }
-    if (a.SALDO_TOTAL > 0 && a.VENCIDO <= 0.005 && b.VENCIDO > 0.005 && saldoAligned(a.SALDO_TOTAL, b.SALDO_TOTAL, 0.08)) {
+    if (a.SALDO_TOTAL > 0 && a.VENCIDO <= 0.005 && b.VENCIDO > 0.005 && saldoAligned(a.SALDO_TOTAL, b.SALDO_TOTAL, 0.12)) {
       out.VENCIDO = b.VENCIDO;
       out.POR_VENCER = b.POR_VENCER > 0.005 ? b.POR_VENCER : Math.max(0, a.SALDO_TOTAL - b.VENCIDO);
       if (b.NUM_CLIENTES_VENCIDOS != null && b.NUM_CLIENTES_VENCIDOS !== '') out.NUM_CLIENTES_VENCIDOS = b.NUM_CLIENTES_VENCIDOS;
@@ -665,7 +674,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     if (a.SALDO_TOTAL > 0 && b.SALDO_TOTAL > 0) {
       var mx = Math.max(a.SALDO_TOTAL, b.SALDO_TOTAL);
       var relDiff = Math.abs(a.SALDO_TOTAL - b.SALDO_TOTAL) / mx;
-      if (relDiff <= 0.08) {
+      if (relDiff <= 0.12) {
         if (b.VENCIDO > out.VENCIDO) out.VENCIDO = b.VENCIDO;
         if (b.POR_VENCER > out.POR_VENCER) out.POR_VENCER = b.POR_VENCER;
         if ((out.NUM_CLIENTES_VENCIDOS == null || out.NUM_CLIENTES_VENCIDOS === '') && b.NUM_CLIENTES_VENCIDOS != null) {
@@ -681,7 +690,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
    */
   function reconcileCxcResumenWithAging(resumen, aging) {
     if (!resumen || typeof resumen !== 'object') resumen = {};
-    if (!aging || typeof aging !== 'object') aging = {};
+    aging = normalizeCxcAging(aging);
     var out = {};
     for (var k in resumen) {
       if (Object.prototype.hasOwnProperty.call(resumen, k)) out[k] = resumen[k];
@@ -706,7 +715,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
    */
   function finalizeCxcKpiDisplay(resumen, aging) {
     if (!resumen || typeof resumen !== 'object') resumen = {};
-    if (!aging || typeof aging !== 'object') aging = {};
+    aging = normalizeCxcAging(aging);
     var out = {};
     for (var k in resumen) {
       if (Object.prototype.hasOwnProperty.call(resumen, k)) out[k] = resumen[k];
@@ -732,6 +741,25 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     return out;
   }
 
+  /**
+   * Un solo lugar para Inicio/Director: mismo orden que cxc.html (reconcile + merge + finalize).
+   * Siempre pasa aging normalizado ({} si falta) para no saltar la lógica de mora.
+   */
+  function applyCxcSnapshotForKpis(cxcSnap, directorRaw) {
+    var snap = cxcSnap && typeof cxcSnap === 'object' ? cxcSnap : {};
+    var res = snap.resumen && typeof snap.resumen === 'object' ? snap.resumen : snap;
+    var aging = normalizeCxcAging(snap.aging);
+    var raw = res;
+    if (typeof reconcileCxcResumenWithAging === 'function') {
+      raw = reconcileCxcResumenWithAging(raw, aging);
+    }
+    var merged = typeof mergeCxcKpiWithDirector === 'function' ? mergeCxcKpiWithDirector(raw, directorRaw) : raw;
+    if (typeof finalizeCxcKpiDisplay === 'function') {
+      merged = finalizeCxcKpiDisplay(merged, aging);
+    }
+    return merged;
+  }
+
   window.initFilters              = initFilters;
   window.filterBuildQS            = buildQS;
   window.filterGetParams          = getParams;
@@ -743,5 +771,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   window.mergeCxcKpiWithDirector  = mergeCxcKpiWithDirector;
   window.reconcileCxcResumenWithAging = reconcileCxcResumenWithAging;
   window.finalizeCxcKpiDisplay      = finalizeCxcKpiDisplay;
+  window.normalizeCxcAging        = normalizeCxcAging;
+  window.applyCxcSnapshotForKpis  = applyCxcSnapshotForKpis;
 
 })();

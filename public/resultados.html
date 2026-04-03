@@ -458,7 +458,10 @@ details.sr-gastos-blk>summary{cursor:pointer;font-family:'DM Mono',monospace;fon
       <div class="card-badge">CO_A1 · CO_A2 · CO_A3</div>
     </div>
     <div class="card-body">
-      <div class="chart-h200"><canvas id="chartGastos"></canvas></div>
+      <div class="chart-h200">
+        <canvas id="chartGastos"></canvas>
+        <div id="chartGastos-empty" class="chart-overlay-empty">Sin movimiento en gastos de venta, operación ni administración (CO_A1–A3) en estos meses.</div>
+      </div>
     </div>
   </div>
 
@@ -810,11 +813,12 @@ async function loadBalanceGeneral(){
       else diffEl.style.color='var(--red)';
     }
     if(badge) badge.textContent=`Cierre ${String(cierre.MES||'--').padStart(2,'0')}/${cierre.ANIO||'----'}`;
-    const renderList=(id,list)=>{
+    const renderList=(id,list,emptyHint)=>{
       const el=document.getElementById(id); if(!el) return;
       el.className='bg-list grid-lines';
       const arr=(Array.isArray(list)?list:[]).slice(0,8);
-      el.innerHTML=arr.length?arr.map(r=>`<div class="bg-row"><span class="n" style="font-family:'DM Mono',monospace;color:var(--yellow-ink)">${escHtml(r.CUENTA_PT||'')}</span><span class="n">${escHtml(r.NOMBRE||'')}</span><span class="v">${fmtMNeg(+r.SALDO||0)}</span></div>`).join(''):'<div class="bg-row"><span class="n">Sin datos</span><span class="n"></span><span class="v">—</span></div>';
+      const emptyMsg=emptyHint||'Sin datos';
+      el.innerHTML=arr.length?arr.map(r=>`<div class="bg-row"><span class="n" style="font-family:'DM Mono',monospace;color:var(--yellow-ink)">${escHtml(r.CUENTA_PT||'')}</span><span class="n">${escHtml(r.NOMBRE||'')}</span><span class="v">${fmtMNeg(+r.SALDO||0)}</span></div>`).join(''):`<div class="bg-row"><span class="n" style="grid-column:1/-1;color:var(--muted);font-size:.72rem;line-height:1.4">${escHtml(emptyMsg)}</span></div>`;
     };
     const renderClassicBalance = () => {
       const wrap = document.getElementById('bgClassic');
@@ -892,14 +896,14 @@ async function loadBalanceGeneral(){
     renderClassicBalance();
     renderList('bgListActivo',d.activo);
     renderList('bgListPasivo',d.pasivo);
-    renderList('bgListCapital',d.capital);
+    renderList('bgListCapital',d.capital,'Sin cuentas en el bloque capital del mapa. Si CAPITAL TOTAL es $0, revisar clasificación en Microsip o el cierre del periodo.');
     const activo = +t.ACTIVO_TOTAL || 0;
     const pasivo = +t.PASIVO_TOTAL || 0;
     const capital = +t.CAPITAL_TOTAL || 0;
     const liquidez = pasivo > 0 ? activo / pasivo : 0;
     const leverage = activo > 0 ? pasivo / activo : 0;
     const workCap = activo - pasivo;
-    const debtEq = capital > 0 ? pasivo / capital : 0;
+    const debtEq = capital > 0.005 ? pasivo / capital : 0;
     const setRatio = (id, val, color) => {
       const el = document.getElementById(id);
       if (!el) return;
@@ -909,7 +913,13 @@ async function loadBalanceGeneral(){
     setRatio('bgRatioLiquidez', liquidez.toFixed(2) + 'x', liquidez >= 1.5 ? 'var(--green)' : liquidez >= 1 ? 'var(--brown-mid)' : 'var(--red)');
     setRatio('bgRatioLeverage', fmtPct(leverage * 100), leverage <= 0.55 ? 'var(--green)' : leverage <= 0.75 ? 'var(--brown-mid)' : 'var(--red)');
     setRatio('bgRatioWorking', fmtM(workCap), workCap >= 0 ? 'var(--green)' : 'var(--red)');
-    setRatio('bgRatioDebtEq', debtEq > 0 ? debtEq.toFixed(2) + 'x' : '—', debtEq <= 1.2 ? 'var(--green)' : debtEq <= 2 ? 'var(--brown-mid)' : 'var(--red)');
+    const debtEqLabel = capital > 0.005
+      ? debtEq.toFixed(2) + 'x'
+      : (pasivo > 0.005 ? 'N/D (capital $0)' : '—');
+    const debtEqColor = capital > 0.005
+      ? (debtEq <= 1.2 ? 'var(--green)' : debtEq <= 2 ? 'var(--brown-mid)' : 'var(--red)')
+      : 'var(--muted)';
+    setRatio('bgRatioDebtEq', debtEqLabel, debtEqColor);
     const gaugeVal = Math.max(0, Math.min(3, liquidez));
     const gaugeRemainder = Math.max(0, 3 - gaugeVal);
     const gaugeColor = liquidez >= 1.5 ? '#00E5A0' : liquidez >= 1 ? '#8b5a2b' : '#FF4566';
@@ -1694,21 +1704,40 @@ function renderCharts(meses,hasCosto){
     });
   }
   const el4=document.getElementById('chartGastos');
+  const empty4=document.getElementById('chartGastos-empty');
   if(el4){
     const ctx4=el4.getContext('2d');
-    if(chartGastos) chartGastos.destroy();
+    if(chartGastos){ chartGastos.destroy(); chartGastos=null; }
     const g1=(meses||[]).map(m=>+m.CO_A1||0);
     const g2=(meses||[]).map(m=>+m.CO_A2||0);
     const g3=(meses||[]).map(m=>+m.CO_A3||0);
-    chartGastos=new Chart(ctx4,{
-      type:'bar',
-      data:{labels,datasets:[
-        {label:'Gasto de venta',data:g1,backgroundColor:'rgba(239,68,68,.55)',borderColor:'#ef4444',borderWidth:1,borderRadius:4},
-        {label:'Gasto de operación',data:g2,backgroundColor:'rgba(245,158,11,.55)',borderColor:'#f59e0b',borderWidth:1,borderRadius:4},
-        {label:'Gasto de administración',data:g3,backgroundColor:'rgba(59,130,246,.55)',borderColor:'#3b82f6',borderWidth:1,borderRadius:4}
-      ]},
-      options:chartOpts(v=>fmtM(v))
-    });
+    const maxStackG=labels.length?Math.max(0,...labels.map((_,i)=>(+g1[i]||0)+(+g2[i]||0)+(+g3[i]||0))):0;
+    const hasGastos=maxStackG>0.005;
+    if(empty4){
+      if(!labels.length){
+        empty4.textContent='Sin meses en el periodo: amplía el rango en filtros.';
+        empty4.style.display='grid';
+      }else if(!hasGastos){
+        empty4.textContent='Sin movimiento en gastos de venta, operación ni administración (CO_A1–A3) en estos meses. Si en contabilidad sí hay clase 52, revisar mapeo al Estado SR.';
+        empty4.style.display='grid';
+      }else{
+        empty4.style.display='none';
+      }
+    }
+    if(hasGastos){
+      const opt=chartOpts(v=>fmtM(v));
+      opt.scales=opt.scales||{};
+      opt.scales.y=Object.assign({},opt.scales.y,{min:0,suggestedMax:Math.max(maxStackG*1.12,1)});
+      chartGastos=new Chart(ctx4,{
+        type:'bar',
+        data:{labels,datasets:[
+          {label:'Gasto de venta',data:g1,backgroundColor:'rgba(239,68,68,.55)',borderColor:'#ef4444',borderWidth:1,borderRadius:4},
+          {label:'Gasto de operación',data:g2,backgroundColor:'rgba(245,158,11,.55)',borderColor:'#f59e0b',borderWidth:1,borderRadius:4},
+          {label:'Gasto de administración',data:g3,backgroundColor:'rgba(59,130,246,.55)',borderColor:'#3b82f6',borderWidth:1,borderRadius:4}
+        ]},
+        options:opt
+      });
+    }
   }
 }
 

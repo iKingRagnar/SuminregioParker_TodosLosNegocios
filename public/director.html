@@ -458,18 +458,23 @@ async function loadAll() {
     ]);
     const dir = (dirRes.status === 'fulfilled' && dirRes.value && typeof dirRes.value === 'object') ? dirRes.value : {};
     const cxcSnap = (cxcRes.status === 'fulfilled' && cxcRes.value && typeof cxcRes.value === 'object') ? cxcRes.value : {};
-    let cxcRaw = cxcSnap.resumen ? cxcSnap.resumen : cxcSnap;
-    if (typeof window.reconcileCxcResumenWithAging === 'function' && cxcSnap.aging) {
-      cxcRaw = window.reconcileCxcResumenWithAging(cxcRaw, cxcSnap.aging);
-    }
     const metas = (metasRes.status === 'fulfilled' && metasRes.value && typeof metasRes.value === 'object') ? metasRes.value : {};
 
-    let cxcMerged = (typeof window.mergeCxcKpiWithDirector === 'function')
-      ? window.mergeCxcKpiWithDirector(cxcRaw, dir)
-      : ((cxcRaw && Object.keys(cxcRaw).length > 0) ? cxcRaw : (dir.cxc||{}));
-    const cxc = (typeof window.finalizeCxcKpiDisplay === 'function' && cxcSnap.aging)
-      ? window.finalizeCxcKpiDisplay(cxcMerged, cxcSnap.aging)
-      : cxcMerged;
+    let cxc;
+    if (typeof window.applyCxcSnapshotForKpis === 'function') {
+      cxc = window.applyCxcSnapshotForKpis(cxcSnap, dir);
+    } else {
+      let cxcRaw = cxcSnap.resumen ? cxcSnap.resumen : cxcSnap;
+      if (typeof window.reconcileCxcResumenWithAging === 'function' && cxcSnap.aging) {
+        cxcRaw = window.reconcileCxcResumenWithAging(cxcRaw, cxcSnap.aging);
+      }
+      let cxcMerged = (typeof window.mergeCxcKpiWithDirector === 'function')
+        ? window.mergeCxcKpiWithDirector(cxcRaw, dir)
+        : ((cxcRaw && Object.keys(cxcRaw).length > 0) ? cxcRaw : (dir.cxc || {}));
+      cxc = (typeof window.finalizeCxcKpiDisplay === 'function' && cxcSnap.aging)
+        ? window.finalizeCxcKpiDisplay(cxcMerged, cxcSnap.aging)
+        : cxcMerged;
+    }
     const v = dir.ventas||{}, c = cxc, co = dir.cotizaciones||{};
     const nV = getVendedoresEnContexto(metas);
     const metaBase = +(metas.META_DIARIA_POR_VENDEDOR||5650);
