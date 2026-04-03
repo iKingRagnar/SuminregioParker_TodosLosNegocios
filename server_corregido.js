@@ -7799,6 +7799,68 @@ app.get('/api/debug/gastos-co-mes', async (req, res) => {
   }
 });
 
+// Diagnóstico: un folio específico de CxC para comparar contra Power BI.
+// Ej: /api/debug/cxc-folio?folio=SPK001733&db=default
+app.get('/api/debug/cxc-folio', async (req, res) => {
+  const dbo = getReqDbOpts(req);
+  const folio = (req.query && req.query.folio != null) ? String(req.query.folio).trim() : '';
+  if (!folio) return res.status(400).json({ ok: false, error: 'Parámetro requerido: folio' });
+  const folioEsc = folio.replace(/'/g, "''");
+  try {
+    // Documento base + condición de pago (documento o cliente) + cálculo de vencimiento
+    const rows = await query(`
+      SELECT FIRST 1
+        dc.DOCTO_CC_ID,
+        dc.CLIENTE_ID,
+        dc.FOLIO,
+        CAST(dc.FECHA AS DATE) AS FECHA_DOCTO,
+        COALESCE(cp.NOMBRE, 'S/D') AS CONDICION_PAGO,
+        COALESCE(cp.DIAS_PPAG, 0) AS DIAS_PPAG,
+        CAST(dc.FECHA AS DATE) + ${CXC_DIAS_SUM_INT} AS FECHA_VENC_CALC,
+        CASE WHEN ${CXC_SQL_ES_CONTADO} THEN 0 ELSE (CURRENT_DATE - (CAST(dc.FECHA AS DATE) + ${CXC_DIAS_SUM_INT})) END AS DIAS_VENC_CALC
+      FROM DOCTOS_CC dc
+      LEFT JOIN CLIENTES clx ON clx.CLIENTE_ID = dc.CLIENTE_ID
+      LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, clx.COND_PAGO_ID)
+      WHERE TRIM(dc.FOLIO) = '${folioEsc}'
+    `, [], 15000, dbo).catch(() => []);
+    if (!rows || !rows.length) return res.json({ ok: false, folio, error: 'Folio no encontrado en DOCTOS_CC' });
+    const d = rows[0];
+
+    // Cargos y cobros (mismo criterio de SALDO_NETO que cxcDocSaldosInnerSQL)
+    const sums = await query(`
+      SELECT
+        COALESCE((SELECT SUM(i.IMPORTE) FROM IMPORTES_DOCTOS_CC i
+          WHERE i.DOCTO_CC_ID = ? AND i.TIPO_IMPTE = 'C' AND COALESCE(i.CANCELADO,'N') = 'N'), 0) AS CARGOS,
+        COALESCE((SELECT SUM(${CXC_RECIBO_BASE_EXPR}) FROM IMPORTES_DOCTOS_CC i2
+          WHERE i2.TIPO_IMPTE = 'R' AND COALESCE(i2.CANCELADO,'N') = 'N'
+            AND (
+              i2.DOCTO_CC_ACR_ID = ?
+              OR (i2.DOCTO_CC_ID = ? AND i2.DOCTO_CC_ACR_ID IS NULL)
+            )), 0) AS COBROS_BASE
+    `, [d.DOCTO_CC_ID, d.DOCTO_CC_ID, d.DOCTO_CC_ID], 20000, dbo).catch(() => [{ CARGOS: 0, COBROS_BASE: 0 }]);
+    const s = (sums && sums[0]) || { CARGOS: 0, COBROS_BASE: 0 };
+    const saldoNeto = Math.round(((+s.CARGOS || 0) - (+s.COBROS_BASE || 0)) * 100) / 100;
+
+    return res.json({
+      ok: true,
+      folio,
+      docto_cc_id: +d.DOCTO_CC_ID || null,
+      cliente_id: +d.CLIENTE_ID || null,
+      fecha_docto: d.FECHA_DOCTO,
+      condicion_pago: d.CONDICION_PAGO,
+      dias_ppag: +d.DIAS_PPAG || 0,
+      fecha_venc_calc: d.FECHA_VENC_CALC,
+      dias_venc_calc: +d.DIAS_VENC_CALC || 0,
+      cargos: Math.round((+s.CARGOS || 0) * 100) / 100,
+      cobros_base: Math.round((+s.COBROS_BASE || 0) * 100) / 100,
+      saldo_neto: saldoNeto,
+      note: 'Compara estos campos contra Power BI: si Power BI lo marca vencido pero dias_venc_calc <= 0, hay que ajustar la fecha base/vencimiento (VENCIMIENTOS_CARGOS_CC, condición pago, o regla contado).',
+    });
+  } catch (e) {
+    return res.status(500).json({ ok: false, folio, error: String(e.message || e) });
+  }
+});
+
 // Diagnóstico: comprueba si la API de diarias devuelve datos (últimos N días)
 app.get('/api/debug/ventas-diarias', async (req, res) => {
   const dias = Math.min(parseInt(req.query.dias) || 30, 366);
