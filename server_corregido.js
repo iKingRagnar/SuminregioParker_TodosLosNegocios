@@ -3601,8 +3601,8 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
   ) {
     const mx = Math.max(saldoTotal, legacySum);
     const relDiff = mx > 0 ? Math.abs(saldoTotal - legacySum) / mx : 1;
-    // 8% era demasiado estricto: doc vs legacy a menudo divergen >10% y dejaban VENCIDO=0 con mora real en aging por cliente.
-    if (relDiff <= 0.35) {
+    // Doc (saldo neto por factura) vs legacy (suma de líneas de cargo) a veces divergen >35% y dejaban VENCIDO=0 con mora real.
+    if (relDiff <= 0.55) {
       vencido = aggLegacyFlat.venc;
       agCorr = aggLegacyFlat.cor;
       ag1 = aggLegacyFlat.b1;
@@ -3626,7 +3626,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
     cxcAgingLegacy.length
   ) {
     const scale = saldoTotal / legacySum;
-    if (scale >= 0.12 && scale <= 8.0) {
+    if (scale >= 0.08 && scale <= 12.0) {
       agCorr = aggLegacyFlat.cor * scale;
       ag1 = aggLegacyFlat.b1 * scale;
       ag2 = aggLegacyFlat.b2 * scale;
@@ -3636,6 +3636,14 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
       porVencer = agCorr;
       numCliVenc = cxcAgingLegacy.filter((r) => (+r.VENC_C || 0) > 0.005).length;
     }
+  }
+
+  if (vencido <= 0.005 && saldoTotal > 1000 && aggLegacyFlat.venc <= 0.005) {
+    console.warn(
+      '[cxc/resumen-aging] VENCIDO=0 con cartera >0; relDiff doc/legacy posible; saldoTotal=%s numCliDoc=%s',
+      saldoTotal,
+      docAgg.NUM_CLIENTES_DOC
+    );
   }
 
   const resumen = {
