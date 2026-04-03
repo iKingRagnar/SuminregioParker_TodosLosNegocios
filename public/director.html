@@ -838,13 +838,14 @@ async function loadRecientes() {
   } catch(e){}
 }
 
-// Carga inicial inmediata (sincronizar ?db= como Inicio: sin esto las peticiones iban sin db y otra base que CxC)
-try{
-  if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:beforeSync'; }
-  if (window.syncDbContextFromUrlOrFallback) window.syncDbContextFromUrlOrFallback();
-  try{ loadAll(); }catch(_){}
-  setTimeout(function(){
-    if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:beforeInitFilters'; }
+// Carga inicial: primero loadAll (await); initFilters bloquea el hilo → no antes de la primera carga.
+(async function directorBoot(){
+  try{
+    if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:beforeSync'; }
+    if (window.syncDbContextFromUrlOrFallback) window.syncDbContextFromUrlOrFallback();
+    if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:awaitLoadAll'; }
+    await loadAll();
+    if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:afterFirstLoadAll'; }
     initFilters({ containerId:'filter-bar', showVendedor:true, onReady:()=>loadAll(), onChange:()=>loadAll() });
     if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:afterInitFilters'; }
     setTimeout(function(){
@@ -858,14 +859,14 @@ try{
         }
       }catch(_){}
     }, 1500);
-  }, 0);
-}catch(e){
-  if(dbgEnabled() && window.__DBG_STATE){
-    window.__DBG_STATE.phase='boot:error';
-    window.__DBG_STATE.note='boot ERROR: '+(e&&e.message?e.message:String(e));
+  }catch(e){
+    if(dbgEnabled() && window.__DBG_STATE){
+      window.__DBG_STATE.phase='boot:error';
+      window.__DBG_STATE.note='boot ERROR: '+(e&&e.message?e.message:String(e));
+    }
+    throw e;
   }
-  throw e;
-}
+})();
 setInterval(loadAll, 1800000);
 </script>
 <script src="/chat-widget.js" defer></script>
