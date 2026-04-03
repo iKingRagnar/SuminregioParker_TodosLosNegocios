@@ -95,7 +95,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     }
   }
 
-  /** Mismo criterio que cxc.html (withDbParam): URL/session sin normalizar parker→default. Evita KPI vencido $0 en Inicio/Director mientras CxC sí muestra mora. */
+  /** Igual que cxc.html cxcEffectiveDb(): solo ?db= y sessionStorage; sin alias parker→default y sin fallback a default forzado. Si vacío, no se envía ?db= (servidor = misma regla que CxC sin parámetro). */
   function getDbForCxcApi() {
     try {
       var u = (new URLSearchParams(window.location.search).get('db') || '').trim();
@@ -103,7 +103,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       var s = (sessionStorage.getItem('microsip_erp_db') || '').trim();
       if (s) return s;
     } catch (e) {}
-    return getSelectedDbId();
+    return '';
   }
 
   function getParams() {

@@ -373,7 +373,8 @@ function setDirTopCli(n) {
 
 // -- Helper: URL con filtros ------------------------------------------------
 function buildApiUrl(path, extra, qsOpts) {
-  const qs    = window.filterBuildQS ? filterBuildQS(undefined, qsOpts || {}) : '';
+  const merged = Object.assign({ useCxcDbIdentity: true }, qsOpts || {});
+  const qs    = window.filterBuildQS ? filterBuildQS(undefined, merged) : '';
   const e     = extra ? String(extra).replace(/^[?&]+/, '') : '';
   const parts = [qs, e].filter(Boolean).join('&');
   return API + path + (parts ? '?' + parts : '');
@@ -451,12 +452,9 @@ async function loadAll() {
     setText('badge-top-clientes', labelPeriodoFiltro());
     /* Mismo snapshot que index: CxC unificado + ventas puede tardar >25s en Render; si abortamos, fetchJson devuelve {} y todo el tab muestra 0. */
     const tDir = 110000;
-    const _cxcQs = (typeof window.filterCxcKpiQueryString === 'function')
-      ? window.filterCxcKpiQueryString()
-      : (window.filterBuildQS ? filterBuildQS() : '');
     const [dirRes, cxcRes, metasRes] = await Promise.allSettled([
       fetchJson(buildApiUrl('/api/director/resumen'), {}, tDir),
-      fetchJson(API + '/api/cxc/resumen-aging' + (_cxcQs ? '?' + _cxcQs : ''), {}, tDir),
+      fetchJson(buildApiUrl('/api/cxc/resumen-aging'), {}, tDir),
       fetchJson(buildApiUrl('/api/config/metas'), {}, tDir),
     ]);
     const dir = (dirRes.status === 'fulfilled' && dirRes.value && typeof dirRes.value === 'object') ? dirRes.value : {};

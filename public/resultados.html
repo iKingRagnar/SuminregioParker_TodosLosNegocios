@@ -603,7 +603,7 @@ let lastUniversePayload=null;
 
 // ── Helper: URL con filtros (otros módulos) ───────────────────────────────────
 function buildApiUrl(path, extra) {
-  const qs    = window.filterBuildQS ? filterBuildQS() : '';
+  const qs    = window.filterBuildQS ? filterBuildQS(undefined, { useCxcDbIdentity: true }) : '';
   const e     = extra ? String(extra).replace(/^[?&]+/, '') : '';
   const parts = [qs, e].filter(Boolean).join('&');
   return API + path + (parts ? '?' + parts : '');
@@ -615,7 +615,7 @@ function buildPnlQuery(extra, opts) {
   opts = opts || {};
   const parts = [];
   if (!opts.omitFilters) {
-    const filtros = window.filterBuildQS ? String(filterBuildQS() || '').replace(/^[?&]+/, '') : '';
+    const filtros = window.filterBuildQS ? String(filterBuildQS(null, { useCxcDbIdentity: true }) || '').replace(/^[?&]+/, '') : '';
     if (filtros) parts.push(filtros);
   }
   if (extra) {
@@ -1708,9 +1708,17 @@ function renderCharts(meses,hasCosto){
   if(el4){
     const ctx4=el4.getContext('2d');
     if(chartGastos){ chartGastos.destroy(); chartGastos=null; }
-    const g1=(meses||[]).map(m=>+m.CO_A1||0);
-    const g2=(meses||[]).map(m=>+m.CO_A2||0);
-    const g3=(meses||[]).map(m=>+m.CO_A3||0);
+    const seriesGastosA123=(meses||[]).map(function(m){
+      var a1=+m.CO_A1||0,a2=+m.CO_A2||0,a3=+m.CO_A3||0;
+      var a4=+m.CO_A4||0,a5=+m.CO_A5||0,a6=+m.CO_A6||0;
+      var sum123=a1+a2+a3;
+      var rest=a4+a5+a6;
+      if (sum123<0.01&&rest>0.01) a2+=rest;
+      return [a1,a2,a3];
+    });
+    const g1=seriesGastosA123.map(function(x){return x[0];});
+    const g2=seriesGastosA123.map(function(x){return x[1];});
+    const g3=seriesGastosA123.map(function(x){return x[2];});
     const maxStackG=labels.length?Math.max(0,...labels.map((_,i)=>(+g1[i]||0)+(+g2[i]||0)+(+g3[i]||0))):0;
     const hasGastos=maxStackG>0.005;
     if(empty4){

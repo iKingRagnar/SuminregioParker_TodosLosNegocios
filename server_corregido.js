@@ -69,7 +69,7 @@ const path     = require('path');
 
 const app  = express();
 const PORT = process.env.PORT || 7000;
-const BUILD_FINGERPRINT = 'pnl-fold52-cxc-dbidentity-20260403';
+const BUILD_FINGERPRINT = 'dashboard-db-unify-pnl-filtros-20260403';
 
 /**
  * Power BI / reportes suelen usar importe base sin IVA; en cabecera DOCTOS_VE/PV el campo
@@ -5744,7 +5744,6 @@ async function resultadosPnlCore(req, dbOpts) {
 
   const costosElegidos = [];
   const ventasFuentes = [];
-  let gastosResto52Folded = false;
   const meses = (ventasMes || []).map(r => {
     const ventasBrutas = +r.VENTAS_BRUTAS || 0;
     const descuentosDev = descMap[key(r.ANIO, r.MES)] || 0;
@@ -5987,7 +5986,7 @@ async function resultadosPnlCore(req, dbOpts) {
   });
 
 
-  return { meses, totales, tiene_costo, tiene_gastos_co, prefijos_labels, subconceptos, gastos_estimados: gastosEstimados, gastos_estimados_desde: gastosEstimadosDesde, gastos_resto52_folded: gastosResto52Folded };
+  return { meses, totales, tiene_costo, tiene_gastos_co, prefijos_labels, subconceptos, gastos_estimados: gastosEstimados, gastos_estimados_desde: gastosEstimadosDesde };
 }
 
 /** Consolida P&L contable sumando mes a mes todas las bases del registro (db=__all__). */
@@ -6005,7 +6004,6 @@ async function resultadosPnlMergedAll(req) {
         subconceptos: {},
         gastos_estimados: false,
         gastos_estimados_desde: null,
-        gastos_resto52_folded: false,
       };
     }
   });
@@ -6116,7 +6114,6 @@ async function resultadosPnlMergedAll(req) {
   });
   const gastos_estimados = outs.some((o) => o.gastos_estimados);
   const gastos_estimados_desde = outs.find((o) => o.gastos_estimados_desde)?.gastos_estimados_desde || null;
-  const gastos_resto52_folded = outs.some((o) => o.gastos_resto52_folded);
   return {
     meses,
     totales,
@@ -6126,7 +6123,6 @@ async function resultadosPnlMergedAll(req) {
     subconceptos,
     gastos_estimados,
     gastos_estimados_desde,
-    gastos_resto52_folded,
   };
 }
 

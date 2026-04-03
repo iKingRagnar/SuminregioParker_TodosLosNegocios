@@ -823,8 +823,9 @@ async function fetchJsonAbort(url, fallback, ms) {
 
 /** Lista de {id,label,database} desde GET /api/universe/databases (initBizBar). */
 let indexDbList = [];
-function buildApiUrl(path,extra){
-  const qs=window.filterBuildQS?filterBuildQS():'';
+function buildApiUrl(path,extra,qsOpts){
+  const merged=Object.assign({useCxcDbIdentity:true},qsOpts||{});
+  const qs=window.filterBuildQS?filterBuildQS(undefined,merged):'';
   const e=extra?String(extra).replace(/^[?&]+/,''):'';
   const parts=[qs,e].filter(Boolean).join('&');
   return API+path+(parts?'?'+parts:'');
@@ -1074,13 +1075,10 @@ async function loadAll(){
   try{
     /* AbortController hasta 120s: fwt (Promise.race) cortaba a los 65s y descartaba la respuesta tardía → resumen-aging vacío y vencido KPI en $0. */
     const tKpi = 120000;
-    const _cxcQs = (typeof window.filterCxcKpiQueryString === 'function')
-      ? window.filterCxcKpiQueryString()
-      : (window.filterBuildQS ? filterBuildQS() : '');
     const [v,m,c,inv,dir,vends,cot,cumpl,cliRes,pnlData]=await Promise.all([
       fetchJsonAbort(buildApiUrl('/api/ventas/resumen'), {}, tKpi),
       fetchJsonAbort(buildApiUrl('/api/config/metas'), {}, tKpi),
-      fetchJsonAbort(API + '/api/cxc/resumen-aging' + (_cxcQs ? '?' + _cxcQs : ''), {}, tKpi),
+      fetchJsonAbort(buildApiUrl('/api/cxc/resumen-aging'), {}, tKpi),
       fetchJsonAbort(buildApiUrl('/api/inv/resumen'), {}, tKpi),
       fetchJsonAbort(buildApiUrl('/api/director/resumen'), {}, tKpi),
       fetchJsonAbort(buildApiUrl('/api/director/vendedores'), [], tKpi),
