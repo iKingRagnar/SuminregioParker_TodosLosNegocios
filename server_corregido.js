@@ -69,7 +69,7 @@ const path     = require('path');
 
 const app  = express();
 const PORT = process.env.PORT || 7000;
-const BUILD_FINGERPRINT = 'cxc-kpi-prioriza-director-bg-cap-gastos-20260403';
+const BUILD_FINGERPRINT = 'sync-db-merge-cxc-dashboard-20260403';
 
 /**
  * Power BI / reportes suelen usar importe base sin IVA; en cabecera DOCTOS_VE/PV el campo

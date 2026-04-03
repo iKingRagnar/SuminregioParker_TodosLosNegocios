@@ -1190,6 +1190,9 @@ async function loadAll(){
         cx = window.finalizeCxcKpiDisplay(cx, c.aging);
       }
     }
+    if (typeof window.mergeCxcDisplayForDashboard === 'function') {
+      cx = window.mergeCxcDisplayForDashboard(cx, dir, c);
+    }
     const cxcTotal=+cx.SALDO_TOTAL||0;
     const cxcVenc=+cx.VENCIDO||0;
     const cxcClientes=+cx.NUM_CLIENTES||0;

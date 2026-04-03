@@ -844,6 +844,60 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     return merged;
   }
 
+  /**
+   * Inicio/Director: sin barra de negocio (p. ej. director.html) sessionStorage y ?db= pueden faltar ? todas las APIs deben usar getSelectedDbId().
+   */
+  function syncDbContextFromUrlOrFallback() {
+    try {
+      var u = (new URLSearchParams(window.location.search).get('db') || '').trim();
+      if (u) {
+        sessionStorage.setItem('microsip_erp_db', u);
+        return;
+      }
+      var s = (sessionStorage.getItem('microsip_erp_db') || '').trim();
+      if (s) return;
+      var d = getSelectedDbId();
+      if (d) {
+        sessionStorage.setItem('microsip_erp_db', d);
+        var loc = new URL(window.location.href);
+        loc.searchParams.set('db', d);
+        history.replaceState({}, '', loc);
+      }
+    } catch (e) {}
+  }
+
+  /**
+   * Paso final KPI CxC en tarjetas: máximo entre director.cxc, snapshot y suma de buckets aging; saldo preferente desde director si existe.
+   */
+  function mergeCxcDisplayForDashboard(cx, directorRaw, cxcSnap) {
+    var px = cx && typeof cx === 'object' ? cx : {};
+    var dc = directorRaw && directorRaw.cxc && typeof directorRaw.cxc === 'object' ? directorRaw.cxc : null;
+    var ag = normalizeCxcAging(cxcSnap && cxcSnap.aging);
+    var mora =
+      (+ag.DIAS_1_30 || 0) + (+ag.DIAS_31_60 || 0) +
+      (+ag.DIAS_61_90 || 0) + (+ag.DIAS_MAS_90 || 0);
+    var vDir = dc ? (+dc.VENCIDO || 0) : 0;
+    var vPx = +px.VENCIDO || 0;
+    var saldo = 0;
+    if (dc && (+dc.SALDO_TOTAL || 0) > 0.005) {
+      saldo = +dc.SALDO_TOTAL;
+    } else {
+      saldo = +px.SALDO_TOTAL || 0;
+    }
+    if (saldo <= 0.005) return px;
+    var moraCap = mora > 0.005 ? Math.min(mora, saldo) : 0;
+    var venc = Math.max(vDir, vPx, moraCap);
+    return Object.assign({}, px, {
+      SALDO_TOTAL: saldo,
+      VENCIDO: venc,
+      POR_VENCER: Math.max(0, saldo - venc),
+      NUM_CLIENTES: (dc && (+dc.NUM_CLIENTES || 0) > 0) ? +dc.NUM_CLIENTES : (+px.NUM_CLIENTES || 0),
+      NUM_CLIENTES_VENCIDOS: dc && dc.NUM_CLIENTES_VENCIDOS != null && dc.NUM_CLIENTES_VENCIDOS !== ''
+        ? dc.NUM_CLIENTES_VENCIDOS
+        : px.NUM_CLIENTES_VENCIDOS
+    });
+  }
+
   window.initFilters              = initFilters;
   window.filterBuildQS            = buildQS;
   window.filterGetParams          = getParams;
@@ -857,6 +911,8 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   window.finalizeCxcKpiDisplay      = finalizeCxcKpiDisplay;
   window.normalizeCxcAging        = normalizeCxcAging;
   window.applyCxcSnapshotForKpis  = applyCxcSnapshotForKpis;
+  window.mergeCxcDisplayForDashboard = mergeCxcDisplayForDashboard;
+  window.syncDbContextFromUrlOrFallback = syncDbContextFromUrlOrFallback;
   window.getDbForCxcApi           = getDbForCxcApi;
   /** Query string para GET /api/cxc/resumen-aging alineado a cxc.html (db literal + filtros de periodo). */
   function filterCxcKpiQueryString() {

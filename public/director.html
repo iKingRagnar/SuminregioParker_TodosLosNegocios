@@ -476,6 +476,9 @@ async function loadAll() {
         ? window.finalizeCxcKpiDisplay(cxcMerged, cxcSnap.aging)
         : cxcMerged;
     }
+    if (typeof window.mergeCxcDisplayForDashboard === 'function') {
+      cxc = window.mergeCxcDisplayForDashboard(cxc, dir, cxcSnap);
+    }
     const v = dir.ventas||{}, c = cxc, co = dir.cotizaciones||{};
     const nV = getVendedoresEnContexto(metas);
     const metaBase = +(metas.META_DIARIA_POR_VENDEDOR||5650);
@@ -740,7 +743,8 @@ async function loadRecientes() {
   } catch(e){}
 }
 
-// Carga inicial inmediata
+// Carga inicial inmediata (sincronizar ?db= como Inicio: sin esto las peticiones iban sin db y otra base que CxC)
+if (window.syncDbContextFromUrlOrFallback) window.syncDbContextFromUrlOrFallback();
 initFilters({ containerId:'filter-bar', showVendedor:true, onReady:()=>loadAll(), onChange:()=>loadAll() });
 setInterval(loadAll, 1800000);
 </script>

@@ -2031,6 +2031,7 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   </tr>`;
 }
 
+if (window.syncDbContextFromUrlOrFallback) window.syncDbContextFromUrlOrFallback();
 initFilters({ containerId:'filter-bar', showVendedor:false, defaultPreset:'mes_ant', onReady:()=>loadData(), onChange:()=>loadData() });
 setInterval(loadData, 1800000);
 </script>
