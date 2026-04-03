@@ -1086,6 +1086,25 @@ function dbgBox(){
 }
 
 if (dbgEnabled()) {
+  try{
+    window.__DBG_T0 = Date.now();
+    window.__DBG_STATE = { loadAllStarted: 0, loadAllFinished: 0, lastTick: 0, phase: 'boot', note: '' };
+    const tick = function(){
+      try{
+        const b = dbgBox();
+        const s = window.__DBG_STATE || {};
+        const ms = Date.now() - (window.__DBG_T0 || Date.now());
+        b.textContent =
+          'DBG SCORECARD (dbg=1)\n' +
+          't=' + (ms/1000).toFixed(1) + 's\n' +
+          'phase=' + (s.phase || '?') + '\n' +
+          'loadAllStarted=' + (s.loadAllStarted || 0) + ' loadAllFinished=' + (s.loadAllFinished || 0) + '\n' +
+          (s.note ? ('note=' + s.note + '\n') : '');
+      }catch(_){}
+    };
+    window.__DBG_TICK = tick;
+    setInterval(tick, 500);
+  }catch(_){}
   if (document.readyState === 'loading') {
     window.addEventListener('DOMContentLoaded', () => { try { dbgBox(); } catch (_) {} }, { once: true });
   } else {
@@ -1111,19 +1130,27 @@ if (dbgEnabled()) {
 // -- Main load ------------------------------------------------------------------
 async function loadAll(){
   try{
+    if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.loadAllStarted=(window.__DBG_STATE.loadAllStarted||0)+1; window.__DBG_STATE.phase='loadAll:start'; window.__DBG_STATE.note=''; }
     /* AbortController hasta 120s: fwt (Promise.race) cortaba a los 65s y descartaba la respuesta tardía → resumen-aging vacío y vencido KPI en $0. */
     const tKpi = 120000;
+    const dbgWrap = function(label, p){
+      return Promise.resolve()
+        .then(()=>{ if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='fetch:'+label; } })
+        .then(()=>p)
+        .then((x)=>{ if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.note=label+':ok'; } return x; })
+        .catch((e)=>{ if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.note=label+':err:'+(e&&e.message?e.message:String(e)); } throw e; });
+    };
     const [v,m,c,inv,dir,vends,cot,cumpl,cliRes,pnlData]=await Promise.all([
-      fetchJsonAbort(buildApiUrl('/api/ventas/resumen'), {}, tKpi),
-      fetchJsonAbort(buildApiUrl('/api/config/metas'), {}, tKpi),
-      fetchJsonAbort(buildApiUrl('/api/cxc/resumen-aging'), {}, tKpi),
-      fetchJsonAbort(buildApiUrl('/api/inv/resumen'), {}, tKpi),
-      fetchJsonAbort(buildApiUrl('/api/director/resumen'), {}, tKpi),
-      fetchJsonAbort(buildApiUrl('/api/director/vendedores'), [], tKpi),
-      fetchJsonAbort(buildApiUrl('/api/ventas/cotizaciones/resumen'), {}, tKpi),
-      fetchJsonAbort(buildApiUrl('/api/ventas/cumplimiento'), [], tKpi),
-      fetchJsonAbort(buildApiUrl('/api/clientes/resumen-riesgo'), {}, tKpi),
-      fetchJsonAbort(buildApiUrl('/api/resultados/pnl','meses=1'), {}, tKpi),
+      dbgWrap('ventas/resumen', fetchJsonAbort(buildApiUrl('/api/ventas/resumen'), {}, tKpi)),
+      dbgWrap('config/metas', fetchJsonAbort(buildApiUrl('/api/config/metas'), {}, tKpi)),
+      dbgWrap('cxc/resumen-aging', fetchJsonAbort(buildApiUrl('/api/cxc/resumen-aging'), {}, tKpi)),
+      dbgWrap('inv/resumen', fetchJsonAbort(buildApiUrl('/api/inv/resumen'), {}, tKpi)),
+      dbgWrap('director/resumen', fetchJsonAbort(buildApiUrl('/api/director/resumen'), {}, tKpi)),
+      dbgWrap('director/vendedores', fetchJsonAbort(buildApiUrl('/api/director/vendedores'), [], tKpi)),
+      dbgWrap('ventas/cotizaciones', fetchJsonAbort(buildApiUrl('/api/ventas/cotizaciones/resumen'), {}, tKpi)),
+      dbgWrap('ventas/cumplimiento', fetchJsonAbort(buildApiUrl('/api/ventas/cumplimiento'), [], tKpi)),
+      dbgWrap('clientes/riesgo', fetchJsonAbort(buildApiUrl('/api/clientes/resumen-riesgo'), {}, tKpi)),
+      dbgWrap('resultados/pnl', fetchJsonAbort(buildApiUrl('/api/resultados/pnl','meses=1'), {}, tKpi)),
     ]);
     fetchJsonAbort(API + '/api/ping', {}, 8000).then(function (p) {
       if (p && p.build) window.__SUMINREGIO_API_BUILD = p.build;
@@ -1263,6 +1290,7 @@ async function loadAll(){
         'final cx SALDO_TOTAL='+(+cx.SALDO_TOTAL||0)+' VENCIDO='+(+cx.VENCIDO||0)+' POR_VENCER='+(+cx.POR_VENCER||0)+'\\n'+
         'pVenc='+pVenc+'%';
     }
+    if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.loadAllFinished=(window.__DBG_STATE.loadAllFinished||0)+1; window.__DBG_STATE.phase='loadAll:done'; }
 
     // Inventario
     const invTotal=+inv.TOTAL_ARTICULOS||0;
