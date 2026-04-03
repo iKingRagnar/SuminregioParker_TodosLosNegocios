@@ -1492,6 +1492,7 @@ function renderChart(data){
 }
 
 (async function boot(){
+  if (window.syncDbContextFromUrlOrFallback) window.syncDbContextFromUrlOrFallback();
   await initBizBar();
   if(window.initFilters){ initFilters({ containerId:'filter-bar', showVendedor:true, onReady:()=>loadAll(), onChange:()=>loadAll() }); }
   else loadAll();

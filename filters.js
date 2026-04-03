@@ -878,6 +878,12 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       (+ag.DIAS_61_90 || 0) + (+ag.DIAS_MAS_90 || 0);
     var vDir = dc ? (+dc.VENCIDO || 0) : 0;
     var vPx = +px.VENCIDO || 0;
+    // Resumen crudo del snapshot (antes de pipelines): si algún paso dejó VENCIDO en 0 pero el JSON del servidor sí traía mora, no perderlo.
+    var vSnap = 0;
+    try {
+      var rr = cxcSnap && cxcSnap.resumen;
+      if (rr && typeof rr === 'object') vSnap = +rr.VENCIDO || 0;
+    } catch (e) {}
     var saldo = 0;
     if (dc && (+dc.SALDO_TOTAL || 0) > 0.005) {
       saldo = +dc.SALDO_TOTAL;
@@ -886,7 +892,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     }
     if (saldo <= 0.005) return px;
     var moraCap = mora > 0.005 ? Math.min(mora, saldo) : 0;
-    var venc = Math.max(vDir, vPx, moraCap);
+    var venc = Math.max(vDir, vPx, moraCap, vSnap);
     return Object.assign({}, px, {
       SALDO_TOTAL: saldo,
       VENCIDO: venc,

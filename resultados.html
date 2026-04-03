@@ -1044,7 +1044,7 @@ async function loadEstadoSrContable(mesesScope, totScope){
         ['Gastos de administración',ga],
         ['Subtotal operativo',tg],
       ].filter(x=>x[0]==='Subtotal operativo'||(+x[1]>=0.005));
-      listOp.innerHTML=opRows.length?opRows.map(x=>srRow2(x[0],x[1],false)).join(''):'<div class="bg-row"><span class="n">Sin partidas en periodo</span><span class="v">—</span></div>';
+      listOp.innerHTML=opRows.length?opRows.map(x=>srRow2(x[0],x[1],false)).join(''):('<div class="bg-row"><span class="n">Sin partidas en periodo</span><span class="v">'+fmtM(0)+'</span></div>');
     }
     if(listEx){
       listEx.className='bg-list sr-lines';
@@ -1100,7 +1100,7 @@ async function loadEstadoSrContable(mesesScope, totScope){
         ['Gastos de administración',+s.gastos_administracion||0],
         ['Subtotal operativo',+s.total_gastos_operativos||0],
       ].filter(x=>x[0]==='Subtotal operativo'||(+x[1]>=0.005));
-      listOp.innerHTML=opRows.length?opRows.map(x=>srRow2(x[0],x[1],false)).join(''):'<div class="bg-row"><span class="n">Sin partidas en periodo</span><span class="v">—</span></div>';
+      listOp.innerHTML=opRows.length?opRows.map(x=>srRow2(x[0],x[1],false)).join(''):('<div class="bg-row"><span class="n">Sin partidas en periodo</span><span class="v">'+fmtM(0)+'</span></div>');
     }
     if(listEx){
       listEx.className='bg-list sr-lines';

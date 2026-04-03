@@ -69,7 +69,7 @@ const path     = require('path');
 
 const app  = express();
 const PORT = process.env.PORT || 7000;
-const BUILD_FINGERPRINT = 'sync-db-merge-cxc-dashboard-20260403';
+const BUILD_FINGERPRINT = 'estado-sr-saldos-co-dinamico-cxc-kpi-20260402';
 
 /**
  * Power BI / reportes suelen usar importe base sin IVA; en cabecera DOCTOS_VE/PV el campo
@@ -6380,11 +6380,21 @@ get('/api/resultados/estado-sr', async (req) => {
 
   const y = parseInt(String(hastaStr).slice(0, 4), 10);
   const m = parseInt(String(hastaStr).slice(5, 7), 10);
+  // Mismas columnas dinámicas que resultadosPnlCore / balance-general: ANO vs ANIO, DEBE/HABER, etc.
+  const salCols = await getTableColumns('SALDOS_CO', dbo).catch(() => new Set());
+  const salAnoCol = firstExistingColumn(salCols, ['ANO', 'ANIO', 'EJERCICIO']) || 'ANO';
+  const salMesCol = firstExistingColumn(salCols, ['MES', 'PERIODO', 'NUM_MES']) || 'MES';
+  const salCargoCol = firstExistingColumn(salCols, ['CARGOS', 'CARGO', 'DEBE']) || 'CARGOS';
+  const salAbonoCol = firstExistingColumn(salCols, ['ABONOS', 'ABONO', 'HABER']) || 'ABONOS';
+  const salYearExpr = `s.${salAnoCol}`;
+  const salMonthExpr = `s.${salMesCol}`;
+  const salDeltaIng4 = `(COALESCE(s.${salAbonoCol},0) - COALESCE(s.${salCargoCol},0))`;
+  const salGastoAbs = `ABS(COALESCE(s.${salCargoCol}, 0) - COALESCE(s.${salAbonoCol}, 0))`;
   const ventasContaRows = await query(`
-    SELECT COALESCE(SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '4' THEN (COALESCE(s.ABONOS,0) - COALESCE(s.CARGOS,0)) ELSE 0 END), 0) AS VENTAS
+    SELECT COALESCE(SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '4' THEN (${salDeltaIng4}) ELSE 0 END), 0) AS VENTAS
     FROM SALDOS_CO s
     JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
-    WHERE s.ANO = ? AND s.MES = ?
+    WHERE ${salYearExpr} = ? AND ${salMonthExpr} = ?
   `, [y, m], 15000, dbo).catch(() => [{ VENTAS: 0 }]);
   const ventasConta = +((ventasContaRows[0] && ventasContaRows[0].VENTAS) || 0);
   const ventasPnl = +((pnl && pnl.totales && pnl.totales.VENTAS_NETAS) || 0);
@@ -6395,10 +6405,10 @@ get('/api/resultados/estado-sr', async (req) => {
     SELECT
       cu.CUENTA_PT,
       TRIM(COALESCE(cu.NOMBRE, cu.CUENTA_PT)) AS NOMBRE,
-      COALESCE(SUM(ABS(COALESCE(s.CARGOS, 0) - COALESCE(s.ABONOS, 0))), 0) AS IMP
+      COALESCE(SUM(${salGastoAbs}), 0) AS IMP
     FROM SALDOS_CO s
     JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
-    WHERE s.ANO = ? AND s.MES = ?
+    WHERE ${salYearExpr} = ? AND ${salMonthExpr} = ?
       AND (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53' OR cu.CUENTA_PT STARTING WITH '54')
     GROUP BY cu.CUENTA_PT, cu.NOMBRE
     ORDER BY cu.CUENTA_PT

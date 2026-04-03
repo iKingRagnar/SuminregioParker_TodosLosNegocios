@@ -1052,7 +1052,7 @@ async function loadEstadoSrContable(mesesScope, totScope){
         ['Otros gastos',og],
         ['Gastos financieros',gf],
       ].filter(x=>+x[1]>=0.005);
-      listEx.innerHTML=exRows.length?exRows.map(x=>srRow2(x[0],x[1],false)).join(''):'<div class="bg-row"><span class="n">Sin partidas extraordinarias</span><span class="v">—</span></div>';
+      listEx.innerHTML=exRows.length?exRows.map(x=>srRow2(x[0],x[1],false)).join(''):('<div class="bg-row"><span class="n">Sin partidas extraordinarias</span><span class="v">'+fmtM(0)+'</span></div>');
     }
     if(listRs){
       listRs.className='bg-list sr-lines';
@@ -1108,7 +1108,7 @@ async function loadEstadoSrContable(mesesScope, totScope){
         ['Otros gastos',ogApi],
         ['Gastos financieros',gfApi],
       ].filter(x=>+x[1]>=0.005);
-      listEx.innerHTML=exRows.length?exRows.map(x=>srRow2(x[0],x[1],false)).join(''):'<div class="bg-row"><span class="n">Sin partidas extraordinarias</span><span class="v">—</span></div>';
+      listEx.innerHTML=exRows.length?exRows.map(x=>srRow2(x[0],x[1],false)).join(''):('<div class="bg-row"><span class="n">Sin partidas extraordinarias</span><span class="v">'+fmtM(0)+'</span></div>');
     }
     if(listRs){
       listRs.className='bg-list sr-lines';
