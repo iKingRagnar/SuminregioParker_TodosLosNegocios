@@ -1976,6 +1976,8 @@ function cxcSaldosSub() { return cxcCargosSQL(); }
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const metasCache = new Map();
+/** Cache corto por base (+ cliente opcional) para /api/cxc/resumen-aging: evita martillar Firebird con 6 queries en cada refresh del tablero. TTL env MICROSIP_CXC_SNAPSHOT_CACHE_MS (default 12000 ms; 0 = desactivar). ?nocache=1 fuerza recálculo. */
+const cxcResumenAgingSnapCache = new Map();
 
 get('/api/config/metas', async (req) => {
   const rawQ = normalizeDbQueryId(req && req.query && req.query.db) || 'default';
@@ -3622,7 +3624,8 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
     const mx = Math.max(saldoTotal, legacySum);
     const relDiff = mx > 0 ? Math.abs(saldoTotal - legacySum) / mx : 1;
     // Doc (saldo neto por factura) vs legacy (suma de líneas de cargo) a veces divergen >35% y dejaban VENCIDO=0 con mora real.
-    if (relDiff <= 0.55) {
+    // 0.72: tolera bases donde docAgg y legacy no cuadran al 55% pero la mora legacy sigue siendo la lectura útil (Power BI / cargos).
+    if (relDiff <= 0.72) {
       vencido = aggLegacyFlat.venc;
       agCorr = aggLegacyFlat.cor;
       ag1 = aggLegacyFlat.b1;
@@ -3646,7 +3649,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
     cxcAgingLegacy.length
   ) {
     const scale = saldoTotal / legacySum;
-    if (scale >= 0.08 && scale <= 12.0) {
+    if (scale >= 0.05 && scale <= 18.0) {
       agCorr = aggLegacyFlat.cor * scale;
       ag1 = aggLegacyFlat.b1 * scale;
       ag2 = aggLegacyFlat.b2 * scale;
@@ -3733,8 +3736,22 @@ get('/api/cxc/resumen-aging', async (req) => {
     return mergeCxcResumenAgingSnaps(snaps);
   }
   const dbo = getReqDbOpts(req);
+  const nocache = String((req.query && req.query.nocache) || '') === '1';
+  const ttlRaw = parseInt(process.env.MICROSIP_CXC_SNAPSHOT_CACHE_MS, 10);
+  const ttlMs = Number.isFinite(ttlRaw) ? Math.min(Math.max(ttlRaw, 0), 120000) : 12000;
+  const cfRaw = req.query && req.query.cliente ? parseInt(req.query.cliente, 10) : null;
+  const cfKey = Number.isFinite(cfRaw) && cfRaw > 0 ? String(cfRaw) : '';
+  const cacheKey = `${dbCacheKey(dbo)}|cxcSnap|${cfKey}`;
+  if (!nocache && ttlMs > 0) {
+    const hit = cxcResumenAgingSnapCache.get(cacheKey);
+    if (hit && hit.expireAt > Date.now()) return hit.payload;
+  }
   const snap = await cxcResumenAgingUnificado(req, dbo, qms);
-  return { resumen: snap.resumen, aging: snap.aging };
+  const payload = { resumen: snap.resumen, aging: snap.aging };
+  if (!nocache && ttlMs > 0) {
+    cxcResumenAgingSnapCache.set(cacheKey, { expireAt: Date.now() + ttlMs, payload });
+  }
+  return payload;
 });
 
 // Debug: desglosa fuentes de CxC para ver por qué VENCIDO puede caer a 0.
@@ -4340,6 +4357,107 @@ app.get('/api/debug/firebird-inv', async (req, res) => {
       },
       error: errMsg,
     });
+  }
+});
+
+/**
+ * Compara existencia operativa (SALDOS_IN agregado, mismo criterio que /api/inv/top-stock) vs LINES_EXISTENCIA si existe.
+ * Power BI a menudo muestra entradas/salidas del periodo del filtro (p. ej. neto 0 en el año) mientras SALDOS_IN es saldo acumulado Microsip.
+ * Uso: GET /api/debug/inv-articulo?db=default&q=LAPIZ  o  ?id=12345
+ */
+app.get('/api/debug/inv-articulo', async (req, res) => {
+  const dbo = getReqDbOpts(req);
+  const dbId = req && req.query && req.query.db != null ? String(req.query.db) : 'default';
+  if (!dbo) {
+    return res.status(400).json({ ok: false, db: dbId, error: 'Sin opciones de base (db inválida).' });
+  }
+  const id = req.query && req.query.id != null ? parseInt(req.query.id, 10) : NaN;
+  const q = (req.query && req.query.q) ? String(req.query.q).trim() : '';
+  if (!Number.isFinite(id) && q.length < 3) {
+    return res.status(400).json({
+      ok: false,
+      db: dbId,
+      error: 'Indica ?id=ARTICULO_ID o ?q=texto (mín. 3 caracteres, búsqueda por nombre).',
+    });
+  }
+  try {
+    const balSub = SQL_SALDOS_BAL_SUB;
+    let rows;
+    if (Number.isFinite(id) && id > 0) {
+      rows = await query(
+        `
+        SELECT FIRST 1 a.ARTICULO_ID, a.NOMBRE, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD_VENTA,
+          COALESCE(s.EXISTENCIA, 0) AS EXISTENCIA_SALDOS_IN,
+          COALESCE(s.ENTRADAS_TOTAL, 0) AS ENTRADAS_ACUM_SALDOS_IN,
+          COALESCE(s.SALIDAS_TOTAL, 0) AS SALIDAS_ACUM_SALDOS_IN
+        FROM ARTICULOS a
+        LEFT JOIN ${balSub} s ON s.ARTICULO_ID = a.ARTICULO_ID
+        WHERE a.ARTICULO_ID = ? AND COALESCE(a.ESTATUS, 'A') = 'A'
+      `,
+        [id],
+        20000,
+        dbo,
+      );
+    } else {
+      const frag = q.toUpperCase().replace(/'/g, "''");
+      rows = await query(
+        `
+        SELECT FIRST 1 a.ARTICULO_ID, a.NOMBRE, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD_VENTA,
+          COALESCE(s.EXISTENCIA, 0) AS EXISTENCIA_SALDOS_IN,
+          COALESCE(s.ENTRADAS_TOTAL, 0) AS ENTRADAS_ACUM_SALDOS_IN,
+          COALESCE(s.SALIDAS_TOTAL, 0) AS SALIDAS_ACUM_SALDOS_IN
+        FROM ARTICULOS a
+        LEFT JOIN ${balSub} s ON s.ARTICULO_ID = a.ARTICULO_ID
+        WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND UPPER(a.NOMBRE) CONTAINING '${frag}'
+        ORDER BY a.ARTICULO_ID
+      `,
+        [],
+        20000,
+        dbo,
+      );
+    }
+    const art = rows && rows[0] ? rows[0] : null;
+    let linesExistencia = null;
+    if (art && art.ARTICULO_ID != null) {
+      const aid = art.ARTICULO_ID;
+      try {
+        const le = await query(
+          'SELECT SUM(COALESCE(EXISTENCIA, 0)) AS SUMA_EXISTENCIA FROM LINES_EXISTENCIA WHERE ARTICULO_ID = ?',
+          [aid],
+          15000,
+          dbo,
+        );
+        linesExistencia = { columna: 'EXISTENCIA', filas: le && le[0] ? le[0] : {} };
+      } catch (e1) {
+        try {
+          const le2 = await query(
+            'SELECT SUM(COALESCE(CANTIDAD, 0)) AS SUMA_CANTIDAD FROM LINES_EXISTENCIA WHERE ARTICULO_ID = ?',
+            [aid],
+            15000,
+            dbo,
+          );
+          linesExistencia = { columna: 'CANTIDAD', filas: le2 && le2[0] ? le2[0] : {}, nota: 'EXISTENCIA no disponible; probado CANTIDAD' };
+        } catch (e2) {
+          linesExistencia = {
+            error: 'No se pudo leer LINES_EXISTENCIA (tabla o columnas distintas en esta versión Microsip).',
+            intento_existencia: e1 && e1.message ? String(e1.message) : String(e1),
+            intento_cantidad: e2 && e2.message ? String(e2.message) : String(e2),
+          };
+        }
+      }
+    }
+    return res.json({
+      ok: true,
+      db: dbId,
+      nota_power_bi_vs_api:
+        'El tablero HTML usa SALDOS_IN: existencia = entradas acumuladas − salidas acumuladas por artículo (saldo operativo Microsip). ' +
+        'Un modelo Power BI que filtre por año/mes suele mostrar solo movimientos de ese periodo; si entradas y salidas del periodo se cancelan, el neto del periodo es 0 aunque el saldo global en almacén sea distinto.',
+      articulo: art,
+      lines_existencia: linesExistencia,
+    });
+  } catch (e) {
+    const errMsg = e && e.message ? String(e.message) : String(e || 'Error');
+    return res.status(500).json({ ok: false, db: dbId, error: errMsg });
   }
 });
 

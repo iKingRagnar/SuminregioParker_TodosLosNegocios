@@ -716,8 +716,8 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       var mx = Math.max(am, bm);
       return Math.abs(am - bm) / mx <= maxRel;
     }
-    // 0.35 alineado con tolerancia doc vs legacy en servidor (0.18 dejaba vencido en 0 con saldos cercanos pero no idénticos).
-    if (a.SALDO_TOTAL > 0 && a.VENCIDO <= 0.005 && b.VENCIDO > 0.005 && saldoAligned(a.SALDO_TOTAL, b.SALDO_TOTAL, 0.35)) {
+    // 0.50 alineado con tolerancia doc vs legacy en servidor (0.35 a veces dejaba vencido en 0 con saldos razonablemente cercanos).
+    if (a.SALDO_TOTAL > 0 && a.VENCIDO <= 0.005 && b.VENCIDO > 0.005 && saldoAligned(a.SALDO_TOTAL, b.SALDO_TOTAL, 0.50)) {
       out.VENCIDO = b.VENCIDO;
       out.POR_VENCER = b.POR_VENCER > 0.005 ? b.POR_VENCER : Math.max(0, a.SALDO_TOTAL - b.VENCIDO);
       if (b.NUM_CLIENTES_VENCIDOS != null && b.NUM_CLIENTES_VENCIDOS !== '') out.NUM_CLIENTES_VENCIDOS = b.NUM_CLIENTES_VENCIDOS;
@@ -725,7 +725,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     if (a.SALDO_TOTAL > 0 && b.SALDO_TOTAL > 0) {
       var mx = Math.max(a.SALDO_TOTAL, b.SALDO_TOTAL);
       var relDiff = Math.abs(a.SALDO_TOTAL - b.SALDO_TOTAL) / mx;
-      if (relDiff <= 0.35) {
+      if (relDiff <= 0.50) {
         if (b.VENCIDO > out.VENCIDO) out.VENCIDO = b.VENCIDO;
         if (b.POR_VENCER > out.POR_VENCER) out.POR_VENCER = b.POR_VENCER;
         if ((out.NUM_CLIENTES_VENCIDOS == null || out.NUM_CLIENTES_VENCIDOS === '') && b.NUM_CLIENTES_VENCIDOS != null) {
@@ -813,7 +813,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
         (+aging.DIAS_1_30 || 0) + (+aging.DIAS_31_60 || 0) +
         (+aging.DIAS_61_90 || 0) + (+aging.DIAS_MAS_90 || 0);
     }
-    if (mora > 0.005 && Math.abs(mora - dv) / Math.max(mora, dv, 1) > 0.35) return merged;
+    if (mora > 0.005 && Math.abs(mora - dv) / Math.max(mora, dv, 1) > 0.50) return merged;
     var useSaldo = ms > 0.005 ? ms : ds;
     var other = ms > 0.005 ? ds : ms;
     if (useSaldo <= 0.005) return merged;
@@ -911,7 +911,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
         });
       } else if (v0 <= 0.005 && (+dc.VENCIDO || 0) > 0.005) {
         var mx0 = Math.max(s0, +dc.SALDO_TOTAL || 0);
-        if (mx0 > 0 && Math.abs(s0 - (+dc.SALDO_TOTAL || 0)) / mx0 <= 0.35) {
+        if (mx0 > 0 && Math.abs(s0 - (+dc.SALDO_TOTAL || 0)) / mx0 <= 0.50) {
           px = Object.assign({}, px, {
             VENCIDO: +dc.VENCIDO,
             POR_VENCER: (+dc.POR_VENCER || 0) > 0.005 ? +dc.POR_VENCER : Math.max(0, s0 - (+dc.VENCIDO || 0))
