@@ -1071,6 +1071,20 @@ function renderScorecard(rows){
 
 let chartTend=null;
 
+function dbgEnabled(){
+  try{ return (new URLSearchParams(location.search).get('dbg')||'').trim()==='1'; }catch(_){ return false; }
+}
+function dbgBox(){
+  let el=document.getElementById('dbgBox');
+  if(el) return el;
+  el=document.createElement('pre');
+  el.id='dbgBox';
+  el.style.cssText='position:fixed;right:10px;bottom:10px;z-index:9999;max-width:min(520px,95vw);max-height:45vh;overflow:auto;padding:10px 12px;border-radius:10px;background:rgba(0,0,0,.78);border:1px solid rgba(255,255,255,.12);color:#E8EFF8;font:12px/1.35 \"DM Mono\",monospace;white-space:pre-wrap;';
+  el.textContent='dbg=1 (cargando...)';
+  document.body.appendChild(el);
+  return el;
+}
+
 // -- Main load ------------------------------------------------------------------
 async function loadAll(){
   try{
@@ -1212,6 +1226,20 @@ async function loadAll(){
     setBar('barCxcVenc','pctCxcVenc',pVenc,{invert:true});
     sem('semCxcTotal',cxcTotal>0?(pVenc<=25?100:pVenc<=50?70:0):0,{labels:['Activa','Atenci\u00f3n','Cr\u00edtica']});
     sem('semCxcVenc',pVenc,{invert:true,labels:['Saludable','Atenci\u00f3n','Cr\u00edtica']});
+
+    if(dbgEnabled()){
+      const b=dbgBox();
+      const pick=function(o){return o&&typeof o==='object'?o:{}};
+      const cRes=pick(c&&c.resumen?c.resumen:c);
+      b.textContent=
+        'DBG SCORECARD (dbg=1)\\n'+
+        'apiBuild='+(window.__SUMINREGIO_API_BUILD||'?')+'\\n'+
+        'urlDb='+(new URLSearchParams(location.search).get('db')||'')+'\\n'+
+        'cxc(resumen-aging) SALDO_TOTAL='+(+cRes.SALDO_TOTAL||0)+' VENCIDO='+(+cRes.VENCIDO||0)+'\\n'+
+        'dir.cxc SALDO_TOTAL='+(+(dir&&dir.cxc&&dir.cxc.SALDO_TOTAL)||0)+' VENCIDO='+(+(dir&&dir.cxc&&dir.cxc.VENCIDO)||0)+'\\n'+
+        'final cx SALDO_TOTAL='+(+cx.SALDO_TOTAL||0)+' VENCIDO='+(+cx.VENCIDO||0)+' POR_VENCER='+(+cx.POR_VENCER||0)+'\\n'+
+        'pVenc='+pVenc+'%';
+    }
 
     // Inventario
     const invTotal=+inv.TOTAL_ARTICULOS||0;

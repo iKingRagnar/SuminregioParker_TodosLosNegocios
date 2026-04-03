@@ -340,6 +340,20 @@ async function fetchJson(url,fallback={},ms){
   }catch(_){return fallback;}finally{clearTimeout(tid);}
 }
 let chartVentas;
+
+function dbgEnabled(){
+  try{ return (new URLSearchParams(location.search).get('dbg')||'').trim()==='1'; }catch(_){ return false; }
+}
+function dbgBox(){
+  let el=document.getElementById('dbgBox');
+  if(el) return el;
+  el=document.createElement('pre');
+  el.id='dbgBox';
+  el.style.cssText='position:fixed;right:10px;bottom:10px;z-index:9999;max-width:min(520px,95vw);max-height:45vh;overflow:auto;padding:10px 12px;border-radius:10px;background:rgba(0,0,0,.78);border:1px solid rgba(255,255,255,.12);color:#E8EFF8;font:12px/1.35 \"DM Mono\",monospace;white-space:pre-wrap;';
+  el.textContent='dbg=1 (cargando...)';
+  document.body.appendChild(el);
+  return el;
+}
 let topDirCliLimit = 10;
 
 function isLaborDay(d) {
@@ -481,6 +495,17 @@ async function loadAll() {
       cxc = window.mergeCxcDisplayForDashboard(cxc, dir, cxcSnap);
     }
     const v = dir.ventas||{}, c = cxc, co = dir.cotizaciones||{};
+
+    if (dbgEnabled()) {
+      const b = dbgBox();
+      const cRes = (cxcSnap && cxcSnap.resumen) ? cxcSnap.resumen : (cxcSnap || {});
+      b.textContent =
+        'DBG DIRECTOR (dbg=1)\\n' +
+        'urlDb=' + (new URLSearchParams(location.search).get('db') || '') + '\\n' +
+        'cxc(resumen-aging) SALDO_TOTAL=' + (+cRes.SALDO_TOTAL || 0) + ' VENCIDO=' + (+cRes.VENCIDO || 0) + '\\n' +
+        'dir.cxc SALDO_TOTAL=' + (+(dir && dir.cxc && dir.cxc.SALDO_TOTAL) || 0) + ' VENCIDO=' + (+(dir && dir.cxc && dir.cxc.VENCIDO) || 0) + '\\n' +
+        'final cxc SALDO_TOTAL=' + (+c.SALDO_TOTAL || 0) + ' VENCIDO=' + (+c.VENCIDO || 0) + ' POR_VENCER=' + (+c.POR_VENCER || 0);
+    }
     const nV = getVendedoresEnContexto(metas);
     const metaBase = +(metas.META_DIARIA_POR_VENDEDOR||5650);
     const idealBase = +(metas.META_IDEAL_POR_VENDEDOR||metaBase*1.3);
