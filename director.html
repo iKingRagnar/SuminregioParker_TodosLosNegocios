@@ -520,8 +520,8 @@ async function loadAll() {
   try {
     if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.loadAllStarted=(window.__DBG_STATE.loadAllStarted||0)+1; window.__DBG_STATE.phase='loadAll:start'; window.__DBG_STATE.note=''; }
     setText('badge-top-clientes', labelPeriodoFiltro());
-    /* Mismo snapshot que index: CxC unificado + ventas puede tardar >25s en Render; si abortamos, fetchJson devuelve {} y todo el tab muestra 0. */
-    const tDir = 110000;
+    /* CxC unificado puede tardar ~120s en Render. Debe ser >= queryMs para no abortar y caer a {} (vencido=0). */
+    const tDir = 145000;
     const dbgWrap = function(label, p){
       return Promise.resolve()
         .then(()=>{ if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='fetch:'+label; } })
