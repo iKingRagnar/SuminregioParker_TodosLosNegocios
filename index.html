@@ -1104,6 +1104,7 @@ if (dbgEnabled()) {
     };
     window.__DBG_TICK = tick;
     setInterval(tick, 500);
+    window.__DBG_STATE.phase = 'top';
   }catch(_){}
   if (document.readyState === 'loading') {
     window.addEventListener('DOMContentLoaded', () => { try { dbgBox(); } catch (_) {} }, { once: true });
@@ -1113,15 +1114,19 @@ if (dbgEnabled()) {
   try{
     window.addEventListener('error', function(ev){
       try{
-        const b=dbgBox();
-        b.textContent='DBG SCORECARD (dbg=1)\\nERROR: '+(ev&&ev.message?ev.message:'(sin mensaje)');
+        if (window.__DBG_STATE) {
+          window.__DBG_STATE.phase = 'error';
+          window.__DBG_STATE.note = 'ERROR: ' + (ev&&ev.message?ev.message:'(sin mensaje)');
+        }
       }catch(_){}
     });
     window.addEventListener('unhandledrejection', function(ev){
       try{
-        const b=dbgBox();
-        const r=ev&&ev.reason;
-        b.textContent='DBG SCORECARD (dbg=1)\\nPROMISE REJECTION: '+(r&&r.message?r.message:String(r));
+        if (window.__DBG_STATE) {
+          const r=ev&&ev.reason;
+          window.__DBG_STATE.phase = 'rejection';
+          window.__DBG_STATE.note = 'PROMISE: ' + (r&&r.message?r.message:String(r));
+        }
       }catch(_){}
     });
   }catch(_){}
@@ -1471,8 +1476,10 @@ async function loadAll(){
     setEl('heroSub','Error de conexion con el servidor API - reintentando...');
     if(dbgEnabled()){
       try{
-        const b=dbgBox();
-        b.textContent='DBG SCORECARD (dbg=1)\\nloadAll ERROR: '+(e&&e.message?e.message:String(e));
+        if (window.__DBG_STATE) {
+          window.__DBG_STATE.phase = 'loadAll:error';
+          window.__DBG_STATE.note = 'loadAll ERROR: ' + (e&&e.message?e.message:String(e));
+        }
       }catch(_){}
     }
   }
@@ -1578,10 +1585,27 @@ function renderChart(data){
 }
 
 (async function boot(){
-  if (window.syncDbContextFromUrlOrFallback) window.syncDbContextFromUrlOrFallback();
-  await initBizBar();
-  if(window.initFilters){ initFilters({ containerId:'filter-bar', showVendedor:true, onReady:()=>loadAll(), onChange:()=>loadAll() }); }
-  else loadAll();
+  try{
+    if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:start'; }
+    if (window.syncDbContextFromUrlOrFallback) window.syncDbContextFromUrlOrFallback();
+    if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:initBizBar'; }
+    await initBizBar();
+    if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:afterBizBar'; }
+    if(window.initFilters){
+      if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:initFilters'; }
+      initFilters({ containerId:'filter-bar', showVendedor:true, onReady:()=>loadAll(), onChange:()=>loadAll() });
+    } else {
+      if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:callLoadAll'; }
+      loadAll();
+    }
+    if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:done'; }
+  }catch(e){
+    if(dbgEnabled() && window.__DBG_STATE){
+      window.__DBG_STATE.phase='boot:error';
+      window.__DBG_STATE.note='boot ERROR: '+(e&&e.message?e.message:String(e));
+    }
+    throw e;
+  }
 })();
 setInterval(loadAll,1800000);
 </script>

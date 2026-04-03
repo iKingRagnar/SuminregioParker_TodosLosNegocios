@@ -379,19 +379,24 @@ if (dbgEnabled()) {
       }catch(_){}
     };
     setInterval(tick, 500);
+    window.__DBG_STATE.phase = 'top';
   }catch(_){}
   try{
     window.addEventListener('error', function(ev){
       try{
-        const b=dbgBox();
-        b.textContent='DBG DIRECTOR (dbg=1)\\nERROR: '+(ev&&ev.message?ev.message:'(sin mensaje)');
+        if (window.__DBG_STATE) {
+          window.__DBG_STATE.phase = 'error';
+          window.__DBG_STATE.note = 'ERROR: ' + (ev&&ev.message?ev.message:'(sin mensaje)');
+        }
       }catch(_){}
     });
     window.addEventListener('unhandledrejection', function(ev){
       try{
-        const b=dbgBox();
-        const r=ev&&ev.reason;
-        b.textContent='DBG DIRECTOR (dbg=1)\\nPROMISE REJECTION: '+(r&&r.message?r.message:String(r));
+        if (window.__DBG_STATE) {
+          const r=ev&&ev.reason;
+          window.__DBG_STATE.phase = 'rejection';
+          window.__DBG_STATE.note = 'PROMISE: ' + (r&&r.message?r.message:String(r));
+        }
       }catch(_){}
     });
   }catch(_){}
@@ -825,8 +830,19 @@ async function loadRecientes() {
 }
 
 // Carga inicial inmediata (sincronizar ?db= como Inicio: sin esto las peticiones iban sin db y otra base que CxC)
-if (window.syncDbContextFromUrlOrFallback) window.syncDbContextFromUrlOrFallback();
-initFilters({ containerId:'filter-bar', showVendedor:true, onReady:()=>loadAll(), onChange:()=>loadAll() });
+try{
+  if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:beforeSync'; }
+  if (window.syncDbContextFromUrlOrFallback) window.syncDbContextFromUrlOrFallback();
+  if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:beforeInitFilters'; }
+  initFilters({ containerId:'filter-bar', showVendedor:true, onReady:()=>loadAll(), onChange:()=>loadAll() });
+  if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:afterInitFilters'; }
+}catch(e){
+  if(dbgEnabled() && window.__DBG_STATE){
+    window.__DBG_STATE.phase='boot:error';
+    window.__DBG_STATE.note='boot ERROR: '+(e&&e.message?e.message:String(e));
+  }
+  throw e;
+}
 setInterval(loadAll, 1800000);
 </script>
 <script src="/chat-widget.js" defer></script>
