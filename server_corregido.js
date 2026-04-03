@@ -5711,14 +5711,17 @@ async function resultadosPnlCore(req, dbOpts) {
     return cols.reduce((s, c) => s + Math.abs(+((r || {})[c]) || 0), 0);
   };
   const sameMonth = sy === ey && sm === em;
+  // El fallback de gastos debe aplicar tanto en rango explícito (desde/hasta) como en vista mensual (anio&mes).
   const singleMonthRange = hasRangoExplicito && sameMonth;
+  const singleMonthParam = !!(req.query && req.query.anio && req.query.mes);
+  const wantSingleMonthFallback = singleMonthRange || singleMonthParam;
   let gastosRows = Array.isArray(gastosSaldos52) ? gastosSaldos52 : [];
   let gastosEstimados = false;
   let gastosEstimadosDesde = null;
   if (sumGastosRows(gastosRows) <= 0.01 && sumGastosRows(gastosDoctos52) > 0.01) {
     gastosRows = gastosDoctos52;
   }
-  if (sumGastosRows(gastosRows) <= 0.01 && singleMonthRange) {
+  if (sumGastosRows(gastosRows) <= 0.01 && wantSingleMonthFallback) {
     const yStart = `${ey}-01-01`;
     const yEnd = hastaStr;
     const yStartNum = ey * 100 + 1;
