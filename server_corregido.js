@@ -69,7 +69,10 @@ const path     = require('path');
 
 const app  = express();
 const PORT = process.env.PORT || 7000;
-const BUILD_FINGERPRINT = 'pnl-gastos-clase6-y-5xx-residual-20260402';
+// Render expone el commit en RENDER_GIT_COMMIT; si no existe (local), usar string fijo.
+const BUILD_FINGERPRINT = (process.env.RENDER_GIT_COMMIT && String(process.env.RENDER_GIT_COMMIT).trim())
+  ? ('git:' + String(process.env.RENDER_GIT_COMMIT).trim().slice(0, 12))
+  : 'dev-local';
 
 /**
  * Power BI / reportes suelen usar importe base sin IVA; en cabecera DOCTOS_VE/PV el campo
@@ -7716,6 +7719,79 @@ app.get('/api/ping', (req, res) => {
     build: BUILD_FINGERPRINT,
     empresa: process.env.EMPRESA_NOMBRE || 'SUMINREGIO PARKER',
   });
+});
+
+// Diagnóstico: top cuentas con movimiento contable (Saldos y Pólizas) para un mes.
+// Útil cuando /api/resultados/pnl trae CO_* = 0 (Mar/Abr): revela si hay pólizas en otras cuentas o si no hay contabilidad capturada.
+app.get('/api/debug/gastos-co-mes', async (req, res) => {
+  const dbo = getReqDbOpts(req);
+  const y = parseInt(String(req.query.anio || ''), 10);
+  const m = parseInt(String(req.query.mes || ''), 10);
+  if (!y || m < 1 || m > 12) {
+    return res.status(400).json({ ok: false, error: 'Parámetros requeridos: anio=YYYY&mes=1..12' });
+  }
+  const limit = Math.min(Math.max(parseInt(String(req.query.limit || '30'), 10) || 30, 5), 200);
+  try {
+    const salCols = await getTableColumns('SALDOS_CO', dbo).catch(() => new Set());
+    const salAnoCol = firstExistingColumn(salCols, ['ANO', 'ANIO', 'EJERCICIO']) || 'ANO';
+    const salMesCol = firstExistingColumn(salCols, ['MES', 'PERIODO', 'NUM_MES']) || 'MES';
+    const salCargoCol = firstExistingColumn(salCols, ['CARGOS', 'CARGO', 'DEBE']) || 'CARGOS';
+    const salAbonoCol = firstExistingColumn(salCols, ['ABONOS', 'ABONO', 'HABER']) || 'ABONOS';
+    const detCols = await getTableColumns('DOCTOS_CO_DET', dbo).catch(() => new Set());
+    const detCargoCol = firstExistingColumn(detCols, ['CARGO', 'CARGOS', 'DEBE']);
+    const detAbonoCol = firstExistingColumn(detCols, ['ABONO', 'ABONOS', 'HABER']);
+    const detImporteCol = firstExistingColumn(detCols, ['IMPORTE', 'MONTO']);
+    const detDeltaExprRaw = (detCargoCol && detAbonoCol)
+      ? `COALESCE(d.${detCargoCol}, 0) - COALESCE(d.${detAbonoCol}, 0)`
+      : (detImporteCol ? `COALESCE(d.${detImporteCol}, 0)` : '0');
+    const detDeltaExpr = detImporteCol
+      ? `(CASE WHEN ABS(${detDeltaExprRaw}) > 0 THEN ${detDeltaExprRaw} ELSE COALESCE(d.${detImporteCol}, 0) END)`
+      : detDeltaExprRaw;
+    const detAbsExpr = `ABS(${detDeltaExpr})`;
+    const detDateExpr = detCols.has('FECHA') ? 'd.FECHA' : 'c.FECHA';
+    const detNeedsDoctoJoin = !detCols.has('FECHA');
+    const cuCoCols = await getTableColumns('CUENTAS_CO', dbo).catch(() => new Set());
+    const cuentaExprCo = cuCoCols.has('CUENTA_JT')
+      ? `COALESCE(NULLIF(TRIM(COALESCE(cu.CUENTA_PT, '')), ''), NULLIF(TRIM(COALESCE(cu.CUENTA_JT, '')), ''), '')`
+      : `TRIM(COALESCE(cu.CUENTA_PT, ''))`;
+
+    const salTop = await query(`
+      SELECT FIRST ${limit}
+        ${cuentaExprCo} AS CUENTA,
+        TRIM(COALESCE(NULLIF(cu.NOMBRE, ''), NULLIF(cu.CUENTA_JT, ''), cu.CUENTA_PT)) AS NOMBRE,
+        SUM(ABS(COALESCE(s.${salCargoCol}, 0) - COALESCE(s.${salAbonoCol}, 0))) AS IMP
+      FROM SALDOS_CO s
+      JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
+      WHERE s.${salAnoCol} = ? AND s.${salMesCol} = ?
+      GROUP BY 1, 2
+      ORDER BY IMP DESC
+    `, [y, m], 15000, dbo).catch(() => []);
+
+    const detTop = await query(`
+      SELECT FIRST ${limit}
+        ${cuentaExprCo} AS CUENTA,
+        TRIM(COALESCE(NULLIF(cu.NOMBRE, ''), NULLIF(cu.CUENTA_JT, ''), cu.CUENTA_PT)) AS NOMBRE,
+        SUM(${detAbsExpr}) AS IMP
+      FROM DOCTOS_CO_DET d
+      ${detNeedsDoctoJoin ? 'JOIN DOCTOS_CO c ON c.DOCTO_CO_ID = d.DOCTO_CO_ID' : ''}
+      JOIN CUENTAS_CO cu ON cu.CUENTA_ID = d.CUENTA_ID
+      WHERE EXTRACT(YEAR FROM ${detDateExpr}) = ? AND EXTRACT(MONTH FROM ${detDateExpr}) = ?
+      GROUP BY 1, 2
+      ORDER BY IMP DESC
+    `, [y, m], 20000, dbo).catch(() => []);
+
+    return res.json({
+      ok: true,
+      anio: y,
+      mes: m,
+      db: (req.query && req.query.db) ? String(req.query.db) : undefined,
+      note: 'Si aquí aparecen cuentas de gastos en Mar/Abr, ajustamos el mapeo de prefijos. Si viene vacío o puro 0, entonces aún no hay contabilidad capturada/afectada para ese mes.',
+      top_saldos_co: salTop,
+      top_doctos_co_det: detTop,
+    });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: String(e.message || e) });
+  }
 });
 
 // Diagnóstico: comprueba si la API de diarias devuelve datos (últimos N días)
