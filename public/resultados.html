@@ -455,12 +455,12 @@ details.sr-gastos-blk>summary{cursor:pointer;font-family:'DM Mono',monospace;fon
         <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M8 16V9M12 16V7M16 16v-5"/></svg>
         Desglose de gastos: venta, operación y administración
       </div>
-      <div class="card-badge">CO_A1 · CO_A2 · CO_A3</div>
+      <div class="card-badge">CO_A1–A3 + 6* / 5xx (no 51–54)</div>
     </div>
     <div class="card-body">
       <div class="chart-h200">
         <canvas id="chartGastos"></canvas>
-        <div id="chartGastos-empty" class="chart-overlay-empty">Sin movimiento en gastos de venta, operación ni administración (CO_A1–A3) en estos meses.</div>
+        <div id="chartGastos-empty" class="chart-overlay-empty">Sin gastos en SALDOS_CO para estos meses (52–54, 6* ni 5xx fuera de costo 51*). Revisa periodo o catálogo en Microsip.</div>
       </div>
     </div>
   </div>
@@ -896,12 +896,24 @@ async function loadBalanceGeneral(){
     renderList('bgListActivo',d.activo);
     renderList('bgListPasivo',d.pasivo);
     var capRowsForList = Array.isArray(d.capital) ? d.capital.slice() : [];
-    if (!capRowsForList.length && Math.abs(+t.CAPITAL_TOTAL || 0) > 0.005) {
+    var capTotSrv = Math.abs(+t.CAPITAL_TOTAL || 0);
+    if (!capRowsForList.length && capTotSrv > 0.005) {
       capRowsForList = [{
         CUENTA_PT: '3*',
         NOMBRE: 'Patrimonio consolidado (clase 3 — saldo neto al cierre)',
         SALDO: +t.CAPITAL_TOTAL || 0
       }];
+    } else if (!capRowsForList.length) {
+      var actT = +t.ACTIVO_TOTAL || 0;
+      var pasT = +t.PASIVO_TOTAL || 0;
+      var impliedCap = Math.round((actT - pasT) * 100) / 100;
+      if (actT > 0.005 && pasT > 0.005 && Math.abs(impliedCap) > 0.02) {
+        capRowsForList = [{
+          CUENTA_PT: '\u03A3',
+          NOMBRE: 'Patrimonio impl\u00edcito (Activo \u2212 Pasivo al cierre; sin cuentas 3* en detalle)',
+          SALDO: impliedCap
+        }];
+      }
     }
     renderList('bgListCapital', capRowsForList, 'Sin movimiento en cuentas clase 3 al cierre seleccionado. Si hay patrimonio en otra naturaleza, revisar catálogo CUENTAS_CO en Microsip.');
     const activo = +t.ACTIVO_TOTAL || 0;
@@ -1737,7 +1749,7 @@ function renderCharts(meses,hasCosto){
         empty4.textContent='Sin meses en el periodo: amplía el rango en filtros.';
         empty4.style.display='grid';
       }else if(!hasGastos){
-        empty4.textContent='Sin gastos mapeados (52/53/54) en estos meses para el periodo. Amplía el rango o revisa saldos en Contabilidad (SALDOS_CO) para ese cierre.';
+        empty4.textContent='Sin gastos en SALDOS_CO para el periodo (52–54, 6* ni 5xx fuera de 51*). Amplía el rango o revisa cierre en Microsip.';
         empty4.style.display='grid';
       }else{
         empty4.style.display='none';

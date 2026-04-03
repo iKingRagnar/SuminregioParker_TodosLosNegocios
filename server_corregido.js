@@ -69,7 +69,7 @@ const path     = require('path');
 
 const app  = express();
 const PORT = process.env.PORT || 7000;
-const BUILD_FINGERPRINT = 'estado-sr-saldos-co-dinamico-cxc-kpi-20260402';
+const BUILD_FINGERPRINT = 'pnl-gastos-clase6-y-5xx-residual-20260402';
 
 /**
  * Power BI / reportes suelen usar importe base sin IVA; en cabecera DOCTOS_VE/PV el campo
@@ -5408,7 +5408,15 @@ async function resultadosPnlCore(req, dbOpts) {
   const ey = parseInt(String(hastaStr).slice(0, 4), 10);
   const em = parseInt(String(hastaStr).slice(5, 7), 10);
 
-  const [ventasMes, descuentosMes, costosINMes, costosINDirect, cobrosMes, costosSaldos5101, ingresosSaldos4, gastosSaldos52, gastosDoctos52] = await Promise.all([
+  const sqlGastosMicrosipExtendWhere = `(
+      cu.CUENTA_PT STARTING WITH '6'
+      OR (
+        cu.CUENTA_PT STARTING WITH '5'
+        AND NOT cu.CUENTA_PT STARTING WITH '51'
+        AND NOT (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53' OR cu.CUENTA_PT STARTING WITH '54')
+      )
+    )`;
+  const [ventasMes, descuentosMes, costosINMes, costosINDirect, cobrosMes, costosSaldos5101, ingresosSaldos4, gastosSaldos52, gastosDoctos52, gastosSaldosExtend] = await Promise.all([
     q(`
       SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
         COALESCE(SUM(d.IMPORTE_NETO), 0) AS VENTAS_BRUTAS,
@@ -5564,6 +5572,18 @@ async function resultadosPnlCore(req, dbOpts) {
       GROUP BY EXTRACT(YEAR FROM ${detDateExpr}), EXTRACT(MONTH FROM ${detDateExpr})
       ORDER BY 1, 2
     `, dateParams, 15000).catch(() => []),
+    q(`
+      SELECT ${salYearExpr} AS ANIO, ${salMonthExpr} AS MES,
+        COALESCE(SUM(${salGastoExpr}), 0) AS GASTO_EXTRA_OP
+      FROM SALDOS_CO s
+      JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
+      WHERE ${sqlGastosMicrosipExtendWhere}
+        AND ${salYearExpr} >= ? AND ${salYearExpr} <= ?
+        AND NOT (${salYearExpr} = ? AND ${salMonthExpr} < ?)
+        AND NOT (${salYearExpr} = ? AND ${salMonthExpr} > ?)
+      GROUP BY ${salYearExpr}, ${salMonthExpr}
+      ORDER BY 1, 2
+    `, [sy, ey, sy, sm, ey, em], 15000).catch(() => []),
   ]);
   const dbgSumRows = (rows) => (rows || []).reduce((acc, r) => {
     const cols = ['CO_A1', 'CO_A2', 'CO_A3', 'CO_A4', 'CO_A5', 'CO_A6', 'CO_B1', 'CO_B2', 'CO_B3', 'CO_B4', 'CO_B5', 'CO_C1', 'CO_C2', 'CO_C3', 'CO_C4', 'CO_C5', 'CO_C6'];
@@ -5618,6 +5638,12 @@ async function resultadosPnlCore(req, dbOpts) {
     ORDER BY 1, 2, 3
   `, [sy, ey, sy, sm, ey, em], 15000).catch(() => []);
   const gastosClasifMap = rowsToClasifMap(gastosSaldosClasifRows);
+  /** Gastos en 6* (muchos catálogos Microsip) y 5xx que no son costo 51* ni bloque 52–54; se suman a CO_A2 (operación) para gráfica y totales. */
+  const extraOpGastoMap = {};
+  (gastosSaldosExtend || []).forEach((r) => {
+    const k = key(r.ANIO, r.MES);
+    extraOpGastoMap[k] = Math.abs(+r.GASTO_EXTRA_OP || 0);
+  });
 
   const mapFromRows = (rows) => {
     const out = {};
@@ -5774,7 +5800,7 @@ async function resultadosPnlCore(req, dbOpts) {
       COBROS: cobros,
       NUM_FACTURAS: +r.NUM_FACTURAS || 0,
       CO_A1: gasAbs(g, 'CO_A1'),
-      CO_A2: gasAbs(g, 'CO_A2'),
+      CO_A2: gasAbs(g, 'CO_A2') + (+extraOpGastoMap[km] || 0),
       CO_A3: gasAbs(g, 'CO_A3'),
       CO_A4: gasAbs(g, 'CO_A4'),
       CO_A5: gasAbs(g, 'CO_A5'),
@@ -6438,6 +6464,22 @@ get('/api/resultados/estado-sr', async (req) => {
       gastoAdmin += imp;
     }
   });
+  const extOpRows = await query(`
+    SELECT COALESCE(SUM(${salGastoAbs}), 0) AS T
+    FROM SALDOS_CO s
+    JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
+    WHERE ${salYearExpr} = ? AND ${salMonthExpr} = ?
+      AND (
+        cu.CUENTA_PT STARTING WITH '6'
+        OR (
+          cu.CUENTA_PT STARTING WITH '5'
+          AND NOT cu.CUENTA_PT STARTING WITH '51'
+          AND NOT (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53' OR cu.CUENTA_PT STARTING WITH '54')
+        )
+      )
+  `, [y, m], 15000, dbo).catch(() => [{ T: 0 }]);
+  const extOp = Math.abs(+((extOpRows[0] && extOpRows[0].T) || 0));
+  if (extOp > 0.005) gastoOperacion += extOp;
   const totalGastosOperativos = gastoVenta + gastoOperacion + gastoAdmin;
   const utilidadOperacion = utilidadBruta - totalGastosOperativos;
   const utilidadAntesImpuestos = utilidadOperacion - otrosGastos - gastosFinancieros;
