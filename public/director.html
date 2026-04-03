@@ -435,7 +435,14 @@ function setDirTopCli(n) {
 function buildApiUrl(path, extra, qsOpts) {
   const merged = Object.assign({ useCxcDbIdentity: true }, qsOpts || {});
   if (String(path).indexOf('/api/cxc/resumen-aging') >= 0) merged.omitPeriodForCxcSnapshot = true;
-  const qs    = window.filterBuildQS ? filterBuildQS(undefined, merged) : '';
+  let qs    = window.filterBuildQS ? filterBuildQS(undefined, merged) : '';
+  if (!qs && !merged.omitDb) {
+    let db = '';
+    try { db = (new URL(location.href)).searchParams.get('db') || ''; } catch(_){}
+    if (!db) { try { db = sessionStorage.getItem('microsip_erp_db') || ''; } catch(_){} }
+    db = String(db || '').trim();
+    if (db) qs = 'db=' + encodeURIComponent(db);
+  }
   const e     = extra ? String(extra).replace(/^[?&]+/, '') : '';
   const parts = [qs, e].filter(Boolean).join('&');
   return API + path + (parts ? '?' + parts : '');
@@ -834,6 +841,7 @@ async function loadRecientes() {
 try{
   if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:beforeSync'; }
   if (window.syncDbContextFromUrlOrFallback) window.syncDbContextFromUrlOrFallback();
+  try{ loadAll(); }catch(_){}
   if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:beforeInitFilters'; }
   initFilters({ containerId:'filter-bar', showVendedor:true, onReady:()=>loadAll(), onChange:()=>loadAll() });
   if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:afterInitFilters'; }
