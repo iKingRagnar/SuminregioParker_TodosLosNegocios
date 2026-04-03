@@ -69,7 +69,7 @@ const path     = require('path');
 
 const app  = express();
 const PORT = process.env.PORT || 7000;
-const BUILD_FINGERPRINT = 'dashboard-db-unify-pnl-filtros-20260403';
+const BUILD_FINGERPRINT = 'cxc-kpi-dir-backfill-pnl-omitdb-20260403';
 
 /**
  * Power BI / reportes suelen usar importe base sin IVA; en cabecera DOCTOS_VE/PV el campo

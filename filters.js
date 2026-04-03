@@ -769,6 +769,46 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   }
 
   /**
+   * Si tras reconcile/merge/finalize el vencido sigue en 0 pero /api/director/resumen ya trajo cxc del mismo motor
+   * (cxcResumenAgingUnificado) con mora > 0, tomar VENCIDO del director. Cubre: aging vacío en JSON, timeouts parciales,
+   * o claves de buckets no normalizadas en el snapshot dedicado.
+   */
+  function backfillVencidoFromDirectorKpi(merged, directorRaw, aging) {
+    if (!merged || typeof merged !== 'object') return merged;
+    var mv = +merged.VENCIDO || 0;
+    if (mv > 0.005) return merged;
+    var dc = directorRaw && directorRaw.cxc ? directorRaw.cxc : null;
+    if (!dc || typeof dc !== 'object') return merged;
+    var dv = +dc.VENCIDO || 0;
+    if (dv <= 0.005) return merged;
+    var ms = +merged.SALDO_TOTAL || 0;
+    var ds = +dc.SALDO_TOTAL || 0;
+    var mora = 0;
+    if (aging && typeof aging === 'object') {
+      mora =
+        (+aging.DIAS_1_30 || 0) + (+aging.DIAS_31_60 || 0) +
+        (+aging.DIAS_61_90 || 0) + (+aging.DIAS_MAS_90 || 0);
+    }
+    if (mora > 0.005 && Math.abs(mora - dv) / Math.max(mora, dv, 1) > 0.35) return merged;
+    var useSaldo = ms > 0.005 ? ms : ds;
+    var other = ms > 0.005 ? ds : ms;
+    if (useSaldo <= 0.005) return merged;
+    if (other > 0.005) {
+      var mx = Math.max(useSaldo, other);
+      if (Math.abs(useSaldo - other) / mx > 0.22) return merged;
+    }
+    merged.VENCIDO = dv;
+    var saldo = ms > 0.005 ? ms : ds;
+    var pv = +merged.POR_VENCER || 0;
+    if (pv <= 0.005 && saldo > 0.005) merged.POR_VENCER = Math.max(0, saldo - dv);
+    if ((merged.NUM_CLIENTES_VENCIDOS == null || merged.NUM_CLIENTES_VENCIDOS === '') &&
+        dc.NUM_CLIENTES_VENCIDOS != null && dc.NUM_CLIENTES_VENCIDOS !== '') {
+      merged.NUM_CLIENTES_VENCIDOS = dc.NUM_CLIENTES_VENCIDOS;
+    }
+    return merged;
+  }
+
+  /**
    * Un solo lugar para Inicio/Director: mismo orden que cxc.html (reconcile + merge + finalize).
    * Siempre pasa aging normalizado ({} si falta) para no saltar la lógica de mora.
    */
@@ -784,6 +824,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     if (typeof finalizeCxcKpiDisplay === 'function') {
       merged = finalizeCxcKpiDisplay(merged, aging);
     }
+    merged = backfillVencidoFromDirectorKpi(merged, directorRaw, aging);
     return merged;
   }
 

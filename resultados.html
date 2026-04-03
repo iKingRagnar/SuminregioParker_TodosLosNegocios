@@ -615,7 +615,7 @@ function buildPnlQuery(extra, opts) {
   opts = opts || {};
   const parts = [];
   if (!opts.omitFilters) {
-    const filtros = window.filterBuildQS ? String(filterBuildQS(null, { useCxcDbIdentity: true }) || '').replace(/^[?&]+/, '') : '';
+    const filtros = window.filterBuildQS ? String(filterBuildQS(null, { useCxcDbIdentity: true, omitDb: true }) || '').replace(/^[?&]+/, '') : '';
     if (filtros) parts.push(filtros);
   }
   if (extra) {
@@ -635,8 +635,7 @@ function buildPnlQuery(extra, opts) {
       } catch (_) {}
     }
     if (dbId) {
-      const pre = parts.filter(Boolean).join('&');
-      if (!/(^|&)db=/.test(pre)) parts.push('db=' + encodeURIComponent(dbId));
+      parts.push('db=' + encodeURIComponent(dbId));
     }
   }
   return parts.join('&');
