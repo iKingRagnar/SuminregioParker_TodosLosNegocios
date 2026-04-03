@@ -5177,6 +5177,11 @@ async function resultadosPnlCore(req, dbOpts) {
   const detGastoExpr = `ABS(${detDeltaExpr})`;
   const detDateExpr = detCols.has('FECHA') ? 'd.FECHA' : 'c.FECHA';
   const detNeedsDoctoJoin = !detCols.has('FECHA');
+  const cuCoCols = await getTableColumns('CUENTAS_CO', dbOpts).catch(() => new Set());
+  /** Algunas bases guardan la máscara en CUENTA_JT y CUENTA_PT va vacío → los filtros 52/6* no encontraban nada. */
+  const cuentaExprCo = cuCoCols.has('CUENTA_JT')
+    ? `COALESCE(NULLIF(TRIM(COALESCE(cu.CUENTA_PT, '')), ''), NULLIF(TRIM(COALESCE(cu.CUENTA_JT, '')), ''), '')`
+    : `TRIM(COALESCE(cu.CUENTA_PT, ''))`;
   // Misma lógica que gastoBucket(): "Otros Gastos" en 5203* va a partidas extraordinarias (CO_C1), no a administración (CO_A3).
   const sqlCoNombreUp = `UPPER(TRIM(COALESCE(NULLIF(cu.NOMBRE, ''), NULLIF(cu.CUENTA_JT, ''), '')))`;
   const sqlCoA35203SoloAdmin = `cu.CUENTA_PT STARTING WITH '5203' AND ${sqlCoNombreUp} <> 'OTROS GASTOS'`;
@@ -5410,13 +5415,15 @@ async function resultadosPnlCore(req, dbOpts) {
   const ey = parseInt(String(hastaStr).slice(0, 4), 10);
   const em = parseInt(String(hastaStr).slice(5, 7), 10);
 
+  // 6* y 5xx (no costo 51 ni bloque 52–54); 7* = gastos en planes tipo PCG (México / varios catálogos Microsip).
   const sqlGastosMicrosipExtendWhere = `(
-      cu.CUENTA_PT STARTING WITH '6'
+      (${cuentaExprCo}) STARTING WITH '6'
       OR (
-        cu.CUENTA_PT STARTING WITH '5'
-        AND NOT cu.CUENTA_PT STARTING WITH '51'
-        AND NOT (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53' OR cu.CUENTA_PT STARTING WITH '54')
+        (${cuentaExprCo}) STARTING WITH '5'
+        AND NOT (${cuentaExprCo}) STARTING WITH '51'
+        AND NOT ((${cuentaExprCo}) STARTING WITH '52' OR (${cuentaExprCo}) STARTING WITH '53' OR (${cuentaExprCo}) STARTING WITH '54')
       )
+      OR (${cuentaExprCo}) STARTING WITH '7'
     )`;
   const [ventasMes, descuentosMes, costosINMes, costosINDirect, cobrosMes, costosSaldos5101, ingresosSaldos4, gastosSaldos52, gastosDoctos52, gastosSaldosExtend, gastosDoctosExtend] = await Promise.all([
     q(`
@@ -5790,22 +5797,59 @@ async function resultadosPnlCore(req, dbOpts) {
 
   const costosElegidos = [];
   const ventasFuentes = [];
-  const meses = (ventasMes || []).map(r => {
+  const ventasByKm = {};
+  (ventasMes || []).forEach((r) => { ventasByKm[key(r.ANIO, r.MES)] = r; });
+  const monthKeySet = new Set();
+  const addMonthKeys = (rows) => {
+    (rows || []).forEach((row) => {
+      if (row == null || row.ANIO == null || row.MES == null) return;
+      monthKeySet.add(key(row.ANIO, row.MES));
+    });
+  };
+  addMonthKeys(ventasMes);
+  addMonthKeys(ingresosSaldos4);
+  addMonthKeys(gastosSaldos52);
+  addMonthKeys(gastosDoctos52);
+  addMonthKeys(gastosSaldosExtend);
+  addMonthKeys(gastosDoctosExtend);
+  addMonthKeys(costosSaldos5101);
+  addMonthKeys(descuentosMes);
+  addMonthKeys(cobrosMes);
+  addMonthKeys(costosVEMes);
+  addMonthKeys(costosINMes);
+  addMonthKeys(costosINDirect);
+  const sortedMonthKeys = Array.from(monthKeySet).sort((a, b) => {
+    const [ay, am] = a.split('-').map((x) => parseInt(x, 10));
+    const [by, bm] = b.split('-').map((x) => parseInt(x, 10));
+    return ay !== by ? ay - by : am - bm;
+  });
+  const meses = sortedMonthKeys.map((km) => {
+    const parts = km.split('-');
+    const anioR = parseInt(parts[0], 10);
+    const mesR = parseInt(parts[1], 10);
+    const r = ventasByKm[km] || {
+      ANIO: anioR,
+      MES: mesR,
+      VENTAS_BRUTAS: 0,
+      VENTAS_VE: 0,
+      VENTAS_PV: 0,
+      NUM_FACTURAS: 0,
+    };
     const ventasBrutas = +r.VENTAS_BRUTAS || 0;
     const descuentosDev = descMap[key(r.ANIO, r.MES)] || 0;
-    const km = key(r.ANIO, r.MES);
-    const ventasConta = +(ventasContaMap[km] || 0);
+    const kmKey = key(r.ANIO, r.MES);
+    const ventasConta = +(ventasContaMap[kmKey] || 0);
     // Para Estado de Resultados priorizar ingresos contables (clase 4*).
     const ventas = ventasConta > 0.01 ? ventasConta : ventasBrutas;
     ventasFuentes.push({ ANIO: r.ANIO, MES: r.MES, ventas_dashboard: ventasBrutas, ventas_conta4: ventasConta, ventas_usada: ventas, fuente: ventasConta > 0.01 ? 'SALDOS_CO_4*' : 'VENTAS_DOCS_FV' });
-    const chosen = chooseCost(km);
+    const chosen = chooseCost(kmKey);
     const costo = chosen.value || 0;
-    costMap[km] = costo;
+    costMap[kmKey] = costo;
     costosElegidos.push({ ANIO: r.ANIO, MES: r.MES, source: chosen.source, costo });
     const cobros = cobMap[key(r.ANIO, r.MES)] || 0;
     const util = ventas - costo;
     const margenPct = ventas > 0 ? Math.round((util / ventas) * 1000) / 10 : 0;
-    const g = gastosClasifMap[km] || gasMap[km] || {};
+    const g = gastosClasifMap[kmKey] || gasMap[kmKey] || {};
     return {
       ANIO: r.ANIO,
       MES: r.MES,
@@ -5820,7 +5864,7 @@ async function resultadosPnlCore(req, dbOpts) {
       COBROS: cobros,
       NUM_FACTURAS: +r.NUM_FACTURAS || 0,
       CO_A1: gasAbs(g, 'CO_A1'),
-      CO_A2: gasAbs(g, 'CO_A2') + (+extraOpGastoMap[km] || 0),
+      CO_A2: gasAbs(g, 'CO_A2') + (+extraOpGastoMap[kmKey] || 0),
       CO_A3: gasAbs(g, 'CO_A3'),
       CO_A4: gasAbs(g, 'CO_A4'),
       CO_A5: gasAbs(g, 'CO_A5'),
