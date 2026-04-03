@@ -1194,6 +1194,10 @@ async function loadAll(){
       } else if (sal > 1000 && venc > 0.005) {
         window.__LAST_CXC_SNAP = window.__LAST_CXC_SNAP || {};
         window.__LAST_CXC_SNAP[dbKey] = c;
+      } else if (sal <= 0.005 && venc <= 0.005 && last && lastSal > 0.005) {
+        // Timeout, fetch vacío o contención al cambiar a Hoy/Semana: no perder cartera/vencido (posición, no del periodo).
+        c = last;
+        if (dbgEnabled() && window.__DBG_STATE) window.__DBG_STATE.note = 'cxc: último snapshot (respuesta vacía con filtro corto)';
       }
     }catch(_){}
     fetchJsonAbort(API + '/api/ping', {}, 8000).then(function (p) {

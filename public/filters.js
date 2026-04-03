@@ -119,18 +119,25 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     return p;
   }
 
-  /** extras: objeto opcional. opts.omitDb = true no a�ade ?db= (p. ej. universe/scorecard). opts.omitVendedor = true quita vendedor del QS (p. ej. vista global de ventas-diarias). opts.useCxcDbIdentity = true usa mismo ?db= que la pestaña CxC (sin alias parker→default). opts.omitPeriodForCxcSnapshot = true quita anio/mes/desde/hasta del QS (CxC cartera actual; evita desalinear con pestaña CxC). */
+  /** extras: objeto opcional. opts.omitDb = true no a�ade ?db= (p. ej. universe/scorecard). opts.omitVendedor = true quita vendedor del QS (p. ej. vista global de ventas-diarias). opts.useCxcDbIdentity = true usa mismo ?db= que la pestaña CxC (sin alias parker→default). opts.omitPeriodForCxcSnapshot = true quita periodo del QS para snapshot CxC KPI (posición, no ventas del periodo). */
   function buildQS(extras, opts) {
     const p = Object.assign({}, getParams(), (extras && typeof extras === 'object') ? extras : {});
     if (opts && opts.omitVendedor) delete p.vendedor;
     if (opts && opts.omitPeriodForCxcSnapshot) {
-      delete p.anio;
-      delete p.mes;
       delete p.desde;
       delete p.hasta;
+      delete p.anio;
+      delete p.mes;
+      delete p.preset;
+      delete p.vendedor;
     }
     if (!opts || !opts.omitDb) {
-      const db = opts && opts.useCxcDbIdentity ? getDbForCxcApi() : getSelectedDbId();
+      var db;
+      if (opts && opts.omitPeriodForCxcSnapshot) {
+        db = getSelectedDbId();
+      } else {
+        db = opts && opts.useCxcDbIdentity ? getDbForCxcApi() : getSelectedDbId();
+      }
       if (db) p.db = db;
     }
     return Object.keys(p)

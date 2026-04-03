@@ -555,6 +555,9 @@ async function loadAll() {
       } else if (sal > 1000 && venc > 0.005) {
         window.__LAST_CXC_SNAP = window.__LAST_CXC_SNAP || {};
         window.__LAST_CXC_SNAP[dbKey] = cxcSnap;
+      } else if (sal <= 0.005 && venc <= 0.005 && last && lastSal > 0.005) {
+        cxcSnap = last;
+        if (dbgEnabled() && window.__DBG_STATE) window.__DBG_STATE.note = 'cxc: último snapshot (respuesta vacía con filtro corto)';
       }
     }catch(_){}
     const metas = (metasRes.status === 'fulfilled' && metasRes.value && typeof metasRes.value === 'object') ? metasRes.value : {};
