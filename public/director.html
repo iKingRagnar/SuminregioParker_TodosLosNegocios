@@ -354,6 +354,14 @@ function dbgBox(){
   document.body.appendChild(el);
   return el;
 }
+
+if (dbgEnabled()) {
+  if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', () => { try { dbgBox(); } catch (_) {} }, { once: true });
+  } else {
+    try { dbgBox(); } catch (_) {}
+  }
+}
 let topDirCliLimit = 10;
 
 function isLaborDay(d) {

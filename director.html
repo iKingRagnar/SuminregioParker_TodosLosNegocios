@@ -356,6 +356,14 @@ function dbgBox(){
   return el;
 }
 
+if (dbgEnabled()) {
+  if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', () => { try { dbgBox(); } catch (_) {} }, { once: true });
+  } else {
+    try { dbgBox(); } catch (_) {}
+  }
+}
+
 function isLaborDay(d) {
   const x = d instanceof Date ? new Date(d) : new Date(d);
   if (isNaN(x.getTime())) return false;

@@ -1085,6 +1085,14 @@ function dbgBox(){
   return el;
 }
 
+if (dbgEnabled()) {
+  if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', () => { try { dbgBox(); } catch (_) {} }, { once: true });
+  } else {
+    try { dbgBox(); } catch (_) {}
+  }
+}
+
 // -- Main load ------------------------------------------------------------------
 async function loadAll(){
   try{
