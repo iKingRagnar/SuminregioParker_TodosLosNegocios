@@ -3209,6 +3209,7 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
   const f = buildFiltros(rq, 'd');
   const cotiOpts = await cotizacionSqlOpts(dbOpts);
   const cotiSub = cotizacionesSub(getCotizacionesTipo(rq), cotiOpts);
+  const omitCxc = String((req && req.query && req.query.omitCxc) || '').trim() === '1';
   const [vRow, remRow, cxcSnap, coRow] = await Promise.all([
     query(`
       SELECT
@@ -3227,7 +3228,9 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
       FROM ${remisionesSub()} d
       WHERE 1=1 ${f.sql}
     `, f.params, qms, dbOpts).catch(() => [{}]),
-    cxcResumenAgingUnificado(rq, dbOpts, qms).catch(() => ({ resumen: { SALDO_TOTAL: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: 0, VENCIDO: 0, POR_VENCER: 0 }, aging: {} })),
+    omitCxc
+      ? Promise.resolve({ resumen: { SALDO_TOTAL: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: 0, VENCIDO: 0, POR_VENCER: 0 }, aging: {} })
+      : cxcResumenAgingUnificado(rq, dbOpts, qms).catch(() => ({ resumen: { SALDO_TOTAL: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: 0, VENCIDO: 0, POR_VENCER: 0 }, aging: {} })),
     query(`
       SELECT
         SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN ${sqlCotiImporteExpr('d')} ELSE 0 END) AS IMPORTE_COTI_HOY,

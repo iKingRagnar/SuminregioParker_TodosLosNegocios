@@ -1167,7 +1167,7 @@ async function loadAll(){
       dbgWrap('config/metas', fetchJsonAbort(buildApiUrl('/api/config/metas'), {}, tKpi)),
       dbgWrap('cxc/resumen-aging', fetchJsonAbort(buildApiUrl('/api/cxc/resumen-aging'), {}, tKpi)),
       dbgWrap('inv/resumen', fetchJsonAbort(buildApiUrl('/api/inv/resumen'), {}, tKpi)),
-      dbgWrap('director/resumen', fetchJsonAbort(buildApiUrl('/api/director/resumen'), {}, tKpi)),
+      dbgWrap('director/resumen', fetchJsonAbort(buildApiUrl('/api/director/resumen', 'omitCxc=1'), {}, tKpi)),
       dbgWrap('director/vendedores', fetchJsonAbort(buildApiUrl('/api/director/vendedores'), [], tKpi)),
       dbgWrap('ventas/cotizaciones', fetchJsonAbort(buildApiUrl('/api/ventas/cotizaciones/resumen'), {}, tKpi)),
       dbgWrap('ventas/cumplimiento', fetchJsonAbort(buildApiUrl('/api/ventas/cumplimiento'), [], tKpi)),

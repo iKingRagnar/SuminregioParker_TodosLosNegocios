@@ -530,7 +530,7 @@ async function loadAll() {
         .catch((e)=>{ if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.note=label+':err:'+(e&&e.message?e.message:String(e)); } throw e; });
     };
     const [dirRes, cxcRes, metasRes] = await Promise.allSettled([
-      dbgWrap('director/resumen', fetchJson(buildApiUrl('/api/director/resumen'), {}, tDir)),
+      dbgWrap('director/resumen', fetchJson(buildApiUrl('/api/director/resumen', 'omitCxc=1'), {}, tDir)),
       dbgWrap('cxc/resumen-aging', fetchJson(buildApiUrl('/api/cxc/resumen-aging'), {}, tDir)),
       dbgWrap('config/metas', fetchJson(buildApiUrl('/api/config/metas'), {}, tDir)),
     ]);
