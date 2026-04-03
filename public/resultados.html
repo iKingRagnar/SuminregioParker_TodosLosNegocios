@@ -895,7 +895,15 @@ async function loadBalanceGeneral(){
     renderClassicBalance();
     renderList('bgListActivo',d.activo);
     renderList('bgListPasivo',d.pasivo);
-    renderList('bgListCapital',d.capital,'Sin cuentas en el bloque capital del mapa. Si CAPITAL TOTAL es $0, revisar clasificación en Microsip o el cierre del periodo.');
+    var capRowsForList = Array.isArray(d.capital) ? d.capital.slice() : [];
+    if (!capRowsForList.length && Math.abs(+t.CAPITAL_TOTAL || 0) > 0.005) {
+      capRowsForList = [{
+        CUENTA_PT: '3*',
+        NOMBRE: 'Patrimonio consolidado (clase 3 — saldo neto al cierre)',
+        SALDO: +t.CAPITAL_TOTAL || 0
+      }];
+    }
+    renderList('bgListCapital', capRowsForList, 'Sin movimiento en cuentas clase 3 al cierre seleccionado. Si hay patrimonio en otra naturaleza, revisar catálogo CUENTAS_CO en Microsip.');
     const activo = +t.ACTIVO_TOTAL || 0;
     const pasivo = +t.PASIVO_TOTAL || 0;
     const capital = +t.CAPITAL_TOTAL || 0;
@@ -1710,9 +1718,13 @@ function renderCharts(meses,hasCosto){
     const seriesGastosA123=(meses||[]).map(function(m){
       var a1=+m.CO_A1||0,a2=+m.CO_A2||0,a3=+m.CO_A3||0;
       var a4=+m.CO_A4||0,a5=+m.CO_A5||0,a6=+m.CO_A6||0;
+      var b53=(+m.CO_B1||0)+(+m.CO_B2||0)+(+m.CO_B3||0)+(+m.CO_B4||0)+(+m.CO_B5||0);
+      var c54=(+m.CO_C1||0)+(+m.CO_C2||0)+(+m.CO_C3||0)+(+m.CO_C4||0)+(+m.CO_C5||0)+(+m.CO_C6||0);
       var sum123=a1+a2+a3;
-      var rest=a4+a5+a6;
-      if (sum123<0.01&&rest>0.01) a2+=rest;
+      var rest52=a4+a5+a6;
+      if (sum123<0.01&&rest52>0.01) a2+=rest52;
+      var stackA=a1+a2+a3;
+      if (stackA<0.01&&(b53+c54)>0.01) a2+=(b53+c54);
       return [a1,a2,a3];
     });
     const g1=seriesGastosA123.map(function(x){return x[0];});
@@ -1725,7 +1737,7 @@ function renderCharts(meses,hasCosto){
         empty4.textContent='Sin meses en el periodo: amplía el rango en filtros.';
         empty4.style.display='grid';
       }else if(!hasGastos){
-        empty4.textContent='Sin movimiento en gastos de venta, operación ni administración (CO_A1–A3) en estos meses. Si en contabilidad sí hay clase 52, revisar mapeo al Estado SR.';
+        empty4.textContent='Sin gastos mapeados (52/53/54) en estos meses para el periodo. Amplía el rango o revisa saldos en Contabilidad (SALDOS_CO) para ese cierre.';
         empty4.style.display='grid';
       }else{
         empty4.style.display='none';

@@ -815,6 +815,22 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   function applyCxcSnapshotForKpis(cxcSnap, directorRaw) {
     var snap = cxcSnap && typeof cxcSnap === 'object' ? cxcSnap : {};
     var res = snap.resumen && typeof snap.resumen === 'object' ? snap.resumen : snap;
+    var dc = directorRaw && directorRaw.cxc && typeof directorRaw.cxc === 'object' ? directorRaw.cxc : null;
+    var v0 = +res.VENCIDO || 0;
+    // Director usa el mismo motor que resumen-aging; alinear saldo/clientes y, si el snapshot aún no trae mora, copiar VENCIDO del director.
+    if (dc && +dc.SALDO_TOTAL > 0.005) {
+      res = Object.assign({}, res, {
+        SALDO_TOTAL: +dc.SALDO_TOTAL || 0,
+        NUM_CLIENTES: +dc.NUM_CLIENTES || +res.NUM_CLIENTES || 0,
+        NUM_CLIENTES_VENCIDOS: dc.NUM_CLIENTES_VENCIDOS != null && dc.NUM_CLIENTES_VENCIDOS !== ''
+          ? dc.NUM_CLIENTES_VENCIDOS
+          : res.NUM_CLIENTES_VENCIDOS
+      });
+      if (v0 <= 0.005 && (+dc.VENCIDO || 0) > 0.005) {
+        res.VENCIDO = +dc.VENCIDO;
+        res.POR_VENCER = +dc.POR_VENCER || 0;
+      }
+    }
     var aging = normalizeCxcAging(snap.aging);
     var raw = res;
     if (typeof reconcileCxcResumenWithAging === 'function') {
