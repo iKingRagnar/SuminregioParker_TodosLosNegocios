@@ -1025,7 +1025,7 @@ async function loadResumen() {
   const salSub = document.getElementById('kSaludSub');
   try {
     // Un solo round-trip: /resumen + /aging en paralelo duplicaban cxcResumenAgingUnificado (timeouts en producción).
-    const snap = await apiFetch('/api/cxc/resumen-aging' + buildCxcQuery(), { timeout: 45000 });
+    const snap = await apiFetch('/api/cxc/resumen-aging' + buildCxcQuery('queryMs=120000'), { timeout: 130000 });
     const res = (snap && snap.resumen) || {};
     const ageRaw = (snap && snap.aging) || {};
     const age = typeof window.normalizeCxcAging === 'function'

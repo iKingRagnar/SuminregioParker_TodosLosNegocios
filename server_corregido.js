@@ -4269,6 +4269,25 @@ async function invPrecioSubSql(dbo) {
   return sql;
 }
 
+const invCostoSubCache = new Map();
+/**
+ * Costo unitario por artículo desde ARTICULOS (COSTO_PROMEDIO, ULTIMO_COSTO o COSTO; alineado con Power BI).
+ * Si ninguna columna existe, cae al subquery de precio mínimo (PRECIO1 renombrado a COSTO1).
+ */
+async function invCostoSubSql(dbo) {
+  const key = dbCacheKey(dbo);
+  if (invCostoSubCache.has(key)) return invCostoSubCache.get(key);
+  const cols = await getTableColumns('ARTICULOS', dbo);
+  const costoCol = firstExistingColumn(cols || new Set(), ['COSTO_PROMEDIO', 'ULTIMO_COSTO', 'COSTO']);
+  if (costoCol) {
+    invCostoSubCache.set(key, `( SELECT a.ARTICULO_ID, COALESCE(a.${costoCol}, 0) AS COSTO1 FROM ARTICULOS a )`);
+  } else {
+    const priceSub = await invPrecioSubSql(dbo);
+    invCostoSubCache.set(key, priceSub.replace(/PRECIO1/g, 'COSTO1'));
+  }
+  return invCostoSubCache.get(key);
+}
+
 // SIN_STOCK = solo articulos con minimo definido y existencia 0 (alerta real). No contar todo el catalogo en cero.
 get('/api/inv/resumen', async (req) => {
   const dbo = getReqDbOpts(req);
@@ -4285,12 +4304,12 @@ get('/api/inv/resumen', async (req) => {
   `;
   const invQTimeout = 60000;
   const countsRows = await query(qCounts, [], invQTimeout, dbo).catch(() => [{}]);
-  const precioSub = await invPrecioSubSql(dbo);
+  const costoSub = await invCostoSubSql(dbo);
   const qValor = `
-    SELECT COALESCE(SUM(COALESCE(s.EXISTENCIA, 0) * COALESCE(pr.PRECIO1, 0)), 0) AS VALOR_INVENTARIO
+    SELECT COALESCE(SUM(COALESCE(s.EXISTENCIA, 0) * COALESCE(cs.COSTO1, 0)), 0) AS VALOR_INVENTARIO
     FROM ARTICULOS a
     LEFT JOIN ${SQL_EXIST_SUB} s ON s.ARTICULO_ID = a.ARTICULO_ID
-    LEFT JOIN ${precioSub} pr ON pr.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN ${costoSub} cs ON cs.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A'
   `;
   const valorRows = await query(qValor, [], invQTimeout, dbo).catch(() => [{ VALOR_INVENTARIO: 0 }]);
@@ -4554,13 +4573,15 @@ get('/api/inv/existencias', async (req) => {
 get('/api/inv/top-stock', async (req) => {
   const dbo = getReqDbOpts(req);
   const limit = Math.min(parseInt(req.query.limit) || 30, 100);
-  const precioSub = await invPrecioSubSql(dbo);
+  const costoSub = await invCostoSubSql(dbo);
   return query(`
     SELECT FIRST ${limit} a.ARTICULO_ID, a.NOMBRE AS DESCRIPCION, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
-      COALESCE(s.EXISTENCIA, 0) AS EXISTENCIA, COALESCE(s.EXISTENCIA, 0) * COALESCE(pr.PRECIO1, 0) AS VALOR_TOTAL, COALESCE(pr.PRECIO1, 0) AS PRECIO_VENTA
+      COALESCE(s.EXISTENCIA, 0) AS EXISTENCIA,
+      COALESCE(s.EXISTENCIA, 0) * COALESCE(cs.COSTO1, 0) AS VALOR_TOTAL,
+      COALESCE(cs.COSTO1, 0) AS PRECIO_VENTA
     FROM ARTICULOS a
     LEFT JOIN ${SQL_EXIST_SUB} s ON s.ARTICULO_ID = a.ARTICULO_ID
-    LEFT JOIN ${precioSub} pr ON pr.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN ${costoSub} cs ON cs.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND COALESCE(s.EXISTENCIA, 0) > 0
     ORDER BY VALOR_TOTAL DESC
   `, [], INV_LIST_Q_MS, dbo).catch(() => []);
