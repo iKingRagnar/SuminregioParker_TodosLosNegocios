@@ -374,6 +374,7 @@ function setDirTopCli(n) {
 // -- Helper: URL con filtros ------------------------------------------------
 function buildApiUrl(path, extra, qsOpts) {
   const merged = Object.assign({ useCxcDbIdentity: true }, qsOpts || {});
+  if (String(path).indexOf('/api/cxc/resumen-aging') >= 0) merged.omitPeriodForCxcSnapshot = true;
   const qs    = window.filterBuildQS ? filterBuildQS(undefined, merged) : '';
   const e     = extra ? String(extra).replace(/^[?&]+/, '') : '';
   const parts = [qs, e].filter(Boolean).join('&');

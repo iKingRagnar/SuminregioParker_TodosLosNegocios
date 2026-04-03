@@ -5662,7 +5662,7 @@ async function resultadosPnlCore(req, dbOpts) {
     const d = Math.abs(+r.GASTO_EXTRA_OP || 0);
     if (d < 0.01) return;
     const s = extraOpGastoMap[k] || 0;
-    if (s < 0.01) extraOpGastoMap[k] = d;
+    extraOpGastoMap[k] = Math.max(s, d);
   });
 
   const mapFromRows = (rows) => {

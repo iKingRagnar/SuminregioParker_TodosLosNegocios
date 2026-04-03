@@ -119,10 +119,16 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     return p;
   }
 
-  /** extras: objeto opcional. opts.omitDb = true no a�ade ?db= (p. ej. universe/scorecard). opts.omitVendedor = true quita vendedor del QS (p. ej. vista global de ventas-diarias). opts.useCxcDbIdentity = true usa mismo ?db= que la pestaña CxC (sin alias parker→default). */
+  /** extras: objeto opcional. opts.omitDb = true no a�ade ?db= (p. ej. universe/scorecard). opts.omitVendedor = true quita vendedor del QS (p. ej. vista global de ventas-diarias). opts.useCxcDbIdentity = true usa mismo ?db= que la pestaña CxC (sin alias parker→default). opts.omitPeriodForCxcSnapshot = true quita anio/mes/desde/hasta del QS (CxC cartera actual; evita desalinear con pestaña CxC). */
   function buildQS(extras, opts) {
     const p = Object.assign({}, getParams(), (extras && typeof extras === 'object') ? extras : {});
     if (opts && opts.omitVendedor) delete p.vendedor;
+    if (opts && opts.omitPeriodForCxcSnapshot) {
+      delete p.anio;
+      delete p.mes;
+      delete p.desde;
+      delete p.hasta;
+    }
     if (!opts || !opts.omitDb) {
       const db = opts && opts.useCxcDbIdentity ? getDbForCxcApi() : getSelectedDbId();
       if (db) p.db = db;
@@ -625,15 +631,25 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     }
   }
 
-  /** Suma buckets con nombres canónicos (Firebird/proxies a veces devuelven claves en minúsculas). */
+  /** Suma buckets con nombres canónicos (Firebird/proxies / JSON a veces usan otra forma de clave). */
   function bucketSumCanonical(age) {
     var canon = { CORRIENTE: 0, DIAS_1_30: 0, DIAS_31_60: 0, DIAS_61_90: 0, DIAS_MAS_90: 0 };
     if (!age || typeof age !== 'object' || Array.isArray(age)) return canon;
-    Object.keys(age).forEach(function (k) {
+    function foldBucketKey(k) {
       var ku = String(k).toUpperCase();
-      if (Object.prototype.hasOwnProperty.call(canon, ku)) {
-        canon[ku] += +age[k] || 0;
-      }
+      if (Object.prototype.hasOwnProperty.call(canon, ku)) return ku;
+      var c = ku.replace(/[^A-Z0-9]/g, '');
+      if (c === 'CORRIENTE' || c.indexOf('CORRIENTE') === 0) return 'CORRIENTE';
+      if (c === 'DIAS130' || c === 'DIAS1A30' || c === 'RANGO130') return 'DIAS_1_30';
+      if (c === 'DIAS3160' || c === 'DIAS31A60') return 'DIAS_31_60';
+      if (c === 'DIAS6190' || c === 'DIAS61A90') return 'DIAS_61_90';
+      if (c === 'DIASMAS90' || c === 'MAS90' || c === 'DIAS90MAS' || c === 'DIAS90') return 'DIAS_MAS_90';
+      return null;
+    }
+    Object.keys(age).forEach(function (k) {
+      var v = +age[k] || 0;
+      var fk = foldBucketKey(k);
+      if (fk) canon[fk] += v;
     });
     return canon;
   }
@@ -693,7 +709,8 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       var mx = Math.max(am, bm);
       return Math.abs(am - bm) / mx <= maxRel;
     }
-    if (a.SALDO_TOTAL > 0 && a.VENCIDO <= 0.005 && b.VENCIDO > 0.005 && saldoAligned(a.SALDO_TOTAL, b.SALDO_TOTAL, 0.18)) {
+    // 0.35 alineado con tolerancia doc vs legacy en servidor (0.18 dejaba vencido en 0 con saldos cercanos pero no idénticos).
+    if (a.SALDO_TOTAL > 0 && a.VENCIDO <= 0.005 && b.VENCIDO > 0.005 && saldoAligned(a.SALDO_TOTAL, b.SALDO_TOTAL, 0.35)) {
       out.VENCIDO = b.VENCIDO;
       out.POR_VENCER = b.POR_VENCER > 0.005 ? b.POR_VENCER : Math.max(0, a.SALDO_TOTAL - b.VENCIDO);
       if (b.NUM_CLIENTES_VENCIDOS != null && b.NUM_CLIENTES_VENCIDOS !== '') out.NUM_CLIENTES_VENCIDOS = b.NUM_CLIENTES_VENCIDOS;
@@ -701,7 +718,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     if (a.SALDO_TOTAL > 0 && b.SALDO_TOTAL > 0) {
       var mx = Math.max(a.SALDO_TOTAL, b.SALDO_TOTAL);
       var relDiff = Math.abs(a.SALDO_TOTAL - b.SALDO_TOTAL) / mx;
-      if (relDiff <= 0.18) {
+      if (relDiff <= 0.35) {
         if (b.VENCIDO > out.VENCIDO) out.VENCIDO = b.VENCIDO;
         if (b.POR_VENCER > out.POR_VENCER) out.POR_VENCER = b.POR_VENCER;
         if ((out.NUM_CLIENTES_VENCIDOS == null || out.NUM_CLIENTES_VENCIDOS === '') && b.NUM_CLIENTES_VENCIDOS != null) {
@@ -872,6 +889,29 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   function mergeCxcDisplayForDashboard(cx, directorRaw, cxcSnap) {
     var px = cx && typeof cx === 'object' ? cx : {};
     var dc = directorRaw && directorRaw.cxc && typeof directorRaw.cxc === 'object' ? directorRaw.cxc : null;
+    if (dc && (+dc.SALDO_TOTAL || 0) > 0.005) {
+      var s0 = +px.SALDO_TOTAL || 0;
+      var v0 = +px.VENCIDO || 0;
+      if (s0 <= 0.005) {
+        px = Object.assign({}, px, {
+          SALDO_TOTAL: +dc.SALDO_TOTAL,
+          VENCIDO: +dc.VENCIDO || 0,
+          POR_VENCER: +dc.POR_VENCER || 0,
+          NUM_CLIENTES: +dc.NUM_CLIENTES || +px.NUM_CLIENTES || 0,
+          NUM_CLIENTES_VENCIDOS: dc.NUM_CLIENTES_VENCIDOS != null && dc.NUM_CLIENTES_VENCIDOS !== ''
+            ? dc.NUM_CLIENTES_VENCIDOS
+            : px.NUM_CLIENTES_VENCIDOS
+        });
+      } else if (v0 <= 0.005 && (+dc.VENCIDO || 0) > 0.005) {
+        var mx0 = Math.max(s0, +dc.SALDO_TOTAL || 0);
+        if (mx0 > 0 && Math.abs(s0 - (+dc.SALDO_TOTAL || 0)) / mx0 <= 0.35) {
+          px = Object.assign({}, px, {
+            VENCIDO: +dc.VENCIDO,
+            POR_VENCER: (+dc.POR_VENCER || 0) > 0.005 ? +dc.POR_VENCER : Math.max(0, s0 - (+dc.VENCIDO || 0))
+          });
+        }
+      }
+    }
     var ag = normalizeCxcAging(cxcSnap && cxcSnap.aging);
     var mora =
       (+ag.DIAS_1_30 || 0) + (+ag.DIAS_31_60 || 0) +
@@ -927,9 +967,9 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   window.mergeCxcDisplayForDashboard = mergeCxcDisplayForDashboard;
   window.syncDbContextFromUrlOrFallback = syncDbContextFromUrlOrFallback;
   window.getDbForCxcApi           = getDbForCxcApi;
-  /** Query string para GET /api/cxc/resumen-aging alineado a cxc.html (db literal + filtros de periodo). */
+  /** Query string para GET /api/cxc/resumen-aging en tableros: db + preset (sin anio/mes: snapshot cartera = pestaña CxC). */
   function filterCxcKpiQueryString() {
-    return buildQS(null, { useCxcDbIdentity: true });
+    return buildQS(null, { useCxcDbIdentity: true, omitPeriodForCxcSnapshot: true });
   }
   window.filterCxcKpiQueryString  = filterCxcKpiQueryString;
 

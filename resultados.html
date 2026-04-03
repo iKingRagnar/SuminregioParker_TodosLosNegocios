@@ -460,7 +460,7 @@ details.sr-gastos-blk>summary{cursor:pointer;font-family:'DM Mono',monospace;fon
     <div class="card-body">
       <div class="chart-h200">
         <canvas id="chartGastos"></canvas>
-        <div id="chartGastos-empty" class="chart-overlay-empty">Sin gastos en SALDOS_CO para estos meses (52–54, 6* ni 5xx fuera de costo 51*). Revisa periodo o catálogo en Microsip.</div>
+        <div id="chartGastos-empty" class="chart-overlay-empty">Sin gastos en el periodo (52–54 en saldos/pólizas; 6* y 5xx fuera de 51–54 vía saldos o DOCTOS_CO_DET). Revisa rango o cierre en Microsip.</div>
       </div>
     </div>
   </div>
@@ -1754,7 +1754,7 @@ function renderCharts(meses,hasCosto){
         empty4.textContent='Sin meses en el periodo: amplía el rango en filtros.';
         empty4.style.display='grid';
       }else if(!hasGastos){
-        empty4.textContent='Sin gastos en SALDOS_CO para el periodo (52–54, 6* ni 5xx fuera de 51*). Amplía el rango o revisa cierre en Microsip.';
+        empty4.textContent='Sin gastos en el periodo (52–54; 6* y 5xx residual en saldos o pólizas). Amplía el rango o revisa cierre en Microsip.';
         empty4.style.display='grid';
       }else{
         empty4.style.display='none';
