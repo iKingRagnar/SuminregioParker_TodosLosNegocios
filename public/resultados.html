@@ -811,7 +811,12 @@ async function loadBalanceGeneral(){
       else if(diff<0)diffEl.style.color='var(--green)';
       else diffEl.style.color='var(--red)';
     }
-    if(badge) badge.textContent=`Cierre ${String(cierre.MES||'--').padStart(2,'0')}/${cierre.ANIO||'----'}`;
+    if(badge){
+      const cLab=`Cierre ${String(cierre.MES||'--').padStart(2,'0')}/${cierre.ANIO||'----'}`;
+      badge.textContent=cierre.balance_ultimo_cierre_disponible
+        ? `${cLab} · último saldo contable ≤ periodo (Microsip aún sin cierre del mes pedido)`
+        : cLab;
+    }
     const renderList=(id,list,emptyHint)=>{
       const el=document.getElementById(id); if(!el) return;
       el.className='bg-list grid-lines';

@@ -706,7 +706,9 @@ function mergeBalanceGeneralFromPayloads(parts) {
     };
     return { cierre: {}, totales: z, detalleFull: { activo: [], pasivo: [], capital: [] } };
   }
-  const cierre = ok[0].cierre || {};
+  const c0 = ok[0].cierre || {};
+  const balanceUltimo = ok.some((p) => p.cierre && p.cierre.balance_ultimo_cierre_disponible);
+  const cierre = { ...c0, balance_ultimo_cierre_disponible: balanceUltimo };
   const detalleFull = {
     activo: mergeBalanceDetalleSide(ok.map((p) => p.detalleFull && p.detalleFull.activo)),
     pasivo: mergeBalanceDetalleSide(ok.map((p) => p.detalleFull && p.detalleFull.pasivo)),
@@ -5416,7 +5418,7 @@ async function resultadosPnlCore(req, dbOpts) {
         AND NOT (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53' OR cu.CUENTA_PT STARTING WITH '54')
       )
     )`;
-  const [ventasMes, descuentosMes, costosINMes, costosINDirect, cobrosMes, costosSaldos5101, ingresosSaldos4, gastosSaldos52, gastosDoctos52, gastosSaldosExtend] = await Promise.all([
+  const [ventasMes, descuentosMes, costosINMes, costosINDirect, cobrosMes, costosSaldos5101, ingresosSaldos4, gastosSaldos52, gastosDoctos52, gastosSaldosExtend, gastosDoctosExtend] = await Promise.all([
     q(`
       SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
         COALESCE(SUM(d.IMPORTE_NETO), 0) AS VENTAS_BRUTAS,
@@ -5584,6 +5586,17 @@ async function resultadosPnlCore(req, dbOpts) {
       GROUP BY ${salYearExpr}, ${salMonthExpr}
       ORDER BY 1, 2
     `, [sy, ey, sy, sm, ey, em], 15000).catch(() => []),
+    q(`
+      SELECT EXTRACT(YEAR FROM ${detDateExpr}) AS ANIO, EXTRACT(MONTH FROM ${detDateExpr}) AS MES,
+        COALESCE(SUM(${detGastoExpr}), 0) AS GASTO_EXTRA_OP
+      FROM DOCTOS_CO_DET d
+      ${detNeedsDoctoJoin ? 'JOIN DOCTOS_CO c ON c.DOCTO_CO_ID = d.DOCTO_CO_ID' : ''}
+      JOIN CUENTAS_CO cu ON cu.CUENTA_ID = d.CUENTA_ID
+      WHERE ${sqlGastosMicrosipExtendWhere}
+        AND CAST(${detDateExpr} AS DATE) >= CAST(? AS DATE) AND CAST(${detDateExpr} AS DATE) <= CAST(? AS DATE)
+      GROUP BY EXTRACT(YEAR FROM ${detDateExpr}), EXTRACT(MONTH FROM ${detDateExpr})
+      ORDER BY 1, 2
+    `, dateParams, 15000).catch(() => []),
   ]);
   const dbgSumRows = (rows) => (rows || []).reduce((acc, r) => {
     const cols = ['CO_A1', 'CO_A2', 'CO_A3', 'CO_A4', 'CO_A5', 'CO_A6', 'CO_B1', 'CO_B2', 'CO_B3', 'CO_B4', 'CO_B5', 'CO_C1', 'CO_C2', 'CO_C3', 'CO_C4', 'CO_C5', 'CO_C6'];
@@ -5643,6 +5656,13 @@ async function resultadosPnlCore(req, dbOpts) {
   (gastosSaldosExtend || []).forEach((r) => {
     const k = key(r.ANIO, r.MES);
     extraOpGastoMap[k] = Math.abs(+r.GASTO_EXTRA_OP || 0);
+  });
+  (gastosDoctosExtend || []).forEach((r) => {
+    const k = key(r.ANIO, r.MES);
+    const d = Math.abs(+r.GASTO_EXTRA_OP || 0);
+    if (d < 0.01) return;
+    const s = extraOpGastoMap[k] || 0;
+    if (s < 0.01) extraOpGastoMap[k] = d;
   });
 
   const mapFromRows = (rows) => {
@@ -6316,69 +6336,132 @@ function invPeriodDaysFromReq(req) {
   return { desdeStr, hastaStr, periodDays };
 }
 
+function balanceHastaStrForYm(y, m) {
+  const lastDay = new Date(y, m, 0).getDate();
+  return `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+}
+
+/** Último (año, mes) ≤ límite con movimiento en SALDOS_CO para cuentas 1/2/3 (evita balance en $0 cuando el mes en curso aún no tiene cierre en Microsip). */
+async function findLatestSaldosCoCierreBalance(dbo, limY, limM, salAnoCol, salMesCol, salCargoCol, salAbonoCol) {
+  const compositeLim = limY * 100 + limM;
+  const hit = await query(`
+    SELECT FIRST 1 x.ANIO, x.MES
+    FROM (
+      SELECT s.${salAnoCol} AS ANIO, s.${salMesCol} AS MES,
+        SUM(ABS(COALESCE(s.${salCargoCol}, 0)) + ABS(COALESCE(s.${salAbonoCol}, 0))) AS MOV_T
+      FROM SALDOS_CO s
+      JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
+      WHERE (cu.CUENTA_PT STARTING WITH '1' OR cu.CUENTA_PT STARTING WITH '2' OR cu.CUENTA_PT STARTING WITH '3')
+        AND (s.${salAnoCol} * 100 + s.${salMesCol}) <= ?
+      GROUP BY s.${salAnoCol}, s.${salMesCol}
+    ) x
+    WHERE x.MOV_T > 1
+    ORDER BY x.ANIO DESC, x.MES DESC
+  `, [compositeLim], 12000, dbo).catch(() => []);
+  const r = (hit && hit[0]) || null;
+  if (!r) return null;
+  const yy = +r.ANIO;
+  const mm = +r.MES;
+  if (!yy || !mm) return null;
+  return { ANIO: yy, MES: mm };
+}
+
 // Balance General resumido por naturaleza contable (activo/pasivo/capital) al cierre del periodo filtrado.
 // db=__all__: suma por CUENTA_PT en todas las bases del registro (misma lógica que P&L consolidado).
 async function buildBalanceGeneralForDbo(req, dbo) {
   const { desdeStr, hastaStr } = resolveDateRangeFromQuery(req.query || {});
-  const y = parseInt(String(hastaStr).slice(0, 4), 10);
-  const m = parseInt(String(hastaStr).slice(5, 7), 10);
+  const yReq = parseInt(String(hastaStr).slice(0, 4), 10);
+  const mReq = parseInt(String(hastaStr).slice(5, 7), 10);
   const salCols = await getTableColumns('SALDOS_CO', dbo);
   const salAnoCol = firstExistingColumn(salCols, ['ANO', 'ANIO']) || 'ANO';
   const salMesCol = firstExistingColumn(salCols, ['MES', 'PERIODO']) || 'MES';
   const salCargoCol = firstExistingColumn(salCols, ['CARGOS', 'DEBE']) || 'CARGOS';
   const salAbonoCol = firstExistingColumn(salCols, ['ABONOS', 'HABER']) || 'ABONOS';
   const balanceCoYtd = (process.env.MICROSIP_BALANCE_CO_YTD || '').match(/^(1|true|yes)$/i);
-  const mesCond = balanceCoYtd ? `s.${salMesCol} <= ?` : `s.${salMesCol} = ?`;
-  const rows = await query(`
-    SELECT
-      SUBSTRING(cu.CUENTA_PT FROM 1 FOR 1) AS GRUPO1,
-      cu.CUENTA_PT,
-      TRIM(COALESCE(cu.NOMBRE, cu.CUENTA_PT)) AS NOMBRE,
-      SUM(COALESCE(s.${salCargoCol}, 0)) AS CARGOS,
-      SUM(COALESCE(s.${salAbonoCol}, 0)) AS ABONOS
-    FROM SALDOS_CO s
-    JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
-    WHERE s.${salAnoCol} = ?
-      AND ${mesCond}
-      AND (cu.CUENTA_PT STARTING WITH '1' OR cu.CUENTA_PT STARTING WITH '2' OR cu.CUENTA_PT STARTING WITH '3')
-    GROUP BY SUBSTRING(cu.CUENTA_PT FROM 1 FOR 1), cu.CUENTA_PT, cu.NOMBRE
-    ORDER BY cu.CUENTA_PT
-  `, [y, m], 15000, dbo).catch(() => []);
-  const detail = { activo: [], pasivo: [], capital: [] };
-  let activo = 0; let pasivo = 0; let capital = 0;
-  (rows || []).forEach((r) => {
-    const g = String(r.GRUPO1 || '').trim();
-    const cargos = +r.CARGOS || 0;
-    const abonos = +r.ABONOS || 0;
-    let saldo = 0;
-    if (g === '1') saldo = cargos - abonos;
-    if (g === '2' || g === '3') saldo = abonos - cargos;
-    saldo = Math.round(saldo * 100) / 100;
-    if (Math.abs(saldo) < 0.005) return;
-    const rec = { CUENTA_PT: r.CUENTA_PT, NOMBRE: r.NOMBRE, SALDO: saldo };
-    if (g === '1') { activo += saldo; detail.activo.push(rec); }
-    if (g === '2') { pasivo += saldo; detail.pasivo.push(rec); }
-    if (g === '3') { capital += saldo; detail.capital.push(rec); }
-  });
-  detail.activo.sort((a, b) => Math.abs(+b.SALDO || 0) - Math.abs(+a.SALDO || 0));
-  detail.pasivo.sort((a, b) => Math.abs(+b.SALDO || 0) - Math.abs(+a.SALDO || 0));
-  detail.capital.sort((a, b) => Math.abs(+b.SALDO || 0) - Math.abs(+a.SALDO || 0));
-  const actBreak = balanceActivoBreakdownFromRows(detail.activo);
+
+  const computeAt = async (y, m) => {
+    const mesCond = balanceCoYtd ? `s.${salMesCol} <= ?` : `s.${salMesCol} = ?`;
+    const rows = await query(`
+      SELECT
+        SUBSTRING(cu.CUENTA_PT FROM 1 FOR 1) AS GRUPO1,
+        cu.CUENTA_PT,
+        TRIM(COALESCE(cu.NOMBRE, cu.CUENTA_PT)) AS NOMBRE,
+        SUM(COALESCE(s.${salCargoCol}, 0)) AS CARGOS,
+        SUM(COALESCE(s.${salAbonoCol}, 0)) AS ABONOS
+      FROM SALDOS_CO s
+      JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
+      WHERE s.${salAnoCol} = ?
+        AND ${mesCond}
+        AND (cu.CUENTA_PT STARTING WITH '1' OR cu.CUENTA_PT STARTING WITH '2' OR cu.CUENTA_PT STARTING WITH '3')
+      GROUP BY SUBSTRING(cu.CUENTA_PT FROM 1 FOR 1), cu.CUENTA_PT, cu.NOMBRE
+      ORDER BY cu.CUENTA_PT
+    `, [y, m], 15000, dbo).catch(() => []);
+    const detail = { activo: [], pasivo: [], capital: [] };
+    let activo = 0; let pasivo = 0; let capital = 0;
+    (rows || []).forEach((r) => {
+      const g = String(r.GRUPO1 || '').trim();
+      const cargos = +r.CARGOS || 0;
+      const abonos = +r.ABONOS || 0;
+      let saldo = 0;
+      if (g === '1') saldo = cargos - abonos;
+      if (g === '2' || g === '3') saldo = abonos - cargos;
+      saldo = Math.round(saldo * 100) / 100;
+      if (Math.abs(saldo) < 0.005) return;
+      const rec = { CUENTA_PT: r.CUENTA_PT, NOMBRE: r.NOMBRE, SALDO: saldo };
+      if (g === '1') { activo += saldo; detail.activo.push(rec); }
+      if (g === '2') { pasivo += saldo; detail.pasivo.push(rec); }
+      if (g === '3') { capital += saldo; detail.capital.push(rec); }
+    });
+    detail.activo.sort((a, b) => Math.abs(+b.SALDO || 0) - Math.abs(+a.SALDO || 0));
+    detail.pasivo.sort((a, b) => Math.abs(+b.SALDO || 0) - Math.abs(+a.SALDO || 0));
+    detail.capital.sort((a, b) => Math.abs(+b.SALDO || 0) - Math.abs(+a.SALDO || 0));
+    const actBreak = balanceActivoBreakdownFromRows(detail.activo);
+    return {
+      totales: {
+        ACTIVO_TOTAL: Math.round(activo * 100) / 100,
+        PASIVO_TOTAL: Math.round(pasivo * 100) / 100,
+        CAPITAL_TOTAL: Math.round(capital * 100) / 100,
+        PASIVO_MAS_CAPITAL: Math.round((pasivo + capital) * 100) / 100,
+        DIFERENCIA_BALANCE: Math.round(((pasivo + capital) - activo) * 100) / 100,
+        ...actBreak,
+      },
+      detalleFull: {
+        activo: detail.activo,
+        pasivo: detail.pasivo,
+        capital: detail.capital,
+      },
+    };
+  };
+
+  let yEff = yReq;
+  let mEff = mReq;
+  let usedFallback = false;
+  let body = await computeAt(yEff, mEff);
+  const mag = Math.abs(+body.totales.ACTIVO_TOTAL || 0)
+    + Math.abs(+body.totales.PASIVO_TOTAL || 0)
+    + Math.abs(+body.totales.CAPITAL_TOTAL || 0);
+  if (mag < 0.5 && !balanceCoYtd) {
+    const alt = await findLatestSaldosCoCierreBalance(dbo, yReq, mReq, salAnoCol, salMesCol, salCargoCol, salAbonoCol);
+    if (alt && (alt.ANIO !== yReq || alt.MES !== mReq)) {
+      body = await computeAt(alt.ANIO, alt.MES);
+      yEff = alt.ANIO;
+      mEff = alt.MES;
+      usedFallback = true;
+    }
+  }
+
   return {
-    cierre: { ANIO: y, MES: m, hasta: hastaStr },
-    totales: {
-      ACTIVO_TOTAL: Math.round(activo * 100) / 100,
-      PASIVO_TOTAL: Math.round(pasivo * 100) / 100,
-      CAPITAL_TOTAL: Math.round(capital * 100) / 100,
-      PASIVO_MAS_CAPITAL: Math.round((pasivo + capital) * 100) / 100,
-      DIFERENCIA_BALANCE: Math.round(((pasivo + capital) - activo) * 100) / 100,
-      ...actBreak,
+    cierre: {
+      ANIO: yEff,
+      MES: mEff,
+      hasta: balanceHastaStrForYm(yEff, mEff),
+      solicitado_ANIO: yReq,
+      solicitado_MES: mReq,
+      solicitado_hasta: hastaStr,
+      balance_ultimo_cierre_disponible: usedFallback,
     },
-    detalleFull: {
-      activo: detail.activo,
-      pasivo: detail.pasivo,
-      capital: detail.capital,
-    },
+    totales: body.totales,
+    detalleFull: body.detalleFull,
   };
 }
 

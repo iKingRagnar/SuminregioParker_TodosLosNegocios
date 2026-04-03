@@ -890,9 +890,16 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     } else {
       saldo = +px.SALDO_TOTAL || 0;
     }
-    if (saldo <= 0.005) return px;
-    var moraCap = mora > 0.005 ? Math.min(mora, saldo) : 0;
+    var moraCap = 0;
+    if (mora > 0.005) {
+      moraCap = saldo > 0.005 ? Math.min(mora, saldo) : mora;
+    }
     var venc = Math.max(vDir, vPx, moraCap, vSnap);
+    var corrienteAging = +ag.CORRIENTE || 0;
+    if (saldo <= 0.005 && venc > 0.005 && (mora + corrienteAging) > 0.005) {
+      saldo = mora + corrienteAging;
+    }
+    if (saldo <= 0.005 && venc <= 0.005) return px;
     return Object.assign({}, px, {
       SALDO_TOTAL: saldo,
       VENCIDO: venc,
