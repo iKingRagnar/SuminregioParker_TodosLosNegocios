@@ -3733,6 +3733,83 @@ get('/api/cxc/resumen-aging', async (req) => {
   return { resumen: snap.resumen, aging: snap.aging };
 });
 
+// Debug: desglosa fuentes de CxC para ver por qué VENCIDO puede caer a 0.
+get('/api/debug/cxc-resumen-aging', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const qms = Math.min(Math.max(parseInt(req.query.queryMs, 10) || cxcAgingQueryMs(), 3000), 180000);
+  const t0 = Date.now();
+  const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
+  const whereCliDoc = cf ? ` AND doc.CLIENTE_ID = ${cf}` : '';
+
+  const docAggSql = `
+    SELECT
+      COUNT(DISTINCT doc.CLIENTE_ID) AS NUM_CLIENTES_DOC,
+      COUNT(DISTINCT CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.CLIENTE_ID END) AS NUM_CLI_VENC_DOC,
+      SUM(doc.SALDO_NETO) AS TOTAL_C,
+      SUM(CASE WHEN doc.DIAS_VENCIDO <= 0 THEN doc.SALDO_NETO ELSE 0 END) AS COR_C,
+      SUM(CASE WHEN doc.DIAS_VENCIDO BETWEEN 1 AND 30 THEN doc.SALDO_NETO ELSE 0 END) AS B1_C,
+      SUM(CASE WHEN doc.DIAS_VENCIDO BETWEEN 31 AND 60 THEN doc.SALDO_NETO ELSE 0 END) AS B2_C,
+      SUM(CASE WHEN doc.DIAS_VENCIDO BETWEEN 61 AND 90 THEN doc.SALDO_NETO ELSE 0 END) AS B3_C,
+      SUM(CASE WHEN doc.DIAS_VENCIDO > 90 THEN doc.SALDO_NETO ELSE 0 END) AS B4_C,
+      SUM(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.SALDO_NETO ELSE 0 END) AS VENC_C,
+      MAX(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.DIAS_VENCIDO ELSE 0 END) AS MAX_DIAS_VENC
+    FROM ${cxcDocSaldosInnerSQL('')} doc
+    WHERE doc.SALDO_NETO > 0.005 ${whereCliDoc}
+  `;
+
+  const agingLegacySql = `
+    SELECT
+      cd.CLIENTE_ID,
+      SUM(cd.SALDO) AS TOTAL_C,
+      SUM(CASE WHEN cd.DIAS_VENCIDO <= 0 THEN cd.SALDO ELSE 0 END) AS COR_C,
+      SUM(CASE WHEN cd.DIAS_VENCIDO BETWEEN 1 AND 30 THEN cd.SALDO ELSE 0 END) AS B1_C,
+      SUM(CASE WHEN cd.DIAS_VENCIDO BETWEEN 31 AND 60 THEN cd.SALDO ELSE 0 END) AS B2_C,
+      SUM(CASE WHEN cd.DIAS_VENCIDO BETWEEN 61 AND 90 THEN cd.SALDO ELSE 0 END) AS B3_C,
+      SUM(CASE WHEN cd.DIAS_VENCIDO > 90 THEN cd.SALDO ELSE 0 END) AS B4_C,
+      SUM(CASE WHEN cd.DIAS_VENCIDO > 0 THEN cd.SALDO ELSE 0 END) AS VENC_C,
+      MAX(CASE WHEN cd.DIAS_VENCIDO > 0 THEN cd.DIAS_VENCIDO ELSE 0 END) AS MAX_DIAS_VENC
+    FROM ${cxcCargosSQL()} cd
+    ${cf ? `WHERE cd.CLIENTE_ID = ${cf}` : ''}
+    GROUP BY cd.CLIENTE_ID
+  `;
+
+  async function safeQuery(name, sql) {
+    const t = Date.now();
+    try {
+      const rows = await query(sql, [], qms, dbo);
+      return { name, ok: true, ms: Date.now() - t, rows: Array.isArray(rows) ? rows.length : 0, sample: Array.isArray(rows) ? rows.slice(0, 3) : [] , err: null };
+    } catch (e) {
+      return { name, ok: false, ms: Date.now() - t, rows: 0, sample: [], err: e && (e.message || String(e)) };
+    }
+  }
+
+  const [docAgg, legacy, snap] = await Promise.all([
+    safeQuery('docAgg', docAggSql),
+    safeQuery('agingLegacy', agingLegacySql),
+    (async () => {
+      const t = Date.now();
+      try {
+        const s = await cxcResumenAgingUnificado(req, dbo, qms);
+        return { ok: true, ms: Date.now() - t, resumen: s.resumen, aging: s.aging };
+      } catch (e) {
+        return { ok: false, ms: Date.now() - t, err: e && (e.message || String(e)) };
+      }
+    })(),
+  ]);
+
+  return {
+    ok: true,
+    ts: new Date().toISOString(),
+    elapsed_ms: Date.now() - t0,
+    queryMs: qms,
+    db: normalizeDbQueryId(req.query.db) || 'default',
+    cliente: cf,
+    server_tz_offset_min: new Date().getTimezoneOffset(),
+    pieces: { docAgg, agingLegacy: legacy },
+    snapshot: snap,
+  };
+});
+
 // Facturas vencidas: misma base que aging (cxcDocSaldosSQL). Sin subconsultas anidadas extra (Firebird).
 get('/api/cxc/vencidas', async (req) => {
   const limit = Math.min(parseInt(req.query.limit) || 100, 500);
