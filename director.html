@@ -375,7 +375,8 @@ if (dbgEnabled()) {
           't=' + (ms/1000).toFixed(1) + 's\n' +
           'phase=' + (s.phase || '?') + '\n' +
           'loadAllStarted=' + (s.loadAllStarted || 0) + ' loadAllFinished=' + (s.loadAllFinished || 0) + '\n' +
-          (s.note ? ('note=' + s.note + '\n') : '');
+          (s.note ? ('note=' + s.note + '\n') : '') +
+          (s.detail ? ('\n' + s.detail) : '');
       }catch(_){}
     };
     setInterval(tick, 500);
@@ -558,14 +559,14 @@ async function loadAll() {
     const v = dir.ventas||{}, c = cxc, co = dir.cotizaciones||{};
 
     if (dbgEnabled()) {
-      const b = dbgBox();
       const cRes = (cxcSnap && cxcSnap.resumen) ? cxcSnap.resumen : (cxcSnap || {});
-      b.textContent =
-        'DBG DIRECTOR (dbg=1)\n' +
-        'urlDb=' + (new URLSearchParams(location.search).get('db') || '') + '\n' +
-        'cxc(resumen-aging) SALDO_TOTAL=' + (+cRes.SALDO_TOTAL || 0) + ' VENCIDO=' + (+cRes.VENCIDO || 0) + '\n' +
-        'dir.cxc SALDO_TOTAL=' + (+(dir && dir.cxc && dir.cxc.SALDO_TOTAL) || 0) + ' VENCIDO=' + (+(dir && dir.cxc && dir.cxc.VENCIDO) || 0) + '\n' +
-        'final cxc SALDO_TOTAL=' + (+c.SALDO_TOTAL || 0) + ' VENCIDO=' + (+c.VENCIDO || 0) + ' POR_VENCER=' + (+c.POR_VENCER || 0);
+      if (window.__DBG_STATE) {
+        window.__DBG_STATE.detail =
+          'urlDb=' + (new URLSearchParams(location.search).get('db') || '') + '\n' +
+          'cxc(resumen-aging) SALDO_TOTAL=' + (+cRes.SALDO_TOTAL || 0) + ' VENCIDO=' + (+cRes.VENCIDO || 0) + '\n' +
+          'dir.cxc SALDO_TOTAL=' + (+(dir && dir.cxc && dir.cxc.SALDO_TOTAL) || 0) + ' VENCIDO=' + (+(dir && dir.cxc && dir.cxc.VENCIDO) || 0) + '\n' +
+          'final cxc SALDO_TOTAL=' + (+c.SALDO_TOTAL || 0) + ' VENCIDO=' + (+c.VENCIDO || 0) + ' POR_VENCER=' + (+c.POR_VENCER || 0);
+      }
     }
     if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.loadAllFinished=(window.__DBG_STATE.loadAllFinished||0)+1; window.__DBG_STATE.phase='loadAll:done'; }
     const nV = getVendedoresEnContexto(metas);

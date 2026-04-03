@@ -1115,7 +1115,8 @@ if (dbgEnabled()) {
           't=' + (ms/1000).toFixed(1) + 's\n' +
           'phase=' + (s.phase || '?') + '\n' +
           'loadAllStarted=' + (s.loadAllStarted || 0) + ' loadAllFinished=' + (s.loadAllFinished || 0) + '\n' +
-          (s.note ? ('note=' + s.note + '\n') : '');
+          (s.note ? ('note=' + s.note + '\n') : '') +
+          (s.detail ? ('\n' + s.detail) : '');
       }catch(_){}
     };
     window.__DBG_TICK = tick;
@@ -1299,17 +1300,17 @@ async function loadAll(){
     sem('semCxcVenc',pVenc,{invert:true,labels:['Saludable','Atenci\u00f3n','Cr\u00edtica']});
 
     if(dbgEnabled()){
-      const b=dbgBox();
       const pick=function(o){return o&&typeof o==='object'?o:{}};
       const cRes=pick(c&&c.resumen?c.resumen:c);
-      b.textContent=
-        'DBG SCORECARD (dbg=1)\\n'+
-        'apiBuild='+(window.__SUMINREGIO_API_BUILD||'?')+'\\n'+
-        'urlDb='+(new URLSearchParams(location.search).get('db')||'')+'\\n'+
-        'cxc(resumen-aging) SALDO_TOTAL='+(+cRes.SALDO_TOTAL||0)+' VENCIDO='+(+cRes.VENCIDO||0)+'\\n'+
-        'dir.cxc SALDO_TOTAL='+(+(dir&&dir.cxc&&dir.cxc.SALDO_TOTAL)||0)+' VENCIDO='+(+(dir&&dir.cxc&&dir.cxc.VENCIDO)||0)+'\\n'+
-        'final cx SALDO_TOTAL='+(+cx.SALDO_TOTAL||0)+' VENCIDO='+(+cx.VENCIDO||0)+' POR_VENCER='+(+cx.POR_VENCER||0)+'\\n'+
-        'pVenc='+pVenc+'%';
+      if(window.__DBG_STATE){
+        window.__DBG_STATE.detail =
+          'apiBuild='+(window.__SUMINREGIO_API_BUILD||'?')+'\n'+
+          'urlDb='+(new URLSearchParams(location.search).get('db')||'')+'\n'+
+          'cxc(resumen-aging) SALDO_TOTAL='+(+cRes.SALDO_TOTAL||0)+' VENCIDO='+(+cRes.VENCIDO||0)+'\n'+
+          'dir.cxc SALDO_TOTAL='+(+(dir&&dir.cxc&&dir.cxc.SALDO_TOTAL)||0)+' VENCIDO='+(+(dir&&dir.cxc&&dir.cxc.VENCIDO)||0)+'\n'+
+          'final cx SALDO_TOTAL='+(+cx.SALDO_TOTAL||0)+' VENCIDO='+(+cx.VENCIDO||0)+' POR_VENCER='+(+cx.POR_VENCER||0)+'\n'+
+          'pVenc='+pVenc+'%';
+      }
     }
     if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.loadAllFinished=(window.__DBG_STATE.loadAllFinished||0)+1; window.__DBG_STATE.phase='loadAll:done'; }
 
