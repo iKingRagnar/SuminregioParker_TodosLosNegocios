@@ -803,6 +803,23 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 // Mismo origen si se sirve desde el servidor; si abres por file:// usa localhost:7000
 const API = (window.__API_BASE != null ? String(window.__API_BASE).replace(/\/+$/, '') : (window.location.protocol === 'file:' ? 'http://localhost:7000' : (window.location.origin || '')));
 function fwt(url,fallback,ms=20000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
+/** fetch + AbortController (sin Promise.race): si el servidor tarda >65s pero <ms, aún llega el JSON (evita KPI CxC en 0 con cartera cargada). */
+async function fetchJsonAbort(url, fallback, ms) {
+  fallback = fallback !== undefined ? fallback : {};
+  ms = ms || 120000;
+  var ctrl = new AbortController();
+  var tid = setTimeout(function () { ctrl.abort(); }, ms);
+  try {
+    var r = await fetch(url, { signal: ctrl.signal, cache: 'no-store' });
+    clearTimeout(tid);
+    if (!r.ok) return fallback;
+    var j = await r.json();
+    return j && typeof j === 'object' ? j : fallback;
+  } catch (_) {
+    clearTimeout(tid);
+    return fallback;
+  }
+}
 
 /** Lista de {id,label,database} desde GET /api/universe/databases (initBizBar). */
 let indexDbList = [];
@@ -1055,19 +1072,19 @@ let chartTend=null;
 // -- Main load ------------------------------------------------------------------
 async function loadAll(){
   try{
-    /* Director + CxC aging en paralelo pueden superar 35s en Render; si no, fwt devuelve {} y KPI CxC/merge quedan en 0. */
-    const tKpi = 65000;
+    /* AbortController hasta 120s: fwt (Promise.race) cortaba a los 65s y descartaba la respuesta tardía → resumen-aging vacío y vencido KPI en $0. */
+    const tKpi = 120000;
     const [v,m,c,inv,dir,vends,cot,cumpl,cliRes,pnlData]=await Promise.all([
-      fwt(buildApiUrl('/api/ventas/resumen'),{},tKpi),
-      fwt(buildApiUrl('/api/config/metas'),{},tKpi),
-      fwt(buildApiUrl('/api/cxc/resumen-aging'),{},tKpi),
-      fwt(buildApiUrl('/api/inv/resumen'),{},tKpi),
-      fwt(buildApiUrl('/api/director/resumen'),{},tKpi),
-      fwt(buildApiUrl('/api/director/vendedores'),[],tKpi),
-      fwt(buildApiUrl('/api/ventas/cotizaciones/resumen'),{},tKpi),
-      fwt(buildApiUrl('/api/ventas/cumplimiento'),[],tKpi),
-      fwt(buildApiUrl('/api/clientes/resumen-riesgo'),{},tKpi),
-      fwt(buildApiUrl('/api/resultados/pnl','meses=1'),{},tKpi),
+      fetchJsonAbort(buildApiUrl('/api/ventas/resumen'), {}, tKpi),
+      fetchJsonAbort(buildApiUrl('/api/config/metas'), {}, tKpi),
+      fetchJsonAbort(buildApiUrl('/api/cxc/resumen-aging'), {}, tKpi),
+      fetchJsonAbort(buildApiUrl('/api/inv/resumen'), {}, tKpi),
+      fetchJsonAbort(buildApiUrl('/api/director/resumen'), {}, tKpi),
+      fetchJsonAbort(buildApiUrl('/api/director/vendedores'), [], tKpi),
+      fetchJsonAbort(buildApiUrl('/api/ventas/cotizaciones/resumen'), {}, tKpi),
+      fetchJsonAbort(buildApiUrl('/api/ventas/cumplimiento'), [], tKpi),
+      fetchJsonAbort(buildApiUrl('/api/clientes/resumen-riesgo'), {}, tKpi),
+      fetchJsonAbort(buildApiUrl('/api/resultados/pnl','meses=1'), {}, tKpi),
     ]);
     // fwt ya retorna el fallback directamente; no necesita .value
 

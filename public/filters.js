@@ -614,13 +614,29 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     }
   }
 
+  /** Suma buckets con nombres canónicos (Firebird/proxies a veces devuelven claves en minúsculas). */
+  function bucketSumCanonical(age) {
+    var canon = { CORRIENTE: 0, DIAS_1_30: 0, DIAS_31_60: 0, DIAS_61_90: 0, DIAS_MAS_90: 0 };
+    if (!age || typeof age !== 'object' || Array.isArray(age)) return canon;
+    Object.keys(age).forEach(function (k) {
+      var ku = String(k).toUpperCase();
+      if (Object.prototype.hasOwnProperty.call(canon, ku)) {
+        canon[ku] += +age[k] || 0;
+      }
+    });
+    return canon;
+  }
+
   /** Misma forma que cxc.html: aging plano o envuelto en array (proxies / merges raros). */
   function normalizeCxcAging(ageRaw) {
     if (!ageRaw || typeof ageRaw !== 'object') return {};
+    var base;
     if (Array.isArray(ageRaw)) {
-      return ageRaw[0] && typeof ageRaw[0] === 'object' && !Array.isArray(ageRaw[0]) ? ageRaw[0] : {};
+      base = ageRaw[0] && typeof ageRaw[0] === 'object' && !Array.isArray(ageRaw[0]) ? ageRaw[0] : {};
+    } else {
+      base = ageRaw;
     }
-    return ageRaw;
+    return bucketSumCanonical(base);
   }
 
   /**
@@ -666,7 +682,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       var mx = Math.max(am, bm);
       return Math.abs(am - bm) / mx <= maxRel;
     }
-    if (a.SALDO_TOTAL > 0 && a.VENCIDO <= 0.005 && b.VENCIDO > 0.005 && saldoAligned(a.SALDO_TOTAL, b.SALDO_TOTAL, 0.12)) {
+    if (a.SALDO_TOTAL > 0 && a.VENCIDO <= 0.005 && b.VENCIDO > 0.005 && saldoAligned(a.SALDO_TOTAL, b.SALDO_TOTAL, 0.18)) {
       out.VENCIDO = b.VENCIDO;
       out.POR_VENCER = b.POR_VENCER > 0.005 ? b.POR_VENCER : Math.max(0, a.SALDO_TOTAL - b.VENCIDO);
       if (b.NUM_CLIENTES_VENCIDOS != null && b.NUM_CLIENTES_VENCIDOS !== '') out.NUM_CLIENTES_VENCIDOS = b.NUM_CLIENTES_VENCIDOS;
@@ -674,7 +690,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     if (a.SALDO_TOTAL > 0 && b.SALDO_TOTAL > 0) {
       var mx = Math.max(a.SALDO_TOTAL, b.SALDO_TOTAL);
       var relDiff = Math.abs(a.SALDO_TOTAL - b.SALDO_TOTAL) / mx;
-      if (relDiff <= 0.12) {
+      if (relDiff <= 0.18) {
         if (b.VENCIDO > out.VENCIDO) out.VENCIDO = b.VENCIDO;
         if (b.POR_VENCER > out.POR_VENCER) out.POR_VENCER = b.POR_VENCER;
         if ((out.NUM_CLIENTES_VENCIDOS == null || out.NUM_CLIENTES_VENCIDOS === '') && b.NUM_CLIENTES_VENCIDOS != null) {

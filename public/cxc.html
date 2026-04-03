@@ -1028,8 +1028,9 @@ async function loadResumen() {
     const snap = await apiFetch('/api/cxc/resumen-aging' + buildCxcQuery(), { timeout: 45000 });
     const res = (snap && snap.resumen) || {};
     const ageRaw = (snap && snap.aging) || {};
-
-    const age = ageRaw && typeof ageRaw === 'object' && !Array.isArray(ageRaw) ? ageRaw : (Array.isArray(ageRaw) && ageRaw[0]) ? ageRaw[0] : {};
+    const age = typeof window.normalizeCxcAging === 'function'
+      ? window.normalizeCxcAging(ageRaw)
+      : (ageRaw && typeof ageRaw === 'object' && !Array.isArray(ageRaw) ? ageRaw : (Array.isArray(ageRaw) && ageRaw[0]) ? ageRaw[0] : {});
     const saldo = +res.SALDO_TOTAL||0;
     const vencFromAging = (+age.DIAS_1_30||0) + (+age.DIAS_31_60||0) + (+age.DIAS_61_90||0) + (+age.DIAS_MAS_90||0);
     const corrienteAging = +age.CORRIENTE || 0;

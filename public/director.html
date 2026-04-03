@@ -450,7 +450,7 @@ async function loadAll() {
   try {
     setText('badge-top-clientes', labelPeriodoFiltro());
     /* Mismo snapshot que index: CxC unificado + ventas puede tardar >25s en Render; si abortamos, fetchJson devuelve {} y todo el tab muestra 0. */
-    const tDir = 70000;
+    const tDir = 110000;
     const [dirRes, cxcRes, metasRes] = await Promise.allSettled([
       fetchJson(buildApiUrl('/api/director/resumen'), {}, tDir),
       fetchJson(buildApiUrl('/api/cxc/resumen-aging'), {}, tDir),
