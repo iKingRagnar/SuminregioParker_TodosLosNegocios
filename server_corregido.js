@@ -3469,7 +3469,22 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
   const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
   const whereCliDoc = cf ? ` AND doc.CLIENTE_ID = ${cf}` : '';
   const whereCliSaldo = cf ? ` WHERE cs.CLIENTE_ID = ${cf}` : '';
-  const [docAggRows, cxcSaldosLegacy, cxcAgingLegacy, docStatsRows, movStatsRows, saldoCutRows] = await Promise.all([
+  const agingLegacySql = `
+      SELECT
+        cd.CLIENTE_ID,
+        SUM(cd.SALDO) AS TOTAL_C,
+        SUM(CASE WHEN cd.DIAS_VENCIDO <= 0 THEN cd.SALDO ELSE 0 END) AS COR_C,
+        SUM(CASE WHEN cd.DIAS_VENCIDO BETWEEN 1 AND 30 THEN cd.SALDO ELSE 0 END) AS B1_C,
+        SUM(CASE WHEN cd.DIAS_VENCIDO BETWEEN 31 AND 60 THEN cd.SALDO ELSE 0 END) AS B2_C,
+        SUM(CASE WHEN cd.DIAS_VENCIDO BETWEEN 61 AND 90 THEN cd.SALDO ELSE 0 END) AS B3_C,
+        SUM(CASE WHEN cd.DIAS_VENCIDO > 90 THEN cd.SALDO ELSE 0 END) AS B4_C,
+        SUM(CASE WHEN cd.DIAS_VENCIDO > 0 THEN cd.SALDO ELSE 0 END) AS VENC_C
+      FROM ${cxcCargosSQL()} cd
+      ${cf ? `WHERE cd.CLIENTE_ID = ${cf}` : ''}
+      GROUP BY cd.CLIENTE_ID
+    `;
+
+  const [docAggRows, cxcSaldosLegacy, cxcAgingLegacyRaw, docStatsRows, movStatsRows, saldoCutRows] = await Promise.all([
     query(`
       SELECT
         COUNT(DISTINCT doc.CLIENTE_ID) AS NUM_CLIENTES_DOC,
@@ -3485,20 +3500,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
       WHERE doc.SALDO_NETO > 0.005 ${whereCliDoc}
     `, [], ms, dbo).catch((err) => { console.error('cxcResumenAgingUnificado docAgg error:', err && (err.message || err)); return []; }),
     query(`SELECT cs.CLIENTE_ID, cs.SALDO FROM ${cxcClienteSQL()} cs${whereCliSaldo}`, [], ms, dbo).catch((err) => { console.error('cxcResumenAgingUnificado saldosLegacy error:', err && (err.message || err)); return []; }),
-    query(`
-      SELECT
-        cd.CLIENTE_ID,
-        SUM(cd.SALDO) AS TOTAL_C,
-        SUM(CASE WHEN cd.DIAS_VENCIDO <= 0 THEN cd.SALDO ELSE 0 END) AS COR_C,
-        SUM(CASE WHEN cd.DIAS_VENCIDO BETWEEN 1 AND 30 THEN cd.SALDO ELSE 0 END) AS B1_C,
-        SUM(CASE WHEN cd.DIAS_VENCIDO BETWEEN 31 AND 60 THEN cd.SALDO ELSE 0 END) AS B2_C,
-        SUM(CASE WHEN cd.DIAS_VENCIDO BETWEEN 61 AND 90 THEN cd.SALDO ELSE 0 END) AS B3_C,
-        SUM(CASE WHEN cd.DIAS_VENCIDO > 90 THEN cd.SALDO ELSE 0 END) AS B4_C,
-        SUM(CASE WHEN cd.DIAS_VENCIDO > 0 THEN cd.SALDO ELSE 0 END) AS VENC_C
-      FROM ${cxcCargosSQL()} cd
-      ${cf ? `WHERE cd.CLIENTE_ID = ${cf}` : ''}
-      GROUP BY cd.CLIENTE_ID
-    `, [], ms, dbo).catch((err) => { console.error('cxcResumenAgingUnificado agingLegacy error:', err && (err.message || err)); return []; }),
+    query(agingLegacySql, [], ms, dbo).catch((err) => { console.error('cxcResumenAgingUnificado agingLegacy error:', err && (err.message || err)); return []; }),
     query(`
       SELECT
         COUNT(*) AS DOCS_SALDO,
@@ -3548,6 +3550,21 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
   ag4 = +docAgg.B4_C || 0;
   porVencer = agCorr;
   let numCliVenc = +(docAgg.NUM_CLI_VENC_DOC || 0);
+
+  // Si el aging legacy vino vacío/cero por timeout parcial, reintentar una vez con más tiempo.
+  let cxcAgingLegacy = Array.isArray(cxcAgingLegacyRaw) ? cxcAgingLegacyRaw : [];
+  if (saldoTotal > 0.005) {
+    const legacyHadRows = Array.isArray(cxcAgingLegacy) && cxcAgingLegacy.length;
+    const legacyAnyVenc = legacyHadRows && cxcAgingLegacy.some((r) => (+r.VENC_C || 0) > 0.005);
+    const legacyAnyData = legacyHadRows && cxcAgingLegacy.some((r) => ((+r.TOTAL_C || 0) > 0.005) || ((+r.COR_C || 0) > 0.005) || ((+r.VENC_C || 0) > 0.005));
+    if (!legacyAnyData || (!legacyAnyVenc && vencido <= 0.005)) {
+      const msRetry = Math.min(120000, Math.max(ms, 90000));
+      try {
+        const retryRows = await query(agingLegacySql, [], msRetry, dbo).catch(() => []);
+        if (Array.isArray(retryRows) && retryRows.length) cxcAgingLegacy = retryRows;
+      } catch (_) {}
+    }
+  }
   if (saldoTotal <= 0.005 && Array.isArray(cxcSaldosLegacy) && cxcSaldosLegacy.length) {
     saldoTotal = (cxcSaldosLegacy || []).reduce((s, r) => s + (+r.SALDO || 0), 0);
     const aggLegacy = (Array.isArray(cxcAgingLegacy) ? cxcAgingLegacy : []).reduce((a, r) => {
