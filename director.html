@@ -843,21 +843,22 @@ try{
   if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:beforeSync'; }
   if (window.syncDbContextFromUrlOrFallback) window.syncDbContextFromUrlOrFallback();
   try{ loadAll(); }catch(_){}
-  if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:beforeInitFilters'; }
-  initFilters({ containerId:'filter-bar', showVendedor:true, onReady:()=>loadAll(), onChange:()=>loadAll() });
-  if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:afterInitFilters'; }
-  // Failsafe: si initFilters no dispara onReady, arrancar loadAll
   setTimeout(function(){
-    try{
-      const started = window.__DBG_STATE ? (+window.__DBG_STATE.loadAllStarted||0) : 0;
-      if (started > 0) return;
-      if (typeof loadAll === 'function') loadAll();
-      if (dbgEnabled() && window.__DBG_STATE){
-        window.__DBG_STATE.note = 'failsafe: loadAll() (onReady no disparó)';
-        window.__DBG_STATE.phase = 'boot:failsafeLoadAll';
-      }
-    }catch(_){}
-  }, 1500);
+    if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:beforeInitFilters'; }
+    initFilters({ containerId:'filter-bar', showVendedor:true, onReady:()=>loadAll(), onChange:()=>loadAll() });
+    if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:afterInitFilters'; }
+    setTimeout(function(){
+      try{
+        const started = window.__DBG_STATE ? (+window.__DBG_STATE.loadAllStarted||0) : 0;
+        if (started > 0) return;
+        if (typeof loadAll === 'function') loadAll();
+        if (dbgEnabled() && window.__DBG_STATE){
+          window.__DBG_STATE.note = 'failsafe: loadAll() (onReady no disparó)';
+          window.__DBG_STATE.phase = 'boot:failsafeLoadAll';
+        }
+      }catch(_){}
+    }, 1500);
+  }, 0);
 }catch(e){
   if(dbgEnabled() && window.__DBG_STATE){
     window.__DBG_STATE.phase='boot:error';
