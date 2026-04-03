@@ -95,6 +95,17 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     }
   }
 
+  /** Mismo criterio que cxc.html (withDbParam): URL/session sin normalizar parker→default. Evita KPI vencido $0 en Inicio/Director mientras CxC sí muestra mora. */
+  function getDbForCxcApi() {
+    try {
+      var u = (new URLSearchParams(window.location.search).get('db') || '').trim();
+      if (u) return u;
+      var s = (sessionStorage.getItem('microsip_erp_db') || '').trim();
+      if (s) return s;
+    } catch (e) {}
+    return getSelectedDbId();
+  }
+
   function getParams() {
     const p = { preset: _state.preset || 'mes' };
     if (_state.desde && _state.hasta) {
@@ -108,12 +119,12 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     return p;
   }
 
-  /** extras: objeto opcional. opts.omitDb = true no a�ade ?db= (p. ej. universe/scorecard). opts.omitVendedor = true quita vendedor del QS (p. ej. vista global de ventas-diarias). */
+  /** extras: objeto opcional. opts.omitDb = true no a�ade ?db= (p. ej. universe/scorecard). opts.omitVendedor = true quita vendedor del QS (p. ej. vista global de ventas-diarias). opts.useCxcDbIdentity = true usa mismo ?db= que la pestaña CxC (sin alias parker→default). */
   function buildQS(extras, opts) {
     const p = Object.assign({}, getParams(), (extras && typeof extras === 'object') ? extras : {});
     if (opts && opts.omitVendedor) delete p.vendedor;
     if (!opts || !opts.omitDb) {
-      const db = getSelectedDbId();
+      const db = opts && opts.useCxcDbIdentity ? getDbForCxcApi() : getSelectedDbId();
       if (db) p.db = db;
     }
     return Object.keys(p)
@@ -789,5 +800,11 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   window.finalizeCxcKpiDisplay      = finalizeCxcKpiDisplay;
   window.normalizeCxcAging        = normalizeCxcAging;
   window.applyCxcSnapshotForKpis  = applyCxcSnapshotForKpis;
+  window.getDbForCxcApi           = getDbForCxcApi;
+  /** Query string para GET /api/cxc/resumen-aging alineado a cxc.html (db literal + filtros de periodo). */
+  function filterCxcKpiQueryString() {
+    return buildQS(null, { useCxcDbIdentity: true });
+  }
+  window.filterCxcKpiQueryString  = filterCxcKpiQueryString;
 
 })();
