@@ -1594,6 +1594,18 @@ function renderChart(data){
     if(window.initFilters){
       if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:initFilters'; }
       initFilters({ containerId:'filter-bar', showVendedor:true, onReady:()=>loadAll(), onChange:()=>loadAll() });
+      // Failsafe: si initFilters no dispara onReady, arrancar loadAll
+      setTimeout(function(){
+        try{
+          const started = window.__DBG_STATE ? (+window.__DBG_STATE.loadAllStarted||0) : 0;
+          if (started > 0) return;
+          if (typeof loadAll === 'function') loadAll();
+          if (dbgEnabled() && window.__DBG_STATE){
+            window.__DBG_STATE.note = 'failsafe: loadAll() (onReady no disparó)';
+            window.__DBG_STATE.phase = 'boot:failsafeLoadAll';
+          }
+        }catch(_){}
+      }, 1500);
     } else {
       if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:callLoadAll'; }
       loadAll();
