@@ -1165,7 +1165,7 @@ async function loadAll(){
     const [v,m,cRaw,inv,dir,vends,cot,cumpl,cliRes,pnlData]=await Promise.all([
       dbgWrap('ventas/resumen', fetchJsonAbort(buildApiUrl('/api/ventas/resumen'), {}, tKpi)),
       dbgWrap('config/metas', fetchJsonAbort(buildApiUrl('/api/config/metas'), {}, tKpi)),
-      dbgWrap('cxc/resumen-aging', fetchJsonAbort(buildApiUrl('/api/cxc/resumen-aging'), {}, tKpi)),
+      dbgWrap('cxc/resumen-aging', fetchJsonAbort(buildApiUrl('/api/cxc/resumen-aging','queryMs=120000'), {}, tKpi)),
       dbgWrap('inv/resumen', fetchJsonAbort(buildApiUrl('/api/inv/resumen'), {}, tKpi)),
       dbgWrap('director/resumen', fetchJsonAbort(buildApiUrl('/api/director/resumen', 'omitCxc=1'), {}, tKpi)),
       dbgWrap('director/vendedores', fetchJsonAbort(buildApiUrl('/api/director/vendedores'), [], tKpi)),

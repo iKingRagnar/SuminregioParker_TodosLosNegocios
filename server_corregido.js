@@ -3721,10 +3721,11 @@ get('/api/cxc/aging', async (req) => {
 
 // Un solo snapshot: evita que el cliente llame /resumen y /aging en paralelo (duplicaba cxcResumenAgingUnificado y saturaba Firebird en Render).
 get('/api/cxc/resumen-aging', async (req) => {
+  const qms = Math.min(Math.max(parseInt(req.query.queryMs, 10) || cxcAgingQueryMs(), 3000), 180000);
   if (isAllDbs(req)) {
     const snaps = await mapPoolLimit(DATABASE_REGISTRY, 2, async (entry) => {
       try {
-        return await cxcResumenAgingUnificado(req, entry.options);
+        return await cxcResumenAgingUnificado(req, entry.options, qms);
       } catch (e) {
         return { resumen: { SALDO_TOTAL: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: 0, VENCIDO: 0, POR_VENCER: 0 }, aging: { CORRIENTE: 0, DIAS_1_30: 0, DIAS_31_60: 0, DIAS_61_90: 0, DIAS_MAS_90: 0 } };
       }
@@ -3732,7 +3733,7 @@ get('/api/cxc/resumen-aging', async (req) => {
     return mergeCxcResumenAgingSnaps(snaps);
   }
   const dbo = getReqDbOpts(req);
-  const snap = await cxcResumenAgingUnificado(req, dbo);
+  const snap = await cxcResumenAgingUnificado(req, dbo, qms);
   return { resumen: snap.resumen, aging: snap.aging };
 });
 
