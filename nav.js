@@ -266,7 +266,7 @@ html[data-theme="light"]{
   --border:rgba(15,23,42,.08);--border2:rgba(15,23,42,.12);
   --text:#0f172a;--text2:#334155;--muted:#64748b;--dim:#e2e8f0;
 }
-/* CxC (body.ms-page-cxc): no aplastar KPI/tablas â€” la pÃ¡gina trae su propio tema + app-ui cxc */
+/* CxC (body.ms-page-cxc): no aplastar KPI/tablas  la pgina trae su propio tema + app-ui cxc */
 html[data-theme="light"] body:not(.ms-page-cxc){background:var(--bg)!important;color:var(--text)!important}
 html[data-theme="light"] body:not(.ms-page-cxc) header#app-header{
   background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(248,250,252,.94));
@@ -612,9 +612,6 @@ body:not(.ms-page-cxc) :where(main,.page) :where(.chart-wrap,.chart-h220,.chart-
       el.classList.add(lvl);
       painted += 1;
     });
-    // #region agent log
-    fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run18',hypothesisId:'H80',location:'nav.js:applyGlobalSemaforos',message:'global semantic coloring pass',data:{scanned,painted,page:currentPage()},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
   }
 
   /* Replace or inject header */
@@ -660,14 +657,6 @@ body:not(.ms-page-cxc) :where(main,.page) :where(.chart-wrap,.chart-h220,.chart-
       themeBtn.addEventListener('click', toggleNavTheme);
     }
     applyNavTheme();
-    try {
-      const logoEl = document.querySelector('.logo-mark');
-      const rect = logoEl ? logoEl.getBoundingClientRect() : null;
-      const themeNow = document.documentElement.getAttribute('data-theme') || 'dark';
-      // #region agent log
-      fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run28',hypothesisId:'H205',location:'nav.js:inject',message:'header logo/theme render metrics',data:{theme:themeNow,logo:{w:rect?Math.round(rect.width):0,h:rect?Math.round(rect.height):0}},timestamp:Date.now()})}).catch(()=>{});
-      // #endregion
-    } catch (_) {}
 
     // Legacy assistant disabled by default (chat-widget.js is the active assistant).
     if (window.__USE_LEGACY_AI_ASSISTANT__ === true) {
@@ -688,9 +677,6 @@ body:not(.ms-page-cxc) :where(main,.page) :where(.chart-wrap,.chart-h220,.chart-
         semTick = requestAnimationFrame(() => {
           semTick = null;
           applyGlobalSemaforos();
-          // #region agent log
-          fetch('http://127.0.0.1:7845/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5e0522'},body:JSON.stringify({sessionId:'5e0522',runId:'run18',hypothesisId:'H81',location:'nav.js:MutationObserver',message:'semantic recolor scheduled after DOM mutation',data:{page:currentPage()},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
         });
       };
       const mo = new MutationObserver(() => { initGlobalTableSort(); scheduleSemaforo(); });
