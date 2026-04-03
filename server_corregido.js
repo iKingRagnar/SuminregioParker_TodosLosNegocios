@@ -5721,6 +5721,8 @@ async function resultadosPnlCore(req, dbOpts) {
   if (sumGastosRows(gastosRows) <= 0.01 && singleMonthRange) {
     const yStart = `${ey}-01-01`;
     const yEnd = hastaStr;
+    const yStartNum = ey * 100 + 1;
+    const yEndNum = ey * 100 + em;
     let fallbackRows = [];
     try {
       fallbackRows = await q(`
@@ -5745,11 +5747,11 @@ async function resultadosPnlCore(req, dbOpts) {
         FROM SALDOS_CO s
         JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
         WHERE (cu.CUENTA_PT STARTING WITH '52' OR cu.CUENTA_PT STARTING WITH '53' OR cu.CUENTA_PT STARTING WITH '54')
-          AND CAST(MAKE_DATE(${salYearExpr}, ${salMonthExpr}, 1) AS DATE) >= CAST(? AS DATE)
-          AND CAST(MAKE_DATE(${salYearExpr}, ${salMonthExpr}, 1) AS DATE) <= CAST(? AS DATE)
+          AND (${salYearExpr} * 100 + ${salMonthExpr}) >= ?
+          AND (${salYearExpr} * 100 + ${salMonthExpr}) <= ?
         GROUP BY ${salYearExpr}, ${salMonthExpr}
         ORDER BY ${salYearExpr} DESC, ${salMonthExpr} DESC
-      `, [yStart, yEnd], 15000).catch(() => []);
+      `, [yStartNum, yEndNum], 15000).catch(() => []);
     } catch (_) {}
     let fb = (fallbackRows || []).find((r) => sumGastoRow(r) > 0.01);
     if (!fb) {
