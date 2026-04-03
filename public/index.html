@@ -1086,6 +1086,9 @@ async function loadAll(){
       fetchJsonAbort(buildApiUrl('/api/clientes/resumen-riesgo'), {}, tKpi),
       fetchJsonAbort(buildApiUrl('/api/resultados/pnl','meses=1'), {}, tKpi),
     ]);
+    fetchJsonAbort(API + '/api/ping', {}, 8000).then(function (p) {
+      if (p && p.build) window.__SUMINREGIO_API_BUILD = p.build;
+    }).catch(function () {});
     // fwt ya retorna el fallback directamente; no necesita .value
 
     // Metas
@@ -1304,8 +1307,8 @@ async function loadAll(){
     setEl('modMetaVend',numVend+' vendedores');
     setEl('modMetaStatus','Activo');
 
-    // Cobradas
-    const cobradoEst=+c.POR_VENCER||0;
+    // Cobradas (c es snapshot resumen-aging { resumen, aging }; usar KPI ya fusionado cx)
+    const cobradoEst=+cx.POR_VENCER||0;
     const comisionEst=Math.round(cobradoEst*0.08*100)/100;
     setEl('modCobradoMes',fmtM(cobradoEst));
     setEl('modComision',fmtM(comisionEst));

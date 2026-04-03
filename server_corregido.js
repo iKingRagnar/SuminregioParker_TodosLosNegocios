@@ -69,7 +69,7 @@ const path     = require('path');
 
 const app  = express();
 const PORT = process.env.PORT || 7000;
-const BUILD_FINGERPRINT = 'cxc-dedupe-docto-maxdias-20250326';
+const BUILD_FINGERPRINT = 'cxc-legacy-scale-venc-20260403';
 
 /**
  * Power BI / reportes suelen usar importe base sin IVA; en cabecera DOCTOS_VE/PV el campo
@@ -3606,6 +3606,29 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
       ag4 = aggLegacyFlat.b4;
       porVencer = agCorr;
       saldoTotal = legacySum;
+      numCliVenc = cxcAgingLegacy.filter((r) => (+r.VENC_C || 0) > 0.005).length;
+    }
+  }
+
+  // Si el agregado por documento sigue con VENCIDO=0 pero el aging por cliente sí tiene mora y los totales
+  // legacy no entraron en la ventana del 35%, escalar buckets legacy al SALDO_TOTAL documental (misma forma, otro tamaño).
+  if (
+    saldoTotal > 0.005 &&
+    vencido <= 0.005 &&
+    aggLegacyFlat.venc > 0.005 &&
+    legacySum > 0.005 &&
+    Array.isArray(cxcAgingLegacy) &&
+    cxcAgingLegacy.length
+  ) {
+    const scale = saldoTotal / legacySum;
+    if (scale >= 0.12 && scale <= 8.0) {
+      agCorr = aggLegacyFlat.cor * scale;
+      ag1 = aggLegacyFlat.b1 * scale;
+      ag2 = aggLegacyFlat.b2 * scale;
+      ag3 = aggLegacyFlat.b3 * scale;
+      ag4 = aggLegacyFlat.b4 * scale;
+      vencido = ag1 + ag2 + ag3 + ag4;
+      porVencer = agCorr;
       numCliVenc = cxcAgingLegacy.filter((r) => (+r.VENC_C || 0) > 0.005).length;
     }
   }
