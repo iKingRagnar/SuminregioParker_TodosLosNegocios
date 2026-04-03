@@ -1,18 +1,22 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="theme-premium-light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CXC &mdash; Suminregio Parker</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');</script>
 <script src="filters.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#060E1A;--s1:#0C1B29;--s2:#112233;--s3:#172D42;--s4:#1D3654;
-  --acc:#2563EB;--acc2:#3B82F6;--acc3:#60A5FA;
+  --suminregio:#E6A800;--suminregio-dim:rgba(230,168,0,.15);
+  --accent:var(--suminregio);
+  --acc:var(--accent);--acc2:#E8B830;--acc3:#ECBF4D;
   --red:#EF4444;--grn:#22C55E;--ylw:#F59E0B;--cyn:#06B6D4;--prp:#8B5CF6;
   --txt:#E2E8F0;--txt2:#94A3B8;--txt3:#64748B;
   --brd:rgba(255,255,255,.06);
@@ -24,50 +28,268 @@ body{overflow-x:hidden}
 .orb-1{width:600px;height:600px;background:radial-gradient(circle,#1E7FD9,transparent 70%);top:-200px;left:-200px}
 .orb-2{width:500px;height:500px;background:radial-gradient(circle,#22C55E,transparent 70%);bottom:-150px;right:-150px}
 
-nav{position:fixed;top:0;left:0;right:0;height:56px;background:rgba(5,11,20,.92);backdrop-filter:blur(20px);
-    border-bottom:1px solid var(--brd);display:flex;align-items:center;justify-content:space-between;
-    padding:0 24px;z-index:100}
-.nav-brand{display:flex;align-items:center;gap:10px}
-.nav-logo{width:32px;height:32px;background:linear-gradient(135deg,var(--acc),var(--prp));border-radius:8px;
-          display:grid;place-items:center;font-size:14px;font-weight:800;color:#fff}
-.nav-title{font-size:15px;font-weight:700;letter-spacing:.5px}
-.nav-sub{font-size:11px;color:var(--txt3);font-family:var(--mono);margin-left:4px}
-.nav-links{display:flex;gap:4px}
-.nav-links a{color:var(--txt2);text-decoration:none;padding:6px 12px;border-radius:6px;font-size:12px;
-             font-weight:600;transition:.2s;letter-spacing:.3px}
-.nav-links a:hover{background:var(--s3);color:var(--txt)}
-.nav-links a.active{background:var(--acc);color:#fff}
-.nav-right{display:flex;align-items:center;gap:12px}
+/* Header unificado (9 pestañas como Inicio/P&L) */
+#app-header{position:sticky;top:0;z-index:100;background:rgba(5,11,20,.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--brd)}
+.header-inner{max-width:1900px;margin:0 auto;height:62px;display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:0 1.5rem}
+.logo{display:flex;align-items:center;gap:.7rem;text-decoration:none;flex-shrink:0}
+.logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--suminregio),#FF8C42);border-radius:9px;display:grid;place-items:center;flex-shrink:0;box-shadow:0 0 18px rgba(230,168,0,.28)}
+.logo-icon svg{width:20px;height:20px;fill:none;stroke:white;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.logo-text{font-size:.9rem;font-weight:800;color:var(--txt)}
+.logo-sub{font-size:.57rem;font-family:var(--mono);color:var(--txt3);letter-spacing:.12em;text-transform:uppercase}
+#app-header nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
+#app-header .nav-link{display:flex;align-items:center;gap:.4rem;padding:.35rem .75rem;border-radius:7px;font-size:.73rem;font-weight:600;color:var(--txt3);text-decoration:none;transition:all .2s;white-space:nowrap;border:1px solid transparent}
+#app-header .nav-link:hover{color:var(--txt2);background:var(--s2)}
+#app-header .nav-link.active{color:var(--suminregio);background:rgba(230,168,0,.15);border-color:var(--suminregio)}
+#app-header .nav-link svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.header-right{display:flex;align-items:center;gap:12px;flex-shrink:0}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--grn);animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
 
-main{padding-top:72px;padding-bottom:40px;max-width:1400px;margin:0 auto;
-     padding-left:20px;padding-right:20px;position:relative;z-index:1}
+#cxc-particles{
+  position:fixed;inset:0;z-index:1;width:100%;height:100%;pointer-events:none;
+  opacity:.55;mix-blend-mode:screen;
+}
+@media (prefers-reduced-motion:reduce){
+  #cxc-particles{display:none!important}
+}
 
-.filter-bar{background:var(--s1);border:1px solid var(--brd);border-radius:12px;
+.cxc-spectacle-dock{
+  position:fixed;right:16px;bottom:16px;z-index:140;
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;
+  padding:10px 12px;border-radius:999px;
+  background:rgba(15,23,42,.78);backdrop-filter:blur(16px);
+  border:1px solid rgba(230,168,0,.22);
+  box-shadow:0 12px 40px rgba(0,0,0,.35),0 0 0 1px rgba(255,255,255,.04) inset;
+  max-width:min(96vw,420px);
+}
+.cxc-spectacle-dock span.cxc-dock-hint{
+  font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:rgba(226,232,240,.55);padding-right:6px;border-right:1px solid rgba(255,255,255,.1);margin-right:4px;
+}
+.cxc-spectacle-dock button{
+  width:40px;height:40px;border-radius:12px;border:1px solid rgba(255,255,255,.1);
+  background:linear-gradient(165deg,rgba(230,168,0,.2),rgba(17,34,51,.9));
+  color:#f8fafc;font-size:17px;line-height:1;cursor:pointer;
+  transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease,background .2s ease;
+  font-family:var(--font);
+}
+.cxc-spectacle-dock button:hover{
+  transform:translateY(-2px) scale(1.04);
+  border-color:rgba(230,168,0,.45);
+  box-shadow:0 6px 20px rgba(230,168,0,.2);
+}
+.cxc-spectacle-dock button[aria-pressed="true"]{
+  background:linear-gradient(165deg,rgba(34,197,94,.35),rgba(17,34,51,.95));
+  border-color:rgba(34,197,94,.4);
+  box-shadow:0 0 20px rgba(34,197,94,.15);
+}
+body.ms-page-cxc.cxc-present .cxc-spectacle-dock{
+  background:rgba(15,23,42,.88);
+  border-color:rgba(251,191,36,.45);
+  box-shadow:0 12px 40px rgba(0,0,0,.35),0 0 0 1px rgba(251,191,36,.12),0 0 28px rgba(251,191,36,.15);
+  backdrop-filter:blur(14px) saturate(1.2);
+}
+.cxc-spectacle-dock button.cxc-dock-present[aria-pressed="true"]{
+  background:linear-gradient(165deg,rgba(230,168,0,.45),rgba(124,45,18,.35));
+  border-color:rgba(251,191,36,.5);
+}
+@keyframes cxcDockDataFlash{
+  0%{border-color:rgba(34,197,94,.55);box-shadow:0 12px 40px rgba(0,0,0,.35),0 0 24px rgba(34,197,94,.25);}
+  100%{border-color:rgba(230,168,0,.22);box-shadow:0 12px 40px rgba(0,0,0,.35),0 0 0 1px rgba(255,255,255,.04) inset;}
+}
+.cxc-spectacle-dock.cxc-dock-data-flash{
+  animation:cxcDockDataFlash .75s ease-out;
+}
+@media (max-width:600px){
+  .cxc-spectacle-dock{left:12px;right:12px;bottom:12px;justify-content:center;border-radius:16px}
+  .cxc-spectacle-dock span.cxc-dock-hint{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .cxc-spectacle-dock.cxc-dock-data-flash{animation:none!important}
+}
+
+/* Modo presentación: lectura amplia, tipografía hero, menos ruido visual */
+body.ms-page-cxc.cxc-present{
+  scroll-behavior:smooth;
+}
+body.ms-page-cxc.cxc-present .orb{opacity:.06!important;filter:blur(160px)!important}
+body.ms-page-cxc.cxc-present #cxc-particles{opacity:.35}
+body.ms-page-cxc.cxc-present main{
+  max-width:min(1720px,98vw);
+  padding-left:clamp(20px,4vw,48px);
+  padding-right:clamp(20px,4vw,48px);
+  padding-bottom:72px;
+}
+body.ms-page-cxc.cxc-present .cxc-hero{padding:22px 26px;border-radius:20px}
+body.ms-page-cxc.cxc-present .cxc-hero h1{font-size:clamp(1.55rem,3.2vw,2.1rem)}
+body.ms-page-cxc.cxc-present .kpi-val{font-size:clamp(1.65rem,3.2vw,2.35rem)!important}
+body.ms-page-cxc.cxc-present .cxc-kpi-storytitle{font-size:clamp(1.2rem,2.4vw,1.65rem)}
+body.ms-page-cxc.cxc-present .aging-val{font-size:clamp(1.15rem,2.2vw,1.45rem)}
+body.ms-page-cxc.cxc-present .chart-wrap{min-height:280px;height:min(320px,42vh)}
+body.ms-page-cxc.cxc-present .tabs{gap:8px;padding:8px}
+body.ms-page-cxc.cxc-present .tab{padding:10px 22px;font-size:13px}
+@media (prefers-reduced-motion:reduce){
+  body.ms-page-cxc{scroll-behavior:auto}
+}
+
+main{padding-top:24px;padding-bottom:48px;max-width:1520px;margin:0 auto;
+     padding-left:clamp(16px,3vw,28px);padding-right:clamp(16px,3vw,28px);position:relative;z-index:2}
+
+.cxc-hero{
+  --cxc-hero-shine:linear-gradient(125deg,rgba(230,168,0,.12) 0%,rgba(255,255,255,.04) 40%,rgba(6,182,212,.08) 55%,rgba(230,168,0,.1) 100%);
+  margin-bottom:22px;padding:18px 22px;border-radius:16px;
+  background:linear-gradient(135deg,rgba(230,168,0,.08),rgba(6,14,26,.6)),var(--cxc-hero-shine);
+  background-size:100% 100%,220% 220%;
+  border:1px solid rgba(230,168,0,.18);display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 20px;justify-content:space-between;
+  position:relative;overflow:hidden;
+  box-shadow:0 8px 32px rgba(6,14,26,.25)
+}
+.cxc-hero::after{
+  content:'';position:absolute;inset:-40%;background:radial-gradient(ellipse 50% 40% at 70% 20%,rgba(230,168,0,.14),transparent 72%);
+  pointer-events:none;opacity:.85;
+  animation:cxcHeroAura 14s ease-in-out infinite alternate
+}
+@keyframes cxcHeroAura{
+  from{transform:translate(-4%,2%) scale(1);opacity:.65}
+  to{transform:translate(4%,-2%) scale(1.05);opacity:.95}
+}
+@media (prefers-reduced-motion:reduce){
+  .cxc-hero::after{animation:none;opacity:.5}
+}
+.cxc-hero > *{position:relative;z-index:1}
+.cxc-hero h1{font-size:clamp(1.35rem,2.5vw,1.75rem);font-weight:800;letter-spacing:-.02em;color:var(--suminregio);margin:0;text-shadow:0 0 20px rgba(230,168,0,.18)}
+.cxc-hero p{margin:6px 0 0;font-size:12px;color:var(--txt2);max-width:52ch;line-height:1.45}
+.cxc-hero-meta{font-family:var(--mono);font-size:11px;color:var(--suminregio);opacity:.9}
+
+.client-filter-bar{background:var(--s1);border:1px solid var(--brd);border-radius:12px;
             padding:14px 20px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:24px}
-.filter-bar select{background:var(--s2);border:1px solid var(--brd);color:var(--txt);
+.client-filter-bar select{background:var(--s2);border:1px solid var(--brd);color:var(--txt);
   border-radius:8px;padding:7px 12px;font-family:var(--font);font-size:12px;outline:none;transition:.2s;min-width:200px}
-.filter-bar select:focus{border-color:var(--acc)}
+.client-filter-bar select:focus{border-color:var(--accent)}
 .filter-group{display:flex;flex-direction:column;gap:4px}
 .filter-label{font-size:10px;color:var(--txt3);font-weight:700;letter-spacing:.5px}
-.btn{background:var(--acc);color:#fff;border:none;border-radius:8px;padding:8px 18px;
+.btn{background:var(--accent);color:#050B14;border:none;border-radius:8px;padding:8px 18px;
      font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;transition:.2s}
-.btn:hover{background:var(--acc2)}
+.btn:hover{background:var(--acc2);color:#050B14}
 
-.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
-.kpi{background:var(--s1);border:1px solid var(--brd);border-radius:14px;padding:20px 22px;
-     position:relative;overflow:hidden;transition:.2s}
-.kpi:hover{transform:translateY(-2px);border-color:rgba(37,99,235,.3)}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:18px;margin-bottom:26px}
+.kpi{background:linear-gradient(165deg,rgba(17,34,51,.95),rgba(12,27,41,.88));border:1px solid var(--brd);border-radius:16px;padding:22px 24px;
+     position:relative;overflow:hidden;transition:transform .2s,border-color .2s,box-shadow .2s;box-shadow:0 4px 24px rgba(0,0,0,.2)}
+.kpi::after{content:'';position:absolute;inset:0;border-radius:16px;pointer-events:none;opacity:0;transition:opacity .2s;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+.kpi:hover{transform:translateY(-3px);border-color:rgba(230,168,0,.25);box-shadow:0 12px 40px rgba(0,0,0,.35)}
+.kpi:hover::after{opacity:1}
+.kpi--total{border-color:rgba(230,168,0,.2)}
+.kpi--venc{border-color:rgba(239,68,68,.15)}
+.kpi--vig{border-color:rgba(34,197,94,.2)}
+.kpi--health{border-color:rgba(6,182,212,.15)}
 .kpi-label{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--txt3);margin-bottom:10px}
 .kpi-val{font-family:var(--mono);font-size:26px;font-weight:500;color:var(--txt);line-height:1}
 .kpi-val.red{color:var(--red)} .kpi-val.grn{color:var(--grn)} .kpi-val.ylw{color:var(--ylw)}
-.kpi-sub{font-size:11px;color:var(--txt3);margin-top:6px;font-family:var(--mono)}
+.kpi-sub{font-size:11px;color:var(--txt3);margin-top:10px;font-family:var(--mono);line-height:1.35}
 .kpi-badge{position:absolute;top:16px;right:16px;font-size:18px;opacity:.25}
 
-.aging-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px}
-.aging-bkt{background:var(--s1);border:1px solid var(--brd);border-radius:12px;padding:16px;text-align:center}
+/* --- Viaje narrativo KPI (CxC): contexto → número → proporción --- */
+.cxc-kpi-journey{
+  margin-bottom:28px;padding:0 2px;
+}
+.cxc-kpi-journey-head{margin-bottom:18px;max-width:72ch}
+.cxc-kpi-eyebrow{font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--txt3);margin-bottom:6px;
+  display:flex;align-items:center;gap:8px}
+.cxc-kpi-eyebrow::before{content:'';width:28px;height:2px;border-radius:2px;background:linear-gradient(90deg,var(--suminregio),transparent)}
+.cxc-kpi-storytitle{font-size:clamp(1.05rem,2vw,1.35rem);font-weight:800;letter-spacing:-.02em;color:#f8fafc;line-height:1.2;margin:0 0 6px}
+.cxc-kpi-lead{font-size:12.5px;color:#cbd5e1;line-height:1.55;margin:0}
+.kpi-grid--story{grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;position:relative}
+@media(min-width:1100px){
+  .kpi-grid--story::before{
+    content:'';position:absolute;left:12px;right:12px;top:52px;height:2px;
+    background:linear-gradient(90deg,rgba(230,168,0,.35),rgba(6,182,212,.25),rgba(34,197,94,.3),rgba(230,168,0,.2));
+    border-radius:2px;opacity:.45;pointer-events:none;z-index:0
+  }
+  .kpi-story{position:relative;z-index:1}
+}
+.kpi-story{
+  padding-top:20px;padding-bottom:20px;
+  border-left:3px solid transparent;
+  transition:border-color .3s ease, box-shadow .35s ease, transform .35s cubic-bezier(.2,.8,.2,1);
+}
+.kpi-story::before{
+  content:'';position:absolute;inset:-1px;border-radius:16px;opacity:0;transition:opacity .4s ease;pointer-events:none;
+  background:radial-gradient(120% 80% at 10% 0%,rgba(230,168,0,.08),transparent 55%)
+}
+.kpi-story:hover::before{opacity:1}
+.kpi--total.kpi-story{border-left-color:rgba(230,168,0,.45)}
+.kpi--venc.kpi-story{border-left-color:rgba(239,68,68,.35)}
+.kpi--vig.kpi-story{border-left-color:rgba(34,197,94,.35)}
+.kpi--health.kpi-story{border-left-color:rgba(6,182,212,.35)}
+.kpi-story-step{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.kpi-step-num{
+  width:32px;height:32px;border-radius:10px;display:grid;place-items:center;
+  font-size:13px;font-weight:800;font-family:var(--mono);
+  background:linear-gradient(145deg,rgba(230,168,0,.18),rgba(17,34,51,.9));
+  border:1px solid rgba(230,168,0,.25);color:var(--suminregio);flex-shrink:0;
+  box-shadow:0 4px 14px rgba(0,0,0,.2)
+}
+.kpi--venc .kpi-step-num{background:linear-gradient(145deg,rgba(239,68,68,.2),rgba(17,34,51,.9));border-color:rgba(239,68,68,.25);color:#fca5a5}
+.kpi--vig .kpi-step-num{background:linear-gradient(145deg,rgba(34,197,94,.22),rgba(17,34,51,.9));border-color:rgba(34,197,94,.28);color:#86efac}
+.kpi--health .kpi-step-num{background:linear-gradient(145deg,rgba(6,182,212,.2),rgba(17,34,51,.9));border-color:rgba(6,182,212,.28);color:#67e8f9}
+.kpi-step-label{font-size:11px;font-weight:700;color:#cbd5e1;letter-spacing:.04em;text-transform:uppercase}
+.kpi-narrative{
+  font-size:12.5px;line-height:1.55;color:#d1d5db;margin:0 0 14px;
+  min-height:2.75em;
+  transition:color .3s ease
+}
+.kpi-narrative strong{color:#f1f5f9;font-weight:700}
+.cxc-kpi-eyebrow{color:#a8b8c9!important}
+.kpi-val{transition:transform .45s cubic-bezier(.34,1.56,.64,1), opacity .4s ease}
+.kpi-story--in .kpi-val{animation:cxcKpiValPop .65s cubic-bezier(.34,1.56,.64,1) both}
+.kpi-story.kpi-story--in{animation:cxcKpiCardIn .58s cubic-bezier(.2,.8,.2,1) both}
+@media (prefers-reduced-motion:no-preference){
+  body.ms-page-cxc .kpi-grid--story .kpi-story.kpi-story--in{
+    animation:cxcKpiCardIn .58s cubic-bezier(.2,.8,.2,1) both,cxcKpiBreathe 5.8s ease-in-out .65s infinite;
+  }
+}
+@keyframes cxcKpiCardIn{
+  from{opacity:.72;transform:translateY(10px)}
+  to{opacity:1;transform:translateY(0)}
+}
+@keyframes cxcKpiValPop{
+  0%{transform:scale(.92);opacity:.5}
+  100%{transform:scale(1);opacity:1}
+}
+@media(prefers-reduced-motion:reduce){
+  .kpi-story.kpi-story--in{animation:none}
+  .kpi-story--in .kpi-val{animation:none}
+}
+.kpi-composition{margin-top:14px;padding-top:12px;border-top:1px solid var(--brd)}
+.kpi-composition-legend{display:flex;align-items:center;gap:12px;font-size:10px;color:var(--txt3);margin-bottom:8px;flex-wrap:wrap}
+.kpi-composition-legend .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:4px;vertical-align:middle}
+.kpi-composition-legend .dot.venc{background:linear-gradient(135deg,#f87171,#ef4444)}
+.kpi-composition-legend .dot.vig{background:linear-gradient(135deg,#4ade80,#22c55e)}
+.kpi-composition-bar{display:flex;height:8px;border-radius:99px;overflow:hidden;background:var(--s3);box-shadow:inset 0 1px 2px rgba(0,0,0,.2)}
+.kpi-composition-bar .seg{height:100%;transition:width 1s cubic-bezier(.4,0,.2,1)}
+.kpi-composition-bar .seg.venc{background:linear-gradient(90deg,#dc2626,#ef4444)}
+.kpi-composition-bar .seg.vig{background:linear-gradient(90deg,#16a34a,#22c55e)}
+.kpi-share-track{height:6px;border-radius:99px;background:var(--s3);margin-top:12px;overflow:hidden}
+.kpi-share-fill{height:100%;border-radius:99px;transition:width 1.1s cubic-bezier(.4,0,.2,1);transform-origin:left}
+.kpi-share-fill--venc{background:linear-gradient(90deg,#b91c1c,#ef4444)}
+.kpi-share-fill--vig{background:linear-gradient(90deg,#15803d,#22c55e)}
+.kpi-share-cap{font-size:10px;color:var(--txt3);margin-top:6px;font-family:var(--mono);letter-spacing:.02em}
+
+.aging-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:24px}
+.aging-bkt{background:var(--s1);border:1px solid var(--brd);border-radius:12px;padding:16px;text-align:center;
+  transition:transform .35s cubic-bezier(.2,.8,.2,1),box-shadow .35s ease,border-color .25s ease,opacity .5s ease}
+.aging-bkt:hover{transform:translateY(-3px);box-shadow:0 12px 28px rgba(0,0,0,.22);border-color:rgba(230,168,0,.2)}
+@media (prefers-reduced-motion:no-preference){
+  .aging-grid.aging-grid--animate .aging-bkt{opacity:0;transform:translateY(12px);transition:opacity .5s ease, transform .55s cubic-bezier(.2,.8,.2,1), box-shadow .35s ease, border-color .25s ease}
+  .aging-grid.aging-grid--animate .aging-bkt.aging-bkt--in{opacity:1;transform:translateY(0)}
+}
 .aging-lbl{font-size:10px;color:var(--txt3);letter-spacing:.5px;font-weight:700;margin-bottom:8px;text-transform:uppercase}
+.aging-sub{font-size:10px;color:var(--txt3);margin-top:6px;line-height:1.3}
+.estatus-bkt{display:inline-block;padding:3px 8px;border-radius:6px;font-size:10px;text-transform:none;white-space:nowrap}
+.estatus-bkt.c1{background:rgba(245,158,11,.2);color:var(--ylw)}
+.estatus-bkt.c2{background:rgba(251,146,60,.2);color:#FB923C}
+.estatus-bkt.c4{background:rgba(239,68,68,.2);color:var(--red)}
 .aging-val{font-family:var(--mono);font-size:18px;font-weight:500}
 .bar-wrap{height:4px;background:var(--s3);border-radius:2px;margin-top:8px}
 .bar-fill{height:4px;border-radius:2px;transition:width .8s}
@@ -80,12 +302,17 @@ main{padding-top:72px;padding-bottom:40px;max-width:1400px;margin:0 auto;
 .tabs{display:flex;gap:4px;margin-bottom:20px;background:var(--s1);border:1px solid var(--brd);
       border-radius:10px;padding:4px;width:fit-content}
 .tab{padding:7px 18px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;
-     color:var(--txt3);transition:.2s;border:none;background:transparent;font-family:var(--font)}
-.tab.active{background:var(--acc);color:#fff}
+     color:var(--txt3);transition:transform .2s ease,background .2s ease,color .2s ease,box-shadow .2s ease;border:none;background:transparent;font-family:var(--font)}
+.tab:hover{color:var(--txt2);background:rgba(230,168,0,.08)}
+.tab.active{background:var(--accent);color:#050B14;box-shadow:0 4px 16px rgba(230,168,0,.35);transform:translateY(-1px)}
+@media (prefers-reduced-motion:reduce){
+  .tab.active{transform:none}
+}
 
 .card{background:var(--s1);border:1px solid var(--brd);border-radius:14px;padding:20px;margin-bottom:20px}
 .card-title{font-size:13px;font-weight:700;letter-spacing:.5px;margin-bottom:16px;
-            display:flex;align-items:center;gap:8px}
+            display:flex;align-items:center;gap:8px;color:var(--suminregio)}
+.card-note{font-size:11px;color:var(--txt3);margin:-8px 0 12px 0}
 .badge{font-size:10px;background:var(--s3);padding:2px 8px;border-radius:10px;color:var(--txt3);font-family:var(--mono)}
 
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
@@ -101,10 +328,28 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
 
 .chart-wrap{position:relative;height:250px}
 
-.cond-list{display:flex;flex-direction:column;gap:8px}
-.cond-row{display:flex;align-items:center;gap:12px;padding:10px 14px;
-          background:var(--s2);border-radius:8px;border:1px solid var(--brd)}
-.cond-name{font-size:12px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cond-pc-banner{display:none;margin-bottom:12px;padding:12px 14px;border-radius:12px;border:1px solid rgba(6,182,212,.28);
+  background:linear-gradient(135deg,rgba(6,182,212,.12),rgba(17,34,51,.85));font-family:var(--mono);font-size:11px;color:var(--txt2);line-height:1.45}
+.cond-pc-banner b{color:var(--cyn)}
+.cond-list{display:flex;flex-direction:column;gap:10px}
+.cond-row{display:grid;grid-template-columns:minmax(140px,1.1fr) minmax(120px,1.4fr) minmax(120px,.8fr);align-items:center;gap:14px;padding:14px 16px;
+          background:linear-gradient(90deg,rgba(23,45,66,.9),rgba(17,34,51,.75));border-radius:12px;border:1px solid var(--brd);transition:background .15s,border-color .15s}
+.cond-row:hover{border-color:rgba(230,168,0,.2)}
+.cond-row--contado{border-left:3px solid var(--grn)}
+.cond-name{font-size:13px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--txt)}
+.cond-meta{font-size:11px;color:var(--txt2);margin-top:4px;font-family:var(--mono);line-height:1.35}
+.cond-badge{display:inline-block;margin-top:6px;padding:2px 8px;border-radius:6px;font-size:9px;font-weight:800;letter-spacing:.04em;
+  text-transform:uppercase;background:rgba(34,197,94,.15);color:var(--grn);border:1px solid rgba(34,197,94,.3)}
+.cond-bars{height:10px;border-radius:99px;background:var(--s3);overflow:hidden;display:flex}
+.cond-bar-seg{height:100%;transition:width .6s cubic-bezier(.4,0,.2,1)}
+.cond-bar-seg--ok{background:linear-gradient(90deg,#16a34a,#22c55e)}
+.cond-bar-seg--late{background:linear-gradient(90deg,#dc2626,#ef4444)}
+.cond-amt{text-align:right;min-width:100px}
+.cond-amt-total{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--suminregio)}
+.cond-amt-sub{font-size:11px;font-family:var(--mono);margin-top:4px}
+.cond-amt-sub--ok{color:var(--grn)}
+.cond-amt-sub--late{color:var(--red)}
+.cond-amt-sub--muted{color:var(--txt3)}
 
 /* BURO */
 .buro-legend{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
@@ -142,37 +387,201 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
   .kpi-grid{grid-template-columns:repeat(2,1fr)}
   .aging-grid{grid-template-columns:repeat(3,1fr)}
   .grid-2,.grid-32{grid-template-columns:1fr}
+  .cond-row{grid-template-columns:1fr;gap:10px}
+  .cond-amt{text-align:left}
 }
+
+/* ========== CxC: micro-movimiento decorativo (respeta reduced-motion) ========== */
+@media (prefers-reduced-motion:no-preference){
+  body.ms-page-cxc .orb-1{
+    animation:cxcOrbDriftA 32s ease-in-out infinite alternate;
+  }
+  body.ms-page-cxc .orb-2{
+    animation:cxcOrbDriftB 38s ease-in-out infinite alternate;
+  }
+}
+@keyframes cxcOrbDriftA{
+  0%{opacity:.1;transform:translate(0,0) scale(1)}
+  100%{opacity:.16;transform:translate(4vw,3vh) scale(1.12)}
+}
+@keyframes cxcOrbDriftB{
+  0%{opacity:.09;transform:translate(0,0) scale(1)}
+  100%{opacity:.14;transform:translate(-3vw,-4vh) scale(1.1)}
+}
+
+@keyframes cxcKpiBreathe{
+  0%,100%{box-shadow:0 4px 24px rgba(0,0,0,.2)}
+  50%{box-shadow:0 8px 34px rgba(0,0,0,.28),0 0 0 1px rgba(230,168,0,.14)}
+}
+
+body.ms-page-cxc .cxc-kpi-eyebrow::before{
+  animation:cxcEyebrowGlow 3.2s ease-in-out infinite;
+}
+@keyframes cxcEyebrowGlow{
+  0%,100%{opacity:1;filter:brightness(1)}
+  50%{opacity:.85;filter:brightness(1.25)}
+}
+
+body.ms-page-cxc .kpi-step-num{
+  animation:cxcStepGlow 4s ease-in-out infinite;
+}
+body.ms-page-cxc .kpi--venc .kpi-step-num{animation-delay:-1s}
+body.ms-page-cxc .kpi--vig .kpi-step-num{animation-delay:-2s}
+body.ms-page-cxc .kpi--health .kpi-step-num{animation-delay:-3s}
+@keyframes cxcStepGlow{
+  0%,100%{box-shadow:0 4px 14px rgba(0,0,0,.2)}
+  50%{box-shadow:0 6px 20px rgba(230,168,0,.25),0 0 14px rgba(230,168,0,.12)}
+}
+@media (prefers-reduced-motion:reduce){
+  body.ms-page-cxc .kpi-grid--story .kpi-story.kpi-story--in{animation:cxcKpiCardIn .58s cubic-bezier(.2,.8,.2,1) both}
+  body.ms-page-cxc .cxc-kpi-eyebrow::before{animation:none}
+  body.ms-page-cxc .kpi-step-num{animation:none}
+}
+
+.bar-wrap{position:relative;overflow:hidden;border-radius:2px}
+.bar-fill{position:relative;overflow:hidden}
+@media (prefers-reduced-motion:no-preference){
+  body.ms-page-cxc .bar-fill::after{
+    content:'';position:absolute;inset:0;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.28),transparent);
+    transform:translateX(-100%);
+    animation:cxcBarShine 3.2s ease-in-out infinite;
+  }
+  body.ms-page-cxc .aging-bkt.c0 .bar-fill::after{animation-delay:.3s}
+  body.ms-page-cxc .aging-bkt.c1 .bar-fill::after{animation-delay:.6s}
+  body.ms-page-cxc .aging-bkt.c2 .bar-fill::after{animation-delay:.9s}
+  body.ms-page-cxc .aging-bkt.c3 .bar-fill::after{animation-delay:1.2s}
+  body.ms-page-cxc .aging-bkt.c4 .bar-fill::after{animation-delay:1.5s}
+}
+@keyframes cxcBarShine{
+  0%,100%{transform:translateX(-100%);opacity:0}
+  15%{opacity:.9}
+  45%{transform:translateX(100%);opacity:0}
+}
+
+body.ms-page-cxc tbody tr{
+  transition:background .22s ease,transform .22s ease,box-shadow .22s ease;
+}
+@media (prefers-reduced-motion:no-preference){
+  body.ms-page-cxc tbody tr:hover{
+    transform:translateX(4px);
+    box-shadow:-6px 0 0 rgba(230,168,0,.25);
+  }
+}
+
+body.ms-page-cxc .chart-wrap{
+  border-radius:14px;
+  transition:box-shadow .35s ease,border-color .35s ease;
+  border:1px solid transparent;
+}
+@media (prefers-reduced-motion:no-preference){
+  body.ms-page-cxc .chart-wrap{
+    animation:cxcChartHalo 6s ease-in-out infinite;
+  }
+}
+@keyframes cxcChartHalo{
+  0%,100%{box-shadow:0 0 0 0 rgba(230,168,0,0);border-color:rgba(15,23,42,.06)}
+  50%{box-shadow:0 0 28px rgba(230,168,0,.1);border-color:rgba(230,168,0,.15)}
+}
+@media (prefers-reduced-motion:reduce){
+  body.ms-page-cxc .chart-wrap{animation:none}
+}
+
+body.ms-page-cxc .client-filter-bar{
+  transition:transform .25s ease,box-shadow .3s ease,border-color .25s ease;
+}
+@media (prefers-reduced-motion:no-preference){
+  body.ms-page-cxc .client-filter-bar:focus-within{
+    transform:translateY(-2px);
+    box-shadow:0 12px 36px rgba(15,23,42,.1),0 0 0 1px rgba(230,168,0,.2);
+  }
+}
+
+body.ms-page-cxc .cond-row{
+  transition:transform .28s cubic-bezier(.2,.8,.2,1),border-color .25s ease,box-shadow .28s ease;
+}
+@media (prefers-reduced-motion:no-preference){
+  body.ms-page-cxc .cond-row:hover{
+    transform:translateY(-2px) scale(1.008);
+    box-shadow:0 10px 28px rgba(0,0,0,.15);
+  }
+}
+
+@media (prefers-reduced-motion:no-preference){
+  body.ms-page-cxc.cxc-just-refreshed .kpi-val{
+    animation:cxcNumPing .95s cubic-bezier(.34,1.56,.64,1);
+  }
+}
+@keyframes cxcNumPing{
+  0%{filter:brightness(1);transform:scale(1)}
+  25%{filter:brightness(1.12);transform:scale(1.03)}
+  100%{filter:brightness(1);transform:scale(1)}
+}
+@media (prefers-reduced-motion:reduce){
+  body.ms-page-cxc.cxc-just-refreshed .kpi-val{animation:none}
+}
+
+/* Línea de “pulso” bajo el main: sensación de panel activo */
+@media (prefers-reduced-motion:no-preference){
+  body.ms-page-cxc main::after{
+    content:'';display:block;margin-top:10px;height:3px;border-radius:99px;max-width:min(420px,88vw);
+    background:linear-gradient(90deg,rgba(230,168,0,.15),rgba(6,182,212,.45),rgba(34,197,94,.35),rgba(230,168,0,.2));
+    background-size:240% 100%;
+    animation:cxcFootPulse 8s ease-in-out infinite;
+    opacity:.85;
+  }
+}
+@keyframes cxcFootPulse{
+  0%,100%{background-position:0% 50%;opacity:.65}
+  50%{background-position:100% 50%;opacity:1}
+}
+@media (prefers-reduced-motion:reduce){
+  body.ms-page-cxc main::after{display:none}
+}
+
+/* Tema claro (nav + app-ui): buckets aging legibles — &aacute;mbar/coral oscuro, sin amarillo p&aacute;lido sobre blanco */
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .aging-bkt.c0 .aging-val,
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .c0 .aging-val{color:#166534!important}
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .aging-bkt.c1 .aging-val,
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .c1 .aging-val{color:#92400e!important}
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .aging-bkt.c2 .aging-val,
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .c2 .aging-val{color:#9a3412!important}
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .aging-bkt.c3 .aging-val,
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .c3 .aging-val{color:#b91c1c!important}
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .aging-bkt.c4 .aging-val,
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .c4 .aging-val{color:#7f1d1d!important}
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .c0 .bar-fill{background:#15803d!important}
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .c1 .bar-fill{background:#b45309!important}
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .c2 .bar-fill{background:#c2410c!important}
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .c3 .bar-fill{background:#b91c1c!important}
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .c4 .bar-fill{background:#991b1b!important}
 </style>
+<link rel="stylesheet" href="app-ui.css">
+<script src="app-ui-boot.js" defer></script>
 </head>
-<body>
+<body class="ms-page-cxc">
 <div class="orb orb-1"></div>
 <div class="orb orb-2"></div>
-
-<nav>
-  <div class="nav-brand">
-    <div class="nav-logo">SP</div>
-    <span class="nav-title">SUMINREGIO PARKER</span>
-    <span class="nav-sub">/ CXC</span>
-  </div>
-  <div class="nav-links">
-    <a href="index.html">Dashboard</a>
-    <a href="ventas.html">Ventas</a>
-    <a href="cxc.html" class="active">CXC</a>
-    <a href="inventario.html">Inventario</a>
-    <a href="director.html">Director</a>
-  </div>
-  <div class="nav-right">
-    <div class="dot" id="statusDot"></div>
-    <span style="font-size:11px;color:var(--txt3);font-family:var(--mono)" id="lastUpd">--:--</span>
-  </div>
-</nav>
+<canvas id="cxc-particles" width="1920" height="1080" aria-hidden="true"></canvas>
+<div class="cxc-spectacle-dock" role="toolbar" aria-label="Controles de experiencia CxC">
+  <span class="cxc-dock-hint" id="cxcDockHint">Espect&aacute;culo</span>
+  <button type="button" id="cxcBtnParticles" aria-pressed="true" title="Part&iacute;culas ambientales">&#10022;</button>
+  <button type="button" id="cxcBtnSound" aria-pressed="false" title="Sonido suave al cargar datos y al cambiar pesta&ntilde;a">&#9835;</button>
+  <button type="button" class="cxc-dock-present" id="cxcBtnPresent" aria-pressed="false" title="Modo presentaci&oacute;n: tipograf&iacute;a amplia y foco en lectura">&#9638;</button>
+</div>
+<header></header>
+<script src="nav.js"></script>
 
 <main>
-  <!-- Barra de filtros temporal (fecha) ? CXC aging es siempre al d?a de hoy -->
+  <div class="cxc-hero">
+    <div>
+      <h1>Cuentas por cobrar</h1>
+      <p>Saldo neto por cliente (cargos &minus; cobros), aging y riesgo para cartera a cr&eacute;dito.</p>
+    </div>
+    <div class="cxc-hero-meta" id="cxcDbHint" title="Negocio activo">Cargando contexto&hellip;</div>
+  </div>
   <div id="filter-bar"></div>
-
-  <div class="filter-bar">
+  <div class="client-filter-bar">
     <div class="filter-group">
       <span class="filter-label">CLIENTE</span>
       <select id="fCliente">
@@ -180,47 +589,76 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
       </select>
     </div>
     <button class="btn" onclick="loadAll()">Aplicar</button>
-    <span style="font-size:11px;color:var(--txt3);font-family:var(--mono);margin-left:auto">
-      Saldo = cargos - pagos neto real por cliente (v6)
+    <span style="font-size:11px;color:var(--txt3);font-family:var(--mono);margin-left:auto" title="Deuda total = cargos − cobros de cartera a cr&eacute;dito.">
+      Deuda total = cargos − pagos por cliente (solo cr&eacute;dito). Cuadra con buckets.
     </span>
   </div>
 
-  <!-- KPIs -->
-  <div class="kpi-grid">
-    <div class="kpi">
-      <div class="kpi-label">Saldo Total CXC</div>
-      <div class="kpi-val" id="kSaldo">$&mdash;</div>
-      <div class="kpi-sub" id="kCli">&mdash; clientes</div>
-      <div class="kpi-badge">??</div>
+  <!-- KPIs: narrativa + datos (alineado Power BI: saldo, vencido, por vencer) -->
+  <section class="cxc-kpi-journey ms-reveal" aria-labelledby="cxcKpiStoryTitle">
+    <header class="cxc-kpi-journey-head">
+      <p class="cxc-kpi-eyebrow">Resumen de cartera</p>
+      <h2 id="cxcKpiStoryTitle" class="cxc-kpi-storytitle">Indicadores clave</h2>
+      <p class="cxc-kpi-lead">Saldo total, cartera vencida, cartera vigente y salud del mix. Los textos debajo se actualizan con los datos del filtro aplicado.</p>
+    </header>
+    <div class="kpi-grid kpi-grid--story">
+      <article class="kpi kpi--total kpi-story" title="Power BI: Saldo_Documento = Cargo − Cobro">
+        <div class="kpi-story-step"><span class="kpi-step-num" aria-hidden="true">1</span><span class="kpi-step-label">Panorama</span></div>
+        <div class="kpi-label">Deuda total <span style="font-weight:400;color:var(--txt3)">(Saldo CxC)</span></div>
+        <p class="kpi-narrative" id="kNarrTotal">Saldo neto de cartera a cr&eacute;dito (cargos menos cobros aplicados).</p>
+        <div class="kpi-val" id="kSaldo">$&mdash;</div>
+        <div class="kpi-sub" id="kCli">&mdash; clientes</div>
+        <div class="kpi-composition" aria-label="Composici&oacute;n del saldo: vencido vs vigente">
+          <div class="kpi-composition-legend">
+            <span><span class="dot venc" aria-hidden="true"></span>Vencido del total</span>
+            <span><span class="dot vig" aria-hidden="true"></span>Vigente del total</span>
+          </div>
+          <div class="kpi-composition-bar">
+            <div class="seg venc" id="kCompVenc" style="width:0%"></div>
+            <div class="seg vig" id="kCompVig" style="width:0%"></div>
+          </div>
+        </div>
+      </article>
+      <article class="kpi kpi--venc kpi-story" title="Power BI: Saldo Cartera Vencido">
+        <div class="kpi-story-step"><span class="kpi-step-num" aria-hidden="true">2</span><span class="kpi-step-label">Riesgo</span></div>
+        <div class="kpi-label">Vencido <span style="font-weight:400;color:var(--txt3)">(cr&eacute;dito)</span></div>
+        <p class="kpi-narrative" id="kNarrVenc">Importe vencido seg&uacute;n condiciones de pago y aging.</p>
+        <div class="kpi-val red" id="kVencido">$&mdash;</div>
+        <div class="kpi-sub" id="kPctV">&mdash; % del saldo</div>
+        <div class="kpi-share-track" aria-hidden="true"><div class="kpi-share-fill kpi-share-fill--venc" id="kShareVenc" style="width:0%"></div></div>
+        <div class="kpi-share-cap" id="kShareVencCap">Parte del saldo en mora</div>
+      </article>
+      <article class="kpi kpi--vig kpi-story" title="Power BI: Saldo Cartera Vigente">
+        <div class="kpi-story-step"><span class="kpi-step-num" aria-hidden="true">3</span><span class="kpi-step-label">Colch&oacute;n</span></div>
+        <div class="kpi-label">No vencido <span style="font-weight:400;color:var(--txt3)">(vigente)</span></div>
+        <p class="kpi-narrative" id="kNarrVig">Importe al corriente (no vencido) dentro del filtro.</p>
+        <div class="kpi-val grn" id="kVigente">$&mdash;</div>
+        <div class="kpi-sub" id="kPctVig">&mdash; % del saldo</div>
+        <div class="kpi-share-track" aria-hidden="true"><div class="kpi-share-fill kpi-share-fill--vig" id="kShareVig" style="width:0%"></div></div>
+        <div class="kpi-share-cap" id="kShareVigCap">Parte del saldo al corriente</div>
+      </article>
+      <article class="kpi kpi--health kpi-story">
+        <div class="kpi-story-step"><span class="kpi-step-num" aria-hidden="true">4</span><span class="kpi-step-label">Diagn&oacute;stico</span></div>
+        <div class="kpi-label">Salud cartera</div>
+        <p class="kpi-narrative" id="kNarrSalud">Estado seg&uacute;n el porcentaje de vencido sobre el saldo (umbral de referencia ~20&nbsp;%).</p>
+        <div class="kpi-val" id="kSalud" style="font-size:clamp(17px,2.5vw,20px);font-weight:700;letter-spacing:-.02em">&mdash;</div>
+        <div class="kpi-sub" id="kSaludSub">&mdash;</div>
+        <div class="kpi-share-track" aria-hidden="true"><div class="kpi-share-fill" id="kShareHealth" style="width:0%;background:linear-gradient(90deg,#64748b,#94a3b8)"></div></div>
+        <div class="kpi-share-cap" id="kShareHealthCap">&nbsp;</div>
+      </article>
     </div>
-    <div class="kpi">
-      <div class="kpi-label">Vencido</div>
-      <div class="kpi-val red" id="kVencido">$&mdash;</div>
-      <div class="kpi-sub" id="kPctV">&mdash; % del saldo</div>
-      <div class="kpi-badge">??</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">Por Vencer</div>
-      <div class="kpi-val grn" id="kVigente">$&mdash;</div>
-      <div class="kpi-sub" id="kPctVig">&mdash; % vigente</div>
-      <div class="kpi-badge">?</div>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">Salud Cartera</div>
-      <div class="kpi-val" id="kSalud" style="font-size:18px">&mdash;</div>
-      <div class="kpi-sub" id="kSaludSub">&mdash;</div>
-      <div class="kpi-badge">??</div>
-    </div>
-  </div>
+  </section>
 
   <!-- AGING -->
   <div class="aging-grid">
-    <div class="aging-bkt c0"><div class="aging-lbl">Corriente</div><div class="aging-val" id="agC">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="agCBar" style="width:0%"></div></div></div>
-    <div class="aging-bkt c1"><div class="aging-lbl">1?30 d&iacute;as</div><div class="aging-val" id="ag1">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag1Bar" style="width:0%"></div></div></div>
-    <div class="aging-bkt c2"><div class="aging-lbl">31?60 d&iacute;as</div><div class="aging-val" id="ag2">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag2Bar" style="width:0%"></div></div></div>
-    <div class="aging-bkt c3"><div class="aging-lbl">61?90 d&iacute;as</div><div class="aging-val" id="ag3">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag3Bar" style="width:0%"></div></div></div>
-    <div class="aging-bkt c4"><div class="aging-lbl">+90 d&iacute;as</div><div class="aging-val" id="ag4">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag4Bar" style="width:0%"></div></div></div>
+    <div class="aging-bkt c0"><div class="aging-lbl">Corriente</div><div class="aging-val" id="agC">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="agCBar" style="width:0%"></div></div><div class="aging-sub">Documentos a cr&eacute;dito sin atraso</div></div>
+    <div class="aging-bkt c1"><div class="aging-lbl">1&#8211;30 d&iacute;as</div><div class="aging-val" id="ag1">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag1Bar" style="width:0%"></div></div><div class="aging-sub">Atraso leve</div></div>
+    <div class="aging-bkt c2"><div class="aging-lbl">31&#8211;60 d&iacute;as</div><div class="aging-val" id="ag2">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag2Bar" style="width:0%"></div></div><div class="aging-sub">Atraso medio</div></div>
+    <div class="aging-bkt c3"><div class="aging-lbl">61&#8211;90 d&iacute;as</div><div class="aging-val" id="ag3">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag3Bar" style="width:0%"></div></div><div class="aging-sub">Atraso alto</div></div>
+    <div class="aging-bkt c4"><div class="aging-lbl">+90 d&iacute;as</div><div class="aging-val" id="ag4">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag4Bar" style="width:0%"></div></div><div class="aging-sub">Atraso cr&iacute;tico</div></div>
   </div>
+  <p class="card-note" style="margin-top:-8px;margin-bottom:16px">Corriente = No vencido (Saldo Cartera Vigente). 1-30, 31-60, 61-90, +90 = Vencido por antig&uuml;edad (Saldo Cartera Vencido), igual que Power BI.</p>
+  <p class="card-note" id="agingBreakdown" style="margin-top:-10px;margin-bottom:20px">Cargando desglose de buckets…</p>
 
   <!-- TABS -->
   <div class="tabs">
@@ -234,16 +672,17 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
   <div id="pVencidas">
     <div class="grid-32">
       <div class="card">
-        <div class="card-title">?? Facturas Vencidas <span class="badge" id="vBadge">&mdash;</span></div>
+        <div class="card-title">Facturas vencidas <span class="badge" id="vBadge">&mdash;</span></div>
+        <p class="card-note">Estatus por d&iacute;as como Power BI para documentos de cr&eacute;dito. Saldo = neto por documento (cargo &minus; cobro). <strong>No aparecen facturas ya liquidadas</strong> (saldo pendiente 0).</p>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th>Folio</th><th>Cliente</th><th>Condici&oacute;n</th><th>Saldo</th><th>Atraso</th><th>F. Vencimiento</th></tr></thead>
-            <tbody id="tbVenc"><tr><td colspan="6"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr></tbody>
+            <thead><tr><th>Folio</th><th>Cliente</th><th>Condici&oacute;n</th><th>Estatus</th><th>Saldo</th><th>F. Venta</th><th>Venc. (plazo)</th><th>Atraso</th><th>Sin pagar</th><th>F. Venc. (sist.)</th></tr></thead>
+            <tbody id="tbVenc"><tr><td colspan="10"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr></tbody>
           </table>
         </div>
       </div>
       <div class="card">
-        <div class="card-title">Distribucion Aging</div>
+        <div class="card-title">Distribuci&oacute;n Aging</div>
         <div class="chart-wrap"><canvas id="chartAging"></canvas></div>
       </div>
     </div>
@@ -252,7 +691,7 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
   <!-- PANEL TOP -->
   <div id="pTop" style="display:none">
     <div class="card">
-      <div class="card-title">?? Top Deudores <span class="badge">Saldo neto real</span></div>
+      <div class="card-title">Top Deudores <span class="badge" title="Deuda total = Cargo − Cobro (Saldo_Documento)">Saldo neto real</span></div>
       <div class="tbl-wrap">
         <table>
           <thead><tr><th>#</th><th>Cliente</th><th>Condici&oacute;n</th><th>Saldo Total</th><th>Vencido</th><th>M&aacute;x. Atraso</th><th>Docs</th></tr></thead>
@@ -263,14 +702,16 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
   </div>
 
   <!-- PANEL CONDICION -->
-  <div id="pCond" style="display:none">
+  <div id="pCondicion" style="display:none">
     <div class="grid-2">
       <div class="card">
-        <div class="card-title">Por Condicion de Pago</div>
+        <div class="card-title">Por Condici&oacute;n de Pago</div>
+        <p class="card-note">Agrupado por la <strong>condici&oacute;n del documento</strong> (Microsip <code>DOCTOS_CC.COND_PAGO_ID</code>) para cartera a cr&eacute;dito.</p>
+        <div class="cond-pc-banner" id="condPendContado" style="display:none"></div>
         <div class="cond-list" id="condList"><div class="loading"><div class="spin"></div>Cargando...</div></div>
       </div>
       <div class="card">
-        <div class="card-title">Distribucion</div>
+        <div class="card-title">Distribuci&oacute;n</div>
         <div class="chart-wrap"><canvas id="chartCond"></canvas></div>
       </div>
     </div>
@@ -279,7 +720,7 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
   <!-- PANEL BURO -->
   <div id="pBuro" style="display:none">
     <div class="card">
-      <div class="card-title">Comportamiento de Pago <span class="badge">Estilo Buro de Credito</span></div>
+      <div class="card-title">Comportamiento de Pago <span class="badge">Estilo Bur&oacute; de Cr&eacute;dito</span></div>
       <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap;align-items:flex-end">
         <div class="filter-group">
           <span class="filter-label">MESES</span>
@@ -288,6 +729,8 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
             <option value="12" selected>12 meses</option>
             <option value="18">18 meses</option>
             <option value="24">24 meses</option>
+            <option value="60">60 meses</option>
+            <option value="120">120 meses</option>
           </select>
         </div>
         <div class="filter-group">
@@ -312,22 +755,227 @@ tbody td{padding:10px 12px;font-family:var(--mono);font-size:12px;white-space:no
 
 <script>
 'use strict';
-const API = (function(){ const o=typeof window!=='undefined'?window.location.origin:''; if(o.startsWith('http')&&(o.includes('7000')||o.includes('localhost'))) return ''; if(!o||o==='null'||o==='file://') return 'http://localhost:7000'; return ''; })();
+const API = (window.__API_BASE != null ? String(window.__API_BASE).replace(/\/+$/, '') : (window.location.protocol === 'file:' ? 'http://localhost:7000' : (window.location.origin || '')));
 const MES_NOM = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
-const fmtK = v => { const n=+v||0; return n>=1e6 ? '$'+(n/1e6).toFixed(1)+'M' : n>=1e3 ? '$'+(n/1e3).toFixed(0)+'K' : '$'+n.toLocaleString('es-MX',{maximumFractionDigits:0}); };
-const fmtM = v => '$'+(+v||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});
+const fmtK = v => { const n=+v||0; return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2}); };
+/** Saldo documento CxC: siempre con centavos bajo 1K para no mostrar $0 en montos pequeños. */
+const fmtSaldoDoc = v => {
+  const n = +v || 0;
+  return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+};
+const fmtM = v => '$'+(+v||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 const setText = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
 
-async function apiFetch(url) {
-  const r = await fetch(API + url);
-  if (!r.ok) throw new Error('HTTP ' + r.status);
-  return r.json();
+function staggerKpiStoryCards(){
+  const cards = document.querySelectorAll('.kpi-grid--story .kpi-story');
+  cards.forEach(function (el) { el.classList.remove('kpi-story--in'); });
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    cards.forEach(function (el) { el.classList.add('kpi-story--in'); });
+    return;
+  }
+  cards.forEach(function (el, i) {
+    setTimeout(function () {
+      void el.offsetWidth;
+      el.classList.add('kpi-story--in');
+    }, 80 + i * 110);
+  });
+}
+
+/** Buckets de antigüedad: entrada escalonada (solo si el usuario no pide menos movimiento). */
+function staggerAgingBuckets(){
+  const g = document.querySelector('.aging-grid');
+  if (!g) return;
+  const bkts = g.querySelectorAll('.aging-bkt');
+  bkts.forEach(function (el) { el.classList.remove('aging-bkt--in'); });
+  g.classList.remove('aging-grid--animate');
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    bkts.forEach(function (el) { el.classList.add('aging-bkt--in'); });
+    return;
+  }
+  void g.offsetWidth;
+  g.classList.add('aging-grid--animate');
+  bkts.forEach(function (el, i) {
+    setTimeout(function () {
+      el.classList.add('aging-bkt--in');
+    }, 50 + i * 75);
+  });
+}
+
+/** Descripciones breves por KPI (datos reales del filtro). */
+function updateCxcKpiNarrative(saldo, venc, pvenc, numCli){
+  const pV = (saldo > 0 && typeof venc === 'number') ? (venc / saldo) * 100 : NaN;
+  const pVig = (saldo > 0 && typeof pvenc === 'number') ? (pvenc / saldo) * 100 : NaN;
+  const nT = document.getElementById('kNarrTotal');
+  const nV = document.getElementById('kNarrVenc');
+  const nG = document.getElementById('kNarrVig');
+  const nS = document.getElementById('kNarrSalud');
+  if (nT) {
+    if (saldo <= 0) {
+      nT.textContent = 'Sin saldo pendiente en este filtro (cartera liquidada o sin documentos a cr\u00e9dito).';
+    } else {
+      const c = (numCli | 0) || 0;
+      nT.textContent = c
+        ? 'Clientes con saldo en el filtro: ' + c + '.'
+        : 'Saldo neto seg\u00fan cargos y cobros aplicados.';
+    }
+  }
+  if (nV) {
+    if (saldo <= 0) nV.textContent = 'Sin saldo no aplica lectura de vencido.';
+    else if (venc <= 0) {
+      nV.textContent = 'Sin importe vencido en este corte.';
+    } else if (!isNaN(pV) && pV > 40) {
+      nV.textContent = 'Vencido alto vs saldo (>40 %): revisar cobranza y top deudores.';
+    } else if (!isNaN(pV) && pV > 20) {
+      nV.textContent = 'Vencido por encima del umbral usual (~20 % del saldo). Conviene plan de cobranza.';
+    } else {
+      nV.textContent = 'Vencido contenido respecto al saldo total.';
+    }
+  }
+  if (nG) {
+    if (saldo <= 0) nG.textContent = '\u2014';
+    else if (pvenc <= 0 && venc > 0) {
+      nG.textContent = 'Todo el saldo mostrado corresponde a cartera vencida.';
+    } else if (!isNaN(pVig) && pVig >= 60) {
+      nG.textContent = 'Mayor\u00eda del saldo al corriente (>60 %).';
+    } else if (!isNaN(pVig) && pVig >= 35) {
+      nG.textContent = 'Mezcla relevante de vigente y vencido; monitorear tendencia.';
+    } else {
+      nG.textContent = 'Predomina cartera vencida en el saldo mostrado.';
+    }
+  }
+  if (nS) {
+    if (saldo <= 0 || isNaN(pV)) {
+      nS.textContent = 'Con saldo, compara % vencido vs ~20 % como referencia operativa.';
+    } else if (pV > 20) {
+      nS.textContent = 'Por encima del umbral de referencia: priorizar liquidez y seguimiento de aging.';
+    } else {
+      nS.textContent = 'Por debajo del umbral de referencia: mantener disciplina de cobro.';
+    }
+  }
+}
+
+function setKpiCompositionBars(saldo, venc, pvenc){
+  const a = document.getElementById('kCompVenc');
+  const b = document.getElementById('kCompVig');
+  if (!a || !b) return;
+  if (saldo <= 0) { a.style.width = '0%'; b.style.width = '0%'; return; }
+  const pv = Math.min(100, Math.max(0, (venc / saldo) * 100));
+  const pg = Math.min(100, Math.max(0, (pvenc / saldo) * 100));
+  const round = function (x) { return Math.round(x * 10) / 10; };
+  a.style.width = round(pv) + '%';
+  b.style.width = round(pg) + '%';
+}
+
+function setKpiShareMeters(saldo, venc, pvenc, porcVencidoDec){
+  const sv = document.getElementById('kShareVenc');
+  const sg = document.getElementById('kShareVig');
+  const sh = document.getElementById('kShareHealth');
+  const cv = document.getElementById('kShareVencCap');
+  const cg = document.getElementById('kShareVigCap');
+  const ch = document.getElementById('kShareHealthCap');
+  const pV = saldo > 0 ? (venc / saldo) * 100 : 0;
+  const pG = saldo > 0 ? (pvenc / saldo) * 100 : 0;
+  if (sv) sv.style.width = (saldo > 0 ? Math.min(100, pV) : 0) + '%';
+  if (sg) sg.style.width = (saldo > 0 ? Math.min(100, pG) : 0) + '%';
+  if (cv) cv.textContent = saldo > 0 ? ('Peso sobre el saldo: ' + pV.toFixed(1) + '% en mora') : '—';
+  if (cg) cg.textContent = saldo > 0 ? ('Peso sobre el saldo: ' + pG.toFixed(1) + '% al corriente') : '—';
+  if (sh && ch) {
+    if (saldo <= 0) {
+      sh.style.width = '0%';
+      ch.textContent = '';
+    } else {
+      const healthPct = Math.max(6, Math.min(100, 100 - pV));
+      sh.style.width = healthPct + '%';
+      if (typeof porcVencidoDec === 'number' && !isNaN(porcVencidoDec)) {
+        if (porcVencidoDec > 0.2) {
+          sh.style.background = 'linear-gradient(90deg,#b91c1c,#ef4444)';
+          ch.textContent = 'Alto peso de vencido: menor margen operativo en cartera';
+        } else {
+          sh.style.background = 'linear-gradient(90deg,#15803d,#22c55e)';
+          ch.textContent = 'Vencido bajo referencia: mix m\u00e1s favorable';
+        }
+      }
+    }
+  }
+}
+/** Respuestas CxC: siempre array (top/por-condición a veces envuelven en { rows } / { grupos }). */
+function asArrayCxC(x) {
+  if (Array.isArray(x)) return x;
+  if (x && typeof x === 'object') {
+    if (Array.isArray(x.rows)) return x.rows;
+    if (Array.isArray(x.grupos)) return x.grupos;
+  }
+  return [];
+}
+/** Saldo en fila CxC (API puede usar SALDO, SALDO_NETO o minúsculas). */
+function cxcRowSaldo(r) {
+  if (!r || typeof r !== 'object') return 0;
+  const v = r.SALDO != null ? r.SALDO : (r.SALDO_NETO != null ? r.SALDO_NETO : (r.saldo != null ? r.saldo : r.saldo_neto));
+  return +v || 0;
+}
+
+
+function buildCxcQuery(extra){
+  const cf = (document.getElementById('fCliente')?.value || '').trim();
+  const e = extra ? String(extra).replace(/^[?&]+/, '') : '';
+  const extraObj = {};
+  if (e) {
+    e.split('&').forEach(function (pair) {
+      const ix = pair.indexOf('=');
+      if (ix > 0) {
+        try {
+          extraObj[decodeURIComponent(pair.slice(0, ix))] = decodeURIComponent(pair.slice(ix + 1));
+        } catch (_) {}
+      }
+    });
+  }
+  if (cf) extraObj.cliente = cf;
+  let qs = '';
+  if (typeof window.filterBuildQS === 'function') {
+    qs = window.filterBuildQS(Object.keys(extraObj).length ? extraObj : null, { omitDb: true });
+  } else {
+    qs = Object.keys(extraObj).map(function (k) { return k + '=' + encodeURIComponent(extraObj[k]); }).join('&');
+  }
+
+  return qs ? ('?' + qs) : '';
+}
+
+function cxcEffectiveDb(){
+  let db='';
+  try{
+    db=(new URLSearchParams(location.search).get('db')||'').trim();
+    if(!db) db=(sessionStorage.getItem('microsip_erp_db')||'').trim();
+  }catch(_){}
+  return db;
+}
+function withDbParam(pathWithQuery){
+  const db=cxcEffectiveDb();
+  if(!db) return pathWithQuery;
+  const j=pathWithQuery.indexOf('?')>=0?'&':'?';
+  return pathWithQuery+j+'db='+encodeURIComponent(db);
+}
+async function apiFetch(pathWithQuery, opts){
+  const skipDb=opts&&opts.skipDb;
+  const ms=(opts&&opts.timeout)||20000;
+  const basePath=skipDb?pathWithQuery:withDbParam(pathWithQuery);
+  const path=basePath+(basePath.indexOf('?')>=0?'&':'?')+'_ts='+Date.now();
+  const ctrl=new AbortController();
+  const tid=setTimeout(()=>ctrl.abort(),ms);
+  try{
+    const r=await fetch(API+path,{signal:ctrl.signal,cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}});
+
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const data=await r.json();
+    if(data&&typeof data==='object'&&!Array.isArray(data)&&data.error) throw new Error(String(data.error));
+    return data;
+  } finally { clearTimeout(tid); }
 }
 
 async function checkStatus() {
   try {
-    await apiFetch('/api/ping');
+    const ping = await apiFetch('/api/ping',{skipDb:true});
+    if (ping && typeof ping.build === 'string' && ping.build) window.__apiBuild = ping.build;
     const d = document.getElementById('statusDot');
     if(d){ d.style.background='var(--grn)'; d.title='Conectado'; }
   } catch {
@@ -340,11 +988,13 @@ async function checkStatus() {
 // -- Charts --------------------------------------------------------------------
 let chartAging, chartCond;
 const CD = { responsive:true, maintainAspectRatio:false,
-  plugins:{ legend:{ labels:{ color:'#94A3B8', font:{size:11}, boxWidth:12 } } } };
+  interaction:{ mode:'index', intersect:false },
+  plugins:{ legend:{ labels:{ color:'#94A3B8', font:{size:11}, boxWidth:12 } },
+    tooltip:{ mode:'index', intersect:false } } };
 
 function initCharts() {
   if (typeof window.Chart === 'undefined') {
-    console.warn('[cxc] Chart.js no disponible; se omiten gr?ficas.');
+    console.warn('[cxc] Chart.js no disponible; se omiten gráficas.');
     return;
   }
   const c1 = document.getElementById('chartAging')?.getContext('2d');
@@ -371,31 +1021,75 @@ function initCharts() {
 
 // -- Resumen + Aging -----------------------------------------------------------
 async function loadResumen() {
-  const cf = document.getElementById('fCliente')?.value||'';
-  const qs = cf ? '?cliente='+cf : '';
+  const salEl = document.getElementById('kSalud');
+  const salSub = document.getElementById('kSaludSub');
   try {
-    const [res, age] = await Promise.all([
-      apiFetch('/api/cxc/resumen'+qs),
-      apiFetch('/api/cxc/aging'+qs)
-    ]);
+    // Un solo round-trip: /resumen + /aging en paralelo duplicaban cxcResumenAgingUnificado (timeouts en producción).
+    const snap = await apiFetch('/api/cxc/resumen-aging' + buildCxcQuery(), { timeout: 45000 });
+    const res = (snap && snap.resumen) || {};
+    const ageRaw = (snap && snap.aging) || {};
+    const age = typeof window.normalizeCxcAging === 'function'
+      ? window.normalizeCxcAging(ageRaw)
+      : (ageRaw && typeof ageRaw === 'object' && !Array.isArray(ageRaw) ? ageRaw : (Array.isArray(ageRaw) && ageRaw[0]) ? ageRaw[0] : {});
     const saldo = +res.SALDO_TOTAL||0;
-    const venc  = +res.VENCIDO||0;
-    const pvenc = +res.POR_VENCER||0;
+    const vencFromAging = (+age.DIAS_1_30||0) + (+age.DIAS_31_60||0) + (+age.DIAS_61_90||0) + (+age.DIAS_MAS_90||0);
+    const corrienteAging = +age.CORRIENTE || 0;
+    const sumAging = vencFromAging + corrienteAging;
+    // KPIs: API unificada; si el resumen marca 0 vencido pero los buckets sí tienen mora, alinear con aging (defensa + coherencia).
+    let venc = +res.VENCIDO || 0;
+    let pvenc = +res.POR_VENCER || 0;
+    if (venc <= 0.005 && vencFromAging > 0.005) {
+      venc = vencFromAging;
+      pvenc = corrienteAging;
+    }
+    if (saldo > 0.005 && Math.abs(venc + pvenc - saldo) / saldo > 0.08) {
+      pvenc = Math.max(0, saldo - venc);
+    }
+
+
     setText('kSaldo', fmtK(saldo));
     setText('kCli', (res.NUM_CLIENTES||0)+' clientes');
-    setText('kVencido', fmtK(venc));
+    const pV = (saldo > 0 && typeof venc === 'number' && !isNaN(venc)) ? (venc / saldo) * 100 : NaN;
+    const porcVencidoDec = (typeof pV === 'number' && !isNaN(pV)) ? pV / 100 : 0;
+    const elVenc = document.getElementById('kVencido');
+    const elVig = document.getElementById('kVigente');
+    if (elVenc) { elVenc.textContent = fmtK(venc); elVenc.style.color = porcVencidoDec > 0.2 ? '#EF4444' : '#94A3B8'; }
+    if (elVig)  { elVig.textContent = fmtK(pvenc); elVig.style.color = '#22C55E'; elVig.classList.add('grn'); }
     setText('kPctV', (saldo>0?((venc/saldo)*100).toFixed(1):0)+'% del saldo');
-    setText('kVigente', fmtK(pvenc));
-    setText('kPctVig', (saldo>0?((pvenc/saldo)*100).toFixed(1):0)+'% vigente');
-    const pV = saldo>0?(venc/saldo)*100:0;
-    const salEl = document.getElementById('kSalud');
-    const salSub = document.getElementById('kSaludSub');
-    if(salEl){
-      if(pV<20){ salEl.textContent='Excelente ?'; salEl.style.color='var(--grn)'; }
-      else if(pV<40){ salEl.textContent='Buena ??'; salEl.style.color='var(--ylw)'; }
-      else if(pV<60){ salEl.textContent='Regular ??'; salEl.style.color='#FB923C'; }
-      else { salEl.textContent='Critica ??'; salEl.style.color='var(--red)'; }
-      if(salSub) salSub.textContent = pV.toFixed(0)+'% vencido';
+    setText('kPctVig', (saldo>0?((pvenc/saldo)*100).toFixed(1):0)+'% del saldo');
+    updateCxcKpiNarrative(saldo, venc, pvenc, res.NUM_CLIENTES|0);
+    setKpiCompositionBars(saldo, venc, pvenc);
+    setKpiShareMeters(saldo, venc, pvenc, porcVencidoDec);
+    staggerKpiStoryCards();
+    staggerAgingBuckets();
+    document.body.classList.remove('cxc-just-refreshed');
+    if (window.matchMedia && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      void document.body.offsetWidth;
+      document.body.classList.add('cxc-just-refreshed');
+      window.clearTimeout(window.__cxcRefreshAnimT);
+      window.__cxcRefreshAnimT = window.setTimeout(function () {
+        document.body.classList.remove('cxc-just-refreshed');
+      }, 980);
+    }
+    const elSaldo = document.getElementById('kSaldo');
+    if (elSaldo) {
+      elSaldo.style.color = saldo > 0 ? '#0f172a' : '#64748b';
+      elSaldo.style.fontWeight = saldo > 0 ? '600' : '500';
+    }
+    if (salEl) {
+      if (saldo <= 0 || typeof pV !== 'number' || isNaN(pV)) {
+        salEl.textContent = 'Sin dato';
+        salEl.style.color = 'var(--txt3)';
+        if (salSub) salSub.textContent = '?';
+      } else if (porcVencidoDec > 0.2) {
+        salEl.textContent = 'Cr\u00edtica';
+        salEl.style.color = '#FF0404';
+        if (salSub) salSub.textContent = pV.toFixed(0) + '% vencido';
+      } else {
+        salEl.textContent = 'Saludable';
+        salEl.style.color = '#00CC00';
+        if (salSub) salSub.textContent = pV.toFixed(0) + '% vencido';
+      }
     }
     const total = (age.CORRIENTE||0)+(age.DIAS_1_30||0)+(age.DIAS_31_60||0)+(age.DIAS_61_90||0)+(age.DIAS_MAS_90||0);
     const setPct = (id,v) => { const e=document.getElementById(id); if(e) e.style.width=(total>0?Math.min(100,(+v/total)*100):0)+'%'; };
@@ -404,38 +1098,105 @@ async function loadResumen() {
     setText('ag2',  fmtK(age.DIAS_31_60)); setPct('ag2Bar',  age.DIAS_31_60);
     setText('ag3',  fmtK(age.DIAS_61_90)); setPct('ag3Bar',  age.DIAS_61_90);
     setText('ag4',  fmtK(age.DIAS_MAS_90));setPct('ag4Bar',  age.DIAS_MAS_90);
+    setText('agingBreakdown', 'Aging: Corriente '+fmtK(corrienteAging)+' · Mora (1-30 … +90) '+fmtK(vencFromAging)+' · Suma buckets '+fmtK(sumAging)+'. KPI: Vencido '+fmtK(venc)+' · No vencido '+fmtK(pvenc)+' · Deuda total '+fmtK(saldo)+'.');
+    const agCorriente = document.getElementById('agC');
+    if (agCorriente) agCorriente.style.color = '';
     if(chartAging){
       chartAging.data.datasets[0].data=[age.CORRIENTE||0,age.DIAS_1_30||0,age.DIAS_31_60||0,age.DIAS_61_90||0,age.DIAS_MAS_90||0];
       chartAging.update();
     }
-  } catch(e){ console.error('resumen',e); }
+    if (typeof dashboardApplySem === 'function') {
+      const pvigPct = saldo > 0 ? (pvenc / saldo) * 100 : 0;
+      const dash = (sel, lvl) => {
+        const n = document.querySelector(sel);
+        if (n) dashboardApplySem(n, lvl);
+      };
+      dash('.kpi--total', saldo > 0 ? 'info' : 'neutral');
+      dash('.kpi--venc', (typeof pV === 'number' && !isNaN(pV)) ? (pV > 40 ? 'danger' : pV > 20 ? 'warn' : 'ok') : 'neutral');
+      dash('.kpi--vig', saldo > 0 ? (pvigPct >= 60 ? 'ok' : pvigPct >= 40 ? 'warn' : 'danger') : 'neutral');
+      dash('.kpi--health', saldo <= 0 || typeof pV !== 'number' || isNaN(pV) ? 'neutral' : (porcVencidoDec > 0.2 ? 'danger' : 'ok'));
+    }
+    if (typeof window.__cxcOnDataLoad === 'function') window.__cxcOnDataLoad();
+  } catch(e){
+    console.error('resumen',e);
+    setText('kSaldo','\u2014');
+    setText('kCli', (e&&e.message)?e.message.substring(0,80):'Sin conexi\u00f3n');
+    setText('kVencido','\u2014');
+    setText('kVigente','\u2014');
+    setText('kPctV','');
+    setText('kPctVig','');
+    setKpiCompositionBars(0,0,0);
+    setKpiShareMeters(0,0,0,0);
+    ['kNarrTotal','kNarrVenc','kNarrVig','kNarrSalud'].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = 'Sin datos: revise conexi\u00f3n al servidor o el filtro aplicado.';
+    });
+    document.querySelectorAll('.kpi-grid--story .kpi-story').forEach(function (el) { el.classList.remove('kpi-story--in'); });
+    const salEl=document.getElementById('kSalud');
+    const salSub=document.getElementById('kSaludSub');
+    if(salEl){ salEl.textContent='Error'; salEl.style.color='var(--red)'; }
+    if(salSub) salSub.textContent=(e&&e.message)?e.message:'Revisa API y consola';
+  }
 }
 
 // -- Vencidas ------------------------------------------------------------------
 async function loadVencidas() {
-  const cf = document.getElementById('fCliente')?.value||'';
-  const qs = '?limit=60'+(cf?'&cliente='+cf:'');
   const tb = document.getElementById('tbVenc');
   try {
-    const rows = await apiFetch('/api/cxc/vencidas'+qs);
+    const queryBase = buildCxcQuery('limit=60');
+
+    const raw = await apiFetch('/api/cxc/vencidas' + queryBase, { timeout: 45000 });
+    let rows = asArrayCxC(raw)
+      .filter(r => cxcRowSaldo(r) > 0.005)
+      .sort((a,b)=>cxcRowSaldo(b)-cxcRowSaldo(a));
+    if(!rows.length && (document.getElementById('fCliente')?.value||'').trim()){
+      const rawNoCli = await apiFetch('/api/cxc/vencidas?limit=120', { timeout: 45000 });
+      rows = asArrayCxC(rawNoCli)
+        .filter(r => cxcRowSaldo(r) > 0.005)
+        .sort((a,b)=>cxcRowSaldo(b)-cxcRowSaldo(a));
+
+    }
+
     setText('vBadge', rows.length+' docs');
-    if(!rows.length){ tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--txt3);padding:20px">Sin facturas vencidas ?</td></tr>'; return; }
-    tb.innerHTML = rows.map(r=>`<tr>
-      <td style="color:var(--acc2)">${r.FOLIO||'&mdash;'}</td>
+    if(!rows.length){ tb.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--txt3);padding:20px">Sin facturas vencidas</td></tr>'; return; }
+    function estatusRango(d){
+      if(d<=0) return 'No Vencido';
+      if(d<=30) return 'Vencido \u2264 30 d\u00edas';
+      if(d<=60) return 'Vencido \u2264 60 d\u00edas';
+      return 'Vencido > 60 d\u00edas';
+    }
+    const fmtDay = x => (x ? new Date(x).toLocaleDateString('es-MX') : '\u2014');
+    tb.innerHTML = rows.map(r=>{
+      const d = +(r.DIAS_ATRASO||0);
+      const estatus = estatusRango(d);
+      const estatusCl = d<=30?'c1':d<=60?'c2':'c4';
+      const dSp = +(r.TIEMPO_SIN_PAGAR_DIAS != null ? r.TIEMPO_SIN_PAGAR_DIAS : r.DIAS_ATRASO) || 0;
+      return `<tr>
+      <td style="color:var(--acc2)">${r.FOLIO||'\u2014'}</td>
       <td style="color:var(--txt)">${(r.CLIENTE||'').substring(0,28)}</td>
       <td style="color:var(--txt3)">${r.CONDICION_PAGO||'S/D'}</td>
-      <td style="color:var(--red)">${fmtK(r.SALDO)}</td>
-      <td><span style="background:rgba(239,68,68,.15);color:var(--red);padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700">+${r.DIAS_ATRASO||0}d</span></td>
-      <td style="color:var(--txt3)">${r.FECHA_VENCIMIENTO?new Date(r.FECHA_VENCIMIENTO).toLocaleDateString('es-MX'):'&mdash;'}</td>
-    </tr>`).join('');
-  } catch(e){ tb.innerHTML='<tr><td colspan="6" style="color:var(--red);padding:12px">Error: '+e.message+'</td></tr>'; }
+      <td><span class="aging-lbl estatus-bkt ${estatusCl}">${estatus}</span></td>
+      <td style="color:var(--red)">${fmtSaldoDoc(cxcRowSaldo(r))}</td>
+      <td style="color:var(--txt3);font-size:11px">${fmtDay(r.FECHA_VENTA)}</td>
+      <td style="color:var(--txt3);font-size:11px">${fmtDay(r.FECHA_VENC_PLAZO)}</td>
+      <td><span style="background:rgba(239,68,68,.15);color:var(--red);padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700">+${d}d</span></td>
+      <td style="color:var(--txt2);font-size:11px;font-family:var(--mono)">${dSp} d\u00edas</td>
+      <td style="color:var(--txt3);font-size:11px">${fmtDay(r.FECHA_VENCIMIENTO)}</td>
+    </tr>`;
+    }).join('');
+  } catch(e){
+
+    tb.innerHTML='<tr><td colspan="10" style="color:var(--red);padding:12px">Error: '+e.message+'</td></tr>';
+  }
 }
 
 // -- Top Deudores --------------------------------------------------------------
 async function loadTop() {
   const tb = document.getElementById('tbTop');
   try {
-    const rows = await apiFetch('/api/cxc/top-deudores?limit=20');
+    const rowsRaw = await apiFetch('/api/cxc/top-deudores' + buildCxcQuery('limit=20'), { timeout: 45000 });
+    const rows = asArrayCxC(rowsRaw).sort((a,b)=>(+b.SALDO_TOTAL||0)-(+a.SALDO_TOTAL||0));
+
     if(!rows.length){ tb.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--txt3);padding:20px">Sin deudores</td></tr>'; return; }
     tb.innerHTML = rows.map((r,i)=>`<tr>
       <td style="color:var(--txt3)">${i+1}</td>
@@ -452,25 +1213,39 @@ async function loadTop() {
 // -- Por Condicion -------------------------------------------------------------
 async function loadCond() {
   const cl = document.getElementById('condList');
+  const ban = document.getElementById('condPendContado');
   try {
-    const rows = await apiFetch('/api/cxc/por-condicion');
+    const raw = await apiFetch('/api/cxc/por-condicion' + buildCxcQuery(), { timeout: 45000 });
+    const rows = asArrayCxC(raw);
+
+    if (ban) { ban.style.display = 'none'; ban.innerHTML = ''; }
     if(!rows.length){ cl.innerHTML='<div style="color:var(--txt3);padding:20px;text-align:center">Sin datos</div>'; return; }
     const max = Math.max(...rows.map(r=>+r.SALDO_TOTAL||0));
-    cl.innerHTML = rows.map(r=>`
-      <div class="cond-row">
-        <div style="flex:2;min-width:0">
+    cl.innerHTML = rows.map(r=>{
+      const tot = +r.SALDO_TOTAL||0;
+      const cor = +r.CORRIENTE||0;
+      const ven = +r.VENCIDO||0;
+      const pctOk = tot > 0 ? Math.min(100, Math.round((cor / tot) * 1000) / 10) : 0;
+      const pctLate = tot > 0 ? Math.min(100, Math.round((ven / tot) * 1000) / 10) : 0;
+      const rowCls = 'cond-row';
+      const subLate = '<div class="cond-amt-sub '+(ven>0?'cond-amt-sub--late':'cond-amt-sub--ok')+'">'+(ven>0?fmtK(ven)+' venc. (cr&eacute;dito)':'Sin vencido crediticio')+'</div>';
+      return `
+      <div class="${rowCls}">
+        <div style="min-width:0">
           <div class="cond-name">${r.CONDICION_PAGO}</div>
-          <div style="font-size:10px;color:var(--txt3);font-family:var(--mono)">${r.NUM_CLIENTES} cli &bull; ${r.NUM_DOCUMENTOS} docs &bull; ${r.DIAS_CREDITO}d</div>
+          <div class="cond-meta">${r.NUM_CLIENTES} clientes &middot; ${r.NUM_DOCUMENTOS} docs &middot; ${r.DIAS_CREDITO} d&iacute;as t&eacute;rmino</div>
+          
         </div>
-        <div style="flex:3;height:6px;background:var(--s3);border-radius:3px">
-          <div style="height:6px;border-radius:3px;background:var(--acc);width:${max>0?Math.min(100,(+r.SALDO_TOTAL/max)*100):0}%"></div>
+        <div class="cond-bars" title="Verde = corriente &middot; Rojo = vencido crediticio">
+          <div class="cond-bar-seg cond-bar-seg--ok" style="width:${pctOk}%"></div>
+          <div class="cond-bar-seg cond-bar-seg--late" style="width:${pctLate}%"></div>
         </div>
-        <div style="text-align:right;min-width:80px">
-          <div style="font-family:var(--mono);font-size:12px;color:var(--ylw)">${fmtK(r.SALDO_TOTAL)}</div>
-          <div style="font-size:10px;color:var(--red);font-family:var(--mono)">${fmtK(r.VENCIDO)} venc.</div>
+        <div class="cond-amt">
+          <div class="cond-amt-total">${fmtK(tot)}</div>
+          ${subLate}
         </div>
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
     if(chartCond){
       const top = rows.slice(0,6);
       chartCond.data.labels = top.map(r=>r.CONDICION_PAGO.substring(0,12));
@@ -506,15 +1281,14 @@ function getEstadoPago(row) {
 async function loadBuro() {
   const meses = document.getElementById('buroMeses')?.value||12;
   const srch  = (document.getElementById('buroSearch')?.value||'').toLowerCase();
-  const cf    = document.getElementById('fCliente')?.value||'';
   const cont  = document.getElementById('buroContent');
   if(!cont) return;
   cont.innerHTML='<div class="loading"><div class="spin"></div>Cargando historial...</div>';
   try {
-    let url='/api/cxc/historial-pagos?meses='+meses+'&limit=300';
-    if(cf) url+='&cliente='+cf;
-    const raw = await apiFetch(url);
+    let url='/api/cxc/historial-pagos' + buildCxcQuery('meses=' + encodeURIComponent(meses) + '&limit=500&saldos_actuales=1');
+    const raw = await apiFetch(url, { timeout: 45000 });
     const rows = Array.isArray(raw) ? raw : (raw && raw.rows ? raw.rows : []);
+
     const saldosPorCliente = (raw && !Array.isArray(raw) && raw.saldosPorCliente) ? raw.saldosPorCliente : {};
     const filtrados = srch ? rows.filter(r=>(r.CLIENTE||'').toLowerCase().includes(srch)) : rows;
     if(!filtrados.length){ cont.innerHTML='<div style="color:var(--txt3);padding:24px;text-align:center">Sin datos de historial</div>'; return; }
@@ -570,54 +1344,262 @@ async function loadBuro() {
 const PANELS=['vencidas','top','condicion','buro'];
 let curTab='vencidas';
 function switchTab(name){
+  const prevTab = curTab;
   curTab=name;
   PANELS.forEach(p=>{
     const el=document.getElementById('p'+p.charAt(0).toUpperCase()+p.slice(1));
     if(el) el.style.display=p===name?'':'none';
   });
   document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',PANELS[i]===name));
+
   if(name==='top') loadTop();
   if(name==='condicion') loadCond();
   if(name==='buro') loadBuro();
+  if (prevTab !== name && typeof window.__cxcOnTab === 'function') window.__cxcOnTab();
 }
 
 // -- Clientes filtro -----------------------------------------------------------
 async function loadClientesFiltro(){
   try{
-    const rows = await apiFetch('/api/cxc/top-deudores?limit=100');
+    const rows = asArrayCxC(await apiFetch('/api/cxc/top-deudores' + buildCxcQuery('limit=100'), { timeout: 45000 }));
     const sel = document.getElementById('fCliente');
     if(!sel) return;
+    const selected = sel.value || '';
+    sel.innerHTML = '<option value="">Todos los clientes</option>';
     for(const r of rows){
       const o=document.createElement('option');
       o.value=r.CLIENTE_ID;
       o.textContent=(r.CLIENTE||'').substring(0,35);
       sel.appendChild(o);
     }
+    if (selected) sel.value = selected;
   }catch{}
 }
 
 // -- Init ----------------------------------------------------------------------
-async function loadAll(){ await Promise.all([loadResumen(), loadVencidas()]); }
+let lastClientesDb = null;
+async function ensureClientesFiltro(){
+  const db = cxcEffectiveDb() || '';
+  if (db !== lastClientesDb) {
+    lastClientesDb = db;
+    await loadClientesFiltro();
+  }
+}
+
+async function loadAll(){
+
+  const [rRes, rVen] = await Promise.allSettled([loadResumen(), loadVencidas()]);
+  if (rRes.status === 'rejected') console.error('[cxc] loadResumen', rRes.reason);
+  if (rVen.status === 'rejected') console.error('[cxc] loadVencidas', rVen.reason);
+  // Carga secuencial de pestañas: menos contención en Firebird que 3× en paralelo tras el resumen.
+  const results = [];
+  for (const fn of [loadTop, loadCond, loadBuro]) {
+    try {
+      results.push({ name: fn.name, status: 'fulfilled', value: await fn() });
+    } catch (e) {
+      console.error('[cxc]', fn.name, e);
+      results.push({ name: fn.name, status: 'rejected', reason: (e && e.message) || String(e) });
+    }
+  }
+
+}
+
+async function refreshCxcDbHint(){
+  const el=document.getElementById('cxcDbHint');
+  if(!el) return;
+
+  let db=cxcEffectiveDb();
+  let line='';
+  const ctrl=new AbortController();
+  const tid=setTimeout(()=>ctrl.abort(),8000);
+  try{
+    const r=await fetch(API+'/api/universe/databases',{signal:ctrl.signal,cache:'no-store'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const list=await r.json();
+    const usable=(typeof window.filterDbCatalog==='function')?window.filterDbCatalog(list):(Array.isArray(list)?list:[]);
+    if(Array.isArray(usable)&&usable.length){
+      const hit=usable.find(x=>String(x.id)===String(db));
+      const fn=(hit&&hit.database)?String(hit.database).split(/[/\\]/).pop():'';
+      line=db?(fn||hit?.label||db)+' · '+usable.length+' negocios':('Por defecto · '+usable.length+' negocios en servidor');
+    }else line=db?'db='+db:'Conexi&oacute;n por defecto';
+  }catch(_){ line=db?'db='+db:'Contexto base de datos'; }
+  finally{ clearTimeout(tid); }
+  el.textContent=line+(window.__apiBuild?' · '+window.__apiBuild:'');
+  el.title='Negocio activo'+(window.__apiBuild?(' · servidor '+window.__apiBuild):'');
+
+}
 
 (async function init(){
   try { initCharts(); } catch (e) { console.warn('[cxc] initCharts', e && e.message ? e.message : e); }
-  await checkStatus();
-  await loadClientesFiltro();
-  // Inicializar filtros de fecha (aging CXC es siempre actual; no modifica consultas)
-  if(window.initFilters){
-    initFilters({
+  void checkStatus().catch(()=>{});
+  const fb = document.getElementById('filter-bar');
+  if (fb) fb.style.display = '';
+  const hasFilters = !!window.initFilters;
+  if (window.initFilters) {
+    await initFilters({
       containerId  : 'filter-bar',
       showVendedor : false,
       defaultPreset: 'mes',
-      onReady : async () => { await loadClientesFiltro(); await loadAll(); },
-      onChange: async () => { await loadClientesFiltro(); await loadAll(); },
+      // Hint (/api/universe/databases) must not block resumen/vencidas — Render cold starts can stall the hint fetch.
+      onReady      : async () => { void refreshCxcDbHint().catch(()=>{}); await ensureClientesFiltro(); await loadAll(); },
+      onChange     : async () => { void refreshCxcDbHint().catch(()=>{}); await ensureClientesFiltro(); await loadAll(); },
     });
   }
-  await loadAll();
+  if (!hasFilters) {
+    void refreshCxcDbHint().catch(()=>{});
+    await ensureClientesFiltro();
+    await loadAll();
+  }
   setInterval(loadResumen, 1800000);
   setInterval(checkStatus, 30000);
+  window.addEventListener('popstate',async ()=>{ void refreshCxcDbHint().catch(()=>{}); await ensureClientesFiltro(); await loadAll(); });
+})();
+
+/* --- Espectáculo CxC: partículas + sonido opcional + modo presentación (solo esta página) --- */
+(function cxcSpectacle(){
+  var SK_PART='cxc_spec_p', SK_SND='cxc_spec_s', SK_PR='cxc_spec_pr';
+  function getB(k,d){ try{ return sessionStorage.getItem(k)||d; }catch(_){ return d; } }
+  function setB(k,v){ try{ sessionStorage.setItem(k,v); }catch(_){} }
+
+  var canvas=document.getElementById('cxc-particles');
+  var btnP=document.getElementById('cxcBtnParticles');
+  var btnS=document.getElementById('cxcBtnSound');
+  var btnR=document.getElementById('cxcBtnPresent');
+  var reduce=typeof matchMedia!=='undefined'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var particlesOn=!reduce&&getB(SK_PART,'1')!=='0';
+  var soundOn=getB(SK_SND,'0')==='1';
+  var presentOn=getB(SK_PR,'0')==='1';
+
+  window.__cxcSoundEnabled=function(){ return soundOn; };
+  window.__cxcPlaySoft=function(kind){
+    if(!soundOn||reduce) return;
+    var AC=window.AudioContext||window.webkitAudioContext;
+    if(!AC) return;
+    if(!window.__cxcAC) window.__cxcAC=new AC();
+    var ctx=window.__cxcAC;
+    var go=function(){
+      if(ctx.state==='suspended') ctx.resume();
+      var t0=ctx.currentTime;
+      function bell(freq,vol,dur){
+        var o=ctx.createOscillator();
+        var g=ctx.createGain();
+        o.type='sine';
+        o.frequency.value=freq;
+        g.gain.setValueAtTime(0.0001,t0);
+        g.gain.exponentialRampToValueAtTime(vol,t0+0.018);
+        g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(t0); o.stop(t0+dur+0.02);
+      }
+      if(kind==='tab'){
+        bell(392,0.038,0.1);
+        bell(523.25,0.012,0.08);
+      } else {
+        bell(523.25,0.048,0.14);
+        bell(659.25,0.018,0.12);
+        bell(783.99,0.008,0.1);
+      }
+    };
+    try{ go(); }catch(_){}
+  };
+  var dockEl=document.querySelector('.cxc-spectacle-dock');
+  window.__cxcOnDataLoad=function(){
+    window.__cxcPlaySoft('data');
+    if(dockEl&&!reduce){
+      dockEl.classList.remove('cxc-dock-data-flash'); void dockEl.offsetWidth;
+      dockEl.classList.add('cxc-dock-data-flash');
+      window.clearTimeout(window.__cxcDockFlashT);
+      window.__cxcDockFlashT=window.setTimeout(function(){ dockEl.classList.remove('cxc-dock-data-flash'); },800);
+    }
+  };
+  window.__cxcOnTab=function(){ window.__cxcPlaySoft('tab'); };
+
+  if(presentOn) document.body.classList.add('cxc-present');
+  if(btnR) btnR.setAttribute('aria-pressed', presentOn?'true':'false');
+
+  if(btnS){
+    btnS.setAttribute('aria-pressed', soundOn?'true':'false');
+    btnS.title=soundOn?'Sonido suave activo (clic para apagar)':'Sonido suave apagado (clic para activar chimes)';
+    btnS.addEventListener('click',function(){
+      soundOn=!soundOn; setB(SK_SND,soundOn?'1':'0');
+      btnS.setAttribute('aria-pressed',soundOn?'true':'false');
+      btnS.title=soundOn?'Sonido suave activo':'Sonido suave apagado';
+      if(soundOn) window.__cxcPlaySoft('data');
+    });
+  }
+
+  if(btnR){
+    btnR.addEventListener('click',function(){
+      presentOn=!presentOn; setB(SK_PR,presentOn?'1':'0');
+      document.body.classList.toggle('cxc-present',presentOn);
+      btnR.setAttribute('aria-pressed',presentOn?'true':'false');
+      btnR.title=presentOn?'Salir de modo presentación':'Modo presentación (tipografía amplia, foco lectura)';
+    });
+    btnR.title=presentOn?'Salir de modo presentación':'Modo presentación (tipografía amplia, foco lectura)';
+  }
+
+  if(!canvas||reduce){
+    if(btnP){ btnP.style.opacity='0.45'; btnP.disabled=true; btnP.title='Partículas desactivadas (accesibilidad)'; }
+    return;
+  }
+
+  var ctx2d=canvas.getContext('2d');
+  var parts=[];
+  var raf=0;
+  var W=1920,H=1080;
+  function resize(){
+    W=Math.max(320,window.innerWidth|0);
+    H=Math.max(240,window.innerHeight|0);
+    var dpr=Math.min(2,window.devicePixelRatio||1);
+    canvas.width=W*dpr; canvas.height=H*dpr;
+    canvas.style.width=W+'px'; canvas.style.height=H+'px';
+    ctx2d.setTransform(dpr,0,0,dpr,0,0);
+  }
+  function spawn(n){
+    parts=[];
+    var i,t;
+    for(i=0;i<n;i++){
+      t=Math.random()*Math.PI*2;
+      parts.push({
+        x:Math.random()*W,y:Math.random()*H,
+        vx:(Math.random()-.5)*0.35,vy:-0.15-Math.random()*0.55,
+        r:0.6+Math.random()*2.2,a:0.2+Math.random()*0.55,h:30+Math.random()*140,
+        ph:Math.random()*Math.PI*2
+      });
+    }
+  }
+  function tick(ts){
+    if(!particlesOn){ raf=0; return; }
+    ctx2d.clearRect(0,0,W,H);
+    var i,p,sw=Math.sin(ts/1200);
+    for(i=0;i<parts.length;i++){
+      p=parts[i];
+      p.x+=p.vx+sw*0.08;p.y+=p.vy;
+      if(p.y<-8){ p.y=H+4;p.x=Math.random()*W; }
+      if(p.x<-4)p.x=W+2;if(p.x>W+4)p.x=-2;
+      var tw=0.35+0.25*Math.sin(ts/800+p.ph);
+      ctx2d.beginPath();
+      ctx2d.fillStyle='hsla('+p.h+',75%,62%,'+(p.a*tw)+')';
+      ctx2d.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx2d.fill();
+    }
+    raf=requestAnimationFrame(tick);
+  }
+  function start(){ cancelAnimationFrame(raf); if(particlesOn) raf=requestAnimationFrame(tick); }
+  function syncParticlesBtn(){
+    if(!btnP) return;
+    btnP.setAttribute('aria-pressed',particlesOn?'true':'false');
+    btnP.title=particlesOn?'Partículas activas (clic para ocultar)':'Partículas ocultas (clic para mostrar)';
+    canvas.style.display=particlesOn?'':'none';
+    if(particlesOn) start(); else cancelAnimationFrame(raf);
+  }
+  resize(); spawn(120); syncParticlesBtn();
+  window.addEventListener('resize',function(){ resize(); spawn(120); if(particlesOn) start(); });
+  if(btnP) btnP.addEventListener('click',function(){ particlesOn=!particlesOn; setB(SK_PART,particlesOn?'1':'0'); syncParticlesBtn(); });
+
+  document.addEventListener('visibilitychange',function(){ if(document.hidden) cancelAnimationFrame(raf); else if(particlesOn) start(); });
 })();
 </script>
-<script src="nav.js"></script>
+<script src="/chat-widget.js" defer></script>
 </body>
 </html>

@@ -1,11 +1,16 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="theme-premium-light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Suminregio Parker &mdash; Vendedores</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// Misma lógica que Ventas/Cobradas: file:// → localhost:7000; si no → mismo origen (abrir desde http://IP:7000/vendedores.html)
+window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');
+</script>
 <script src="filters.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -20,6 +25,9 @@
   --purple:#9B6DFF;--purple-dim:rgba(155,109,255,.1);
   --cyan:#00D4FF;--cyan-dim:rgba(0,212,255,.1);
   --text:#E8EFF8;--text2:#B0BECE;--muted:#5A7090;--dim:#243348;
+  --suminregio:#E6A800;--suminregio-dim:rgba(230,168,0,.15);
+  --accent:var(--suminregio);
+  --amber:var(--yellow);
 }
 html{font-size:16px;-webkit-font-smoothing:antialiased}
 body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh}
@@ -32,14 +40,14 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
 header{position:sticky;top:0;z-index:100;background:rgba(5,11,20,.88);backdrop-filter:blur(24px);border-bottom:1px solid var(--border)}
 .header-inner{max-width:1800px;margin:0 auto;height:64px;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;padding:0 2rem}
 .logo{display:flex;align-items:center;gap:.75rem;text-decoration:none}
-.logo-icon{width:38px;height:38px;background:linear-gradient(135deg,var(--purple),var(--blue));border-radius:10px;display:grid;place-items:center;flex-shrink:0;box-shadow:0 0 20px rgba(155,109,255,.3)}
+.logo-icon{width:38px;height:38px;background:linear-gradient(135deg,var(--suminregio),var(--orange));border-radius:10px;display:grid;place-items:center;flex-shrink:0;box-shadow:0 0 20px rgba(230,168,0,.3)}
 .logo-icon svg{width:22px;height:22px;fill:white}
 .logo-text{font-size:.92rem;font-weight:800;color:var(--text)}
 .logo-sub{font-size:.6rem;font-family:'DM Mono',monospace;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
 nav{display:flex;align-items:center;gap:.2rem}
 .nav-link{display:flex;align-items:center;gap:.45rem;padding:.4rem .85rem;border-radius:8px;font-size:.78rem;font-weight:600;color:var(--muted);text-decoration:none;transition:all .2s}
 .nav-link:hover{color:var(--text);background:var(--s2)}
-.nav-link.active{color:var(--text);background:var(--s3);border:1px solid var(--border2)}
+.nav-link.active{color:var(--suminregio);background:var(--suminregio-dim);border:1px solid var(--suminregio)}
 .nav-link svg{width:14px;height:14px;fill:currentColor;flex-shrink:0}
 .header-right{display:flex;align-items:center;gap:1rem}
 .live-pill{display:flex;align-items:center;gap:.5rem;background:var(--purple-dim);border:1px solid rgba(155,109,255,.25);border-radius:99px;padding:.3rem .8rem;font-family:'DM Mono',monospace;font-size:.65rem;color:var(--purple);letter-spacing:.08em;text-transform:uppercase}
@@ -49,8 +57,8 @@ nav{display:flex;align-items:center;gap:.2rem}
 .page{position:relative;z-index:1;max-width:1800px;margin:0 auto;padding:2rem}
 .hero{margin-bottom:2rem;display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;flex-wrap:wrap}
 .hero-eyebrow{font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:.5rem;display:flex;align-items:center;gap:.6rem}
-.hero-eyebrow::before{content:'';display:inline-block;width:20px;height:1px;background:var(--purple);opacity:.6}
-.hero-title{font-size:2.4rem;font-weight:800;line-height:1;letter-spacing:-.03em;background:linear-gradient(135deg,var(--text) 30%,var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-eyebrow::before{content:'';display:inline-block;width:20px;height:1px;background:var(--suminregio);opacity:.8}
+.hero-title{font-size:2.4rem;font-weight:800;line-height:1;letter-spacing:-.03em;background:linear-gradient(135deg,var(--suminregio) 0%,var(--yellow) 50%,var(--orange) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .hero-sub{font-size:.85rem;color:var(--muted);margin-top:.5rem;font-family:'DM Mono',monospace}
 
 /* KPI strip */
@@ -97,8 +105,8 @@ nav{display:flex;align-items:center;gap:.2rem}
 /* Cards */
 .card{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:1.4rem}
 .card-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.2rem}
-.card-title{font-size:.82rem;font-weight:700;color:var(--text);letter-spacing:-.01em;display:flex;align-items:center;gap:.5rem}
-.card-title svg{width:15px;height:15px;fill:var(--purple)}
+.card-title{font-size:.82rem;font-weight:700;color:var(--suminregio);letter-spacing:-.01em;display:flex;align-items:center;gap:.5rem}
+.card-title svg{width:15px;height:15px;fill:var(--suminregio)}
 
 /* Chart grid */
 .chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.5rem}
@@ -113,7 +121,11 @@ nav{display:flex;align-items:center;gap:.2rem}
 .prog-wrap{width:100%;background:var(--s3);border-radius:99px;height:5px;overflow:hidden;margin-top:3px}
 .prog-fill{height:100%;border-radius:99px;transition:width 1.2s cubic-bezier(.4,0,.2,1)}
 .empty{text-align:center;padding:2rem;color:var(--muted);font-family:'DM Mono',monospace;font-size:.78rem}
+html[data-theme=light] .sc-kpi-lbl,html[data-theme=light] .kpi-lbl,html[data-theme=light] .hero-eyebrow{color:#475569}
+html[data-theme=light] .kpi-sub,html[data-theme=light] .sc-id{color:#64748b}
 </style>
+<link rel="stylesheet" href="app-ui.css">
+<script src="app-ui-boot.js" defer></script>
 </head>
 <body>
 <div class="bg-orbs"><div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div></div>
@@ -180,6 +192,9 @@ nav{display:flex;align-items:center;gap:.2rem}
           Tendencia Diaria del Equipo (30 d&iacute;as)
         </div>
       </div>
+      <p style="font:.62rem 'DM Mono',monospace;color:var(--muted);margin:-8px 0 10px;line-height:1.45">
+        Suma de ventas del equipo por d&iacute;a (VE+PV seg&uacute;n filtro). L&iacute;neas: <strong>meta diaria</strong> y <strong>meta ideal (+30%)</strong> del equipo (d&iacute;as laborales Lun&ndash;S&aacute;b), mismas reglas que Ventas.
+      </p>
       <div style="height:200px"><canvas id="chartDiario"></canvas></div>
     </div>
     <!-- Chart radar cumplimiento -->
@@ -207,7 +222,7 @@ nav{display:flex;align-items:center;gap:.2rem}
       </div>
       <div style="height:220px"><canvas id="chartCobros"></canvas></div>
     </div>
-    <div class="card" style="display:flex;flex-direction:column;gap:.8rem">
+    <div class="card dash-sem-host dash-sem-neutral" id="vend-cobros-kpi-side" style="display:flex;flex-direction:column;gap:.8rem">
       <div style="font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase">KPIs de Cobro</div>
       <div>
         <div style="font-size:.56rem;font-family:'DM Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.18rem">Eficiencia acumulada</div>
@@ -251,14 +266,23 @@ nav{display:flex;align-items:center;gap:.2rem}
 </div>
 
 <script>
-const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : (function () {
-  const o = typeof window !== 'undefined' ? window.location.origin : '';
-  if (o.startsWith('http') && (o.includes('7000') || o.includes('localhost'))) return '';
-  if (!o || o === 'null' || o === 'file://') return 'http://localhost:7000';
-  return '';
-})();
-function fwt(url,fallback,ms=10000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
+const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : '';
+function fwt(url,fallback,ms=15000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
 let chartDiarioInst = null, chartCumplInst = null, chartCobrosInst = null;
+let lastMetasForChart = {};
+
+function isLaborDayV(d) {
+  const x = d instanceof Date ? new Date(d) : new Date(d);
+  if (isNaN(x.getTime())) return false;
+  const wd = x.getDay();
+  return wd >= 1 && wd <= 6;
+}
+function getVendedoresEnContextoV(metaObj) {
+  const p = (window.filterGetParams && filterGetParams()) || {};
+  if (p.vendedor != null && String(p.vendedor).trim() !== '') return 1;
+  const n = +(metaObj && metaObj.NUM_VENDEDORES) || 1;
+  return Math.max(n, 1);
+}
 
 // ── Helper: URL con filtros ────────────────────────────────────────────────
 function buildApiUrl(path, extra) {
@@ -271,26 +295,27 @@ function buildApiUrl(path, extra) {
 const fmtM = v=>{
   if(v===null||v===undefined||isNaN(+v))return'--';
   v=+v;
-  if(v>=1e6)return'$'+(v/1e6).toFixed(2)+'M';
-  if(v>=1e3)return'$'+(v/1e3).toFixed(1)+'K';
-  return'$'+Math.round(v).toLocaleString();
+  return'$'+v.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 };
 const COLS=['#9B6DFF','#4DA6FF','#00E5A0','#FFB800','#FF8C42','#FF4566','#00D4FF'];
 
 async function loadData(){
+  var heroSub = document.getElementById('heroSub');
   try{
     const [cumplData, metas, diario, cotiVends, cxcTop] = await Promise.all([
-      fwt(buildApiUrl('/api/ventas/cumplimiento'),[]),
-      fwt((API || '') + '/api/config/metas',{}),
-      fwt(buildApiUrl('/api/ventas/diarias','dias=30'),[]),
-      fwt(buildApiUrl('/api/ventas/por-vendedor/cotizaciones'),[]),
-      fwt((API || '') + '/api/cxc/top-deudores?limit=50',[]),
+      fwt(buildApiUrl('/api/ventas/cumplimiento'),[],25000),
+      fwt(API+'/api/config/metas',{},15000),
+      fwt(buildApiUrl('/api/ventas/diarias','dias=30'),[],20000),
+      fwt(buildApiUrl('/api/ventas/por-vendedor/cotizaciones'),[],30000),
+      fwt(API+'/api/cxc/top-deudores?limit=50',[],20000),
     ]);
     const vends = Array.isArray(cumplData) ? cumplData : [];
 
+    // Merge cotizaciones por vendedor
     const cotiMap = {};
     (Array.isArray(cotiVends)?cotiVends:[]).forEach(c=>{ cotiMap[c.VENDEDOR_ID]=c; });
 
+    // Merge CxC: mapear por nombre (no hay VENDEDOR_ID en top-deudores directamente)
     const vendsEnriched = vends.map(v => ({
       ...v,
       COTI_MES    : +(cotiMap[v.VENDEDOR_ID]?.COTIZACIONES_MES||0),
@@ -298,25 +323,24 @@ async function loadData(){
       TICKET_PROM : v.FACTURAS_MES>0 ? Math.round(v.VENTA_MES/v.FACTURAS_MES) : 0,
     }));
 
+    lastMetasForChart = metas && typeof metas === 'object' ? metas : {};
     renderAll(vendsEnriched, metas);
-    try {
-      const dias = Array.isArray(diario) ? diario : (diario?.dias||[]);
-      renderChartDiario(dias.length ? dias : null);
-    } catch (e1) { console.warn('[vendedores] chart diario', e1); }
-    try {
-      renderChartCumpl(vendsEnriched);
-    } catch (e2) { console.warn('[vendedores] chart cumplimiento', e2); }
+    const dias = Array.isArray(diario) ? diario : (diario?.dias||[]);
+    renderChartDiario(dias.length ? dias : null, lastMetasForChart);
+    renderChartCumpl(vendsEnriched);
     loadCobros();
   }catch(e){
     console.error('loadData error', e);
     const sub = document.getElementById('heroSub');
-    if(sub) sub.textContent = 'Error de conexión. ¿Está corriendo el servidor? Abre http://localhost:7000';
+    var base = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : '';
+    var apiUrl = base || window.location.origin || 'http://localhost:7000';
+    if(sub) sub.textContent = 'Error de conexi\u00f3n. Servidor en marcha? Probar: ' + (apiUrl || 'http://' + window.location.hostname + ':7000') + ' (puerto 7000)';
   }
 }
 
 async function loadCobros(){
   try{
-    const data = await fwt((API || '') + '/api/resultados/pnl?meses=6', { meses: [], totales: {} });
+    const data = await fwt(API+'/api/resultados/pnl?meses=6', { meses: [], totales: {} }, 45000);
     const meses = Array.isArray(data.meses) ? data.meses : [];
     const MESES_ES = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
     if (!meses.length) {
@@ -331,7 +355,24 @@ async function loadCobros(){
       if (ctx && chartCobrosInst) { chartCobrosInst.destroy(); chartCobrosInst = null; }
       if (!ctx) return;
       if (chartCobrosInst) chartCobrosInst.destroy();
-      chartCobrosInst = new Chart(ctx, { data: { labels, datasets: [ { type: 'bar', label: 'Ventas Netas', data: placeholders.map(()=>0), backgroundColor: 'rgba(30,127,217,.28)', borderColor: '#1E7FD9', borderWidth: 1.5, borderRadius: 4 }, { type: 'bar', label: 'Cobros', data: placeholders.map(()=>0), backgroundColor: 'rgba(0,196,140,.32)', borderColor: '#00C48C', borderWidth: 1.5, borderRadius: 4 } ] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#4D6E8A', font: { size: 11 } } } }, scales: { x: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#4D6E8A', font: { size: 10 } } }, y: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#4D6E8A', font: { size: 10 }, callback: v=>fmtM(v) } } } });
+      chartCobrosInst = new Chart(ctx, {
+        data: {
+          labels: labels,
+          datasets: [
+            { type: 'bar', label: 'Ventas Netas', data: placeholders.map(()=>0), backgroundColor: 'rgba(30,127,217,.28)', borderColor: '#1E7FD9', borderWidth: 1.5, borderRadius: 4 },
+            { type: 'bar', label: 'Cobros', data: placeholders.map(()=>0), backgroundColor: 'rgba(0,196,140,.32)', borderColor: '#00C48C', borderWidth: 1.5, borderRadius: 4 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: '#4D6E8A', font: { size: 11 } } } },
+          scales: {
+            x: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#4D6E8A', font: { size: 10 } } },
+            y: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#4D6E8A', font: { size: 10 }, callback: function(v){ return fmtM(v); } } }
+          }
+        }
+      });
       return;
     }
     const labels  = meses.map(m=>(MESES_ES[+m.MES]||m.MES)+' '+(+m.ANIO||''));
@@ -356,6 +397,10 @@ async function loadCobros(){
       eficAcum>=60?'<span style="color:var(--amber)">&#9888; Cobranza moderada</span> — se est&#225; cobrando el '+eficAcum+'% de lo facturado. Revisar los vencidos m&#225;s antiguos primero.':
       '<span style="color:var(--red)">&#10005; Cobranza baja</span> — solo el '+eficAcum+'% cobrado. Se recomienda acci&#243;n inmediata en la cartera vencida.';
     document.getElementById('cobrosInsight').innerHTML = insight+'<br><span style="color:var(--muted)">&#250;lt. mes: '+lastEfic+'% ('+trend+')</span>';
+    const cobKpiCard = document.getElementById('vend-cobros-kpi-side');
+    if (cobKpiCard && typeof dashboardApplySem === 'function') {
+      dashboardApplySem(cobKpiCard, eficAcum >= 80 ? 'ok' : eficAcum >= 60 ? 'warn' : 'danger');
+    }
     // Chart
     const ctx = document.getElementById('chartCobros');
     if(!ctx) return;
@@ -367,8 +412,9 @@ async function loadCobros(){
         {type:'line',label:'% Eficiencia',data:efic,borderColor:'#FFB800',backgroundColor:'rgba(255,184,0,.08)',borderWidth:2,pointRadius:4,pointBackgroundColor:'#FFB800',fill:true,tension:.35,yAxisID:'y2'}
       ]},
       options:{responsive:true,maintainAspectRatio:false,
+        interaction:{mode:'index',intersect:false},
         plugins:{legend:{labels:{color:'#4D6E8A',font:{size:11,family:"'DM Mono'"}}},
-          tooltip:{backgroundColor:'#112233',borderColor:'rgba(255,255,255,.1)',borderWidth:1,titleColor:'#EDF4FF',bodyColor:'#93B4CC',
+          tooltip:{mode:'index',intersect:false,backgroundColor:'#112233',borderColor:'rgba(255,255,255,.1)',borderWidth:1,titleColor:'#EDF4FF',bodyColor:'#93B4CC',
             callbacks:{label:c=>c.dataset.label+': '+(c.datasetIndex===2?c.raw+'%':fmtM(c.raw))}}},
         scales:{
           x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#4D6E8A',font:{size:10,family:"'DM Mono'"}}},
@@ -381,9 +427,10 @@ async function loadCobros(){
 
 function renderAll(vends, metas){
   if(!vends.length){
-    document.getElementById('heroSub').textContent='Sin datos de vendedores para el periodo seleccionado. Prueba otro mes o quita el filtro de vendedor.';
+    var apiHint = (window.location.protocol === 'file:') ? ' Abre la p\u00e1gina desde la URL del servidor: http://[tu-IP]:7000/vendedores.html' : '';
+    document.getElementById('heroSub').textContent='Sin datos de vendedores para el periodo seleccionado.' + apiHint;
     ['kpiVendedores','kpiBestHoy','kpiTotalHoy','kpiTotalMes','kpiEnMetaHoy','kpiBestMes'].forEach(id=>{ const e=document.getElementById(id); if(e) e.textContent='--'; });
-    document.getElementById('scorecardsGrid').innerHTML = '<div class="empty">No hay datos. Revisa filtros (año/mes/vendedor) o que el servidor esté en http://localhost:7000</div>';
+    document.getElementById('scorecardsGrid').innerHTML = '<div class="empty">No hay datos. Si abres por archivo (file://), abre desde el servidor: http://localhost:7000/vendedores.html o http://[IP-del-remoto]:7000/vendedores.html</div>';
     document.getElementById('rankingBody').innerHTML = '<tr><td colspan="10" class="empty">Sin registros</td></tr>';
     return;
   }
@@ -407,6 +454,23 @@ function renderAll(vends, metas){
   document.getElementById('kpiEnMetaHoy').textContent = enMetaMes+'/'+vends.length;
   document.getElementById('kpiBestMes').textContent = (bestMes?.NOMBRE||'--').split(' ')[0];
   document.getElementById('kpiBestMesSub').textContent = fmtM(+bestMes?.VENTA_MES||0)+' mes';
+
+  if (typeof dashboardApplySem === 'function') {
+    const ring = (id, lvl) => {
+      const el = document.getElementById(id);
+      const box = el && el.closest('.kpi');
+      if (box) dashboardApplySem(box, lvl);
+    };
+    const pH = metaDia > 0 ? Math.round(totalHoy / metaDia * 100) : 0;
+    const pM = metaMes > 0 ? Math.round(totalMes / metaMes * 100) : 0;
+    const ratioMeta = vends.length ? enMetaMes / vends.length : 0;
+    ring('kpiVendedores', vends.length > 0 ? 'info' : 'neutral');
+    ring('kpiBestHoy', 'info');
+    ring('kpiTotalHoy', pH >= 100 ? 'ok' : pH >= 70 ? 'warn' : 'danger');
+    ring('kpiTotalMes', pM >= 100 ? 'ok' : pM >= 70 ? 'warn' : 'danger');
+    ring('kpiEnMetaHoy', ratioMeta >= 0.7 ? 'ok' : ratioMeta >= 0.4 ? 'warn' : 'danger');
+    ring('kpiBestMes', 'info');
+  }
 
   renderScorecards(vends);
   renderRanking(vends);
@@ -515,8 +579,31 @@ function renderRanking(vends){
   document.getElementById('rankingBody').innerHTML=rows||'<tr><td colspan="10" class="empty">Sin datos</td></tr>';
 }
 
-function renderChartDiario(dias){
+function renderChartDiario(dias, metas){
   const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const m = metas && typeof metas === 'object' ? metas : {};
+  const nV = getVendedoresEnContextoV(m);
+  const metaBase = +(m.META_DIARIA_POR_VENDEDOR||5650);
+  const idealBase = +(m.META_IDEAL_POR_VENDEDOR||metaBase*1.3);
+  const metaDay = metaBase * nV;
+  const idealDay = idealBase * nV;
+  function dateForIndex(ix) {
+    if (dias && dias.length && dias[ix]) {
+      const r = String(dias[ix].FECHA||dias[ix].DIA||'').substring(0,10);
+      const p = r.split('-');
+      if (p.length===3) return new Date(+p[0], +p[1]-1, +p[2], 12, 0, 0);
+    }
+    const today = new Date();
+    const dt = new Date(today);
+    dt.setDate(dt.getDate() - (29 - ix));
+    return dt;
+  }
+  function pairForIndex(ix) {
+    const dt = dateForIndex(ix);
+    const lab = isLaborDayV(dt) ? metaDay : 0;
+    const idl = isLaborDayV(dt) ? idealDay : 0;
+    return { lab, idl };
+  }
   let labels, vals;
   if (dias && dias.length) {
     labels = dias.map(d=>{
@@ -527,7 +614,11 @@ function renderChartDiario(dias){
       if (!isNaN(dt.getTime())) return dt.getDate()+'/'+MESES[dt.getMonth()];
       return raw.slice(5);
     });
-    vals = dias.map(d=>+(d.TOTAL||d.TOTAL_VENTAS||0));
+    vals = dias.map(d=>{
+      const t = +(d.TOTAL_VENTAS ?? d.TOTAL ?? 0);
+      if (t) return t;
+      return (+(d.VENTAS_VE||0)) + (+(d.VENTAS_PV||0));
+    });
   } else {
     const today = new Date();
     labels = []; vals = [];
@@ -537,20 +628,29 @@ function renderChartDiario(dias){
       vals.push(0);
     }
   }
+  const metaL = labels.map((_, i) => pairForIndex(i).lab);
+  const idealL = labels.map((_, i) => pairForIndex(i).idl);
+  const maxY = Math.max(0, ...vals, ...metaL, ...idealL, 1);
   const ctx = document.getElementById('chartDiario');
   if (!ctx) return;
   if (chartDiarioInst) chartDiarioInst.destroy();
   chartDiarioInst = new Chart(ctx, {
     type: 'line',
-    data: { labels, datasets: [{ label: 'Venta', data: vals, borderColor: '#F57C00', backgroundColor: 'rgba(245,124,0,.08)', borderWidth: 2, pointRadius: 2, fill: true, tension: .35 }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0D1D35', borderColor: 'rgba(255,255,255,.1)', borderWidth: 1, titleColor: '#E8EFF8', bodyColor: '#B0BECE', callbacks: { label: c=>' '+fmtM(c.raw) } } }, scales: { x: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#5A7090', font: { size: 10, family: "'DM Mono'" } } }, y: { min: 0, grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#5A7090', font: { size: 10, family: "'DM Mono'" }, callback: v=>fmtM(v) } } } }
+    data: { labels, datasets: [
+      { label: 'Venta equipo', data: vals, order: 0, borderColor: '#F57C00', backgroundColor: 'rgba(245,124,0,.1)', borderWidth: 2.2, pointRadius: 2, fill: true, tension: .35 },
+      { label: 'Meta equilibrio', data: metaL, order: 1, borderColor: 'rgba(255,184,0,.9)', borderWidth: 2, borderDash: [6,4], pointRadius: 0, fill: false, tension: .15 },
+      { label: 'Meta ideal', data: idealL, order: 2, borderColor: 'rgba(0,229,160,.8)', borderWidth: 1.8, borderDash: [3,4], pointRadius: 0, fill: '-1', backgroundColor: 'rgba(255,184,0,.12)', tension: .15 },
+    ] },
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: true, labels: { color: '#5A7090', font: { size: 9, family: "'DM Mono'" }, boxWidth: 8 } },
+        tooltip: { mode: 'index', intersect: false, backgroundColor: '#0D1D35', borderColor: 'rgba(255,255,255,.1)', borderWidth: 1, titleColor: '#E8EFF8', bodyColor: '#B0BECE', callbacks: { label: c=>' '+c.dataset.label+': '+fmtM(c.raw) } } },
+      scales: { x: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#5A7090', font: { size: 10, family: "'DM Mono'" } } },
+        y: { min: 0, suggestedMax: maxY * 1.08, grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#5A7090', font: { size: 10, family: "'DM Mono'" }, callback: v=>fmtM(v) } } } }
   });
 }
 
 function renderChartCumpl(vends){
   if(!vends.length)return;
-  const el = document.getElementById('chartCumplimiento');
-  if (!el || typeof Chart === 'undefined') return;
   const sorted=[...vends].sort((a,b)=>(+b.VENTA_MES||0)-(+a.VENTA_MES||0));
   const labels=sorted.map(v=>(v.NOMBRE||'V').split(' ')[0]);
   const pcts=sorted.map(v=>{
@@ -562,25 +662,35 @@ function renderChartCumpl(vends){
     const p=pcts[i];
     return p>=100?'rgba(0,229,160,.5)':p>=70?'rgba(255,184,0,.5)':'rgba(255,69,102,.5)';
   });
+  const maxP = Math.max(100, ...pcts);
+  const sortedP = [...pcts].filter(p=>p>0).sort((a,b)=>b-a);
+  const second = sortedP.length > 1 ? sortedP[1] : sortedP[0] || 100;
+  let yMax = 120;
+  if (maxP > 250) yMax = Math.min(200, Math.max(130, Math.ceil(second * 1.25)));
+  else if (maxP > 150) yMax = Math.min(180, Math.ceil(maxP * 1.08));
+  else yMax = Math.max(120, Math.ceil(maxP * 1.12));
+  const ctx=document.getElementById('chartCumplimiento');
   if(chartCumplInst)chartCumplInst.destroy();
-  chartCumplInst=new Chart(el,{
+  chartCumplInst=new Chart(ctx,{
     type:'bar',
     data:{labels,datasets:[
       {label:'% Cumplimiento',data:pcts,backgroundColor:bgs,borderColor:bgs.map(c=>c.replace('.5)','.9)')),borderWidth:1,borderRadius:4},
-      {type:'line',label:'Meta 100%',data:pcts.map(()=>100),borderColor:'rgba(77,166,255,.5)',borderDash:[4,4],borderWidth:1.5,pointRadius:0,fill:false}
+      {type:'line',label:'Meta 100%',data:pcts.map(()=>100),borderColor:'rgba(77,166,255,.75)',borderDash:[4,4],borderWidth:1.5,pointRadius:0,fill:false}
     ]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#5A7090',font:{size:11,family:"'DM Mono'"}}},tooltip:{backgroundColor:'#0D1D35',borderColor:'rgba(255,255,255,.1)',borderWidth:1,callbacks:{label:c=>c.dataset.label+': '+c.raw+(c.datasetIndex===0?'%':'%')}}},scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5A7090',font:{size:10,family:"'DM Mono'"}}},y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5A7090',font:{size:10,family:"'DM Mono'"},callback:v=>v+'%'},suggestedMax:120}}}
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{color:'#5A7090',font:{size:11,family:"'DM Mono'"}}},tooltip:{mode:'index',intersect:false,backgroundColor:'#0D1D35',borderColor:'rgba(255,255,255,.1)',borderWidth:1,callbacks:{label:c=>c.dataset.label+': '+c.raw+(c.datasetIndex===0?'%':'%')}}},scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5A7090',font:{size:10,family:"'DM Mono'"}}},y:{min:0,max:yMax,grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5A7090',font:{size:10,family:"'DM Mono'"},callback:v=>v+'%'}}}}
   });
 }
 
+// Carga: primero filtros (así anio/mes quedan seteados), luego loadData
 initFilters({
-  containerId:'filter-bar',
-  showVendedor:true,
-  onReady:()=>{ loadData(); },
-  onChange:()=>loadData()
+  containerId: 'filter-bar',
+  showVendedor: true,
+  onChange: function() { loadData(); },
+  onReady: function() { loadData(); }
 });
 setInterval(loadData, 1800000);
 </script>
 <script src="nav.js"></script>
+<script src="/chat-widget.js" defer></script>
 </body>
 </html>

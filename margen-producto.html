@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="es" class="theme-premium-light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suminregio Parker &mdash; Margen por producto</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script>
+window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');
+</script>
+<script src="filters.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060E1A;--s1:#0C1B29;--border:rgba(255,255,255,.08);
+  --suminregio:#E6A800;--green:#00E5A0;--blue:#4DA6FF;--purple:#9B6DFF;
+  --text:#E8EFF8;--muted:#5A7090;--text2:#B0BECE;
+}
+html{font-size:16px}
+body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh}
+.page{max-width:1680px;margin:0 auto;padding:1.75rem 2rem}
+.page-title{font-size:1.6rem;font-weight:800;background:linear-gradient(135deg,var(--suminregio),#FFB800);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.page-sub{font-size:.82rem;color:var(--muted);margin-top:.35rem;max-width:900px;line-height:1.45}
+.source-tabs{display:flex;gap:.5rem;margin:1.25rem 0;flex-wrap:wrap}
+.tab-btn{padding:.4rem 1rem;border-radius:8px;font-size:.78rem;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--s1);color:var(--muted);font-family:'Syne',sans-serif}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active-all{background:rgba(0,229,160,.12);color:var(--green);border-color:var(--green)}
+.tab-btn.active-ve{background:rgba(77,166,255,.12);color:var(--blue);border-color:var(--blue)}
+.tab-btn.active-pv{background:rgba(155,109,255,.12);color:var(--purple);border-color:var(--purple)}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:.75rem;margin:.2rem 0 1rem}
+.kpi{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:.8rem 1rem}
+.kpi-l{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.kpi-v{font-family:'DM Mono',monospace;font-size:1.28rem;margin-top:.35rem}
+.kpi-s{font-size:.7rem;color:var(--text2);margin-top:.25rem}
+.split{display:grid;grid-template-columns:1.2fr .8fr;gap:.75rem}
+.chart-box{height:250px}
+.rank{width:100%;border-collapse:collapse}
+.rank th,.rank td{padding:.5rem .6rem;border-bottom:1px solid var(--border);font-size:.72rem}
+.rank th{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);text-transform:uppercase}
+.rank .num{text-align:right;font-family:'DM Mono',monospace}
+.tool-row{display:flex;align-items:center;gap:.55rem;flex-wrap:wrap}
+.search{background:#12263A;border:1px solid var(--border);color:var(--text);padding:.42rem .6rem;border-radius:8px;font-size:.75rem;min-width:260px}
+.good{color:var(--green)}.bad{color:#FF637F}
+@media (max-width:1060px){.split{grid-template-columns:1fr}}
+.card{background:var(--s1);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-top:1rem}
+.card-head{padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem}
+.card-title{font-size:.88rem;font-weight:600;color:var(--suminregio)}
+.card-badge{font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted)}
+.note{font-size:.68rem;color:var(--muted);line-height:1.4;margin:.5rem 1.25rem 0}
+.table-wrap{overflow:auto;max-height:70vh}
+table{width:100%;border-collapse:collapse;font-size:.74rem}
+th,td{padding:.5rem .65rem;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap}
+th{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;position:sticky;top:0;background:#0f1f32;z-index:1}
+td.num{text-align:right;font-family:'DM Mono',monospace}
+tfoot td{font-weight:600;background:rgba(230,168,0,.08)}
+.tipo-ve{color:var(--blue)}.tipo-pv{color:var(--purple)}
+.empty{text-align:center;padding:2rem;color:var(--muted);font-family:'DM Mono',monospace}
+</style>
+<link rel="stylesheet" href="app-ui.css">
+<script src="app-ui-boot.js" defer></script>
+</head>
+<body>
+<div class="page">
+  <div class="page-header" style="margin-bottom:1rem">
+    <div class="page-title">Margen de utilidad por renglón</div>
+    <p class="page-sub">Líneas de <strong>DOCTOS_VE_DET</strong> y <strong>DOCTOS_PV_DET</strong>. Venta del renglón: <code>PRECIO_T</code> si viene cargado; si no, <code>UNIDADES × PRECIO_U</code> (misma base sin IVA que ventas: divisor 1.16 en servidor, configurable con <code>MICROSIP_VENTAS_SIN_IVA_DIVISOR</code>). Costo: <code>COSTO_TOTAL</code>, unidades × <code>COSTO_UNITARIO</code> o costo promedio del artículo. Utilidad = venta − costo; margen % = utilidad / venta.</p>
+  </div>
+  <div id="filter-bar"></div>
+  <div class="source-tabs">
+    <button type="button" class="tab-btn tab-all active-all" id="tab-all" onclick="setTipo('')">Todos</button>
+    <button type="button" class="tab-btn" id="tab-ve" onclick="setTipo('VE')">Venta Industrial (VE)</button>
+    <button type="button" class="tab-btn" id="tab-pv" onclick="setTipo('PV')">Ventas de Mostrador (PV)</button>
+  </div>
+  <div class="kpi-grid" id="kpiGrid"></div>
+  <div class="split">
+    <div class="card" style="margin-top:0">
+      <div class="card-head">
+        <div class="card-title">Top utilidad por artículo</div>
+        <div class="card-badge" id="artBadge">—</div>
+      </div>
+      <div style="padding:1rem 1.25rem" class="chart-box">
+        <canvas id="chartArt"></canvas>
+      </div>
+    </div>
+    <div class="card" style="margin-top:0">
+      <div class="card-head">
+        <div class="card-title">Mejores clientes por utilidad</div>
+        <div class="card-badge" id="cliBadge">—</div>
+      </div>
+      <div style="padding:.2rem 1rem 1rem">
+        <table class="rank">
+          <thead><tr><th>Cliente</th><th class="num">Venta</th><th class="num">Utilidad</th><th class="num">Margen %</th></tr></thead>
+          <tbody id="topClientes"></tbody>
+          <tfoot id="topClientesFoot"></tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">Detalle por producto</div>
+      <div class="tool-row">
+        <input id="searchRow" class="search" placeholder="Buscar folio, cliente, artículo o vendedor...">
+        <div class="card-badge" id="rowBadge">—</div>
+      </div>
+    </div>
+    <p class="note">Mismo periodo que la barra de filtros (año/mes o rango). Exportación: copiar tabla desde el navegador o ampliar <code>limit</code> en la URL del API si lo necesitas.</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Folio</th>
+            <th>Fecha</th>
+            <th>Tipo</th>
+            <th>Cliente</th>
+            <th>Vendedor</th>
+            <th>Clave</th>
+            <th>Descripción</th>
+            <th class="num">Cant.</th>
+            <th class="num">P. unit.</th>
+            <th class="num">Costo</th>
+            <th class="num">Venta</th>
+            <th class="num">Utilidad</th>
+            <th class="num">Margen %</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+        <tfoot id="tfoot"></tfoot>
+      </table>
+    </div>
+  </div>
+</div>
+<script>
+const API = window.__API_BASE || '';
+async function tFetch(url, ms){
+  ms = ms || 30000;
+  const ctrl = new AbortController();
+  const tid = setTimeout(()=>ctrl.abort(), ms);
+  try {
+    const r = await fetch(url, { cache:'no-store', signal: ctrl.signal });
+    return r;
+  } finally { clearTimeout(tid); }
+}
+function buildApiUrl(path, extra) {
+  const qs = typeof filterBuildQS === 'function' ? filterBuildQS() : '';
+  const e = extra ? String(extra).replace(/^[?&]+/, '') : '';
+  const parts = [qs, e].filter(Boolean).join('&');
+  return API + path + (parts ? '?' + parts : '');
+}
+let tipoSel = '';
+let allRows = [];
+let chartArt = null;
+function setTipo(t) {
+  tipoSel = t;
+  document.getElementById('tab-all').className = 'tab-btn tab-all' + (t === '' ? ' active-all' : '');
+  document.getElementById('tab-ve').className = 'tab-btn' + (t === 'VE' ? ' active-ve' : '');
+  document.getElementById('tab-pv').className = 'tab-btn' + (t === 'PV' ? ' active-pv' : '');
+  loadMargen(false);
+}
+const fmtM = v => {
+  if (v === null || v === undefined || isNaN(+v)) return '—';
+  v = +v;
+  return '$' + v.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+};
+const fmtPct = v => (v === null || v === undefined || isNaN(+v)) ? '—' : (+v).toFixed(2) + '%';
+const fmtDay = s => {
+  if (!s) return '—';
+  const d = new Date(String(s).split('T')[0] + 'T12:00:00');
+  return isNaN(d) ? String(s).slice(0, 10) : d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+function renderKpis(list, pnlTot) {
+  const venta = list.reduce((s, r) => s + (+r.VENTA || 0), 0);
+  const costo = list.reduce((s, r) => s + (+r.COSTO || 0), 0);
+  const util = venta - costo;
+  const margen = venta > 0 ? (util / venta) * 100 : null;
+  const docs = new Set(list.map(r => `${r.TIPO_SRC || ''}-${r.FOLIO || ''}`)).size;
+  const arts = new Set(list.map(r => r.CLAVE_ARTICULO || r.ARTICULO_ID || '')).size;
+  const clientes = new Set(list.map(r => r.CLIENTE || '')).size;
+  const usePnl = !tipoSel && pnlTot && typeof pnlTot === 'object';
+  const ventaK = usePnl ? (+pnlTot.VENTAS_NETAS || 0) : venta;
+  const pnlCosto = usePnl ? (+pnlTot.COSTO_VENTAS || 0) : 0;
+  const pnlHasCosto = pnlCosto > 0.005;
+  const costoK = usePnl ? (pnlHasCosto ? pnlCosto : costo) : costo;
+  const utilK = usePnl
+    ? (pnlHasCosto ? (+pnlTot.UTILIDAD_BRUTA || (ventaK - costoK)) : (ventaK - costoK))
+    : util;
+  const margenK = ventaK > 0 ? (utilK / ventaK) * 100 : null;
+  const docsK = usePnl ? (+pnlTot.NUM_FACTURAS || 0) : docs;
+  const costoVentaPct = ventaK > 0 ? (costoK / ventaK) * 100 : null;
+  const utilSub = usePnl
+    ? (pnlHasCosto ? 'Utilidad bruta (P&L)' : 'Utilidad por renglones (fallback)')
+    : 'Venta - costo';
+  const costoSub = usePnl
+    ? (pnlHasCosto ? `Costo/venta: ${fmtPct(costoVentaPct)}` : `Costo/venta (renglones): ${fmtPct(costoVentaPct)}`)
+    : `Costo/venta: ${fmtPct(costoVentaPct)}`;
+  document.getElementById('kpiGrid').innerHTML = [
+    ['Venta total', fmtM(ventaK), `${docsK} documentos`],
+    ['Costo total', fmtM(costoK), costoSub],
+    ['Utilidad bruta', fmtM(utilK), utilSub],
+    ['Margen promedio', fmtPct(margenK), margenK == null ? 'Sin venta' : (margenK >= 30 ? 'Alto' : (margenK >= 15 ? 'Medio' : 'Bajo'))],
+    ['Clientes', String(clientes), `${list.length} renglones`],
+    ['Artículos', String(arts), 'Productos vendidos']
+  ].map(k => `<div class="kpi"><div class="kpi-l">${k[0]}</div><div class="kpi-v">${k[1]}</div><div class="kpi-s">${k[2]}</div></div>`).join('');
+}
+function groupBy(list, keyFn) {
+  const m = new Map();
+  list.forEach(row => {
+    const k = keyFn(row);
+    const v = m.get(k) || [];
+    v.push(row);
+    m.set(k, v);
+  });
+  return m;
+}
+function renderTopClientes(list) {
+  const tb = document.getElementById('topClientes');
+  const tf = document.getElementById('topClientesFoot');
+  const rows = Array.from(groupBy(list, r => r.CLIENTE || 'Sin nombre').entries()).map(([k, arr]) => {
+    const venta = arr.reduce((s, r) => s + (+r.VENTA || 0), 0);
+    const costo = arr.reduce((s, r) => s + (+r.COSTO || 0), 0);
+    const util = venta - costo;
+    return { cliente: k, venta, util, margen: venta > 0 ? (util / venta) * 100 : null };
+  }).sort((a, b) => b.util - a.util).slice(0, 8);
+  document.getElementById('cliBadge').textContent = rows.length + ' clientes';
+  tb.innerHTML = rows.map(r => `<tr>
+    <td>${r.cliente}</td>
+    <td class="num">${fmtM(r.venta)}</td>
+    <td class="num ${r.util >= 0 ? 'good' : 'bad'}">${fmtM(r.util)}</td>
+    <td class="num">${fmtPct(r.margen)}</td>
+  </tr>`).join('') || '<tr><td colspan="4" class="empty">Sin datos</td></tr>';
+  if (!rows.length) {
+    tf.innerHTML = '';
+    return;
+  }
+  const tVenta = rows.reduce((s, r) => s + (+r.venta || 0), 0);
+  const tUtil = rows.reduce((s, r) => s + (+r.util || 0), 0);
+  const tMargen = tVenta > 0 ? (tUtil / tVenta) * 100 : null;
+  tf.innerHTML = `<tr>
+    <td><strong>Total top ${rows.length}</strong></td>
+    <td class="num"><strong>${fmtM(tVenta)}</strong></td>
+    <td class="num ${tUtil >= 0 ? 'good' : 'bad'}"><strong>${fmtM(tUtil)}</strong></td>
+    <td class="num"><strong>${fmtPct(tMargen)}</strong></td>
+  </tr>`;
+}
+function renderArtChart(list) {
+  const rows = Array.from(groupBy(list, r => r.DESC_ARTICULO || r.CLAVE_ARTICULO || 'S/D').entries()).map(([k, arr]) => {
+    const venta = arr.reduce((s, r) => s + (+r.VENTA || 0), 0);
+    const costo = arr.reduce((s, r) => s + (+r.COSTO || 0), 0);
+    return { k, util: venta - costo };
+  }).sort((a, b) => b.util - a.util).slice(0, 10);
+  document.getElementById('artBadge').textContent = rows.length + ' artículos';
+  const labels = rows.map(r => r.k.length > 28 ? r.k.slice(0, 28) + '…' : r.k);
+  const vals = rows.map(r => Math.round(r.util * 100) / 100);
+  if (chartArt) chartArt.destroy();
+  const ctx = document.getElementById('chartArt')?.getContext('2d');
+  if (!ctx) return;
+  chartArt = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data: vals, backgroundColor: 'rgba(77,166,255,.45)', borderColor: '#4DA6FF', borderWidth: 1, borderRadius: 6 }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: 'y',
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#90A7C0', callback: v => fmtM(v) }, grid: { color: 'rgba(255,255,255,.05)' } },
+        y: { ticks: { color: '#C9D8E8' }, grid: { display: false } }
+      }
+    }
+  });
+}
+function renderTable(list) {
+  const tb = document.getElementById('tbody');
+  const tf = document.getElementById('tfoot');
+  const badge = document.getElementById('rowBadge');
+  const q = (document.getElementById('searchRow')?.value || '').toLowerCase().trim();
+  const rows = !q ? list : list.filter(r => {
+    const txt = [r.FOLIO, r.CLIENTE, r.VENDEDOR, r.CLAVE_ARTICULO, r.DESC_ARTICULO, r.TIPO_SRC].map(x => String(x || '').toLowerCase()).join(' ');
+    return txt.includes(q);
+  });
+  badge.textContent = rows.length + ' renglones';
+  if (!rows.length) {
+    tb.innerHTML = '<tr><td colspan="13" class="empty">Sin renglones en este periodo o criterio.</td></tr>';
+    tf.innerHTML = '';
+    return;
+  }
+  let tCant = 0, tCosto = 0, tVenta = 0, tUtil = 0;
+  tb.innerHTML = rows.map(row => {
+    const c = +row.CANTIDAD || 0;
+    const costo = +row.COSTO || 0;
+    const venta = +row.VENTA || 0;
+    const util = +row.UTILIDAD;
+    const utilVal = Number.isFinite(util) ? util : (venta - costo);
+    tCant += c;
+    tCosto += costo;
+    tVenta += venta;
+    tUtil += utilVal;
+    const src = row.TIPO_SRC === 'PV' ? 'PV' : 'VE';
+    const cls = src === 'PV' ? 'tipo-pv' : 'tipo-ve';
+    return `<tr>
+      <td style="font-family:DM Mono,monospace">${row.FOLIO || '—'}</td>
+      <td style="font-family:DM Mono,monospace;font-size:.68rem">${fmtDay(row.FECHA)}</td>
+      <td class="${cls}">${src}</td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${row.CLIENTE || '—'}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis">${row.VENDEDOR || '—'}</td>
+      <td style="font-family:DM Mono,monospace;font-size:.68rem">${row.CLAVE_ARTICULO || '—'}</td>
+      <td style="max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:normal">${row.DESC_ARTICULO || '—'}</td>
+      <td class="num">${c.toLocaleString('es-MX', { maximumFractionDigits: 2 })}</td>
+      <td class="num">${fmtM(row.PRECIO_U)}</td>
+      <td class="num">${fmtM(costo)}</td>
+      <td class="num">${fmtM(venta)}</td>
+      <td class="num ${utilVal >= 0 ? 'good' : 'bad'}">${fmtM(utilVal)}</td>
+      <td class="num">${fmtPct(row.MARGEN_PCT)}</td>
+    </tr>`;
+  }).join('');
+  const mgTot = tVenta > 0.0001 ? (tUtil / tVenta) * 100 : null;
+  tf.innerHTML = `<tr>
+    <td colspan="7"><strong>Total</strong></td>
+    <td class="num">${tCant.toLocaleString('es-MX', { maximumFractionDigits: 2 })}</td>
+    <td class="num">—</td>
+    <td class="num">${fmtM(tCosto)}</td>
+    <td class="num">${fmtM(tVenta)}</td>
+    <td class="num good">${fmtM(tUtil)}</td>
+    <td class="num">${fmtPct(mgTot)}</td>
+  </tr>`;
+}
+
+async function loadMargen(keepRows) {
+  const tb = document.getElementById('tbody');
+  const tf = document.getElementById('tfoot');
+  if (!keepRows) {
+    tb.innerHTML = '<tr><td colspan="13" class="empty">Cargando…</td></tr>';
+    tf.innerHTML = '';
+  }
+  const tq = tipoSel ? '&tipo=' + encodeURIComponent(tipoSel) : '';
+  const url = buildApiUrl('/api/ventas/margen-lineas', 'limit=5000' + tq);
+  const pnlUrl = buildApiUrl('/api/resultados/pnl');
+  try {
+    const [r, rp] = await Promise.all([
+      tFetch(url, 30000),
+      tFetch(pnlUrl, 60000).catch(() => null)
+    ]);
+    const rows = r && r.ok ? await r.json() : [];
+    let pnlTot = null;
+    if (rp && rp.ok) {
+      const pnlData = await rp.json().catch(() => null);
+      pnlTot = pnlData && pnlData.totales ? pnlData.totales : null;
+    }
+    let list = Array.isArray(rows) ? rows : [];
+    if (!list.length) {
+      const fallbackUrl = buildApiUrl('/api/ventas/margen-lineas', 'limit=5000&meses=12' + tq);
+      const rf = await tFetch(fallbackUrl, 30000);
+      const rowsF = rf.ok ? await rf.json() : [];
+      list = Array.isArray(rowsF) ? rowsF : [];
+    }
+    allRows = list.sort((a,b)=>(+b.VENTA||0)-(+a.VENTA||0));
+    renderKpis(allRows, pnlTot);
+    renderTopClientes(allRows);
+    renderArtChart(allRows);
+    renderTable(allRows);
+  } catch (e) {
+    console.error(e);
+    tb.innerHTML = '<tr><td colspan="13" class="empty">Error de red. Abre desde el servidor (localhost:7000).</td></tr>';
+    document.getElementById('rowBadge').textContent = 'error';
+  }
+}
+
+document.getElementById('searchRow')?.addEventListener('input', () => renderTable(allRows));
+
+if (typeof initFilters === 'function') {
+  initFilters({ containerId: 'filter-bar', showVendedor: true, onReady: () => loadMargen(), onChange: () => loadMargen() });
+} else {
+  loadMargen();
+}
+</script>
+<script src="nav.js"></script>
+<script src="/chat-widget.js" defer></script>
+</body>
+</html>

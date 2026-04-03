@@ -105,7 +105,10 @@ const staticOpts = {
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Cache-Control', 'no-store');
     }
-    if (filePath.endsWith('.js'))   res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    if (filePath.endsWith('.js')) {
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store');
+    }
     if (filePath.endsWith('.css'))  res.setHeader('Content-Type', 'text/css; charset=utf-8');
   }
 };
@@ -3593,7 +3596,8 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
   ) {
     const mx = Math.max(saldoTotal, legacySum);
     const relDiff = mx > 0 ? Math.abs(saldoTotal - legacySum) / mx : 1;
-    if (relDiff <= 0.08) {
+    // 8% era demasiado estricto: doc vs legacy a menudo divergen >10% y dejaban VENCIDO=0 con mora real en aging por cliente.
+    if (relDiff <= 0.35) {
       vencido = aggLegacyFlat.venc;
       agCorr = aggLegacyFlat.cor;
       ag1 = aggLegacyFlat.b1;

@@ -1,16 +1,28 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="theme-premium-light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Suminregio Parker &mdash; Clientes</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app-ui.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="app-ui-boot.js" defer></script>
+<script>
+window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');
+if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/i.test(window.location.hostname)) {
+  var _f = window.fetch;
+  window.fetch = function(u, o) { o = o || {}; o.headers = Object.assign({}, o.headers, { 'ngrok-skip-browser-warning': '1' }); return _f.call(this, u, o); };
+}
+</script>
+<script src="filters.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#060E1A;--s1:#0C1B29;--s2:#112233;--s3:#172D42;--s4:#1D3654;
   --border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.11);
+  --suminregio:#E6A800;--suminregio-dim:rgba(230,168,0,.15);
   --green:#00E5A0;--green-dim:rgba(0,229,160,.1);
   --yellow:#FFB800;--yellow-dim:rgba(255,184,0,.12);
   --orange:#FF8C42;--orange-dim:rgba(255,140,66,.1);
@@ -28,17 +40,20 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
 .orb-2{width:600px;height:600px;background:radial-gradient(circle,#FFB800,transparent 70%);bottom:-150px;right:-150px;animation-delay:-7s}
 .orb-3{width:400px;height:400px;background:radial-gradient(circle,#1E7FD9,transparent 70%);top:40%;left:45%;transform:translate(-50%,-50%);animation-delay:-12s;opacity:.06}
 @keyframes drift{0%{transform:translate(0,0)}100%{transform:translate(20px,15px)}}
+@media (prefers-reduced-motion: reduce){
+  .orb,.live-dot{animation:none!important}
+}
 header{position:sticky;top:0;z-index:100;background:rgba(5,11,20,.88);backdrop-filter:blur(24px);border-bottom:1px solid var(--border)}
 .header-inner{max-width:1800px;margin:0 auto;height:64px;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;padding:0 2rem}
 .logo{display:flex;align-items:center;gap:.75rem;text-decoration:none}
-.logo-icon{width:38px;height:38px;background:linear-gradient(135deg,var(--red),var(--orange));border-radius:10px;display:grid;place-items:center;flex-shrink:0;box-shadow:0 0 20px rgba(255,69,102,.3)}
+.logo-icon{width:38px;height:38px;background:linear-gradient(135deg,var(--suminregio),var(--orange));border-radius:10px;display:grid;place-items:center;flex-shrink:0;box-shadow:0 0 20px rgba(230,168,0,.3)}
 .logo-icon svg{width:22px;height:22px;fill:white}
 .logo-text{font-size:.92rem;font-weight:800;color:var(--text)}
 .logo-sub{font-size:.6rem;font-family:'DM Mono',monospace;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
 nav{display:flex;align-items:center;gap:.2rem}
 .nav-link{display:flex;align-items:center;gap:.45rem;padding:.4rem .85rem;border-radius:8px;font-size:.78rem;font-weight:600;color:var(--muted);text-decoration:none;transition:all .2s}
 .nav-link:hover{color:var(--text);background:var(--s2)}
-.nav-link.active{color:var(--text);background:var(--s3);border:1px solid var(--border2)}
+.nav-link.active{color:var(--suminregio);background:var(--suminregio-dim);border:1px solid var(--suminregio)}
 .nav-link svg{width:14px;height:14px;fill:currentColor;flex-shrink:0}
 .header-right{display:flex;align-items:center;gap:1rem}
 .live-pill{display:flex;align-items:center;gap:.5rem;background:var(--red-dim);border:1px solid rgba(255,69,102,.25);border-radius:99px;padding:.3rem .8rem;font-family:'DM Mono',monospace;font-size:.65rem;color:var(--red);letter-spacing:.08em;text-transform:uppercase}
@@ -48,14 +63,12 @@ nav{display:flex;align-items:center;gap:.2rem}
 .page{position:relative;z-index:1;max-width:1800px;margin:0 auto;padding:2rem}
 .hero{margin-bottom:2rem}
 .hero-eyebrow{font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:.5rem;display:flex;align-items:center;gap:.6rem}
-.hero-eyebrow::before{content:'';display:inline-block;width:20px;height:1px;background:var(--red);opacity:.6}
-.hero-title{font-size:2.4rem;font-weight:800;line-height:1;letter-spacing:-.03em;background:linear-gradient(135deg,var(--text) 30%,var(--red));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-eyebrow::before{content:'';display:inline-block;width:20px;height:1px;background:var(--suminregio);opacity:.8}
+.hero-title{font-size:2.4rem;font-weight:800;line-height:1;letter-spacing:-.03em;background:linear-gradient(135deg,var(--suminregio),var(--yellow),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .hero-sub{font-size:.85rem;color:var(--muted);margin-top:.5rem;font-family:'DM Mono',monospace}
 
 /* KPIs */
-.kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:1rem;margin-bottom:1.5rem}
-@media(max-width:1300px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:700px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:1rem;margin-bottom:1.5rem}
 .kpi{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:1.1rem 1.3rem;position:relative;overflow:hidden}
 .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--kc),transparent)}
 .kpi.red{--kc:var(--red)}.kpi.orange{--kc:var(--orange)}.kpi.yellow{--kc:var(--yellow)}.kpi.blue{--kc:var(--blue)}.kpi.green{--kc:var(--green)}.kpi.purple{--kc:var(--purple)}
@@ -69,6 +82,7 @@ nav{display:flex;align-items:center;gap:.2rem}
 .main-tab{font-family:'DM Mono',monospace;font-size:.72rem;padding:.5rem 1.2rem;border-radius:10px;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:none;transition:all .2s;letter-spacing:.04em;font-weight:500}
 .main-tab.active-red{color:var(--red);border-color:rgba(255,69,102,.3);background:var(--red-dim)}
 .main-tab.active-yellow{color:var(--yellow);border-color:rgba(255,184,0,.3);background:var(--yellow-dim)}
+.main-tab.active-orange{color:var(--orange);border-color:rgba(255,140,66,.35);background:var(--orange-dim)}
 
 /* Section */
 .sd{display:flex;align-items:center;gap:1rem;margin:1.5rem 0 1.2rem}
@@ -79,7 +93,7 @@ nav{display:flex;align-items:center;gap:.2rem}
 .card{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:1.4rem;position:relative;overflow:hidden}
 .card-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.2rem}
 .card-title{font-size:.82rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:.5rem}
-.card-title svg{width:15px;height:15px;fill:var(--red)}
+.card-title svg{width:15px;height:15px;fill:var(--suminregio)}
 .card-badge{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);background:var(--s2);border:1px solid var(--border);padding:.2rem .6rem;border-radius:99px}
 
 /* Risk table */
@@ -87,6 +101,14 @@ nav{display:flex;align-items:center;gap:.2rem}
 .risk-table th{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;padding:.6rem .75rem;text-align:left;border-bottom:1px solid var(--border)}
 .risk-table td{font-size:.8rem;padding:.65rem .75rem;border-bottom:1px solid rgba(255,255,255,.04);color:var(--text2);transition:background .15s}
 .risk-table tr:hover td{background:var(--s2)}
+.th-sort{cursor:pointer;user-select:none;white-space:nowrap}
+.th-sort:hover{color:var(--text2)}
+.th-sort-icon{display:inline-block;margin-left:.35rem;vertical-align:middle;opacity:.9}
+.th-sort-icon::before{content:'';display:block;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent}
+.th-sort-icon.asc::before{border-bottom:5px solid rgba(255,255,255,.9);border-top:none}
+.th-sort-icon.desc::before{border-top:5px solid rgba(255,255,255,.9);border-bottom:none}
+.th-sort-icon.muted{opacity:.35}
+.th-sort-icon.muted::before{display:none}
 .num{text-align:right;font-family:'DM Mono',monospace;font-size:.78rem}
 
 /* Risk level badges */
@@ -118,6 +140,8 @@ nav{display:flex;align-items:center;gap:.2rem}
 .section-panel{display:none}
 .section-panel.active{display:block}
 </style>
+<link rel="stylesheet" href="app-ui.css">
+<script src="app-ui-boot.js" defer></script>
 </head>
 <body>
 <div class="bg-orbs"><div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div></div>
@@ -153,15 +177,17 @@ nav{display:flex;align-items:center;gap:.2rem}
     <div class="hero-title">GESTI&Oacute;N DE CLIENTES EN RIESGO E INACTIVOS</div>
     <div class="hero-sub" id="heroSub">Conectando con el servidor…</div>
   </div>
+  <div id="filter-bar"></div>
 
   <!-- KPIs globales -->
   <div class="kpi-grid">
-    <div class="kpi red"><div class="kpi-lbl">Clientes en riesgo</div><div class="kpi-val" id="kpiEnRiesgo">--</div><div class="kpi-sub">con cartera vencida</div></div>
-    <div class="kpi red"><div class="kpi-lbl">Monto cr&iacute;tico</div><div class="kpi-val" id="kpiMontoCritico">--</div><div class="kpi-sub">&gt;90 d&iacute;as vencido</div></div>
-    <div class="kpi orange"><div class="kpi-lbl">Monto alto</div><div class="kpi-val" id="kpiMontoAlto">--</div><div class="kpi-sub">61&ndash;90 d&iacute;as</div></div>
-    <div class="kpi yellow"><div class="kpi-lbl">Clientes inactivos</div><div class="kpi-val" id="kpiInactivos">--</div><div class="kpi-sub">&gt;90 d&iacute;as sin compra</div></div>
-    <div class="kpi yellow"><div class="kpi-lbl">Pot. reactivaci&oacute;n</div><div class="kpi-val" id="kpiReactivacion">--</div><div class="kpi-sub">revenue recuperable /mes</div></div>
-    <div class="kpi blue"><div class="kpi-lbl">Exposici&oacute;n total</div><div class="kpi-val" id="kpiExposicion">--</div><div class="kpi-sub">saldo vencido acumulado</div></div>
+    <div class="kpi red"><div class="kpi-lbl">Clientes en riesgo (CxC)</div><div class="kpi-val" id="kpiEnRiesgo">--</div><div class="kpi-sub">Con saldo en documentos vencidos</div></div>
+    <div class="kpi red"><div class="kpi-lbl">Monto cr&iacute;tico</div><div class="kpi-val" id="kpiMontoCritico">--</div><div class="kpi-sub">Saldo &gt;90 d&iacute;as vencido (antig&uuml;edad)</div></div>
+    <div class="kpi orange"><div class="kpi-lbl">Monto alto</div><div class="kpi-val" id="kpiMontoAlto">--</div><div class="kpi-sub">Saldo 61&ndash;90 d&iacute;as vencido</div></div>
+    <div class="kpi orange"><div class="kpi-lbl">Atraso comercial</div><div class="kpi-val" id="kpiAtrasoCom">--</div><div class="kpi-sub">Sin compra 60d&ndash;6m (a&uacute;n compraron antes)</div></div>
+    <div class="kpi yellow"><div class="kpi-lbl">Inactivos ventas</div><div class="kpi-val" id="kpiInactivos">--</div><div class="kpi-sub">Sin compra &gt;6 meses (180 d)</div></div>
+    <div class="kpi yellow"><div class="kpi-lbl">Pot. reactivaci&oacute;n</div><div class="kpi-val" id="kpiReactivacion">--</div><div class="kpi-sub">Suma estimada mensual si inactivos volvieran al ritmo 12m</div></div>
+    <div class="kpi blue"><div class="kpi-lbl">Exposici&oacute;n vencida</div><div class="kpi-val" id="kpiExposicion">--</div><div class="kpi-sub">Suma buckets leve+medio+alto+cr&iacute;tico (solo moroso)</div></div>
   </div>
 
   <!-- Par&aacute;metros explicativos -->
@@ -171,14 +197,15 @@ nav{display:flex;align-items:center;gap:.2rem}
     <div class="param-item"><div class="param-dot" style="background:var(--orange)"></div><span>ALTO:</span><span class="param-desc">61&ndash;90 d&iacute;as</span></div>
     <div class="param-item"><div class="param-dot" style="background:var(--yellow)"></div><span>MEDIO:</span><span class="param-desc">31&ndash;60 d&iacute;as</span></div>
     <div class="param-item"><div class="param-dot" style="background:var(--blue)"></div><span>LEVE:</span><span class="param-desc">1&ndash;30 d&iacute;as</span></div>
-    <div class="param-item"><div class="param-dot" style="background:var(--yellow)"></div><span>INACTIVO:</span><span class="param-desc">&gt;90 d&iacute;as sin compra</span></div>
-    <div class="param-item"><div class="param-dot" style="background:var(--red)"></div><span>MUY INACTIVO:</span><span class="param-desc">&gt;180 d&iacute;as</span></div>
+    <div class="param-item"><div class="param-dot" style="background:var(--orange)"></div><span>ATRASO COM.:</span><span class="param-desc">sin compra &gt;60d y &le;180d</span></div>
+    <div class="param-item"><div class="param-dot" style="background:var(--yellow)"></div><span>INACTIVO VTAS:</span><span class="param-desc">sin compra &gt;180d</span></div>
   </div>
 
   <!-- Tabs -->
   <div class="main-tabs">
     <button class="main-tab active-red" onclick="showTab('riesgo',this)">&#128680; Clientes en Riesgo</button>
-    <button class="main-tab" onclick="showTab('inactivos',this)">&#128274; Clientes Inactivos</button>
+    <button class="main-tab" onclick="showTab('comercial',this)">&#9201; Atraso comercial</button>
+    <button class="main-tab" onclick="showTab('inactivos',this)">&#128274; Inactivos ventas</button>
   </div>
 
   <!-- Panel Riesgo -->
@@ -218,17 +245,51 @@ nav{display:flex;align-items:center;gap:.2rem}
       <table class="risk-table">
         <thead>
           <tr>
-            <th>Cliente</th>
-            <th>Nivel</th>
-            <th class="num">Saldo Total</th>
-            <th class="num">Monto Vencido</th>
-            <th class="num">% Vencido</th>
-            <th class="num">Max D&iacute;as</th>
-            <th class="num">Docs</th>
-            <th>Condici&oacute;n</th>
+            <th class="th-sort" data-sort="NOMBRE" data-default-dir="1">Cliente <span class="th-sort-icon muted" data-sort-icon="NOMBRE" aria-hidden="true"></span></th>
+            <th class="th-sort" data-sort="NIVEL_RIESGO" data-default-dir="-1" title="Ordena por nivel de atraso">
+              Nivel <span class="th-sort-icon muted" data-sort-icon="NIVEL_RIESGO" aria-hidden="true"></span>
+            </th>
+            <th class="num th-sort" data-sort="SALDO_TOTAL" data-default-dir="-1">Saldo Total <span class="th-sort-icon muted" data-sort-icon="SALDO_TOTAL" aria-hidden="true"></span></th>
+            <th class="num th-sort" data-sort="MONTO_VENCIDO" data-default-dir="-1" title="Parte de la cartera con documentos ya fuera de plazo (suma de saldos de cargos con d&#237;as de atraso &gt; 0). No es el monto de la &#250;ltima compra.">Monto vencido (cartera) <span class="th-sort-icon muted" data-sort-icon="MONTO_VENCIDO" aria-hidden="true"></span></th>
+            <th class="num th-sort" data-sort="PCT_VENCIDO" data-default-dir="-1">% Vencido <span class="th-sort-icon muted" data-sort-icon="PCT_VENCIDO" aria-hidden="true"></span></th>
+            <th class="num th-sort" data-sort="MAX_DIAS_VENCIDO" data-default-dir="-1">Max D&iacute;as <span class="th-sort-icon muted" data-sort-icon="MAX_DIAS_VENCIDO" aria-hidden="true"></span></th>
+            <th class="num th-sort" data-sort="NUM_DOCS_VENCIDOS" data-default-dir="-1">Docs <span class="th-sort-icon muted" data-sort-icon="NUM_DOCS_VENCIDOS" aria-hidden="true"></span></th>
+            <th class="num th-sort" data-sort="NUM_COMPRAS_VIDA" data-default-dir="-1">Compras <span class="th-sort-icon muted" data-sort-icon="NUM_COMPRAS_VIDA" aria-hidden="true"></span></th>
+            <th class="num th-sort" data-sort="ULTIMA_COMPRA" data-default-dir="-1">&Uacute;ltima compra <span class="th-sort-icon muted" data-sort-icon="ULTIMA_COMPRA" aria-hidden="true"></span></th>
+            <th class="num th-sort" data-sort="ULTIMA_COMPRA_IMPORTE" data-default-dir="-1" title="Importe neto del documento de venta m&#225;s reciente (VE o PV), seg&#250;n FECHA.">Monto &#250;lt. compra <span class="th-sort-icon muted" data-sort-icon="ULTIMA_COMPRA_IMPORTE" aria-hidden="true"></span></th>
+            <th class="num th-sort" data-sort="PERDIDA_VENTA_ANUAL_EST" data-default-dir="-1" title="Aproximaci&#243;n: ticket promedio mensual (&#250;ltimos 12 meses) &#215; 12. Si el cliente dejara de comprar al ritmo reciente, es el volumen anual que dejar&#237;as de facturar.">Venta anual est. en riesgo <span class="th-sort-icon muted" data-sort-icon="PERDIDA_VENTA_ANUAL_EST" aria-hidden="true"></span></th>
+            <th class="th-sort" data-sort="CONDICION_PAGO" data-default-dir="1">Condici&oacute;n <span class="th-sort-icon muted" data-sort-icon="CONDICION_PAGO" aria-hidden="true"></span></th>
           </tr>
         </thead>
         <tbody id="riesgoBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Panel Atraso comercial -->
+  <div id="panelComercial" class="section-panel">
+    <div class="card" style="margin-bottom:1.5rem">
+      <div class="card-head">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Atraso comercial (60 d&iacute;as &ndash; 6 meses)
+        </div>
+        <div class="card-badge" id="comercialCount">-- registros</div>
+      </div>
+      <table class="risk-table">
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th>Estado</th>
+            <th class="num">D&iacute;as sin compra</th>
+            <th class="num">&Uacute;ltima compra</th>
+            <th class="num">Hist&oacute;rico 6m</th>
+            <th class="num">Ticket prom. /mes</th>
+            <th>Nota</th>
+            <th>Condici&oacute;n</th>
+          </tr>
+        </thead>
+        <tbody id="comercialBody"></tbody>
       </table>
     </div>
   </div>
@@ -263,53 +324,96 @@ nav{display:flex;align-items:center;gap:.2rem}
 </div>
 
 <script>
-// Mismo origen si se sirve desde el servidor; si abres por file:// usa localhost:7000
-const API = (function(){ const o=typeof window!=='undefined'?window.location.origin:''; if(o.startsWith('http')&&(o.includes('7000')||o.includes('localhost'))) return ''; if(!o||o==='null'||o==='file://') return 'http://localhost:7000'; return ''; })();
+// Misma regla que CxC/Inventario: file:// → localhost:7000; si no → mismo origen (remoto/ngrok)
+const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : '';
+function apiDb(rel){
+  const p = rel.startsWith('/') ? rel : '/' + rel;
+  return API + (typeof apiPathWithDb === 'function' ? apiPathWithDb(p) : p);
+}
+
 let chartRiesgoInst = null, chartBucketsInst = null;
-let riesgoData = [], inactivosData = [];
+let riesgoData = [], inactivosData = [], comercialData = [];
+const clientesSemCtx = { riesgo: [], inactivos: [], comercial: [], res: {} };
+let riesgoSort = { key: 'MONTO_VENCIDO', dir: -1 };
 
 setInterval(()=>{const n=new Date();document.getElementById('reloj').textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');},1000);
 
-const fmtM=v=>{if(!v&&v!==0)return'--';v=+v;if(v>=1e6)return'$'+(v/1e6).toFixed(2)+'M';if(v>=1e3)return'$'+(v/1e3).toFixed(1)+'K';return'$'+Math.round(v).toLocaleString()};
+const fmtM=v=>{if(!v&&v!==0)return'--';v=+v;return'$'+v.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2})};
 const fmtD=s=>s?String(s).split('T')[0]:'--';
 
 function showTab(tab, btn){
   document.getElementById('panelRiesgo').classList.toggle('active',tab==='riesgo');
+  document.getElementById('panelComercial').classList.toggle('active',tab==='comercial');
   document.getElementById('panelInactivos').classList.toggle('active',tab==='inactivos');
   document.querySelectorAll('.main-tab').forEach(b=>b.className='main-tab');
-  btn.className='main-tab '+(tab==='riesgo'?'active-red':'active-yellow');
+  const cls = tab==='riesgo'?'active-red':tab==='comercial'?'active-orange':'active-yellow';
+  btn.className='main-tab '+cls;
 }
 
-function fwt(url, fallback, ms=10000){
+function fwt(url, fallback, ms=15000){
   return Promise.race([
     fetch(url).then(r=>r.json()).catch(()=>fallback),
     new Promise(r=>setTimeout(()=>r(fallback),ms))
   ]);
 }
 
+function resumenRiesgoBucketsEmpty(res){
+  if(!res||typeof res!=='object')return true;
+  const t=[+res.MONTO_LEVE||0,+res.MONTO_MEDIO||0,+res.MONTO_ALTO||0,+res.MONTO_CRITICO||0];
+  return t.every(v=>v<=0.005);
+}
+function normAgingFromSnap(snap){
+  const raw=(snap&&snap.aging)||{};
+  if(raw&&typeof raw==='object'&&!Array.isArray(raw))return raw;
+  if(Array.isArray(raw)&&raw[0]&&typeof raw[0]==='object')return raw[0];
+  return {};
+}
+function enrichResumenRiesgoFromCxcAging(res,cxcSnap){
+  res=res&&typeof res==='object'?Object.assign({},res):{};
+  if(!resumenRiesgoBucketsEmpty(res))return res;
+  const age=normAgingFromSnap(cxcSnap);
+  const le=+age.DIAS_1_30||0,me=+age.DIAS_31_60||0,al=+age.DIAS_61_90||0,cr=+age.DIAS_MAS_90||0;
+  const mora=le+me+al+cr;
+  if(mora<=0.005)return res;
+  res.MONTO_LEVE=le;
+  res.MONTO_MEDIO=me;
+  res.MONTO_ALTO=al;
+  res.MONTO_CRITICO=cr;
+  return res;
+}
+
 async function loadData(){
   const heroSub = document.getElementById('heroSub');
   try{
     if(heroSub) heroSub.textContent = 'Conectando con el servidor…';
-    const [riesgo, resumen] = await Promise.all([
-      fwt(API+'/api/clientes/riesgo?limit=100', [], 12000),
-      fwt(API+'/api/clientes/resumen-riesgo', {}, 8000),
+
+    const [riesgo, resumen, comercial, inactivos, cxcSnap] = await Promise.all([
+      fwt(apiDb('/api/clientes/inteligencia?limit=400'), [], 35000),
+      fwt(apiDb('/api/clientes/resumen-riesgo'), {}, 35000),
+      fwt(apiDb('/api/clientes/comercial-atraso?limit=300'), [], 35000),
+      fwt(apiDb('/api/clientes/inactivos?limit=300'), [], 25000),
+      fwt(apiDb('/api/cxc/resumen-aging'), {}, 60000),
     ]);
     riesgoData = Array.isArray(riesgo) ? riesgo : [];
-    const res = resumen && typeof resumen==='object' ? resumen : {};
-    renderKPIs(riesgoData, inactivosData, res);
+    comercialData = Array.isArray(comercial) ? comercial : [];
+    inactivosData = Array.isArray(inactivos) ? inactivos : [];
+    let res = resumen && typeof resumen==='object' ? Object.assign({},resumen) : {};
+    res = enrichResumenRiesgoFromCxcAging(res, cxcSnap && typeof cxcSnap==='object' ? cxcSnap : {});
+    renderComercial(comercialData);
+    renderInactivos(inactivosData);
+    renderKPIs(riesgoData, inactivosData, res, comercialData);
     renderRiesgo(riesgoData);
     renderChartRiesgo(res);
     renderChartBuckets(res);
+
     if(riesgoData.length===0 && !res.TOTAL_EN_RIESGO && (+res.MONTO_CRITICO||0)===0){
       if(heroSub) heroSub.textContent = 'Sin datos. Abre esta página desde http://localhost:7000/clientes.html (no desde archivo) y con el servidor en marcha (npm start).';
     }else{
-      if(heroSub) heroSub.textContent = riesgoData.length+' clientes en riesgo · '+fmtM(+res.MONTO_CRITICO||0)+' en nivel crítico';
+      if(heroSub) heroSub.textContent = riesgoData.length+' clientes en riesgo '+'\u00b7 '+fmtM(+res.MONTO_CRITICO||0)+' en nivel cr\u00edtico';
     }
-    loadInactivos();
   }catch(e){
     if(heroSub) heroSub.textContent = 'Error de conexión. Abre desde http://localhost:7000/clientes.html y revisa que el servidor esté corriendo (npm start).';
-    renderKPIs([], inactivosData, {});
+    renderKPIs([], inactivosData, {}, []);
     renderRiesgo([]);
     renderChartRiesgo({});
     renderChartBuckets({});
@@ -318,17 +422,47 @@ async function loadData(){
 
 async function loadInactivos(){
   try{
-    const inactivos = await fwt(API+'/api/clientes/inactivos?limit=100', [], 15000);
+    const inactivos = await fwt(apiDb('/api/clientes/inactivos?limit=300'), [], 15000);
     inactivosData = Array.isArray(inactivos) ? inactivos : [];
+    clientesSemCtx.inactivos = inactivosData;
+
     renderInactivos(inactivosData);
-    document.getElementById('kpiInactivos').textContent = inactivosData.length;
-    const potReact = inactivosData.reduce((s,c)=>s+(+c.TICKET_PROMEDIO_MES||0),0);
-    document.getElementById('kpiReactivacion').textContent = fmtM(potReact);
+    renderKPIs(riesgoData, inactivosData, clientesSemCtx.res || {}, comercialData);
   }catch(e){ console.warn('inactivos',e); }
 }
 
-function renderKPIs(r,in_,res){
+function applyClientesDashSem(){
+  if (typeof dashboardApplySem !== 'function') return;
+  const res = clientesSemCtx.res || {};
+  const r = clientesSemCtx.riesgo || [];
+  const in_ = clientesSemCtx.inactivos || [];
+  const montoCritico = +res.MONTO_CRITICO || 0;
+  const montoAlto = +res.MONTO_ALTO || 0;
+  const exposicion = montoCritico + montoAlto + (+res.MONTO_MEDIO || 0) + (+res.MONTO_LEVE || 0);
+  const potReact = in_.reduce((s, c) => s + (+c.TICKET_PROMEDIO_MES || 0), 0);
+  const nRiesgo = +res.TOTAL_EN_RIESGO || r.length;
+  const nin = in_.length;
+  const ring = (id, lvl) => {
+    const el = document.getElementById(id);
+    const box = el && el.closest('.kpi');
+    if (box) dashboardApplySem(box, lvl);
+  };
+  ring('kpiEnRiesgo', nRiesgo === 0 ? 'ok' : nRiesgo <= 8 ? 'warn' : 'danger');
+  ring('kpiMontoCritico', montoCritico <= 0 ? 'ok' : montoCritico >= 250000 ? 'danger' : 'warn');
+  ring('kpiMontoAlto', montoAlto <= 0 ? 'ok' : montoAlto >= 150000 ? 'danger' : 'warn');
+  const nCom = (clientesSemCtx.comercial || []).length;
+  ring('kpiAtrasoCom', nCom === 0 ? 'ok' : nCom <= 15 ? 'warn' : 'danger');
+  ring('kpiInactivos', nin === 0 ? 'ok' : nin <= 12 ? 'warn' : 'danger');
+  ring('kpiReactivacion', potReact > 0 ? 'info' : 'neutral');
+  ring('kpiExposicion', exposicion <= 0 ? 'ok' : exposicion >= 400000 ? 'danger' : 'warn');
+}
+
+function renderKPIs(r,in_,res,com_){
   if(!res) res={};
+  clientesSemCtx.riesgo = r || [];
+  clientesSemCtx.inactivos = in_ || [];
+  clientesSemCtx.comercial = com_ || [];
+  clientesSemCtx.res = res;
   const montoCritico = +res.MONTO_CRITICO||0;
   const montoAlto    = +res.MONTO_ALTO||0;
   const exposicion   = (montoCritico)+(montoAlto)+(+res.MONTO_MEDIO||0)+(+res.MONTO_LEVE||0);
@@ -339,36 +473,119 @@ function renderKPIs(r,in_,res){
   if(kpiMontoCritico) kpiMontoCritico.textContent = fmtM(montoCritico);
   const kpiMontoAlto = document.getElementById('kpiMontoAlto');
   if(kpiMontoAlto) kpiMontoAlto.textContent = fmtM(montoAlto);
+  const kpiAtrasoCom = document.getElementById('kpiAtrasoCom');
+  if(kpiAtrasoCom) kpiAtrasoCom.textContent = (com_||[]).length;
   const kpiInactivos = document.getElementById('kpiInactivos');
   if(kpiInactivos) kpiInactivos.textContent = (in_||[]).length;
   const kpiReactivacion = document.getElementById('kpiReactivacion');
   if(kpiReactivacion) kpiReactivacion.textContent = fmtM(potReact);
   const kpiExposicion = document.getElementById('kpiExposicion');
   if(kpiExposicion) kpiExposicion.textContent = fmtM(exposicion);
+  applyClientesDashSem();
 }
 
+function nivelFromDias(maxDias){
+  const d = +maxDias||0;
+  if(d>90)return'CRITICO'; if(d>60)return'ALTO'; if(d>30)return'MEDIO'; return'LEVE';
+}
+function nivelOrder(nivelStr){
+  const n = (nivelStr||'').toUpperCase();
+  return n==='CRITICO'?4:n==='ALTO'?3:n==='MEDIO'?2:1;
+}
+function riesgoSortValue(r, key){
+  const saldoTotal = +r.SALDO_TOTAL||+r.SALDO||0;
+  const montoVencido = +r.MONTO_VENCIDO||+r.MONTO_VENCIDO_BRUTO||+r.SALDO||0;
+  if (key === 'NIVEL_RIESGO') return nivelOrder(r.NIVEL_RIESGO||nivelFromDias(r.MAX_DIAS_VENCIDO));
+  if (key === 'PCT_VENCIDO') return saldoTotal > 0 ? (montoVencido / saldoTotal) * 100 : (montoVencido > 0 ? 100 : 0);
+  if (key === 'MONTO_VENCIDO') return montoVencido;
+  if (key === 'SALDO_TOTAL') return saldoTotal;
+  if (key === 'ULTIMA_COMPRA') return r.ULTIMA_COMPRA ? new Date(String(r.ULTIMA_COMPRA)).getTime() : 0;
+  if (key === 'NOMBRE' || key === 'CONDICION_PAGO') return String(r[key] || '').toUpperCase();
+  return +r[key] || 0;
+}
+function applyRiesgoSort(rows){
+  const { key, dir } = riesgoSort;
+  return [...rows].sort((a,b)=>{
+    const va = riesgoSortValue(a, key);
+    const vb = riesgoSortValue(b, key);
+    if (typeof va === 'string' || typeof vb === 'string') {
+      return String(va).localeCompare(String(vb), 'es', { sensitivity: 'base' }) * dir;
+    }
+    if (vb === va) return (+b.MONTO_VENCIDO||0) - (+a.MONTO_VENCIDO||0);
+    return (va > vb ? 1 : -1) * dir;
+  });
+}
+function syncRiesgoSortIcons(){
+  document.querySelectorAll('[data-sort-icon]').forEach(el=>{
+    const k = el.getAttribute('data-sort-icon');
+    if (k === riesgoSort.key) {
+      el.className = 'th-sort-icon ' + (riesgoSort.dir === 1 ? 'asc' : 'desc');
+    } else {
+      el.className = 'th-sort-icon muted';
+    }
+  });
+}
 function renderRiesgo(data){
-  document.getElementById('riesgoCount').textContent = data.length+' registros';
-  const rows = data.map(r=>{
-    const nivel = (r.NIVEL_RIESGO||'LEVE').toUpperCase();
-    const badgeClass = nivel==='CRITICO'?'badge-critico':nivel==='ALTO'?'badge-alto':nivel==='MEDIO'?'badge-medio':'badge-leve';
-    const pctV = +r.PCT_VENCIDO||0;
+  syncRiesgoSortIcons();
+  const dataToRender = data.length > 0 ? applyRiesgoSort(data) : data;
+  document.getElementById('riesgoCount').textContent = dataToRender.length+' registros';
+  const rows = dataToRender.map(r=>{
+    const maxD = +r.MAX_DIAS_VENCIDO||0;
+    const nivel = (r.NIVEL_RIESGO||nivelFromDias(maxD)).toUpperCase();
+    const badgeClass = nivel==='INACTIVO'?'badge-inactivo':nivel==='CRITICO'?'badge-critico':nivel==='ALTO'?'badge-alto':nivel==='MEDIO'?'badge-medio':'badge-leve';
+    const saldoTotal = +r.SALDO_TOTAL||+r.SALDO||0;
+    const montoVencido = +r.MONTO_VENCIDO||+r.MONTO_VENCIDO_BRUTO||+r.SALDO||0;
+    let pctV = 0;
+    if (saldoTotal > 0) pctV = Math.min(100, Math.round((montoVencido / saldoTotal) * 100));
+    else if (montoVencido > 0) pctV = 100;
     const col  = nivel==='CRITICO'?'var(--red)':nivel==='ALTO'?'var(--orange)':nivel==='MEDIO'?'var(--yellow)':'var(--blue)';
+    const ultImp = +r.ULTIMA_COMPRA_IMPORTE || 0;
+    const riesgoAnual = +r.PERDIDA_VENTA_ANUAL_EST || 0;
+    const nCom = +r.NUM_COMPRAS_VIDA||0;
+    const nombreCell = (r.NOMBRE||'--') + (r.EMPRESA ? '<br><small style="color:var(--muted);font-size:.7rem">' + (r.EMPRESA || '') + '</small>' : '');
     return `<tr>
-      <td style="padding:.65rem .75rem;color:var(--text);font-weight:600">${r.NOMBRE||'--'}</td>
+      <td style="padding:.65rem .75rem;color:var(--text);font-weight:600">${nombreCell}</td>
       <td style="padding:.65rem .75rem"><span class="badge ${badgeClass}">${nivel}</span></td>
-      <td class="num" style="color:var(--blue)">${fmtM(+r.SALDO_TOTAL||0)}</td>
-      <td class="num" style="color:${col}">${fmtM(+r.MONTO_VENCIDO||+r.MONTO_VENCIDO_BRUTO||0)}</td>
+      <td class="num" style="color:var(--blue)">${fmtM(saldoTotal)}</td>
+      <td class="num" style="color:${col}">${fmtM(montoVencido)}</td>
       <td class="num">
         <span style="color:${col}">${pctV}%</span>
         <div class="prog-wrap"><div class="prog-fill" style="width:${Math.min(pctV,100)}%;background:${col}"></div></div>
       </td>
-      <td class="num" style="color:${col}">${+r.MAX_DIAS_VENCIDO||0} d&iacute;as</td>
-      <td class="num" style="color:var(--text2)">${+r.NUM_DOCS_VENCIDOS||0}</td>
+      <td class="num" style="color:${col}">${maxD} d&iacute;as</td>
+      <td class="num" style="color:var(--text2)">${+r.NUM_DOCS_VENCIDOS||'--'}</td>
+      <td class="num" style="color:var(--text2)">${nCom ? nCom+' veces' : '\u2014'}</td>
+      <td class="num" style="color:var(--text2);font-size:.78rem">${fmtD(r.ULTIMA_COMPRA)}</td>
+      <td class="num" style="color:var(--green)">${fmtM(ultImp)}</td>
+      <td class="num" style="color:var(--orange)">${fmtM(riesgoAnual)}</td>
       <td style="padding:.65rem .75rem;font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted)">${r.CONDICION_PAGO||'--'}</td>
     </tr>`;
   }).join('');
-  document.getElementById('riesgoBody').innerHTML = rows || `<tr><td colspan="8" class="empty">Sin clientes en riesgo &#127881;</td></tr>`;
+  document.getElementById('riesgoBody').innerHTML = rows || `<tr><td colspan="12" class="empty">Sin clientes en riesgo</td></tr>`;
+}
+
+function renderComercial(data){
+  const tb = document.getElementById('comercialBody');
+  const cnt = document.getElementById('comercialCount');
+  if(cnt) cnt.textContent = (data||[]).length+' registros';
+  if(!tb) return;
+  if(!(data&&data.length)){
+    tb.innerHTML = '<tr><td colspan="8" class="empty">Sin clientes en esta ventana</td></tr>';
+    return;
+  }
+  const rows = data.map(r=>{
+    return `<tr>
+      <td style="padding:.65rem .75rem;color:var(--text);font-weight:600">${r.NOMBRE||'--'}</td>
+      <td style="padding:.65rem .75rem"><span class="badge badge-riesgo">ATRASO</span></td>
+      <td class="num" style="color:var(--orange)">${+r.DIAS_SIN_COMPRA||0} d&iacute;as</td>
+      <td class="num" style="color:var(--text2)">${fmtD(r.ULTIMA_COMPRA)}</td>
+      <td class="num" style="color:var(--blue)">${fmtM(+r.TOTAL_COMPRADO_HISTORIAL||0)}</td>
+      <td class="num" style="color:var(--green)">${fmtM(+r.TICKET_PROMEDIO_MES||0)}</td>
+      <td style="padding:.65rem .75rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--muted)">${r.REACTIVACION||'--'}</td>
+      <td style="padding:.65rem .75rem;font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted)">${r.CONDICION_PAGO||'--'}</td>
+    </tr>`;
+  }).join('');
+  tb.innerHTML = rows;
 }
 
 function renderInactivos(data){
@@ -393,17 +610,25 @@ function renderInactivos(data){
 
 function renderChartRiesgo(res){
   if(!res || typeof res!=='object')return;
-  const vals = [+res.MONTO_CRITICO||0, +res.MONTO_ALTO||0, +res.MONTO_MEDIO||0, +res.MONTO_LEVE||0];
-  if(vals.every(v=>v===0))return;
   const ctx=document.getElementById('chartRiesgo');
+  if(!ctx)return;
+  const vals = [+res.MONTO_CRITICO||0, +res.MONTO_ALTO||0, +res.MONTO_MEDIO||0, +res.MONTO_LEVE||0];
+  const sum = vals.reduce((a,b)=>a+b,0);
+  const labels = sum > 0.005
+    ? ['Cr\u00edtico (+90d)','Alto (61-90d)','Medio (31-60d)','Leve (1-30d)']
+    : ['Sin mora en buckets CxC'];
+  const data = sum > 0.005 ? vals : [1];
+  const bg = sum > 0.005
+    ? ['rgba(255,69,102,.7)','rgba(255,140,66,.7)','rgba(255,184,0,.7)','rgba(77,166,255,.7)']
+    : ['rgba(148,163,184,.25)'];
   if(chartRiesgoInst)chartRiesgoInst.destroy();
   chartRiesgoInst=new Chart(ctx,{
     type:'doughnut',
     data:{
-      labels:['Cr\u00edtico (+90d)','Alto (61-90d)','Medio (31-60d)','Leve (1-30d)'],
-      datasets:[{data:vals,backgroundColor:['rgba(255,69,102,.7)','rgba(255,140,66,.7)','rgba(255,184,0,.7)','rgba(77,166,255,.7)'],borderColor:'#0A1628',borderWidth:3}]
+      labels,
+      datasets:[{data,backgroundColor:bg,borderColor:'#0A1628',borderWidth:3}]
     },
-    options:{cutout:'65%',plugins:{legend:{position:'bottom',labels:{color:'#5A7090',font:{size:10,family:"'DM Mono'"},padding:12}},tooltip:{backgroundColor:'#0D1D35',borderColor:'rgba(255,255,255,.1)',borderWidth:1,callbacks:{label:c=>' '+c.label+': $'+Math.round(+c.raw).toLocaleString()}}}}
+    options:{cutout:'65%',interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{color:'#5A7090',font:{size:10,family:"'DM Mono'"},padding:12}},tooltip:{mode:'index',intersect:false,backgroundColor:'#0D1D35',borderColor:'rgba(255,255,255,.1)',borderWidth:1,callbacks:{label:c=>' '+c.label+': '+(sum>0.005?'$'+Math.round(+c.raw).toLocaleString():'sin saldo moroso en esta vista')}}}}
   });
 }
 
@@ -412,21 +637,70 @@ function renderChartBuckets(res){
   const ctx=document.getElementById('chartBuckets');
   if(!ctx)return;
   if(chartBucketsInst)chartBucketsInst.destroy();
+  const bVals=[+res.MONTO_LEVE||0,+res.MONTO_MEDIO||0,+res.MONTO_ALTO||0,+res.MONTO_CRITICO||0];
   chartBucketsInst=new Chart(ctx,{
     type:'bar',
     data:{
       labels:['Leve\n1-30d','Medio\n31-60d','Alto\n61-90d','Cr\u00edtico\n+90d'],
-      datasets:[{data:[+res.MONTO_LEVE||0,+res.MONTO_MEDIO||0,+res.MONTO_ALTO||0,+res.MONTO_CRITICO||0],
+      datasets:[{data:bVals,
         backgroundColor:['rgba(77,166,255,.5)','rgba(255,184,0,.5)','rgba(255,140,66,.5)','rgba(255,69,102,.5)'],
         borderColor:['#4DA6FF','#FFB800','#FF8C42','#FF4566'],borderWidth:1.5,borderRadius:5}]
     },
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#0D1D35',borderColor:'rgba(255,255,255,.1)',borderWidth:1,callbacks:{label:c=>' $'+Math.round(+c.raw).toLocaleString()}}},scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5A7090',font:{size:9,family:"'DM Mono'"}}},y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5A7090',font:{size:9,family:"'DM Mono'"},callback:v=>{if(v>=1e6)return'$'+(v/1e6).toFixed(1)+'M';if(v>=1e3)return'$'+(v/1e3).toFixed(0)+'K';return'$'+v}}}}}}
+    options:{
+      responsive:true,
+      maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          mode:'index',
+          intersect:false,
+          backgroundColor:'#0D1D35',
+          borderColor:'rgba(255,255,255,.1)',
+          borderWidth:1,
+          callbacks:{
+            label:c=>' $'+(+c.raw||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2})
+          }
+        }
+      },
+      scales:{
+        x:{
+          grid:{color:'rgba(255,255,255,.04)'},
+          ticks:{color:'#5A7090',font:{size:9,family:"'DM Mono'"}}
+        },
+        y:{
+          grid:{color:'rgba(255,255,255,.04)'},
+          ticks:{
+            color:'#5A7090',
+            font:{size:9,family:"'DM Mono'"},
+            callback:v=>'$'+(+v||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2})
+          }
+        }
+      }
+    }
   });
 }
 
-loadData();
+document.querySelectorAll('#panelRiesgo thead .th-sort[data-sort]').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const key = th.getAttribute('data-sort');
+    const def = parseInt(th.getAttribute('data-default-dir') || '-1', 10) || -1;
+    if (riesgoSort.key === key) {
+      riesgoSort.dir = riesgoSort.dir === -1 ? 1 : -1;
+    } else {
+      riesgoSort = { key, dir: def };
+    }
+    renderRiesgo(riesgoData);
+  });
+});
+if (typeof initFilters === 'function') {
+  initFilters({ containerId:'filter-bar', showVendedor:false, onReady:()=>loadData(), onChange:()=>loadData() });
+} else {
+  loadData();
+}
 setInterval(loadData,1800000);
 </script>
 <script src="nav.js"></script>
+<script src="/chat-widget.js" defer></script>
 </body>
 </html>

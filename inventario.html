@@ -1,15 +1,19 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="theme-premium-light">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Suminregio Parker &mdash; Inventario</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<script>window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');</script>
+<script src="filters.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#060E1A;--s1:#0C1B29;--s2:#112233;--s3:#172D42;--s4:#1D3654;
   --border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.11);
+  --suminregio:#E6A800;--suminregio-dim:rgba(230,168,0,.15);
   --green:#00E5A0;--green-dim:rgba(0,229,160,.1);
   --yellow:#FFB800;--yellow-dim:rgba(255,184,0,.12);
   --orange:#FF8C42;--orange-dim:rgba(255,140,66,.1);
@@ -24,18 +28,19 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
 .orb{position:absolute;border-radius:50%;filter:blur(130px);opacity:.12;animation:drift 20s ease-in-out infinite alternate}
 .orb-1{width:600px;height:600px;background:radial-gradient(circle,#1E7FD9,transparent 70%);bottom:-100px;right:-100px}
 .orb-2{width:500px;height:500px;background:radial-gradient(circle,#FFB800,transparent 70%);top:-100px;left:-100px;animation-delay:-5s}
+.orb-3{width:400px;height:400px;background:radial-gradient(circle,rgba(230,168,0,.5),transparent 72%);top:42%;right:15%;opacity:.07;animation-delay:-11s}
 @keyframes drift{0%{transform:translate(0,0)}100%{transform:translate(15px,15px)}}
 header{position:sticky;top:0;z-index:100;background:rgba(5,11,20,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
 .header-inner{max-width:1600px;margin:0 auto;height:64px;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;padding:0 2rem}
 .logo{display:flex;align-items:center;gap:.75rem;text-decoration:none}
-.logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--orange),var(--yellow));border-radius:10px;display:grid;place-items:center;flex-shrink:0}
+.logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--suminregio),var(--orange));border-radius:10px;display:grid;place-items:center;flex-shrink:0}
 .logo-icon svg{width:20px;height:20px;fill:white}
 .logo-text{font-size:.9rem;font-weight:700;color:var(--text)}
 .logo-sub{font-size:.62rem;font-family:'DM Mono',monospace;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
 nav{display:flex;align-items:center;gap:.25rem}
 .nav-link{display:flex;align-items:center;gap:.4rem;padding:.4rem .85rem;border-radius:8px;font-size:.8rem;font-weight:500;color:var(--muted);text-decoration:none;transition:all .2s}
 .nav-link:hover{color:var(--text);background:var(--s2)}
-.nav-link.active{color:var(--text);background:var(--s3);border:1px solid var(--border2)}
+.nav-link.active{color:var(--suminregio);background:var(--suminregio-dim);border:1px solid var(--suminregio)}
 .nav-link svg{width:14px;height:14px;fill:currentColor}
 .header-right{display:flex;align-items:center;gap:1rem}
 .live-pill{display:flex;align-items:center;gap:.5rem;background:var(--orange-dim);border:1px solid rgba(255,140,66,.2);border-radius:99px;padding:.3rem .75rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--orange);letter-spacing:.06em}
@@ -44,7 +49,7 @@ nav{display:flex;align-items:center;gap:.25rem}
 .clock{font-family:'DM Mono',monospace;font-size:.78rem;color:var(--muted)}
 .page{position:relative;z-index:1;max-width:1600px;margin:0 auto;padding:2rem}
 .page-header{margin-bottom:2rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}
-.page-title{font-size:1.75rem;font-weight:800;background:linear-gradient(135deg,var(--text),var(--orange));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.page-title{font-size:1.75rem;font-weight:800;background:linear-gradient(135deg,var(--text),var(--suminregio));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .page-sub{font-size:.85rem;color:var(--muted);margin-top:.35rem}
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem}
 @media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
@@ -62,7 +67,7 @@ nav{display:flex;align-items:center;gap:.25rem}
 @media(max-width:1000px){.grid-2{grid-template-columns:1fr}}
 .card{background:var(--s1);border:1px solid var(--border);border-radius:16px;overflow:hidden}
 .card-head{padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
-.card-title{font-size:.88rem;font-weight:600;color:var(--text);display:flex;align-items:center;gap:.6rem}
+.card-title{font-size:.88rem;font-weight:600;color:var(--text);display:flex;align-items:center;gap:.6rem;flex:1;min-width:0}
 .card-title svg{width:16px;height:16px;fill:var(--muted)}
 .card-badge{font-family:'DM Mono',monospace;font-size:.63rem;padding:.2rem .6rem;border-radius:99px;border:1px solid var(--border2);color:var(--muted)}
 .card-body{padding:1.5rem}
@@ -80,10 +85,22 @@ nav{display:flex;align-items:center;gap:.25rem}
 .stock-bar-bg{flex:1;height:6px;background:var(--s3);border-radius:99px;overflow:hidden}
 .stock-bar-fill{height:100%;border-radius:99px}
 .semanas-tag{display:inline-block;padding:.1rem .4rem;border-radius:4px;font-family:'DM Mono',monospace;font-size:.62rem}
+.estado-chip{display:inline-block;padding:.1rem .45rem;border-radius:6px;font-family:'DM Mono',monospace;font-size:.6rem}
+.estado-chip.crit{color:var(--red);background:var(--red-dim)}
+.estado-chip.warn{color:var(--yellow);background:var(--yellow-dim)}
+.estado-chip.ok{color:var(--green);background:var(--green-dim)}
+/* Tablas con muchas filas: no empujar tabla 2 y Operación fuera de pantalla */
+.inv-tbl-scroll{max-height:min(420px,52vh);overflow-y:auto;-webkit-overflow-scrolling:touch;border-top:1px solid var(--border);overscroll-behavior:contain}
+.inv-tbl-scroll .tbl thead th{position:sticky;top:0;background:var(--s1);z-index:1;box-shadow:0 1px 0 var(--border)}
+@media(min-width:960px){.inv-tbl-scroll{max-height:min(460px,48vh)}}
+/* app-ui-boot pone .ms-reveal en .page > .card: Operación puede quedar invisible hasta IO; aquí siempre visible */
+#inv-card-operacion.ms-reveal{opacity:1;transform:none;filter:none;transition:none}
 </style>
+<link rel="stylesheet" href="app-ui.css">
+<script src="app-ui-boot.js" defer></script>
 </head>
 <body>
-<div class="bg-orbs"><div class="orb orb-1"></div><div class="orb orb-2"></div></div>
+<div class="bg-orbs" aria-hidden="true"><div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div></div>
 
 <header>
   <div class="header-inner">
@@ -115,18 +132,24 @@ nav{display:flex;align-items:center;gap:.25rem}
       <div class="page-sub" id="page-sub">Cargando datos...</div>
     </div>
   </div>
+  <div id="filter-bar"></div>
+  <p class="inv-filter-hint" style="font-size:.78rem;color:var(--muted);margin:-0.5rem 0 1.25rem;line-height:1.45;max-width:56rem">
+    Las <strong style="color:var(--text2)">cuatro tarjetas KPI</strong> (totales, valor, bajo m&iacute;nimo, sin stock) son <strong style="color:var(--text2)">siempre al momento</strong> &mdash; <em>no</em> cambian al tocar Hoy / Esta semana / Este a&ntilde;o (es normal ver los mismos n&uacute;meros).
+    <strong style="color:var(--text2)">Consumo semanal</strong> (tabla) y <strong style="color:var(--text2)">forecast</strong> s&iacute; usan ventas del <strong style="color:var(--text2)">periodo</strong> del chip.
+    <strong style="color:var(--text2)">Sin movimiento</strong> (&gt;180 y &ge;365 d&iacute;as, al final de la p&aacute;gina despu&eacute;s de Top y Forecast) y <strong style="color:var(--text2)">Operaci&oacute;n</strong> usan reglas fijas, no el chip de fechas.
+  </p>
 
   <div class="kpi-grid">
     <div class="kpi-card blue"><div class="kpi-label">Total Art&iacute;culos</div><div class="kpi-value" id="kpi-total">&mdash;</div><div class="kpi-sub">Activos en cat&aacute;logo</div></div>
-    <div class="kpi-card yellow"><div class="kpi-label">Valor Inventario</div><div class="kpi-value" id="kpi-valor">&mdash;</div><div class="kpi-sub">Existencia � Precio</div></div>
+    <div class="kpi-card yellow"><div class="kpi-label">Valor Inventario</div><div class="kpi-value" id="kpi-valor">&mdash;</div><div class="kpi-sub">Existencia y Precio</div></div>
     <div class="kpi-card red"><div class="kpi-label">Bajo M&iacute;nimo</div><div class="kpi-value" id="kpi-minimo">&mdash;</div><div class="kpi-sub">Requieren reorden</div></div>
     <div class="kpi-card orange"><div class="kpi-label">Sin Stock</div><div class="kpi-value" id="kpi-cero">&mdash;</div><div class="kpi-sub">Con m&iacute;nimo definido y existencia 0</div></div>
   </div>
 
-  <!-- B&Uacute;SQUEDA -->
-  <div class="card" style="margin-bottom:1.25rem">
-    <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>Buscar Art&iacute;culo</div><div class="card-badge" id="busq-badge">Escribe m&iacute;nimo 2 caracteres</div></div>
-    <div class="card-body">
+  <div class="card" id="inv-card-busqueda" style="margin-bottom:1.25rem">
+    <div class="card-head">
+      <div class="card-title"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>Buscar Art&iacute;culo</div><div class="card-badge" id="busq-badge">Escribe m&iacute;nimo 2 caracteres</div></div>
+    <div class="card-body" id="inv-panel-busqueda">
       <div class="search-wrap">
         <input class="search-input" id="busq-input" type="text" placeholder="Nombre o c&oacute;digo de art&iacute;culo..." oninput="doBusqueda(this.value)">
       </div>
@@ -135,47 +158,49 @@ nav{display:flex;align-items:center;gap:.25rem}
   </div>
 
   <div class="grid-2">
-    <div class="card">
-      <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69zM12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6c3.31 0 6 2.69 6 6s-2.69 6-6 6zM6 12c0-1.93.78-3.68 2.04-4.96C8.01 8.32 8 9.15 8 10c0 2.42 1.72 4.44 4 4.9V18c-3.31 0-6-2.69-6-6z"/></svg>Art&iacute;culos Bajo M&iacute;nimo</div><div class="card-badge" id="minimo-badge">&mdash;</div></div>
-      <div class="card-body" style="padding:0">
+    <div class="card" id="inv-card-bajo-minimo">
+      <div class="card-head">
+        <div class="card-title"><svg viewBox="0 0 24 24"><path d="M20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12 20 8.69zM12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6c3.31 0 6 2.69 6 6s-2.69 6-6 6z"/></svg>Art&iacute;culos Bajo M&iacute;nimo</div><div class="card-badge" id="minimo-badge">&mdash;</div></div>
+      <div class="card-body" id="inv-panel-bajo-minimo" style="padding:0">
         <table class="tbl" id="tbl-minimo">
           <thead><tr><th>Art&iacute;culo</th><th>Unidad</th><th class="num">Exist.</th><th class="num">M&iacute;nimo</th><th class="num">Faltante</th></tr></thead>
-          <tbody><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tr></tbody>
+          <tbody><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tbody>
         </table>
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>Consumo Semanal (stock cr&iacute;tico)</div><div class="card-badge">&Uacute;ltimas 4 semanas</div></div>
-      <div class="card-body" style="padding:0">
+    <div class="card" id="inv-card-consumo-sem">
+      <div class="card-head">
+        <div class="card-title"><svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>Consumo Semanal (stock cr&iacute;tico)</div><div class="card-badge">Seg&uacute;n periodo arriba</div></div>
+      <div class="card-body" id="inv-panel-consumo-sem" style="padding:0">
         <table class="tbl" id="tbl-consumo">
           <thead><tr><th>Art&iacute;culo</th><th class="num">Exist.</th><th class="num">Cons/Sem</th><th class="num">Semanas</th></tr></thead>
-          <tbody><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tr></tbody>
+          <tbody><tr><td colspan="4" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tbody>
         </table>
       </div>
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 4l6 2.67V11c0 3.94-2.71 7.62-6 8.93-3.29-1.31-6-4.99-6-8.93V7.67L12 5z"/></svg>Top Art&iacute;culos por Valor de Inventario</div><div class="card-badge">Mayor valor en stock</div></div>
-    <div class="card-body" style="padding:0">
+  <div class="card" id="inv-card-topstock">
+    <div class="card-head">
+      <div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 4l6 2.67V11c0 3.94-2.71 7.62-6 8.93-3.29-1.31-6-4.99-6-8.93V7.67L12 5z"/></svg>Top Art&iacute;culos por Valor de Inventario</div><div class="card-badge">Mayor valor en stock</div></div>
+    <div class="card-body" id="inv-panel-topstock" style="padding:0">
       <table class="tbl" id="tbl-topstock">
         <thead><tr><th>#</th><th>Art&iacute;culo</th><th>Unidad</th><th class="num">Existencia</th><th class="num">Precio</th><th class="num">Valor Total</th></tr></thead>
-        <tbody><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tr></tbody>
+        <tbody><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tbody>
       </table>
     </div>
   </div>
 
-  <!-- FORECAST: Consumo + Stock M&iacute;nimo Recomendado + D&iacute;as hasta agotamiento -->
-  <div class="card" style="margin-top:1.25rem">
+  <div class="card" id="inv-card-forecast" style="margin-top:1.25rem">
     <div class="card-head">
       <div class="card-title">
         <svg viewBox="0 0 24 24"><path d="M2.5 19h19v2h-19zm19.57-9.36c-.21-.8-1.04-1.28-1.84-1.06L14.92 10l-6.9-6.43-1.93.51 4.14 7.17-4.97 1.33-1.97-1.54-1.45.39 2.59 4.49s7.12-1.9 14.35-3.84c.81-.23 1.28-1.05 1.07-1.86z"/></svg>
-        Forecast: Consumo &amp; Reposici&oacute;n (&uacute;ltimos 90 d&iacute;as)
+        Forecast: Consumo &amp; Reposici&oacute;n (periodo seleccionado)
       </div>
       <div class="card-badge" id="consumo-badge">--</div>
     </div>
-    <div class="card-body" style="padding:0">
+    <div class="card-body" id="inv-panel-forecast" style="padding:0">
       <table class="tbl" id="tbl-forecast">
         <thead><tr>
           <th>Art&iacute;culo</th><th>Unidad</th>
@@ -183,37 +208,177 @@ nav{display:flex;align-items:center;gap:.25rem}
           <th class="num">D&iacute;as Stock</th><th class="num">Stock M&iacute;n Rec.</th>
           <th class="num">Reponer</th><th>Alerta</th>
         </tr></thead>
-        <tbody id="tbl-forecast-body"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tr></tbody>
+        <tbody id="tbl-forecast-body"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tbody>
       </table>
     </div>
   </div>
 
-  <!-- Art&iacute;culos sin movimiento -->
-  <div class="card" style="margin-top:1.25rem;margin-bottom:1.5rem">
+  <section id="inv-seccion-sin-movimiento" class="inv-sinmov-section" style="margin-top:1.5rem;scroll-margin-top:88px" aria-labelledby="inv-sinmov-heading">
+    <h2 id="inv-sinmov-heading" style="font-size:0.95rem;font-weight:700;color:var(--text);margin:0 0 0.35rem;padding:0;border:none">Sin movimiento de ventas</h2>
+    <p style="font-size:0.74rem;color:var(--muted);margin:0 0 1rem;line-height:1.45;max-width:54rem">Dos tablas con la misma carga del servidor: primero todo lo que lleva <strong style="color:var(--text2)">m&aacute;s de 180 d&iacute;as</strong> sin venta (con existencia); debajo el recorte <strong style="color:var(--text2)">&ge;365 d&iacute;as</strong> cuando el servidor env&iacute;a d&iacute;as calculados. La primera tabla tiene scroll si hay muchas filas; <strong style="color:var(--text2)">tabla 2 y Operaci&oacute;n</strong> quedan justo debajo.</p>
+
+    <div class="card" id="inv-card-sinmov180" style="margin-bottom:1.25rem">
+      <div class="card-head">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+          <span>1) Art&iacute;culos sin venta <strong>&gt;180 d&iacute;as</strong> (con existencia)</span>
+        </div>
+        <div class="card-badge" id="sinmov-badge">--</div>
+      </div>
+      <div class="card-body" id="inv-panel-sinmov180" style="padding:0">
+        <div class="inv-tbl-scroll" role="region" aria-label="Listado sin venta mayor a 180 d&iacute;as">
+          <table class="tbl" id="tbl-sinmov">
+            <thead><tr>
+              <th>Art&iacute;culo</th><th>Unidad</th>
+              <th class="num">Existencia</th><th class="num">M&iacute;nimo</th>
+              <th class="num">D&iacute;as Sin Venta</th><th class="num">&Uacute;lt. Movimiento</th>
+            </tr></thead>
+            <tbody id="tbl-sinmov-body"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="inv-card-sinmov365" style="margin-bottom:0">
+      <div class="card-head">
+        <div class="card-title">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+          <span>2) Mismo listado: solo <strong>&ge;365 d&iacute;as</strong> (con existencia)</span>
+        </div>
+        <div class="card-badge" id="sinmov365-badge">--</div>
+      </div>
+      <div class="card-body" id="inv-panel-sinmov365" style="padding:0">
+        <div class="inv-tbl-scroll" role="region" aria-label="Recorte mayor o igual a 365 d&iacute;as">
+          <table class="tbl" id="tbl-sinmov365">
+            <thead><tr>
+              <th>Art&iacute;culo</th><th>Unidad</th>
+              <th class="num">Existencia</th><th class="num">M&iacute;nimo</th>
+              <th class="num">D&iacute;as Sin Venta</th><th class="num">&Uacute;lt. Movimiento</th>
+            </tr></thead>
+            <tbody id="tbl-sinmov365-body"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="card" id="inv-card-operacion" style="margin-top:1.5rem;margin-bottom:1.5rem">
     <div class="card-head">
       <div class="card-title">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
-        Art&iacute;culos Sin Movimiento (&gt;180 d&iacute;as con existencia)
+        <svg viewBox="0 0 24 24"><path d="M12 2l8 4v6c0 5-3.5 9.5-8 10-4.5-.5-8-5-8-10V6l8-4z"/><path d="M8 12h8"/></svg>
+        Operaci&oacute;n Inventario (cero persistente + cobertura cr&iacute;tica)
       </div>
-      <div class="card-badge" id="sinmov-badge">--</div>
+      <div class="card-badge" id="op-badge">--</div>
     </div>
-    <div class="card-body" style="padding:0">
-      <table class="tbl" id="tbl-sinmov">
+    <div class="card-body" id="inv-panel-operacion" style="padding:0">
+      <table class="tbl" id="tbl-operacion">
         <thead><tr>
-          <th>Art&iacute;culo</th><th>Unidad</th>
-          <th class="num">Existencia</th><th class="num">M&iacute;nimo</th>
-          <th class="num">D&iacute;as Sin Venta</th><th class="num">&Uacute;lt. Movimiento</th>
+          <th>Art&iacute;culo</th><th class="num">Exist.</th><th class="num">Entradas Hist.</th>
+          <th class="num">Cons/4 Sem</th><th class="num">Cobertura</th><th class="num">D&iacute;as sin venta</th><th class="num">&Uacute;lt. mov.</th><th>Estado</th>
         </tr></thead>
-        <tbody id="tbl-sinmov-body"><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tr></tbody>
+        <tbody id="tbl-operacion-body"><tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tbody>
       </table>
     </div>
   </div>
 </div>
 
 <script>
-const API = '';
-const fmt  = n => isNaN(+n)||n==null?'&mdash;':'$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});
-const fmtK = n => { if(isNaN(+n)||n==null) return '&mdash;'; n=+n; if(Math.abs(n)>=1e6) return '$'+(n/1e6).toFixed(1)+'M'; if(Math.abs(n)>=1e3) return '$'+(n/1e3).toFixed(0)+'k'; return '$'+n.toFixed(0); };
+const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : '';
+/** Incluye ?db=, preset, desde/hasta (mismo criterio que el resto del dashboard). */
+function apiDb(rel){
+  const p = rel.startsWith('/') ? rel : '/' + rel;
+  if (typeof filterBuildQS === 'function') {
+    const qs = filterBuildQS();
+    if (qs) {
+      const sep = p.indexOf('?') >= 0 ? '&' : '?';
+      return API + p + sep + qs;
+    }
+  }
+  return API + (typeof apiPathWithDb === 'function' ? apiPathWithDb(p) : p);
+}
+/** Evita que una recarga lenta pise datos de una recarga nueva (cambio de filtro). */
+let invLoadGen = 0;
+/** Una sola loadAll a la vez: si llega otra mientras corre, se encola una repetición (evita “Cargando…” colgado por carrera de invLoadGen). */
+let invLoadAllRunning = false;
+let invLoadAllQueued = false;
+/**
+ * Fetch con tope de tiempo + AbortController (evita quedar colgado si el proxy corta el stream).
+ * Errores HTTP y JSON inválido → { __invErr }.
+ */
+function invFwt(url, fallback, ms) {
+  ms = ms == null ? 45000 : ms;
+  const urlFull = (typeof url === 'string' && url.indexOf('http') === 0) ? url : (API + url);
+  const isNgrok = /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/i.test(urlFull);
+  const ac = new AbortController();
+  const fetchOpts = { signal: ac.signal };
+  if (isNgrok) fetchOpts.headers = { 'ngrok-skip-browser-warning': '1' };
+  function timeoutPayload() {
+    if (fallback && typeof fallback === 'object' && fallback.__invTimeout) return fallback;
+    return {
+      __invTimeout: true,
+      __invErr: 'Sin respuesta en ' + Math.round(ms / 1000) + ' s (timeout cliente). En Render el proxy suele cortar antes (~30–60 s): revisa logs del servicio o acorta el periodo.'
+    };
+  }
+  const tid = setTimeout(function () {
+    try { ac.abort(); } catch (abErr) {}
+  }, ms);
+  return fetch(urlFull, fetchOpts)
+    .then(function (r) {
+      clearTimeout(tid);
+      return r.text().then(function (text) {
+        var data = null;
+        try { data = text ? JSON.parse(text) : null; } catch (e1) { data = null; }
+        if (!r.ok) {
+          var msg = (data && (data.error || data.message)) ? String(data.error || data.message) : '';
+          if (!msg) msg = (r.status ? ('HTTP ' + r.status + ' ') : '') + (text ? String(text).slice(0, 280) : '');
+          if (r.status === 500 && msg.toLowerCase().indexOf('timeout') >= 0) {
+            msg += ' (Firebird). En Render ya va solo VE por defecto; puedes subir MICROSIP_INV_HEAVY_Q_MS (máx. 300000) o forzar MICROSIP_INV_HEAVY_INCLUYE_PV=1 para VE+PV si el host aguanta.';
+          }
+          return { __invErr: (msg || 'Error del servidor').trim(), __invStatus: r.status };
+        }
+        return data !== null && data !== undefined ? data : fallback;
+      });
+    })
+    .catch(function (e) {
+      clearTimeout(tid);
+      var aborted = e && (e.name === 'AbortError' || /aborted|AbortError/i.test(String(e && e.message)));
+      if (aborted) return timeoutPayload();
+      return { __invErr: 'Red: ' + (e && e.message ? e.message : 'fetch'), __invStatus: 0 };
+    });
+}
+const INV_RES_TIMEOUT = { __invTimeout: true };
+function invRespErr(raw) {
+  if (!raw || typeof raw !== 'object') return '';
+  if (raw.__invTimeout) return raw.__invErr || 'Tiempo de espera agotado.';
+  if (raw.__invErr) return String(raw.__invErr);
+  return '';
+}
+function invEsc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+/** API debe devolver array; a veces { rows: [] }; respuestas de error { __invErr } → []. */
+function invRows(x) {
+  if (!x || typeof x !== 'object' || x.__invErr || x.__invTimeout) return [];
+  if (Array.isArray(x)) return x;
+  if (Array.isArray(x.rows)) return x.rows;
+  return [];
+}
+/** Texto del filtro activo (como ventas.html) para el subtítulo. */
+function invPeriodLabel() {
+  try {
+    const p = (typeof filterGetParams === 'function') ? filterGetParams() : {};
+    if (p.desde && p.hasta) return p.desde === p.hasta ? p.desde : (p.desde + ' – ' + p.hasta);
+    if (p.anio != null && p.mes != null) {
+      const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+      return meses[(+p.mes || 1) - 1] + ' ' + p.anio;
+    }
+    if (p.anio != null) return 'Año ' + p.anio;
+    if (p.preset) return String(p.preset);
+  } catch (e) {}
+  return '';
+}
+const fmt  = n => isNaN(+n)||n==null?'&mdash;':'$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
+const fmtK = n => { if(isNaN(+n)||n==null) return '&mdash;'; n=+n; return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2}); };
 const setText = (id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
 
 setInterval(()=>{ document.getElementById('clock').textContent=new Date().toLocaleTimeString('es-MX'); },1000);
@@ -224,8 +389,15 @@ function doBusqueda(val) {
   if(val.trim().length < 2) { document.getElementById('busq-resultado').innerHTML=''; setText('busq-badge','Escribe m&iacute;nimo 2 caracteres'); return; }
   busqTimer = setTimeout(async ()=>{
     try {
-      const rows = await fetch(`${API}/api/inv/existencias?q=${encodeURIComponent(val)}`).then(r=>r.json());
-      setText('busq-badge', `${rows.length} resultados`);
+      const raw = await invFwt(apiDb('/api/inv/existencias?q='+encodeURIComponent(val)), [], 15000);
+      const qerr = invRespErr(raw);
+      if (qerr) {
+        setText('busq-badge', 'Error');
+        document.getElementById('busq-resultado').innerHTML = '<div style="text-align:center;color:var(--red);padding:1rem">' + invEsc(qerr) + '</div>';
+        return;
+      }
+      const rows = invRows(raw);
+      setText('busq-badge', rows.length+' resultados');
       document.getElementById('busq-resultado').innerHTML = rows.length ?
         `<table class="tbl"><thead><tr><th>Art&iacute;culo</th><th>Unidad</th><th class="num">Existencia</th><th class="num">M&iacute;nimo</th><th class="num">Precio</th></tr></thead><tbody>${
           rows.map(r=>{
@@ -243,56 +415,171 @@ function doBusqueda(val) {
 }
 
 async function loadAll() {
+  if (invLoadAllRunning) {
+    invLoadAllQueued = true;
+    return;
+  }
+  invLoadAllRunning = true;
+  const g = ++invLoadGen;
   try {
-    const d = await fetch(`${API}/api/inv/resumen`).then(r=>r.json());
-    setText('kpi-total', Number(d.TOTAL_ARTICULOS||0).toLocaleString());
-    setText('kpi-valor', fmtK(d.VALOR_INVENTARIO));
-    setText('kpi-minimo', Number(d.BAJO_MINIMO||0).toLocaleString());
-    setText('kpi-cero', Number(d.SIN_STOCK||0).toLocaleString());
-  } catch(e){}
+    try {
+      const d = await invFwt(apiDb('/api/inv/resumen'), INV_RES_TIMEOUT, 90000);
+      if (g !== invLoadGen) return;
+      const resErr = d && invRespErr(d);
+      if (d && d.__invTimeout) {
+        setText('kpi-total', '—');
+        setText('kpi-valor', '—');
+        setText('kpi-minimo', '—');
+        setText('kpi-cero', '—');
+        setText('page-sub', 'Resumen de inventario tardó (90 s). Las tablas de abajo siguen cargando; si los KPI quedan en —, revisa el API o recarga.');
+      } else if (resErr) {
+        setText('kpi-total', '—');
+        setText('kpi-valor', '—');
+        setText('kpi-minimo', '—');
+        setText('kpi-cero', '—');
+        setText('page-sub', 'Resumen: ' + invEsc(resErr) + ' · Cargando tablas…');
+      } else {
+        setText('kpi-total', Number(d.TOTAL_ARTICULOS||0).toLocaleString());
+        setText('kpi-valor', fmtK(d.VALOR_INVENTARIO));
+        setText('kpi-minimo', Number(d.BAJO_MINIMO||0).toLocaleString());
+        setText('kpi-cero', Number(d.SIN_STOCK||0).toLocaleString());
+        if (typeof dashboardApplySem === 'function') {
+          const bajo = +d.BAJO_MINIMO || 0, cero = +d.SIN_STOCK || 0, total = +d.TOTAL_ARTICULOS || 0;
+          const ap = (id, lvl) => {
+            const el = document.getElementById(id);
+            const card = el && el.closest('.kpi-card');
+            if (card) dashboardApplySem(card, lvl);
+          };
+          ap('kpi-total', total > 0 ? 'info' : 'neutral');
+          ap('kpi-valor', 'info');
+          ap('kpi-minimo', bajo === 0 ? 'ok' : bajo <= 5 ? 'warn' : 'danger');
+          ap('kpi-cero', cero === 0 ? 'ok' : cero <= 3 ? 'warn' : 'danger');
+        }
+        const pl0 = invPeriodLabel();
+        setText('page-sub', 'KPI = existencias al momento. Cargando inventario completo' + (pl0 ? ' · periodo: ' + pl0 : '') + '…');
+      }
+    } catch (e) {
+      if (g !== invLoadGen) return;
+      console.error('inv-resumen', e);
+      setText('kpi-total', '—');
+      setText('kpi-valor', '—');
+      setText('kpi-minimo', '—');
+      setText('kpi-cero', '—');
+      setText('page-sub', 'Error al cargar resumen. ' + (e && e.message ? String(e.message) : '') + ' · Cargando tablas…');
+    }
 
-  await Promise.all([loadMinimo(), loadConsumo(), loadTopStock(), loadForecast(), loadSinMovimiento()]);
-  setText('page-sub', `Actualizado: ${new Date().toLocaleTimeString('es-MX')}`);
+    if (g !== invLoadGen) return;
+    await Promise.all([
+      loadMinimo(g),
+      loadTopStock(g),
+      loadConsumo(g),
+      loadForecast(g),
+      loadSinMovimiento(g),
+      loadOperacionCritica(g)
+    ]);
+    if (g !== invLoadGen) return;
+    const pl = invPeriodLabel();
+    setText('page-sub', 'Actualizado: ' + new Date().toLocaleTimeString('es-MX') + (pl ? ' · ' + pl : ''));
+  } finally {
+    invLoadAllRunning = false;
+    if (invLoadAllQueued) {
+      invLoadAllQueued = false;
+      loadAll();
+    }
+  }
 }
 
-async function loadMinimo() {
+async function loadMinimo(g) {
   try {
-    const rows = await fetch(`${API}/api/inv/bajo-minimo?limit=50`).then(r=>r.json());
+    const raw = await invFwt(apiDb('/api/inv/bajo-minimo?limit=50'), [], 65000);
+    const err = invRespErr(raw);
+    if (err) {
+      if (g !== invLoadGen) return;
+      document.querySelector('#tbl-minimo tbody').innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--red);padding:1.5rem">' + invEsc(err) + '</td></tr>';
+      setText('minimo-badge', '—');
+      return;
+    }
+    const rows = invRows(raw).slice().sort((a,b)=>(+b.FALTANTE||0)-(+a.FALTANTE||0));
+    if (g !== invLoadGen) return;
     document.querySelector('#tbl-minimo tbody').innerHTML = rows.map(r=>{
       const pct = r.EXISTENCIA_MINIMA>0?(r.EXISTENCIA/r.EXISTENCIA_MINIMA*100):0;
       const barColor = r.EXISTENCIA<=0?'var(--red)':'var(--orange)';
+      const faltante = +(r.FALTANTE);
+      const faltanteTxt = faltante > 0 ? ('-'+faltante) : '0';
+      const faltanteCol = faltante > 0 ? 'var(--red)' : 'var(--muted)';
       return `<tr>
         <td class="lbl">${r.DESCRIPCION}</td>
         <td style="color:var(--muted)">${r.UNIDAD}</td>
         <td class="num"><div class="stock-bar-wrap"><div class="stock-bar-bg"><div class="stock-bar-fill" style="width:${Math.min(pct,100)}%;background:${barColor}"></div></div><span style="color:${barColor}">${r.EXISTENCIA}</span></div></td>
         <td class="num">${r.EXISTENCIA_MINIMA}</td>
-        <td class="num"><span style="color:var(--red)">-${r.FALTANTE}</span></td>
+        <td class="num"><span style="color:${faltanteCol}">${faltanteTxt}</span></td>
       </tr>`;
     }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted)">Sin art&iacute;culos bajo m&iacute;nimo</td></tr>';
-    setText('minimo-badge', `${rows.length} art&iacute;culos`);
-  } catch(e){}
+    setText('minimo-badge', rows.length+' art&iacute;culos');
+  } catch(e){
+    if (g !== invLoadGen) return;
+    console.error('bajo-minimo',e);
+    const tb=document.querySelector('#tbl-minimo tbody');
+    if(tb) tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--red);padding:1.5rem">Error al cargar bajo m&iacute;nimo.</td></tr>';
+  }
 }
 
-async function loadConsumo() {
+async function loadConsumo(g) {
   try {
-    const rows = await fetch(`${API}/api/inv/consumo-semanal?limit=30`).then(r=>r.json());
+    const raw = await invFwt(apiDb('/api/inv/consumo-semanal?limit=30'), [], 95000);
+    const err = invRespErr(raw);
+    if (err) {
+      if (g !== invLoadGen) return;
+      document.querySelector('#tbl-consumo tbody').innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--red);padding:1.5rem">' + invEsc(err) + '</td></tr>';
+      return;
+    }
+    var rows;
+    var meta = null;
+    if (raw && typeof raw === 'object' && !Array.isArray(raw) && Array.isArray(raw.rows)) {
+      rows = raw.rows;
+      meta = raw.meta || null;
+    } else {
+      rows = invRows(raw);
+    }
+    rows = rows.slice().sort((a,b)=>(+b.CONSUMO_SEMANAL_PROM||0)-(+a.CONSUMO_SEMANAL_PROM||0));
+    if (g !== invLoadGen) return;
+    var emptyExtra = '';
+    if (meta && meta.desde && meta.hasta) {
+      emptyExtra = ' Periodo en servidor: ' + invEsc(meta.desde + ' \u2192 ' + meta.hasta) + ' (' + invEsc(String(meta.periodDays)) + ' d\u00edas)';
+      if (meta.database) emptyExtra += ' · ' + invEsc(meta.database);
+      emptyExtra += '. ';
+    }
     document.querySelector('#tbl-consumo tbody').innerHTML = rows.map(r=>{
       const sem = +(r.SEMANAS_STOCK||0);
       const semColor = sem<1?'var(--red)':sem<2?'var(--orange)':sem<4?'var(--yellow)':'var(--green)';
       const semTag = sem<1?'down':sem<2?'warn':'up';
+      const semTxt = sem >= 9999 ? '&mdash;' : sem.toFixed(1)+' sem';
       return `<tr>
         <td class="lbl">${r.DESCRIPCION}</td>
         <td class="num">${+(r.EXISTENCIA||0).toFixed(0)}</td>
         <td class="num">${+(r.CONSUMO_SEMANAL_PROM||0).toFixed(1)}</td>
-        <td class="num"><span class="semanas-tag tag ${semTag}" style="color:${semColor}">${sem>9999?'8':sem.toFixed(1)} sem</span></td>
+        <td class="num"><span class="semanas-tag tag ${semTag}" style="color:${semColor}">${semTxt}</span></td>
       </tr>`;
-    }).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sin datos de consumo</td></tr>';
-  } catch(e){ console.error('consumo',e); }
+    }).join('') || ('<tr><td colspan="4" style="text-align:center;color:var(--muted)">' + emptyExtra + 'Sin movimiento de unidades en ese rango (mismo criterio que Margen por art&iacute;culo). Abre en el navegador <code style="font-size:.75rem">/api/inv/consumo-diagnostico</code> con los mismos filtros de la barra: si <b>renglones_venta_en_periodo</b> es 0, la base remota no tiene ventas VE/PV en fechas; si es &gt;0 y esta tabla sigue vac&iacute;a, avisa.</td></tr>');
+  } catch(e){
+    if (g !== invLoadGen) return;
+    console.error('consumo',e);
+    const tb=document.querySelector('#tbl-consumo tbody');
+    if(tb) tb.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--red);padding:1.5rem">Error al cargar consumo semanal. Revisa consola o API.</td></tr>';
+  }
 }
 
-async function loadTopStock() {
+async function loadTopStock(g) {
   try {
-    const rows = await fetch(`${API}/api/inv/top-stock?limit=30`).then(r=>r.json());
+    const raw = await invFwt(apiDb('/api/inv/top-stock?limit=30'), [], 65000);
+    const err = invRespErr(raw);
+    if (err) {
+      if (g !== invLoadGen) return;
+      document.querySelector('#tbl-topstock tbody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--red);padding:1.5rem">' + invEsc(err) + '</td></tr>';
+      return;
+    }
+    const rows = invRows(raw).slice().sort((a,b)=>(+b.VALOR_TOTAL||0)-(+a.VALOR_TOTAL||0));
+    if (g !== invLoadGen) return;
     document.querySelector('#tbl-topstock tbody').innerHTML = rows.map((r,i)=>`<tr>
       <td style="font-family:'DM Mono',monospace;font-size:.7rem;color:var(--muted)">${i+1}</td>
       <td class="lbl">${r.DESCRIPCION}</td>
@@ -301,13 +588,32 @@ async function loadTopStock() {
       <td class="num">${fmt(r.PRECIO_VENTA)}</td>
       <td class="num"><span style="color:var(--yellow)">${fmt(r.VALOR_TOTAL)}</span></td>
     </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted)">Sin datos</td></tr>';
-  } catch(e){}
+  } catch(e){
+    if (g !== invLoadGen) return;
+    console.error('top-stock', e);
+    const tb = document.querySelector('#tbl-topstock tbody');
+    if (tb) tb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--red);padding:1.5rem">Error al cargar top stock.</td></tr>';
+  }
 }
 
-async function loadForecast(){
+async function loadForecast(g){
   try{
-    const rows = await fetch(`${API}/api/inv/consumo?dias=90&limit=50&lead=15`).then(r=>r.json());
-    setText('consumo-badge', rows.length+' art&iacute;culos');
+    const raw = await invFwt(apiDb('/api/inv/consumo?limit=50&lead=15'), [], 95000);
+    const ferr = invRespErr(raw);
+    if (ferr) {
+      if (g !== invLoadGen) return;
+      setText('consumo-badge', 'Error');
+      document.getElementById('tbl-forecast-body').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--red);padding:1.5rem">' + invEsc(ferr) + '</td></tr>';
+      return;
+    }
+    const rows = invRows(raw).slice().sort((a,b)=>{
+      const da = +a.DIAS_STOCK, db = +b.DIAS_STOCK;
+      const na = isNaN(da) ? 999999 : da;
+      const nb = isNaN(db) ? 999999 : db;
+      return na - nb;
+    });
+    if (g !== invLoadGen) return;
+    setText('consumo-badge', rows.length+' art\u00edculos');
     document.getElementById('tbl-forecast-body').innerHTML = rows.map(r=>{
       const dias = +(r.DIAS_STOCK||0);
       const alerta = (r.ALERTA||'OK').toUpperCase();
@@ -325,31 +631,162 @@ async function loadForecast(){
         <td><span style="font-family:\'DM Mono\',monospace;font-size:.65rem;color:${alertaCol}">${alertaTxt}</span></td>
       </tr>`;
     }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.5rem">Sin datos</td></tr>';
-  }catch(e){console.error('forecast',e);}
+  }catch(e){
+    if (g !== invLoadGen) return;
+    console.error('forecast',e);
+    const fb = document.getElementById('tbl-forecast-body');
+    if (fb) fb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--red);padding:1.5rem">Error al cargar forecast.</td></tr>';
+  }
 }
 
-async function loadSinMovimiento(){
+async function loadSinMovimiento(g){
+  const b180 = document.getElementById('tbl-sinmov-body');
+  const b365 = document.getElementById('tbl-sinmov365-body');
+  const errRowHtml = function (msg) {
+    return '<tr><td colspan="6" style="text-align:center;color:var(--red);padding:1.5rem">' + invEsc(msg) + '</td></tr>';
+  };
+  const warmRow = '<tr><td colspan="6" style="text-align:center;color:var(--yellow);padding:1.5rem">&#9677; Consulta pesada en curso (puede tardar 1&ndash;2 min). Si se corta, Render suele limitar ~60&ndash;120 s por petici&oacute;n.</td></tr>';
+  let done = false;
+  const tWarm = setTimeout(()=>{
+    if(done || g !== invLoadGen) return;
+    if(b180) b180.innerHTML = warmRow;
+    if(b365) b365.innerHTML = warmRow;
+  }, 20000);
+  const fin = ()=>{ done=true; clearTimeout(tWarm); };
+  const sinMovTimeoutFallback = {
+    __invTimeout: true,
+    __invErr: 'Tiempo agotado (210 s) en sin movimiento. Puede ser proxy (Render ~60–120 s) o Firebird lento. Revisa MICROSIP_INV_HEAVY_Q_MS en el API y que el deploy tenga último server_corregido.js.'
+  };
   try{
-    const rows = await fetch(`${API}/api/inv/sin-movimiento?dias=180&limit=50`).then(r=>r.json());
-    setText('sinmov-badge', rows.length+' art&iacute;culos');
-    document.getElementById('tbl-sinmov-body').innerHTML = rows.map(r=>{
-      const dias = +(r.DIAS_SIN_VENTA||9999);
-      const col  = dias>365?'var(--red)':dias>180?'var(--orange)':'var(--yellow)';
+    const raw = await invFwt(apiDb('/api/inv/sin-movimiento?dias=180&limit=60'), sinMovTimeoutFallback, 210000);
+    fin();
+    if (g !== invLoadGen) return;
+    const smErr = invRespErr(raw);
+    if (smErr) {
+      if(b180) b180.innerHTML = errRowHtml(smErr);
+      if(b365) b365.innerHTML = errRowHtml(smErr);
+      const b = document.getElementById('sinmov-badge'); if(b) b.textContent = '—';
+      const b365b = document.getElementById('sinmov365-badge'); if(b365b) b365b.textContent = '—';
+      return;
+    }
+    const all = invRows(raw).slice().sort(function (a, b) {
+      var da = (a.DIAS_SIN_VENTA == null || a.DIAS_SIN_VENTA === '') ? 1e9 : +a.DIAS_SIN_VENTA;
+      var db = (b.DIAS_SIN_VENTA == null || b.DIAS_SIN_VENTA === '') ? 1e9 : +b.DIAS_SIN_VENTA;
+      if (db !== da) return db - da;
+      return (+b.EXISTENCIA_ACTUAL || 0) - (+a.EXISTENCIA_ACTUAL || 0);
+    });
+    if (g !== invLoadGen) return;
+    const rowHtml = function (r) {
+      var rawD = r.DIAS_SIN_VENTA;
+      var diasKnown = rawD != null && rawD !== '' && !isNaN(+rawD);
+      var dias = diasKnown ? +rawD : null;
+      var col = dias == null ? 'var(--muted)' : (dias >= 365 ? 'var(--red)' : dias > 180 ? 'var(--orange)' : 'var(--yellow)');
+      var diasTxt = dias == null ? 'N/D' : (dias > 9000 ? 'Sin hist.' : dias + ' d&iacute;as');
       return `<tr>
         <td class="lbl">${r.DESCRIPCION}</td>
         <td style="color:var(--muted)">${r.UNIDAD||''}</td>
-        <td class="num" style="color:var(--yellow)">${+(r.EXISTENCIA_ACTUAL||0).toFixed(1)}</td>
+        <td class="num" style="color:var(--yellow)">${(+(r.EXISTENCIA_ACTUAL||0)).toFixed(1)}</td>
         <td class="num">${+(r.MIN_ACTUAL||0)}</td>
-        <td class="num"><span style="color:${col};font-weight:600">${dias>9000?'Sin hist.':dias+' d&iacute;as'}</span></td>
+        <td class="num"><span style="color:${col};font-weight:600">${diasTxt}</span></td>
         <td class="num" style="color:var(--muted)">${r.ULTIMO_MOVIMIENTO||'Sin registro'}</td>
       </tr>`;
-    }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Sin art&iacute;culos sin movimiento &#127881;</td></tr>';
-  }catch(e){console.error('sin-movimiento',e);}
+    };
+    const badge = n => n+' art\u00edculo'+(n===1?'':'s');
+    if(b180) b180.innerHTML = all.map(rowHtml).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Sin art&iacute;culos sin movimiento</td></tr>';
+    const sb = document.getElementById('sinmov-badge');
+    if (sb) sb.textContent = badge(all.length);
+    const rows365 = all.filter(function (r) {
+      var rawD = r.DIAS_SIN_VENTA;
+      return rawD != null && rawD !== '' && !isNaN(+rawD) && (+rawD) >= 365;
+    });
+    var allNd = all.length > 0 && all.every(function (r) {
+      var rawD = r.DIAS_SIN_VENTA;
+      return rawD == null || rawD === '' || isNaN(+rawD);
+    });
+    var empty365 = allNd
+      ? '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem"><strong>Modo r&aacute;pido activo</strong> (t&iacute;pico en Render): el API no env&iacute;a d&iacute;as por art&iacute;culo, as&iacute; que <strong>no se puede armar el recorte &ge;365</strong> aqu&iacute;. La tabla 1 s&iacute; lista candidatos sin venta reciente. Para llenar esta tabla: en el servicio pon <code style="font-size:.75rem">MICROSIP_INV_SIN_MOV_FAST=0</code> (consulta m&aacute;s pesada) o deja solo la tabla 1.</td></tr>'
+      : '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Sin art&iacute;culos con 365+ d&iacute;as sin venta (con existencia) entre los que tienen d&iacute;as calculados.</td></tr>';
+    if(b365) b365.innerHTML = rows365.map(rowHtml).join('') || empty365;
+    const sb365 = document.getElementById('sinmov365-badge');
+    if (sb365) sb365.textContent = badge(rows365.length);
+  }catch(e){
+    fin();
+    if (g !== invLoadGen) return;
+    console.error('sin-movimiento',e);
+    const msg = (e && e.message) ? String(e.message) : 'Error al cargar';
+    if(b180) b180.innerHTML = errRowHtml(msg);
+    if(b365) b365.innerHTML = errRowHtml(msg);
+  }
 }
 
-loadAll();
+async function loadOperacionCritica(g){
+  try{
+    const opTimeoutFallback = {
+      __invTimeout: true,
+      __invErr: 'Tiempo agotado (210 s) en operaci\u00f3n inventario. Consulta pesada; revisa MICROSIP_INV_HEAVY_Q_MS y MICROSIP_INV_OP_CONSUMO_DIAS en el API.'
+    };
+    const payload = await invFwt(apiDb('/api/inv/operacion-critica?limit=120'), opTimeoutFallback, 210000);
+    if (g !== invLoadGen) return;
+    const oerr = invRespErr(payload);
+    if (oerr) {
+      setText('op-badge', 'Error');
+      const tb = document.getElementById('tbl-operacion-body');
+      if (tb) tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--red);padding:1.5rem">' + invEsc(oerr) + '</td></tr>';
+      return;
+    }
+    const rows = Array.isArray(payload && payload.rows) ? payload.rows : [];
+    const rs = (payload && payload.resumen) || {};
+    setText('op-badge', `${rows.length} filas · ${Number(rs.criticos||0)} cr\u00edticos`);
+    document.getElementById('tbl-operacion-body').innerHTML = rows.map(r=>{
+      const ex = +r.EXISTENCIA_ACTUAL || 0;
+      const ent = +r.ENTRADAS_TOTAL || 0;
+      const c4 = +r.CONSUMO_4_SEMANAS || 0;
+      const dias = r.DIAS_COBERTURA_EST == null ? null : +r.DIAS_COBERTURA_EST;
+      const sem = r.SEMANAS_COBERTURA_EST == null ? null : +r.SEMANAS_COBERTURA_EST;
+      const diasSinVenta = (r.DIAS_SIN_VENTA == null || r.DIAS_SIN_VENTA === '') ? null : +r.DIAS_SIN_VENTA;
+      const ultMov = r.ULTIMO_MOVIMIENTO ? String(r.ULTIMO_MOVIMIENTO).split('T')[0] : 'Sin registro';
+      const crit = !!r.CRITICO;
+      const estado = String(r.ESTADO_OPERATIVO || '');
+      const chipCls = crit ? 'crit' : (estado.toLowerCase().includes('baja') || estado.toLowerCase().includes('agotado') ? 'warn' : 'ok');
+      const cobTxt = (dias == null || !isFinite(dias))
+        ? '&mdash;'
+        : `${dias.toFixed(1)} d / ${sem!=null&&isFinite(sem)?sem.toFixed(1):'--'} sem`;
+      return `<tr>
+        <td class="lbl">${r.DESCRIPCION||''}</td>
+        <td class="num" style="color:${ex<=0?'var(--red)':'var(--text)'}">${ex.toFixed(1)}</td>
+        <td class="num" style="color:${ent<=0?'var(--red)':'var(--muted)'}">${ent.toFixed(1)}</td>
+        <td class="num" style="color:${c4>0?'var(--blue)':'var(--muted)'}">${c4.toFixed(1)}</td>
+        <td class="num">${cobTxt}</td>
+        <td class="num" style="color:${diasSinVenta==null?'var(--muted)':(diasSinVenta>180?'var(--red)':diasSinVenta>90?'var(--orange)':'var(--text2)')}">${diasSinVenta==null?'Sin hist.':(diasSinVenta.toFixed(0)+' d')}</td>
+        <td class="num" style="color:var(--text2)">${ultMov}</td>
+        <td><span class="estado-chip ${chipCls}">${estado}</span></td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.5rem">Sin art&iacute;culos para este an&aacute;lisis</td></tr>';
+  }catch(e){
+    if (g !== invLoadGen) return;
+    console.error('operacion-critica',e);
+    const tb=document.getElementById('tbl-operacion-body');
+    if(tb) tb.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--red);padding:1.5rem">Error al cargar operaci&oacute;n inventario.</td></tr>';
+  }
+}
+
+let invFilterDebounce = null;
+function scheduleInvReload() {
+  clearTimeout(invFilterDebounce);
+  invFilterDebounce = setTimeout(function () {
+    invFilterDebounce = null;
+    loadAll();
+  }, 450);
+}
+
+if (typeof initFilters === 'function') {
+  initFilters({ containerId:'filter-bar', showVendedor:false, onReady:function(){ loadAll(); }, onChange:function(){ scheduleInvReload(); } });
+} else {
+  loadAll();
+}
 setInterval(loadAll, 1800000);
 </script>
 <script src="nav.js"></script>
+<script src="/chat-widget.js" defer></script>
 </body>
 </html>

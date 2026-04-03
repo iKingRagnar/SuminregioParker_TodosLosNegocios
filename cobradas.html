@@ -1,10 +1,12 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="theme-premium-light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Suminregio Parker &mdash; Facturas Cobradas</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500&display=swap" rel="stylesheet">
+<script>window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="filters.js"></script>
 <style>
@@ -20,6 +22,8 @@
   --purple:#9B6DFF;--purple-dim:rgba(155,109,255,.1);
   --cyan:#00D4FF;--cyan-dim:rgba(0,212,255,.1);
   --text:#E8EFF8;--text2:#B0BECE;--muted:#5A7090;--dim:#243348;
+  --suminregio:#E6A800;--suminregio-dim:rgba(230,168,0,.15);
+  --accent:var(--suminregio);
 }
 html{font-size:16px;-webkit-font-smoothing:antialiased}
 body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh}
@@ -32,14 +36,14 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
 header{position:sticky;top:0;z-index:100;background:rgba(5,11,20,.88);backdrop-filter:blur(24px);border-bottom:1px solid var(--border)}
 .header-inner{max-width:1800px;margin:0 auto;height:64px;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;padding:0 2rem}
 .logo{display:flex;align-items:center;gap:.75rem;text-decoration:none}
-.logo-icon{width:38px;height:38px;background:linear-gradient(135deg,var(--green),var(--blue));border-radius:10px;display:grid;place-items:center;flex-shrink:0;box-shadow:0 0 20px rgba(0,229,160,.3)}
+.logo-icon{width:38px;height:38px;background:linear-gradient(135deg,var(--suminregio),var(--orange));border-radius:10px;display:grid;place-items:center;flex-shrink:0;box-shadow:0 0 20px rgba(230,168,0,.3)}
 .logo-icon svg{width:22px;height:22px;fill:white}
 .logo-text{font-size:.92rem;font-weight:800;color:var(--text)}
 .logo-sub{font-size:.6rem;font-family:'DM Mono',monospace;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
 nav{display:flex;align-items:center;gap:.2rem}
 .nav-link{display:flex;align-items:center;gap:.45rem;padding:.4rem .85rem;border-radius:8px;font-size:.78rem;font-weight:600;color:var(--muted);text-decoration:none;transition:all .2s}
 .nav-link:hover{color:var(--text);background:var(--s2)}
-.nav-link.active{color:var(--text);background:var(--s3);border:1px solid var(--border2)}
+.nav-link.active{color:var(--suminregio);background:var(--suminregio-dim);border:1px solid var(--suminregio)}
 .nav-link svg{width:14px;height:14px;fill:currentColor;flex-shrink:0}
 .header-right{display:flex;align-items:center;gap:1rem}
 .live-pill{display:flex;align-items:center;gap:.5rem;background:var(--green-dim);border:1px solid rgba(0,229,160,.25);border-radius:99px;padding:.3rem .8rem;font-family:'DM Mono',monospace;font-size:.65rem;color:var(--green);letter-spacing:.08em;text-transform:uppercase}
@@ -49,8 +53,8 @@ nav{display:flex;align-items:center;gap:.2rem}
 .page{position:relative;z-index:1;max-width:1800px;margin:0 auto;padding:2rem}
 .hero{margin-bottom:2rem;display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;flex-wrap:wrap}
 .hero-eyebrow{font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:.5rem;display:flex;align-items:center;gap:.6rem}
-.hero-eyebrow::before{content:'';display:inline-block;width:20px;height:1px;background:var(--green);opacity:.6}
-.hero-title{font-size:2.4rem;font-weight:800;line-height:1;letter-spacing:-.03em;background:linear-gradient(135deg,var(--text) 30%,var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-eyebrow::before{content:'';display:inline-block;width:20px;height:1px;background:var(--suminregio);opacity:.8}
+.hero-title{font-size:2.4rem;font-weight:800;line-height:1;letter-spacing:-.03em;background:linear-gradient(135deg,var(--suminregio) 0%,var(--yellow) 50%,var(--orange) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .hero-sub{font-size:.85rem;color:var(--muted);margin-top:.5rem;font-family:'DM Mono',monospace}
 
 /* KPI Grid */
@@ -81,8 +85,8 @@ nav{display:flex;align-items:center;gap:.2rem}
 /* Cards */
 .card{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:1.4rem;position:relative;overflow:hidden}
 .card-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.2rem}
-.card-title{font-size:.82rem;font-weight:700;color:var(--text);letter-spacing:-.01em;display:flex;align-items:center;gap:.5rem}
-.card-title svg{width:15px;height:15px;fill:var(--green)}
+.card-title{font-size:.82rem;font-weight:700;color:var(--suminregio);letter-spacing:-.01em;display:flex;align-items:center;gap:.5rem}
+.card-title svg{width:15px;height:15px;fill:var(--suminregio)}
 .card-badge{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);background:var(--s2);border:1px solid var(--border);padding:.2rem .6rem;border-radius:99px}
 
 /* Comision table */
@@ -91,6 +95,12 @@ nav{display:flex;align-items:center;gap:.2rem}
 .comision-table td{font-size:.8rem;padding:.7rem .75rem;border-bottom:1px solid rgba(255,255,255,.04);color:var(--text2);transition:background .15s}
 .comision-table tr:hover td{background:var(--s2)}
 .comision-table .num{text-align:right;font-family:'DM Mono',monospace;font-size:.78rem}
+.detalle-wrap{max-height:340px;overflow:auto;border-radius:12px;border:1px solid var(--border);margin-top:.5rem}
+.detalle-table{width:100%;border-collapse:collapse;font-size:.76rem}
+.detalle-table th{position:sticky;top:0;background:var(--s2);font-family:'DM Mono',monospace;font-size:.55rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:.55rem .65rem;text-align:left;border-bottom:1px solid var(--border);z-index:1}
+.detalle-table td{padding:.5rem .65rem;border-bottom:1px solid rgba(255,255,255,.04);font-family:'DM Mono',monospace;color:var(--text2)}
+.detalle-table tr:hover td{background:var(--s2)}
+.detalle-table .num{text-align:right}
 .rank-badge{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:.65rem;font-weight:700;font-family:'DM Mono',monospace}
 .rank-1{background:linear-gradient(135deg,#FFB800,#FF8C42);color:#050B14}
 .rank-2{background:linear-gradient(135deg,#B0BECE,#7A9ABE);color:#050B14}
@@ -104,7 +114,7 @@ nav{display:flex;align-items:center;gap:.2rem}
 /* Donut chart */
 .chart-wrap{position:relative;width:160px;height:160px;flex-shrink:0}
 .chart-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
-.chart-center-val{font-family:'DM Mono',monospace;font-size:1.2rem;font-weight:500;color:var(--green)}
+.chart-center-val{font-family:'DM Mono',monospace;font-size:1.2rem;font-weight:500;color:var(--suminregio)}
 .chart-center-lbl{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted)}
 
 /* Legends */
@@ -117,11 +127,20 @@ nav{display:flex;align-items:center;gap:.2rem}
 /* Tabs */
 .tabs{display:flex;gap:.3rem;margin-bottom:1.2rem}
 .tab{font-family:'DM Mono',monospace;font-size:.68rem;padding:.35rem .85rem;border-radius:8px;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:none;transition:all .2s;letter-spacing:.04em}
-.tab.active{color:var(--green);border-color:rgba(0,229,160,.3);background:var(--green-dim)}
+.tab.active{color:var(--suminregio);border-color:rgba(230,168,0,.3);background:var(--suminregio-dim)}
 
 /* Detalle facturas */
-.fact-list{display:flex;flex-direction:column;gap:.4rem;max-height:380px;overflow-y:auto}
+.fact-list{display:flex;flex-direction:column;gap:.4rem;max-height:480px;overflow-y:auto}
 .fact-item{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:.75rem;padding:.65rem .75rem;background:var(--s2);border-radius:8px;border:1px solid var(--border);font-size:.77rem}
+details.fact-vend-block{border-radius:8px;border:1px solid var(--border);background:var(--s2);overflow:hidden}
+details.fact-vend-block > summary.fact-item{list-style:none;cursor:pointer;margin:0;border:none;border-radius:0}
+details.fact-vend-block > summary::-webkit-details-marker{display:none}
+details.fact-vend-block[open] > summary{border-bottom:1px solid rgba(255,255,255,.06)}
+.fact-inv-wrap{padding:.45rem .6rem .65rem;background:rgba(0,0,0,.14)}
+.fact-inv-table{width:100%;border-collapse:collapse;font-size:.65rem;font-family:'DM Mono',monospace}
+.fact-inv-table th{text-align:left;color:var(--muted);font-weight:600;padding:.3rem .35rem}
+.fact-inv-table td{padding:.28rem .35rem;border-top:1px solid rgba(255,255,255,.05);color:var(--text2)}
+.fact-inv-empty{padding:.55rem .6rem;color:var(--muted);font-size:.68rem;line-height:1.4}
 .fact-folio{font-family:'DM Mono',monospace;font-size:.7rem;color:var(--muted)}
 .fact-cliente{color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fact-monto{font-family:'DM Mono',monospace;color:var(--blue);font-size:.76rem;white-space:nowrap}
@@ -144,6 +163,8 @@ nav{display:flex;align-items:center;gap:.2rem}
 /* Empty state */
 .empty{text-align:center;padding:2rem;color:var(--muted);font-family:'DM Mono',monospace;font-size:.78rem}
 </style>
+<link rel="stylesheet" href="app-ui.css">
+<script src="app-ui-boot.js" defer></script>
 </head>
 <body>
 <div class="bg-orbs"><div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div></div>
@@ -158,6 +179,7 @@ nav{display:flex;align-items:center;gap:.2rem}
     </a>
     <nav>
       <a href="index.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Inicio</a>
+      <a href="director.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18 9l-5 5-4-4-3 3"/></svg>Director</a>
       <a href="ventas.html" class="nav-link"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Ventas</a>
       <a href="cobradas.html" class="nav-link active"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Cobradas</a>
       <a href="vendedores.html" class="nav-link"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Vendedores</a>
@@ -304,6 +326,26 @@ nav{display:flex;align-items:center;gap:.2rem}
     </div>
   </div>
 
+  <div class="sd"><div class="sd-label">Detalle de cobros</div><div class="sd-line"></div></div>
+  <div class="card" style="margin-bottom:2rem">
+    <div class="card-head">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Cobros registrados (CC tipo R)
+      </div>
+      <div class="card-badge" id="detalleCobrosBadge">Mismo periodo que el filtro</div>
+    </div>
+    <p style="font:.65rem 'DM Mono',monospace;color:var(--muted);margin-bottom:.6rem;line-height:1.45">
+      Cada fila es un pago/cobro en <strong>IMPORTES_DOCTOS_CC</strong> (tipo R), importe en base sin IVA cuando aplica. El periodo es la <strong>fecha del movimiento</strong> (<code>i.FECHA</code>). Cliente y vendedor salen del CC aplicado (<code>COALESCE(DOCTO_CC_ACR_ID, DOCTO_CC_ID)</code>) ligado a <code>DOCTOS_VE</code> / <code>DOCTOS_PV</code>.
+    </p>
+    <div class="detalle-wrap">
+      <table class="detalle-table">
+        <thead><tr><th>Fecha cobro</th><th>Folio CC</th><th>Cliente</th><th class="num">Monto</th><th>Vendedor</th></tr></thead>
+        <tbody id="detalleCobrosBody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px">Cargando&hellip;</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- Section: Evolucion mensual -->
   <div class="sd"><div class="sd-label">Evoluci&oacute;n Mensual de Cobros</div><div class="sd-line"></div></div>
   <div class="card" style="margin-bottom:2rem">
@@ -318,21 +360,10 @@ nav{display:flex;align-items:center;gap:.2rem}
 </div>
 
 <script>
-const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : (function () {
-  const o = typeof window !== 'undefined' ? window.location.origin : '';
-  if (o.startsWith('http') && (o.includes('7000') || o.includes('localhost'))) return '';
-  if (!o || o === 'null' || o === 'file://') return 'http://localhost:7000';
-  return '';
-})();
-function fwt(url, fallback, ms) {
-  ms = ms || 12000;
-  return Promise.race([
-    fetch(url).then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status))))).catch(() => fallback),
-    new Promise(r => setTimeout(() => r(fallback), ms))
-  ]);
-}
+const API = (window.__API_BASE != null ? String(window.__API_BASE).replace(/\/+$/, '') : (window.location.protocol === 'file:' ? 'http://localhost:7000' : (window.location.origin || '')));
 const COMISION_PCT = 0.08;
 let allData = [];
+let facturasByVendedor = {};
 let currentPeriod = 'mes';
 let currentVendFiltro = null;
 let donutChartInst = null;
@@ -355,9 +386,7 @@ setInterval(()=>{
 const fmtM = v => {
   if(v===null||v===undefined||isNaN(v))return'--';
   v=+v;
-  if(v>=1e6) return '$'+( v/1e6).toFixed(2)+'M';
-  if(v>=1e3) return '$'+(v/1e3).toFixed(1)+'K';
-  return '$'+Math.round(v).toLocaleString();
+  return '$'+v.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 };
 const pct = (a,b)=> b>0?Math.round(a/b*100):0;
 
@@ -378,11 +407,40 @@ function setFiltroVend(idx, btn){
   renderFactList();
 }
 
+function fwt(url, fallback, ms) { ms = ms || 20000; return Promise.race([ fetch(url).then(r=>r.json()).catch(()=>fallback), new Promise(r=>setTimeout(()=>r(fallback), ms)) ]); }
+function groupFacturasPorVend(rows){
+  const m = {};
+  for (const row of rows || []) {
+    const id = String(row.VENDEDOR_ID != null ? row.VENDEDOR_ID : '');
+    if (!m[id]) m[id] = [];
+    m[id].push(row);
+  }
+  return m;
+}
+
+function invoiceBlockHtml(vendedorId){
+  const rows = facturasByVendedor[String(vendedorId)] || [];
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  if (!rows.length) {
+    return '<div class="fact-inv-empty">Sin facturas con cobro registrado en este periodo (suma de movimientos tipo R en la fecha del filtro).</div>';
+  }
+  const body = rows.map(x => {
+    const cob = +x.COBRADO_PERIODO || 0;
+    const fd = x.FECHA_FACTURA ? new Date(x.FECHA_FACTURA).toLocaleDateString('es-MX') : '\u2014';
+    return '<tr><td>' + esc(x.FOLIO_VE) + '</td><td>' + esc(fd) + '</td><td class="num">' + fmtM(+x.TOTAL_VENTA || 0) + '</td><td class="num" style="color:var(--blue)">' + fmtM(cob) + '</td><td class="num" style="color:var(--green)">' + fmtM(cob * COMISION_PCT) + '</td></tr>';
+  }).join('');
+  return '<div class="fact-inv-wrap"><table class="fact-inv-table"><thead><tr><th>Folio</th><th>Fecha fact.</th><th class="num">Venta total</th><th class="num">Cobrado</th><th class="num">Comisi\u00f3n 8%</th></tr></thead><tbody>' + body + '</tbody></table></div>';
+}
+
 async function loadData(){
   const heroSub = document.getElementById('heroSub');
   if(heroSub) heroSub.textContent = 'Cargando datos...';
   try{
-    const r = await fwt(buildApiUrl('/api/ventas/cobradas'), { vendedores: [], totalCobrado: 0, totalFacturado: 0 });
+    const [r, factRows] = await Promise.all([
+      fwt(buildApiUrl('/api/ventas/cobradas'), { vendedores: [], totalCobrado: 0, totalFacturado: 0 }, 25000),
+      fwt(buildApiUrl('/api/ventas/cobradas-por-factura', 'limit=800'), [], 30000),
+    ]);
+    facturasByVendedor = groupFacturasPorVend(Array.isArray(factRows) ? factRows : []);
     if (r && Array.isArray(r.vendedores)) {
       allData = r.vendedores;
       totalCobradoGlobal = +r.totalCobrado || 0;
@@ -393,18 +451,72 @@ async function loadData(){
       totalFacturadoGlobal = null;
     }
     renderAll();
-    try {
-      const ev = await fwt(buildApiUrl('/api/ventas/mensuales', 'meses=13'), []);
-      renderEvolucion(Array.isArray(ev) ? ev : []);
-    } catch (chartErr) {
-      console.warn('[cobradas] evolución mensual:', chartErr);
-    }
+    await loadDetalleCobros();
+    const ev = await fwt(buildApiUrl('/api/ventas/mensuales', 'meses=13'), []);
+    renderEvolucion(Array.isArray(ev) ? ev : []);
   }catch(e){
-    console.error('[cobradas]', e);
-    allData = []; totalCobradoGlobal = null; totalFacturadoGlobal = null;
+    allData = []; facturasByVendedor = {}; totalCobradoGlobal = null; totalFacturadoGlobal = null;
     renderAll();
+    renderDetalleCobrosError(e.message);
     if(heroSub) heroSub.textContent = 'Error conectando con el servidor';
   }
+}
+
+async function loadDetalleCobros(){
+  try{
+    const rows = await fwt(buildApiUrl('/api/ventas/cobradas-detalle', 'limit=500'), [], 14000);
+    let detalle = Array.isArray(rows) ? rows : [];
+    let modo = 'detalle';
+    if (!detalle.length) {
+      const fac = await fwt(buildApiUrl('/api/ventas/cobradas-por-factura', 'limit=500'), [], 16000);
+      detalle = (Array.isArray(fac) ? fac : []).map(x => ({
+        FECHA_COBRO: x.FECHA_FACTURA || x.FECHA,
+        FOLIO_CC: x.FOLIO_VE || x.FOLIO || '',
+        FOLIO: x.FOLIO_VE || x.FOLIO || '',
+        CLIENTE: x.CLIENTE || '',
+        MONTO_COBRADO: +x.COBRADO_PERIODO || 0,
+        VENDEDOR: x.VENDEDOR || ''
+      })).filter(x => (+x.MONTO_COBRADO || 0) > 0);
+      modo = 'factura';
+    }
+    if (!detalle.length) {
+      const sumCob = (allData || []).reduce((s, r) => s + (+r.TOTAL_COBRADO || 0), 0);
+      const vend = (allData && allData[0]) ? (allData[0].VENDEDOR || allData[0].NOMBRE || '') : '';
+      if (sumCob > 0.005) {
+        detalle = [{
+          FECHA_COBRO: null,
+          FOLIO_CC: 'ASIGNADO',
+          FOLIO: 'ASIGNADO',
+          CLIENTE: 'Cobro asignado proporcionalmente (sin enlace CC→factura)',
+          MONTO_COBRADO: sumCob,
+          VENDEDOR: vend
+        }];
+        modo = 'asignado';
+      }
+    }
+    renderDetalleCobrosTable(detalle, modo);
+  }catch(e){ renderDetalleCobrosError(e.message); }
+}
+
+function renderDetalleCobrosError(msg){
+  const tb = document.getElementById('detalleCobrosBody');
+  if(tb) tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--red);padding:16px">'+(msg||'Error')+'</td></tr>';
+}
+
+function renderDetalleCobrosTable(rows, mode){
+  const tb = document.getElementById('detalleCobrosBody');
+  const bd = document.getElementById('detalleCobrosBadge');
+  const ordered = [...(rows||[])].sort((a,b)=>(+b.MONTO_COBRADO||0)-(+a.MONTO_COBRADO||0));
+  if(bd) bd.textContent = ordered.length + (mode === 'factura' ? ' facturas con cobro' : (mode === 'asignado' ? ' asignaciones' : ' movimientos'));
+  if(!tb) return;
+  if(!ordered.length){ tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px">Sin cobros en este periodo</td></tr>'; return; }
+  const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  tb.innerHTML = ordered.map(r=>{
+    const f = r.FECHA_COBRO ? new Date(r.FECHA_COBRO).toLocaleDateString('es-MX') : '\u2014';
+    const folioCc = r.FOLIO_CC != null && r.FOLIO_CC !== '' ? r.FOLIO_CC : r.FOLIO;
+    const tip = (r.FOLIO && String(r.FOLIO) !== String(folioCc)) ? esc(String(r.FOLIO)) : '';
+    return '<tr><td>'+esc(f)+'</td><td title="'+tip+'">'+esc(folioCc != null ? folioCc : '\u2014')+'</td><td>'+esc((r.CLIENTE||'').substring(0,36))+'</td><td class="num">'+fmtM(+r.MONTO_COBRADO||0)+'</td><td>'+esc((r.VENDEDOR||'\u2014').split(' ').slice(0,2).join(' '))+'</td></tr>';
+  }).join('');
 }
 
 let totalCobradoGlobal = null;
@@ -428,7 +540,6 @@ function renderAll(){
   document.getElementById('kpiTotalCobrado').textContent = fmtM(totalCobrado);
   document.getElementById('kpiTotalCobradoSub').textContent = totalFacturas+' facturas cobradas';
   document.getElementById('kpiTotalVenta').textContent = fmtM(totalVenta);
-  document.getElementById('kpiTotalVentaSub').textContent = totalFacturas+' facturas publicadas';
   document.getElementById('kpiEficiencia').textContent = pct(totalCobrado,totalVenta)+'% conversi\u00f3n cobro';
   document.getElementById('kpiTotalComision').textContent = fmtM(totalComision);
   document.getElementById('kpiTicketProm').textContent = fmtM(ticketProm);
@@ -441,6 +552,20 @@ function renderAll(){
   renderDonut(d, totalCobrado);
   renderFactList();
   renderTabsVend(d);
+
+  if (typeof dashboardApplySem === 'function') {
+    const conv = pct(totalCobrado, totalVenta);
+    const ring = (id, lvl) => {
+      const el = document.getElementById(id);
+      const box = el && el.closest('.kpi');
+      if (box) dashboardApplySem(box, lvl);
+    };
+    ring('kpiTotalCobrado', conv >= 80 ? 'ok' : conv >= 50 ? 'warn' : 'danger');
+    ring('kpiTotalVenta', 'info');
+    ring('kpiTotalComision', 'info');
+    ring('kpiTicketProm', 'info');
+    ring('kpiTopVend', 'info');
+  }
 }
 
 function renderRanking(d, totalCobrado){
@@ -506,7 +631,7 @@ function renderDonut(d, totalCobrado){
   donutChartInst = new Chart(ctx,{
     type:'doughnut',
     data:{labels,datasets:[{data:vals,backgroundColor:cols,borderColor:'#0A1628',borderWidth:3,hoverBorderWidth:0}]},
-    options:{cutout:'72%',plugins:{legend:{display:false},tooltip:{backgroundColor:'#0D1D35',borderColor:'rgba(255,255,255,.1)',borderWidth:1,titleColor:'#E8EFF8',bodyColor:'#B0BECE',callbacks:{label:c=>' '+fmtM(c.raw)}}},animation:{animateRotate:true,duration:1000}}
+    options:{cutout:'72%',plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,backgroundColor:'#0D1D35',borderColor:'rgba(255,255,255,.1)',borderWidth:1,titleColor:'#E8EFF8',bodyColor:'#B0BECE',callbacks:{label:c=>' '+fmtM(c.raw)}}},animation:{animateRotate:true,duration:1000}}
   });
   document.getElementById('donutLegend').innerHTML = sorted.map((r,i)=>`
     <div class="legend-item">
@@ -537,20 +662,22 @@ function renderFactList(){
     const cobrado=(+r.TOTAL_COBRADO||0);
     const comision=cobrado*COMISION_PCT;
     const nombre=(r.VENDEDOR||r.NOMBRE||'?').split(' ').slice(0,2).join(' ');
-    return `<div class="fact-item">
-      <div class="fact-folio">${+r.NUM_FACTURAS||0} facts.</div>
-      <div class="fact-cliente">${nombre}</div>
-      <div class="fact-monto">${fmtM(cobrado)}</div>
-      <div class="fact-comision">${fmtM(comision)}</div>
-    </div>`;
+    const vid = r.VENDEDOR_ID != null ? r.VENDEDOR_ID : '';
+    return `<details class="fact-vend-block">
+      <summary class="fact-item">
+        <div class="fact-folio">${+r.NUM_FACTURAS||0} facts.</div>
+        <div class="fact-cliente">${nombre}</div>
+        <div class="fact-monto">${fmtM(cobrado)}</div>
+        <div class="fact-comision">${fmtM(comision)}</div>
+      </summary>
+      ${invoiceBlockHtml(vid)}
+    </details>`;
   }).join('');
   document.getElementById('factList').innerHTML=html||'<div class="empty">Sin datos</div>';
 }
 
 function renderEvolucion(data){
   if(!Array.isArray(data)||!data.length) return;
-  const canvas = document.getElementById('chartEvolucion');
-  if (!canvas || typeof Chart === 'undefined') return;
   // /api/ventas/mensuales devuelve ANIO + MES (separados) y TOTAL_VENTAS
   const MESES_ES=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
   const labels = data.map(d=>{
@@ -562,10 +689,9 @@ function renderEvolucion(data){
   });
   const ventas = data.map(d=>+(d.TOTAL_VENTAS||d.TOTAL||d.VENTAS_NETAS||d.IMPORTE_NETO||0));
   const comision = ventas.map(v=>v*COMISION_PCT);
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return;
+  const ctx=document.getElementById('chartEvolucion');
   if(evoChartInst)evoChartInst.destroy();
-  evoChartInst=new Chart(canvas,{
+  evoChartInst=new Chart(ctx,{
     type:'bar',
     data:{
       labels,
@@ -576,8 +702,9 @@ function renderEvolucion(data){
     },
     options:{
       responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},
       plugins:{legend:{position:'top',labels:{color:'#5A7090',font:{size:11,family:"'DM Mono'"}}},
-        tooltip:{backgroundColor:'#0D1D35',borderColor:'rgba(255,255,255,.1)',borderWidth:1,titleColor:'#E8EFF8',bodyColor:'#B0BECE',callbacks:{label:c=>' '+c.dataset.label+': '+fmtM(c.raw)}}},
+        tooltip:{mode:'index',intersect:false,backgroundColor:'#0D1D35',borderColor:'rgba(255,255,255,.1)',borderWidth:1,titleColor:'#E8EFF8',bodyColor:'#B0BECE',callbacks:{label:c=>' '+c.dataset.label+': '+fmtM(c.raw)}}},
       scales:{
         x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5A7090',font:{size:10,family:"'DM Mono'"}}},
         y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5A7090',font:{size:10,family:"'DM Mono'"},callback:v=>fmtM(v)}}
@@ -586,14 +713,11 @@ function renderEvolucion(data){
   });
 }
 
-initFilters({
-  containerId:'filter-bar',
-  showVendedor:true,
-  onReady:()=>{ loadData(); },
-  onChange:()=>loadData()
-});
+// Carga inicial inmediata
+initFilters({ containerId:'filter-bar', showVendedor:true, onReady:()=>loadData(), onChange:()=>loadData() });
 setInterval(loadData, 1800000);
 </script>
 <script src="nav.js"></script>
+<script src="/chat-widget.js" defer></script>
 </body>
 </html>

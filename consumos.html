@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="es" class="theme-premium-light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suminregio Parker &mdash; Consumos</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');
+</script>
+<script src="filters.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060E1A;--s1:#0C1B29;--s2:#112233;--s3:#172D42;--brd:rgba(255,255,255,.08);
+  --txt:#E8EFF8;--muted:#8DA2BF;--suminregio:#E6A800;--suminregio-dim:rgba(230,168,0,.15);
+  --green:#00E5A0;--blue:#4DA6FF;--purple:#9B6DFF;--orange:#FF8C42;--yellow:#FFB800;
+}
+body{background:var(--bg);color:var(--txt);font-family:'Syne',sans-serif}
+.orb{position:fixed;border-radius:50%;filter:blur(130px);opacity:.12;pointer-events:none}
+.o1{width:500px;height:500px;left:-120px;top:-120px;background:radial-gradient(circle,#1E7FD9,transparent 70%)}
+.o2{width:500px;height:500px;right:-130px;bottom:-130px;background:radial-gradient(circle,#00E5A0,transparent 70%)}
+header{position:sticky;top:0;z-index:20;background:rgba(5,11,20,.88);backdrop-filter:blur(18px);border-bottom:1px solid var(--brd)}
+.hd{max-width:1550px;margin:0 auto;height:64px;padding:0 20px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--txt)}
+.logo i{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:linear-gradient(135deg,var(--suminregio),var(--orange))}
+.logo b{font-size:.9rem}.logo span{font-size:.6rem;font-family:'DM Mono',monospace;color:var(--muted)}
+nav{display:flex;gap:4px;flex-wrap:wrap}
+.nav-link{font-size:.76rem;color:var(--muted);padding:6px 10px;border-radius:8px;text-decoration:none;border:1px solid transparent}
+.nav-link:hover{background:var(--s2);color:var(--txt)}
+.nav-link.active{color:var(--suminregio);background:var(--suminregio-dim);border-color:var(--suminregio)}
+.page{max-width:1550px;margin:0 auto;padding:24px 20px 30px;position:relative;z-index:1}
+.title{font-size:1.8rem;font-weight:800;background:linear-gradient(135deg,var(--suminregio),var(--yellow),var(--orange));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.sub{margin-top:6px;color:var(--muted);font-size:.86rem}
+.tabs{display:flex;gap:8px;margin:12px 0 18px}
+.tab{border:1px solid var(--brd);background:var(--s1);color:var(--muted);padding:7px 12px;border-radius:8px;font-size:.78rem;cursor:pointer}
+.tab.active{color:#051221;font-weight:700}
+#tAll.active{background:var(--green)} #tVE.active{background:var(--blue)} #tPV.active{background:var(--purple)}
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:14px}
+.k{background:var(--s1);border:1px solid var(--brd);border-radius:14px;padding:14px}
+.k .l{font:600 .62rem 'DM Mono',monospace;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.k .v{margin-top:8px;font:500 1.3rem 'DM Mono',monospace}
+.k .s{margin-top:6px;color:var(--muted);font:.68rem 'DM Mono',monospace}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px}
+.card{background:var(--s1);border:1px solid var(--brd);border-radius:14px;overflow:hidden}
+.ch{padding:12px 14px;border-bottom:1px solid var(--brd);display:flex;justify-content:space-between;align-items:center}
+.ct{font-size:.84rem;color:var(--suminregio);font-weight:700}
+.cb{font:.63rem 'DM Mono',monospace;color:var(--muted)}
+.bd{padding:14px}
+.chart{position:relative;height:260px}
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{padding:9px 10px;border-bottom:1px solid var(--brd);text-align:left;font:.6rem 'DM Mono',monospace;color:var(--muted);text-transform:uppercase}
+.tbl td{padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.04);font:.78rem 'DM Mono',monospace}
+.tbl tr:hover td{background:var(--s2)}
+.num{text-align:right}
+.insights-body{padding:14px;font-size:.78rem}
+.ins-row{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px;align-items:flex-start}
+.ins-pill{flex:1;min-width:140px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--brd)}
+.ins-pill .t{font:.58rem 'DM Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.ins-pill .n{margin-top:6px;font:600 1.05rem 'DM Mono',monospace}
+.ins-pill .h{margin-top:4px;font:.65rem 'DM Mono',monospace;color:var(--muted);line-height:1.35}
+.sem{display:inline-flex;align-items:center;gap:8px;margin-top:8px}
+.sem-i{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.sem-i.verde{background:var(--green);box-shadow:0 0 12px rgba(0,229,160,.45)}
+.sem-i.amarillo{background:var(--yellow);box-shadow:0 0 12px rgba(255,184,0,.4)}
+.sem-i.rojo{background:#FF4566;box-shadow:0 0 12px rgba(255,69,102,.45)}
+.ins-sub{font:.62rem 'DM Mono',monospace;color:var(--muted);margin-top:6px;line-height:1.4}
+.ins-tbl{width:100%;border-collapse:collapse;font:.72rem 'DM Mono',monospace;margin-top:6px}
+.ins-tbl th,.ins-tbl td{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.06);text-align:left}
+.ins-tbl th{color:var(--muted);font-size:.58rem;text-transform:uppercase}
+.ins-tbl .num{text-align:right}
+.ins-tbl td.cov-cell{font-weight:600;border-radius:6px}
+.cov-crit{background:rgba(255,69,102,.18);color:#FF7A8F;box-shadow:inset 0 0 0 1px rgba(255,69,102,.25)}
+.cov-low{background:rgba(255,184,0,.14);color:var(--yellow);box-shadow:inset 0 0 0 1px rgba(255,184,0,.22)}
+.cov-ok{background:rgba(0,229,160,.12);color:var(--green);box-shadow:inset 0 0 0 1px rgba(0,229,160,.2)}
+.cov-high{background:rgba(77,166,255,.12);color:var(--blue);box-shadow:inset 0 0 0 1px rgba(77,166,255,.2)}
+.ins-empty{color:var(--muted);font:.74rem 'DM Mono',monospace;padding:8px 0}
+.oc-wrap{margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08)}
+.oc-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px}
+.oc-title{font:.62rem 'DM Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.oc-chip{font:.6rem 'DM Mono',monospace;border:1px solid var(--brd);padding:.2rem .45rem;border-radius:6px;color:var(--txt2)}
+.mission{border-radius:16px;border:1px solid var(--brd);background:linear-gradient(145deg,rgba(77,166,255,.08),rgba(0,229,160,.06));padding:1rem 1.15rem;margin-bottom:1rem}
+.mission h2{font-size:.95rem;font-weight:800;color:var(--suminregio);margin-bottom:.35rem}
+.mission p{font-size:.78rem;color:var(--txt);line-height:1.55;opacity:.92}
+.mission ul{margin:.5rem 0 0 1.1rem;font-size:.74rem;color:var(--muted);line-height:1.5}
+.topn-wrap{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.topn-btn{border:1px solid var(--brd);background:var(--s1);color:var(--muted);font:.62rem 'DM Mono',monospace;padding:.2rem .45rem;border-radius:6px;cursor:pointer}
+.topn-btn:hover{border-color:var(--suminregio);color:var(--suminregio)}
+.topn-btn.on{background:var(--suminregio-dim);border-color:var(--suminregio);color:var(--suminregio);font-weight:700}
+@media(max-width:1400px){.kpis{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:900px){.kpis{grid-template-columns:repeat(2,1fr)}.g2{grid-template-columns:1fr}}
+</style>
+<link rel="stylesheet" href="app-ui.css">
+<script src="app-ui-boot.js" defer></script>
+</head>
+<body>
+<div class="orb o1"></div><div class="orb o2"></div>
+<header>
+  <div class="hd">
+    <a class="logo" href="index.html"><i>◆</i><div><b>Suminregio Parker</b><br><span>ERP Dashboard</span></div></a>
+    <nav>
+      <a class="nav-link" href="index.html">Inicio</a>
+      <a class="nav-link" href="director.html">Director</a>
+      <a class="nav-link" href="ventas.html">Ventas</a>
+      <a class="nav-link active" href="consumos.html">Consumos</a>
+      <a class="nav-link" href="inventario.html">Inventario</a>
+      <a class="nav-link" href="cxc.html">CxC</a>
+      <a class="nav-link" href="resultados.html">P&amp;L</a>
+    </nav>
+  </div>
+</header>
+
+<main class="page">
+  <h1 class="title">Consumos</h1>
+  <div class="sub" id="pageSub">Unidades facturadas en el periodo; importe de l&iacute;nea (VE/PV) alineado al mismo filtro.</div>
+  <div id="filter-bar"></div>
+
+  <section class="mission" aria-label="Objetivo del módulo">
+    <h2>Objetivo: abastecimiento y riesgo de quiebre</h2>
+    <p>Consumo (unidades) y <strong>venta alineada</strong> (importe de las mismas l&iacute;neas de detalle VE/PV) para ver ritmo f&iacute;sico vs dinero. Se&ntilde;ales para compras, almac&eacute;n y priorizaci&oacute;n comercial.</p>
+    <ul>
+      <li><strong>Operación</strong> &mdash; ritmo diario, picos, participaci&oacute;n por vendedor (uds. y $).</li>
+      <li><strong>Compras</strong> &mdash; art&iacute;culos que concentran consumo y cobertura vs existencia.</li>
+      <li><strong>Riesgo</strong> &mdash; variaci&oacute;n semanal y concentraci&oacute;n (Top 5).</li>
+    </ul>
+  </section>
+
+  <div class="tabs">
+    <button id="tAll" class="tab active" onclick="setTipo('')">Todos</button>
+    <button id="tVE" class="tab" onclick="setTipo('VE')">Industrial (VE)</button>
+    <button id="tPV" class="tab" onclick="setTipo('PV')">Mostrador (PV)</button>
+  </div>
+
+  <section class="kpis">
+    <article class="k"><div class="l">Consumo Hoy</div><div class="v" id="kHoy">—</div><div class="s">Unidades del d&iacute;a actual</div><div class="s" id="kHoyVent" style="margin-top:4px;color:var(--suminregio)">Venta $ —</div></article>
+    <article class="k"><div class="l">Consumo Periodo</div><div class="v" id="kPer">—</div><div class="s">Unidades del filtro</div><div class="s" id="kPerVent" style="margin-top:4px;color:var(--suminregio)">Venta $ —</div></article>
+    <article class="k"><div class="l">Promedio Diario</div><div class="v" id="kProm">—</div><div class="s" id="kPromSub">Sobre d&iacute;as con movimiento</div></article>
+    <article class="k"><div class="l">M&aacute;ximo Diario</div><div class="v" id="kMax">—</div><div class="s" id="kMaxSub">Pico de consumo</div></article>
+    <article class="k"><div class="l">Art&iacute;culos Consumidos</div><div class="v" id="kArt">—</div><div class="s" id="kMov">Movimientos: —</div></article>
+    <article class="k"><div class="l">Venta periodo (l&iacute;neas)</div><div class="v" id="kVentTot">—</div><div class="s">Mismo criterio que consumo (importe detalle)</div></article>
+  </section>
+
+  <section class="g2">
+    <article class="card">
+      <div class="ch"><div class="ct">Consumo Diario</div><div class="cb">30 d&iacute;as</div></div>
+      <div class="bd"><div class="chart"><canvas id="chDiario"></canvas></div></div>
+    </article>
+    <article class="card">
+      <div class="ch"><div class="ct">Top Art&iacute;culos por Consumo</div><div class="cb topn-wrap">Top <button type="button" class="topn-btn on" data-n="10" onclick="setTopConsumo(10)">10</button><button type="button" class="topn-btn" data-n="20" onclick="setTopConsumo(20)">20</button><button type="button" class="topn-btn" data-n="30" onclick="setTopConsumo(30)">30</button><button type="button" class="topn-btn" data-n="40" onclick="setTopConsumo(40)">40</button><button type="button" class="topn-btn" data-n="50" onclick="setTopConsumo(50)">50</button></div></div>
+      <div class="bd"><div class="chart"><canvas id="chTop"></canvas></div></div>
+    </article>
+  </section>
+
+  <section class="g2">
+    <article class="card">
+      <div class="ch"><div class="ct">Consumo por Vendedor</div><div class="cb">Unidades y venta alineada al periodo</div></div>
+      <div class="bd">
+        <table class="tbl" id="tblVend">
+          <thead><tr><th>Vendedor</th><th class="num">Unidades</th><th class="num">% u.</th><th class="num">Venta</th><th class="num">% $</th></tr></thead>
+          <tbody><tr><td colspan="5">Cargando...</td></tr></tbody>
+        </table>
+      </div>
+    </article>
+    <article class="card" id="insightsCard">
+      <div class="ch"><div class="ct">Inteligencia de consumo</div><div class="cb">Semanal &middot; concentraci&oacute;n &middot; vs periodo previo &middot; cobertura</div></div>
+      <div class="bd insights-body" id="insightsBody">
+        <div class="ins-empty">Cargando&hellip;</div>
+      </div>
+      <div class="bd insights-body oc-wrap" id="ocBody">
+        <div class="ins-empty">Cargando cruce consumo vs pedidos/OC&hellip;</div>
+      </div>
+    </article>
+  </section>
+</main>
+
+<script>
+const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : '';
+let tipo = '';
+let chartDiario, chartTop;
+let topConsumoN = 10;
+let lastConsumoRes = null;
+const fmtN = v => isNaN(+v) ? '0' : (+v).toLocaleString('es-MX', { maximumFractionDigits: 0 });
+const fmtF = v => isNaN(+v) ? '0' : (+v).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const toFecha = d => d ? new Date(d).toLocaleDateString('es-MX') : '&mdash;';
+const getQS = (extra={}) => {
+  if (typeof filterBuildQS === 'function') return filterBuildQS({ ...extra, ...(tipo ? { tipo } : {}) });
+  const p = new URLSearchParams({ ...extra, ...(tipo ? { tipo } : {}) });
+  return p.toString();
+};
+async function api(url, ms){
+  ms = ms || 90000;
+  const ctrl = new AbortController();
+  const tid = setTimeout(()=>ctrl.abort(), ms);
+  try {
+    const r = await fetch(API + url, {signal: ctrl.signal});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return r.json();
+  } finally { clearTimeout(tid); }
+}
+function setTipo(t){
+  tipo = t || '';
+  ['tAll','tVE','tPV'].forEach(id => document.getElementById(id).classList.remove('active'));
+  document.getElementById(tipo === 'VE' ? 'tVE' : tipo === 'PV' ? 'tPV' : 'tAll').classList.add('active');
+  loadAll();
+}
+function setTopConsumo(n){
+  topConsumoN = n;
+  document.querySelectorAll('.topn-btn').forEach(b => b.classList.toggle('on', +b.getAttribute('data-n') === n));
+  loadTop();
+}
+function initCharts(){
+  const el1 = document.getElementById('chDiario');
+  const el2 = document.getElementById('chTop');
+  if(!el1||!el2)return;
+  const c1 = el1.getContext('2d');
+  const c2 = el2.getContext('2d');
+  chartDiario = new Chart(c1,{type:'line',data:{labels:[],datasets:[{label:'Unidades',data:[],borderColor:'#4DA6FF',backgroundColor:'rgba(77,166,255,.15)',fill:true,tension:.28,pointRadius:2}]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{labels:{color:'#8DA2BF'}}},scales:{x:{ticks:{color:'#8DA2BF'}},y:{ticks:{color:'#8DA2BF'}}}}});
+  chartTop = new Chart(c2,{type:'bar',data:{labels:[],datasets:[
+    {label:'Unidades',data:[],backgroundColor:'rgba(0,229,160,.65)',borderRadius:6,xAxisID:'x'},
+    {label:'Venta ($)',data:[],backgroundColor:'rgba(230,168,0,.45)',borderRadius:6,xAxisID:'x1'}
+  ]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8DA2BF'}}},scales:{
+    x:{position:'bottom',ticks:{color:'#8DA2BF'},title:{display:true,text:'Unidades',color:'#8DA2BF',font:{size:10}}},
+    x1:{position:'top',grid:{drawOnChartArea:false},ticks:{color:'#E6A800'},title:{display:true,text:'Importe',color:'#E6A800',font:{size:10}}},
+    y:{ticks:{color:'#8DA2BF'}}
+  }}});
+}
+function applyConsumoKpiSem(r, insights){
+  if (typeof dashboardApplySem !== 'function' || !r) return;
+  const sem = (id, lvl) => {
+    const el = document.getElementById(id);
+    const card = el && el.closest('article.k');
+    if (card) dashboardApplySem(card, lvl);
+  };
+  const hu = +r.HOY_UNIDADES || 0, pu = +r.UNIDADES_PERIODO || 0;
+  sem('kHoy', hu > 0 ? 'ok' : 'warn');
+  sem('kPer', pu > 0 ? 'ok' : 'warn');
+  sem('kProm', (+r.CONSUMO_PROMEDIO_DIARIO || 0) > 0 ? 'info' : 'neutral');
+  sem('kMax', (+r.CONSUMO_MAXIMO_DIARIO || 0) > 0 ? 'info' : 'neutral');
+  let artLvl = 'info';
+  if (insights && insights.variacion_semanal) {
+    const s = String(insights.variacion_semanal.semaforo || '').toLowerCase();
+    artLvl = s === 'verde' ? 'ok' : s === 'rojo' ? 'danger' : 'warn';
+  }
+  sem('kArt', (+r.ARTICULOS_CONSUMIDOS || 0) > 0 ? artLvl : 'neutral');
+  sem('kVentTot', (+r.VENTA_IMPORTE_PERIODO || 0) > 0 ? 'ok' : 'neutral');
+}
+
+async function loadResumen(){
+  let r;
+  try { r = await api('/api/consumos/resumen?' + getQS()); } catch(e) { r = {}; }
+  r = r && typeof r === 'object' ? r : {};
+  lastConsumoRes = r;
+
+  document.getElementById('kHoy').textContent = fmtN(r.HOY_UNIDADES);
+  document.getElementById('kPer').textContent = fmtN(r.UNIDADES_PERIODO);
+  const hv = document.getElementById('kHoyVent');
+  const pv = document.getElementById('kPerVent');
+  const vt = document.getElementById('kVentTot');
+  if (hv) hv.textContent = 'Venta ' + fmtF(r.HOY_VENTA_IMPORTE != null ? r.HOY_VENTA_IMPORTE : 0);
+  if (pv) pv.textContent = 'Venta ' + fmtF(r.VENTA_IMPORTE_PERIODO != null ? r.VENTA_IMPORTE_PERIODO : 0);
+  if (vt) vt.textContent = fmtF(r.VENTA_IMPORTE_PERIODO != null ? r.VENTA_IMPORTE_PERIODO : 0);
+  document.getElementById('kProm').textContent = fmtF(r.CONSUMO_PROMEDIO_DIARIO);
+  document.getElementById('kPromSub').textContent = (r.DIAS_CON_MOVIMIENTO||0) + ' d\u00edas con movimiento';
+  document.getElementById('kMax').textContent = fmtN(r.CONSUMO_MAXIMO_DIARIO);
+  document.getElementById('kMaxSub').textContent = 'Pico: ' + toFecha(r.DIA_MAXIMO);
+  document.getElementById('kArt').textContent = fmtN(r.ARTICULOS_CONSUMIDOS);
+  document.getElementById('kMov').textContent = 'Movimientos: ' + fmtN(r.MOVIMIENTOS);
+  applyConsumoKpiSem(r, window.__consumosInsights);
+}
+async function loadDiario(){
+  try {
+    const rows = await api('/api/consumos/diarias?' + getQS({ dias: 30 }));
+    if(!chartDiario || !Array.isArray(rows)) return;
+    chartDiario.data.labels = rows.map(r => new Date(r.DIA).toLocaleDateString('es-MX',{day:'2-digit',month:'short'}));
+    chartDiario.data.datasets[0].data = rows.map(r => +r.CONSUMO_TOTAL || 0);
+    chartDiario.update();
+  } catch(e) { /* chart stays blank */ }
+}
+async function loadTop(){
+  try {
+    const rows = await api('/api/consumos/top-articulos?' + getQS({ limit: topConsumoN }));
+    if(!chartTop || !Array.isArray(rows)) return;
+    chartTop.data.labels = rows.map(r => (r.ARTICULO || '').substring(0, 24));
+    chartTop.data.datasets[0].data = rows.map(r => +r.UNIDADES || 0);
+    chartTop.data.datasets[1].data = rows.map(r => +r.VENTA_IMPORTE || 0);
+    chartTop.update();
+  } catch(e) { /* chart stays blank */ }
+}
+function esc(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+}
+/** Semáforo días de cobertura: consumo diario = periodo / días calendario del filtro. */
+function coberturaDiasClass(dc){
+  const n = parseFloat(dc);
+  if (isNaN(n)) return { cls: '', title: '' };
+  if (n <= 0) return { cls: 'cov-crit', title: 'Sin cobertura (existencia 0 o sin consumo)' };
+  if (n < 7) return { cls: 'cov-low', title: 'Quiebre inminente: menos de 7 días' };
+  if (n < 21) return { cls: 'cov-ok', title: 'Aceptable: reponer en la siguiente compra' };
+  if (n < 60) return { cls: 'cov-high', title: 'Holgura moderada' };
+  return { cls: 'cov-high', title: 'Alto inventario relativo al ritmo actual' };
+}
+function renderInsights(d){
+  const box = document.getElementById('insightsBody');
+  if(!box)return;
+  if(!d||typeof d!=='object'){
+    window.__consumosInsights = null;
+    box.innerHTML = '<div class="ins-empty">Sin datos de insights.</div>';
+    applyConsumoKpiSem(lastConsumoRes, null);
+    return;
+  }
+  window.__consumosInsights = d;
+  const vs = d.vs_periodo_anterior || {};
+  const conc = d.concentracion_top5 || {};
+  const w = d.variacion_semanal || {};
+  const sem = (w.semaforo || 'amarillo').toLowerCase();
+  const semLabel = sem === 'verde' ? 'Fuerte' : sem === 'rojo' ? 'D\u00e9bil' : 'Estable';
+  const pctWow = w.variacion_pct != null ? (w.variacion_pct >= 0 ? '+' : '') + fmtF(w.variacion_pct) + '%' : '\u2014';
+  const varPrev = vs.variacion_pct != null ? (vs.variacion_pct >= 0 ? '+' : '') + fmtF(vs.variacion_pct) + '%' : '\u2014';
+  const op = d.operacion_minima || {};
+  const al = Array.isArray(d.alertas_criticas) ? d.alertas_criticas : [];
+  const diasOp = op.dias_operacion_estimados_top != null ? fmtF(op.dias_operacion_estimados_top) + ' días' : '—';
+  const faltanteTxt = (+op.faltante_operativo || 0) > 0 ? fmtN(op.faltante_operativo) + ' u.' : '0 u.';
+  const rowsCov = Array.isArray(d.cobertura_top) ? d.cobertura_top.slice() : [];
+  rowsCov.sort((a,b)=>{
+    const da = parseFloat(a.DIAS_COBERTURA);
+    const db = parseFloat(b.DIAS_COBERTURA);
+    const na = isNaN(da) ? 999999 : da;
+    const nb = isNaN(db) ? 999999 : db;
+    return na - nb;
+  });
+  let tbl = '<table class="ins-tbl"><thead><tr><th>Art&iacute;culo</th><th class="num">Cons. periodo</th><th class="num">Exist.</th><th class="num">D&iacute;as cob.</th></tr></thead><tbody>';
+  if(!rowsCov.length) tbl += '<tr><td colspan="4" class="ins-empty">Sin art&iacute;culos en el periodo</td></tr>';
+  else rowsCov.forEach(r => {
+    const rawDc = r.DIAS_COBERTURA;
+    const dc = rawDc != null && rawDc !== '' ? fmtF(rawDc) : '\u2014';
+    const sem = coberturaDiasClass(rawDc);
+    tbl += '<tr><td title="'+esc(r.ARTICULO)+'">'+esc((r.ARTICULO||'').substring(0,28))+(String(r.ARTICULO||'').length>28?'…':'')+'</td><td class="num">'+fmtN(r.CONSUMO_PERIODO)+'</td><td class="num">'+fmtN(r.EXISTENCIA)+'</td><td class="num cov-cell '+sem.cls+'" title="'+esc(sem.title)+'">'+dc+'</td></tr>';
+  });
+  tbl += '</tbody></table>';
+  const alertasHtml = !al.length
+    ? '<div class="ins-empty" style="padding:6px 0">Sin focos rojos en top consumo.</div>'
+    : '<table class="ins-tbl" style="margin-top:8px"><thead><tr><th>Art&iacute;culo cr&iacute;tico</th><th class="num">D&iacute;as cob.</th><th class="num">Exist.</th><th class="num">M&iacute;nimo</th></tr></thead><tbody>' +
+      al.map(r => '<tr><td title="' + esc(r.ARTICULO) + '">' + esc((r.ARTICULO || '').substring(0, 30)) + ((String(r.ARTICULO || '').length > 30) ? '…' : '') + '</td><td class="num cov-cell ' + coberturaDiasClass(r.DIAS_COBERTURA).cls + '">' + (r.DIAS_COBERTURA != null ? fmtF(r.DIAS_COBERTURA) : '—') + '</td><td class="num">' + fmtN(r.EXISTENCIA) + '</td><td class="num">' + fmtN(r.INVENTARIO_MINIMO) + '</td></tr>').join('') +
+      '</tbody></table>';
+  box.innerHTML =
+    '<div class="ins-row">'+
+      '<div class="ins-pill" style="min-width:200px">'+
+        '<div class="t">Variaci&oacute;n semanal (7 vs 7 d&iacute;as)</div>'+
+        '<div class="sem"><span class="sem-i '+sem+'"></span><span>'+semLabel+' &middot; '+pctWow+'</span></div>'+
+        '<div class="ins-sub">'+fmtN(w.unidades_ultimos_7)+' u. vs '+fmtN(w.unidades_previos_7)+' u. anteriores. Umbrales: &gt;+5% verde, &plusmn;5% amarillo, &lt;&minus;5% rojo.</div>'+
+      '</div>'+
+      '<div class="ins-pill"><div class="t">Concentraci&oacute;n Top 5</div><div class="n">'+fmtF(conc.porcentaje||0)+'%</div><div class="h">'+fmtN(conc.unidades_top5||0)+' u. de '+fmtN(conc.unidades_periodo||0)+' u. del periodo</div></div>'+
+      '<div class="ins-pill"><div class="t">Vs periodo anterior</div><div class="n">'+varPrev+'</div><div class="h">Actual '+fmtN(vs.unidades_periodo||0)+' u. &middot; Previo '+fmtN(vs.unidades_periodo_previo||0)+' u.</div></div>'+
+      '<div class="ins-pill"><div class="t">M&iacute;nimo para operar (top consumo)</div><div class="n">'+diasOp+'</div><div class="h">Objetivo 14 d&iacute;as: '+fmtN(op.inventario_operativo_objetivo||0)+' u. &middot; faltante: '+faltanteTxt+'</div></div>'+
+    '</div>'+
+    '<div class="t" style="margin-bottom:4px;font:.6rem \'DM Mono\',monospace;color:var(--muted);text-transform:uppercase">Cobertura inventario (top consumo del periodo; d&iacute;as = existencia / consumo diario seg&uacute;n '+fmtN(d.dias_calendario_periodo||0)+' d&iacute;as calendario del filtro). <span style="opacity:.85">Sem&aacute;foro D&iacute;as cob.: &le;0 rojo, &lt;7 &aacute;mbar, 7&ndash;20 verde, 21+ azul (exceso relativo).</span></div>'+
+    tbl+
+    '<div class="t" style="margin:10px 0 4px;font:.6rem \'DM Mono\',monospace;color:var(--muted);text-transform:uppercase">Alertas cr&iacute;ticas para compra inmediata (quiebre / bajo m&iacute;nimo / cobertura &lt; 10 d&iacute;as)</div>'+
+    alertasHtml;
+  applyConsumoKpiSem(lastConsumoRes, d);
+}
+async function loadInsights(){
+  const box = document.getElementById('insightsBody');
+  try{
+    const d = await api('/api/consumos/insights?' + getQS());
+    renderInsights(d);
+  }catch(_){
+    if(box) box.innerHTML = '<div class="ins-empty">No se pudieron calcular insights (revisa consola del servidor).</div>';
+    window.__consumosInsights = null;
+    applyConsumoKpiSem(lastConsumoRes, null);
+  }
+}
+function renderPedidosVsConsumo(d){
+  const box = document.getElementById('ocBody');
+  if(!box) return;
+  if(!d || typeof d !== 'object'){
+    box.innerHTML = '<div class="ins-empty">Sin datos de pedidos/OC para este filtro.</div>';
+    return;
+  }
+  const srcTxt = d.source && d.source.key ? ('Fuente: ' + d.source.key) : 'Sin fuente detectada';
+  const srcLow = !!(d.source && d.source.confidence === 'low');
+  const rows = Array.isArray(d.top_consumo) ? d.top_consumo : [];
+  const r = d.resumen || {};
+  const cov = +r.cobertura_pedidos_top_pct || 0;
+  const covCls = cov >= 90 ? 'cov-ok' : cov >= 65 ? 'cov-low' : 'cov-crit';
+  let html = '<div class="oc-head"><div class="oc-title">Pedidos / OC vs consumo</div><span class="oc-chip">'+esc(srcTxt)+'</span></div>';
+  if(!d.ok){
+    html += '<div class="ins-empty">'+esc(d.message || 'Sin estructura de compras compatible en esta base.')+'</div>';
+    box.innerHTML = html;
+    return;
+  }
+  html += '<div class="ins-sub">Cobertura de pedidos (Top consumo): <span class="cov-cell '+covCls+'" style="padding:2px 8px">'+fmtF(cov)+'%</span> · Consumo '+fmtN(r.unidades_consumo_top||0)+' u. · Pedidos '+fmtN(r.unidades_pedidas_top||0)+' u. · Brecha '+fmtN(r.brecha_top||0)+' u.</div>';
+  if (srcLow) {
+    html += '<div class="ins-sub" style="color:var(--ylw);margin-top:4px">Aviso: la fuente detectada es CM (movimientos), puede incluir traspasos internos además de compras.</div>';
+  }
+  html += '<table class="ins-tbl" style="margin-top:8px"><thead><tr><th>Artículo</th><th class="num">Consumo</th><th class="num">Pedidos/OC</th><th class="num">Brecha</th><th class="num">Cobertura</th></tr></thead><tbody>';
+  if(!rows.length){
+    html += '<tr><td colspan="5" class="ins-empty">Sin artículos para el periodo actual.</td></tr>';
+  }else{
+    rows.forEach(x=>{
+      const c = +x.UNIDADES_CONSUMO || 0;
+      const p = +x.UNIDADES_PEDIDAS || 0;
+      const b = +x.BRECHA_UNIDADES || 0;
+      const cp = +x.COBERTURA_PEDIDOS_PCT || 0;
+      const cls = cp >= 90 ? 'cov-ok' : cp >= 65 ? 'cov-low' : 'cov-crit';
+      html += '<tr><td title="'+esc(x.ARTICULO||'')+'">'+esc(String(x.ARTICULO||'').substring(0,30))+(String(x.ARTICULO||'').length>30?'…':'')+'</td><td class="num">'+fmtN(c)+'</td><td class="num">'+fmtN(p)+'</td><td class="num">'+fmtN(b)+'</td><td class="num cov-cell '+cls+'">'+fmtF(cp)+'%</td></tr>';
+    });
+  }
+  html += '</tbody></table>';
+  box.innerHTML = html;
+}
+async function loadPedidosVsConsumo(){
+  const box = document.getElementById('ocBody');
+  try{
+    const d = await api('/api/consumos/pedidos-compra?' + getQS({ limit: 10 }));
+    renderPedidosVsConsumo(d);
+  }catch(e){
+    if(box) box.innerHTML = '<div class="ins-empty">No se pudo cargar cruce pedidos/OC: '+esc((e&&e.message)||'error')+'</div>';
+  }
+}
+async function loadVendedores(){
+  const tb = document.querySelector('#tblVend tbody');
+  try {
+    const raw = await api('/api/consumos/por-vendedor?' + getQS());
+    const rows = (Array.isArray(raw) ? raw : []).slice().sort((a,b)=>(+b.UNIDADES||0)-(+a.UNIDADES||0));
+    if(!rows.length){ tb.innerHTML = '<tr><td colspan="5">Sin datos para este filtro</td></tr>'; return; }
+    tb.innerHTML = rows.map(r => `<tr><td>${esc(r.VENDEDOR)}</td><td class="num">${fmtN(r.UNIDADES)}</td><td class="num">${fmtF(r.PARTICIPACION)}%</td><td class="num">${fmtF(r.VENTA_IMPORTE||0)}</td><td class="num">${fmtF(r.PARTICIPACION_IMPORTE||0)}%</td></tr>`).join('');
+  } catch(e) {
+    if(tb) tb.innerHTML = '<tr><td colspan="5" style="color:var(--orange)">Error al cargar vendedores</td></tr>';
+  }
+}
+async function loadAll(){
+  // Cada función maneja sus propios errores; allSettled garantiza que un fallo no cancele las demás
+  await Promise.allSettled([loadResumen(), loadDiario(), loadTop(), loadVendedores(), loadInsights(), loadPedidosVsConsumo()]);
+  document.getElementById('pageSub').textContent = 'Consumo en unidades y venta ($) de las mismas l\u00edneas VE/PV seg\u00fan el filtro.';
+}
+(async function init(){
+  initCharts();
+  if (typeof initFilters === 'function') {
+    await initFilters({ containerId:'filter-bar', showVendedor:true, onChange:()=>loadAll() });
+  }
+  await loadAll();
+})();
+</script>
+<script src="nav.js"></script>
+<script src="/chat-widget.js" defer></script>
+</body>
+</html>
