@@ -449,10 +449,12 @@ function renderDirectorExecScore(score){
 async function loadAll() {
   try {
     setText('badge-top-clientes', labelPeriodoFiltro());
+    /* Mismo snapshot que index: CxC unificado + ventas puede tardar >25s en Render; si abortamos, fetchJson devuelve {} y todo el tab muestra 0. */
+    const tDir = 70000;
     const [dirRes, cxcRes, metasRes] = await Promise.allSettled([
-      fetchJson(buildApiUrl('/api/director/resumen'), {}),
-      fetchJson(buildApiUrl('/api/cxc/resumen-aging'), {}),
-      fetchJson(buildApiUrl('/api/config/metas'), {}),
+      fetchJson(buildApiUrl('/api/director/resumen'), {}, tDir),
+      fetchJson(buildApiUrl('/api/cxc/resumen-aging'), {}, tDir),
+      fetchJson(buildApiUrl('/api/config/metas'), {}, tDir),
     ]);
     const dir = (dirRes.status === 'fulfilled' && dirRes.value && typeof dirRes.value === 'object') ? dirRes.value : {};
     const cxcSnap = (cxcRes.status === 'fulfilled' && cxcRes.value && typeof cxcRes.value === 'object') ? cxcRes.value : {};

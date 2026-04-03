@@ -3186,7 +3186,12 @@ get('/api/ventas/cumplimiento', async (req) => {
 // Respeta preset/filtro de fechas: ventas y cotizaciones del periodo (desde/hasta o anio/mes).
 // Cotizaciones: misma macro que ventas con TIPO_DOCTO='C' e IMPORTE_NETO vía sqlVentaImporteBaseExpr.
 async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
-  const qms = perQueryMs != null ? perQueryMs : 12000;
+  // Render / Firebird remoto: 12s era poco; CxC unificado usa varias queries. Alinear con cxcAgingQueryMs().
+  const agingFloor = cxcAgingQueryMs();
+  const qms =
+    perQueryMs != null
+      ? Math.min(120000, Math.max(perQueryMs, agingFloor, 25000))
+      : Math.min(120000, Math.max(agingFloor, 45000));
   const rq = { query: { ...req.query } };
   if (!rq.query.desde && !rq.query.hasta && !rq.query.anio) {
     const now = new Date();
@@ -3214,7 +3219,7 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
       FROM ${remisionesSub()} d
       WHERE 1=1 ${f.sql}
     `, f.params, qms, dbOpts).catch(() => [{}]),
-    cxcResumenAgingUnificado(rq, dbOpts).catch(() => ({ resumen: { SALDO_TOTAL: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: 0, VENCIDO: 0, POR_VENCER: 0 }, aging: {} })),
+    cxcResumenAgingUnificado(rq, dbOpts, qms).catch(() => ({ resumen: { SALDO_TOTAL: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: 0, VENCIDO: 0, POR_VENCER: 0 }, aging: {} })),
     query(`
       SELECT
         SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN ${sqlCotiImporteExpr('d')} ELSE 0 END) AS IMPORTE_COTI_HOY,
@@ -3238,10 +3243,11 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
 }
 
 get('/api/director/resumen', async (req) => {
+  const dirQms = Math.min(120000, Math.max(cxcAgingQueryMs(), 35000));
   if (isAllDbs(req)) {
     const parts = await mapPoolLimit(DATABASE_REGISTRY, 2, async (entry) => {
       try {
-        return await directorResumenSnapshot(req, entry.options, 12000);
+        return await directorResumenSnapshot(req, entry.options, dirQms);
       } catch (e) {
         return {
           ventas: { HOY: 0, MES_ACTUAL: 0, FACTURAS_MES: 0, MES_VE: 0, MES_PV: 0, REMISIONES_HOY: 0, REMISIONES_MES: 0 },
@@ -3252,7 +3258,7 @@ get('/api/director/resumen', async (req) => {
     });
     return mergeDirectorResumenSnapshots(parts);
   }
-  return directorResumenSnapshot(req, getReqDbOpts(req), 12000);
+  return directorResumenSnapshot(req, getReqDbOpts(req), dirQms);
 });
 
 // Catálogo de bases (sin credenciales) + scorecard multi-empresa (misma lógica que director, concurrencia acotada).

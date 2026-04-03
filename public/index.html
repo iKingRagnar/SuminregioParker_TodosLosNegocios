@@ -1055,7 +1055,8 @@ let chartTend=null;
 // -- Main load ------------------------------------------------------------------
 async function loadAll(){
   try{
-    const tKpi = 35000;
+    /* Director + CxC aging en paralelo pueden superar 35s en Render; si no, fwt devuelve {} y KPI CxC/merge quedan en 0. */
+    const tKpi = 65000;
     const [v,m,c,inv,dir,vends,cot,cumpl,cliRes,pnlData]=await Promise.all([
       fwt(buildApiUrl('/api/ventas/resumen'),{},tKpi),
       fwt(buildApiUrl('/api/config/metas'),{},tKpi),

@@ -785,7 +785,7 @@ async function loadBalanceGeneral(){
     const _bgBase = buildPnlApiUrl('/api/resultados/balance-general','');
     const url = _bgBase + (_bgBase.indexOf('?') >= 0 ? '&' : '?') + '_=' + Date.now();
     const ctrl = new AbortController();
-    const tid = setTimeout(()=>ctrl.abort(), 25000);
+    const tid = setTimeout(()=>ctrl.abort(), 55000);
     let bg = {};
     try{
       const r = await fetch(url, { cache:'no-store', signal: ctrl.signal }).catch(()=>null);
@@ -1050,7 +1050,7 @@ async function loadEstadoSrContable(mesesScope, totScope){
   try{
     const url=buildPnlApiUrl('/api/resultados/estado-sr','');
     const ctrl=new AbortController();
-    const tid=setTimeout(()=>ctrl.abort(),25000);
+    const tid=setTimeout(()=>ctrl.abort(),55000);
     let data={};
     try{
       const r=await fetch(url,{cache:'no-store',signal:ctrl.signal}).catch(()=>null);
@@ -1444,7 +1444,7 @@ async function loadData(){
         const d1=`${py}-${String(pm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
         const fbUrl=buildPnlApiUrl('/api/resultados/pnl',`desde=${d0}&hasta=${d1}`,{omitFilters:true})+'&_='+Date.now();
 
-        const fb=await tryFetch(fbUrl,25000)||null;
+        const fb=await tryFetch(fbUrl,55000)||null;
         if(fb&&fb.totales&&fb.tiene_gastos_co===true){
           const src=fb.totales||{};
           CO_KEYS.forEach(k=>{ tablaTot[k]=+(src[k]||0); });
