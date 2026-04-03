@@ -1091,6 +1091,21 @@ if (dbgEnabled()) {
   } else {
     try { dbgBox(); } catch (_) {}
   }
+  try{
+    window.addEventListener('error', function(ev){
+      try{
+        const b=dbgBox();
+        b.textContent='DBG SCORECARD (dbg=1)\\nERROR: '+(ev&&ev.message?ev.message:'(sin mensaje)');
+      }catch(_){}
+    });
+    window.addEventListener('unhandledrejection', function(ev){
+      try{
+        const b=dbgBox();
+        const r=ev&&ev.reason;
+        b.textContent='DBG SCORECARD (dbg=1)\\nPROMISE REJECTION: '+(r&&r.message?r.message:String(r));
+      }catch(_){}
+    });
+  }catch(_){}
 }
 
 // -- Main load ------------------------------------------------------------------
@@ -1426,6 +1441,12 @@ async function loadAll(){
   }catch(e){
     console.error('loadAll error:',e);
     setEl('heroSub','Error de conexion con el servidor API - reintentando...');
+    if(dbgEnabled()){
+      try{
+        const b=dbgBox();
+        b.textContent='DBG SCORECARD (dbg=1)\\nloadAll ERROR: '+(e&&e.message?e.message:String(e));
+      }catch(_){}
+    }
   }
 }
 

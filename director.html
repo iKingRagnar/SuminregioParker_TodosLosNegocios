@@ -362,6 +362,21 @@ if (dbgEnabled()) {
   } else {
     try { dbgBox(); } catch (_) {}
   }
+  try{
+    window.addEventListener('error', function(ev){
+      try{
+        const b=dbgBox();
+        b.textContent='DBG DIRECTOR (dbg=1)\\nERROR: '+(ev&&ev.message?ev.message:'(sin mensaje)');
+      }catch(_){}
+    });
+    window.addEventListener('unhandledrejection', function(ev){
+      try{
+        const b=dbgBox();
+        const r=ev&&ev.reason;
+        b.textContent='DBG DIRECTOR (dbg=1)\\nPROMISE REJECTION: '+(r&&r.message?r.message:String(r));
+      }catch(_){}
+    });
+  }catch(_){}
 }
 
 function isLaborDay(d) {
@@ -630,6 +645,12 @@ async function loadAll() {
     console.error('resumen',e);
 
     setText('page-sub','Error cargando datos: '+e.message);
+    if (dbgEnabled()) {
+      try{
+        const b = dbgBox();
+        b.textContent = 'DBG DIRECTOR (dbg=1)\\nloadAll ERROR: ' + (e && e.message ? e.message : String(e));
+      }catch(_){}
+    }
     const vExec = document.getElementById('dir-exec-val');
     const bExec = document.getElementById('dir-exec-bar');
     if (vExec) vExec.textContent = '\u2014';
