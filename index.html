@@ -1149,9 +1149,84 @@ if (dbgEnabled()) {
   }catch(_){}
 }
 
+/** Vacía KPIs/listas al cambiar periodo (mismo criterio que P&L / director). CxC en esta página sigue siendo posición actual; solo UX. */
+function clearIndexFilterLoadingUI(){
+  if (chartTend) { try { chartTend.destroy(); } catch (_) {} chartTend = null; }
+  setEl('heroSub', 'Cargando datos del periodo…');
+  const hint = document.getElementById('heroDataHint');
+  if (hint) { hint.hidden = true; hint.textContent = ''; }
+  const badge = document.getElementById('situationBadge');
+  if (badge) {
+    badge.className = 'situation-badge neutral';
+    badge.innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>Cargando\u2026';
+  }
+  setEl('scFecha', '…');
+  setEl('rankFecha', '…');
+  const scb = document.getElementById('scBody');
+  if (scb) scb.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.1rem;font-family:\'DM Mono\',monospace;font-size:.75rem">Cargando scorecard…</td></tr>';
+  function barLoad(barId, pctId){
+    const bar = document.getElementById(barId);
+    const pctEl = document.getElementById(pctId);
+    if (bar) { bar.style.width = '0%'; bar.style.background = 'var(--muted)'; }
+    if (pctEl) pctEl.innerHTML = '<span style="color:var(--muted)">…</span>';
+  }
+  barLoad('barVentaHoy', 'pctVentaHoy');
+  barLoad('barVentaMes', 'pctVentaMes');
+  barLoad('barCotiHoy', 'pctCotiHoy');
+  barLoad('barCxcVenc', 'pctCxcVenc');
+  function semNeutral(id){
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = 'sem neutral';
+    el.innerHTML = '<div class="sem-dot"></div>\u2014';
+  }
+  semNeutral('semVentaHoy');
+  semNeutral('semVentaMes');
+  semNeutral('semCotiHoy');
+  semNeutral('semCxcTotal');
+  semNeutral('semCxcVenc');
+  semNeutral('semInvBajo');
+  setEl('kpiModuleVentaHoy', 'Ventas');
+  setEl('kpiModuleVentaMes', 'Ventas');
+  setEl('kpiModuleCotiHoy', 'Cotizaciones');
+  setEl('kpiLabelVentaHoy', '…');
+  setEl('kpiVentaHoy', '\u2014');
+  setEl('kpiVentaHoySub', '…');
+  setEl('kpiLabelVentaMes', '…');
+  setEl('kpiVentaMes', '\u2014');
+  setEl('kpiVentaMesSub', '…');
+  setEl('kpiLabelCotiHoy', '…');
+  setEl('kpiCotiHoy', '\u2014');
+  setEl('kpiCotiHoySub', '…');
+  setEl('kpiCxcTotal', '\u2014');
+  setEl('kpiCxcSub', '…');
+  setEl('kpiCxcVencido', '\u2014');
+  setEl('kpiCxcVencSub', '…');
+  setEl('kpiInvBajo', '\u2014');
+  setEl('kpiInvSub', '…');
+  const modIds = ['modVentaHoy','modVentaMes','modCotiHoy','modCobradoMes','modComision','modCobFacts','modVendEnMeta','modVendPctMes','modVendActivos','modCxcTotal','modCxcVenc','modCxcClientes','modCliRiesgo','modCliCritico','modCliInactivos','modInvTotal','modInvBajo','modInvCero','modDirVenta','modDirMargen','modDirSalud','modResVentas','modResMargen','modResCobros','modMetaDiaria','modMetaCoti','modMetaVend'];
+  modIds.forEach(function (id) { setEl(id, '\u2014'); });
+  setHtml('modVentaStatus', '<span style="color:var(--muted)">…</span>');
+  setHtml('modCobStatus', '<span style="color:var(--muted)">…</span>');
+  setHtml('modVendStatus', '<span style="color:var(--muted)">…</span>');
+  setHtml('modCxcStatus', '<span style="color:var(--muted)">…</span>');
+  setHtml('modCliStatus', '<span style="color:var(--muted)">…</span>');
+  setHtml('modInvStatus', '<span style="color:var(--muted)">…</span>');
+  setHtml('modResStatus', '<span style="color:var(--muted)">…</span>');
+  setHtml('modMetaStatus', '<span style="color:var(--muted)">…</span>');
+  const vc = document.getElementById('vendedoresContainer');
+  if (vc) vc.innerHTML = '<div style="text-align:center;color:var(--muted);padding:1.5rem;font-size:.85rem">Cargando…</div>';
+  setEl('alertCount', '…');
+  const al = document.getElementById('alertsList');
+  if (al) al.innerHTML = '<div class="alert-item info"><div class="alert-dot"></div><div class="alert-text">Cargando alertas del periodo…</div><div class="alert-time">Sistema</div></div>';
+  const us = document.getElementById('uniSubtitle');
+  if (us) us.textContent = 'Cargando portafolio del periodo…';
+}
+
 // -- Main load ------------------------------------------------------------------
 async function loadAll(){
   try{
+    clearIndexFilterLoadingUI();
     if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.loadAllStarted=(window.__DBG_STATE.loadAllStarted||0)+1; window.__DBG_STATE.phase='loadAll:start'; window.__DBG_STATE.note=''; }
     /* AbortController hasta 120s: fwt (Promise.race) cortaba a los 65s y descartaba la respuesta tardía → resumen-aging vacío y vencido KPI en $0. */
     const tKpi = 120000;
