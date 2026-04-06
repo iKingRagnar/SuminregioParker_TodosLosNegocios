@@ -422,6 +422,25 @@ async function loadAll() {
   invLoadAllRunning = true;
   const g = ++invLoadGen;
   try {
+    setText('kpi-total', '—');
+    setText('kpi-valor', '—');
+    setText('kpi-minimo', '—');
+    setText('kpi-cero', '—');
+    const pl0 = invPeriodLabel();
+    setText('page-sub', 'Cargando inventario…' + (pl0 ? ' · ' + pl0 : ''));
+    const tm = document.querySelector('#tbl-minimo tbody');
+    if (tm) tm.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando…</td></tr>';
+    const tcon = document.querySelector('#tbl-consumo tbody');
+    if (tcon) tcon.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando…</td></tr>';
+    const ttop = document.querySelector('#tbl-topstock tbody');
+    if (ttop) ttop.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando…</td></tr>';
+    const fRow = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando…</td></tr>';
+    const smRow = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando…</td></tr>';
+    const opRow = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando…</td></tr>';
+    const tfb = document.getElementById('tbl-forecast-body'); if (tfb) tfb.innerHTML = fRow;
+    const tsb = document.getElementById('tbl-sinmov-body'); if (tsb) tsb.innerHTML = smRow;
+    const ts365 = document.getElementById('tbl-sinmov365-body'); if (ts365) ts365.innerHTML = smRow;
+    const tob = document.getElementById('tbl-operacion-body'); if (tob) tob.innerHTML = opRow;
     try {
       const d = await invFwt(apiDb('/api/inv/resumen'), INV_RES_TIMEOUT, 90000);
       if (g !== invLoadGen) return;

@@ -299,7 +299,34 @@ const fmtM = v=>{
 };
 const COLS=['#9B6DFF','#4DA6FF','#00E5A0','#FFB800','#FF8C42','#FF4566','#00D4FF'];
 
+function clearVendedoresFilterLoadingUI(){
+  const heroSub = document.getElementById('heroSub');
+  if (heroSub) heroSub.textContent = 'Cargando\u2026';
+  const set = (id, t) => { const e = document.getElementById(id); if (e) e.textContent = t; };
+  set('kpiVendedores', '--');
+  set('kpiBestHoy', '--');
+  set('kpiBestHoySub', '--');
+  set('kpiTotalHoy', '--');
+  set('kpiMetaHoySub', 'Meta: --');
+  set('kpiTotalMes', '--');
+  set('kpiMetaMesSub', 'Meta acum: --');
+  set('kpiEnMetaHoy', '--');
+  set('kpiBestMes', '--');
+  set('kpiBestMesSub', '--');
+  set('kpiEfic', '\u2014');
+  set('kpiTotalCobrado', '\u2014');
+  set('kpiPromCobros', '\u2014');
+  const ef = document.getElementById('eficBadge'); if (ef) ef.textContent = 'cargando...';
+  const ci = document.getElementById('cobrosInsight'); if (ci) ci.textContent = '';
+  const grid = document.getElementById('scorecardsGrid'); if (grid) grid.innerHTML = '';
+  const rb = document.getElementById('rankingBody'); if (rb) rb.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:1.2rem">Cargando\u2026</td></tr>';
+  if (chartDiarioInst) { try { chartDiarioInst.destroy(); } catch (_) {} chartDiarioInst = null; }
+  if (chartCumplInst) { try { chartCumplInst.destroy(); } catch (_) {} chartCumplInst = null; }
+  if (chartCobrosInst) { try { chartCobrosInst.destroy(); } catch (_) {} chartCobrosInst = null; }
+}
+
 async function loadData(){
+  clearVendedoresFilterLoadingUI();
   var heroSub = document.getElementById('heroSub');
   try{
     const [cumplData, metas, diario, cotiVends, cxcTop] = await Promise.all([

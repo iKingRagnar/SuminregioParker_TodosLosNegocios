@@ -336,6 +336,14 @@ async function loadMargen(keepRows) {
   if (!keepRows) {
     tb.innerHTML = '<tr><td colspan="13" class="empty">Cargando…</td></tr>';
     tf.innerHTML = '';
+    const kg = document.getElementById('kpiGrid');
+    if (kg) kg.innerHTML = '';
+    const ab = document.getElementById('artBadge'); if (ab) ab.textContent = '—';
+    const cb = document.getElementById('cliBadge'); if (cb) cb.textContent = '—';
+    const tc = document.getElementById('topClientes'); if (tc) tc.innerHTML = '<tr><td colspan="4" class="empty">Cargando…</td></tr>';
+    const tcf = document.getElementById('topClientesFoot'); if (tcf) tcf.innerHTML = '';
+    const rb = document.getElementById('rowBadge'); if (rb) rb.textContent = '…';
+    if (chartArt) { try { chartArt.destroy(); } catch (_) {} chartArt = null; }
   }
   const tq = tipoSel ? '&tipo=' + encodeURIComponent(tipoSel) : '';
   const url = buildApiUrl('/api/ventas/margen-lineas', 'limit=5000' + tq);

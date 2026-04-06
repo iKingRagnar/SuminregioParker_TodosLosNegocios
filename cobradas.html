@@ -432,8 +432,35 @@ function invoiceBlockHtml(vendedorId){
   return '<div class="fact-inv-wrap"><table class="fact-inv-table"><thead><tr><th>Folio</th><th>Fecha fact.</th><th class="num">Venta total</th><th class="num">Cobrado</th><th class="num">Comisi\u00f3n 8%</th></tr></thead><tbody>' + body + '</tbody></table></div>';
 }
 
+function clearCobradasFilterLoadingUI(){
+  const set = (id, t) => { const e = document.getElementById(id); if (e) e.textContent = t; };
+  set('kpiTotalCobrado', '--');
+  set('kpiTotalCobradoSub', '-- facturas');
+  set('kpiTotalVenta', '--');
+  set('kpiEficiencia', '-- de conversi\u00f3n');
+  set('kpiTotalComision', '--');
+  set('kpiTicketProm', '--');
+  set('kpiTicketSub', '-- facturas en periodo');
+  set('kpiTopVend', '--');
+  set('kpiTopVendSub', '-- en comisi\u00f3n');
+  set('donutPct', '--');
+  const rb = document.getElementById('rankingBody');
+  if (rb) rb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.2rem">Cargando\u2026</td></tr>';
+  const bv = document.getElementById('barrasVend');
+  if (bv) bv.innerHTML = '<div class="empty">Cargando\u2026</div>';
+  const fl = document.getElementById('factList');
+  if (fl) fl.innerHTML = '<div class="empty">Cargando\u2026</div>';
+  const leg = document.getElementById('donutLegend');
+  if (leg) leg.innerHTML = '';
+  const det = document.getElementById('detalleCobrosBody');
+  if (det) det.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px">Cargando\u2026</td></tr>';
+  if (donutChartInst) { try { donutChartInst.destroy(); } catch (_) {} donutChartInst = null; }
+  if (evoChartInst) { try { evoChartInst.destroy(); } catch (_) {} evoChartInst = null; }
+}
+
 async function loadData(){
   const heroSub = document.getElementById('heroSub');
+  clearCobradasFilterLoadingUI();
   if(heroSub) heroSub.textContent = 'Cargando datos...';
   try{
     const [r, factRows] = await Promise.all([

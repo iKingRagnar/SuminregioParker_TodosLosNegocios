@@ -326,9 +326,15 @@ nav{display:flex;align-items:center;gap:.2rem}
 <script>
 // Misma regla que CxC/Inventario: file:// → localhost:7000; si no → mismo origen (remoto/ngrok)
 const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : '';
+/** Igual que ventas.html: periodo + db en query (no solo apiPathWithDb). */
 function apiDb(rel){
-  const p = rel.startsWith('/') ? rel : '/' + rel;
-  return API + (typeof apiPathWithDb === 'function' ? apiPathWithDb(p) : p);
+  let p = rel.startsWith('/') ? rel : '/' + rel;
+  const q = p.indexOf('?');
+  const pathOnly = q >= 0 ? p.slice(0, q) : p;
+  const pathQs = q >= 0 ? p.slice(q + 1) : '';
+  const fq = (typeof filterBuildQS === 'function' ? filterBuildQS() : '').replace(/^[?&]+/, '');
+  const combined = [fq, pathQs].filter(Boolean).join('&');
+  return API + pathOnly + (combined ? '?' + combined : '');
 }
 
 let chartRiesgoInst = null, chartBucketsInst = null;
@@ -382,8 +388,27 @@ function enrichResumenRiesgoFromCxcAging(res,cxcSnap){
   return res;
 }
 
+function clearClientesFilterLoadingUI(){
+  const heroSub = document.getElementById('heroSub');
+  if (heroSub) heroSub.textContent = 'Cargando…';
+  const dash = (id) => { const e = document.getElementById(id); if (e) e.textContent = '--'; };
+  ['kpiEnRiesgo','kpiMontoCritico','kpiMontoAlto','kpiAtrasoCom','kpiInactivos','kpiReactivacion','kpiExposicion'].forEach(dash);
+  const cnt = (id, t) => { const e = document.getElementById(id); if (e) e.textContent = t; };
+  cnt('riesgoCount', 'Cargando…');
+  cnt('comercialCount', 'Cargando…');
+  cnt('inactivosCount', 'Cargando…');
+  const rRow = '<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:1.2rem">Cargando…</td></tr>';
+  const cRow = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:1.2rem">Cargando…</td></tr>';
+  const rb = document.getElementById('riesgoBody'); if (rb) rb.innerHTML = rRow;
+  const cb = document.getElementById('comercialBody'); if (cb) cb.innerHTML = cRow;
+  const ib = document.getElementById('inactivosBody'); if (ib) ib.innerHTML = cRow;
+  if (chartRiesgoInst) { try { chartRiesgoInst.destroy(); } catch (_) {} chartRiesgoInst = null; }
+  if (chartBucketsInst) { try { chartBucketsInst.destroy(); } catch (_) {} chartBucketsInst = null; }
+}
+
 async function loadData(){
   const heroSub = document.getElementById('heroSub');
+  clearClientesFilterLoadingUI();
   try{
     if(heroSub) heroSub.textContent = 'Conectando con el servidor…';
 

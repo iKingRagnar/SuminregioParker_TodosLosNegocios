@@ -517,8 +517,55 @@ function renderDirectorExecScore(score){
   }
 }
 
+/** Igual que P&L (resultados): no dejar KPIs del periodo anterior visibles mientras llegan datos nuevos. */
+function clearDirectorFilterLoadingUI(){
+  setText('page-sub', 'Cargando datos del periodo\u2026');
+  setText('intel-text', 'Cargando an\u00e1lisis\u2026');
+  setText('dir-exec-val', '\u2014');
+  const deb = document.getElementById('dir-exec-bar');
+  if (deb) { deb.style.width = '0%'; deb.style.background = 'var(--muted)'; }
+  const ids = ['v-hoy','v-mes','v-mes-ve','v-mes-pv','coti-hoy','v-docs','cxc-total','cxc-vencido','cxc-vigente','rel-vcxc'];
+  ids.forEach(id => setText(id, '\u2014'));
+  setText('v-hoy-sub', '\u00a0');
+  setText('v-mes-sub', '\u00a0');
+  setText('coti-hoy-imp', '\u00a0');
+  setText('cxc-clientes', '\u00a0');
+  setText('cxc-pct-venc', '\u00a0');
+  setText('cxc-pct-vig', '\u00a0');
+  const bh = document.getElementById('bar-hoy'); if (bh) bh.style.width = '0%';
+  const bm = document.getElementById('bar-mes'); if (bm) bm.style.width = '0%';
+  setText('pct-hoy', '\u00a0');
+  setText('pct-mes', '\u00a0');
+  const semReset = (id, cls) => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = '<div class="sem-dot"></div>\u2014';
+    if (el && cls) el.className = 'sem ' + cls;
+  };
+  semReset('sem-hoy', 'info');
+  semReset('sem-mes', 'info');
+  semReset('sem-ve', 'info');
+  semReset('sem-pv', 'info');
+  semReset('sem-coti', 'info');
+  semReset('sem-cxc', 'info');
+  semReset('sem-venc', 'danger');
+  semReset('sem-vig', 'ok');
+  semReset('sem-rel', 'info');
+  setText('vend-badge', '\u2014');
+  setText('rec-badge', '\u2014');
+  const vl = document.getElementById('vendedores-list');
+  if (vl) vl.innerHTML = '<div style="text-align:center;color:var(--muted);padding:1.5rem">Cargando\u2026</div>';
+  const tbc = document.querySelector('#tbl-clientes tbody');
+  if (tbc) tbc.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Cargando\u2026</td></tr>';
+  const tbr = document.querySelector('#tbl-recientes tbody');
+  if (tbr) tbr.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando\u2026</td></tr>';
+  const emptyV = document.getElementById('chartVentas-empty');
+  if (emptyV) emptyV.style.display = 'none';
+  if (chartVentas) { try { chartVentas.destroy(); } catch (_) {} chartVentas = null; }
+}
+
 async function loadAll() {
   try {
+    clearDirectorFilterLoadingUI();
     if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.loadAllStarted=(window.__DBG_STATE.loadAllStarted||0)+1; window.__DBG_STATE.phase='loadAll:start'; window.__DBG_STATE.note=''; }
     setText('badge-top-clientes', labelPeriodoFiltro());
     /* CxC unificado puede tardar ~120s en Render. Debe ser >= queryMs para no abortar y caer a {} (vencido=0). */

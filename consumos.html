@@ -431,7 +431,35 @@ async function loadVendedores(){
     if(tb) tb.innerHTML = '<tr><td colspan="5" style="color:var(--orange)">Error al cargar vendedores</td></tr>';
   }
 }
+function clearConsumosFilterLoadingUI(){
+  const ps = document.getElementById('pageSub');
+  if (ps) ps.textContent = 'Cargando consumo del periodo\u2026';
+  const dash = (id) => { const e = document.getElementById(id); if (e) e.textContent = '\u2014'; };
+  ['kHoy','kPer','kProm','kMax','kArt','kVentTot'].forEach(dash);
+  const hv = document.getElementById('kHoyVent'); if (hv) hv.textContent = 'Venta $ \u2014';
+  const pv = document.getElementById('kPerVent'); if (pv) pv.textContent = 'Venta $ \u2014';
+  const kps = document.getElementById('kPromSub'); if (kps) kps.textContent = '\u2026';
+  const kms = document.getElementById('kMaxSub'); if (kms) kms.textContent = '\u2026';
+  const km = document.getElementById('kMov'); if (km) km.textContent = 'Movimientos: \u2014';
+  const tb = document.querySelector('#tblVend tbody');
+  if (tb) tb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted)">Cargando\u2026</td></tr>';
+  const ib = document.getElementById('insightsBody');
+  if (ib) ib.innerHTML = '<div class="ins-empty">Cargando insights\u2026</div>';
+  const oc = document.getElementById('ocBody');
+  if (oc) oc.innerHTML = '<div class="ins-empty">Cargando\u2026</div>';
+  if (chartDiario && chartDiario.data && chartDiario.data.datasets && chartDiario.data.datasets[0]) {
+    chartDiario.data.labels = [];
+    chartDiario.data.datasets[0].data = [];
+    chartDiario.update('none');
+  }
+  if (chartTop && chartTop.data && chartTop.data.datasets) {
+    chartTop.data.labels = [];
+    chartTop.data.datasets.forEach(d => { d.data = []; });
+    chartTop.update('none');
+  }
+}
 async function loadAll(){
+  clearConsumosFilterLoadingUI();
   // Cada función maneja sus propios errores; allSettled garantiza que un fallo no cancele las demás
   await Promise.allSettled([loadResumen(), loadDiario(), loadTop(), loadVendedores(), loadInsights(), loadPedidosVsConsumo()]);
   document.getElementById('pageSub').textContent = 'Consumo en unidades y venta ($) de las mismas l\u00edneas VE/PV seg\u00fan el filtro.';

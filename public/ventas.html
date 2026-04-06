@@ -651,7 +651,49 @@ const chartDefaults = () => ({
   }
 });
 
+/** Misma idea que resultados.html (P&L): vaciar KPIs/listas al cambiar periodo para no mostrar datos viejos. */
+function clearVentasFilterLoadingUI() {
+  if (chartDiarias) { try { chartDiarias.destroy(); } catch (_) {} chartDiarias = undefined; }
+  if (chartMensuales) { try { chartMensuales.destroy(); } catch (_) {} chartMensuales = undefined; }
+  if (chartCotiDiarias) { try { chartCotiDiarias.destroy(); } catch (_) {} chartCotiDiarias = undefined; }
+  if (chartConvInst) { try { chartConvInst.destroy(); } catch (_) {} chartConvInst = undefined; }
+  setText('page-sub', 'Cargando datos del periodo…');
+  ['kpi-hoy','kpi-mes','kpi-facturas','kpi-prom','kpi-meta','kc-hoy','kc-mes','kc-imp','kc-conv','split-ve-amt','split-pv-amt','split-total'].forEach(id => setText(id, '?'));
+  setText('split-badge', 'Cargando…');
+  setText('vendedor-badge', '?');
+  setText('kpi-hoy-sub', '\u00a0');
+  setText('kpi-mes-sub', '\u00a0');
+  setText('kpi-facturas-sub', '\u00a0');
+  setText('kpi-prom-sub', '\u00a0');
+  setText('kc-hoy-imp', '\u00a0');
+  setText('kc-mes-imp', '\u00a0');
+  setText('kc-meta', '?');
+  setWid('bar-hoy', 0);
+  setWid('bar-mes', 0);
+  setText('pct-hoy', '\u00a0');
+  setText('pct-mes', '\u00a0');
+  setText('split-ve-pct', 'VE —');
+  setText('split-pv-pct', 'PV —');
+  setText('cv-total-coti', '?');
+  setText('cv-num-coti', '…');
+  setText('cv-total-ventas', '?');
+  setText('cv-num-ventas', '…');
+  setText('cv-tasa', '?');
+  setText('cv-tasa-docs', '?');
+  const cvins = document.getElementById('cv-insight');
+  if (cvins) cvins.textContent = 'Cargando conversión…';
+  const vl = document.getElementById('vendedores-list');
+  if (vl) vl.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)">Cargando…</div>';
+  const tc = document.querySelector('#tbl-clientes tbody');
+  if (tc) tc.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Cargando…</td></tr>';
+  const tr = document.querySelector('#tbl-recientes tbody');
+  if (tr) tr.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando…</td></tr>';
+  const cvl = document.getElementById('coti-vendedores-list');
+  if (cvl) cvl.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)">Cargando…</div>';
+}
+
 async function loadAll() {
+  clearVentasFilterLoadingUI();
   try {
     const m = await fwt(buildApiUrl('/api/config/metas'), {});
     metas = m;
