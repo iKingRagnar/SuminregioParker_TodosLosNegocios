@@ -663,6 +663,29 @@ function mergeBalanceDetalleSide(arrays) {
     .sort((a, b) => Math.abs(+b.SALDO || 0) - Math.abs(+a.SALDO || 0));
 }
 
+/** Activo circulante: caja/bancos (nombre o prefijo 1102* típico PCGA MX; "BANREGIO" no contiene "banco"). */
+function balanceActivoRowEsCajaBancos(row) {
+  const nom = String((row && row.NOMBRE) || '');
+  const cu = String((row && row.CUENTA_PT) || '').replace(/\s/g, '');
+  if (/caja|banco|efectivo|banregio|bbva|santander|hsbc|inbursa|scotiab|scotiabank|banamex|banorte|citiban|mifel|actinver|bancoppel|interbanc|multiva|monex|velocity|clabe|cuenta\s+de\s+cheques/i.test(nom)) return true;
+  if (/^1102[\d.]*/i.test(cu)) return true;
+  return false;
+}
+function balanceActivoRowEsCliente(row) {
+  const nom = String((row && row.NOMBRE) || '');
+  const cu = String((row && row.CUENTA_PT) || '').replace(/\s/g, '');
+  if (/cobrar|cliente|deudor|cuentas\s+por\s+cobrar/i.test(nom)) return true;
+  if (/^1103[\d.]*/i.test(cu)) return true;
+  return false;
+}
+function balanceActivoRowEsInventario(row) {
+  const nom = String((row && row.NOMBRE) || '');
+  const cu = String((row && row.CUENTA_PT) || '').replace(/\s/g, '');
+  if (/invent|almacen|mercanc/i.test(nom)) return true;
+  if (/^1104[\d.]*/i.test(cu) || /^1105[\d.]*/i.test(cu)) return true;
+  return false;
+}
+
 /** Desglose Activo (balance clásico) por nombre de cuenta; una fila → un solo rubro. */
 function balanceActivoBreakdownFromRows(activoRows) {
   const reFijo = /activo fijo|activo\s+fijo|fijo neto|depreciac|equipo de|equipos|maquin|mobiliario|mueble|veh[ií]culo|transporte|inmueble|terreno|edificio|instalacion(es)?\s+en|inversion(es)?\s+en bienes/i;
@@ -676,9 +699,9 @@ function balanceActivoBreakdownFromRows(activoRows) {
   for (const row of activoRows || []) {
     const sal = +row.SALDO || 0;
     const nom = String(row.NOMBRE || '');
-    if (/caja|banco|efectivo/i.test(nom)) caja += sal;
-    else if (/cobrar|cliente/i.test(nom)) cxc += sal;
-    else if (/invent/i.test(nom)) invent += sal;
+    if (balanceActivoRowEsCajaBancos(row)) caja += sal;
+    else if (balanceActivoRowEsCliente(row)) cxc += sal;
+    else if (balanceActivoRowEsInventario(row)) invent += sal;
     else if (reFijo.test(nom)) fijo += sal;
     else if (reDif.test(nom)) dif += sal;
     else otros += sal;
@@ -1486,25 +1509,46 @@ function remisionesSub(tipo = '') {
 //  ESTATUS <> C (no cancelada). APLICADO='S' solo si MICROSIP_COTIZACION_REQUIERE_APLICADO=1.
 //  Vigencia (FECHA_VENCIMIENTO…) solo en rama VE, vía resolveCotizacionVigenciaSqlSuffix.
 //  Por defecto getCotizacionesTipo() = '' (VE+PV): el filtro Industrial/Mostrador no vacía cotizaciones.
+//  MICROSIP_COTIZACION_SOLO_TIPO_MARCADO=1 → solo letras C,O,Q,P + texto COTIZ* (sin fallback amplio).
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function sqlWhereCotizacionComoVenta(alias = 'd') {
+/** @param {'VE'|'PV'} src — reglas de “no es venta cerrada” difieren entre DOCTOS_VE y DOCTOS_PV. */
+function sqlWhereCotizacionComoVenta(alias = 'd', src = 'VE') {
   const a = alias;
+  const soloTipoMarcado = (process.env.MICROSIP_COTIZACION_SOLO_TIPO_MARCADO || '').match(/^(1|true|yes)$/i);
   const reqAplicado = (process.env.MICROSIP_COTIZACION_REQUIERE_APLICADO || '').match(/^(1|true|yes)$/i);
   const aplicado = reqAplicado ? ` AND COALESCE(${a}.APLICADO, 'N') = 'S'` : '';
   const tipos = parseCotizacionTipos();
-  const trimmed = `UPPER(TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(24))))`;
+  const trimmed = `UPPER(TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(40))))`;
   const one = tipos.filter((t) => t.length === 1);
   const multi = tipos.filter((t) => t.length > 1);
   const esc = (t) => `'${String(t).replace(/'/g, "''")}'`;
   const parts = [];
   if (one.length) parts.push(`SUBSTRING(${trimmed} FROM 1 FOR 1) IN (${one.map(esc).join(', ')})`);
   if (multi.length) parts.push(`${trimmed} IN (${multi.map(esc).join(', ')})`);
-  const tipoSql = parts.length ? `(${parts.join(' OR ')})` : '1=0';
-  return `(
-      ${tipoSql}
-      AND UPPER(TRIM(CAST(COALESCE(${a}.ESTATUS, 'N') AS VARCHAR(8)))) <> 'C'
-    )${aplicado}`;
+  const byCodes = parts.length ? `(${parts.join(' OR ')})` : '0=1';
+  const byCotizNombre = `POSITION('COTIZ' IN ${trimmed}) > 0`;
+  const tipoSql = `(${byCodes} OR ${byCotizNombre})`;
+  const estNotC = `UPPER(TRIM(CAST(COALESCE(${a}.ESTATUS, 'N') AS VARCHAR(8)))) <> 'C'`;
+  if (soloTipoMarcado) {
+    return `( ${tipoSql} AND ${estNotC} )${aplicado}`;
+  }
+  const noEsVentaCerradaVe = `NOT (
+      ${a}.TIPO_DOCTO IN ('F', 'V', 'R')
+      AND COALESCE(${a}.APLICADO, 'N') = 'S'
+      AND COALESCE(${a}.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
+    )`;
+  const noEsVentaCerradaPv = `NOT (
+      ${a}.TIPO_DOCTO = 'F'
+      AND COALESCE(${a}.APLICADO, 'N') = 'S'
+      AND COALESCE(${a}.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
+    )`;
+  const exEstFallback = `COALESCE(${a}.ESTATUS, 'N') NOT IN ('C', 'D', 'S', 'T')`;
+  const fallback =
+    src === 'PV'
+      ? `( ${noEsVentaCerradaPv} AND ${exEstFallback} )`
+      : `( ${noEsVentaCerradaVe} AND ${exEstFallback} )`;
+  return `( ( ${tipoSql} OR ${fallback} ) AND ${estNotC} )${aplicado}`;
 }
 
 /**
@@ -1517,7 +1561,8 @@ function cotizacionesSub(tipo = '', opts = {}) {
   const feVe = (opts && opts.sqlFeVe) || 'd.FECHA';
   const fePv = (opts && opts.sqlFePv) || 'd.FECHA';
   const imp = sqlVentaImporteBaseExpr('d');
-  const w = sqlWhereCotizacionComoVenta('d');
+  const wVe = sqlWhereCotizacionComoVenta('d', 'VE');
+  const wPv = sqlWhereCotizacionComoVenta('d', 'PV');
   const ve = `
     SELECT
       ${feVe} AS FECHA,
@@ -1531,7 +1576,7 @@ function cotizacionesSub(tipo = '', opts = {}) {
       CAST(NULL AS INTEGER) AS DOCTO_PV_ID,
       'VE' AS TIPO_SRC
     FROM DOCTOS_VE d
-    WHERE (${w})${vigVe}
+    WHERE (${wVe})${vigVe}
   `;
   const pv = `
     SELECT
@@ -1555,7 +1600,7 @@ function cotizacionesSub(tipo = '', opts = {}) {
       d.DOCTO_PV_ID,
       'PV' AS TIPO_SRC
     FROM DOCTOS_PV d
-    WHERE (${w})
+    WHERE (${wPv})
   `;
   if (tipo === 'VE') return `(${ve})`;
   if (tipo === 'PV') return `(${pv})`;
@@ -2165,7 +2210,7 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
       COUNT(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 END) AS COTIZACIONES_HOY
     FROM ${cotiSub} d
     WHERE 1=1 ${f.sql}
-  `, f.params, 30000, dbo).catch((err) => {
+  `, f.params, 120000, dbo).catch((err) => {
       console.error('[cotizaciones/resumen]', err && (err.message || err));
       return [];
     });
@@ -2323,7 +2368,7 @@ get('/api/ventas/cotizaciones/diarias', async (req) => {
     FROM ${cotiSub} d
     WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
     GROUP BY CAST(d.FECHA AS DATE) ORDER BY 1
-  `, [desdeStr], 12000, dbo).catch((err) => {
+  `, [desdeStr], 60000, dbo).catch((err) => {
       console.error('[cotizaciones/diarias]', err && (err.message || err));
       return [];
     });
@@ -2353,7 +2398,7 @@ get('/api/ventas/cotizaciones/semanales', async (req) => {
       COUNT(*) AS COTIZACIONES, COALESCE(SUM(${ci}),0) AS TOTAL
     FROM ${cotiSub} d WHERE 1=1 ${f.sql}
     GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(WEEK FROM d.FECHA) ORDER BY 1, 2
-  `, f.params, 30000, dbo).catch(() => []);
+  `, f.params, 90000, dbo).catch(() => []);
   };
   if (isAllDbs(req)) {
     const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
@@ -2379,7 +2424,7 @@ get('/api/ventas/cotizaciones/mensuales', async (req) => {
       COUNT(*) AS COTIZACIONES, COALESCE(SUM(${ci}),0) AS TOTAL
     FROM ${cotiSub} d WHERE 1=1 ${f.sql}
     GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
-  `, f.params, 30000, dbo).catch(() => []);
+  `, f.params, 90000, dbo).catch(() => []);
   };
   if (isAllDbs(req)) {
     const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
@@ -2489,7 +2534,7 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
     WHERE 1=1 ${f.sql} ${vendSql}
     GROUP BY COALESCE(d.VENDEDOR_ID, 0)
     ORDER BY COTIZACIONES_MES DESC
-  `, params, 30000, dbo).catch((err) => {
+  `, params, 90000, dbo).catch((err) => {
       console.error('[por-vendedor/cotizaciones]', err && (err.message || err));
       return [];
     });
@@ -3212,6 +3257,8 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
   const cotiOpts = await cotizacionSqlOpts(dbOpts);
   const cotiSub = cotizacionesSub(getCotizacionesTipo(rq), cotiOpts);
   const omitCxc = String((req && req.query && req.query.omitCxc) || '').trim() === '1';
+  /* Cotizaciones suelen ir después en la cola Firebird; un tope mayor evita [{}] y KPI en 0 con ventas OK. */
+  const cotiMs = Math.min(180000, Math.max(qms, 95000));
   const [vRow, remRow, cxcSnap, coRow] = await Promise.all([
     query(`
       SELECT
@@ -3241,7 +3288,7 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
         COUNT(*) AS COTI_MES
       FROM ${cotiSub} d
       WHERE 1=1 ${f.sql}
-    `, f.params, qms, dbOpts).catch(() => [{}]),
+    `, f.params, cotiMs, dbOpts).catch(() => [{}]),
   ]);
   const v = vRow[0] || {};
   const rem = remRow[0] || {};
@@ -7168,6 +7215,55 @@ get('/api/debug/schema', async () => {
     }
   }
   return out;
+});
+
+/** Diagnóstico: qué TIPO_DOCTO hay en cabeceras (no canceladas) + conteo vía macro cotizacionesSub. ?db= igual que el tablero. */
+get('/api/debug/cotizaciones-tipos', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const sqlVe = `
+    SELECT TRIM(CAST(TIPO_DOCTO AS VARCHAR(40))) AS T, COUNT(*) AS N
+    FROM DOCTOS_VE
+    WHERE COALESCE(ESTATUS, 'N') <> 'C'
+    GROUP BY TRIM(CAST(TIPO_DOCTO AS VARCHAR(40)))
+    ORDER BY N DESC
+  `;
+  const sqlPv = `
+    SELECT TRIM(CAST(TIPO_DOCTO AS VARCHAR(40))) AS T, COUNT(*) AS N
+    FROM DOCTOS_PV
+    WHERE COALESCE(ESTATUS, 'N') <> 'C'
+    GROUP BY TRIM(CAST(TIPO_DOCTO AS VARCHAR(40)))
+    ORDER BY N DESC
+  `;
+  const [ve, pv] = await Promise.all([
+    query(sqlVe, [], 45000, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) })),
+    query(sqlPv, [], 45000, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) })),
+  ]);
+  let macro = null;
+  try {
+    const cotiOpts = await cotizacionSqlOpts(dbo);
+    const cotiSub = cotizacionesSub('', cotiOpts);
+    const ci = sqlCotiImporteExpr('d');
+    const rows = await query(
+      `
+      SELECT COUNT(*) AS DOCS, COALESCE(SUM(${ci}), 0) AS IMPORTE_SUM
+      FROM ${cotiSub} d
+      WHERE CAST(d.FECHA AS DATE) >= (CURRENT_DATE - 400)
+    `,
+      [],
+      90000,
+      dbo,
+    );
+    macro = rows[0] || {};
+  } catch (e) {
+    macro = { error: String(e && e.message ? e.message : e) };
+  }
+  return {
+    ve_tipos: ve,
+    pv_tipos: pv,
+    macro_cotizaciones_ult_400d: macro,
+    nota:
+      'Si ve_tipos no muestra C/O/Q/P pero IMPORTE_SUM>0 con el fallback, el KPI debería llenarse. MICROSIP_COTIZACION_SOLO_TIPO_MARCADO=1 desactiva el fallback amplio.',
+  };
 });
 
 // ═══════════════════════════════════════════════════════════
