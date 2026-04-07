@@ -921,49 +921,74 @@ async function loadBalanceGeneral(){
       }
     }
     renderList('bgListCapital', capRowsForList, 'Sin movimiento en cuentas clase 3 al cierre seleccionado. Si hay patrimonio en otra naturaleza, revisar catálogo CUENTAS_CO en Microsip.');
+    const pasivoRows = Array.isArray(d.pasivo) ? d.pasivo : [];
+    const activoRowsRat = Array.isArray(d.activo) ? d.activo : [];
+    const sumByR = (arr, pred) => (arr || []).reduce((s, r) => s + (pred(r) ? (+r.SALDO || 0) : 0), 0);
+    const circLegR = sumByR(activoRowsRat, r => /caja|banco|efectivo/i.test(String(r.NOMBRE || '')))
+      + sumByR(activoRowsRat, r => /cobrar|cliente/i.test(String(r.NOMBRE || '')))
+      + sumByR(activoRowsRat, r => /invent/i.test(String(r.NOMBRE || '')));
+    const numTR = (v, fb) => (Number.isFinite(Number(v)) ? Number(v) : fb);
+    const actCircForLiq = numTR(t.ACTIVO_CIRCULANTE, circLegR);
     const activo = +t.ACTIVO_TOTAL || 0;
     const pasivo = +t.PASIVO_TOTAL || 0;
     const capital = +t.CAPITAL_TOTAL || 0;
-    const liquidez = pasivo > 0 ? activo / pasivo : 0;
-    const leverage = activo > 0 ? pasivo / activo : 0;
-    const workCap = activo - pasivo;
-    const debtEq = capital > 0.005 ? pasivo / capital : 0;
+    const EPS = 0.005;
+    // Liquidez corriente ≈ Activo circulante / Pasivo total (clasificación 2* como corto plazo en PyME).
+    let liquidez = null;
+    if (pasivo > EPS) liquidez = actCircForLiq / pasivo;
+    const leverage = activo > EPS ? pasivo / activo : NaN;
+    const workCap = actCircForLiq - pasivo;
+    const debtEq = capital > EPS ? pasivo / capital : NaN;
     const setRatio = (id, val, color) => {
       const el = document.getElementById(id);
       if (!el) return;
       el.textContent = val;
       if (color) el.style.color = color;
     };
-    setRatio('bgRatioLiquidez', liquidez.toFixed(2) + 'x', liquidez >= 1.5 ? 'var(--green)' : liquidez >= 1 ? 'var(--brown-mid)' : 'var(--red)');
-    setRatio('bgRatioLeverage', fmtPct(leverage * 100), leverage <= 0.55 ? 'var(--green)' : leverage <= 0.75 ? 'var(--brown-mid)' : 'var(--red)');
+    const liqLabel = liquidez != null && isFinite(liquidez) ? liquidez.toFixed(2) + 'x' : 'N/D';
+    const liqColor = liquidez == null || !isFinite(liquidez) ? 'var(--muted)' : (liquidez >= 1.5 ? 'var(--green)' : liquidez >= 1 ? 'var(--brown-mid)' : 'var(--red)');
+    setRatio('bgRatioLiquidez', liqLabel, liqColor);
+    setRatio('bgRatioLeverage', isFinite(leverage) ? fmtPct(leverage * 100) : 'N/D', isFinite(leverage) ? (leverage <= 0.55 ? 'var(--green)' : leverage <= 0.75 ? 'var(--brown-mid)' : 'var(--red)') : 'var(--muted)');
     setRatio('bgRatioWorking', fmtM(workCap), workCap >= 0 ? 'var(--green)' : 'var(--red)');
-    const debtEqLabel = capital > 0.005
-      ? debtEq.toFixed(2) + 'x'
-      : (pasivo > 0.005 ? 'N/D (capital $0)' : '—');
-    const debtEqColor = capital > 0.005
+    let debtEqLabel = 'N/D';
+    if (capital > EPS) debtEqLabel = debtEq.toFixed(2) + 'x';
+    else if (pasivo > EPS) debtEqLabel = 'N/D (capital neto 0)';
+    const debtEqColor = capital > EPS
       ? (debtEq <= 1.2 ? 'var(--green)' : debtEq <= 2 ? 'var(--brown-mid)' : 'var(--red)')
       : 'var(--muted)';
     setRatio('bgRatioDebtEq', debtEqLabel, debtEqColor);
-    const gaugeVal = Math.max(0, Math.min(3, liquidez));
-    const gaugeRemainder = Math.max(0, 3 - gaugeVal);
-    const gaugeColor = liquidez >= 1.5 ? '#00E5A0' : liquidez >= 1 ? '#8b5a2b' : '#FF4566';
     const gaugeEl = document.getElementById('bgGaugeLiquidez');
     if (gaugeEl) {
       const ctxG = gaugeEl.getContext('2d');
       if (bgGaugeChart) bgGaugeChart.destroy();
-      bgGaugeChart = new Chart(ctxG, {
-        type: 'doughnut',
-        data: { labels: ['Liquidez', 'Restante'], datasets: [{ data: [gaugeVal, gaugeRemainder], backgroundColor: [gaugeColor, 'rgba(255,255,255,.08)'], borderWidth: 0 }] },
-        options: { rotation: -90, circumference: 180, cutout: '72%', plugins: { legend: { display: false }, tooltip: { enabled: false } } }
-      });
+      if (liquidez == null || !isFinite(liquidez) || pasivo <= EPS) {
+        bgGaugeChart = new Chart(ctxG, {
+          type: 'doughnut',
+          data: { labels: ['Sin base'], datasets: [{ data: [1], backgroundColor: ['rgba(176,190,206,0.22)'], borderWidth: 0 }] },
+          options: { rotation: -90, circumference: 180, cutout: '72%', plugins: { legend: { display: false }, tooltip: { enabled: false } } }
+        });
+      } else {
+        const capL = Math.min(3, liquidez);
+        const gaugeVis = Math.max(0.06, capL);
+        const gaugeRemainder = Math.max(0.02, 3 - gaugeVis);
+        const gaugeColor = liquidez >= 1.5 ? '#00E5A0' : liquidez >= 1 ? '#8b5a2b' : '#FF4566';
+        bgGaugeChart = new Chart(ctxG, {
+          type: 'doughnut',
+          data: { labels: ['Liquidez', 'Restante'], datasets: [{ data: [gaugeVis, gaugeRemainder], backgroundColor: [gaugeColor, 'rgba(255,255,255,.08)'], borderWidth: 0 }] },
+          options: { rotation: -90, circumference: 180, cutout: '72%', plugins: { legend: { display: false }, tooltip: { enabled: false } } }
+        });
+      }
     }
     const gaugeTxt = document.getElementById('bgGaugeTxt');
-    if (gaugeTxt) gaugeTxt.textContent = `Liquidez ${liquidez.toFixed(2)} (objetivo > 1.5)`;
+    if (gaugeTxt) {
+      gaugeTxt.textContent = liquidez != null && isFinite(liquidez)
+        ? `Liquidez corriente ${liquidez.toFixed(2)} (Act. circ. / Pasivo; objetivo > 1.5)`
+        : 'Liquidez N/D si pasivo neto ≈ 0 (no se puede dividir; revisar composición en listas).';
+    }
 
-    const pasivoRows = Array.isArray(d.pasivo) ? d.pasivo : [];
     const bucketPasivo = pasivoRows.reduce((acc, r) => {
       const n = String(r.NOMBRE || '').toLowerCase();
-      const s = +r.SALDO || 0;
+      const s = Math.abs(+r.SALDO || 0);
       if (n.includes('provee')) acc.prov += s;
       else if (n.includes('banco') || n.includes('credito') || n.includes('financ')) acc.bancos += s;
       else acc.otros += s;
@@ -973,23 +998,38 @@ async function loadBalanceGeneral(){
     if (donutEl) {
       const ctxD = donutEl.getContext('2d');
       if (bgDonutChart) bgDonutChart.destroy();
-      bgDonutChart = new Chart(ctxD, {
-        type: 'doughnut',
-        data: {
-          labels: ['Proveedores', 'Bancos/Crédito', 'Otros pasivos'],
-          datasets: [{ data: [bucketPasivo.prov, bucketPasivo.bancos, bucketPasivo.otros], backgroundColor: ['#4DA6FF', '#FF8C42', '#9B6DFF'], borderWidth: 0 }]
-        },
-        options: { cutout: '65%', plugins: { legend: { position: 'bottom', labels: { color: '#B0BECE', font: { size: 10, family: "'DM Mono'" } } } } }
-      });
+      const dSum = bucketPasivo.prov + bucketPasivo.bancos + bucketPasivo.otros;
+      if (dSum < EPS) {
+        bgDonutChart = new Chart(ctxD, {
+          type: 'doughnut',
+          data: { labels: ['Sin pasivo en detalle'], datasets: [{ data: [1], backgroundColor: ['rgba(176,190,206,0.2)'], borderWidth: 0 }] },
+          options: { cutout: '65%', plugins: { legend: { display: false } } }
+        });
+      } else {
+        bgDonutChart = new Chart(ctxD, {
+          type: 'doughnut',
+          data: {
+            labels: ['Proveedores', 'Bancos/Crédito', 'Otros pasivos'],
+            datasets: [{ data: [bucketPasivo.prov, bucketPasivo.bancos, bucketPasivo.otros], backgroundColor: ['#4DA6FF', '#FF8C42', '#9B6DFF'], borderWidth: 0 }]
+          },
+          options: { cutout: '65%', plugins: { legend: { position: 'bottom', labels: { color: '#B0BECE', font: { size: 10, family: "'DM Mono'" } } } } }
+        });
+      }
     }
     const donutTxt = document.getElementById('bgDonutTxt');
     const denomPasivo = (bucketPasivo.prov + bucketPasivo.bancos + bucketPasivo.otros) || 1;
-    if (donutTxt) donutTxt.textContent = `Prov ${(bucketPasivo.prov/denomPasivo*100).toFixed(1)}% · Bancos ${(bucketPasivo.bancos/denomPasivo*100).toFixed(1)}% · Otros ${(bucketPasivo.otros/denomPasivo*100).toFixed(1)}%`;
+    if (donutTxt) {
+      donutTxt.textContent = denomPasivo < EPS
+        ? 'Sin cuentas de pasivo en el detalle del periodo.'
+        : `Por |saldo| (composición) · neto pasivo ${fmtM(pasivo)} · Prov ${(bucketPasivo.prov / denomPasivo * 100).toFixed(1)}% · Bancos ${(bucketPasivo.bancos / denomPasivo * 100).toFixed(1)}% · Otros ${(bucketPasivo.otros / denomPasivo * 100).toFixed(1)}%`;
+    }
 
     const sparkEl = document.getElementById('bgSparkDebt');
     if (sparkEl) {
       const ctxS = sparkEl.getContext('2d');
       if (bgSparkChart) bgSparkChart.destroy();
+      const detailMag = activoRowsRat.concat(pasivoRows).reduce((s, r) => s + Math.abs(+r.SALDO || 0), 0);
+      const flatTot = Math.abs(activo) < 1 && Math.abs(pasivo + capital) < 1;
       bgSparkChart = new Chart(ctxS, {
         type: 'bar',
         data: {
@@ -998,7 +1038,8 @@ async function loadBalanceGeneral(){
             label: 'Balance',
             data: [activo, pasivo + capital, diff],
             backgroundColor: ['#4DA6FF', '#FF8C42', Math.abs(diff) <= 1 ? '#00E5A0' : '#FF4566'],
-            borderWidth: 0
+            borderWidth: 0,
+            minBarLength: flatTot && detailMag > 50 ? 8 : 0
           }]
         },
         options: {
@@ -1011,9 +1052,13 @@ async function loadBalanceGeneral(){
         }
       });
       const sparkTxt = document.getElementById('bgSparkTxt');
-      if (sparkTxt) sparkTxt.textContent = Math.abs(diff) <= 1
-        ? 'Ecuación contable cerrada correctamente.'
-        : 'Diferencia material detectada: revisar pólizas y saldos.';
+      if (sparkTxt) {
+        let base = Math.abs(diff) <= 1
+          ? 'Ecuación contable cerrada correctamente.'
+          : 'Diferencia material detectada: revisar pólizas y saldos.';
+        if (flatTot && detailMag > 50) base += ' Totales netos ≈0 con movimiento en cuentas (contrapartidas que se compensan).';
+        sparkTxt.textContent = base;
+      }
     }
 
   }catch(_){
