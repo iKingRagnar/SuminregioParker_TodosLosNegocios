@@ -968,22 +968,41 @@ async function loadBalanceGeneral(){
           options: { rotation: -90, circumference: 180, cutout: '72%', plugins: { legend: { display: false }, tooltip: { enabled: false } } }
         });
       } else {
-        const capL = Math.min(3, liquidez);
-        const gaugeVis = Math.max(0.06, capL);
-        const gaugeRemainder = Math.max(0.02, 3 - gaugeVis);
+        // Escala 0–3 = arco completo (objetivo > 1.5). Valores muy bajos (ej. 0.01) serían ~2% del arco y casi invisibles: mínimo visual solo para dibujo, el número real sigue en el KPI y el texto.
+        const GAUGE_MAX = 3;
+        const fillLinear = Math.min(1, liquidez / GAUGE_MAX);
+        const MIN_ARC = 0.22;
+        const arcFill = Math.max(fillLinear, MIN_ARC);
+        let gaugeVis = arcFill * GAUGE_MAX;
+        let gaugeRemainder = GAUGE_MAX - gaugeVis;
+        if (gaugeRemainder < 0.02) {
+          gaugeRemainder = 0.02;
+          gaugeVis = GAUGE_MAX - gaugeRemainder;
+        }
         const gaugeColor = liquidez >= 1.5 ? '#00E5A0' : liquidez >= 1 ? '#8b5a2b' : '#FF4566';
         bgGaugeChart = new Chart(ctxG, {
           type: 'doughnut',
-          data: { labels: ['Liquidez', 'Restante'], datasets: [{ data: [gaugeVis, gaugeRemainder], backgroundColor: [gaugeColor, 'rgba(255,255,255,.08)'], borderWidth: 0 }] },
-          options: { rotation: -90, circumference: 180, cutout: '72%', plugins: { legend: { display: false }, tooltip: { enabled: false } } }
+          data: { labels: ['Liquidez', 'Restante'], datasets: [{ data: [gaugeVis, gaugeRemainder], backgroundColor: [gaugeColor, 'rgba(255,255,255,.10)'], borderWidth: 0, hoverOffset: 0 }] },
+          options: {
+            rotation: -90,
+            circumference: 180,
+            cutout: '72%',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { enabled: false } }
+          }
         });
       }
     }
     const gaugeTxt = document.getElementById('bgGaugeTxt');
     if (gaugeTxt) {
-      gaugeTxt.textContent = liquidez != null && isFinite(liquidez)
-        ? `Liquidez corriente ${liquidez.toFixed(2)} (Act. circ. / Pasivo; objetivo > 1.5)`
-        : 'Liquidez N/D si pasivo neto ≈ 0 (no se puede dividir; revisar composición en listas).';
+      if (liquidez != null && isFinite(liquidez)) {
+        let t = `Liquidez corriente ${liquidez.toFixed(2)} (Act. circ. / Pasivo; objetivo > 1.5)`;
+        if (liquidez < 0.35) t += ' · Arco: mínimo visible; usa el número y el KPI.';
+        gaugeTxt.textContent = t;
+      } else {
+        gaugeTxt.textContent = 'Liquidez N/D si pasivo neto ≈ 0 (no se puede dividir; revisar composición en listas).';
+      }
     }
 
     const bucketPasivo = pasivoRows.reduce((acc, r) => {
