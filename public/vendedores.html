@@ -334,7 +334,7 @@ async function loadData(){
       fwt(API+'/api/config/metas',{},15000),
       fwt(buildApiUrl('/api/ventas/diarias','dias=30'),[],20000),
       fwt(buildApiUrl('/api/ventas/por-vendedor/cotizaciones'),[],30000),
-      fwt(API+'/api/cxc/top-deudores?limit=50',[],20000),
+      fwt(buildApiUrl('/api/cxc/top-deudores','limit=50'),[],20000),
     ]);
     const vends = Array.isArray(cumplData) ? cumplData : [];
 
@@ -367,7 +367,7 @@ async function loadData(){
 
 async function loadCobros(){
   try{
-    const data = await fwt(API+'/api/resultados/pnl?meses=6', { meses: [], totales: {} }, 45000);
+    const data = await fwt(buildApiUrl('/api/resultados/pnl','meses=6'), { meses: [], totales: {} }, 45000);
     const meses = Array.isArray(data.meses) ? data.meses : [];
     const MESES_ES = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
     if (!meses.length) {
