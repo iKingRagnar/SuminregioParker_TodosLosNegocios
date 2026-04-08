@@ -2207,24 +2207,50 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
         req.query.hasta = lastDayOfMonth(y, m);
       }
     }
-    const f = buildFiltros(req, 'd');
+    // Evitar UNION y ligas PV en resumen: consultar VE y PV por separado y sumar.
+    // PV puede ser muy pesado (ver timeouts en /api/debug/cotizaciones-tipos); VE suele responder rápido.
     const cotiOpts = await cotizacionSqlOpts(dbo);
-    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
-    const ci = sqlCotiImporteExpr('d');
-    const rows = await query(`
-    SELECT
-      SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE
-               THEN ${ci} ELSE 0 END)         AS HOY,
-      COALESCE(SUM(${ci}), 0)                              AS MES_ACTUAL,
-      COUNT(*)                                                      AS COTIZACIONES_MES,
-      COUNT(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 END) AS COTIZACIONES_HOY
-    FROM ${cotiSub} d
-    WHERE 1=1 ${f.sql}
-  `, f.params, 180000, dbo).catch((err) => {
-      console.error('[cotizaciones/resumen]', err && (err.message || err));
-      return [];
-    });
-    return normalizeCotizacionResumenRow(rows[0]);
+    const imp = sqlCotiImporteExpr('d'); // cabecera
+    const wVe = sqlWhereCotizacionComoVenta('d', 'VE');
+    const wPv = sqlWhereCotizacionComoVenta('d', 'PV');
+    const feVe = cotiOpts.sqlFeVe || 'd.FECHA';
+    const fePv = cotiOpts.sqlFePv || 'd.FECHA';
+    const fVe = buildFiltros(req, 'd', { fechaExpr: feVe });
+    const fPv = buildFiltros(req, 'd', { fechaExpr: fePv });
+
+    const veSql = `
+      SELECT
+        SUM(CASE WHEN CAST(${feVe} AS DATE) = CURRENT_DATE THEN ${imp} ELSE 0 END) AS HOY,
+        COALESCE(SUM(${imp}), 0) AS MES_ACTUAL,
+        COUNT(*) AS COTIZACIONES_MES,
+        COUNT(CASE WHEN CAST(${feVe} AS DATE) = CURRENT_DATE THEN 1 END) AS COTIZACIONES_HOY
+      FROM DOCTOS_VE d
+      WHERE (${wVe})${String(cotiOpts.vigenciaVeSuffix || '')} ${fVe.sql}
+    `;
+    const pvSql = `
+      SELECT
+        SUM(CASE WHEN CAST(${fePv} AS DATE) = CURRENT_DATE THEN ${imp} ELSE 0 END) AS HOY,
+        COALESCE(SUM(${imp}), 0) AS MES_ACTUAL,
+        COUNT(*) AS COTIZACIONES_MES,
+        COUNT(CASE WHEN CAST(${fePv} AS DATE) = CURRENT_DATE THEN 1 END) AS COTIZACIONES_HOY
+      FROM DOCTOS_PV d
+      WHERE (${wPv}) ${fPv.sql}
+    `;
+
+    const [veRows, pvRows] = await Promise.all([
+      query(veSql, fVe.params, 120000, dbo).catch((err) => {
+        console.error('[cotizaciones/resumen][VE]', err && (err.message || err));
+        return [];
+      }),
+      query(pvSql, fPv.params, 90000, dbo).catch((err) => {
+        console.error('[cotizaciones/resumen][PV]', err && (err.message || err));
+        return [];
+      }),
+    ]);
+
+    const ve = normalizeCotizacionResumenRow(veRows[0]);
+    const pv = normalizeCotizacionResumenRow(pvRows[0]);
+    return mergeCotizacionResumenRows([ve, pv]);
   };
   if (isAllDbs(req)) {
     const rows = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
