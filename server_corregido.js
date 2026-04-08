@@ -2259,6 +2259,42 @@ function lastDayOfMonth(y, m) {
   const d = new Date(y, m, 0); // m 1-12
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
+
+/** Express puede entregar query duplicada como array; tomar el primer valor. */
+function firstQueryVal(q) {
+  if (q == null) return null;
+  if (Array.isArray(q)) return q.length ? String(q[0]).trim() : null;
+  return String(q).trim();
+}
+
+/** Normaliza fecha de fila Firebird/driver a YYYY-MM-DD para JSON estable en el front. */
+function sqlRowDateToIso(v) {
+  if (v == null || v === '') return null;
+  try {
+    if (v instanceof Date && !isNaN(v.getTime())) {
+      return (
+        v.getFullYear() +
+        '-' +
+        String(v.getMonth() + 1).padStart(2, '0') +
+        '-' +
+        String(v.getDate()).padStart(2, '0')
+      );
+    }
+  } catch (_) {}
+  const s = String(v).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    return (
+      d.getFullYear() +
+      '-' +
+      String(d.getMonth() + 1).padStart(2, '0') +
+      '-' +
+      String(d.getDate()).padStart(2, '0')
+    );
+  }
+  return null;
+}
 get('/api/ventas/cotizaciones/resumen', async (req) => {
   if (!req.query.desde && !req.query.hasta && !req.query.anio) {
     const now = new Date();
@@ -2469,8 +2505,8 @@ get('/api/ventas/mensuales', async (req) => {
 
 get('/api/ventas/cotizaciones/diarias', async (req) => {
   const reDate = /^\d{4}-\d{2}-\d{2}$/;
-  let qDesde = req.query.desde;
-  let qHasta = req.query.hasta;
+  let qDesde = firstQueryVal(req.query.desde);
+  let qHasta = firstQueryVal(req.query.hasta);
   if (qDesde && !reDate.test(String(qDesde))) qDesde = null;
   if (qHasta && !reDate.test(String(qHasta))) qHasta = null;
 
@@ -2498,6 +2534,16 @@ get('/api/ventas/cotizaciones/diarias', async (req) => {
     }
   }
 
+  // Mismo corte que resumen/cotizaciones cuando el filtro es anio+mes (Este mes, etc.), sin desde/hasta en la URL.
+  if (!fechaParams.length) {
+    const y = parseInt(String(firstQueryVal(req.query.anio) || ''), 10);
+    const m = parseInt(String(firstQueryVal(req.query.mes) || ''), 10);
+    if (Number.isFinite(y) && Number.isFinite(m) && m >= 1 && m <= 12) {
+      fechaWhere = 'CAST(d.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(d.FECHA AS DATE) <= CAST(? AS DATE)';
+      fechaParams = [`${y}-${String(m).padStart(2, '0')}-01`, lastDayOfMonth(y, m)];
+    }
+  }
+
   if (!fechaParams.length) {
     const dias = Math.min(parseInt(String(req.query.dias || '30'), 10) || 30, 366);
     const desde = new Date();
@@ -2507,8 +2553,18 @@ get('/api/ventas/cotizaciones/diarias', async (req) => {
     fechaParams = [desdeStr];
   }
 
-  const vid = req.query.vendedor ? parseInt(String(req.query.vendedor), 10) : NaN;
-  const cid = req.query.cliente ? parseInt(String(req.query.cliente), 10) : NaN;
+  let queryMs = 120000;
+  if (fechaParams.length === 2) {
+    const dA = new Date(String(fechaParams[0]) + 'T12:00:00');
+    const dB = new Date(String(fechaParams[1]) + 'T12:00:00');
+    if (!isNaN(dA.getTime()) && !isNaN(dB.getTime())) {
+      const span = Math.abs(Math.ceil((dB - dA) / 86400000)) + 1;
+      if (span > 62) queryMs = 180000;
+    }
+  }
+
+  const vid = req.query.vendedor ? parseInt(String(firstQueryVal(req.query.vendedor) || ''), 10) : NaN;
+  const cid = req.query.cliente ? parseInt(String(firstQueryVal(req.query.cliente) || ''), 10) : NaN;
   let vcSql = '';
   const sqlParams = [...fechaParams];
   if (Number.isFinite(vid) && vid > 0) {
@@ -2523,7 +2579,6 @@ get('/api/ventas/cotizaciones/diarias', async (req) => {
   const run = async (dbo) => {
     const cotiOpts = await cotizacionSqlOpts(dbo);
     const ci = sqlCotiImporteExpr('d');
-    const t = 120000;
     const tipoPanel = getCotizacionesTipo(req);
     const qSub = (sub) =>
       query(
@@ -2534,7 +2589,7 @@ get('/api/ventas/cotizaciones/diarias', async (req) => {
     GROUP BY CAST(d.FECHA AS DATE) ORDER BY 1
   `,
         sqlParams,
-        t,
+        queryMs,
         dbo,
       ).catch((err) => {
         console.error('[cotizaciones/diarias]', err && (err.message || err));
@@ -2547,7 +2602,17 @@ get('/api/ventas/cotizaciones/diarias', async (req) => {
       const [ve, pv] = await Promise.all([qSub(cotizacionesSub('VE', cotiOpts)), qSub(cotizacionesSub('PV', cotiOpts))]);
       rows = mergeDiariasCotizVePv(ve, pv);
     }
-    return (rows || []).map((r) => ({ DIA: r.DIA, COTIZACIONES: r.COTIZACIONES, TOTAL_COTIZACIONES: r.TOTAL_COTIZACIONES || 0 }));
+    return (rows || [])
+      .map((r) => {
+        const iso = sqlRowDateToIso(r.DIA);
+        if (!iso) return null;
+        return {
+          DIA: iso,
+          COTIZACIONES: +(r.COTIZACIONES || 0),
+          TOTAL_COTIZACIONES: +(r.TOTAL_COTIZACIONES || 0) || 0,
+        };
+      })
+      .filter(Boolean);
   };
   if (isAllDbs(req)) {
     const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
