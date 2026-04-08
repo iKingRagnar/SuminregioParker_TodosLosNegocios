@@ -63,6 +63,15 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
         _state.hasta = isoDate(d);
         break;
       }
+      case 'ytd': {
+        // Year-to-date (Ene → hoy): alinea con Power BI cuando el slicer Año-Mes
+        // está acotado a meses del año en curso (Ene–Abr, etc.).
+        // Se implementa como rango desde/hasta para que todas las APIs respeten el mismo corte.
+        const start = new Date(y, 0, 1);
+        _state.desde = isoDate(start);
+        _state.hasta = isoDate(d);
+        break;
+      }
       case 'mes':
         _state.anio = y;
         _state.mes  = m;
@@ -360,7 +369,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
         return;
       }
       const pr = sp.get('preset');
-      if (pr && ['hoy', 'semana', 'mes', 'mes_ant', 'anio', 'anio_ant'].indexOf(pr) >= 0) {
+      if (pr && ['hoy', 'semana', 'mes', 'mes_ant', 'ytd', 'anio', 'anio_ant'].indexOf(pr) >= 0) {
         applyPreset(pr);
       }
       const anio = parseInt(sp.get('anio'), 10);
@@ -581,6 +590,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       { key: 'semana',   label: 'Esta Semana' },
       { key: 'mes',      label: 'Este Mes' },
       { key: 'mes_ant',  label: 'Mes Anterior' },
+      { key: 'ytd',      label: 'YTD (Ene\u2013Hoy)' },
       { key: 'anio',     label: 'Este A&#241;o' },
       { key: 'anio_ant', label: 'A&#241;o Anterior' },
     ];
