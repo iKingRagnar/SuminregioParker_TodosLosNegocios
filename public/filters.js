@@ -134,7 +134,8 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     if (!opts || !opts.omitDb) {
       var db;
       if (opts && opts.omitPeriodForCxcSnapshot) {
-        db = getSelectedDbId();
+        /* Misma identidad que ventas/CxC (?db= literal): getSelectedDbId() alias parker→default podía desalinear resumen-aging vs el resto del tablero. */
+        db = getDbForCxcApi() || getSelectedDbId();
       } else {
         db = opts && opts.useCxcDbIdentity ? getDbForCxcApi() : getSelectedDbId();
       }

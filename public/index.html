@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <script>window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="filters.js?v=cxcfix-20260403-02"></script>
+<script src="filters.js?v=cxcfix-20260403-03"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -821,6 +821,51 @@ async function fetchJsonAbort(url, fallback, ms) {
   }
 }
 
+/** Igual que ventas.html: API puede devolver fila suelta, {rows:[…]} o {data:…}. */
+function unwrapCotiResumenRow(v) {
+  if (v == null) return {};
+  if (Array.isArray(v)) return (v.length && typeof v[0] === 'object' && !Array.isArray(v[0])) ? v[0] : {};
+  if (typeof v !== 'object') return {};
+  if (Array.isArray(v.rows) && v.rows.length && typeof v.rows[0] === 'object') return v.rows[0];
+  if (v.data && typeof v.data === 'object' && !Array.isArray(v.data)) return v.data;
+  if (Array.isArray(v.data) && v.data.length && typeof v.data[0] === 'object') return v.data[0];
+  return v;
+}
+function canonCotiResumenForIndex(raw) {
+  var o = unwrapCotiResumenRow(raw);
+  function fnum(x) {
+    if (x == null) return 0;
+    if (typeof x === 'number') return Number.isFinite(x) ? x : 0;
+    var n = parseFloat(String(x).trim().replace(/,/g, ''));
+    return Number.isFinite(n) ? n : 0;
+  }
+  function fnumKeys(obj) {
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return 0;
+    var up = {};
+    for (var k in obj) {
+      if (!Object.prototype.hasOwnProperty.call(obj, k)) continue;
+      up[String(k).toUpperCase()] = obj[k];
+    }
+    var keys = Array.prototype.slice.call(arguments, 1);
+    for (var i = 0; i < keys.length; i++) {
+      var v = up[String(keys[i]).toUpperCase()];
+      if (v !== undefined) return fnum(v);
+    }
+    return 0;
+  }
+  var hoy = fnumKeys(o, 'HOY', 'IMPORTE_COTI_HOY');
+  var mes = fnumKeys(o, 'MES_ACTUAL', 'IMPORTE_COTI_MES');
+  if (hoy <= 0 && mes <= 0) {
+    mes = fnumKeys(o, 'TOTAL');
+  }
+  return {
+    HOY: hoy,
+    MES_ACTUAL: mes,
+    COTIZACIONES_MES: fnumKeys(o, 'COTIZACIONES_MES', 'COTI_MES', 'NUM_COTIZACIONES'),
+    COTIZACIONES_HOY: fnumKeys(o, 'COTIZACIONES_HOY', 'COTI_HOY')
+  };
+}
+
 /** Lista de {id,label,database} desde GET /api/universe/databases (initBizBar). */
 let indexDbList = [];
 function getDbFromUrlOrStorage(){
@@ -1230,6 +1275,8 @@ async function loadAll(){
     if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.loadAllStarted=(window.__DBG_STATE.loadAllStarted||0)+1; window.__DBG_STATE.phase='loadAll:start'; window.__DBG_STATE.note=''; }
     /* AbortController hasta 120s: fwt (Promise.race) cortaba a los 65s y descartaba la respuesta tardía → resumen-aging vacío y vencido KPI en $0. */
     const tKpi = 120000;
+    const tCoti = 210000;
+    const tDirResumen = 210000;
     const dbgWrap = function(label, p){
       return Promise.resolve()
         .then(()=>{ if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='fetch:'+label; } })
@@ -1237,18 +1284,19 @@ async function loadAll(){
         .then((x)=>{ if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.note=label+':ok'; } return x; })
         .catch((e)=>{ if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.note=label+':err:'+(e&&e.message?e.message:String(e)); } throw e; });
     };
-    const [v,m,cRaw,inv,dir,vends,cot,cumpl,cliRes,pnlData]=await Promise.all([
+    const [v,m,cRaw,inv,dir,vends,cotRaw,cumpl,cliRes,pnlData]=await Promise.all([
       dbgWrap('ventas/resumen', fetchJsonAbort(buildApiUrl('/api/ventas/resumen'), {}, tKpi)),
       dbgWrap('config/metas', fetchJsonAbort(buildApiUrl('/api/config/metas'), {}, tKpi)),
       dbgWrap('cxc/resumen-aging', fetchJsonAbort(buildApiUrl('/api/cxc/resumen-aging','queryMs=120000'), {}, tKpi)),
       dbgWrap('inv/resumen', fetchJsonAbort(buildApiUrl('/api/inv/resumen'), {}, tKpi)),
-      dbgWrap('director/resumen', fetchJsonAbort(buildApiUrl('/api/director/resumen', 'omitCxc=1'), {}, tKpi)),
+      dbgWrap('director/resumen', fetchJsonAbort(buildApiUrl('/api/director/resumen', 'omitCxc=1'), {}, tDirResumen)),
       dbgWrap('director/vendedores', fetchJsonAbort(buildApiUrl('/api/director/vendedores'), [], tKpi)),
-      dbgWrap('ventas/cotizaciones', fetchJsonAbort(buildApiUrl('/api/ventas/cotizaciones/resumen'), {}, tKpi)),
+      dbgWrap('ventas/cotizaciones', fetchJsonAbort(buildApiUrl('/api/ventas/cotizaciones/resumen'), {}, tCoti)),
       dbgWrap('ventas/cumplimiento', fetchJsonAbort(buildApiUrl('/api/ventas/cumplimiento'), [], tKpi)),
       dbgWrap('clientes/riesgo', fetchJsonAbort(buildApiUrl('/api/clientes/resumen-riesgo'), {}, tKpi)),
       dbgWrap('resultados/pnl', fetchJsonAbort(buildApiUrl('/api/resultados/pnl','meses=1'), {}, tKpi)),
     ]);
+    const cot = canonCotiResumenForIndex(cotRaw);
     // Evitar que un snapshot degradado (timeout parcial) pise un CxC vencido válido durante la sesión.
     let c = cRaw;
     try{

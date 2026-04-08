@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <script>window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="filters.js?v=cxcfix-20260403-02"></script>
+<script src="filters.js?v=cxcfix-20260403-03"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -334,7 +334,7 @@ async function fetchJson(url,fallback={},ms){
   const ctrl=new AbortController();
   const tid=setTimeout(()=>ctrl.abort(),ms);
   try{
-    const r=await fetch(url,{signal:ctrl.signal});
+    const r=await fetch(url,{signal:ctrl.signal,cache:'no-store'});
     if(!r.ok)throw new Error(String(r.status));
     return await r.json();
   }catch(_){return fallback;}finally{clearTimeout(tid);}
@@ -569,7 +569,8 @@ async function loadAll() {
     if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.loadAllStarted=(window.__DBG_STATE.loadAllStarted||0)+1; window.__DBG_STATE.phase='loadAll:start'; window.__DBG_STATE.note=''; }
     setText('badge-top-clientes', labelPeriodoFiltro());
     /* CxC unificado puede tardar ~120s en Render. Debe ser >= queryMs para no abortar y caer a {} (vencido=0). */
-    const tDir = 145000;
+    /* Debe cubrir director/resumen en servidor (ventas + rem + cotizaciones hasta ~180s + CxC). */
+    const tDir = 200000;
     const dbgWrap = function(label, p){
       return Promise.resolve()
         .then(()=>{ if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='fetch:'+label; } })
@@ -910,15 +911,17 @@ async function loadRecientes() {
   } catch(e){}
 }
 
-// Carga inicial: primero loadAll (await); initFilters bloquea el hilo → no antes de la primera carga.
+// Carga inicial: initFilters primero (hidrata preset/anio/mes desde URL) y onReady dispara loadAll — evita KPI CxC/cartera con ?db= desalineado o periodo vacío antes de la barra.
 (async function directorBoot(){
   try{
     if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:beforeSync'; }
     if (window.syncDbContextFromUrlOrFallback) window.syncDbContextFromUrlOrFallback();
-    if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:awaitLoadAll'; }
-    await loadAll();
-    if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:afterFirstLoadAll'; }
-    initFilters({ containerId:'filter-bar', showVendedor:true, onReady:()=>loadAll(), onChange:()=>loadAll() });
+    if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:initFilters'; }
+    if (window.initFilters) {
+      initFilters({ containerId:'filter-bar', showVendedor:true, onReady:()=>loadAll(), onChange:()=>loadAll() });
+    } else {
+      await loadAll();
+    }
     if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:afterInitFilters'; }
     setTimeout(function(){
       try{
