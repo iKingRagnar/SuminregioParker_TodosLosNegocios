@@ -33,7 +33,8 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
 
   let _cfg        = {};
   let _vendedores = [];
-  let _state      = { preset: 'mes', anio: null, mes: null, desde: '', hasta: '', vendedor: '' };
+  let _clientes   = [];
+  let _state      = { preset: 'mes', anio: null, mes: null, desde: '', hasta: '', vendedor: '', cliente: '' };
 
   function pad2(n) { return String(n).padStart(2, '0'); }
   function isoDate(d) {
@@ -125,6 +126,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       if (_state.mes)  p.mes  = _state.mes;
     }
     if (_state.vendedor) p.vendedor = _state.vendedor;
+    if (_state.cliente) p.cliente = _state.cliente;
     return p;
   }
 
@@ -353,6 +355,8 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       const sp = new URLSearchParams(window.location.search);
       const v = sp.get('vendedor');
       if (v) _state.vendedor = v;
+      const c = sp.get('cliente');
+      if (c) _state.cliente = c;
       const desde = sp.get('desde');
       const hasta = sp.get('hasta');
       if (desde && hasta && /^\d{4}-\d{2}-\d{2}$/.test(desde) && /^\d{4}-\d{2}-\d{2}$/.test(hasta)) {
@@ -397,8 +401,10 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       }
       const data = await r.json();
       _vendedores = (data.vendedores || []).filter(v => v.NOMBRE);
+      _clientes = (data.clientes || []).filter(c => c.NOMBRE);
     } catch (e) {
       _vendedores = [];
+      _clientes = [];
     }
   }
 
@@ -582,6 +588,11 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       vendOpts += `<option value="${v.VENDEDOR_ID}" ${String(_state.vendedor) === String(v.VENDEDOR_ID) ? 'selected' : ''}>${v.NOMBRE}</option>`;
     });
 
+    let cliOpts = '<option value="">Todos los clientes</option>';
+    _clientes.forEach(c => {
+      cliOpts += `<option value="${c.CLIENTE_ID}" ${String(_state.cliente) === String(c.CLIENTE_ID) ? 'selected' : ''}>${c.NOMBRE}</option>`;
+    });
+
     const presets = [
       { key: 'hoy',      label: 'Hoy' },
       { key: 'semana',   label: 'Esta Semana' },
@@ -599,11 +610,14 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     const vendSection = (_cfg.showVendedor !== false)
       ? `<div class="fb-selects"><select class="fb-select" id="fb-vendedor" title="Vendedor">${vendOpts}</select></div>`
       : '';
+    const cliSection = (_cfg.showCliente === true)
+      ? `<div class="fb-selects"><select class="fb-select" id="fb-cliente" title="Cliente">${cliOpts}</select></div>`
+      : '';
 
     c.innerHTML = `
       <div class="filter-bar">
         <div class="fb-presets">${presetBtns}</div>
-        ${(_cfg.showVendedor !== false) ? `<div class="fb-sep"></div>${vendSection}` : ''}
+        ${(_cfg.showVendedor !== false || _cfg.showCliente === true) ? `<div class="fb-sep"></div>${vendSection}${cliSection}` : ''}
       </div>`;
 
 
@@ -621,17 +635,24 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       renderBar();
       fire();
     });
+
+    const selCli = c.querySelector('#fb-cliente');
+    if (selCli) selCli.addEventListener('change', () => {
+      _state.cliente = selCli.value;
+      renderBar();
+      fire();
+    });
   }
 
   async function initFilters(config) {
     try {
       _cfg   = config || {};
-      _state = { preset: 'mes', anio: null, mes: null, desde: '', hasta: '', vendedor: '' };
+      _state = { preset: 'mes', anio: null, mes: null, desde: '', hasta: '', vendedor: '', cliente: '' };
 
       applyPreset(_cfg.defaultPreset || 'mes');
       hydrateFiltersFromUrl();
 
-      const vendPromise = (_cfg.showVendedor !== false) ? loadVendedores() : null;
+      const vendPromise = (_cfg.showVendedor !== false || _cfg.showCliente === true) ? loadVendedores() : null;
 
       renderBar();
       syncFiltersToUrl();
