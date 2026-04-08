@@ -2468,10 +2468,58 @@ get('/api/ventas/mensuales', async (req) => {
 });
 
 get('/api/ventas/cotizaciones/diarias', async (req) => {
-  const dias = Math.min(parseInt(req.query.dias) || 30, 366);
-  const desde = new Date();
-  desde.setDate(desde.getDate() - dias);
-  const desdeStr = desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-' + String(desde.getDate()).padStart(2, '0');
+  const reDate = /^\d{4}-\d{2}-\d{2}$/;
+  let qDesde = req.query.desde;
+  let qHasta = req.query.hasta;
+  if (qDesde && !reDate.test(String(qDesde))) qDesde = null;
+  if (qHasta && !reDate.test(String(qHasta))) qHasta = null;
+
+  let fechaWhere = 'CAST(d.FECHA AS DATE) >= CAST(? AS DATE)';
+  let fechaParams = [];
+
+  if (qDesde && qHasta) {
+    let d0 = new Date(String(qDesde) + 'T12:00:00');
+    let d1 = new Date(String(qHasta) + 'T12:00:00');
+    if (!isNaN(d0.getTime()) && !isNaN(d1.getTime())) {
+      if (d1 < d0) {
+        const t = d0;
+        d0 = d1;
+        d1 = t;
+      }
+      const spanDays = Math.ceil((d1 - d0) / 86400000) + 1;
+      if (spanDays > 366) {
+        d0 = new Date(d1);
+        d0.setDate(d0.getDate() - 365);
+      }
+      const fmt = (dt) =>
+        dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+      fechaWhere = 'CAST(d.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(d.FECHA AS DATE) <= CAST(? AS DATE)';
+      fechaParams = [fmt(d0), fmt(d1)];
+    }
+  }
+
+  if (!fechaParams.length) {
+    const dias = Math.min(parseInt(String(req.query.dias || '30'), 10) || 30, 366);
+    const desde = new Date();
+    desde.setDate(desde.getDate() - dias);
+    const desdeStr =
+      desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-' + String(desde.getDate()).padStart(2, '0');
+    fechaParams = [desdeStr];
+  }
+
+  const vid = req.query.vendedor ? parseInt(String(req.query.vendedor), 10) : NaN;
+  const cid = req.query.cliente ? parseInt(String(req.query.cliente), 10) : NaN;
+  let vcSql = '';
+  const sqlParams = [...fechaParams];
+  if (Number.isFinite(vid) && vid > 0) {
+    vcSql += ' AND d.VENDEDOR_ID = ?';
+    sqlParams.push(vid);
+  }
+  if (Number.isFinite(cid) && cid > 0) {
+    vcSql += ' AND d.CLIENTE_ID = ?';
+    sqlParams.push(cid);
+  }
+
   const run = async (dbo) => {
     const cotiOpts = await cotizacionSqlOpts(dbo);
     const ci = sqlCotiImporteExpr('d');
@@ -2482,10 +2530,10 @@ get('/api/ventas/cotizaciones/diarias', async (req) => {
         `
     SELECT CAST(d.FECHA AS DATE) AS DIA, COUNT(*) AS COTIZACIONES, COALESCE(SUM(${ci}),0) AS TOTAL_COTIZACIONES
     FROM ${sub} d
-    WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
+    WHERE ${fechaWhere}${vcSql}
     GROUP BY CAST(d.FECHA AS DATE) ORDER BY 1
   `,
-        [desdeStr],
+        sqlParams,
         t,
         dbo,
       ).catch((err) => {

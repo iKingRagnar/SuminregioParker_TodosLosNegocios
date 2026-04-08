@@ -333,7 +333,7 @@ nav{display:flex;align-items:center;gap:.25rem}
 
     <div class="grid-2">
       <div class="card">
-        <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>Cotizaciones Diarias</div><div class="card-badge">30 días</div></div>
+        <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>Cotizaciones Diarias</div><div class="card-badge" id="coti-diarias-badge">Últimos 35 días</div></div>
         <div class="card-body"><div class="chart-wrap"><canvas id="chartCotiDiarias"></canvas></div></div>
       </div>
       <div class="card">
@@ -476,6 +476,15 @@ function isLaborDay(d) {
   if (isNaN(x.getTime())) return false;
   const wd = x.getDay();
   return wd >= 1 && wd <= 6;
+}
+/** Fecha para eje del gráfico de cotizaciones (Firebird/JSON pueden variar formato). */
+function parseCotiChartDay(raw) {
+  if (raw == null) return null;
+  if (raw instanceof Date) return isNaN(raw.getTime()) ? null : raw;
+  const s = String(raw).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return new Date(s.substring(0, 10) + 'T12:00:00');
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
 }
 function countLaborDaysMonthToDate(ref) {
   const end = ref instanceof Date ? new Date(ref) : new Date();
@@ -1055,10 +1064,11 @@ function applyCotiData(resObj, diarias, vends, ventasVE) {
     const idealCBase = +(metas.META_COTI_IDEAL||metaCBase*1.3);
 
     const diariasArr = Array.isArray(diarias) ? diarias : (diarias && (Array.isArray(diarias.data) ? diarias.data : Array.isArray(diarias.rows) ? diarias.rows : [])) || [];
-    const arr = diariasArr.map(r => ({
+    const arrRaw = diariasArr.map(r => ({
       DIA: r.DIA ?? r.FECHA ?? r.dia ?? r.fecha,
       TOTAL_COTIZACIONES: fnumKeys(r, 'TOTAL_COTIZACIONES', 'TOTAL', 'total_cotizaciones')
     }));
+    const arr = arrRaw.filter(r => parseCotiChartDay(r.DIA) != null);
     function cotiMetaForDate(d) {
       if (bloq) return { m: 0, i: 0 };
       const ok = isLaborDay(d);
@@ -1077,31 +1087,30 @@ function applyCotiData(resObj, diarias, vends, ventasVE) {
         idealL.push(mp.i);
       }
     } else {
-      lbls = arr.map(r=>{
-        const raw = r.DIA;
-        const d = (raw instanceof Date) ? raw : new Date(typeof raw === 'string' && raw.includes('-') ? raw.substring(0,10)+'T12:00:00' : raw);
+      lbls = arr.map(r => {
+        const d = parseCotiChartDay(r.DIA);
         return `${d.getDate()} ${MESES[d.getMonth()]}`;
       });
-      vals = arr.map(r=>r.TOTAL_COTIZACIONES||0);
-      metaL = arr.map(r => {
-        const raw = r.DIA;
-        const d = (raw instanceof Date) ? raw : new Date(typeof raw === 'string' && raw.includes('-') ? raw.substring(0,10)+'T12:00:00' : raw);
-        return cotiMetaForDate(d).m;
-      });
-      idealL = arr.map(r => {
-        const raw = r.DIA;
-        const d = (raw instanceof Date) ? raw : new Date(typeof raw === 'string' && raw.includes('-') ? raw.substring(0,10)+'T12:00:00' : raw);
-        return cotiMetaForDate(d).i;
-      });
+      vals = arr.map(r => fnum(r.TOTAL_COTIZACIONES));
+      metaL = arr.map(r => cotiMetaForDate(parseCotiChartDay(r.DIA)).m);
+      idealL = arr.map(r => cotiMetaForDate(parseCotiChartDay(r.DIA)).i);
     }
     const opts = chartDefaults();
     opts.scales.y.min = 0;
     const maxY = Math.max(0, ...vals, ...metaL, ...idealL, bloq ? 0 : metaCBase * nV * 1.1);
+    const maxYSafe = Number.isFinite(maxY) ? maxY : 0;
     if (arr.length === 0 && !bloq && metaCBase * nV > 0) opts.scales.y.suggestedMax = Math.max(metaCBase * nV * 1.2, 1000);
-    else if (maxY > 0) opts.scales.y.suggestedMax = maxY * 1.15;
+    else if (maxYSafe > 0) opts.scales.y.suggestedMax = maxYSafe * 1.15;
     const cotiBorder=cssVar('--chart-yellow','#d97706'), cotiFill=cssVar('--chart-yellow-fill','rgba(217,119,6,.28)');
+    const cotiBadge = document.getElementById('coti-diarias-badge');
+    if (cotiBadge) {
+      const fp = (window.filterGetParams && filterGetParams()) || {};
+      cotiBadge.textContent = (fp.desde && fp.hasta) ? 'Periodo (filtro)' : 'Últimos 35 días';
+    }
+    const cotiCv = document.getElementById('chartCotiDiarias');
+    if (!cotiCv) return;
     if(chartCotiDiarias) chartCotiDiarias.destroy();
-    chartCotiDiarias = new Chart(document.getElementById('chartCotiDiarias').getContext('2d'), {type:'bar', data:{labels:lbls, datasets:[
+    chartCotiDiarias = new Chart(cotiCv.getContext('2d'), {type:'bar', data:{labels:lbls, datasets:[
       {label:'Cotizaciones $', data:vals, order:0, backgroundColor:cotiFill, borderColor:cotiBorder, borderWidth:1},
       {label:'Meta (día laboral)', data:metaL, type:'line', order:1, borderColor:'rgba(255,140,66,.9)', borderWidth:2.2, borderDash:[6,4], pointRadius:0, fill:false},
       {label:'Ideal (+30%)', data:idealL, type:'line', order:2, borderColor:'rgba(0,229,160,.82)', borderWidth:2, borderDash:[3,5], pointRadius:0, fill:'-1', backgroundColor:'rgba(255,184,0,.16)'},
