@@ -134,6 +134,10 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   function buildQS(extras, opts) {
     const p = Object.assign({}, getParams(), (extras && typeof extras === 'object') ? extras : {});
     if (opts && opts.omitVendedor) delete p.vendedor;
+    if (opts && opts.omitExecutiveDrilldown) {
+      delete p.cliente;
+      delete p.vendedor;
+    }
     if (opts && opts.omitPeriodForCxcSnapshot) {
       delete p.desde;
       delete p.hasta;
@@ -141,6 +145,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       delete p.mes;
       delete p.preset;
       delete p.vendedor;
+      delete p.cliente;
     }
     if (!opts || !opts.omitDb) {
       var db;

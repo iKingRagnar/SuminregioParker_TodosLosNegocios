@@ -134,9 +134,14 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   function buildQS(extras, opts) {
     const p = Object.assign({}, getParams(), (extras && typeof extras === 'object') ? extras : {});
     if (opts && opts.omitVendedor) delete p.vendedor;
+    if (opts && opts.omitExecutiveDrilldown) {
+      delete p.cliente;
+      delete p.vendedor;
+    }
     // Inicio/Director: buildApiUrl marca resumen-aging con omitPeriodForCxcSnapshot — el saldo/vencido es posición
     // (no ventas del periodo). Sin esto, preset=hoy|semana arrastra desde/hasta|anio|mes y el cliente puede recibir
     // {} por timeout/contención; además debe usar la misma ?db= que el chip (getSelectedDbId con alias parker→default).
+    // También quitar cliente: ?cliente= desde Ventas no debe acotar el snapshot de cartera.
     if (opts && opts.omitPeriodForCxcSnapshot) {
       delete p.desde;
       delete p.hasta;
@@ -144,6 +149,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       delete p.mes;
       delete p.preset;
       delete p.vendedor;
+      delete p.cliente;
     }
     if (!opts || !opts.omitDb) {
       var db;

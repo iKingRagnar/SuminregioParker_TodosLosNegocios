@@ -436,6 +436,7 @@ function setDirTopCli(n) {
 // CxC resumen-aging: mismo trato que Inicio (omitPeriod en filterBuildQS) — saldo/vencido = posición, no ventas del periodo.
 function buildApiUrl(path, extra, qsOpts) {
   const merged = Object.assign({ useCxcDbIdentity: true }, qsOpts || {});
+  if (String(path).indexOf('/api/director/resumen') >= 0) merged.omitExecutiveDrilldown = true;
   if (String(path).indexOf('/api/cxc/resumen-aging') >= 0) merged.omitPeriodForCxcSnapshot = true;
   let qs    = window.filterBuildQS ? filterBuildQS(undefined, merged) : '';
   if (!qs && !merged.omitDb) {
