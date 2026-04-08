@@ -1275,10 +1275,9 @@ async function loadAll(){
   try{
     clearIndexFilterLoadingUI();
     if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.loadAllStarted=(window.__DBG_STATE.loadAllStarted||0)+1; window.__DBG_STATE.phase='loadAll:start'; window.__DBG_STATE.note=''; }
-    /* AbortController hasta 120s: fwt (Promise.race) cortaba a los 65s y descartaba la respuesta tardía → resumen-aging vacío y vencido KPI en $0. */
+    /* AbortController: evitar fwt que cortaba respuestas tardías. director/resumen ya trae ventas+cotiz (omitCxc=1); no duplicar /ventas/resumen ni /cotizaciones/resumen (saturaba Firebird y alargaba hasta >5 min). */
     const tKpi = 120000;
-    const tCoti = 210000;
-    const tDirResumen = 210000;
+    const tDirResumen = 165000;
     const dbgWrap = function(label, p){
       return Promise.resolve()
         .then(()=>{ if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='fetch:'+label; } })
@@ -1286,19 +1285,18 @@ async function loadAll(){
         .then((x)=>{ if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.note=label+':ok'; } return x; })
         .catch((e)=>{ if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.note=label+':err:'+(e&&e.message?e.message:String(e)); } throw e; });
     };
-    const [v,m,cRaw,inv,dir,vends,cotRaw,cumpl,cliRes,pnlData]=await Promise.all([
-      dbgWrap('ventas/resumen', fetchJsonAbort(buildApiUrl('/api/ventas/resumen'), {}, tKpi)),
+    const [m,cRaw,inv,dir,vends,cumpl,cliRes,pnlData]=await Promise.all([
       dbgWrap('config/metas', fetchJsonAbort(buildApiUrl('/api/config/metas'), {}, tKpi)),
-      dbgWrap('cxc/resumen-aging', fetchJsonAbort(buildApiUrl('/api/cxc/resumen-aging','queryMs=120000'), {}, tKpi)),
+      dbgWrap('cxc/resumen-aging', fetchJsonAbort(buildApiUrl('/api/cxc/resumen-aging','queryMs=180000'), {}, tKpi)),
       dbgWrap('inv/resumen', fetchJsonAbort(buildApiUrl('/api/inv/resumen'), {}, tKpi)),
       dbgWrap('director/resumen', fetchJsonAbort(buildApiUrl('/api/director/resumen', 'omitCxc=1'), {}, tDirResumen)),
       dbgWrap('director/vendedores', fetchJsonAbort(buildApiUrl('/api/director/vendedores'), [], tKpi)),
-      dbgWrap('ventas/cotizaciones', fetchJsonAbort(buildApiUrl('/api/ventas/cotizaciones/resumen'), {}, tCoti)),
       dbgWrap('ventas/cumplimiento', fetchJsonAbort(buildApiUrl('/api/ventas/cumplimiento'), [], tKpi)),
       dbgWrap('clientes/riesgo', fetchJsonAbort(buildApiUrl('/api/clientes/resumen-riesgo'), {}, tKpi)),
       dbgWrap('resultados/pnl', fetchJsonAbort(buildApiUrl('/api/resultados/pnl','meses=1'), {}, tKpi)),
     ]);
-    const cot = canonCotiResumenForIndex(cotRaw);
+    const v = (dir && dir.ventas && typeof dir.ventas === 'object') ? dir.ventas : {};
+    const cot = canonCotiResumenForIndex((dir && dir.cotizaciones) ? dir.cotizaciones : {});
     // Evitar que un snapshot degradado (timeout parcial) pise un CxC vencido válido durante la sesión.
     let c = cRaw;
     try{
@@ -1571,13 +1569,14 @@ async function loadAll(){
     setEl('modComision',fmtM(comisionEst));
     setEl('modCobStatus','Ver detalle');
 
+    const cumplArr = Array.isArray(cumpl) ? cumpl : [];
     // Vendedores cumplimiento
-    if(cumpl.length>0){
-      const enMeta=cumpl.filter(r=>+r.PCT_HOY>=100||r.STATUS==='OK').length;
-      const totalPctMes=cumpl.reduce((s,r)=>s+(+r.PCT_MES||0),0)/cumpl.length;
-      setEl('modVendEnMeta',enMeta+'/'+cumpl.length);
+    if(cumplArr.length>0){
+      const enMeta=cumplArr.filter(r=>+r.PCT_HOY>=100||r.STATUS==='OK').length;
+      const totalPctMes=cumplArr.reduce((s,r)=>s+(+r.PCT_MES||0),0)/cumplArr.length;
+      setEl('modVendEnMeta',enMeta+'/'+cumplArr.length);
       setEl('modVendPctMes',totalPctMes.toFixed(0)+'%');
-      setEl('modVendActivos',cumpl.length+' vend.');
+      setEl('modVendActivos',cumplArr.length+' vend.');
       const vColor2=totalPctMes>=100?'var(--green)':totalPctMes>=75?'var(--yellow-ink)':'var(--red)';
       setHtml('modVendStatus',`<span style="color:${vColor2}">${totalPctMes.toFixed(0)}% meta mes</span>`);
     }
@@ -1631,7 +1630,7 @@ async function loadAll(){
       {name:'Cartera Total CxC',area:'Cobranza - Saldo',actual:cxcTotal,meta:null,actualFmt:fmtM(cxcTotal),metaFmt:'Ref. % vencido',valColor:'var(--orange)',statusCxc:pVenc},
       {name:'Cartera Vencida',area:'Cobranza - Riesgo',actual:pVenc,meta:20,actualFmt:pVenc+'%',metaFmt:'<20%',valColor:pVenc>50?'var(--red)':pVenc>25?'var(--yellow-ink)':'var(--green)',invert:true},
       {name:'Art\u00edculos bajo m\u00ednimo',area:'Inventario - Alerta',actual:invBajo,meta:metaBajoMin,actualFmt:invBajo.toLocaleString(),metaFmt:'<'+metaBajoMin,valColor:invBajo>10?'var(--red)':invBajo>0?'var(--yellow-ink)':'var(--green)',invert:true},
-      {name:'Vendedores en Meta',area:'Ventas - Equipo',actual:cumpl.filter(r=>+r.PCT_HOY>=100).length,meta:numVend,actualFmt:cumpl.filter(r=>+r.PCT_HOY>=100).length+'/'+numVend,metaFmt:numVend+' vend.',valColor:'var(--purple)'},
+      {name:'Vendedores en Meta',area:'Ventas - Equipo',actual:cumplArr.filter(r=>+r.PCT_HOY>=100).length,meta:numVend,actualFmt:cumplArr.filter(r=>+r.PCT_HOY>=100).length+'/'+numVend,metaFmt:numVend+' vend.',valColor:'var(--purple)'},
       {name:'Margen Bruto',area:'P&amp;L',actual:resMargen,meta:30,actualFmt:resMargen.toFixed(1)+'%',metaFmt:'\u2265 30%',valColor:resMargen>=30?'var(--green)':resMargen>=15?'var(--yellow-ink)':'var(--red)'},
     ]);
 
