@@ -895,7 +895,9 @@ function buildApiUrl(path,extra,qsOpts){
 /** Scorecard multi-empresa: no envía ?db= (recorre el registro completo). */
 function universeScorecardUrl(){
   const fqs=window.filterBuildQS?filterBuildQS(null,{omitDb:true}):'';
-  const uni='concurrency=4&queryMs=15000';
+  // queryMs: servidor acota 25s–120s por query; cotizaciones macro puede usar hasta ~180s por base.
+  // concurrency 3 reduce presión en Firebird remoto (antes 4).
+  const uni='concurrency=3&queryMs=55000';
   const parts=[fqs,uni].filter(Boolean).join('&');
   return API+'/api/universe/scorecard'+(parts?'?'+parts:'');
 }
@@ -1633,8 +1635,9 @@ async function loadAll(){
       {name:'Margen Bruto',area:'P&amp;L',actual:resMargen,meta:30,actualFmt:resMargen.toFixed(1)+'%',metaFmt:'\u2265 30%',valColor:resMargen>=30?'var(--green)':resMargen>=15?'var(--yellow-ink)':'var(--red)'},
     ]);
 
-    fwt(universeScorecardUrl(),{ empresas: [], consolidado: {} },90000).then(function(uniData){
-      try{ renderUniversePortfolio(uniData); }catch(_){}
+    // No usar fwt aquí: a 90s devolvía fallback vacío mientras el servidor aún agregaba 7 bases (scorecard tardaba >90s).
+    fetchJsonAbort(universeScorecardUrl(), { empresas: [], consolidado: {} }, 300000).then(function (uniData) {
+      try { renderUniversePortfolio(uniData); } catch (_) {}
     });
 
   }catch(e){
