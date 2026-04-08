@@ -1134,6 +1134,60 @@ function mergeVsCotizaciones(parts) {
   return { ventas, cotizaciones };
 }
 
+/** Cotizaciones: misma lógica VE+PV sin UNION (timeout PV remoto). */
+function mergeDiariasCotizVePv(veRows, pvRows) {
+  const map = new Map();
+  const add = (r) => {
+    if (!r || r.DIA == null) return;
+    const k = String(r.DIA);
+    const cur = map.get(k) || { DIA: r.DIA, COTIZACIONES: 0, TOTAL_COTIZACIONES: 0 };
+    cur.COTIZACIONES += +(r.COTIZACIONES || 0);
+    cur.TOTAL_COTIZACIONES += +(r.TOTAL_COTIZACIONES || 0);
+    map.set(k, cur);
+  };
+  (veRows || []).forEach(add);
+  (pvRows || []).forEach(add);
+  return Array.from(map.values()).sort((a, b) => new Date(a.DIA) - new Date(b.DIA));
+}
+
+function mergePorVendedorCotizVePv(veRows, pvRows) {
+  const map = new Map();
+  const add = (r) => {
+    if (!r) return;
+    const id = +(r.VENDEDOR_ID || 0);
+    const cur = map.get(id) || {
+      VENDEDOR_ID: id,
+      VENDEDOR: r.VENDEDOR || 'No asignado',
+      COTIZACIONES_HOY: 0,
+      COTIZACIONES_MES: 0,
+      NUM_COTI_MES: 0,
+    };
+    cur.COTIZACIONES_HOY += +(r.COTIZACIONES_HOY || 0);
+    cur.COTIZACIONES_MES += +(r.COTIZACIONES_MES || 0);
+    cur.NUM_COTI_MES += +(r.NUM_COTI_MES || 0);
+    if (r.VENDEDOR && String(r.VENDEDOR).trim() && r.VENDEDOR !== 'No asignado') cur.VENDEDOR = r.VENDEDOR;
+    map.set(id, cur);
+  };
+  (veRows || []).forEach(add);
+  (pvRows || []).forEach(add);
+  return Array.from(map.values()).sort((a, b) => (b.COTIZACIONES_MES || 0) - (a.COTIZACIONES_MES || 0));
+}
+
+function mergeVsCotizMesVePv(veRows, pvRows) {
+  const map = new Map();
+  const add = (r) => {
+    if (!r) return;
+    const k = `${+r.ANIO}-${+r.MES}`;
+    const cur = map.get(k) || { ANIO: +r.ANIO, MES: +r.MES, TOTAL_COTI: 0, NUM_COTI: 0 };
+    cur.TOTAL_COTI += +(r.TOTAL_COTI || 0);
+    cur.NUM_COTI += +(r.NUM_COTI || 0);
+    map.set(k, cur);
+  };
+  (veRows || []).forEach(add);
+  (pvRows || []).forEach(add);
+  return Array.from(map.values()).sort((a, b) => (a.ANIO - b.ANIO) || (a.MES - b.MES));
+}
+
 function mergeRecientes(rowsList, limit) {
   const flat = rowsList.flat().filter(Boolean);
   flat.sort((a, b) => {
@@ -2397,18 +2451,32 @@ get('/api/ventas/cotizaciones/diarias', async (req) => {
   const desdeStr = desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-' + String(desde.getDate()).padStart(2, '0');
   const run = async (dbo) => {
     const cotiOpts = await cotizacionSqlOpts(dbo);
-    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
     const ci = sqlCotiImporteExpr('d');
-    const rows = await query(`
+    const t = 120000;
+    const tipoPanel = getCotizacionesTipo(req);
+    const qSub = (sub) =>
+      query(
+        `
     SELECT CAST(d.FECHA AS DATE) AS DIA, COUNT(*) AS COTIZACIONES, COALESCE(SUM(${ci}),0) AS TOTAL_COTIZACIONES
-    FROM ${cotiSub} d
+    FROM ${sub} d
     WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
     GROUP BY CAST(d.FECHA AS DATE) ORDER BY 1
-  `, [desdeStr], 60000, dbo).catch((err) => {
-      console.error('[cotizaciones/diarias]', err && (err.message || err));
-      return [];
-    });
-    return (rows || []).map(r => ({ DIA: r.DIA, COTIZACIONES: r.COTIZACIONES, TOTAL_COTIZACIONES: r.TOTAL_COTIZACIONES || 0 }));
+  `,
+        [desdeStr],
+        t,
+        dbo,
+      ).catch((err) => {
+        console.error('[cotizaciones/diarias]', err && (err.message || err));
+        return [];
+      });
+    let rows;
+    if (tipoPanel === 'VE' || tipoPanel === 'PV') {
+      rows = await qSub(cotizacionesSub(tipoPanel, cotiOpts));
+    } else {
+      const [ve, pv] = await Promise.all([qSub(cotizacionesSub('VE', cotiOpts)), qSub(cotizacionesSub('PV', cotiOpts))]);
+      rows = mergeDiariasCotizVePv(ve, pv);
+    }
+    return (rows || []).map((r) => ({ DIA: r.DIA, COTIZACIONES: r.COTIZACIONES, TOTAL_COTIZACIONES: r.TOTAL_COTIZACIONES || 0 }));
   };
   if (isAllDbs(req)) {
     const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
@@ -2554,9 +2622,12 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
   if (Number.isFinite(vid)) params.push(vid);
   const run = async (dbo) => {
     const cotiOpts = await cotizacionSqlOpts(dbo);
-    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
     const ci = sqlCotiImporteExpr('d');
-    return query(`
+    const t = 120000;
+    const tipoPanel = getCotizacionesTipo(req);
+    const qSub = (sub) =>
+      query(
+        `
     SELECT
       COALESCE(d.VENDEDOR_ID, 0) AS VENDEDOR_ID,
       CASE WHEN COALESCE(d.VENDEDOR_ID, 0) = 0 THEN 'No asignado'
@@ -2565,15 +2636,24 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN ${ci} ELSE 0 END) AS COTIZACIONES_HOY,
       COALESCE(SUM(${ci}), 0) AS COTIZACIONES_MES,
       COUNT(*) AS NUM_COTI_MES
-    FROM ${cotiSub} d
+    FROM ${sub} d
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
     WHERE 1=1 ${f.sql} ${vendSql}
     GROUP BY COALESCE(d.VENDEDOR_ID, 0)
     ORDER BY COTIZACIONES_MES DESC
-  `, params, 90000, dbo).catch((err) => {
-      console.error('[por-vendedor/cotizaciones]', err && (err.message || err));
-      return [];
-    });
+  `,
+        params,
+        t,
+        dbo,
+      ).catch((err) => {
+        console.error('[por-vendedor/cotizaciones]', err && (err.message || err));
+        return [];
+      });
+    if (tipoPanel === 'VE' || tipoPanel === 'PV') {
+      return qSub(cotizacionesSub(tipoPanel, cotiOpts));
+    }
+    const [ve, pv] = await Promise.all([qSub(cotizacionesSub('VE', cotiOpts)), qSub(cotizacionesSub('PV', cotiOpts))]);
+    return mergePorVendedorCotizVePv(ve, pv);
   };
   if (isAllDbs(req)) {
     const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
@@ -2623,28 +2703,46 @@ get('/api/ventas/vs-cotizaciones', async (req) => {
   const tipoVentas = getTipo(req);
   const run = async (dbo) => {
     const cotiOpts = await cotizacionSqlOpts(dbo);
-    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
-    const [ventasMes, cotizMes] = await Promise.all([
-      query(`
+    const ci = sqlCotiImporteExpr('d');
+    const tMs = 60000;
+    const tipoPanel = getCotizacionesTipo(req);
+    const qCotiSub = (sub) =>
+      query(
+        `
+      SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
+        CAST(COALESCE(SUM(${ci}), 0) AS DOUBLE PRECISION) AS TOTAL_COTI, COUNT(*) AS NUM_COTI
+      FROM ${sub} d
+      WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
+      GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
+    `,
+        [desdeStr],
+        tMs,
+        dbo,
+      ).catch((err) => {
+        console.error('[vs-cotizaciones cotiz]', err && (err.message || err));
+        return [];
+      });
+    let cotizMes;
+    if (tipoPanel === 'VE' || tipoPanel === 'PV') {
+      cotizMes = await qCotiSub(cotizacionesSub(tipoPanel, cotiOpts));
+    } else {
+      const [cve, cpv] = await Promise.all([qCotiSub(cotizacionesSub('VE', cotiOpts)), qCotiSub(cotizacionesSub('PV', cotiOpts))]);
+      cotizMes = mergeVsCotizMesVePv(cve, cpv);
+    }
+    const ventasMes = await query(
+      `
       SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
         CAST(COALESCE(SUM(d.IMPORTE_NETO), 0) AS DOUBLE PRECISION) AS TOTAL_VENTAS, COUNT(*) AS NUM_DOCS
       FROM ${ventasSub(tipoVentas)} d WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
       GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
-    `, [desdeStr], 25000, dbo).catch((err) => {
-        console.error('[vs-cotizaciones ventas]', err && (err.message || err));
-        return [];
-      }),
-      query(`
-      SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
-        CAST(COALESCE(SUM(${sqlCotiImporteExpr('d')}), 0) AS DOUBLE PRECISION) AS TOTAL_COTI, COUNT(*) AS NUM_COTI
-      FROM ${cotiSub} d
-      WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
-      GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
-    `, [desdeStr], 25000, dbo).catch((err) => {
-        console.error('[vs-cotizaciones cotiz]', err && (err.message || err));
-        return [];
-      }),
-    ]);
+    `,
+      [desdeStr],
+      tMs,
+      dbo,
+    ).catch((err) => {
+      console.error('[vs-cotizaciones ventas]', err && (err.message || err));
+      return [];
+    });
     return { ventas: ventasMes || [], cotizaciones: cotizMes || [] };
   };
   if (isAllDbs(req)) {
