@@ -1462,10 +1462,12 @@ function ventasSub(tipo = '', opts = {}) {
   const includeRemisiones = !!(opts && opts.includeRemisiones);
   const doctosVenta = includeRemisiones ? "('V', 'F')" : "('F')";
   const imp = sqlVentaImporteBaseExpr('d');
+  const impBruto = `COALESCE(d.IMPORTE_NETO, 0)`;
   const ve = `
     SELECT
       d.FECHA,
       ${imp} AS IMPORTE_NETO,
+      ${impBruto} AS IMPORTE_NETO_BRUTO,
       COALESCE(d.VENDEDOR_ID, 0)  AS VENDEDOR_ID,
       COALESCE(d.CLIENTE_ID,  0)  AS CLIENTE_ID,
       d.FOLIO,
@@ -1485,6 +1487,7 @@ function ventasSub(tipo = '', opts = {}) {
     SELECT
       d.FECHA,
       ${imp} AS IMPORTE_NETO,
+      ${impBruto} AS IMPORTE_NETO_BRUTO,
       COALESCE(
         CASE WHEN d.TIPO_DOCTO = 'F' THEN
           (SELECT d2.VENDEDOR_ID
@@ -1516,10 +1519,12 @@ function ventasSub(tipo = '', opts = {}) {
 
 function remisionesSub(tipo = '') {
   const imp = sqlVentaImporteBaseExpr('d');
+  const impBruto = `COALESCE(d.IMPORTE_NETO, 0)`;
   const ve = `
     SELECT
       d.FECHA,
       ${imp} AS IMPORTE_NETO,
+      ${impBruto} AS IMPORTE_NETO_BRUTO,
       COALESCE(d.VENDEDOR_ID, 0)  AS VENDEDOR_ID,
       COALESCE(d.CLIENTE_ID,  0)  AS CLIENTE_ID,
       d.FOLIO,
@@ -1538,6 +1543,7 @@ function remisionesSub(tipo = '') {
     SELECT
       d.FECHA,
       ${imp} AS IMPORTE_NETO,
+      ${impBruto} AS IMPORTE_NETO_BRUTO,
       COALESCE(d.VENDEDOR_ID, 0)  AS VENDEDOR_ID,
       COALESCE(d.CLIENTE_ID,  0)  AS CLIENTE_ID,
       d.FOLIO,
@@ -2200,7 +2206,10 @@ get('/api/ventas/resumen', async (req) => {
     SELECT
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE
                THEN d.IMPORTE_NETO ELSE 0 END)                      AS HOY,
+      SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE
+               THEN d.IMPORTE_NETO_BRUTO ELSE 0 END)               AS HOY_IVA,
       COALESCE(SUM(d.IMPORTE_NETO), 0)                              AS MES_ACTUAL,
+      COALESCE(SUM(d.IMPORTE_NETO_BRUTO), 0)                       AS MES_ACTUAL_IVA,
       COUNT(*)                                                      AS FACTURAS_MES,
       SUM(CASE WHEN CAST(d.FECHA AS DATE) < CURRENT_DATE
                THEN d.IMPORTE_NETO ELSE 0 END)                     AS HASTA_AYER_MES
@@ -2210,20 +2219,26 @@ get('/api/ventas/resumen', async (req) => {
       query(`
     SELECT
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END) AS REMISIONES_HOY,
-      COALESCE(SUM(d.IMPORTE_NETO), 0) AS REMISIONES_MES
+      SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO_BRUTO ELSE 0 END) AS REMISIONES_HOY_IVA,
+      COALESCE(SUM(d.IMPORTE_NETO), 0) AS REMISIONES_MES,
+      COALESCE(SUM(d.IMPORTE_NETO_BRUTO), 0) AS REMISIONES_MES_IVA
     FROM ${remisionesSub(tipo)} d
     WHERE 1=1 ${f.sql}
   `, f.params, 30000, dbo).catch(() => []),
     ]);
     const out = {
       HOY: +((rows[0] && rows[0].HOY) || 0),
+      HOY_IVA: +((rows[0] && rows[0].HOY_IVA) || 0),
       MES_ACTUAL: +((rows[0] && rows[0].MES_ACTUAL) || 0),
+      MES_ACTUAL_IVA: +((rows[0] && rows[0].MES_ACTUAL_IVA) || 0),
       FACTURAS_MES: +((rows[0] && rows[0].FACTURAS_MES) || 0),
       HASTA_AYER_MES: +((rows[0] && rows[0].HASTA_AYER_MES) || 0),
     };
     const rem = remRows[0] || {};
     out.REMISIONES_HOY = +(rem.REMISIONES_HOY || 0);
     out.REMISIONES_MES = +(rem.REMISIONES_MES || 0);
+    out.REMISIONES_HOY_IVA = +(rem.REMISIONES_HOY_IVA || 0);
+    out.REMISIONES_MES_IVA = +(rem.REMISIONES_MES_IVA || 0);
     return out;
   };
   if (isAllDbs(req)) {
@@ -2331,13 +2346,18 @@ get('/api/ventas/diarias', async (req) => {
     SELECT CAST(d.FECHA AS DATE) AS DIA,
       COALESCE(SUM(CASE WHEN d.TIPO_SRC = 'VE' THEN d.IMPORTE_NETO ELSE 0 END), 0) AS VENTAS_VE,
       COALESCE(SUM(CASE WHEN d.TIPO_SRC = 'PV' THEN d.IMPORTE_NETO ELSE 0 END), 0) AS VENTAS_PV,
-      COALESCE(SUM(d.IMPORTE_NETO), 0) AS TOTAL_VENTAS
+      COALESCE(SUM(d.IMPORTE_NETO), 0) AS TOTAL_VENTAS,
+      COALESCE(SUM(CASE WHEN d.TIPO_SRC = 'VE' THEN d.IMPORTE_NETO_BRUTO ELSE 0 END), 0) AS VENTAS_VE_IVA,
+      COALESCE(SUM(CASE WHEN d.TIPO_SRC = 'PV' THEN d.IMPORTE_NETO_BRUTO ELSE 0 END), 0) AS VENTAS_PV_IVA,
+      COALESCE(SUM(d.IMPORTE_NETO_BRUTO), 0) AS TOTAL_VENTAS_IVA
     FROM ${ventasSub()} d
     WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
     GROUP BY CAST(d.FECHA AS DATE) ORDER BY 1
   `
     : `
-    SELECT CAST(d.FECHA AS DATE) AS DIA, COUNT(*) AS FACTURAS, COALESCE(SUM(d.IMPORTE_NETO), 0) AS TOTAL_VENTAS
+    SELECT CAST(d.FECHA AS DATE) AS DIA, COUNT(*) AS FACTURAS,
+      COALESCE(SUM(d.IMPORTE_NETO), 0) AS TOTAL_VENTAS,
+      COALESCE(SUM(d.IMPORTE_NETO_BRUTO), 0) AS TOTAL_VENTAS_IVA
     FROM ${ventasSub(tipo)} d
     WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
     GROUP BY CAST(d.FECHA AS DATE) ORDER BY 1
@@ -2350,6 +2370,9 @@ get('/api/ventas/diarias', async (req) => {
         VENTAS_VE: tipo === 'VE' ? (r.TOTAL_VENTAS || 0) : 0,
         VENTAS_PV: tipo === 'PV' ? (r.TOTAL_VENTAS || 0) : 0,
         TOTAL_VENTAS: r.TOTAL_VENTAS || 0,
+        VENTAS_VE_IVA: tipo === 'VE' ? (r.TOTAL_VENTAS_IVA || 0) : 0,
+        VENTAS_PV_IVA: tipo === 'PV' ? (r.TOTAL_VENTAS_IVA || 0) : 0,
+        TOTAL_VENTAS_IVA: r.TOTAL_VENTAS_IVA || 0,
       }));
     }
     return rows || [];

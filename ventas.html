@@ -743,6 +743,7 @@ async function loadResumen() {
   try {
     const d = await fwt(buildApiUrl('/api/ventas/resumen', tipoQ()), {});
     const hoy=+(d.HOY||0), mes=+(d.MES_ACTUAL||0), docs=+(d.FACTURAS_MES||0), remMes=+(d.REMISIONES_MES||0);
+    const hoyIva=+(d.HOY_IVA||0), mesIva=+(d.MES_ACTUAL_IVA||0), remMesIva=+(d.REMISIONES_MES_IVA||0);
     const diasCal = new Date().getDate();
     const bloq = ventasMetaBloqueadasPorTipo();
     const nV = getVendedoresEnContexto(metas);
@@ -753,9 +754,13 @@ async function loadResumen() {
     const laborMes = countLaborDaysMonthToDate(new Date());
     const denomIdealMes = Math.max(idealDia * laborMes, 1);
     setText('kpi-hoy', fmt(hoy));
-    setText('kpi-hoy-sub', bloq ? 'Meta equipo no aplica (solo PV)' : `Meta equipo (día laboral): ${fmtK(metaDia)}`);
+    if (bloq) {
+      setText('kpi-hoy-sub', 'Meta equipo no aplica (solo PV)');
+    } else {
+      setText('kpi-hoy-sub', `Meta equipo (día laboral): ${fmtK(metaDia)}${hoyIva>0.005 ? ` · c/IVA: ${fmt(hoyIva)}` : ''}`);
+    }
     setText('kpi-mes', fmt(mes));
-    setText('kpi-mes-sub', `${docs} docs · meta ideal acum. (${laborMes} d. lab.) · remisiones: ${fmtK(remMes)}`);
+    setText('kpi-mes-sub', `${docs} docs · meta ideal acum. (${laborMes} d. lab.) · remisiones: ${fmtK(remMes)}${remMesIva>0.005 ? ` (c/IVA: ${fmtK(remMesIva)})` : ''}${mesIva>0.005 ? ` · Mes c/IVA: ${fmt(mesIva)}` : ''}`);
     setText('kpi-facturas', docs.toLocaleString());
     setText('kpi-prom', fmtK(diasCal>0?mes/diasCal:0));
     setText('kpi-prom-sub', `${diasCal} días calendario del mes`);
