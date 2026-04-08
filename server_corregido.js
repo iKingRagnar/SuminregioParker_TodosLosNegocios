@@ -3291,10 +3291,84 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
   }
   const f = buildFiltros(rq, 'd');
   const cotiOpts = await cotizacionSqlOpts(dbOpts);
-  const cotiSub = cotizacionesSub(getCotizacionesTipo(rq), cotiOpts);
   const omitCxc = String((req && req.query && req.query.omitCxc) || '').trim() === '1';
-  /* Cotizaciones suelen ir después en la cola Firebird; un tope mayor evita [{}] y KPI en 0 con ventas OK. */
+  /* Cotizaciones: mismo criterio que /api/ventas/cotizaciones/resumen — VE y PV por separado (UNION+ligas PV timeout → no anular todo). */
   const cotiMs = Math.min(180000, Math.max(qms, 95000));
+  const cotiPromise = (async () => {
+    const qr = { query: { ...rq.query } };
+    if (!qr.query.desde && !qr.query.hasta && qr.query.anio && qr.query.mes) {
+      const y = parseInt(String(qr.query.anio || ''), 10);
+      const m = parseInt(String(qr.query.mes || ''), 10);
+      if (Number.isFinite(y) && Number.isFinite(m) && m >= 1 && m <= 12) {
+        qr.query.desde = `${y}-${String(m).padStart(2, '0')}-01`;
+        qr.query.hasta = lastDayOfMonth(y, m);
+      }
+    }
+    const imp = sqlCotiImporteExpr('d');
+    const wVe = sqlWhereCotizacionComoVenta('d', 'VE');
+    const wPv = sqlWhereCotizacionComoVenta('d', 'PV');
+    const feVe = cotiOpts.sqlFeVe || 'd.FECHA';
+    const fePv = cotiOpts.sqlFePv || 'd.FECHA';
+    const fVe = buildFiltros(qr, 'd', { fechaExpr: feVe });
+    const fPv = buildFiltros(qr, 'd', { fechaExpr: fePv });
+    const t = Math.min(180000, Math.max(cotiMs, 120000));
+    const veSql = `
+      SELECT
+        SUM(CASE WHEN CAST(${feVe} AS DATE) = CURRENT_DATE THEN ${imp} ELSE 0 END) AS HOY,
+        COALESCE(SUM(${imp}), 0) AS MES_ACTUAL,
+        COUNT(*) AS COTIZACIONES_MES,
+        COUNT(CASE WHEN CAST(${feVe} AS DATE) = CURRENT_DATE THEN 1 END) AS COTIZACIONES_HOY
+      FROM DOCTOS_VE d
+      WHERE (${wVe})${String(cotiOpts.vigenciaVeSuffix || '')} ${fVe.sql}
+    `;
+    const pvSql = `
+      SELECT
+        SUM(CASE WHEN CAST(${fePv} AS DATE) = CURRENT_DATE THEN ${imp} ELSE 0 END) AS HOY,
+        COALESCE(SUM(${imp}), 0) AS MES_ACTUAL,
+        COUNT(*) AS COTIZACIONES_MES,
+        COUNT(CASE WHEN CAST(${fePv} AS DATE) = CURRENT_DATE THEN 1 END) AS COTIZACIONES_HOY
+      FROM DOCTOS_PV d
+      WHERE (${wPv}) ${fPv.sql}
+    `;
+    const cotiTipo = getCotizacionesTipo(rq);
+    let merged;
+    if (cotiTipo === 'VE') {
+      const veRows = await query(veSql, fVe.params, t, dbOpts).catch((err) => {
+        console.error('[director/snapshot][coti VE]', err && (err.message || err));
+        return [];
+      });
+      merged = normalizeCotizacionResumenRow(veRows[0]);
+    } else if (cotiTipo === 'PV') {
+      const pvRows = await query(pvSql, fPv.params, t, dbOpts).catch((err) => {
+        console.error('[director/snapshot][coti PV]', err && (err.message || err));
+        return [];
+      });
+      merged = normalizeCotizacionResumenRow(pvRows[0]);
+    } else {
+      const [veRows, pvRows] = await Promise.all([
+        query(veSql, fVe.params, t, dbOpts).catch((err) => {
+          console.error('[director/snapshot][coti VE]', err && (err.message || err));
+          return [];
+        }),
+        query(pvSql, fPv.params, t, dbOpts).catch((err) => {
+          console.error('[director/snapshot][coti PV]', err && (err.message || err));
+          return [];
+        }),
+      ]);
+      merged = mergeCotizacionResumenRows([
+        normalizeCotizacionResumenRow(veRows[0]),
+        normalizeCotizacionResumenRow(pvRows[0]),
+      ]);
+    }
+    return [
+      {
+        IMPORTE_COTI_HOY: merged.HOY,
+        IMPORTE_COTI_MES: merged.MES_ACTUAL,
+        COTI_HOY: merged.COTIZACIONES_HOY,
+        COTI_MES: merged.COTIZACIONES_MES,
+      },
+    ];
+  })();
   const [vRow, remRow, cxcSnap, coRow] = await Promise.all([
     query(`
       SELECT
@@ -3316,15 +3390,7 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
     omitCxc
       ? Promise.resolve({ resumen: { SALDO_TOTAL: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: 0, VENCIDO: 0, POR_VENCER: 0 }, aging: {} })
       : cxcResumenAgingUnificado(rq, dbOpts, qms).catch(() => ({ resumen: { SALDO_TOTAL: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: 0, VENCIDO: 0, POR_VENCER: 0 }, aging: {} })),
-    query(`
-      SELECT
-        SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN ${sqlCotiImporteExpr('d')} ELSE 0 END) AS IMPORTE_COTI_HOY,
-        COALESCE(SUM(${sqlCotiImporteExpr('d')}), 0) AS IMPORTE_COTI_MES,
-        SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 ELSE 0 END) AS COTI_HOY,
-        COUNT(*) AS COTI_MES
-      FROM ${cotiSub} d
-      WHERE 1=1 ${f.sql}
-    `, f.params, cotiMs, dbOpts).catch(() => [{}]),
+    cotiPromise,
   ]);
   const v = vRow[0] || {};
   const rem = remRow[0] || {};

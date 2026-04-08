@@ -580,7 +580,7 @@ async function loadAll() {
     };
     const [dirRes, cxcRes, metasRes] = await Promise.allSettled([
       dbgWrap('director/resumen', fetchJson(buildApiUrl('/api/director/resumen', 'omitCxc=1'), {}, tDir)),
-      dbgWrap('cxc/resumen-aging', fetchJson(buildApiUrl('/api/cxc/resumen-aging','queryMs=120000'), {}, tDir)),
+      dbgWrap('cxc/resumen-aging', fetchJson(buildApiUrl('/api/cxc/resumen-aging','queryMs=180000'), {}, tDir)),
       dbgWrap('config/metas', fetchJson(buildApiUrl('/api/config/metas'), {}, tDir)),
     ]);
     const dir = (dirRes.status === 'fulfilled' && dirRes.value && typeof dirRes.value === 'object') ? dirRes.value : {};
