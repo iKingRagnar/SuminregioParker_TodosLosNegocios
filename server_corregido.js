@@ -1747,27 +1747,8 @@ function consumosSubSql(tipo = '', parts) {
   const fePv = p.feExprPv || 'd.FECHA';
   const veQty = p.veQty || 'UNIDADES';
   const pvQty = p.pvQty || 'UNIDADES';
-  /**
-   * Consumos (detalle) puede traer importes con IVA incluido dependiendo del campo detectado.
-   * Para alinear contra reportes que comparan "sin IVA", aplicamos el mismo divisor global
-   * salvo que el nombre del campo sugiera que ya es NETO (p.ej. IMPORTE_NETO).
-   *
-   * Override opcional: MICROSIP_CONSUMOS_IMPORTE_DIVISOR (ej. 1.16). Si <= 1, no divide.
-   */
-  const _cDivEnv = parseFloat(process.env.MICROSIP_CONSUMOS_IMPORTE_DIVISOR);
-  const CONSUMOS_IMPORTE_DIVISOR =
-    Number.isFinite(_cDivEnv) && _cDivEnv >= 0.0001 ? _cDivEnv : VENTAS_SIN_IVA_DIVISOR;
-  function consumosImporteExpr(detAlias, amtCol) {
-    if (!amtCol) return '0';
-    const col = String(amtCol).toUpperCase();
-    const base = `COALESCE(${detAlias}.${amtCol}, 0)`;
-    const looksNet = col.includes('NETO');
-    if (looksNet) return base;
-    if (CONSUMOS_IMPORTE_DIVISOR <= 1.00001) return base;
-    return `(${base} / CAST(${CONSUMOS_IMPORTE_DIVISOR} AS DOUBLE PRECISION))`;
-  }
-  const veImp = consumosImporteExpr('det', p.veAmt);
-  const pvImp = consumosImporteExpr('det', p.pvAmt);
+  const veImp = p.veAmt ? `COALESCE(det.${p.veAmt}, 0)` : '0';
+  const pvImp = p.pvAmt ? `COALESCE(det.${p.pvAmt}, 0)` : '0';
   const strictVentas = (process.env.MICROSIP_CONSUMOS_FILTRO_VENTAS_SUB || '').match(/^(1|true|yes)$/i);
   const inclRem = (process.env.MICROSIP_CONSUMOS_INCLUYE_REMISIONES || '').match(/^(1|true|yes)$/i);
   const tiposDoc = inclRem ? "('V', 'F')" : "('F')";
@@ -1838,20 +1819,8 @@ function consumosSubSqlWithLookback(tipo = '', parts, limitDays) {
   const fePv = p.feExprPv || 'd.FECHA';
   const veQty = p.veQty || 'UNIDADES';
   const pvQty = p.pvQty || 'UNIDADES';
-  const _cDivEnv = parseFloat(process.env.MICROSIP_CONSUMOS_IMPORTE_DIVISOR);
-  const CONSUMOS_IMPORTE_DIVISOR =
-    Number.isFinite(_cDivEnv) && _cDivEnv >= 0.0001 ? _cDivEnv : VENTAS_SIN_IVA_DIVISOR;
-  function consumosImporteExpr(detAlias, amtCol) {
-    if (!amtCol) return '0';
-    const col = String(amtCol).toUpperCase();
-    const base = `COALESCE(${detAlias}.${amtCol}, 0)`;
-    const looksNet = col.includes('NETO');
-    if (looksNet) return base;
-    if (CONSUMOS_IMPORTE_DIVISOR <= 1.00001) return base;
-    return `(${base} / CAST(${CONSUMOS_IMPORTE_DIVISOR} AS DOUBLE PRECISION))`;
-  }
-  const veImp = consumosImporteExpr('det', p.veAmt);
-  const pvImp = consumosImporteExpr('det', p.pvAmt);
+  const veImp = p.veAmt ? `COALESCE(det.${p.veAmt}, 0)` : '0';
+  const pvImp = p.pvAmt ? `COALESCE(det.${p.pvAmt}, 0)` : '0';
   const strictVentas = (process.env.MICROSIP_CONSUMOS_FILTRO_VENTAS_SUB || '').match(/^(1|true|yes)$/i);
   const inclRem = (process.env.MICROSIP_CONSUMOS_INCLUYE_REMISIONES || '').match(/^(1|true|yes)$/i);
   const tiposDoc = inclRem ? "('V', 'F')" : "('F')";
