@@ -2197,6 +2197,16 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
     req.query.mes = now.getMonth() + 1;
   }
   const run = async (dbo) => {
+    // Optimización: si el filtro viene como anio+mes (sin rango), materializarlo a desde/hasta
+    // para que Firebird use índice de FECHA y evitar escaneo con EXTRACT() en tablas grandes.
+    if (!req.query.desde && !req.query.hasta && req.query.anio && req.query.mes) {
+      const y = parseInt(String(req.query.anio || ''), 10);
+      const m = parseInt(String(req.query.mes || ''), 10);
+      if (Number.isFinite(y) && Number.isFinite(m) && m >= 1 && m <= 12) {
+        req.query.desde = `${y}-${String(m).padStart(2, '0')}-01`;
+        req.query.hasta = lastDayOfMonth(y, m);
+      }
+    }
     const f = buildFiltros(req, 'd');
     const cotiOpts = await cotizacionSqlOpts(dbo);
     const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
@@ -2210,7 +2220,7 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
       COUNT(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 END) AS COTIZACIONES_HOY
     FROM ${cotiSub} d
     WHERE 1=1 ${f.sql}
-  `, f.params, 120000, dbo).catch((err) => {
+  `, f.params, 180000, dbo).catch((err) => {
       console.error('[cotizaciones/resumen]', err && (err.message || err));
       return [];
     });
