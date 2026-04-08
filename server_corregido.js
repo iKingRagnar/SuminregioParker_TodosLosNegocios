@@ -2242,7 +2242,7 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
         console.error('[cotizaciones/resumen][VE]', err && (err.message || err));
         return [];
       }),
-      query(pvSql, fPv.params, 90000, dbo).catch((err) => {
+      query(pvSql, fPv.params, 120000, dbo).catch((err) => {
         console.error('[cotizaciones/resumen][PV]', err && (err.message || err));
         return [];
       }),
@@ -7253,52 +7253,76 @@ get('/api/debug/schema', async () => {
   return out;
 });
 
-/** Diagnóstico: qué TIPO_DOCTO hay en cabeceras (no canceladas) + conteo vía macro cotizacionesSub. ?db= igual que el tablero. */
+/** Diagnóstico: TIPO_DOCTO reciente + totales cotización (VE y PV por separado, sin UNION/ligas). ?db= & ?dias=30-800 (default 400). */
 get('/api/debug/cotizaciones-tipos', async (req) => {
   const dbo = getReqDbOpts(req);
+  const dias = Math.min(800, Math.max(30, parseInt(String(req.query.dias || '400'), 10) || 400));
+  const cotiOpts = await cotizacionSqlOpts(dbo);
+  const feVe = cotiOpts.sqlFeVe || 'd.FECHA';
+  const fePv = cotiOpts.sqlFePv || 'd.FECHA';
+  const wVe = sqlWhereCotizacionComoVenta('d', 'VE');
+  const wPv = sqlWhereCotizacionComoVenta('d', 'PV');
+  const imp = sqlCotiImporteExpr('d');
+  const vig = String(cotiOpts.vigenciaVeSuffix || '');
+  const dateVe = `CAST(${feVe} AS DATE) >= (CURRENT_DATE - ${dias})`;
+  const datePv = `CAST(${fePv} AS DATE) >= (CURRENT_DATE - ${dias})`;
+
   const sqlVe = `
-    SELECT TRIM(CAST(TIPO_DOCTO AS VARCHAR(40))) AS T, COUNT(*) AS N
-    FROM DOCTOS_VE
-    WHERE COALESCE(ESTATUS, 'N') <> 'C'
-    GROUP BY TRIM(CAST(TIPO_DOCTO AS VARCHAR(40)))
+    SELECT TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40))) AS T, COUNT(*) AS N
+    FROM DOCTOS_VE d
+    WHERE COALESCE(d.ESTATUS, 'N') <> 'C' AND ${dateVe}
+    GROUP BY TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40)))
     ORDER BY N DESC
   `;
   const sqlPv = `
-    SELECT TRIM(CAST(TIPO_DOCTO AS VARCHAR(40))) AS T, COUNT(*) AS N
-    FROM DOCTOS_PV
-    WHERE COALESCE(ESTATUS, 'N') <> 'C'
-    GROUP BY TRIM(CAST(TIPO_DOCTO AS VARCHAR(40)))
+    SELECT TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40))) AS T, COUNT(*) AS N
+    FROM DOCTOS_PV d
+    WHERE COALESCE(d.ESTATUS, 'N') <> 'C' AND ${datePv}
+    GROUP BY TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40)))
     ORDER BY N DESC
   `;
-  const [ve, pv] = await Promise.all([
-    query(sqlVe, [], 45000, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) })),
-    query(sqlPv, [], 45000, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) })),
+  const macroVeSql = `
+    SELECT COUNT(*) AS DOCS, COALESCE(SUM(${imp}), 0) AS IMPORTE_SUM
+    FROM DOCTOS_VE d
+    WHERE (${wVe})${vig} AND ${dateVe}
+  `;
+  const macroPvSql = `
+    SELECT COUNT(*) AS DOCS, COALESCE(SUM(${imp}), 0) AS IMPORTE_SUM
+    FROM DOCTOS_PV d
+    WHERE (${wPv}) AND ${datePv}
+  `;
+
+  const [ve, pv, veMacroRows, pvMacroRows] = await Promise.all([
+    query(sqlVe, [], 60000, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) })),
+    query(sqlPv, [], 90000, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) })),
+    query(macroVeSql, [], 90000, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) })),
+    query(macroPvSql, [], 90000, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) })),
   ]);
-  let macro = null;
-  try {
-    const cotiOpts = await cotizacionSqlOpts(dbo);
-    const cotiSub = cotizacionesSub('', cotiOpts);
-    const ci = sqlCotiImporteExpr('d');
-    const rows = await query(
-      `
-      SELECT COUNT(*) AS DOCS, COALESCE(SUM(${ci}), 0) AS IMPORTE_SUM
-      FROM ${cotiSub} d
-      WHERE CAST(d.FECHA AS DATE) >= (CURRENT_DATE - 400)
-    `,
-      [],
-      90000,
-      dbo,
-    );
-    macro = rows[0] || {};
-  } catch (e) {
-    macro = { error: String(e && e.message ? e.message : e) };
+
+  const veErr = veMacroRows && veMacroRows.error;
+  const pvErr = pvMacroRows && pvMacroRows.error;
+  const v1 = !veErr ? veMacroRows[0] || {} : {};
+  const v2 = !pvErr ? pvMacroRows[0] || {} : {};
+  const macro = {
+    DOCS: (+v1.DOCS || 0) + (+v2.DOCS || 0),
+    IMPORTE_SUM: (+v1.IMPORTE_SUM || 0) + (+v2.IMPORTE_SUM || 0),
+    por_fuente: {
+      ve: veErr ? { error: veErr } : v1,
+      pv: pvErr ? { error: pvErr } : v2,
+    },
+  };
+  if (veErr || pvErr) {
+    const parts = [veErr, pvErr].filter(Boolean);
+    if (parts.length) macro.error = parts.join(' | ');
   }
+
   return {
     ve_tipos: ve,
     pv_tipos: pv,
+    ventana_dias: dias,
     macro_cotizaciones_ult_400d: macro,
     nota:
-      'Si ve_tipos no muestra C/O/Q/P pero IMPORTE_SUM>0 con el fallback, el KPI debería llenarse. MICROSIP_COTIZACION_SOLO_TIPO_MARCADO=1 desactiva el fallback amplio.',
+      'Conteos por TIPO_DOCTO y macro usan la misma ventana de días (default 400; ?dias=). Evita escanear toda DOCTOS_PV. Resumen KPI suma VE+PV por separado; si PV timeout, VE sigue llenando. MICROSIP_COTIZACION_SOLO_TIPO_MARCADO=1 desactiva el fallback amplio.',
   };
 });
 
