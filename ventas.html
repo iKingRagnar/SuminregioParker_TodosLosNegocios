@@ -542,8 +542,9 @@ async function loadConversion(){
   const setH  =(id,v)=>{const e=document.getElementById(id);if(e)e.innerHTML=v;};
   const cy=()=>cssVar('--chart-yellow','#d97706');
   const cyFill=()=>cssVar('--chart-yellow-fill','rgba(217,119,6,.28)');
+  let insightOk = false;
   try{
-    const data = await fetchJsonAbort(buildApiUrl('/api/ventas/vs-cotizaciones', 'meses=6' + tipoQ()), {}, 120000).catch(()=>({}));
+    const data = await fetchJsonAbort(buildApiUrl('/api/ventas/vs-cotizaciones', 'meses=6' + tipoQ()), {}, 180000).catch(()=>({}));
     const ventasArr = Array.isArray(data.ventas) ? data.ventas : [];
     const cotiArr   = Array.isArray(data.cotizaciones) ? data.cotizaciones : [];
     if(!ventasArr.length && !cotiArr.length){
@@ -556,6 +557,7 @@ async function loadConversion(){
       setH('cv-insight', '<span style="color:var(--muted)">Sin datos de cotizaciones y ventas mensuales en los últimos 6 meses para este filtro (o la API no respondió). Revisa periodo, empresa o conexión.</span>');
       const ctx0=document.getElementById('chartConversion');
       if(ctx0&&chartConvInst){chartConvInst.destroy();chartConvInst=null;}
+      insightOk = true;
       return;
     }
 
@@ -609,6 +611,7 @@ async function loadConversion(){
       : `<span style="color:var(--red)">&#8595; baja en el &#250;ltimo mes (${lastTasa}% vs ${prevTasa}% anterior)</span>.`;
     setH('cv-insight', msg+' Tendencia reciente: '+tendMsg
       +`<br><span style="color:var(--muted)">Total 6 meses: ${fmtK(totCoti)} cotizado, ${fmtK(totVen)} vendido (${numCoti} cotizaciones, ${numVen} facturas)</span>`);
+    insightOk = true;
 
     // Chart
     const ctx = document.getElementById('chartConversion');
@@ -641,6 +644,23 @@ async function loadConversion(){
     setTxt('cv-tasa', '—');
     setTxt('cv-tasa-docs', '—');
     setH('cv-insight', '<span style="color:var(--muted)">No se pudo cargar la conversión. Revisa la consola o reintenta más tarde.</span>');
+    insightOk = true;
+  } finally {
+    if (!insightOk) {
+      const cv = document.getElementById('cv-insight');
+      if (cv && /Cargando conversi/i.test(cv.textContent || '')) {
+        setH('cv-insight', '<span style="color:var(--muted)">La conversión no terminó a tiempo. Reintenta o reduce la carga (otras pestañas / filtros).</span>');
+      }
+      const el = document.getElementById('cv-total-coti');
+      if (el && el.textContent === '?') {
+        setTxt('cv-total-coti', fmtK(0));
+        setTxt('cv-num-coti', '—');
+        setTxt('cv-total-ventas', fmtK(0));
+        setTxt('cv-num-ventas', '—');
+        setTxt('cv-tasa', '—');
+        setTxt('cv-tasa-docs', '—');
+      }
+    }
   }
 }
 
@@ -737,7 +757,10 @@ async function loadAll() {
     setText('kc-meta', bloq ? '—' : fmtK(metaCDia));
   } catch(e){}
 
-  await Promise.all([loadResumen(), loadSplit(), loadDiarias(), loadMensuales(), loadVendedores(), loadClientes(), loadCotizaciones(), loadRecientes(), loadConversion()]);
+  // Cotizaciones + conversión aparte: menos contienda en Firebird/Render (antes 9 rutas en paralelo).
+  await Promise.all([loadResumen(), loadSplit(), loadDiarias(), loadMensuales(), loadVendedores(), loadClientes(), loadRecientes()]);
+  await loadCotizaciones();
+  await loadConversion();
   const params = window.filterGetParams ? filterGetParams() : {};
   const labelParts = [];
   if(params.desde && params.hasta) labelParts.push(params.desde === params.hasta ? params.desde : `${params.desde} – ${params.hasta}`);

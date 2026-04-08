@@ -2267,7 +2267,7 @@ function firstQueryVal(q) {
   return String(q).trim();
 }
 
-/** Normaliza fecha de fila Firebird/driver a YYYY-MM-DD para JSON estable en el front. */
+/** Normaliza fecha de fila Firebird/driver a YYYY-MM-DD (node-firebird suele usar Date; a veces objeto o string). */
 function sqlRowDateToIso(v) {
   if (v == null || v === '') return null;
   try {
@@ -2279,6 +2279,14 @@ function sqlRowDateToIso(v) {
         '-' +
         String(v.getDate()).padStart(2, '0')
       );
+    }
+    if (typeof v === 'object' && v !== null && !(v instanceof Buffer)) {
+      const y = +(v.year != null ? v.year : v.YEAR);
+      const mo = +(v.month != null ? v.month : v.MONTH);
+      const da = +(v.day != null ? v.day : v.DAY != null ? v.DAY : v.date);
+      if (Number.isFinite(y) && Number.isFinite(mo) && Number.isFinite(da) && mo >= 1 && mo <= 12 && da >= 1 && da <= 31) {
+        return `${y}-${String(mo).padStart(2, '0')}-${String(da).padStart(2, '0')}`;
+      }
     }
   } catch (_) {}
   const s = String(v).trim();
@@ -2602,17 +2610,15 @@ get('/api/ventas/cotizaciones/diarias', async (req) => {
       const [ve, pv] = await Promise.all([qSub(cotizacionesSub('VE', cotiOpts)), qSub(cotizacionesSub('PV', cotiOpts))]);
       rows = mergeDiariasCotizVePv(ve, pv);
     }
-    return (rows || [])
-      .map((r) => {
-        const iso = sqlRowDateToIso(r.DIA);
-        if (!iso) return null;
-        return {
-          DIA: iso,
-          COTIZACIONES: +(r.COTIZACIONES || 0),
-          TOTAL_COTIZACIONES: +(r.TOTAL_COTIZACIONES || 0) || 0,
-        };
-      })
-      .filter(Boolean);
+    // No filtrar filas: si sqlRowDateToIso falla, conservar DIA crudo (Express serializa Date → ISO).
+    return (rows || []).map((r) => {
+      const iso = sqlRowDateToIso(r.DIA);
+      return {
+        DIA: iso != null ? iso : r.DIA,
+        COTIZACIONES: +(r.COTIZACIONES || 0),
+        TOTAL_COTIZACIONES: +(r.TOTAL_COTIZACIONES || 0) || 0,
+      };
+    });
   };
   if (isAllDbs(req)) {
     const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
@@ -2840,7 +2846,7 @@ get('/api/ventas/vs-cotizaciones', async (req) => {
   const run = async (dbo) => {
     const cotiOpts = await cotizacionSqlOpts(dbo);
     const ci = sqlCotiImporteExpr('d');
-    const tMs = 60000;
+    const tMs = 120000;
     const tipoPanel = getCotizacionesTipo(req);
     const qCotiSub = (sub) =>
       query(
