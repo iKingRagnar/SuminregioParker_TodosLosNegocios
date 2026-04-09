@@ -7663,7 +7663,12 @@ get('/api/debug/doctos-probe', async (req) => {
   if (veMax > 0) {
     await step('ve_by_pk', async () => {
       const r = await query(
-        'SELECT d.DOCTO_VE_ID, d.FOLIO, TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40))) AS TIPO_DOCTO, TRIM(CAST(COALESCE(d.ESTATUS,\\'N\\') AS VARCHAR(8))) AS ESTATUS, CAST(d.FECHA AS DATE) AS FECHA_D FROM DOCTOS_VE d WHERE d.DOCTO_VE_ID = ?',
+        `SELECT d.DOCTO_VE_ID, d.FOLIO,
+          TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40))) AS TIPO_DOCTO,
+          TRIM(CAST(COALESCE(d.ESTATUS,'N') AS VARCHAR(8))) AS ESTATUS,
+          CAST(d.FECHA AS DATE) AS FECHA_D
+        FROM DOCTOS_VE d
+        WHERE d.DOCTO_VE_ID = ?`,
         [veMax],
         ms,
         dbo,
@@ -7694,7 +7699,12 @@ get('/api/debug/doctos-probe', async (req) => {
     if (pvMax > 0) {
       await step('pv_by_pk', async () => {
         const r = await query(
-          'SELECT d.DOCTO_PV_ID, d.FOLIO, TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40))) AS TIPO_DOCTO, TRIM(CAST(COALESCE(d.ESTATUS,\\'N\\') AS VARCHAR(8))) AS ESTATUS, CAST(d.FECHA AS DATE) AS FECHA_D FROM DOCTOS_PV d WHERE d.DOCTO_PV_ID = ?',
+          `SELECT d.DOCTO_PV_ID, d.FOLIO,
+            TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40))) AS TIPO_DOCTO,
+            TRIM(CAST(COALESCE(d.ESTATUS,'N') AS VARCHAR(8))) AS ESTATUS,
+            CAST(d.FECHA AS DATE) AS FECHA_D
+          FROM DOCTOS_PV d
+          WHERE d.DOCTO_PV_ID = ?`,
           [pvMax],
           ms,
           dbo,
