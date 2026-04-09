@@ -7607,6 +7607,20 @@ get('/api/debug/schema', async () => {
   return out;
 });
 
+/** Lista de bases disponibles para ?db= (id/label + archivo). */
+get('/api/debug/dbs', async (req) => {
+  return {
+    ok: true,
+    count: DATABASE_REGISTRY.length,
+    dbs: DATABASE_REGISTRY.map((d) => ({
+      id: d.id,
+      label: d.label || d.id,
+      file: path.basename((d.options && d.options.database) || ''),
+    })),
+    nota: 'Usa el campo id en ?db=. label es solo informativo para humanos.',
+  };
+});
+
 /**
  * Diagnóstico ultra-ligero Firebird: valida si el cuello es ATTACH/red vs tablas grandes.
  * Ejecuta una consulta mínima a RDB$DATABASE con timeout configurable (?ms=).
