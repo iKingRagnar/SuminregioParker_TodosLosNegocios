@@ -134,6 +134,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   function buildQS(extras, opts) {
     const p = Object.assign({}, getParams(), (extras && typeof extras === 'object') ? extras : {});
     if (opts && opts.omitVendedor) delete p.vendedor;
+    if (opts && opts.omitCliente) delete p.cliente;
     if (opts && opts.omitExecutiveDrilldown) {
       delete p.cliente;
       delete p.vendedor;

@@ -2350,12 +2350,13 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
       WHERE (${wPv}) ${fPv.sql}
     `;
 
+    const cotiResumenMs = 240000;
     const [veRows, pvRows] = await Promise.all([
-      query(veSql, fVe.params, 120000, dbo).catch((err) => {
+      query(veSql, fVe.params, cotiResumenMs, dbo).catch((err) => {
         console.error('[cotizaciones/resumen][VE]', err && (err.message || err));
         return [];
       }),
-      query(pvSql, fPv.params, 120000, dbo).catch((err) => {
+      query(pvSql, fPv.params, cotiResumenMs, dbo).catch((err) => {
         console.error('[cotizaciones/resumen][PV]', err && (err.message || err));
         return [];
       }),
@@ -2561,13 +2562,13 @@ get('/api/ventas/cotizaciones/diarias', async (req) => {
     fechaParams = [desdeStr];
   }
 
-  let queryMs = 120000;
+  let queryMs = 180000;
   if (fechaParams.length === 2) {
     const dA = new Date(String(fechaParams[0]) + 'T12:00:00');
     const dB = new Date(String(fechaParams[1]) + 'T12:00:00');
     if (!isNaN(dA.getTime()) && !isNaN(dB.getTime())) {
       const span = Math.abs(Math.ceil((dB - dA) / 86400000)) + 1;
-      if (span > 62) queryMs = 180000;
+      if (span > 62) queryMs = 240000;
     }
   }
 
@@ -2765,7 +2766,7 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
   const run = async (dbo) => {
     const cotiOpts = await cotizacionSqlOpts(dbo);
     const ci = sqlCotiImporteExpr('d');
-    const t = 120000;
+    const t = 240000;
     const tipoPanel = getCotizacionesTipo(req);
     const qSub = (sub) =>
       query(
