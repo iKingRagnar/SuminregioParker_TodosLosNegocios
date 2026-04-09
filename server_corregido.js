@@ -7764,6 +7764,39 @@ get('/api/debug/doctos-meta', async (req) => {
   };
 });
 
+/** Buscar CLIENTE_ID por nombre (para alinear WEB vs PBI sin adivinar IDs). */
+get('/api/debug/clientes-buscar', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const termRaw = String(req.query.q || '').trim();
+  if (!termRaw) return { ok: false, error: 'Parámetro requerido: q=' };
+  const q = termRaw.slice(0, 80);
+  const limit = Math.min(50, Math.max(5, parseInt(String(req.query.limit || '25'), 10) || 25));
+  const ms = Math.min(120000, Math.max(5000, parseInt(String(req.query.ms || '15000'), 10) || 15000));
+  const rows = await query(
+    `
+    SELECT FIRST ${limit}
+      c.CLIENTE_ID,
+      TRIM(COALESCE(c.NOMBRE, '')) AS NOMBRE,
+      TRIM(COALESCE(c.RFC, '')) AS RFC,
+      TRIM(COALESCE(c.TELEFONO1, '')) AS TEL1
+    FROM CLIENTES c
+    WHERE UPPER(COALESCE(c.NOMBRE,'')) LIKE UPPER(?)
+    ORDER BY c.CLIENTE_ID
+  `,
+    [`%${q}%`],
+    ms,
+    dbo,
+  ).catch((e) => ({ error: String(e && e.message ? e.message : e) }));
+  return {
+    ok: true,
+    q,
+    limit,
+    timeout_ms: ms,
+    rows,
+    nota: 'Usa esto para encontrar el CLIENTE_ID (ej. SINDICATO...) y luego probar /api/cxc/resumen-aging?cliente=ID.',
+  };
+});
+
 /** Sonda DOCTOS_VE/DOCTOS_PV: identifica si el atasco es ORDER BY, MAX(), o lectura por PK. */
 get('/api/debug/doctos-probe', async (req) => {
   const dbo = getReqDbOpts(req);
