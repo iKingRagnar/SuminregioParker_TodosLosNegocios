@@ -7776,9 +7776,7 @@ get('/api/debug/clientes-buscar', async (req) => {
     `
     SELECT FIRST ${limit}
       c.CLIENTE_ID,
-      TRIM(COALESCE(c.NOMBRE, '')) AS NOMBRE,
-      TRIM(COALESCE(c.RFC, '')) AS RFC,
-      TRIM(COALESCE(c.TELEFONO1, '')) AS TEL1
+      TRIM(COALESCE(c.NOMBRE, '')) AS NOMBRE
     FROM CLIENTES c
     WHERE UPPER(COALESCE(c.NOMBRE,'')) LIKE UPPER(?)
     ORDER BY c.CLIENTE_ID
