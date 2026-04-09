@@ -538,7 +538,7 @@ function buildApiUrl(path, extraParams) {
  *  cotizaciones_scope=todos: el tab VE/PV añade &tipo=… a ventas; si el servidor usa MICROSIP_COTIZACIONES_RESPETAR_TIPO_PANEL,
  *  sin esto las cotizaciones quedaban solo en un módulo y podían verse en $0 aunque el resumen sume VE+PV. */
 function buildCotiApiUrl(path, extraParams) {
-  const qs    = window.filterBuildQS ? filterBuildQS(undefined, { omitCliente: true }) : '';
+  const qs    = window.filterBuildQS ? filterBuildQS(undefined, { omitCliente: true, omitVendedor: true }) : '';
   const extra = extraParams ? String(extraParams).replace(/^[?&]+/, '') : '';
   const scope = 'cotizaciones_scope=todos';
   const combined = [qs, scope, extra].filter(Boolean).join('&');

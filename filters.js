@@ -158,7 +158,8 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
         /* Misma identidad que ventas/CxC (?db= literal): getSelectedDbId() alias parker→default podía desalinear resumen-aging vs el resto del tablero. */
         db = getDbForCxcApi() || getSelectedDbId();
       } else {
-        db = opts && opts.useCxcDbIdentity ? getDbForCxcApi() : getSelectedDbId();
+        /* useCxcDbIdentity: sin ?db= ni sessionStorage, alinear con chip por defecto (evita director vs resumen-aging en bases distintas). */
+        db = opts && opts.useCxcDbIdentity ? (getDbForCxcApi() || getSelectedDbId()) : getSelectedDbId();
       }
       if (db) p.db = db;
     }

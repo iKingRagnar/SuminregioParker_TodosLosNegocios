@@ -3569,36 +3569,21 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
       FROM DOCTOS_PV d
       WHERE (${wPv}) ${fPv.sql}
     `;
-    const cotiTipo = getCotizacionesTipo(rq);
-    let merged;
-    if (cotiTipo === 'VE') {
-      const veRows = await query(veSql, fVe.params, t, dbOpts).catch((err) => {
+    // Inicio/Director: siempre VE+PV (no usar ?tipo= ni getCotizacionesTipo: residual de Ventas dejaba COTI en 0).
+    const [veRows, pvRows] = await Promise.all([
+      query(veSql, fVe.params, t, dbOpts).catch((err) => {
         console.error('[director/snapshot][coti VE]', err && (err.message || err));
         return [];
-      });
-      merged = normalizeCotizacionResumenRow(veRows[0]);
-    } else if (cotiTipo === 'PV') {
-      const pvRows = await query(pvSql, fPv.params, t, dbOpts).catch((err) => {
+      }),
+      query(pvSql, fPv.params, t, dbOpts).catch((err) => {
         console.error('[director/snapshot][coti PV]', err && (err.message || err));
         return [];
-      });
-      merged = normalizeCotizacionResumenRow(pvRows[0]);
-    } else {
-      const [veRows, pvRows] = await Promise.all([
-        query(veSql, fVe.params, t, dbOpts).catch((err) => {
-          console.error('[director/snapshot][coti VE]', err && (err.message || err));
-          return [];
-        }),
-        query(pvSql, fPv.params, t, dbOpts).catch((err) => {
-          console.error('[director/snapshot][coti PV]', err && (err.message || err));
-          return [];
-        }),
-      ]);
-      merged = mergeCotizacionResumenRows([
-        normalizeCotizacionResumenRow(veRows[0]),
-        normalizeCotizacionResumenRow(pvRows[0]),
-      ]);
-    }
+      }),
+    ]);
+    const merged = mergeCotizacionResumenRows([
+      normalizeCotizacionResumenRow(veRows[0]),
+      normalizeCotizacionResumenRow(pvRows[0]),
+    ]);
     return [
       {
         IMPORTE_COTI_HOY: merged.HOY,
