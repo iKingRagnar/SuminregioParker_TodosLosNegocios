@@ -850,7 +850,7 @@ function renderEvolucion(data){
 }
 
 // Carga inicial inmediata
-initFilters({ containerId:'filter-bar', showVendedor:true, deferApply:true, onReady:()=>loadData(), onChange:()=>loadData() });
+initFilters({ containerId:'filter-bar', showVendedor:true, onReady:()=>loadData(), onChange:()=>loadData() });
 setInterval(loadData, 1800000);
 </script>
 <script src="nav.js"></script>

@@ -874,7 +874,7 @@ function scheduleInvReload() {
 }
 
 if (typeof initFilters === 'function') {
-  initFilters({ containerId:'filter-bar', showVendedor:false, deferApply:true, onReady:function(){ loadAll(); }, onChange:function(){ scheduleInvReload(); } });
+  initFilters({ containerId:'filter-bar', showVendedor:false, onReady:function(){ loadAll(); }, onChange:function(){ scheduleInvReload(); } });
 } else {
   loadAll();
 }

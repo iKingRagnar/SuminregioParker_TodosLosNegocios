@@ -1551,7 +1551,6 @@ async function refreshCxcDbHint(){
       containerId  : 'filter-bar',
       showVendedor : false,
       defaultPreset: 'mes',
-      deferApply   : true,
       // Hint (/api/universe/databases) must not block resumen/vencidas — Render cold starts can stall the hint fetch.
       onReady      : async () => { void refreshCxcDbHint().catch(()=>{}); await ensureClientesFiltro(); await loadAll(); },
       onChange     : async () => { void refreshCxcDbHint().catch(()=>{}); await ensureClientesFiltro(); await loadAll(); },

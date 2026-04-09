@@ -65,10 +65,15 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 .period-btn{font-family:'DM Mono',monospace;font-size:.64rem;padding:.3rem .7rem;border-radius:7px;border:1px solid var(--border2);color:var(--muted);cursor:pointer;background:none;transition:all .2s;letter-spacing:.06em}
 .period-btn:hover{color:var(--text2);border-color:rgba(77,166,255,.3)}
 .period-btn.active{color:var(--suminregio);border-color:rgba(230,168,0,.35);background:var(--suminregio-dim)}
-.pnl-time-stack{display:flex;flex-direction:column;gap:.55rem;margin-bottom:1.1rem}
-.pnl-time-stack #filter-bar{margin-bottom:0}
+.pnl-time-stack{display:flex;flex-direction:row;flex-wrap:wrap;align-items:flex-start;gap:.75rem 1rem;margin-bottom:1.1rem}
+.pnl-time-stack #filter-bar{flex:1 1 320px;min-width:min(100%,260px);margin-bottom:0}
 .month-picker{margin:.65rem 0 1rem;padding:.75rem 1rem;border:1px solid var(--border);border-radius:12px;background:var(--s1)}
-.month-picker--inline{margin:0}
+.month-picker--inline{margin:0;flex:1 1 220px;min-width:min(100%,200px);max-width:min(100%,480px)}
+.pnl-month-inline-title{font-size:.56rem}
+@media(max-width:900px){
+  .pnl-time-stack{flex-direction:column}
+  .month-picker--inline{max-width:100%}
+}
 .month-picker-apply{font-weight:600;border-color:rgba(230,168,0,.45)!important;background:var(--suminregio-dim)!important;color:var(--suminregio)!important}
 .month-picker-head{display:flex;align-items:center;justify-content:space-between;gap:.7rem;flex-wrap:wrap}
 .month-picker-title{font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
@@ -433,7 +438,7 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
     <div id="filter-bar"></div>
     <div class="month-picker month-picker--inline" id="monthPicker" style="display:none">
       <div class="month-picker-head">
-        <div class="month-picker-title">Meses en la vista (mismos datos que arriba; elige y pulsa Aplicar)</div>
+        <div class="month-picker-title pnl-month-inline-title">Subconjunto de meses · elige varios y <strong>Aplicar</strong> (los de arriba siguen al instante)</div>
         <div class="month-dd" id="monthDd">
           <button type="button" class="month-dd-btn" id="monthDdBtn" aria-haspopup="listbox" aria-expanded="false">Seleccionar meses…</button>
           <div class="month-dd-panel" id="monthDdPanel" role="listbox" aria-label="Meses del periodo">
@@ -1808,7 +1813,9 @@ async function loadData(){
     const usp = new URLSearchParams(window.location.search || '');
     const hasMesExplicito = !!((fp && fp.anio && fp.mes) || (usp.get('anio') && usp.get('mes')));
     const hasRangoExplicito = !!((fp && fp.desde && fp.hasta) || (usp.get('desde') && usp.get('hasta')));
-    const shouldExpandYtd = !!(tablaMeses.length && tablaMeses.length < mesFinYtd && !hasMesExplicito && !hasRangoExplicito);
+    // Evita rellenar Ene→mes actual cuando el filtro ya es un año fiscal/calendario (mezcla meses con la ventana del API).
+    const isYearOnlyPreset = !!(fp && (fp.preset === 'anio' || fp.preset === 'anio_ant'));
+    const shouldExpandYtd = !!(tablaMeses.length && tablaMeses.length < mesFinYtd && !hasMesExplicito && !hasRangoExplicito && !isYearOnlyPreset);
 
     if(shouldExpandYtd){
       const ytdUrl=buildPnlApiUrl('/api/resultados/pnl',`anio=${anioRef}`,{omitFilters:true})+'&_='+Date.now();

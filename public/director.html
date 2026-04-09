@@ -1089,7 +1089,7 @@ async function loadRecientes() {
     if (window.syncDbContextFromUrlOrFallback) window.syncDbContextFromUrlOrFallback();
     if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:initFilters'; }
     if (window.initFilters) {
-      initFilters({ containerId:'filter-bar', showVendedor:true, deferApply:true, onReady:()=>loadAll(), onChange:()=>loadAll() });
+      initFilters({ containerId:'filter-bar', showVendedor:true, onReady:()=>loadAll(), onChange:()=>loadAll() });
     } else {
       await loadAll();
     }

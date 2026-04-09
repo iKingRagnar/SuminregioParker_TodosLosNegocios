@@ -1592,7 +1592,7 @@ async function loadRecientes() {
 
 // Carga inicial inmediata — si filters.js falla/no carga, seguimos sin romper la página.
 if (typeof initFilters === 'function') {
-  initFilters({ containerId:'filter-bar', showVendedor:true, showCliente:true, deferApply:true, onReady:()=>loadAll(), onChange:()=>loadAll() });
+  initFilters({ containerId:'filter-bar', showVendedor:true, showCliente:true, onReady:()=>loadAll(), onChange:()=>loadAll() });
 } else {
   const fb = document.getElementById('filter-bar');
   if (fb) fb.innerHTML = '<div style="padding:10px 12px;color:var(--muted);font-size:.75rem;border:1px solid var(--border);border-radius:10px;background:var(--s1)">Filtros no disponibles temporalmente. Cargando ventas con configuración base...</div>';

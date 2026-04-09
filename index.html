@@ -1910,7 +1910,7 @@ function renderChart(data){
     try{ await loadAll(); }catch(_){}
     if(window.initFilters){
       if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='boot:initFilters'; }
-      initFilters({ containerId:'filter-bar', showVendedor:true, deferApply:true, onReady:()=>loadAll(), onChange:()=>loadAll() });
+      initFilters({ containerId:'filter-bar', showVendedor:true, onReady:()=>loadAll(), onChange:()=>loadAll() });
       setTimeout(function(){
         try{
           const started = window.__DBG_STATE ? (+window.__DBG_STATE.loadAllStarted||0) : 0;
