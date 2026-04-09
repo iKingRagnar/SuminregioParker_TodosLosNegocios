@@ -1949,6 +1949,8 @@ function getTipo(req) {
 
 /** Cotizaciones: por defecto siempre VE+PV (evita $0 si el panel está en un solo módulo). MICROSIP_COTIZACIONES_RESPETAR_TIPO_PANEL=1 para acatar `tipo`. */
 function getCotizacionesTipo(req) {
+  const scope = String(req.query.cotizaciones_scope || req.query.coti_scope || '').toLowerCase();
+  if (scope === 'todos' || scope === 'all' || scope === '1') return '';
   if ((process.env.MICROSIP_COTIZACIONES_RESPETAR_TIPO_PANEL || '').match(/^(1|true|yes)$/i)) return getTipo(req);
   return '';
 }
@@ -2759,10 +2761,6 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
     req.query.mes = now.getMonth() + 1;
   }
   const f = buildFiltros(req, 'd');
-  const vid = req.query.vendedor ? parseInt(req.query.vendedor, 10) : null;
-  const vendSql = Number.isFinite(vid) ? ' AND d.VENDEDOR_ID = ?' : '';
-  const params = [...f.params];
-  if (Number.isFinite(vid)) params.push(vid);
   const run = async (dbo) => {
     const cotiOpts = await cotizacionSqlOpts(dbo);
     const ci = sqlCotiImporteExpr('d');
@@ -2781,11 +2779,11 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
       COUNT(*) AS NUM_COTI_MES
     FROM ${sub} d
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
-    WHERE 1=1 ${f.sql} ${vendSql}
+    WHERE 1=1 ${f.sql}
     GROUP BY COALESCE(d.VENDEDOR_ID, 0)
     ORDER BY COTIZACIONES_MES DESC
   `,
-        params,
+        f.params,
         t,
         dbo,
       ).catch((err) => {

@@ -534,11 +534,14 @@ function buildApiUrl(path, extraParams) {
   const combined = [qs, extra].filter(Boolean).join('&');
   return API + path + (combined ? '?' + combined : '');
 }
-/** Cotizaciones (KPIs, gráficas, conversión): no arrastrar ?cliente= del filtro de Ventas — dejaba todo en $0. */
+/** Cotizaciones (KPIs, gráficas, conversión): no arrastrar ?cliente= del filtro de Ventas — dejaba todo en $0.
+ *  cotizaciones_scope=todos: el tab VE/PV añade &tipo=… a ventas; si el servidor usa MICROSIP_COTIZACIONES_RESPETAR_TIPO_PANEL,
+ *  sin esto las cotizaciones quedaban solo en un módulo y podían verse en $0 aunque el resumen sume VE+PV. */
 function buildCotiApiUrl(path, extraParams) {
   const qs    = window.filterBuildQS ? filterBuildQS(undefined, { omitCliente: true }) : '';
   const extra = extraParams ? String(extraParams).replace(/^[?&]+/, '') : '';
-  const combined = [qs, extra].filter(Boolean).join('&');
+  const scope = 'cotizaciones_scope=todos';
+  const combined = [qs, scope, extra].filter(Boolean).join('&');
   return API + path + (combined ? '?' + combined : '');
 }
 
