@@ -1633,12 +1633,13 @@ function sqlCotizInnerFechaBounds(feExpr, bounds) {
 function cotizacionesSub(tipo = '', opts = {}, innerBounds = null) {
   const bVe = sqlCotizInnerFechaBounds('h.FECHA', innerBounds);
   const bPv = sqlCotizInnerFechaBounds('h.FECHA', innerBounds);
-  // DAX: SUM(det.UNIDADES * det.PRECIO_UNITARIO) - DSCTO_IMPORTE(encabezado)
+  // Igual que margen: usa PRECIO_TOTAL (pre-calculado por Microsip en cada línea).
+  // PRECIO_TOTAL = UNIDADES × PRECIO_UNITARIO con descuentos de línea aplicados.
+  // No resta DSCTO_IMPORTE de encabezado (columna no garantizada en todas las instalaciones).
   const ve = `
     SELECT
       h.FECHA,
-      (COALESCE(SUM(det.UNIDADES * det.PRECIO_UNITARIO), 0)
-        - COALESCE(MAX(h.DSCTO_IMPORTE), 0)) AS IMPORTE_NETO,
+      COALESCE(SUM(det.PRECIO_TOTAL), 0) AS IMPORTE_NETO,
       COALESCE(h.VENDEDOR_ID, 0) AS VENDEDOR_ID,
       COALESCE(h.CLIENTE_ID,  0) AS CLIENTE_ID,
       h.FOLIO,
@@ -1657,8 +1658,7 @@ function cotizacionesSub(tipo = '', opts = {}, innerBounds = null) {
   const pv = `
     SELECT
       h.FECHA,
-      (COALESCE(SUM(det.UNIDADES * det.PRECIO_UNITARIO), 0)
-        - COALESCE(MAX(h.DSCTO_IMPORTE), 0)) AS IMPORTE_NETO,
+      COALESCE(SUM(det.PRECIO_TOTAL), 0) AS IMPORTE_NETO,
       COALESCE(h.VENDEDOR_ID, 0) AS VENDEDOR_ID,
       COALESCE(h.CLIENTE_ID,  0) AS CLIENTE_ID,
       h.FOLIO,
