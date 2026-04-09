@@ -159,12 +159,12 @@ function query(sql, params = [], timeoutMs = 12000, dbOptsOverride = null) {
 
 /**
  * cxcResumenAgingUnificado lanza varias consultas pesadas en paralelo; 12–30 s suele ser poco en Firebird remoto (Render).
- * Env: MICROSIP_CXC_AGING_Q_MS (mín. 5000, por defecto 45000, tope 180000).
+ * Env: MICROSIP_CXC_AGING_Q_MS (mín. 5000, por defecto 45000, tope 120000).
  */
 function cxcAgingQueryMs() {
   const n = parseInt(process.env.MICROSIP_CXC_AGING_Q_MS, 10);
   const t = Number.isFinite(n) && n >= 5000 ? n : 45000;
-  return Math.min(180000, Math.max(15000, t));
+  return Math.min(120000, Math.max(15000, t));
 }
 
 const tableColumnsCache = new Map();
@@ -663,29 +663,6 @@ function mergeBalanceDetalleSide(arrays) {
     .sort((a, b) => Math.abs(+b.SALDO || 0) - Math.abs(+a.SALDO || 0));
 }
 
-/** Activo circulante: caja/bancos (nombre o prefijo 1102* típico PCGA MX; "BANREGIO" no contiene "banco"). */
-function balanceActivoRowEsCajaBancos(row) {
-  const nom = String((row && row.NOMBRE) || '');
-  const cu = String((row && row.CUENTA_PT) || '').replace(/\s/g, '');
-  if (/caja|banco|efectivo|banregio|bbva|santander|hsbc|inbursa|scotiab|scotiabank|banamex|banorte|citiban|mifel|actinver|bancoppel|interbanc|multiva|monex|velocity|clabe|cuenta\s+de\s+cheques/i.test(nom)) return true;
-  if (/^1102[\d.]*/i.test(cu)) return true;
-  return false;
-}
-function balanceActivoRowEsCliente(row) {
-  const nom = String((row && row.NOMBRE) || '');
-  const cu = String((row && row.CUENTA_PT) || '').replace(/\s/g, '');
-  if (/cobrar|cliente|deudor|cuentas\s+por\s+cobrar/i.test(nom)) return true;
-  if (/^1103[\d.]*/i.test(cu)) return true;
-  return false;
-}
-function balanceActivoRowEsInventario(row) {
-  const nom = String((row && row.NOMBRE) || '');
-  const cu = String((row && row.CUENTA_PT) || '').replace(/\s/g, '');
-  if (/invent|almacen|mercanc/i.test(nom)) return true;
-  if (/^1104[\d.]*/i.test(cu) || /^1105[\d.]*/i.test(cu)) return true;
-  return false;
-}
-
 /** Desglose Activo (balance clásico) por nombre de cuenta; una fila → un solo rubro. */
 function balanceActivoBreakdownFromRows(activoRows) {
   const reFijo = /activo fijo|activo\s+fijo|fijo neto|depreciac|equipo de|equipos|maquin|mobiliario|mueble|veh[ií]culo|transporte|inmueble|terreno|edificio|instalacion(es)?\s+en|inversion(es)?\s+en bienes/i;
@@ -699,9 +676,9 @@ function balanceActivoBreakdownFromRows(activoRows) {
   for (const row of activoRows || []) {
     const sal = +row.SALDO || 0;
     const nom = String(row.NOMBRE || '');
-    if (balanceActivoRowEsCajaBancos(row)) caja += sal;
-    else if (balanceActivoRowEsCliente(row)) cxc += sal;
-    else if (balanceActivoRowEsInventario(row)) invent += sal;
+    if (/caja|banco|efectivo/i.test(nom)) caja += sal;
+    else if (/cobrar|cliente/i.test(nom)) cxc += sal;
+    else if (/invent/i.test(nom)) invent += sal;
     else if (reFijo.test(nom)) fijo += sal;
     else if (reDif.test(nom)) dif += sal;
     else otros += sal;
@@ -1067,6 +1044,46 @@ function mergePorVendedorCotiz(rowsList) {
   return Array.from(map.values()).sort((a, b) => b.COTIZACIONES_MES - a.COTIZACIONES_MES);
 }
 
+/** Combina resultados VE + PV de por-vendedor/cotizaciones agrupando por VENDEDOR_ID. */
+function mergePorVendedorCotizVePv(veRows, pvRows) {
+  const map = new Map();
+  const add = (r) => {
+    if (!r) return;
+    const id = +(r.VENDEDOR_ID || 0);
+    const cur = map.get(id) || {
+      VENDEDOR_ID: id,
+      VENDEDOR: r.VENDEDOR || 'No asignado',
+      COTIZACIONES_HOY: 0,
+      COTIZACIONES_MES: 0,
+      NUM_COTI_MES: 0,
+    };
+    cur.COTIZACIONES_HOY += +(r.COTIZACIONES_HOY || 0);
+    cur.COTIZACIONES_MES += +(r.COTIZACIONES_MES || 0);
+    cur.NUM_COTI_MES += +(r.NUM_COTI_MES || 0);
+    if (r.VENDEDOR && String(r.VENDEDOR).trim() && r.VENDEDOR !== 'No asignado') cur.VENDEDOR = r.VENDEDOR;
+    map.set(id, cur);
+  };
+  (veRows || []).forEach(add);
+  (pvRows || []).forEach(add);
+  return Array.from(map.values()).sort((a, b) => (b.COTIZACIONES_MES || 0) - (a.COTIZACIONES_MES || 0));
+}
+
+/** Combina resultados VE + PV para vs-cotizaciones por mes. */
+function mergeVsCotizMesVePv(veRows, pvRows) {
+  const map = new Map();
+  const add = (r) => {
+    if (!r) return;
+    const k = `${+r.ANIO}-${+r.MES}`;
+    const cur = map.get(k) || { ANIO: +r.ANIO, MES: +r.MES, TOTAL_COTI: 0, NUM_COTI: 0 };
+    cur.TOTAL_COTI += +(r.TOTAL_COTI || 0);
+    cur.NUM_COTI += +(r.NUM_COTI || 0);
+    map.set(k, cur);
+  };
+  (veRows || []).forEach(add);
+  (pvRows || []).forEach(add);
+  return Array.from(map.values()).sort((a, b) => (a.ANIO - b.ANIO) || (a.MES - b.MES));
+}
+
 function mergeTopClientes(rowsList, limit) {
   const map = new Map();
   for (const rows of rowsList) {
@@ -1132,60 +1149,6 @@ function mergeVsCotizaciones(parts) {
     return { ANIO: v.ANIO, MES: v.MES, TOTAL_COTI: 0, NUM_COTI: 0 };
   });
   return { ventas, cotizaciones };
-}
-
-/** Cotizaciones: misma lógica VE+PV sin UNION (timeout PV remoto). */
-function mergeDiariasCotizVePv(veRows, pvRows) {
-  const map = new Map();
-  const add = (r) => {
-    if (!r || r.DIA == null) return;
-    const k = String(r.DIA);
-    const cur = map.get(k) || { DIA: r.DIA, COTIZACIONES: 0, TOTAL_COTIZACIONES: 0 };
-    cur.COTIZACIONES += +(r.COTIZACIONES || 0);
-    cur.TOTAL_COTIZACIONES += +(r.TOTAL_COTIZACIONES || 0);
-    map.set(k, cur);
-  };
-  (veRows || []).forEach(add);
-  (pvRows || []).forEach(add);
-  return Array.from(map.values()).sort((a, b) => new Date(a.DIA) - new Date(b.DIA));
-}
-
-function mergePorVendedorCotizVePv(veRows, pvRows) {
-  const map = new Map();
-  const add = (r) => {
-    if (!r) return;
-    const id = +(r.VENDEDOR_ID || 0);
-    const cur = map.get(id) || {
-      VENDEDOR_ID: id,
-      VENDEDOR: r.VENDEDOR || 'No asignado',
-      COTIZACIONES_HOY: 0,
-      COTIZACIONES_MES: 0,
-      NUM_COTI_MES: 0,
-    };
-    cur.COTIZACIONES_HOY += +(r.COTIZACIONES_HOY || 0);
-    cur.COTIZACIONES_MES += +(r.COTIZACIONES_MES || 0);
-    cur.NUM_COTI_MES += +(r.NUM_COTI_MES || 0);
-    if (r.VENDEDOR && String(r.VENDEDOR).trim() && r.VENDEDOR !== 'No asignado') cur.VENDEDOR = r.VENDEDOR;
-    map.set(id, cur);
-  };
-  (veRows || []).forEach(add);
-  (pvRows || []).forEach(add);
-  return Array.from(map.values()).sort((a, b) => (b.COTIZACIONES_MES || 0) - (a.COTIZACIONES_MES || 0));
-}
-
-function mergeVsCotizMesVePv(veRows, pvRows) {
-  const map = new Map();
-  const add = (r) => {
-    if (!r) return;
-    const k = `${+r.ANIO}-${+r.MES}`;
-    const cur = map.get(k) || { ANIO: +r.ANIO, MES: +r.MES, TOTAL_COTI: 0, NUM_COTI: 0 };
-    cur.TOTAL_COTI += +(r.TOTAL_COTI || 0);
-    cur.NUM_COTI += +(r.NUM_COTI || 0);
-    map.set(k, cur);
-  };
-  (veRows || []).forEach(add);
-  (pvRows || []).forEach(add);
-  return Array.from(map.values()).sort((a, b) => (a.ANIO - b.ANIO) || (a.MES - b.MES));
 }
 
 function mergeRecientes(rowsList, limit) {
@@ -1462,12 +1425,10 @@ function ventasSub(tipo = '', opts = {}) {
   const includeRemisiones = !!(opts && opts.includeRemisiones);
   const doctosVenta = includeRemisiones ? "('V', 'F')" : "('F')";
   const imp = sqlVentaImporteBaseExpr('d');
-  const impBruto = `COALESCE(d.IMPORTE_NETO, 0)`;
   const ve = `
     SELECT
       d.FECHA,
       ${imp} AS IMPORTE_NETO,
-      ${impBruto} AS IMPORTE_NETO_BRUTO,
       COALESCE(d.VENDEDOR_ID, 0)  AS VENDEDOR_ID,
       COALESCE(d.CLIENTE_ID,  0)  AS CLIENTE_ID,
       d.FOLIO,
@@ -1487,7 +1448,6 @@ function ventasSub(tipo = '', opts = {}) {
     SELECT
       d.FECHA,
       ${imp} AS IMPORTE_NETO,
-      ${impBruto} AS IMPORTE_NETO_BRUTO,
       COALESCE(
         CASE WHEN d.TIPO_DOCTO = 'F' THEN
           (SELECT d2.VENDEDOR_ID
@@ -1519,12 +1479,10 @@ function ventasSub(tipo = '', opts = {}) {
 
 function remisionesSub(tipo = '') {
   const imp = sqlVentaImporteBaseExpr('d');
-  const impBruto = `COALESCE(d.IMPORTE_NETO, 0)`;
   const ve = `
     SELECT
       d.FECHA,
       ${imp} AS IMPORTE_NETO,
-      ${impBruto} AS IMPORTE_NETO_BRUTO,
       COALESCE(d.VENDEDOR_ID, 0)  AS VENDEDOR_ID,
       COALESCE(d.CLIENTE_ID,  0)  AS CLIENTE_ID,
       d.FOLIO,
@@ -1543,7 +1501,6 @@ function remisionesSub(tipo = '') {
     SELECT
       d.FECHA,
       ${imp} AS IMPORTE_NETO,
-      ${impBruto} AS IMPORTE_NETO_BRUTO,
       COALESCE(d.VENDEDOR_ID, 0)  AS VENDEDOR_ID,
       COALESCE(d.CLIENTE_ID,  0)  AS CLIENTE_ID,
       d.FOLIO,
@@ -1569,10 +1526,9 @@ function remisionesSub(tipo = '') {
 //  ESTATUS <> C (no cancelada). APLICADO='S' solo si MICROSIP_COTIZACION_REQUIERE_APLICADO=1.
 //  Vigencia (FECHA_VENCIMIENTO…) solo en rama VE, vía resolveCotizacionVigenciaSqlSuffix.
 //  Por defecto getCotizacionesTipo() = '' (VE+PV): el filtro Industrial/Mostrador no vacía cotizaciones.
-//  MICROSIP_COTIZACION_SOLO_TIPO_MARCADO=1 → solo letras C,O,Q,P + texto COTIZ* (sin fallback amplio).
 // ═══════════════════════════════════════════════════════════════════════════════
 
-/** @param {'VE'|'PV'} src — reglas de “no es venta cerrada” difieren entre DOCTOS_VE y DOCTOS_PV. */
+/** @param {'VE'|'PV'} src — reglas de "no es venta cerrada" difieren entre DOCTOS_VE y DOCTOS_PV. */
 function sqlWhereCotizacionComoVenta(alias = 'd', src = 'VE') {
   const a = alias;
   const soloTipoMarcado = (process.env.MICROSIP_COTIZACION_SOLO_TIPO_MARCADO || '').match(/^(1|true|yes)$/i);
@@ -1618,7 +1574,7 @@ function sqlWhereCotizacionComoVenta(alias = 'd', src = 'VE') {
 }
 
 /**
- * WHERE “rápido” para cotizaciones:
+ * WHERE "rápido" para cotizaciones:
  * Evita UPPER/TRIM/POSITION sobre TIPO_DOCTO (rompe índice y provoca full-scan/timeouts).
  * Usar cuando el cuello está en DOCTOS_* y necesitamos respuesta en Render.
  */
@@ -1629,7 +1585,7 @@ function sqlWhereCotizacionFast(alias = 'd', src = 'VE') {
   const tipos = (parseCotizacionTipos() || []).filter(Boolean);
   const esc = (t) => `'${String(t).replace(/'/g, "''")}'`;
   const byCodes = tipos.length ? `${a}.TIPO_DOCTO IN (${tipos.map(esc).join(', ')})` : '0=1';
-  // Fallback sin funciones de string: “no es venta cerrada” (captura instalaciones donde la cotización no está marcada con C/O/Q/P).
+  // Fallback sin funciones de string: "no es venta cerrada" (captura instalaciones donde la cotización no está marcada con C/O/Q/P).
   const noEsVentaCerradaVe = `NOT (
       ${a}.TIPO_DOCTO IN ('F', 'V', 'R')
       AND COALESCE(${a}.APLICADO, 'N') = 'S'
@@ -1650,7 +1606,7 @@ function cotizRowIsAllZero(r) {
   return (+o.HOY || 0) === 0 && (+o.MES_ACTUAL || 0) === 0 && (+o.COTIZACIONES_MES || 0) === 0 && (+o.COTIZACIONES_HOY || 0) === 0;
 }
 
-/** Rango ISO YYYY-MM-DD para acotar cotizaciones dentro del sub-SELECT (evita escanear todo el histórico). */
+/** Genera cláusula AND con bounds de fecha para uso interno en sub-SELECT de cotizaciones. */
 function sqlCotizInnerFechaBounds(feExpr, bounds) {
   if (!bounds || typeof bounds !== 'object') return '';
   const re = /^\d{4}-\d{2}-\d{2}$/;
@@ -1667,8 +1623,8 @@ function sqlCotizInnerFechaBounds(feExpr, bounds) {
 /**
  * Sub-SELECT cotizaciones: paralelo a ventasSub(), con TIPO_DOCTO 'C' y opcional sufijo de vigencia en VE.
  * @param {string} tipo - 'VE', 'PV' o '' (ambos)
- * @param {{ vigenciaVeSuffix?: string }} opts
- * @param {{ desde?: string, hasta?: string } | null} innerBounds - filtro de fecha **dentro** del subquery (crítico en tablas grandes).
+ * @param {{ vigenciaVeSuffix?: string, sqlFeVe?: string, sqlFePv?: string }} opts
+ * @param {{ desde?: string, hasta?: string } | null} innerBounds - filtro de fecha dentro del subquery (evita full-scan en tablas grandes).
  */
 function cotizacionesSub(tipo = '', opts = {}, innerBounds = null) {
   const vigVe = String((opts && opts.vigenciaVeSuffix) || '');
@@ -1724,26 +1680,6 @@ function cotizacionesSub(tipo = '', opts = {}, innerBounds = null) {
   if (tipo === 'VE') return `(${ve})`;
   if (tipo === 'PV') return `(${pv})`;
   return `(${ve} UNION ALL ${pv})`;
-}
-
-/** desde/hasta ISO desde query (anio+mes materializable como en resumen cotizaciones). */
-function cotizQueryIsoBounds(req) {
-  const q = req && req.query ? req.query : {};
-  const reDate = /^\d{4}-\d{2}-\d{2}$/;
-  let desde = q.desde != null ? String(q.desde).trim() : '';
-  let hasta = q.hasta != null ? String(q.hasta).trim() : '';
-  if (desde && !reDate.test(desde)) desde = '';
-  if (hasta && !reDate.test(hasta)) hasta = '';
-  if (!desde && !hasta && q.anio && q.mes) {
-    const y = parseInt(String(q.anio || ''), 10);
-    const m = parseInt(String(q.mes || ''), 10);
-    if (Number.isFinite(y) && Number.isFinite(m) && m >= 1 && m <= 12) {
-      return { desde: `${y}-${String(m).padStart(2, '0')}-01`, hasta: lastDayOfMonth(y, m) };
-    }
-  }
-  if (desde && hasta) return { desde, hasta };
-  if (desde) return { desde };
-  return null;
 }
 
 function normalizeCotizacionResumenRow(row) {
@@ -2028,8 +1964,6 @@ function getTipo(req) {
 
 /** Cotizaciones: por defecto siempre VE+PV (evita $0 si el panel está en un solo módulo). MICROSIP_COTIZACIONES_RESPETAR_TIPO_PANEL=1 para acatar `tipo`. */
 function getCotizacionesTipo(req) {
-  const scope = String(req.query.cotizaciones_scope || req.query.coti_scope || '').toLowerCase();
-  if (scope === 'todos' || scope === 'all' || scope === '1') return '';
   if ((process.env.MICROSIP_COTIZACIONES_RESPETAR_TIPO_PANEL || '').match(/^(1|true|yes)$/i)) return getTipo(req);
   return '';
 }
@@ -2287,10 +2221,7 @@ get('/api/ventas/resumen', async (req) => {
     SELECT
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE
                THEN d.IMPORTE_NETO ELSE 0 END)                      AS HOY,
-      SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE
-               THEN d.IMPORTE_NETO_BRUTO ELSE 0 END)               AS HOY_IVA,
       COALESCE(SUM(d.IMPORTE_NETO), 0)                              AS MES_ACTUAL,
-      COALESCE(SUM(d.IMPORTE_NETO_BRUTO), 0)                       AS MES_ACTUAL_IVA,
       COUNT(*)                                                      AS FACTURAS_MES,
       SUM(CASE WHEN CAST(d.FECHA AS DATE) < CURRENT_DATE
                THEN d.IMPORTE_NETO ELSE 0 END)                     AS HASTA_AYER_MES
@@ -2300,26 +2231,20 @@ get('/api/ventas/resumen', async (req) => {
       query(`
     SELECT
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END) AS REMISIONES_HOY,
-      SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO_BRUTO ELSE 0 END) AS REMISIONES_HOY_IVA,
-      COALESCE(SUM(d.IMPORTE_NETO), 0) AS REMISIONES_MES,
-      COALESCE(SUM(d.IMPORTE_NETO_BRUTO), 0) AS REMISIONES_MES_IVA
+      COALESCE(SUM(d.IMPORTE_NETO), 0) AS REMISIONES_MES
     FROM ${remisionesSub(tipo)} d
     WHERE 1=1 ${f.sql}
   `, f.params, 30000, dbo).catch(() => []),
     ]);
     const out = {
       HOY: +((rows[0] && rows[0].HOY) || 0),
-      HOY_IVA: +((rows[0] && rows[0].HOY_IVA) || 0),
       MES_ACTUAL: +((rows[0] && rows[0].MES_ACTUAL) || 0),
-      MES_ACTUAL_IVA: +((rows[0] && rows[0].MES_ACTUAL_IVA) || 0),
       FACTURAS_MES: +((rows[0] && rows[0].FACTURAS_MES) || 0),
       HASTA_AYER_MES: +((rows[0] && rows[0].HASTA_AYER_MES) || 0),
     };
     const rem = remRows[0] || {};
     out.REMISIONES_HOY = +(rem.REMISIONES_HOY || 0);
     out.REMISIONES_MES = +(rem.REMISIONES_MES || 0);
-    out.REMISIONES_HOY_IVA = +(rem.REMISIONES_HOY_IVA || 0);
-    out.REMISIONES_MES_IVA = +(rem.REMISIONES_MES_IVA || 0);
     return out;
   };
   if (isAllDbs(req)) {
@@ -2341,49 +2266,26 @@ function lastDayOfMonth(y, m) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
-/** Express puede entregar query duplicada como array; tomar el primer valor. */
-function firstQueryVal(q) {
-  if (q == null) return null;
-  if (Array.isArray(q)) return q.length ? String(q[0]).trim() : null;
-  return String(q).trim();
-}
-
-/** Normaliza fecha de fila Firebird/driver a YYYY-MM-DD (node-firebird suele usar Date; a veces objeto o string). */
-function sqlRowDateToIso(v) {
-  if (v == null || v === '') return null;
-  try {
-    if (v instanceof Date && !isNaN(v.getTime())) {
-      return (
-        v.getFullYear() +
-        '-' +
-        String(v.getMonth() + 1).padStart(2, '0') +
-        '-' +
-        String(v.getDate()).padStart(2, '0')
-      );
+/** desde/hasta ISO desde query (anio+mes materializable como en resumen cotizaciones). */
+function cotizQueryIsoBounds(req) {
+  const q = req && req.query ? req.query : {};
+  const reDate = /^\d{4}-\d{2}-\d{2}$/;
+  let desde = q.desde != null ? String(q.desde).trim() : '';
+  let hasta = q.hasta != null ? String(q.hasta).trim() : '';
+  if (desde && !reDate.test(desde)) desde = '';
+  if (hasta && !reDate.test(hasta)) hasta = '';
+  if (!desde && !hasta && q.anio && q.mes) {
+    const y = parseInt(String(q.anio || ''), 10);
+    const m = parseInt(String(q.mes || ''), 10);
+    if (Number.isFinite(y) && Number.isFinite(m) && m >= 1 && m <= 12) {
+      return { desde: `${y}-${String(m).padStart(2, '0')}-01`, hasta: lastDayOfMonth(y, m) };
     }
-    if (typeof v === 'object' && v !== null && !(v instanceof Buffer)) {
-      const y = +(v.year != null ? v.year : v.YEAR);
-      const mo = +(v.month != null ? v.month : v.MONTH);
-      const da = +(v.day != null ? v.day : v.DAY != null ? v.DAY : v.date);
-      if (Number.isFinite(y) && Number.isFinite(mo) && Number.isFinite(da) && mo >= 1 && mo <= 12 && da >= 1 && da <= 31) {
-        return `${y}-${String(mo).padStart(2, '0')}-${String(da).padStart(2, '0')}`;
-      }
-    }
-  } catch (_) {}
-  const s = String(v).trim();
-  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-  const d = new Date(s);
-  if (!isNaN(d.getTime())) {
-    return (
-      d.getFullYear() +
-      '-' +
-      String(d.getMonth() + 1).padStart(2, '0') +
-      '-' +
-      String(d.getDate()).padStart(2, '0')
-    );
   }
+  if (desde && hasta) return { desde, hasta };
+  if (desde) return { desde };
   return null;
 }
+
 get('/api/ventas/cotizaciones/resumen', async (req) => {
   if (!req.query.desde && !req.query.hasta && !req.query.anio) {
     const now = new Date();
@@ -2391,8 +2293,7 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
     req.query.mes = now.getMonth() + 1;
   }
   const run = async (dbo) => {
-    // Optimización: si el filtro viene como anio+mes (sin rango), materializarlo a desde/hasta
-    // para que Firebird use índice de FECHA y evitar escaneo con EXTRACT() en tablas grandes.
+    // Optimización: materializar anio+mes a desde/hasta para que Firebird use índice de FECHA.
     if (!req.query.desde && !req.query.hasta && req.query.anio && req.query.mes) {
       const y = parseInt(String(req.query.anio || ''), 10);
       const m = parseInt(String(req.query.mes || ''), 10);
@@ -2401,10 +2302,9 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
         req.query.hasta = lastDayOfMonth(y, m);
       }
     }
-    // Evitar UNION y ligas PV en resumen: consultar VE y PV por separado y sumar.
-    // PV puede ser muy pesado (ver timeouts en /api/debug/cotizaciones-tipos); VE suele responder rápido.
+    // Consultar VE y PV por separado y sumar — evita UNION pesado con ligas PV.
     const cotiOpts = await cotizacionSqlOpts(dbo);
-    const imp = sqlCotiImporteExpr('d'); // cabecera
+    const imp = sqlCotiImporteExpr('d');
     const useFast = String(process.env.RENDER || '').toLowerCase() === 'true'
       || (process.env.MICROSIP_COTIZACIONES_FAST_WHERE || '').match(/^(1|true|yes)$/i);
     const wVeFast = sqlWhereCotizacionFast('d', 'VE');
@@ -2416,13 +2316,13 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
     const fVe = buildFiltros(req, 'd', { fechaExpr: feVe });
     const fPv = buildFiltros(req, 'd', { fechaExpr: fePv });
 
-    const mkSql = (w, feExpr, fSql) => `
+    const mkSql = (w, feExpr, fSql, tbl) => `
       SELECT
         SUM(CASE WHEN CAST(${feExpr} AS DATE) = CURRENT_DATE THEN ${imp} ELSE 0 END) AS HOY,
         COALESCE(SUM(${imp}), 0) AS MES_ACTUAL,
         COUNT(*) AS COTIZACIONES_MES,
         COUNT(CASE WHEN CAST(${feExpr} AS DATE) = CURRENT_DATE THEN 1 END) AS COTIZACIONES_HOY
-      FROM ${w === wPvFast || w === wPvSlow ? 'DOCTOS_PV' : 'DOCTOS_VE'} d
+      FROM ${tbl} d
       WHERE 1=1 ${fSql} AND (${w})
     `;
 
@@ -2433,8 +2333,8 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
         return [];
       });
 
-    const veFastSql = mkSql(wVeFast, feVe, fVe.sql) + String(cotiOpts.vigenciaVeSuffix || '');
-    const pvFastSql = mkSql(wPvFast, fePv, fPv.sql);
+    const veFastSql = mkSql(wVeFast, feVe, fVe.sql, 'DOCTOS_VE') + String(cotiOpts.vigenciaVeSuffix || '');
+    const pvFastSql = mkSql(wPvFast, fePv, fPv.sql, 'DOCTOS_PV');
     let [veRows, pvRows] = await Promise.all([
       q(veFastSql, fVe.params, '[cotizaciones/resumen][VE][fast]'),
       q(pvFastSql, fPv.params, '[cotizaciones/resumen][PV][fast]'),
@@ -2444,12 +2344,11 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
     let pv = normalizeCotizacionResumenRow(pvRows[0]);
     let merged = mergeCotizacionResumenRows([ve, pv]);
 
-    // Auto-fallback: si el modo rápido devuelve TODO 0, intentar el modo completo (string match),
-    // pero con el rango de fechas ya materializado por buildFiltros (evita full-scan en la mayoría de casos).
-    const allowSlowFallback = useFast && !(process.env.MICROSIP_COTIZACIONES_NO_SLOW_FALLBACK || '').match(/^(1|true|yes)$/i);
+    // Auto-fallback: si fast devuelve TODO 0, intentar modo completo (string match).
+    const allowSlowFallback = !(process.env.MICROSIP_COTIZACIONES_NO_SLOW_FALLBACK || '').match(/^(1|true|yes)$/i);
     if (allowSlowFallback && cotizRowIsAllZero(merged)) {
-      const veSlowSql = mkSql(wVeSlow, feVe, fVe.sql) + String(cotiOpts.vigenciaVeSuffix || '');
-      const pvSlowSql = mkSql(wPvSlow, fePv, fPv.sql);
+      const veSlowSql = mkSql(wVeSlow, feVe, fVe.sql, 'DOCTOS_VE') + String(cotiOpts.vigenciaVeSuffix || '');
+      const pvSlowSql = mkSql(wPvSlow, fePv, fPv.sql, 'DOCTOS_PV');
       [veRows, pvRows] = await Promise.all([
         q(veSlowSql, fVe.params, '[cotizaciones/resumen][VE][slow]'),
         q(pvSlowSql, fPv.params, '[cotizaciones/resumen][PV][slow]'),
@@ -2486,18 +2385,13 @@ get('/api/ventas/diarias', async (req) => {
     SELECT CAST(d.FECHA AS DATE) AS DIA,
       COALESCE(SUM(CASE WHEN d.TIPO_SRC = 'VE' THEN d.IMPORTE_NETO ELSE 0 END), 0) AS VENTAS_VE,
       COALESCE(SUM(CASE WHEN d.TIPO_SRC = 'PV' THEN d.IMPORTE_NETO ELSE 0 END), 0) AS VENTAS_PV,
-      COALESCE(SUM(d.IMPORTE_NETO), 0) AS TOTAL_VENTAS,
-      COALESCE(SUM(CASE WHEN d.TIPO_SRC = 'VE' THEN d.IMPORTE_NETO_BRUTO ELSE 0 END), 0) AS VENTAS_VE_IVA,
-      COALESCE(SUM(CASE WHEN d.TIPO_SRC = 'PV' THEN d.IMPORTE_NETO_BRUTO ELSE 0 END), 0) AS VENTAS_PV_IVA,
-      COALESCE(SUM(d.IMPORTE_NETO_BRUTO), 0) AS TOTAL_VENTAS_IVA
+      COALESCE(SUM(d.IMPORTE_NETO), 0) AS TOTAL_VENTAS
     FROM ${ventasSub()} d
     WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
     GROUP BY CAST(d.FECHA AS DATE) ORDER BY 1
   `
     : `
-    SELECT CAST(d.FECHA AS DATE) AS DIA, COUNT(*) AS FACTURAS,
-      COALESCE(SUM(d.IMPORTE_NETO), 0) AS TOTAL_VENTAS,
-      COALESCE(SUM(d.IMPORTE_NETO_BRUTO), 0) AS TOTAL_VENTAS_IVA
+    SELECT CAST(d.FECHA AS DATE) AS DIA, COUNT(*) AS FACTURAS, COALESCE(SUM(d.IMPORTE_NETO), 0) AS TOTAL_VENTAS
     FROM ${ventasSub(tipo)} d
     WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
     GROUP BY CAST(d.FECHA AS DATE) ORDER BY 1
@@ -2510,9 +2404,6 @@ get('/api/ventas/diarias', async (req) => {
         VENTAS_VE: tipo === 'VE' ? (r.TOTAL_VENTAS || 0) : 0,
         VENTAS_PV: tipo === 'PV' ? (r.TOTAL_VENTAS || 0) : 0,
         TOTAL_VENTAS: r.TOTAL_VENTAS || 0,
-        VENTAS_VE_IVA: tipo === 'VE' ? (r.TOTAL_VENTAS_IVA || 0) : 0,
-        VENTAS_PV_IVA: tipo === 'PV' ? (r.TOTAL_VENTAS_IVA || 0) : 0,
-        TOTAL_VENTAS_IVA: r.TOTAL_VENTAS_IVA || 0,
       }));
     }
     return rows || [];
@@ -2608,122 +2499,24 @@ get('/api/ventas/mensuales', async (req) => {
 });
 
 get('/api/ventas/cotizaciones/diarias', async (req) => {
-  const reDate = /^\d{4}-\d{2}-\d{2}$/;
-  let qDesde = firstQueryVal(req.query.desde);
-  let qHasta = firstQueryVal(req.query.hasta);
-  if (qDesde && !reDate.test(String(qDesde))) qDesde = null;
-  if (qHasta && !reDate.test(String(qHasta))) qHasta = null;
-
-  let fechaWhere = 'CAST(d.FECHA AS DATE) >= CAST(? AS DATE)';
-  let fechaParams = [];
-
-  if (qDesde && qHasta) {
-    let d0 = new Date(String(qDesde) + 'T12:00:00');
-    let d1 = new Date(String(qHasta) + 'T12:00:00');
-    if (!isNaN(d0.getTime()) && !isNaN(d1.getTime())) {
-      if (d1 < d0) {
-        const t = d0;
-        d0 = d1;
-        d1 = t;
-      }
-      const spanDays = Math.ceil((d1 - d0) / 86400000) + 1;
-      if (spanDays > 366) {
-        d0 = new Date(d1);
-        d0.setDate(d0.getDate() - 365);
-      }
-      const fmt = (dt) =>
-        dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
-      fechaWhere = 'CAST(d.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(d.FECHA AS DATE) <= CAST(? AS DATE)';
-      fechaParams = [fmt(d0), fmt(d1)];
-    }
-  }
-
-  // Mismo corte que resumen/cotizaciones cuando el filtro es anio+mes (Este mes, etc.), sin desde/hasta en la URL.
-  if (!fechaParams.length) {
-    const y = parseInt(String(firstQueryVal(req.query.anio) || ''), 10);
-    const m = parseInt(String(firstQueryVal(req.query.mes) || ''), 10);
-    if (Number.isFinite(y) && Number.isFinite(m) && m >= 1 && m <= 12) {
-      fechaWhere = 'CAST(d.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(d.FECHA AS DATE) <= CAST(? AS DATE)';
-      fechaParams = [`${y}-${String(m).padStart(2, '0')}-01`, lastDayOfMonth(y, m)];
-    }
-  }
-
-  if (!fechaParams.length) {
-    const dias = Math.min(parseInt(String(req.query.dias || '30'), 10) || 30, 366);
-    const desde = new Date();
-    desde.setDate(desde.getDate() - dias);
-    const desdeStr =
-      desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-' + String(desde.getDate()).padStart(2, '0');
-    fechaParams = [desdeStr];
-  }
-
-  let queryMs = 180000;
-  if (fechaParams.length === 2) {
-    const dA = new Date(String(fechaParams[0]) + 'T12:00:00');
-    const dB = new Date(String(fechaParams[1]) + 'T12:00:00');
-    if (!isNaN(dA.getTime()) && !isNaN(dB.getTime())) {
-      const span = Math.abs(Math.ceil((dB - dA) / 86400000)) + 1;
-      if (span > 62) queryMs = 240000;
-    }
-  }
-
-  const vid = req.query.vendedor ? parseInt(String(firstQueryVal(req.query.vendedor) || ''), 10) : NaN;
-  const cid = req.query.cliente ? parseInt(String(firstQueryVal(req.query.cliente) || ''), 10) : NaN;
-  let vcSql = '';
-  const sqlParams = [...fechaParams];
-  if (Number.isFinite(vid) && vid > 0) {
-    vcSql += ' AND d.VENDEDOR_ID = ?';
-    sqlParams.push(vid);
-  }
-  if (Number.isFinite(cid) && cid > 0) {
-    vcSql += ' AND d.CLIENTE_ID = ?';
-    sqlParams.push(cid);
-  }
-
+  const dias = Math.min(parseInt(req.query.dias) || 30, 366);
+  const desde = new Date();
+  desde.setDate(desde.getDate() - dias);
+  const desdeStr = desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-' + String(desde.getDate()).padStart(2, '0');
   const run = async (dbo) => {
     const cotiOpts = await cotizacionSqlOpts(dbo);
+    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
     const ci = sqlCotiImporteExpr('d');
-    const tipoPanel = getCotizacionesTipo(req);
-    const innerBd =
-      fechaParams.length === 2
-        ? { desde: fechaParams[0], hasta: fechaParams[1] }
-        : fechaParams.length === 1
-          ? { desde: fechaParams[0] }
-          : null;
-    const qSub = (sub) =>
-      query(
-        `
+    const rows = await query(`
     SELECT CAST(d.FECHA AS DATE) AS DIA, COUNT(*) AS COTIZACIONES, COALESCE(SUM(${ci}),0) AS TOTAL_COTIZACIONES
-    FROM ${sub} d
-    WHERE ${fechaWhere}${vcSql}
+    FROM ${cotiSub} d
+    WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
     GROUP BY CAST(d.FECHA AS DATE) ORDER BY 1
-  `,
-        sqlParams,
-        queryMs,
-        dbo,
-      ).catch((err) => {
-        console.error('[cotizaciones/diarias]', err && (err.message || err));
-        return [];
-      });
-    let rows;
-    if (tipoPanel === 'VE' || tipoPanel === 'PV') {
-      rows = await qSub(cotizacionesSub(tipoPanel, cotiOpts, innerBd));
-    } else {
-      const [ve, pv] = await Promise.all([
-        qSub(cotizacionesSub('VE', cotiOpts, innerBd)),
-        qSub(cotizacionesSub('PV', cotiOpts, innerBd)),
-      ]);
-      rows = mergeDiariasCotizVePv(ve, pv);
-    }
-    // No filtrar filas: si sqlRowDateToIso falla, conservar DIA crudo (Express serializa Date → ISO).
-    return (rows || []).map((r) => {
-      const iso = sqlRowDateToIso(r.DIA);
-      return {
-        DIA: iso != null ? iso : r.DIA,
-        COTIZACIONES: +(r.COTIZACIONES || 0),
-        TOTAL_COTIZACIONES: +(r.TOTAL_COTIZACIONES || 0) || 0,
-      };
+  `, [desdeStr], 12000, dbo).catch((err) => {
+      console.error('[cotizaciones/diarias]', err && (err.message || err));
+      return [];
     });
+    return (rows || []).map(r => ({ DIA: r.DIA, COTIZACIONES: r.COTIZACIONES, TOTAL_COTIZACIONES: r.TOTAL_COTIZACIONES || 0 }));
   };
   if (isAllDbs(req)) {
     const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
@@ -2740,17 +2533,16 @@ get('/api/ventas/cotizaciones/diarias', async (req) => {
 
 get('/api/ventas/cotizaciones/semanales', async (req) => {
   const f = buildFiltros(req, 'd');
-  const innerBd = cotizQueryIsoBounds(req);
   const run = async (dbo) => {
     const cotiOpts = await cotizacionSqlOpts(dbo);
-    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts, innerBd);
+    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
     const ci = sqlCotiImporteExpr('d');
     return query(`
     SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(WEEK FROM d.FECHA) AS SEMANA,
       COUNT(*) AS COTIZACIONES, COALESCE(SUM(${ci}),0) AS TOTAL
     FROM ${cotiSub} d WHERE 1=1 ${f.sql}
     GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(WEEK FROM d.FECHA) ORDER BY 1, 2
-  `, f.params, 90000, dbo).catch(() => []);
+  `, f.params, 30000, dbo).catch(() => []);
   };
   if (isAllDbs(req)) {
     const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
@@ -2767,17 +2559,16 @@ get('/api/ventas/cotizaciones/semanales', async (req) => {
 
 get('/api/ventas/cotizaciones/mensuales', async (req) => {
   const f = buildFiltros(req, 'd');
-  const innerBd = cotizQueryIsoBounds(req);
   const run = async (dbo) => {
     const cotiOpts = await cotizacionSqlOpts(dbo);
-    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts, innerBd);
+    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
     const ci = sqlCotiImporteExpr('d');
     return query(`
     SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
       COUNT(*) AS COTIZACIONES, COALESCE(SUM(${ci}),0) AS TOTAL
     FROM ${cotiSub} d WHERE 1=1 ${f.sql}
     GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
-  `, f.params, 90000, dbo).catch(() => []);
+  `, f.params, 30000, dbo).catch(() => []);
   };
   if (isAllDbs(req)) {
     const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
@@ -2952,50 +2743,28 @@ get('/api/ventas/vs-cotizaciones', async (req) => {
   const tipoVentas = getTipo(req);
   const run = async (dbo) => {
     const cotiOpts = await cotizacionSqlOpts(dbo);
-    const ci = sqlCotiImporteExpr('d');
-    const tMs = 240000;
-    const tipoPanel = getCotizacionesTipo(req);
-    const qCotiSub = (sub) =>
-      query(
-        `
-      SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
-        CAST(COALESCE(SUM(${ci}), 0) AS DOUBLE PRECISION) AS TOTAL_COTI, COUNT(*) AS NUM_COTI
-      FROM ${sub} d
-      WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
-      GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
-    `,
-        [desdeStr],
-        tMs,
-        dbo,
-      ).catch((err) => {
-        console.error('[vs-cotizaciones cotiz]', err && (err.message || err));
-        return [];
-      });
-    const innerVs = { desde: desdeStr };
-    let cotizMes;
-    if (tipoPanel === 'VE' || tipoPanel === 'PV') {
-      cotizMes = await qCotiSub(cotizacionesSub(tipoPanel, cotiOpts, innerVs));
-    } else {
-      const [cve, cpv] = await Promise.all([
-        qCotiSub(cotizacionesSub('VE', cotiOpts, innerVs)),
-        qCotiSub(cotizacionesSub('PV', cotiOpts, innerVs)),
-      ]);
-      cotizMes = mergeVsCotizMesVePv(cve, cpv);
-    }
-    const ventasMes = await query(
-      `
+    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
+    const [ventasMes, cotizMes] = await Promise.all([
+      query(`
       SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
         CAST(COALESCE(SUM(d.IMPORTE_NETO), 0) AS DOUBLE PRECISION) AS TOTAL_VENTAS, COUNT(*) AS NUM_DOCS
       FROM ${ventasSub(tipoVentas)} d WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
       GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
-    `,
-      [desdeStr],
-      tMs,
-      dbo,
-    ).catch((err) => {
-      console.error('[vs-cotizaciones ventas]', err && (err.message || err));
-      return [];
-    });
+    `, [desdeStr], 25000, dbo).catch((err) => {
+        console.error('[vs-cotizaciones ventas]', err && (err.message || err));
+        return [];
+      }),
+      query(`
+      SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
+        CAST(COALESCE(SUM(${sqlCotiImporteExpr('d')}), 0) AS DOUBLE PRECISION) AS TOTAL_COTI, COUNT(*) AS NUM_COTI
+      FROM ${cotiSub} d
+      WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
+      GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
+    `, [desdeStr], 25000, dbo).catch((err) => {
+        console.error('[vs-cotizaciones cotiz]', err && (err.message || err));
+        return [];
+      }),
+    ]);
     return { ventas: ventasMes || [], cotizaciones: cotizMes || [] };
   };
   if (isAllDbs(req)) {
@@ -3461,11 +3230,10 @@ get('/api/ventas/margen-articulos', async (req) => {
 
 get('/api/ventas/cotizaciones', async (req) => {
   const f = buildFiltros(req, 'd');
-  const innerBd = cotizQueryIsoBounds(req);
   const limit = Math.min(parseInt(req.query.limit, 10) || 50, 500);
   const run = async (dbo) => {
     const cotiOpts = await cotizacionSqlOpts(dbo);
-    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts, innerBd);
+    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
     const ci = sqlCotiImporteExpr('d');
     return query(`
     SELECT FIRST ${limit}
@@ -3633,8 +3401,8 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
   const agingFloor = cxcAgingQueryMs();
   const qms =
     perQueryMs != null
-      ? Math.min(180000, Math.max(perQueryMs, agingFloor, 25000))
-      : Math.min(180000, Math.max(agingFloor, 45000));
+      ? Math.min(120000, Math.max(perQueryMs, agingFloor, 25000))
+      : Math.min(120000, Math.max(agingFloor, 45000));
   const rq = { query: { ...req.query } };
   if (!rq.query.desde && !rq.query.hasta && !rq.query.anio) {
     const now = new Date();
@@ -3643,69 +3411,8 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
   }
   const f = buildFiltros(rq, 'd');
   const cotiOpts = await cotizacionSqlOpts(dbOpts);
+  const cotiSub = cotizacionesSub(getCotizacionesTipo(rq), cotiOpts);
   const omitCxc = String((req && req.query && req.query.omitCxc) || '').trim() === '1';
-  /* Cotizaciones: mismo criterio que /api/ventas/cotizaciones/resumen — VE y PV por separado (UNION+ligas PV timeout → no anular todo). */
-  const cotiMs = Math.min(180000, Math.max(qms, 95000));
-  const cotiPromise = (async () => {
-    const qr = { query: { ...rq.query } };
-    if (!qr.query.desde && !qr.query.hasta && qr.query.anio && qr.query.mes) {
-      const y = parseInt(String(qr.query.anio || ''), 10);
-      const m = parseInt(String(qr.query.mes || ''), 10);
-      if (Number.isFinite(y) && Number.isFinite(m) && m >= 1 && m <= 12) {
-        qr.query.desde = `${y}-${String(m).padStart(2, '0')}-01`;
-        qr.query.hasta = lastDayOfMonth(y, m);
-      }
-    }
-    const imp = sqlCotiImporteExpr('d');
-    const wVe = sqlWhereCotizacionComoVenta('d', 'VE');
-    const wPv = sqlWhereCotizacionComoVenta('d', 'PV');
-    const feVe = cotiOpts.sqlFeVe || 'd.FECHA';
-    const fePv = cotiOpts.sqlFePv || 'd.FECHA';
-    const fVe = buildFiltros(qr, 'd', { fechaExpr: feVe });
-    const fPv = buildFiltros(qr, 'd', { fechaExpr: fePv });
-    const t = Math.min(180000, Math.max(cotiMs, 120000));
-    const veSql = `
-      SELECT
-        SUM(CASE WHEN CAST(${feVe} AS DATE) = CURRENT_DATE THEN ${imp} ELSE 0 END) AS HOY,
-        COALESCE(SUM(${imp}), 0) AS MES_ACTUAL,
-        COUNT(*) AS COTIZACIONES_MES,
-        COUNT(CASE WHEN CAST(${feVe} AS DATE) = CURRENT_DATE THEN 1 END) AS COTIZACIONES_HOY
-      FROM DOCTOS_VE d
-      WHERE 1=1 ${fVe.sql} AND (${wVe})${String(cotiOpts.vigenciaVeSuffix || '')}
-    `;
-    const pvSql = `
-      SELECT
-        SUM(CASE WHEN CAST(${fePv} AS DATE) = CURRENT_DATE THEN ${imp} ELSE 0 END) AS HOY,
-        COALESCE(SUM(${imp}), 0) AS MES_ACTUAL,
-        COUNT(*) AS COTIZACIONES_MES,
-        COUNT(CASE WHEN CAST(${fePv} AS DATE) = CURRENT_DATE THEN 1 END) AS COTIZACIONES_HOY
-      FROM DOCTOS_PV d
-      WHERE 1=1 ${fPv.sql} AND (${wPv})
-    `;
-    // Inicio/Director: siempre VE+PV (no usar ?tipo= ni getCotizacionesTipo: residual de Ventas dejaba COTI en 0).
-    const [veRows, pvRows] = await Promise.all([
-      query(veSql, fVe.params, t, dbOpts).catch((err) => {
-        console.error('[director/snapshot][coti VE]', err && (err.message || err));
-        return [];
-      }),
-      query(pvSql, fPv.params, t, dbOpts).catch((err) => {
-        console.error('[director/snapshot][coti PV]', err && (err.message || err));
-        return [];
-      }),
-    ]);
-    const merged = mergeCotizacionResumenRows([
-      normalizeCotizacionResumenRow(veRows[0]),
-      normalizeCotizacionResumenRow(pvRows[0]),
-    ]);
-    return [
-      {
-        IMPORTE_COTI_HOY: merged.HOY,
-        IMPORTE_COTI_MES: merged.MES_ACTUAL,
-        COTI_HOY: merged.COTIZACIONES_HOY,
-        COTI_MES: merged.COTIZACIONES_MES,
-      },
-    ];
-  })();
   const [vRow, remRow, cxcSnap, coRow] = await Promise.all([
     query(`
       SELECT
@@ -3727,7 +3434,15 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
     omitCxc
       ? Promise.resolve({ resumen: { SALDO_TOTAL: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: 0, VENCIDO: 0, POR_VENCER: 0 }, aging: {} })
       : cxcResumenAgingUnificado(rq, dbOpts, qms).catch(() => ({ resumen: { SALDO_TOTAL: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: 0, VENCIDO: 0, POR_VENCER: 0 }, aging: {} })),
-    cotiPromise,
+    query(`
+      SELECT
+        SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN ${sqlCotiImporteExpr('d')} ELSE 0 END) AS IMPORTE_COTI_HOY,
+        COALESCE(SUM(${sqlCotiImporteExpr('d')}), 0) AS IMPORTE_COTI_MES,
+        SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 ELSE 0 END) AS COTI_HOY,
+        COUNT(*) AS COTI_MES
+      FROM ${cotiSub} d
+      WHERE 1=1 ${f.sql}
+    `, f.params, qms, dbOpts).catch(() => [{}]),
   ]);
   const v = vRow[0] || {};
   const rem = remRow[0] || {};
@@ -3742,7 +3457,7 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
 }
 
 get('/api/director/resumen', async (req) => {
-  const dirQms = Math.min(180000, Math.max(cxcAgingQueryMs(), 35000));
+  const dirQms = Math.min(120000, Math.max(cxcAgingQueryMs(), 35000));
   if (isAllDbs(req)) {
     const parts = await mapPoolLimit(DATABASE_REGISTRY, 2, async (entry) => {
       try {
@@ -3955,8 +3670,7 @@ function cxcDocSaldosSQL(cfSql) {
 }
 
 async function cxcResumenAgingUnificado(req, dbo, qms) {
-  /* Tope alineado con GET /api/cxc/resumen-aging (queryMs hasta 180000). Antes min(qms,120000) anulaba queryMs=180000 y en bases lentas dejaba snapshot vacío / vencido 0. */
-  const ms = typeof qms === 'number' && qms > 0 ? Math.min(Math.max(qms, 3000), 180000) : cxcAgingQueryMs();
+  const ms = typeof qms === 'number' && qms > 0 ? Math.min(qms, 120000) : cxcAgingQueryMs();
   const t0 = Date.now();
   const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
   const whereCliDoc = cf ? ` AND doc.CLIENTE_ID = ${cf}` : '';
@@ -4050,7 +3764,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
     const legacyAnyVenc = legacyHadRows && cxcAgingLegacy.some((r) => (+r.VENC_C || 0) > 0.005);
     const legacyAnyData = legacyHadRows && cxcAgingLegacy.some((r) => ((+r.TOTAL_C || 0) > 0.005) || ((+r.COR_C || 0) > 0.005) || ((+r.VENC_C || 0) > 0.005));
     if (!legacyAnyData || (!legacyAnyVenc && vencido <= 0.005)) {
-      const msRetry = Math.min(180000, Math.max(ms, 90000));
+      const msRetry = Math.min(120000, Math.max(ms, 90000));
       try {
         const retryRows = await query(agingLegacySql, [], msRetry, dbo).catch(() => []);
         if (Array.isArray(retryRows) && retryRows.length) cxcAgingLegacy = retryRows;
@@ -4757,91 +4471,22 @@ async function invPrecioSubSql(dbo) {
 }
 
 const invCostoSubCache = new Map();
-const invCostoUnitExprCache = new Map();
 /**
- * Costo unitario por artículo desde ARTICULOS (COSTO_PROMEDIO, ULTIMO_COSTO o COSTO; alineado con Power BI).
- * Si ninguna columna existe, intenta costo unitario desde COMPRAS (DOCTOS_IN + DOCTOS_IN_DET) por último movimiento.
- * Si tampoco existe (o falta esquema), cae a precio mínimo (PRECIO1 renombrado a COSTO1).
+ * Costo unitario promedio por artículo desde ARTICULOS.COSTO_PROMEDIO (igual que Power BI).
+ * Fallback en orden: ULTIMO_COSTO → COSTO. Si ninguno existe en ARTICULOS, usa precio de venta.
  */
 async function invCostoSubSql(dbo) {
   const key = dbCacheKey(dbo);
   if (invCostoSubCache.has(key)) return invCostoSubCache.get(key);
-  const cols = await getTableColumns('ARTICULOS', dbo).catch(() => new Set());
+  const cols = await getTableColumns('ARTICULOS', dbo);
   const costoCol = firstExistingColumn(cols || new Set(), ['COSTO_PROMEDIO', 'ULTIMO_COSTO', 'COSTO']);
   if (costoCol) {
-    invCostoSubCache.set(key, `( SELECT a.ARTICULO_ID, COALESCE(a.${costoCol}, 0) AS COSTO1 FROM ARTICULOS a )`);
+    invCostoSubCache.set(key, `( SELECT a.ARTICULO_ID, COALESCE(a."${costoCol}", 0) AS COSTO1 FROM ARTICULOS a )`);
   } else {
-    // Si ARTICULOS no trae costo, usar última compra desde DOCTOS_IN/DET (si existe esquema).
-    // OJO: aquí devolvemos una tabla (ARTICULO_ID, COSTO1). La tabla se usa solo para artículos con existencia ≠ 0.
-    const inCols = await getTableColumns('DOCTOS_IN', dbo).catch(() => new Set());
-    const inDetCols = await getTableColumns('DOCTOS_IN_DET', dbo).catch(() => new Set());
-    const hasIn = (inCols instanceof Set ? inCols.size : 0) > 0;
-    const hasInDet = (inDetCols instanceof Set ? inDetCols.size : 0) > 0;
-    const inHasFecha = hasIn && inCols.has('FECHA');
-    const inHasCancel = hasIn && inCols.has('CANCELADO');
-    const inHasAplicado = hasIn && inCols.has('APLICADO');
-    const inDetIdCol = firstExistingColumn(inDetCols || new Set(), ['DOCTO_IN_DET_ID', 'RENGLON', 'POSICION']);
-    const inCostoUnitCol = firstExistingColumn(inDetCols || new Set(), ['COSTO_UNITARIO', 'COSTO_U']);
-    const inCostoTotalCol = firstExistingColumn(inDetCols || new Set(), ['COSTO_TOTAL', 'IMPORTE']);
-    const inQtyCol = firstExistingColumn(inDetCols || new Set(), ['CANTIDAD', 'UNIDADES']);
-
-    if (hasIn && hasInDet && inHasFecha && (inCostoUnitCol || (inCostoTotalCol && inQtyCol))) {
-      const unitExpr = inCostoUnitCol
-        ? `NULLIF(ind.${inCostoUnitCol}, 0)`
-        : `CASE WHEN COALESCE(ind.${inQtyCol}, 0) <> 0 THEN COALESCE(ind.${inCostoTotalCol}, 0) / COALESCE(ind.${inQtyCol}, 1) ELSE NULL END`;
-      const w = [];
-      if (inHasCancel) w.push(`COALESCE(di.CANCELADO, 'N') = 'N'`);
-      if (inHasAplicado) w.push(`COALESCE(di.APLICADO, 'S') = 'S'`);
-      const docWhere = w.length ? `WHERE ${w.join(' AND ')}` : '';
-      const orderParts = ['di.FECHA DESC'];
-      if (inDetIdCol) orderParts.push(`ind.${inDetIdCol} DESC`);
-      else orderParts.push('ind.DOCTO_IN_ID DESC');
-
-      // Nota: Firebird no soporta window functions en todas las versiones; usamos FIRST 1 por artículo via subquery correlacionado,
-      // pero como las queries de inventario solo suman artículos con existencia != 0 (miles, no 70k), es aceptable.
-      const t = `
-        ( SELECT a.ARTICULO_ID,
-          COALESCE((
-            SELECT FIRST 1 COALESCE(${unitExpr}, 0)
-            FROM DOCTOS_IN di
-            JOIN DOCTOS_IN_DET ind ON ind.DOCTO_IN_ID = di.DOCTO_IN_ID
-            WHERE ind.ARTICULO_ID = a.ARTICULO_ID
-              ${w.length ? ' AND ' + w.join(' AND ') : ''}
-            ORDER BY ${orderParts.join(', ')}
-          ), 0) AS COSTO1
-          FROM ARTICULOS a
-        )
-      `;
-      invCostoSubCache.set(key, t);
-      return t;
-    }
-
     const priceSub = await invPrecioSubSql(dbo);
-    // Si no pudimos leer columnas (cold-start / timeout), NO cachear el fallback;
-    // de lo contrario podríamos quedarnos atorados valuando por precio en vez de costo.
-    const fallback = priceSub.replace(/PRECIO1/g, 'COSTO1');
-    if ((cols instanceof Set ? cols.size : 0) > 0) invCostoSubCache.set(key, fallback);
-    return fallback;
+    invCostoSubCache.set(key, priceSub.replace(/PRECIO1/g, 'COSTO1'));
   }
   return invCostoSubCache.get(key);
-}
-
-async function invCostoSourceInfo(dbo) {
-  const cols = await getTableColumns('ARTICULOS', dbo).catch(() => new Set());
-  const costoCol = firstExistingColumn(cols || new Set(), ['COSTO_PROMEDIO', 'ULTIMO_COSTO', 'COSTO']);
-  if (costoCol) return { source: 'ARTICULOS', detail: costoCol };
-  const inCols = await getTableColumns('DOCTOS_IN', dbo).catch(() => new Set());
-  const inDetCols = await getTableColumns('DOCTOS_IN_DET', dbo).catch(() => new Set());
-  const hasIn = (inCols instanceof Set ? inCols.size : 0) > 0;
-  const hasInDet = (inDetCols instanceof Set ? inDetCols.size : 0) > 0;
-  const inHasFecha = hasIn && inCols.has('FECHA');
-  const inCostoUnitCol = firstExistingColumn(inDetCols || new Set(), ['COSTO_UNITARIO', 'COSTO_U']);
-  const inCostoTotalCol = firstExistingColumn(inDetCols || new Set(), ['COSTO_TOTAL', 'IMPORTE']);
-  const inQtyCol = firstExistingColumn(inDetCols || new Set(), ['CANTIDAD', 'UNIDADES']);
-  if (hasIn && hasInDet && inHasFecha && (inCostoUnitCol || (inCostoTotalCol && inQtyCol))) {
-    return { source: 'DOCTOS_IN', detail: inCostoUnitCol || `${inCostoTotalCol}/${inQtyCol}` };
-  }
-  return { source: 'PRECIO_FALLBACK', detail: 'PRECIOS_ARTICULOS.MIN(PRECIO)' };
 }
 
 // SIN_STOCK = solo articulos con minimo definido y existencia 0 (alerta real). No contar todo el catalogo en cero.
@@ -4861,19 +4506,12 @@ get('/api/inv/resumen', async (req) => {
   const invQTimeout = 60000;
   const countsRows = await query(qCounts, [], invQTimeout, dbo).catch(() => [{}]);
   const costoSub = await invCostoSubSql(dbo);
-  const cols = await getTableColumns('ARTICULOS', dbo).catch(() => new Set());
-  const colsSet = cols instanceof Set ? cols : new Set(Array.isArray(cols) ? cols : []);
-  const whereAlmacenable = colsSet.has('ES_ALMACENABLE') ? ` AND COALESCE(a.ES_ALMACENABLE, 'S') = 'S'` : '';
-  // No hay columna tipo/servicio en esta base; la heurística por nombre basta (y es lo que BI suele excluir).
-  const whereNoServicios = colsSet.has('NOMBRE') ? ` AND UPPER(a.NOMBRE) NOT CONTAINING 'SERVICIO'` : '';
   const qValor = `
     SELECT COALESCE(SUM(COALESCE(s.EXISTENCIA, 0) * COALESCE(cs.COSTO1, 0)), 0) AS VALOR_INVENTARIO
-    FROM ( SELECT ARTICULO_ID, EXISTENCIA FROM ${SQL_EXIST_SUB} WHERE COALESCE(EXISTENCIA, 0) <> 0 ) s
-    JOIN ARTICULOS a ON a.ARTICULO_ID = s.ARTICULO_ID
+    FROM ARTICULOS a
+    LEFT JOIN ${SQL_EXIST_SUB} s ON s.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${costoSub} cs ON cs.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A'
-      ${whereAlmacenable}
-      ${whereNoServicios}
   `;
   const valorRows = await query(qValor, [], invQTimeout, dbo).catch(() => [{ VALOR_INVENTARIO: 0 }]);
   const c = countsRows[0] || {};
@@ -4881,181 +4519,6 @@ get('/api/inv/resumen', async (req) => {
   const r = Object.assign({}, c, v);
 
   return { TOTAL_ARTICULOS: +(r.TOTAL_ARTICULOS||0), VALOR_INVENTARIO: +(r.VALOR_INVENTARIO||0), BAJO_MINIMO: +(r.BAJO_MINIMO||0), SIN_STOCK: +(r.SIN_STOCK||0) };
-});
-
-/**
- * Reconciliación inventario vs BI:
- * - total (actual) por SALDOS_IN * costo
- * - solo con stock > 0
- * - solo con stock > 0 y con ventas en ventana (ej. 90d / YTD)
- */
-get('/api/debug/inv-reconcile', async (req) => {
-  const dbo = getReqDbOpts(req);
-  const dias = Math.min(Math.max(parseInt(String(req.query.dias || '90'), 10) || 90, 1), 730);
-  const desde = new Date();
-  desde.setDate(desde.getDate() - dias);
-  const desdeStr =
-    desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-' + String(desde.getDate()).padStart(2, '0');
-
-  const costoSub = await invCostoSubSql(dbo);
-  const invQTimeout = 120000;
-  const cols = await getTableColumns('ARTICULOS', dbo).catch(() => new Set());
-  const colsSet = cols instanceof Set ? cols : new Set(Array.isArray(cols) ? cols : []);
-  const tipoCol = firstExistingColumn(colsSet, ['TIPO_ARTICULO', 'TIPO', 'ES_SERVICIO']);
-  const hasNombre = colsSet.has('NOMBRE');
-
-  // "Servicios" en Microsip suelen vivir como artículos con nombre/linea especial y distorsionan inventario vs BI.
-  // Si hay columna de tipo, úsala; si no, cae a heurística por nombre.
-  const whereNoServicios = (() => {
-    if (tipoCol) {
-      // ES_SERVICIO puede ser 0/1, o TIPO_ARTICULO puede ser texto; dejamos ambas opciones.
-      return ` AND NOT (COALESCE(a.${tipoCol}, '') IN ('S', 'SERV', 'SERVICIO', 'SERVICIOS') OR COALESCE(a.${tipoCol}, 0) = 1)`;
-    }
-    if (hasNombre) return ` AND UPPER(a.NOMBRE) NOT CONTAINING 'SERVICIO'`;
-    return '';
-  })();
-  const whereAlmacenable = colsSet.has('ES_ALMACENABLE') ? ` AND COALESCE(a.ES_ALMACENABLE, 'S') = 'S'` : '';
-  const costSrc = await invCostoSourceInfo(dbo).catch(() => ({ source: 'UNKNOWN', detail: null }));
-
-  const qBase = (whereExtra) => `
-    SELECT
-      COUNT(DISTINCT a.ARTICULO_ID) AS ARTICULOS,
-      COALESCE(SUM(COALESCE(s.EXISTENCIA, 0)), 0) AS UNIDADES,
-      COALESCE(SUM(COALESCE(s.EXISTENCIA, 0) * COALESCE(cs.COSTO1, 0)), 0) AS VALOR
-    FROM ( SELECT ARTICULO_ID, EXISTENCIA FROM ${SQL_EXIST_SUB} WHERE COALESCE(EXISTENCIA, 0) <> 0 ) s
-    JOIN ARTICULOS a ON a.ARTICULO_ID = s.ARTICULO_ID
-    LEFT JOIN ${costoSub} cs ON cs.ARTICULO_ID = a.ARTICULO_ID
-    WHERE COALESCE(a.ESTATUS, 'A') = 'A' ${whereExtra || ''}
-  `;
-
-  // SKUs vendidos en ventana: usa DOCTOS_VE_DET (más directo para consumo).
-  const qVendidosVentana = `
-    SELECT DISTINCT det.ARTICULO_ID
-    FROM DOCTOS_VE d
-    JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
-    WHERE COALESCE(d.ESTATUS, 'N') <> 'C'
-      AND CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
-  `;
-
-  // Variante VE+PV: reusa misma lógica de consumo (si existe PV) en vez de solo VE.
-  const csp = await resolveConsumosSchema(dbo).catch(() => null);
-  const subConsumos = csp ? consumosSubSql('', csp) : null; // '' => VE+PV union (según schema)
-  const qVendidosVentanaVePv = subConsumos ? `
-    SELECT DISTINCT d.ARTICULO_ID
-    FROM ${subConsumos} d
-    WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
-      AND COALESCE(d.UNIDADES, 0) > 0
-  ` : null;
-
-  const [tot, vendidos, totNoServ, vendidosNoServ, totAlm, totAlmNoServ, vendidosVePv, vendidosVePvNoServ] = await Promise.all([
-    query(qBase(''), [], invQTimeout, dbo).catch(() => [{}]),
-    query(
-      qBase(` AND COALESCE(s.EXISTENCIA, 0) > 0 AND a.ARTICULO_ID IN (${qVendidosVentana})`),
-      [desdeStr],
-      invQTimeout,
-      dbo,
-    ).catch(() => [{}]),
-    query(qBase(`${whereNoServicios}`), [], invQTimeout, dbo).catch(() => [{}]),
-    query(
-      qBase(` AND COALESCE(s.EXISTENCIA, 0) > 0 ${whereNoServicios} AND a.ARTICULO_ID IN (${qVendidosVentana})`),
-      [desdeStr],
-      invQTimeout,
-      dbo,
-    ).catch(() => [{}]),
-    query(qBase(`${whereAlmacenable}`), [], invQTimeout, dbo).catch(() => [{}]),
-    query(qBase(`${whereAlmacenable} ${whereNoServicios}`), [], invQTimeout, dbo).catch(() => [{}]),
-    qVendidosVentanaVePv ? query(
-      qBase(` AND COALESCE(s.EXISTENCIA, 0) > 0 AND a.ARTICULO_ID IN (${qVendidosVentanaVePv})`),
-      [desdeStr],
-      invQTimeout,
-      dbo,
-    ).catch(() => [{}]) : Promise.resolve([{}]),
-    qVendidosVentanaVePv ? query(
-      qBase(` AND COALESCE(s.EXISTENCIA, 0) > 0 ${whereNoServicios} AND a.ARTICULO_ID IN (${qVendidosVentanaVePv})`),
-      [desdeStr],
-      invQTimeout,
-      dbo,
-    ).catch(() => [{}]) : Promise.resolve([{}]),
-  ]);
-
-  const pick = (rows) => (rows && rows[0]) ? rows[0] : {};
-  const a = pick(tot);
-  const c = pick(vendidos);
-  const d = pick(totNoServ);
-  const f = pick(vendidosNoServ);
-  const k = pick(totAlm);
-  const m = pick(totAlmNoServ);
-  const g = pick(vendidosVePv);
-  const h = pick(vendidosVePvNoServ);
-  const r2 = (x) => Math.round((+x || 0) * 100) / 100;
-  const avg = (valor, unidades) => (unidades && +unidades !== 0) ? r2((+valor || 0) / (+unidades || 1)) : 0;
-
-  return {
-    ok: true,
-    db: normalizeDbQueryId(req.query.db) || 'default',
-    ventana_dias: dias,
-    desde_param: desdeStr,
-    reglas: {
-      excluye_servicios: whereNoServicios ? true : false,
-      tipo_col_detectado: tipoCol || null,
-      vendidos_en_ventana: {
-        ve_only: true,
-        ve_pv_union: !!qVendidosVentanaVePv,
-      },
-      almacenable: whereAlmacenable ? true : false,
-      costo_fuente: costSrc,
-    },
-    totales: {
-      articulos_activos: +a.ARTICULOS || 0,
-      unidades: r2(a.UNIDADES),
-      valor: r2(a.VALOR),
-      costo_promedio_implicito: avg(a.VALOR, a.UNIDADES),
-    },
-    con_stock_y_ventas_en_ventana: {
-      articulos_activos: +c.ARTICULOS || 0,
-      unidades: r2(c.UNIDADES),
-      valor: r2(c.VALOR),
-      costo_promedio_implicito: avg(c.VALOR, c.UNIDADES),
-    },
-    totales_sin_servicios: {
-      articulos_activos: +d.ARTICULOS || 0,
-      unidades: r2(d.UNIDADES),
-      valor: r2(d.VALOR),
-      costo_promedio_implicito: avg(d.VALOR, d.UNIDADES),
-    },
-    con_stock_y_ventas_en_ventana_sin_servicios: {
-      articulos_activos: +f.ARTICULOS || 0,
-      unidades: r2(f.UNIDADES),
-      valor: r2(f.VALOR),
-      costo_promedio_implicito: avg(f.VALOR, f.UNIDADES),
-    },
-    totales_almacenable: {
-      articulos_activos: +k.ARTICULOS || 0,
-      unidades: r2(k.UNIDADES),
-      valor: r2(k.VALOR),
-      costo_promedio_implicito: avg(k.VALOR, k.UNIDADES),
-    },
-    totales_almacenable_sin_servicios: {
-      articulos_activos: +m.ARTICULOS || 0,
-      unidades: r2(m.UNIDADES),
-      valor: r2(m.VALOR),
-      costo_promedio_implicito: avg(m.VALOR, m.UNIDADES),
-    },
-    con_stock_y_ventas_en_ventana_ve_pv: {
-      articulos_activos: +g.ARTICULOS || 0,
-      unidades: r2(g.UNIDADES),
-      valor: r2(g.VALOR),
-      costo_promedio_implicito: avg(g.VALOR, g.UNIDADES),
-    },
-    con_stock_y_ventas_en_ventana_ve_pv_sin_servicios: {
-      articulos_activos: +h.ARTICULOS || 0,
-      unidades: r2(h.UNIDADES),
-      valor: r2(h.VALOR),
-      costo_promedio_implicito: avg(h.VALOR, h.UNIDADES),
-    },
-    nota:
-      'Si BI no cuadra con totales, normalmente es por excluir servicios/líneas/grupos o por definir "vendido" como VE+PV. Usa este endpoint para identificar cuál variante se acerca al KPI de BI.',
-  };
 });
 
 // Diagnóstico duro de conectividad Firebird para inventario (no oculta errores).
@@ -7908,426 +7371,6 @@ get('/api/debug/schema', async () => {
   return out;
 });
 
-/** Lista de bases disponibles para ?db= (id/label + archivo). */
-get('/api/debug/dbs', async (req) => {
-  return {
-    ok: true,
-    count: DATABASE_REGISTRY.length,
-    dbs: DATABASE_REGISTRY.map((d) => ({
-      id: d.id,
-      label: d.label || d.id,
-      file: path.basename((d.options && d.options.database) || ''),
-    })),
-    nota: 'Usa el campo id en ?db=. label es solo informativo para humanos.',
-  };
-});
-
-/**
- * Diagnóstico ultra-ligero Firebird: valida si el cuello es ATTACH/red vs tablas grandes.
- * Ejecuta una consulta mínima a RDB$DATABASE con timeout configurable (?ms=).
- */
-get('/api/debug/firebird-ping', async (req) => {
-  const dbo = getReqDbOpts(req);
-  const ms = Math.min(240000, Math.max(5000, parseInt(String(req.query.ms || '20000'), 10) || 20000));
-  const t0 = Date.now();
-  try {
-    const rows = await query('SELECT 1 AS OK FROM RDB$DATABASE', [], ms, dbo);
-    const t1 = Date.now();
-    return {
-      ok: true,
-      timeout_ms: ms,
-      elapsed_ms: t1 - t0,
-      sample: rows && rows[0] ? rows[0] : null,
-      nota: 'Si esto timeoutea, el problema es conexión/red/locks del servidor Firebird (no el SQL de cotizaciones).',
-    };
-  } catch (e) {
-    const t1 = Date.now();
-    return {
-      ok: false,
-      timeout_ms: ms,
-      elapsed_ms: t1 - t0,
-      error: String(e && e.message ? e.message : e),
-      nota: 'Si falla aquí, revisar host/puerto Firebird, VPN/firewall, locks, o latencia extrema entre Render y el servidor.',
-    };
-  }
-});
-
-/**
- * Monitoreo Firebird (MON$): revela locks/queries largas sin tocar DOCTOS_*.
- * Nota: MON$ existe en Firebird 2.1+; si no existe, regresará error.
- */
-get('/api/debug/firebird-mon', async (req) => {
-  const dbo = getReqDbOpts(req);
-  const ms = Math.min(240000, Math.max(5000, parseInt(String(req.query.ms || '20000'), 10) || 20000));
-  const t0 = Date.now();
-  try {
-    const [dbRows, txRows, stRows] = await Promise.all([
-      query(
-        `SELECT
-           MON$ATTACHMENT_ID AS ATTACHMENT_ID,
-           MON$OLDEST_TRANSACTION AS OLDEST_TX,
-           MON$OLDEST_ACTIVE AS OLDEST_ACTIVE_TX,
-           MON$OLDEST_SNAPSHOT AS OLDEST_SNAPSHOT_TX,
-           MON$NEXT_TRANSACTION AS NEXT_TX
-         FROM MON$DATABASE`,
-        [],
-        ms,
-        dbo,
-      ).catch((e) => ({ error: String(e && e.message ? e.message : e) })),
-      query(
-        `SELECT FIRST 15
-           MON$TRANSACTION_ID AS TX_ID,
-           MON$STATE AS STATE,
-           MON$ISOLATION_MODE AS ISOLATION,
-           MON$LOCK_TIMEOUT AS LOCK_TIMEOUT,
-           MON$TIMESTAMP AS STARTED_AT,
-           MON$ATTACHMENT_ID AS ATTACHMENT_ID
-         FROM MON$TRANSACTIONS
-         ORDER BY MON$TIMESTAMP ASC`,
-        [],
-        ms,
-        dbo,
-      ).catch((e) => ({ error: String(e && e.message ? e.message : e) })),
-      query(
-        `SELECT FIRST 15
-           s.MON$STATEMENT_ID AS STMT_ID,
-           s.MON$ATTACHMENT_ID AS ATTACHMENT_ID,
-           s.MON$TIMESTAMP AS STARTED_AT,
-           s.MON$STATE AS STATE,
-           CHAR_LENGTH(s.MON$SQL_TEXT) AS SQL_LEN,
-           SUBSTRING(s.MON$SQL_TEXT FROM 1 FOR 220) AS SQL_HEAD
-         FROM MON$STATEMENTS s
-         WHERE s.MON$SQL_TEXT IS NOT NULL
-         ORDER BY s.MON$TIMESTAMP ASC`,
-        [],
-        ms,
-        dbo,
-      ).catch((e) => ({ error: String(e && e.message ? e.message : e) })),
-    ]);
-    return {
-      ok: true,
-      timeout_ms: ms,
-      elapsed_ms: Date.now() - t0,
-      mon_database: dbRows,
-      mon_transactions: txRows,
-      mon_statements: stRows,
-      nota:
-        'Si aquí aparecen statements muy viejos o OLDEST_* muy atrás, hay transacciones abiertas/locks/GC. Esto explica timeouts en DOCTOS_VE incluso para MAX().',
-    };
-  } catch (e) {
-    return {
-      ok: false,
-      timeout_ms: ms,
-      elapsed_ms: Date.now() - t0,
-      error: String(e && e.message ? e.message : e),
-      nota: 'Si MON$ no existe o falla, usar debug/schema e índices (metadata) para el siguiente paso.',
-    };
-  }
-});
-
-/**
- * Metadata de índices/PK sin escanear tablas grandes: confirma si DOCTO_VE_ID/DOCTO_PV_ID están indexados.
- */
-get('/api/debug/doctos-meta', async (req) => {
-  const dbo = getReqDbOpts(req);
-  const ms = Math.min(240000, Math.max(5000, parseInt(String(req.query.ms || '20000'), 10) || 20000));
-  const q = async (sql) => query(sql, [], ms, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) }));
-  const ve = await q(`
-    SELECT
-      TRIM(rc.RDB$RELATION_NAME) AS REL,
-      TRIM(rc.RDB$CONSTRAINT_NAME) AS CONSTRAINT_NAME,
-      TRIM(rc.RDB$CONSTRAINT_TYPE) AS CONSTRAINT_TYPE,
-      TRIM(rc.RDB$INDEX_NAME) AS INDEX_NAME,
-      TRIM(seg.RDB$FIELD_NAME) AS FIELD_NAME
-    FROM RDB$RELATION_CONSTRAINTS rc
-    JOIN RDB$INDEX_SEGMENTS seg ON seg.RDB$INDEX_NAME = rc.RDB$INDEX_NAME
-    WHERE rc.RDB$RELATION_NAME = 'DOCTOS_VE'
-      AND rc.RDB$CONSTRAINT_TYPE IN ('PRIMARY KEY', 'UNIQUE')
-      AND seg.RDB$FIELD_NAME = 'DOCTO_VE_ID'
-  `);
-  const pv = await q(`
-    SELECT
-      TRIM(rc.RDB$RELATION_NAME) AS REL,
-      TRIM(rc.RDB$CONSTRAINT_NAME) AS CONSTRAINT_NAME,
-      TRIM(rc.RDB$CONSTRAINT_TYPE) AS CONSTRAINT_TYPE,
-      TRIM(rc.RDB$INDEX_NAME) AS INDEX_NAME,
-      TRIM(seg.RDB$FIELD_NAME) AS FIELD_NAME
-    FROM RDB$RELATION_CONSTRAINTS rc
-    JOIN RDB$INDEX_SEGMENTS seg ON seg.RDB$INDEX_NAME = rc.RDB$INDEX_NAME
-    WHERE rc.RDB$RELATION_NAME = 'DOCTOS_PV'
-      AND rc.RDB$CONSTRAINT_TYPE IN ('PRIMARY KEY', 'UNIQUE')
-      AND seg.RDB$FIELD_NAME = 'DOCTO_PV_ID'
-  `);
-  const relStats = await q(`
-    SELECT
-      TRIM(r.RDB$RELATION_NAME) AS REL,
-      r.RDB$FORMAT AS FMT,
-      r.RDB$RELATION_ID AS REL_ID,
-      COALESCE(r.RDB$SYSTEM_FLAG, 0) AS SYS,
-      COALESCE(r.RDB$FLAGS, 0) AS FLAGS
-    FROM RDB$RELATIONS r
-    WHERE r.RDB$RELATION_NAME IN ('DOCTOS_VE', 'DOCTOS_PV')
-  `);
-  return {
-    ok: true,
-    timeout_ms: ms,
-    doctos_ve_pk: ve,
-    doctos_pv_pk: pv,
-    relations: relStats,
-    nota:
-      'Esto no toca datos, solo metadata. Si no hay PK/índice en DOCTO_*_ID, MAX()/ORDER BY serán lentísimos. Si sí hay, entonces el problema es lock/GC/transacción larga.',
-  };
-});
-
-/** Buscar CLIENTE_ID por nombre (para alinear WEB vs PBI sin adivinar IDs). */
-get('/api/debug/clientes-buscar', async (req) => {
-  const termRaw = String(req.query.q || '').trim();
-  if (!termRaw) return { ok: false, error: 'Parámetro requerido: q=' };
-  const q = termRaw.slice(0, 80);
-  const limit = Math.min(50, Math.max(5, parseInt(String(req.query.limit || '25'), 10) || 25));
-  const ms = Math.min(120000, Math.max(5000, parseInt(String(req.query.ms || '15000'), 10) || 15000));
-  const sql = `
-    SELECT FIRST ${limit}
-      c.CLIENTE_ID,
-      TRIM(COALESCE(c.NOMBRE, '')) AS NOMBRE
-    FROM CLIENTES c
-    WHERE UPPER(COALESCE(c.NOMBRE,'')) LIKE UPPER(?)
-    ORDER BY c.CLIENTE_ID
-  `;
-  const params = [`%${q}%`];
-
-  let rows;
-  if (isAllDbs(req)) {
-    rows = await runForAllDbs(async (dbo) => {
-      const r = await query(sql, params, ms, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) }));
-      // Si falló en una base, devolver 0 filas para no tumbar el agregado.
-      return r && r.error ? [] : (r || []);
-    });
-  } else {
-    const dbo = getReqDbOpts(req);
-    rows = await query(sql, params, ms, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) }));
-  }
-  return {
-    ok: true,
-    q,
-    limit,
-    timeout_ms: ms,
-    rows,
-    nota: 'Usa esto para encontrar el CLIENTE_ID (ej. SINDICATO...) y luego probar /api/cxc/resumen-aging?cliente=ID.',
-  };
-});
-
-/** Sonda DOCTOS_VE/DOCTOS_PV: identifica si el atasco es ORDER BY, MAX(), o lectura por PK. */
-get('/api/debug/doctos-probe', async (req) => {
-  const dbo = getReqDbOpts(req);
-  const ms = Math.min(240000, Math.max(5000, parseInt(String(req.query.ms || '45000'), 10) || 45000));
-  const n = Math.min(30, Math.max(3, parseInt(String(req.query.n || '12'), 10) || 12));
-  const out = { timeout_ms: ms, n };
-
-  const step = async (key, fn) => {
-    const t0 = Date.now();
-    try {
-      const val = await fn();
-      out[key] = { ok: true, elapsed_ms: Date.now() - t0, value: val };
-    } catch (e) {
-      out[key] = { ok: false, elapsed_ms: Date.now() - t0, error: String(e && e.message ? e.message : e) };
-    }
-  };
-
-  // VE
-  await step('ve_max_id', async () => {
-    const r = await query('SELECT MAX(d.DOCTO_VE_ID) AS ID FROM DOCTOS_VE d', [], ms, dbo);
-    return r && r[0] ? +r[0].ID || 0 : 0;
-  });
-  const veMax = out.ve_max_id && out.ve_max_id.ok ? +out.ve_max_id.value || 0 : 0;
-  if (veMax > 0) {
-    await step('ve_by_pk', async () => {
-      const r = await query(
-        `SELECT d.DOCTO_VE_ID, d.FOLIO,
-          TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40))) AS TIPO_DOCTO,
-          TRIM(CAST(COALESCE(d.ESTATUS,'N') AS VARCHAR(8))) AS ESTATUS,
-          CAST(d.FECHA AS DATE) AS FECHA_D
-        FROM DOCTOS_VE d
-        WHERE d.DOCTO_VE_ID = ?`,
-        [veMax],
-        ms,
-        dbo,
-      );
-      return r && r[0] ? r[0] : null;
-    });
-    await step('ve_last_n_window', async () => {
-      const fromId = Math.max(1, veMax - 5000);
-      const r = await query(
-        `SELECT FIRST ${n} d.DOCTO_VE_ID, d.FOLIO, TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40))) AS TIPO_DOCTO, TRIM(CAST(COALESCE(d.ESTATUS,'N') AS VARCHAR(8))) AS ESTATUS, CAST(d.FECHA AS DATE) AS FECHA_D FROM DOCTOS_VE d WHERE d.DOCTO_VE_ID >= ? ORDER BY d.DOCTO_VE_ID DESC`,
-        [fromId],
-        ms,
-        dbo,
-      );
-      return { from_id: fromId, rows: r || [] };
-    });
-  }
-
-  // PV (solo si piden src=PV o BOTH)
-  const src = String(req.query.src || 'VE').trim().toUpperCase(); // VE|PV|BOTH
-  out.src = src;
-  if (src === 'PV' || src === 'BOTH') {
-    await step('pv_max_id', async () => {
-      const r = await query('SELECT MAX(d.DOCTO_PV_ID) AS ID FROM DOCTOS_PV d', [], ms, dbo);
-      return r && r[0] ? +r[0].ID || 0 : 0;
-    });
-    const pvMax = out.pv_max_id && out.pv_max_id.ok ? +out.pv_max_id.value || 0 : 0;
-    if (pvMax > 0) {
-      await step('pv_by_pk', async () => {
-        const r = await query(
-          `SELECT d.DOCTO_PV_ID, d.FOLIO,
-            TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40))) AS TIPO_DOCTO,
-            TRIM(CAST(COALESCE(d.ESTATUS,'N') AS VARCHAR(8))) AS ESTATUS,
-            CAST(d.FECHA AS DATE) AS FECHA_D
-          FROM DOCTOS_PV d
-          WHERE d.DOCTO_PV_ID = ?`,
-          [pvMax],
-          ms,
-          dbo,
-        );
-        return r && r[0] ? r[0] : null;
-      });
-      await step('pv_last_n_window', async () => {
-        const fromId = Math.max(1, pvMax - 5000);
-        const r = await query(
-          `SELECT FIRST ${n} d.DOCTO_PV_ID, d.FOLIO, TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40))) AS TIPO_DOCTO, TRIM(CAST(COALESCE(d.ESTATUS,'N') AS VARCHAR(8))) AS ESTATUS, CAST(d.FECHA AS DATE) AS FECHA_D FROM DOCTOS_PV d WHERE d.DOCTO_PV_ID >= ? ORDER BY d.DOCTO_PV_ID DESC`,
-          [fromId],
-          ms,
-          dbo,
-        );
-        return { from_id: fromId, rows: r || [] };
-      });
-    }
-  }
-
-  out.nota =
-    'Si ve_max_id falla → tabla/locks. Si ve_max_id ok pero ve_by_pk falla → lectura/índice. Si ve_by_pk ok pero ve_last_n_window falla → ORDER BY/plan. Con esto decidimos el siguiente fix.';
-  return out;
-});
-
-/** Muestra ultrarrápida: últimos N docs VE/PV (sin GROUP BY masivo). Si tipos hace timeout, esto suele responder. */
-get('/api/debug/cotizaciones-recientes', async (req) => {
-  const dbo = getReqDbOpts(req);
-  const n = Math.min(30, Math.max(3, parseInt(String(req.query.n || '12'), 10) || 12));
-  const src = String(req.query.src || 'both').trim().toUpperCase(); // VE | PV | BOTH
-  const t = 180000;
-  const sqlVe = `
-    SELECT FIRST ${n}
-      d.FOLIO,
-      TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40))) AS TIPO_DOCTO,
-      TRIM(CAST(COALESCE(d.ESTATUS, 'N') AS VARCHAR(8))) AS ESTATUS,
-      CAST(d.FECHA AS DATE) AS FECHA_D,
-      d.DOCTO_VE_ID
-    FROM DOCTOS_VE d
-    ORDER BY d.DOCTO_VE_ID DESC
-  `;
-  const sqlPv = `
-    SELECT FIRST ${n}
-      d.FOLIO,
-      TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40))) AS TIPO_DOCTO,
-      TRIM(CAST(COALESCE(d.ESTATUS, 'N') AS VARCHAR(8))) AS ESTATUS,
-      CAST(d.FECHA AS DATE) AS FECHA_D,
-      d.DOCTO_PV_ID
-    FROM DOCTOS_PV d
-    ORDER BY d.DOCTO_PV_ID DESC
-  `;
-  const out = { n, src, timeout_ms: t };
-  if (src !== 'PV') {
-    out.ve_ultimos = await query(sqlVe, [], t, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) }));
-  }
-  if (src !== 'VE') {
-    out.pv_ultimos = await query(sqlPv, [], t, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) }));
-  }
-  return {
-    ...out,
-    ve_ultimos: out.ve_ultimos && out.ve_ultimos.error ? out.ve_ultimos : out.ve_ultimos || [],
-    pv_ultimos: out.pv_ultimos && out.pv_ultimos.error ? out.pv_ultimos : out.pv_ultimos || [],
-    nota: 'Sin filtro de cotización: solo últimos documentos (ordenados por ID). Ver TIPO_DOCTO reales vs macro C,O,Q,P. Si esto también timeout, FB/red muy lentos.',
-  };
-});
-
-/** Diagnóstico: TIPO_DOCTO en ventana + macro cotización. Serial + fecha por parámetro; default 14 días (7–800). */
-get('/api/debug/cotizaciones-tipos', async (req) => {
-  const dbo = getReqDbOpts(req);
-  const dias = Math.min(800, Math.max(7, parseInt(String(req.query.dias || '14'), 10) || 14));
-  const desde = new Date();
-  desde.setDate(desde.getDate() - dias);
-  const desdeStr =
-    desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-' + String(desde.getDate()).padStart(2, '0');
-  const cotiOpts = await cotizacionSqlOpts(dbo);
-  const feVe = cotiOpts.sqlFeVe || 'd.FECHA';
-  const fePv = cotiOpts.sqlFePv || 'd.FECHA';
-  const wVe = sqlWhereCotizacionComoVenta('d', 'VE');
-  const wPv = sqlWhereCotizacionComoVenta('d', 'PV');
-  const imp = sqlCotiImporteExpr('d');
-  const vig = String(cotiOpts.vigenciaVeSuffix || '');
-  const dateVe = `CAST(${feVe} AS DATE) >= CAST(? AS DATE)`;
-  const datePv = `CAST(${fePv} AS DATE) >= CAST(? AS DATE)`;
-  const params = [desdeStr];
-
-  const sqlVe = `
-    SELECT TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40))) AS T, COUNT(*) AS N
-    FROM DOCTOS_VE d
-    WHERE COALESCE(d.ESTATUS, 'N') <> 'C' AND ${dateVe}
-    GROUP BY TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40)))
-    ORDER BY N DESC
-  `;
-  const sqlPv = `
-    SELECT TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40))) AS T, COUNT(*) AS N
-    FROM DOCTOS_PV d
-    WHERE COALESCE(d.ESTATUS, 'N') <> 'C' AND ${datePv}
-    GROUP BY TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40)))
-    ORDER BY N DESC
-  `;
-  const macroVeSql = `
-    SELECT COUNT(*) AS DOCS, COALESCE(SUM(${imp}), 0) AS IMPORTE_SUM
-    FROM DOCTOS_VE d
-    WHERE (${wVe})${vig} AND ${dateVe}
-  `;
-  const macroPvSql = `
-    SELECT COUNT(*) AS DOCS, COALESCE(SUM(${imp}), 0) AS IMPORTE_SUM
-    FROM DOCTOS_PV d
-    WHERE (${wPv}) AND ${datePv}
-  `;
-
-  const qms = 240000;
-  const ve = await query(sqlVe, params, qms, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) }));
-  const pv = await query(sqlPv, params, qms, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) }));
-  const veMacroRows = await query(macroVeSql, params, qms, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) }));
-  const pvMacroRows = await query(macroPvSql, params, qms, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) }));
-
-  const veErr = veMacroRows && veMacroRows.error;
-  const pvErr = pvMacroRows && pvMacroRows.error;
-  const v1 = !veErr ? veMacroRows[0] || {} : {};
-  const v2 = !pvErr ? pvMacroRows[0] || {} : {};
-  const macro = {
-    DOCS: (+v1.DOCS || 0) + (+v2.DOCS || 0),
-    IMPORTE_SUM: (+v1.IMPORTE_SUM || 0) + (+v2.IMPORTE_SUM || 0),
-    por_fuente: {
-      ve: veErr ? { error: veErr } : v1,
-      pv: pvErr ? { error: pvErr } : v2,
-    },
-  };
-  if (veErr || pvErr) {
-    const parts = [veErr, pvErr].filter(Boolean);
-    if (parts.length) macro.error = parts.join(' | ');
-  }
-
-  return {
-    ve_tipos: ve,
-    pv_tipos: pv,
-    ventana_dias: dias,
-    desde_param: desdeStr,
-    macro_cotizaciones_ult_400d: macro,
-    nota:
-      'Consultas en serie; fecha por parámetro. Default ?dias=14 (min 7). Si timeout, usar /api/debug/cotizaciones-recientes. MICROSIP_COTIZACION_SOLO_TIPO_MARCADO=1 desactiva el fallback amplio.',
-  };
-});
-
 // ═══════════════════════════════════════════════════════════
 //  CONSUMOS — por cantidades vendidas (unidades)
 // ═══════════════════════════════════════════════════════════
@@ -8918,37 +7961,33 @@ get('/api/debug/pnl-costo', async (req) => {
 });
 
 // Ver columnas de ARTICULOS (para saber nombre exacto del costo)
-get('/api/debug/articulos-schema', async (req) => {
-  const dbo = getReqDbOpts(req);
-  const row = await query(`SELECT FIRST 1 * FROM ARTICULOS`, [], 20000, dbo).catch(() => []);
+get('/api/debug/articulos-schema', async () => {
+  const row = await query(`SELECT FIRST 1 * FROM ARTICULOS`).catch(() => []);
   const cols = (row && row[0]) ? Object.keys(row[0]).sort() : [];
   const costRelated = (cols || []).filter(c => /COSTO|PRECIO|COST/i.test(c));
   return { columnas: cols, relacionadasConCosto: costRelated, muestra: row && row[0] ? row[0] : null };
 });
 
 // Ver si ARTICULOS tiene COSTO_PROMEDIO y si hay valores > 0
-get('/api/debug/articulos-costo', async (req) => {
-  const dbo = getReqDbOpts(req);
+get('/api/debug/articulos-costo', async () => {
   let error = null;
   let sample = [];
   let totalSum = 0;
-  let cols = new Set();
   try {
-    cols = await getTableColumns('ARTICULOS', dbo).catch(() => new Set());
     sample = await query(`
       SELECT FIRST 10 a.ARTICULO_ID, a.NOMBRE, a."COSTO_PROMEDIO"
       FROM ARTICULOS a
       WHERE COALESCE(a."COSTO_PROMEDIO", 0) > 0
-    `, [], 25000, dbo).catch(() => []);
+    `).catch(() => []);
     const sumRow = await query(`
       SELECT COUNT(*) AS C, COALESCE(SUM(a."COSTO_PROMEDIO"), 0) AS S
       FROM ARTICULOS a WHERE COALESCE(a."COSTO_PROMEDIO", 0) > 0
-    `, [], 25000, dbo).catch(() => [{ C: 0, S: 0 }]);
+    `).catch(() => [{ C: 0, S: 0 }]);
     totalSum = sumRow && sumRow[0] ? +(sumRow[0].S || 0) : 0;
   } catch (e) {
     error = e.message || String(e);
   }
-  return { ok: !error, db: normalizeDbQueryId(req.query.db) || 'default', cols_count: cols && cols.size ? cols.size : 0, has_costo_promedio: cols instanceof Set ? cols.has('COSTO_PROMEDIO') : null, error, sample: sample || [], articulosConCosto: (sample || []).length, totalSum };
+  return { error, sample: sample || [], articulosConCosto: (sample || []).length, totalSum };
 });
 
 // Misma lógica de fechas que /api/resultados/pnl y misma consulta de costo contabilidad (solo DOCTOS_CO_DET+CUENTAS_CO).
@@ -9660,7 +8699,7 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
     if (toolId === 'cotizaciones') {
       const fCot = buildFiltros(aiReq, 'd');
       const cotiOpts = await cotizacionSqlOpts(dbOpts);
-      const cotiSub = cotizacionesSub(getCotizacionesTipo(aiReq), cotiOpts, cotizQueryIsoBounds(aiReq));
+      const cotiSub = cotizacionesSub(getCotizacionesTipo(aiReq), cotiOpts);
       const [resumen] = await query(`
         SELECT
           COUNT(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 END) AS COT_HOY,

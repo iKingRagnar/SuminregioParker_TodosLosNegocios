@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" class="theme-premium-light">
+<html lang="es" class="theme-premium-light" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -95,6 +95,81 @@ nav{display:flex;align-items:center;gap:.25rem}
 @media(min-width:960px){.inv-tbl-scroll{max-height:min(460px,48vh)}}
 /* app-ui-boot pone .ms-reveal en .page > .card: Operación puede quedar invisible hasta IO; aquí siempre visible */
 #inv-card-operacion.ms-reveal{opacity:1;transform:none;filter:none;transition:none}
+
+/* ════ LIGHT THEME ════ */
+html.theme-premium-light,html[data-theme="light"]{
+  --bg:#F9FAFB;--s1:#FFFFFF;--s2:#F1F5F9;--s3:#E2E8F0;--s4:#CBD5E1;
+  --border:rgba(15,23,42,.08);--border2:rgba(15,23,42,.14);
+  --suminregio:#B45309;--suminregio-dim:rgba(180,83,9,.10);
+  --green:#16A34A;--green-dim:rgba(22,163,74,.10);
+  --yellow:#D97706;--yellow-dim:rgba(217,119,6,.10);
+  --orange:#EA580C;--orange-dim:rgba(234,88,12,.10);
+  --red:#DC2626;--red-dim:rgba(220,38,38,.10);
+  --blue:#2563EB;--blue-dim:rgba(37,99,235,.10);
+  --purple:#7C3AED;--purple-dim:rgba(124,58,237,.10);
+  --text:#0F172A;--text2:#1E293B;--muted:#475569;--dim:#F1F5F9;
+}
+html[data-theme="light"] body{
+  background:var(--bg)!important;
+  background-image:
+    radial-gradient(ellipse 100% 50% at 100% 0%,rgba(180,83,9,.06),transparent 55%),
+    radial-gradient(ellipse 70% 40% at 0% 60%,rgba(37,99,235,.05),transparent 55%);
+  color:var(--text)!important;
+}
+html[data-theme="light"] .orb{opacity:.04!important}
+html[data-theme="light"] header{
+  background:rgba(249,250,251,.97)!important;
+  border-bottom-color:rgba(15,23,42,.08)!important;
+}
+html[data-theme="light"] .logo-text{color:#0F172A!important}
+html[data-theme="light"] .logo-sub{color:#64748B!important}
+html[data-theme="light"] .logo-icon{
+  background:linear-gradient(135deg,#B45309,#D97706)!important;
+  box-shadow:0 0 14px rgba(180,83,9,.2)!important;
+}
+html[data-theme="light"] .nav-link{color:#475569!important}
+html[data-theme="light"] .nav-link:hover{color:#0F172A!important;background:rgba(15,23,42,.04)!important}
+html[data-theme="light"] .nav-link.active{
+  color:#B45309!important;background:rgba(180,83,9,.08)!important;border-color:#B45309!important
+}
+html[data-theme="light"] .live-pill{
+  background:rgba(180,83,9,.08)!important;border-color:rgba(180,83,9,.2)!important;color:#B45309!important
+}
+html[data-theme="light"] .live-dot{background:#B45309!important;box-shadow:0 0 8px #B45309!important}
+html[data-theme="light"] .clock{color:#64748B!important}
+html[data-theme="light"] .page-title{
+  background:linear-gradient(135deg,#0F172A,#B45309)!important;
+  -webkit-background-clip:text!important;-webkit-text-fill-color:transparent!important;background-clip:text!important;
+}
+html[data-theme="light"] .page-sub{color:#64748B!important}
+html[data-theme="light"] .kpi-card{
+  background:#fff!important;border-color:rgba(15,23,42,.08)!important;
+  box-shadow:0 4px 20px rgba(15,23,42,.07),0 1px 4px rgba(15,23,42,.04)!important;
+}
+html[data-theme="light"] .kpi-card:hover{box-shadow:0 12px 40px rgba(15,23,42,.10),0 2px 8px rgba(15,23,42,.06)!important;transform:translateY(-2px)}
+html[data-theme="light"] .kpi-label{color:#475569!important}
+html[data-theme="light"] .kpi-sub{color:#64748B!important}
+html[data-theme="light"] .card{
+  background:#fff!important;border-color:rgba(15,23,42,.08)!important;
+  box-shadow:0 4px 20px rgba(15,23,42,.06)!important;
+}
+html[data-theme="light"] .card-head{border-bottom-color:rgba(15,23,42,.07)!important}
+html[data-theme="light"] .card-title{color:#0F172A!important}
+html[data-theme="light"] .card-badge{color:#64748B!important;border-color:rgba(15,23,42,.12)!important}
+html[data-theme="light"] .search-input{
+  background:#F8FAFC!important;color:#0F172A!important;border-color:rgba(15,23,42,.14)!important;
+}
+html[data-theme="light"] .search-input::placeholder{color:#94A3B8!important}
+html[data-theme="light"] .tbl th{color:#475569!important;border-bottom-color:rgba(15,23,42,.08)!important;background:#F8FAFC!important}
+html[data-theme="light"] .tbl td{color:#0F172A!important;border-bottom-color:rgba(15,23,42,.05)!important}
+html[data-theme="light"] .tbl tr:hover td{background:rgba(180,83,9,.04)!important;color:#0F172A!important}
+html[data-theme="light"] .tbl .num{color:#0F172A!important}
+html[data-theme="light"] .tbl .lbl{color:#0F172A!important}
+html[data-theme="light"] .inv-tbl-scroll .tbl thead th{background:#F8FAFC!important}
+html[data-theme="light"] .stock-bar-bg{background:#E2E8F0!important}
+html[data-theme="light"] select,html[data-theme="light"] input{
+  background:#fff!important;color:#0F172A!important;border-color:rgba(15,23,42,.14)!important;
+}
 </style>
 <link rel="stylesheet" href="app-ui.css">
 <script src="app-ui-boot.js" defer></script>
@@ -141,7 +216,7 @@ nav{display:flex;align-items:center;gap:.25rem}
 
   <div class="kpi-grid">
     <div class="kpi-card blue"><div class="kpi-label">Total Art&iacute;culos</div><div class="kpi-value" id="kpi-total">&mdash;</div><div class="kpi-sub">Activos en cat&aacute;logo</div></div>
-    <div class="kpi-card yellow"><div class="kpi-label">Valor Inventario</div><div class="kpi-value" id="kpi-valor">&mdash;</div><div class="kpi-sub">Existencia y Precio</div></div>
+    <div class="kpi-card yellow"><div class="kpi-label">Valor Inventario</div><div class="kpi-value" id="kpi-valor">&mdash;</div><div class="kpi-sub">Valor a costo promedio</div></div>
     <div class="kpi-card red"><div class="kpi-label">Bajo M&iacute;nimo</div><div class="kpi-value" id="kpi-minimo">&mdash;</div><div class="kpi-sub">Requieren reorden</div></div>
     <div class="kpi-card orange"><div class="kpi-label">Sin Stock</div><div class="kpi-value" id="kpi-cero">&mdash;</div><div class="kpi-sub">Con m&iacute;nimo definido y existencia 0</div></div>
   </div>
@@ -186,7 +261,7 @@ nav{display:flex;align-items:center;gap:.25rem}
       <div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 4l6 2.67V11c0 3.94-2.71 7.62-6 8.93-3.29-1.31-6-4.99-6-8.93V7.67L12 5z"/></svg>Top Art&iacute;culos por Valor de Inventario</div><div class="card-badge">Mayor valor en stock</div></div>
     <div class="card-body" id="inv-panel-topstock" style="padding:0">
       <table class="tbl" id="tbl-topstock">
-        <thead><tr><th>#</th><th>Art&iacute;culo</th><th>Unidad</th><th class="num">Existencia</th><th class="num">Precio</th><th class="num">Valor Total</th></tr></thead>
+        <thead><tr><th>#</th><th>Art&iacute;culo</th><th>Unidad</th><th class="num">Existencia</th><th class="num">Costo Prom.</th><th class="num">Valor Inventario</th></tr></thead>
         <tbody><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tbody>
       </table>
     </div>
