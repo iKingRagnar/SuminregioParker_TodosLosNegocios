@@ -1211,14 +1211,25 @@ async function loadCotizaciones() {
     let vends   = Array.isArray(pack.vends) ? pack.vends : [];
     let ventasVE = (v => { const u = unwrapApiRow(v); return u && typeof u === 'object' && !Array.isArray(u) ? u : {}; })(pack.ventasVEraw || {});
 
-    // Si viene vacío, reintentar con tipoQ() (servidores que respetan tipo del panel).
+    // Si viene vacío, reintentar con tipo (servidores que respetan tipo del panel).
     const emptyAll = ((+resObj.MES_ACTUAL || 0) <= 0 && (+resObj.HOY || 0) <= 0 && (+resObj.COTIZACIONES_MES || 0) <= 0 && !diarias.length && !vends.length);
     if (emptyAll) {
-      pack = await fetchCotiPack(tipoQ());
+      // Nota: en tab "Todos" tipoQ() es '', así que probamos VE/PV explícitos.
+      const tryTipo = (t) => `&tipo=${t}`;
+      const first = currentTipo ? tipoQ() : tryTipo('VE');
+      pack = await fetchCotiPack(first);
       resObj = canonCotiResumen(pack.resRaw || {});
       diarias = Array.isArray(pack.diarias) ? pack.diarias : [];
       vends   = Array.isArray(pack.vends) ? pack.vends : [];
       ventasVE = (v => { const u = unwrapApiRow(v); return u && typeof u === 'object' && !Array.isArray(u) ? u : {}; })(pack.ventasVEraw || {});
+      const stillEmpty = ((+resObj.MES_ACTUAL || 0) <= 0 && (+resObj.HOY || 0) <= 0 && (+resObj.COTIZACIONES_MES || 0) <= 0 && !diarias.length && !vends.length);
+      if (stillEmpty && !currentTipo) {
+        pack = await fetchCotiPack(tryTipo('PV'));
+        resObj = canonCotiResumen(pack.resRaw || {});
+        diarias = Array.isArray(pack.diarias) ? pack.diarias : [];
+        vends   = Array.isArray(pack.vends) ? pack.vends : [];
+        ventasVE = (v => { const u = unwrapApiRow(v); return u && typeof u === 'object' && !Array.isArray(u) ? u : {}; })(pack.ventasVEraw || {});
+      }
     }
     // Si resumen va en 0 (timeout/SQL) pero por-vendedor sí trae filas, reconstruir KPIs desde pv
     if (vends.length && (+resObj.MES_ACTUAL || 0) === 0 && (+resObj.COTIZACIONES_MES || 0) === 0) {
