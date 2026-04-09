@@ -397,6 +397,32 @@ nav{display:flex;align-items:center;gap:.25rem}
 <script>
 // Base de la API (vacío = misma origen). Si abres por file:// se usa http://localhost:7000 — mismo puerto que server_corregido.js
 const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : '';
+function ventasDbgEnabled(){
+  try{ return (new URLSearchParams(location.search).get('dbg')||'').trim()==='1'; }catch(_){ return false; }
+}
+function ventasDbgBox(){
+  let el=document.getElementById('dbgVentasBox');
+  if(el) return el;
+  el=document.createElement('pre');
+  el.id='dbgVentasBox';
+  el.style.cssText='position:fixed;right:10px;bottom:10px;z-index:9999;max-width:min(520px,95vw);max-height:45vh;overflow:auto;padding:10px 12px;border-radius:10px;background:rgba(0,0,0,.78);border:1px solid rgba(255,255,255,.12);color:#E8EFF8;font:12px/1.35 \"DM Mono\",monospace;white-space:pre-wrap;';
+  el.textContent='dbg=1 ventas (inicializando...)';
+  document.body.appendChild(el);
+  return el;
+}
+function ventasDbgSet(obj){
+  try{
+    if(!ventasDbgEnabled()) return;
+    window.__DBG_VENTAS = Object.assign(window.__DBG_VENTAS||{}, obj||{});
+    const b = ventasDbgBox();
+    const s = window.__DBG_VENTAS || {};
+    b.textContent =
+      'VENTAS dbg=1\\n' +
+      'db=' + (new URLSearchParams(location.search).get('db')||'') + '\\n' +
+      (s.note ? ('note=' + s.note + '\\n') : '') +
+      (s.coti ? ('\\nCOTIZACIONES\\n' + s.coti) : '');
+  }catch(_){}
+}
 function fwt(url,fallback,ms=45000){
   const urlFull = (url.startsWith('http') ? url : (API + url));
   const isNgrok = /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/i.test(urlFull);
@@ -1191,10 +1217,14 @@ async function loadCotizaciones() {
     const tCoti = 300000;
     async function fetchCotiPack(extra) {
       const ex = extra ? String(extra) : '';
+      const u0 = buildCotiApiUrl('/api/ventas/cotizaciones/resumen', ex);
+      const u1 = buildCotiApiUrl('/api/ventas/cotizaciones/diarias', 'dias=35' + ex);
+      const u2 = buildCotiApiUrl('/api/ventas/por-vendedor/cotizaciones', ex);
+      ventasDbgSet({ note: 'coti:fetch', coti: [u0,u1,u2].join('\\n') });
       const settled = await Promise.allSettled([
-        fetchJsonAbort(buildCotiApiUrl('/api/ventas/cotizaciones/resumen', ex), {}, tCoti),
-        fetchJsonAbort(buildCotiApiUrl('/api/ventas/cotizaciones/diarias', 'dias=35' + ex), [], tCoti),
-        fetchJsonAbort(buildCotiApiUrl('/api/ventas/por-vendedor/cotizaciones', ex), [], tCoti),
+        fetchJsonAbort(u0, {}, tCoti),
+        fetchJsonAbort(u1, [], tCoti),
+        fetchJsonAbort(u2, [], tCoti),
         fetchJsonAbort(buildCotiApiUrl('/api/ventas/resumen', 'tipo=VE'), {}, 45000),
       ]);
       const safe = (idx, fb) => (settled[idx] && settled[idx].status === 'fulfilled') ? settled[idx].value : fb;
@@ -1210,6 +1240,7 @@ async function loadCotizaciones() {
     let diarias = Array.isArray(pack.diarias) ? pack.diarias : [];
     let vends   = Array.isArray(pack.vends) ? pack.vends : [];
     let ventasVE = (v => { const u = unwrapApiRow(v); return u && typeof u === 'object' && !Array.isArray(u) ? u : {}; })(pack.ventasVEraw || {});
+    ventasDbgSet({ note: 'coti:first', coti: (window.__DBG_VENTAS && window.__DBG_VENTAS.coti ? window.__DBG_VENTAS.coti + '\n' : '') + `res(MES_ACTUAL=${+resObj.MES_ACTUAL||0}, HOY=${+resObj.HOY||0}, N_MES=${+resObj.COTIZACIONES_MES||0}) diarias=${diarias.length} vends=${vends.length}` });
 
     // Si viene vacío, reintentar con tipo (servidores que respetan tipo del panel).
     const emptyAll = ((+resObj.MES_ACTUAL || 0) <= 0 && (+resObj.HOY || 0) <= 0 && (+resObj.COTIZACIONES_MES || 0) <= 0 && !diarias.length && !vends.length);
@@ -1222,6 +1253,7 @@ async function loadCotizaciones() {
       diarias = Array.isArray(pack.diarias) ? pack.diarias : [];
       vends   = Array.isArray(pack.vends) ? pack.vends : [];
       ventasVE = (v => { const u = unwrapApiRow(v); return u && typeof u === 'object' && !Array.isArray(u) ? u : {}; })(pack.ventasVEraw || {});
+      ventasDbgSet({ note: 'coti:retry1', coti: (window.__DBG_VENTAS && window.__DBG_VENTAS.coti ? window.__DBG_VENTAS.coti + '\n' : '') + `res(MES_ACTUAL=${+resObj.MES_ACTUAL||0}, HOY=${+resObj.HOY||0}, N_MES=${+resObj.COTIZACIONES_MES||0}) diarias=${diarias.length} vends=${vends.length}` });
       const stillEmpty = ((+resObj.MES_ACTUAL || 0) <= 0 && (+resObj.HOY || 0) <= 0 && (+resObj.COTIZACIONES_MES || 0) <= 0 && !diarias.length && !vends.length);
       if (stillEmpty && !currentTipo) {
         pack = await fetchCotiPack(tryTipo('PV'));
@@ -1229,6 +1261,7 @@ async function loadCotizaciones() {
         diarias = Array.isArray(pack.diarias) ? pack.diarias : [];
         vends   = Array.isArray(pack.vends) ? pack.vends : [];
         ventasVE = (v => { const u = unwrapApiRow(v); return u && typeof u === 'object' && !Array.isArray(u) ? u : {}; })(pack.ventasVEraw || {});
+        ventasDbgSet({ note: 'coti:retry2', coti: (window.__DBG_VENTAS && window.__DBG_VENTAS.coti ? window.__DBG_VENTAS.coti + '\n' : '') + `res(MES_ACTUAL=${+resObj.MES_ACTUAL||0}, HOY=${+resObj.HOY||0}, N_MES=${+resObj.COTIZACIONES_MES||0}) diarias=${diarias.length} vends=${vends.length}` });
       }
     }
     // Si resumen va en 0 (timeout/SQL) pero por-vendedor sí trae filas, reconstruir KPIs desde pv
