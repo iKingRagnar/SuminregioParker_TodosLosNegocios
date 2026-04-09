@@ -1300,16 +1300,14 @@ async function loadAll(){
     const v = (dir && dir.ventas && typeof dir.ventas === 'object') ? dir.ventas : {};
     let cot = canonCotiResumenForIndex((dir && dir.cotizaciones) ? dir.cotizaciones : {});
     const ventaMesProbe = +v.MES_ACTUAL || 0;
+    // No bloquear el render inicial: si director/resumen viene degradado, intentamos cotizaciones en segundo plano.
+    let cotFallback = null;
     if ((+cot.MES_ACTUAL || 0) <= 0 && (+cot.HOY || 0) <= 0 && (+cot.COTIZACIONES_MES || 0) <= 0 && ventaMesProbe > 500) {
-      try {
-        const raw = await fetchJsonAbort(
-          buildApiUrl('/api/ventas/cotizaciones/resumen', 'cotizaciones_scope=todos', { omitCliente: true, omitVendedor: true }),
-          {},
-          Math.min(tDirResumen, 200000)
-        );
-        const alt = canonCotiResumenForIndex(raw);
-        if ((+alt.MES_ACTUAL || 0) > 0 || (+alt.HOY || 0) > 0 || (+alt.COTIZACIONES_MES || 0) > 0) cot = alt;
-      } catch (_) {}
+      cotFallback = fetchJsonAbort(
+        buildApiUrl('/api/ventas/cotizaciones/resumen', 'cotizaciones_scope=todos', { omitCliente: true, omitVendedor: true }),
+        {},
+        25000
+      ).then(canonCotiResumenForIndex).catch(function(){ return null; });
     }
     // Evitar que un snapshot degradado (timeout parcial) pise un CxC vencido válido durante la sesión.
     let c = cRaw;
@@ -1428,6 +1426,27 @@ async function loadAll(){
       : (cotiMes>0 ? 'Meta: '+fmtM(metaCotiDia) : 'Sin cotizaciones en el periodo'));
     setBar('barCotiHoy','pctCotiHoy', isVistaHoy ? pCotiHoy : pCotiMes);
     sem('semCotiHoy', isVistaHoy ? pCotiHoy : pCotiMes, {labels:['Cumplido','En riesgo','Bajo']});
+
+    if (cotFallback) {
+      cotFallback.then(function(alt){
+        try{
+          if(!alt) return;
+          if ((+alt.MES_ACTUAL || 0) <= 0 && (+alt.HOY || 0) <= 0 && (+alt.COTIZACIONES_MES || 0) <= 0) return;
+          cot = alt;
+          const cH = +cot.HOY || 0;
+          const cM = +cot.MES_ACTUAL || 0;
+          const vC = isVistaHoy ? cH : cM;
+          const pCH = pctOf(cH, metaCotiDia);
+          const pCM = pctOf(cM, metaCotiDia);
+          setEl('kpiCotiHoy', fmtM(vC));
+          setEl('kpiCotiHoySub', isVistaHoy
+            ? (cH>0 ? 'Meta: '+fmtM(metaCotiDia) : 'Sin cotizaciones hoy')
+            : (cM>0 ? 'Meta: '+fmtM(metaCotiDia) : 'Sin cotizaciones en el periodo'));
+          setBar('barCotiHoy','pctCotiHoy', isVistaHoy ? pCH : pCM);
+          sem('semCotiHoy', isVistaHoy ? pCH : pCM, {labels:['Cumplido','En riesgo','Bajo']});
+        }catch(_){}
+      });
+    }
 
     // CxC: mismo pipeline que cxc.html (aging normalizado + reconcile + merge director + finalize)
     var cx;
