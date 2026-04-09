@@ -4773,6 +4773,21 @@ get('/api/debug/inv-reconcile', async (req) => {
 
   const costoSub = await invCostoSubSql(dbo);
   const invQTimeout = 120000;
+  const cols = await getTableColumns('ARTICULOS', dbo).catch(() => new Set());
+  const colsSet = cols instanceof Set ? cols : new Set(Array.isArray(cols) ? cols : []);
+  const tipoCol = firstExistingColumn(colsSet, ['TIPO_ARTICULO', 'TIPO', 'ES_SERVICIO']);
+  const hasNombre = colsSet.has('NOMBRE');
+
+  // "Servicios" en Microsip suelen vivir como artículos con nombre/linea especial y distorsionan inventario vs BI.
+  // Si hay columna de tipo, úsala; si no, cae a heurística por nombre.
+  const whereNoServicios = (() => {
+    if (tipoCol) {
+      // ES_SERVICIO puede ser 0/1, o TIPO_ARTICULO puede ser texto; dejamos ambas opciones.
+      return ` AND NOT (COALESCE(a.${tipoCol}, '') IN ('S', 'SERV', 'SERVICIO', 'SERVICIOS') OR COALESCE(a.${tipoCol}, 0) = 1)`;
+    }
+    if (hasNombre) return ` AND UPPER(a.NOMBRE) NOT CONTAINING 'SERVICIO'`;
+    return '';
+  })();
 
   const qBase = (whereExtra) => `
     SELECT
@@ -4794,7 +4809,17 @@ get('/api/debug/inv-reconcile', async (req) => {
       AND CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
   `;
 
-  const [tot, conStock, vendidos] = await Promise.all([
+  // Variante VE+PV: reusa misma lógica de consumo (si existe PV) en vez de solo VE.
+  const csp = await resolveConsumosSchema(dbo).catch(() => null);
+  const subConsumos = csp ? consumosSubSql('', csp) : null; // '' => VE+PV union (según schema)
+  const qVendidosVentanaVePv = subConsumos ? `
+    SELECT DISTINCT d.ARTICULO_ID
+    FROM ${subConsumos} d
+    WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
+      AND COALESCE(d.UNIDADES, 0) > 0
+  ` : null;
+
+  const [tot, conStock, vendidos, totNoServ, conStockNoServ, vendidosNoServ, vendidosVePv, vendidosVePvNoServ] = await Promise.all([
     query(qBase(''), [], invQTimeout, dbo).catch(() => [{}]),
     query(qBase(' AND COALESCE(s.EXISTENCIA, 0) > 0'), [], invQTimeout, dbo).catch(() => [{}]),
     query(
@@ -4803,12 +4828,37 @@ get('/api/debug/inv-reconcile', async (req) => {
       invQTimeout,
       dbo,
     ).catch(() => [{}]),
+    query(qBase(`${whereNoServicios}`), [], invQTimeout, dbo).catch(() => [{}]),
+    query(qBase(` AND COALESCE(s.EXISTENCIA, 0) > 0 ${whereNoServicios}`), [], invQTimeout, dbo).catch(() => [{}]),
+    query(
+      qBase(` AND COALESCE(s.EXISTENCIA, 0) > 0 ${whereNoServicios} AND a.ARTICULO_ID IN (${qVendidosVentana})`),
+      [desdeStr],
+      invQTimeout,
+      dbo,
+    ).catch(() => [{}]),
+    qVendidosVentanaVePv ? query(
+      qBase(` AND COALESCE(s.EXISTENCIA, 0) > 0 AND a.ARTICULO_ID IN (${qVendidosVentanaVePv})`),
+      [desdeStr],
+      invQTimeout,
+      dbo,
+    ).catch(() => [{}]) : Promise.resolve([{}]),
+    qVendidosVentanaVePv ? query(
+      qBase(` AND COALESCE(s.EXISTENCIA, 0) > 0 ${whereNoServicios} AND a.ARTICULO_ID IN (${qVendidosVentanaVePv})`),
+      [desdeStr],
+      invQTimeout,
+      dbo,
+    ).catch(() => [{}]) : Promise.resolve([{}]),
   ]);
 
   const pick = (rows) => (rows && rows[0]) ? rows[0] : {};
   const a = pick(tot);
   const b = pick(conStock);
   const c = pick(vendidos);
+  const d = pick(totNoServ);
+  const e = pick(conStockNoServ);
+  const f = pick(vendidosNoServ);
+  const g = pick(vendidosVePv);
+  const h = pick(vendidosVePvNoServ);
   const r2 = (x) => Math.round((+x || 0) * 100) / 100;
 
   return {
@@ -4816,6 +4866,14 @@ get('/api/debug/inv-reconcile', async (req) => {
     db: normalizeDbQueryId(req.query.db) || 'default',
     ventana_dias: dias,
     desde_param: desdeStr,
+    reglas: {
+      excluye_servicios: whereNoServicios ? true : false,
+      tipo_col_detectado: tipoCol || null,
+      vendidos_en_ventana: {
+        ve_only: true,
+        ve_pv_union: !!qVendidosVentanaVePv,
+      },
+    },
     totales: {
       articulos_activos: +a.ARTICULOS || 0,
       unidades: r2(a.UNIDADES),
@@ -4831,8 +4889,33 @@ get('/api/debug/inv-reconcile', async (req) => {
       unidades: r2(c.UNIDADES),
       valor: r2(c.VALOR),
     },
+    totales_sin_servicios: {
+      articulos_activos: +d.ARTICULOS || 0,
+      unidades: r2(d.UNIDADES),
+      valor: r2(d.VALOR),
+    },
+    con_stock_sin_servicios: {
+      articulos_activos: +e.ARTICULOS || 0,
+      unidades: r2(e.UNIDADES),
+      valor: r2(e.VALOR),
+    },
+    con_stock_y_ventas_en_ventana_sin_servicios: {
+      articulos_activos: +f.ARTICULOS || 0,
+      unidades: r2(f.UNIDADES),
+      valor: r2(f.VALOR),
+    },
+    con_stock_y_ventas_en_ventana_ve_pv: {
+      articulos_activos: +g.ARTICULOS || 0,
+      unidades: r2(g.UNIDADES),
+      valor: r2(g.VALOR),
+    },
+    con_stock_y_ventas_en_ventana_ve_pv_sin_servicios: {
+      articulos_activos: +h.ARTICULOS || 0,
+      unidades: r2(h.UNIDADES),
+      valor: r2(h.VALOR),
+    },
     nota:
-      'La WEB (inv/resumen) reporta "totales" (saldo actual). Si BI reporta un número menor (ej. 15.7M), suele ser porque está viendo solo SKUs con stock>0 o con ventas en ventana (90d/YTD) o aplicando grupos/estatus/costo distinto.',
+      'Si BI no cuadra con totales, normalmente es por excluir servicios/líneas/grupos o por definir "vendido" como VE+PV. Usa este endpoint para identificar cuál variante se acerca al KPI de BI.',
   };
 });
 
