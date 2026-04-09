@@ -4757,6 +4757,85 @@ get('/api/inv/resumen', async (req) => {
   return { TOTAL_ARTICULOS: +(r.TOTAL_ARTICULOS||0), VALOR_INVENTARIO: +(r.VALOR_INVENTARIO||0), BAJO_MINIMO: +(r.BAJO_MINIMO||0), SIN_STOCK: +(r.SIN_STOCK||0) };
 });
 
+/**
+ * Reconciliación inventario vs BI:
+ * - total (actual) por SALDOS_IN * costo
+ * - solo con stock > 0
+ * - solo con stock > 0 y con ventas en ventana (ej. 90d / YTD)
+ */
+get('/api/debug/inv-reconcile', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const dias = Math.min(Math.max(parseInt(String(req.query.dias || '90'), 10) || 90, 1), 730);
+  const desde = new Date();
+  desde.setDate(desde.getDate() - dias);
+  const desdeStr =
+    desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-' + String(desde.getDate()).padStart(2, '0');
+
+  const costoSub = await invCostoSubSql(dbo);
+  const invQTimeout = 120000;
+
+  const qBase = (whereExtra) => `
+    SELECT
+      COUNT(DISTINCT a.ARTICULO_ID) AS ARTICULOS,
+      COALESCE(SUM(COALESCE(s.EXISTENCIA, 0)), 0) AS UNIDADES,
+      COALESCE(SUM(COALESCE(s.EXISTENCIA, 0) * COALESCE(cs.COSTO1, 0)), 0) AS VALOR
+    FROM ARTICULOS a
+    LEFT JOIN ${SQL_EXIST_SUB} s ON s.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN ${costoSub} cs ON cs.ARTICULO_ID = a.ARTICULO_ID
+    WHERE COALESCE(a.ESTATUS, 'A') = 'A' ${whereExtra || ''}
+  `;
+
+  // SKUs vendidos en ventana: usa DOCTOS_VE_DET (más directo para consumo).
+  const qVendidosVentana = `
+    SELECT DISTINCT det.ARTICULO_ID
+    FROM DOCTOS_VE d
+    JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = d.DOCTO_VE_ID
+    WHERE COALESCE(d.ESTATUS, 'N') <> 'C'
+      AND CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
+  `;
+
+  const [tot, conStock, vendidos] = await Promise.all([
+    query(qBase(''), [], invQTimeout, dbo).catch(() => [{}]),
+    query(qBase(' AND COALESCE(s.EXISTENCIA, 0) > 0'), [], invQTimeout, dbo).catch(() => [{}]),
+    query(
+      qBase(` AND COALESCE(s.EXISTENCIA, 0) > 0 AND a.ARTICULO_ID IN (${qVendidosVentana})`),
+      [desdeStr],
+      invQTimeout,
+      dbo,
+    ).catch(() => [{}]),
+  ]);
+
+  const pick = (rows) => (rows && rows[0]) ? rows[0] : {};
+  const a = pick(tot);
+  const b = pick(conStock);
+  const c = pick(vendidos);
+  const r2 = (x) => Math.round((+x || 0) * 100) / 100;
+
+  return {
+    ok: true,
+    db: normalizeDbQueryId(req.query.db) || 'default',
+    ventana_dias: dias,
+    desde_param: desdeStr,
+    totales: {
+      articulos_activos: +a.ARTICULOS || 0,
+      unidades: r2(a.UNIDADES),
+      valor: r2(a.VALOR),
+    },
+    con_stock_mayor_cero: {
+      articulos_activos: +b.ARTICULOS || 0,
+      unidades: r2(b.UNIDADES),
+      valor: r2(b.VALOR),
+    },
+    con_stock_y_ventas_en_ventana: {
+      articulos_activos: +c.ARTICULOS || 0,
+      unidades: r2(c.UNIDADES),
+      valor: r2(c.VALOR),
+    },
+    nota:
+      'La WEB (inv/resumen) reporta "totales" (saldo actual). Si BI reporta un número menor (ej. 15.7M), suele ser porque está viendo solo SKUs con stock>0 o con ventas en ventana (90d/YTD) o aplicando grupos/estatus/costo distinto.',
+  };
+});
+
 // Diagnóstico duro de conectividad Firebird para inventario (no oculta errores).
 app.get('/api/debug/firebird-inv', async (req, res) => {
   const dbo = getReqDbOpts(req);
