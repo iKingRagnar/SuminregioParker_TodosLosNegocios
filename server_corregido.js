@@ -1622,18 +1622,27 @@ function sqlWhereCotizacionComoVenta(alias = 'd', src = 'VE') {
  * Evita UPPER/TRIM/POSITION sobre TIPO_DOCTO (rompe índice y provoca full-scan/timeouts).
  * Usar cuando el cuello está en DOCTOS_* y necesitamos respuesta en Render.
  */
-function sqlWhereCotizacionFast(alias = 'd') {
+function sqlWhereCotizacionFast(alias = 'd', src = 'VE') {
   const a = alias;
   const reqAplicado = (process.env.MICROSIP_COTIZACION_REQUIERE_APLICADO || '').match(/^(1|true|yes)$/i);
   const aplicado = reqAplicado ? ` AND COALESCE(${a}.APLICADO, 'N') = 'S'` : '';
   const tipos = (parseCotizacionTipos() || []).filter(Boolean);
   const esc = (t) => `'${String(t).replace(/'/g, "''")}'`;
-  // Si tipos viene vacío por configuración, caer al slow (pero eso puede ser pesado).
-  if (!tipos.length) return `0=1${aplicado}`;
-  // Direct IN sobre columna (usa índice si existe).
-  const byCodes = `${a}.TIPO_DOCTO IN (${tipos.map(esc).join(', ')})`;
+  const byCodes = tipos.length ? `${a}.TIPO_DOCTO IN (${tipos.map(esc).join(', ')})` : '0=1';
+  // Fallback sin funciones de string: “no es venta cerrada” (captura instalaciones donde la cotización no está marcada con C/O/Q/P).
+  const noEsVentaCerradaVe = `NOT (
+      ${a}.TIPO_DOCTO IN ('F', 'V', 'R')
+      AND COALESCE(${a}.APLICADO, 'N') = 'S'
+      AND COALESCE(${a}.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
+    )`;
+  const noEsVentaCerradaPv = `NOT (
+      ${a}.TIPO_DOCTO = 'F'
+      AND COALESCE(${a}.APLICADO, 'N') = 'S'
+      AND COALESCE(${a}.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
+    )`;
+  const fallback = src === 'PV' ? noEsVentaCerradaPv : noEsVentaCerradaVe;
   const estOk = `COALESCE(${a}.ESTATUS, 'N') NOT IN ('C','D','S')`;
-  return `( ${byCodes} AND ${estOk} )${aplicado}`;
+  return `( ( ${byCodes} OR (${fallback}) ) AND ${estOk} )${aplicado}`;
 }
 
 /** Rango ISO YYYY-MM-DD para acotar cotizaciones dentro del sub-SELECT (evita escanear todo el histórico). */
@@ -1666,8 +1675,8 @@ function cotizacionesSub(tipo = '', opts = {}, innerBounds = null) {
   // En Render, priorizar WHERE rápido para evitar timeouts por full-scan.
   const useFast = String(process.env.RENDER || '').toLowerCase() === 'true'
     || (process.env.MICROSIP_COTIZACIONES_FAST_WHERE || '').match(/^(1|true|yes)$/i);
-  const wVe = useFast ? sqlWhereCotizacionFast('d') : sqlWhereCotizacionComoVenta('d', 'VE');
-  const wPv = useFast ? sqlWhereCotizacionFast('d') : sqlWhereCotizacionComoVenta('d', 'PV');
+  const wVe = useFast ? sqlWhereCotizacionFast('d', 'VE') : sqlWhereCotizacionComoVenta('d', 'VE');
+  const wPv = useFast ? sqlWhereCotizacionFast('d', 'PV') : sqlWhereCotizacionComoVenta('d', 'PV');
   const ve = `
     SELECT
       ${feVe} AS FECHA,
@@ -2393,8 +2402,8 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
     const imp = sqlCotiImporteExpr('d'); // cabecera
     const useFast = String(process.env.RENDER || '').toLowerCase() === 'true'
       || (process.env.MICROSIP_COTIZACIONES_FAST_WHERE || '').match(/^(1|true|yes)$/i);
-    const wVe = useFast ? sqlWhereCotizacionFast('d') : sqlWhereCotizacionComoVenta('d', 'VE');
-    const wPv = useFast ? sqlWhereCotizacionFast('d') : sqlWhereCotizacionComoVenta('d', 'PV');
+    const wVe = useFast ? sqlWhereCotizacionFast('d', 'VE') : sqlWhereCotizacionComoVenta('d', 'VE');
+    const wPv = useFast ? sqlWhereCotizacionFast('d', 'PV') : sqlWhereCotizacionComoVenta('d', 'PV');
     const feVe = cotiOpts.sqlFeVe || 'd.FECHA';
     const fePv = cotiOpts.sqlFePv || 'd.FECHA';
     const fVe = buildFiltros(req, 'd', { fechaExpr: feVe });
