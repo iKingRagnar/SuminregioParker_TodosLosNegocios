@@ -898,7 +898,7 @@ function universeScorecardUrl(){
   const fqs=window.filterBuildQS?filterBuildQS(null,{omitDb:true}):'';
   // queryMs: servidor acota 25s–120s por query; cotizaciones macro puede usar hasta ~180s por base.
   // concurrency 3 reduce presión en Firebird remoto (antes 4).
-  const uni='concurrency=3&queryMs=55000';
+  const uni='concurrency=3&queryMs=120000';
   const parts=[fqs,uni].filter(Boolean).join('&');
   return API+'/api/universe/scorecard'+(parts?'?'+parts:'');
 }
@@ -1278,7 +1278,8 @@ async function loadAll(){
     if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.loadAllStarted=(window.__DBG_STATE.loadAllStarted||0)+1; window.__DBG_STATE.phase='loadAll:start'; window.__DBG_STATE.note=''; }
     /* AbortController: evitar fwt que cortaba respuestas tardías. director/resumen ya trae ventas+cotiz (omitCxc=1); no duplicar /ventas/resumen ni /cotizaciones/resumen (saturaba Firebird y alargaba hasta >5 min). */
     const tKpi = 120000;
-    const tDirResumen = 165000;
+    const tCxcResumenAging = 210000; /* >= servidor queryMs CxC; 120s cortaba respuesta */
+    const tDirResumen = 210000;
     const dbgWrap = function(label, p){
       return Promise.resolve()
         .then(()=>{ if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='fetch:'+label; } })
@@ -1288,7 +1289,7 @@ async function loadAll(){
     };
     const [m,cRaw,inv,dir,vends,cumpl,cliRes,pnlData]=await Promise.all([
       dbgWrap('config/metas', fetchJsonAbort(buildApiUrl('/api/config/metas'), {}, tKpi)),
-      dbgWrap('cxc/resumen-aging', fetchJsonAbort(buildApiUrl('/api/cxc/resumen-aging','queryMs=180000'), {}, tKpi)),
+      dbgWrap('cxc/resumen-aging', fetchJsonAbort(buildApiUrl('/api/cxc/resumen-aging','queryMs=180000'), {}, tCxcResumenAging)),
       dbgWrap('inv/resumen', fetchJsonAbort(buildApiUrl('/api/inv/resumen'), {}, tKpi)),
       dbgWrap('director/resumen', fetchJsonAbort(buildApiUrl('/api/director/resumen', 'omitCxc=1'), {}, tDirResumen)),
       dbgWrap('director/vendedores', fetchJsonAbort(buildApiUrl('/api/director/vendedores'), [], tKpi)),
@@ -1301,7 +1302,7 @@ async function loadAll(){
     // Evitar que un snapshot degradado (timeout parcial) pise un CxC vencido válido durante la sesión.
     let c = cRaw;
     try{
-      const dbKey = (new URLSearchParams(location.search).get('db') || 'default').trim() || 'default';
+      const dbKey = (typeof window.getSelectedDbId === 'function' ? String(window.getSelectedDbId() || '').trim() : '') || (new URLSearchParams(location.search).get('db') || 'default').trim() || 'default';
       const last = (window.__LAST_CXC_SNAP && window.__LAST_CXC_SNAP[dbKey]) ? window.__LAST_CXC_SNAP[dbKey] : null;
       const res = c && c.resumen ? c.resumen : (c || {});
       const sal = +res.SALDO_TOTAL || 0;
@@ -1380,6 +1381,9 @@ async function loadAll(){
       const y=parseInt(params.anio,10);
       periodLabel='A\u00f1o '+y;
       areaPeriodLabel='Ventas \u00b7 A\u00f1o '+y;
+    }else if(preset==='ytd' && params.desde && params.hasta){
+      periodLabel='YTD '+params.desde+' \u2013 '+params.hasta;
+      areaPeriodLabel='Ventas \u00b7 YTD';
     }
     setEl('scFecha',periodLabel);
     setEl('rankFecha',periodLabel);

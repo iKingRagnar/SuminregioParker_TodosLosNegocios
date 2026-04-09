@@ -159,12 +159,12 @@ function query(sql, params = [], timeoutMs = 12000, dbOptsOverride = null) {
 
 /**
  * cxcResumenAgingUnificado lanza varias consultas pesadas en paralelo; 12–30 s suele ser poco en Firebird remoto (Render).
- * Env: MICROSIP_CXC_AGING_Q_MS (mín. 5000, por defecto 45000, tope 120000).
+ * Env: MICROSIP_CXC_AGING_Q_MS (mín. 5000, por defecto 45000, tope 180000).
  */
 function cxcAgingQueryMs() {
   const n = parseInt(process.env.MICROSIP_CXC_AGING_Q_MS, 10);
   const t = Number.isFinite(n) && n >= 5000 ? n : 45000;
-  return Math.min(120000, Math.max(15000, t));
+  return Math.min(180000, Math.max(15000, t));
 }
 
 const tableColumnsCache = new Map();
@@ -3520,8 +3520,8 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
   const agingFloor = cxcAgingQueryMs();
   const qms =
     perQueryMs != null
-      ? Math.min(120000, Math.max(perQueryMs, agingFloor, 25000))
-      : Math.min(120000, Math.max(agingFloor, 45000));
+      ? Math.min(180000, Math.max(perQueryMs, agingFloor, 25000))
+      : Math.min(180000, Math.max(agingFloor, 45000));
   const rq = { query: { ...req.query } };
   if (!rq.query.desde && !rq.query.hasta && !rq.query.anio) {
     const now = new Date();
@@ -3629,7 +3629,7 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
 }
 
 get('/api/director/resumen', async (req) => {
-  const dirQms = Math.min(120000, Math.max(cxcAgingQueryMs(), 35000));
+  const dirQms = Math.min(180000, Math.max(cxcAgingQueryMs(), 35000));
   if (isAllDbs(req)) {
     const parts = await mapPoolLimit(DATABASE_REGISTRY, 2, async (entry) => {
       try {
@@ -3842,7 +3842,8 @@ function cxcDocSaldosSQL(cfSql) {
 }
 
 async function cxcResumenAgingUnificado(req, dbo, qms) {
-  const ms = typeof qms === 'number' && qms > 0 ? Math.min(qms, 120000) : cxcAgingQueryMs();
+  /* Tope alineado con GET /api/cxc/resumen-aging (queryMs hasta 180000). Antes min(qms,120000) anulaba queryMs=180000 y en bases lentas dejaba snapshot vacío / vencido 0. */
+  const ms = typeof qms === 'number' && qms > 0 ? Math.min(Math.max(qms, 3000), 180000) : cxcAgingQueryMs();
   const t0 = Date.now();
   const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
   const whereCliDoc = cf ? ` AND doc.CLIENTE_ID = ${cf}` : '';
@@ -3936,7 +3937,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
     const legacyAnyVenc = legacyHadRows && cxcAgingLegacy.some((r) => (+r.VENC_C || 0) > 0.005);
     const legacyAnyData = legacyHadRows && cxcAgingLegacy.some((r) => ((+r.TOTAL_C || 0) > 0.005) || ((+r.COR_C || 0) > 0.005) || ((+r.VENC_C || 0) > 0.005));
     if (!legacyAnyData || (!legacyAnyVenc && vencido <= 0.005)) {
-      const msRetry = Math.min(120000, Math.max(ms, 90000));
+      const msRetry = Math.min(180000, Math.max(ms, 90000));
       try {
         const retryRows = await query(agingLegacySql, [], msRetry, dbo).catch(() => []);
         if (Array.isArray(retryRows) && retryRows.length) cxcAgingLegacy = retryRows;

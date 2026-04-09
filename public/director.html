@@ -571,7 +571,7 @@ async function loadAll() {
     setText('badge-top-clientes', labelPeriodoFiltro());
     /* CxC unificado puede tardar ~120s en Render. Debe ser >= queryMs para no abortar y caer a {} (vencido=0). */
     /* Debe cubrir director/resumen en servidor (ventas + rem + cotizaciones hasta ~180s + CxC). */
-    const tDir = 200000;
+    const tDir = 210000;
     const dbgWrap = function(label, p){
       return Promise.resolve()
         .then(()=>{ if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.phase='fetch:'+label; } })
@@ -588,7 +588,7 @@ async function loadAll() {
     let cxcSnap = (cxcRes.status === 'fulfilled' && cxcRes.value && typeof cxcRes.value === 'object') ? cxcRes.value : {};
     // Evitar que un snapshot degradado (timeout parcial) pise un CxC vencido válido durante la sesión.
     try{
-      const dbKey = (new URLSearchParams(location.search).get('db') || 'default').trim() || 'default';
+      const dbKey = (typeof window.getSelectedDbId === 'function' ? String(window.getSelectedDbId() || '').trim() : '') || (new URLSearchParams(location.search).get('db') || 'default').trim() || 'default';
       const last = (window.__LAST_CXC_SNAP && window.__LAST_CXC_SNAP[dbKey]) ? window.__LAST_CXC_SNAP[dbKey] : null;
       const res = cxcSnap && cxcSnap.resumen ? cxcSnap.resumen : (cxcSnap || {});
       const sal = +res.SALDO_TOTAL || 0;
