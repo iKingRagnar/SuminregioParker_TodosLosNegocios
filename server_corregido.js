@@ -1621,49 +1621,58 @@ function sqlCotizInnerFechaBounds(feExpr, bounds) {
 }
 
 /**
- * Sub-SELECT cotizaciones: idéntico a ventasSub() pero TIPO_DOCTO = 'C'.
- * Las cotizaciones NO requieren APLICADO='S' (son documentos abiertos/pendientes).
+ * Sub-SELECT cotizaciones: TIPO_DOCTO='C', importe calculado desde líneas de detalle
+ * igual que el DAX de Power BI: SUM(UNIDADES * PRECIO_UNITARIO) - DSCTO_IMPORTE(encabezado).
+ * El IMPORTE_NETO del encabezado es 0 en cotizaciones no aplicadas, por eso se usan los DET.
+ * Filtro: TIPO_DOCTO='C' AND ESTATUS <> 'C' (excluir solo canceladas, igual que DAX).
+ *
  * @param {string} tipo - 'VE', 'PV' o '' (ambos)
- * @param {object} opts - ignorado, mantenido por compatibilidad
- * @param {{ desde?: string, hasta?: string } | null} innerBounds - filtro de fecha dentro del subquery.
+ * @param {object} opts - mantenido por compatibilidad
+ * @param {{ desde?: string, hasta?: string } | null} innerBounds - filtro de fecha en el subquery.
  */
 function cotizacionesSub(tipo = '', opts = {}, innerBounds = null) {
-  const feVe = (opts && opts.sqlFeVe) || 'd.FECHA';
-  const fePv = (opts && opts.sqlFePv) || 'd.FECHA';
-  const bVe = sqlCotizInnerFechaBounds(feVe, innerBounds);
-  const bPv = sqlCotizInnerFechaBounds(fePv, innerBounds);
-  const imp = sqlVentaImporteBaseExpr('d');
+  const bVe = sqlCotizInnerFechaBounds('h.FECHA', innerBounds);
+  const bPv = sqlCotizInnerFechaBounds('h.FECHA', innerBounds);
+  // DAX: SUM(det.UNIDADES * det.PRECIO_UNITARIO) - DSCTO_IMPORTE(encabezado)
   const ve = `
     SELECT
-      ${feVe} AS FECHA,
-      ${imp} AS IMPORTE_NETO,
-      COALESCE(d.VENDEDOR_ID, 0)  AS VENDEDOR_ID,
-      COALESCE(d.CLIENTE_ID,  0)  AS CLIENTE_ID,
-      d.FOLIO,
-      d.TIPO_DOCTO,
-      d.ESTATUS,
-      d.DOCTO_VE_ID,
+      h.FECHA,
+      (COALESCE(SUM(det.UNIDADES * det.PRECIO_UNITARIO), 0)
+        - COALESCE(MAX(h.DSCTO_IMPORTE), 0)) AS IMPORTE_NETO,
+      COALESCE(h.VENDEDOR_ID, 0) AS VENDEDOR_ID,
+      COALESCE(h.CLIENTE_ID,  0) AS CLIENTE_ID,
+      h.FOLIO,
+      h.TIPO_DOCTO,
+      h.ESTATUS,
+      h.DOCTO_VE_ID,
       CAST(NULL AS INTEGER) AS DOCTO_PV_ID,
       'VE' AS TIPO_SRC
-    FROM DOCTOS_VE d
-    WHERE d.TIPO_DOCTO = 'C'
-      AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')${bVe}
+    FROM DOCTOS_VE h
+    JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = h.DOCTO_VE_ID
+    WHERE h.TIPO_DOCTO = 'C'
+      AND COALESCE(h.ESTATUS, 'N') <> 'C'${bVe}
+    GROUP BY h.FECHA, h.VENDEDOR_ID, h.CLIENTE_ID,
+             h.FOLIO, h.TIPO_DOCTO, h.ESTATUS, h.DOCTO_VE_ID
   `;
   const pv = `
     SELECT
-      ${fePv} AS FECHA,
-      ${imp} AS IMPORTE_NETO,
-      COALESCE(d.VENDEDOR_ID, 0) AS VENDEDOR_ID,
-      COALESCE(d.CLIENTE_ID,  0) AS CLIENTE_ID,
-      d.FOLIO,
-      d.TIPO_DOCTO,
-      d.ESTATUS,
+      h.FECHA,
+      (COALESCE(SUM(det.UNIDADES * det.PRECIO_UNITARIO), 0)
+        - COALESCE(MAX(h.DSCTO_IMPORTE), 0)) AS IMPORTE_NETO,
+      COALESCE(h.VENDEDOR_ID, 0) AS VENDEDOR_ID,
+      COALESCE(h.CLIENTE_ID,  0) AS CLIENTE_ID,
+      h.FOLIO,
+      h.TIPO_DOCTO,
+      h.ESTATUS,
       CAST(NULL AS INTEGER) AS DOCTO_VE_ID,
-      d.DOCTO_PV_ID,
+      h.DOCTO_PV_ID,
       'PV' AS TIPO_SRC
-    FROM DOCTOS_PV d
-    WHERE d.TIPO_DOCTO = 'C'
-      AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')${bPv}
+    FROM DOCTOS_PV h
+    JOIN DOCTOS_PV_DET det ON det.DOCTO_PV_ID = h.DOCTO_PV_ID
+    WHERE h.TIPO_DOCTO = 'C'
+      AND COALESCE(h.ESTATUS, 'N') <> 'C'${bPv}
+    GROUP BY h.FECHA, h.VENDEDOR_ID, h.CLIENTE_ID,
+             h.FOLIO, h.TIPO_DOCTO, h.ESTATUS, h.DOCTO_PV_ID
   `;
   if (tipo === 'VE') return `(${ve})`;
   if (tipo === 'PV') return `(${pv})`;
@@ -1680,9 +1689,14 @@ function normalizeCotizacionResumenRow(row) {
   };
 }
 
-/** Importe cotización: misma base que ventas (cabecera IMPORTE_NETO / divisor IVA). */
+/**
+ * Importe cotización: IMPORTE_NETO ya calculado en cotizacionesSub desde líneas de detalle
+ * (SUM(UNIDADES*PRECIO_UNITARIO) - DSCTO_IMPORTE), igual al DAX de Power BI.
+ * No aplica divisor IVA porque el cálculo viene de PRECIO_UNITARIO (sin IVA acumulado en encabezado).
+ */
 function sqlCotiImporteExpr(alias = 'd') {
-  return sqlVentaImporteBaseExpr(alias);
+  const a = alias;
+  return `COALESCE(${a}.IMPORTE_NETO, 0)`;
 }
 
 /** Sufijo SQL (AND …) para excluir cotizaciones con vigencia vencida SOLO si MICROSIP_COTIZACIONES_SOLO_VIGENTES=1.
