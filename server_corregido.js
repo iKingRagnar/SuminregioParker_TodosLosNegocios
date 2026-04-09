@@ -7637,6 +7637,133 @@ get('/api/debug/firebird-ping', async (req) => {
   }
 });
 
+/**
+ * Monitoreo Firebird (MON$): revela locks/queries largas sin tocar DOCTOS_*.
+ * Nota: MON$ existe en Firebird 2.1+; si no existe, regresará error.
+ */
+get('/api/debug/firebird-mon', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const ms = Math.min(240000, Math.max(5000, parseInt(String(req.query.ms || '20000'), 10) || 20000));
+  const t0 = Date.now();
+  try {
+    const [dbRows, txRows, stRows] = await Promise.all([
+      query(
+        `SELECT
+           MON$ATTACHMENT_ID AS ATTACHMENT_ID,
+           MON$OLDEST_TRANSACTION AS OLDEST_TX,
+           MON$OLDEST_ACTIVE AS OLDEST_ACTIVE_TX,
+           MON$OLDEST_SNAPSHOT AS OLDEST_SNAPSHOT_TX,
+           MON$NEXT_TRANSACTION AS NEXT_TX
+         FROM MON$DATABASE`,
+        [],
+        ms,
+        dbo,
+      ).catch((e) => ({ error: String(e && e.message ? e.message : e) })),
+      query(
+        `SELECT FIRST 15
+           MON$TRANSACTION_ID AS TX_ID,
+           MON$STATE AS STATE,
+           MON$ISOLATION_MODE AS ISOLATION,
+           MON$LOCK_TIMEOUT AS LOCK_TIMEOUT,
+           MON$TIMESTAMP AS STARTED_AT,
+           MON$ATTACHMENT_ID AS ATTACHMENT_ID
+         FROM MON$TRANSACTIONS
+         ORDER BY MON$TIMESTAMP ASC`,
+        [],
+        ms,
+        dbo,
+      ).catch((e) => ({ error: String(e && e.message ? e.message : e) })),
+      query(
+        `SELECT FIRST 15
+           s.MON$STATEMENT_ID AS STMT_ID,
+           s.MON$ATTACHMENT_ID AS ATTACHMENT_ID,
+           s.MON$TIMESTAMP AS STARTED_AT,
+           s.MON$STATE AS STATE,
+           CHAR_LENGTH(s.MON$SQL_TEXT) AS SQL_LEN,
+           SUBSTRING(s.MON$SQL_TEXT FROM 1 FOR 220) AS SQL_HEAD
+         FROM MON$STATEMENTS s
+         WHERE s.MON$SQL_TEXT IS NOT NULL
+         ORDER BY s.MON$TIMESTAMP ASC`,
+        [],
+        ms,
+        dbo,
+      ).catch((e) => ({ error: String(e && e.message ? e.message : e) })),
+    ]);
+    return {
+      ok: true,
+      timeout_ms: ms,
+      elapsed_ms: Date.now() - t0,
+      mon_database: dbRows,
+      mon_transactions: txRows,
+      mon_statements: stRows,
+      nota:
+        'Si aquí aparecen statements muy viejos o OLDEST_* muy atrás, hay transacciones abiertas/locks/GC. Esto explica timeouts en DOCTOS_VE incluso para MAX().',
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      timeout_ms: ms,
+      elapsed_ms: Date.now() - t0,
+      error: String(e && e.message ? e.message : e),
+      nota: 'Si MON$ no existe o falla, usar debug/schema e índices (metadata) para el siguiente paso.',
+    };
+  }
+});
+
+/**
+ * Metadata de índices/PK sin escanear tablas grandes: confirma si DOCTO_VE_ID/DOCTO_PV_ID están indexados.
+ */
+get('/api/debug/doctos-meta', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const ms = Math.min(240000, Math.max(5000, parseInt(String(req.query.ms || '20000'), 10) || 20000));
+  const q = async (sql) => query(sql, [], ms, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) }));
+  const ve = await q(`
+    SELECT
+      TRIM(rc.RDB$RELATION_NAME) AS REL,
+      TRIM(rc.RDB$CONSTRAINT_NAME) AS CONSTRAINT_NAME,
+      TRIM(rc.RDB$CONSTRAINT_TYPE) AS CONSTRAINT_TYPE,
+      TRIM(rc.RDB$INDEX_NAME) AS INDEX_NAME,
+      TRIM(seg.RDB$FIELD_NAME) AS FIELD_NAME
+    FROM RDB$RELATION_CONSTRAINTS rc
+    JOIN RDB$INDEX_SEGMENTS seg ON seg.RDB$INDEX_NAME = rc.RDB$INDEX_NAME
+    WHERE rc.RDB$RELATION_NAME = 'DOCTOS_VE'
+      AND rc.RDB$CONSTRAINT_TYPE IN ('PRIMARY KEY', 'UNIQUE')
+      AND seg.RDB$FIELD_NAME = 'DOCTO_VE_ID'
+  `);
+  const pv = await q(`
+    SELECT
+      TRIM(rc.RDB$RELATION_NAME) AS REL,
+      TRIM(rc.RDB$CONSTRAINT_NAME) AS CONSTRAINT_NAME,
+      TRIM(rc.RDB$CONSTRAINT_TYPE) AS CONSTRAINT_TYPE,
+      TRIM(rc.RDB$INDEX_NAME) AS INDEX_NAME,
+      TRIM(seg.RDB$FIELD_NAME) AS FIELD_NAME
+    FROM RDB$RELATION_CONSTRAINTS rc
+    JOIN RDB$INDEX_SEGMENTS seg ON seg.RDB$INDEX_NAME = rc.RDB$INDEX_NAME
+    WHERE rc.RDB$RELATION_NAME = 'DOCTOS_PV'
+      AND rc.RDB$CONSTRAINT_TYPE IN ('PRIMARY KEY', 'UNIQUE')
+      AND seg.RDB$FIELD_NAME = 'DOCTO_PV_ID'
+  `);
+  const relStats = await q(`
+    SELECT
+      TRIM(r.RDB$RELATION_NAME) AS REL,
+      r.RDB$FORMAT AS FMT,
+      r.RDB$RELATION_ID AS REL_ID,
+      COALESCE(r.RDB$SYSTEM_FLAG, 0) AS SYS,
+      COALESCE(r.RDB$FLAGS, 0) AS FLAGS
+    FROM RDB$RELATIONS r
+    WHERE r.RDB$RELATION_NAME IN ('DOCTOS_VE', 'DOCTOS_PV')
+  `);
+  return {
+    ok: true,
+    timeout_ms: ms,
+    doctos_ve_pk: ve,
+    doctos_pv_pk: pv,
+    relations: relStats,
+    nota:
+      'Esto no toca datos, solo metadata. Si no hay PK/índice en DOCTO_*_ID, MAX()/ORDER BY serán lentísimos. Si sí hay, entonces el problema es lock/GC/transacción larga.',
+  };
+});
+
 /** Sonda DOCTOS_VE/DOCTOS_PV: identifica si el atasco es ORDER BY, MAX(), o lectura por PK. */
 get('/api/debug/doctos-probe', async (req) => {
   const dbo = getReqDbOpts(req);
