@@ -8785,33 +8785,37 @@ get('/api/debug/pnl-costo', async (req) => {
 });
 
 // Ver columnas de ARTICULOS (para saber nombre exacto del costo)
-get('/api/debug/articulos-schema', async () => {
-  const row = await query(`SELECT FIRST 1 * FROM ARTICULOS`).catch(() => []);
+get('/api/debug/articulos-schema', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const row = await query(`SELECT FIRST 1 * FROM ARTICULOS`, [], 20000, dbo).catch(() => []);
   const cols = (row && row[0]) ? Object.keys(row[0]).sort() : [];
   const costRelated = (cols || []).filter(c => /COSTO|PRECIO|COST/i.test(c));
   return { columnas: cols, relacionadasConCosto: costRelated, muestra: row && row[0] ? row[0] : null };
 });
 
 // Ver si ARTICULOS tiene COSTO_PROMEDIO y si hay valores > 0
-get('/api/debug/articulos-costo', async () => {
+get('/api/debug/articulos-costo', async (req) => {
+  const dbo = getReqDbOpts(req);
   let error = null;
   let sample = [];
   let totalSum = 0;
+  let cols = new Set();
   try {
+    cols = await getTableColumns('ARTICULOS', dbo).catch(() => new Set());
     sample = await query(`
       SELECT FIRST 10 a.ARTICULO_ID, a.NOMBRE, a."COSTO_PROMEDIO"
       FROM ARTICULOS a
       WHERE COALESCE(a."COSTO_PROMEDIO", 0) > 0
-    `).catch(() => []);
+    `, [], 25000, dbo).catch(() => []);
     const sumRow = await query(`
       SELECT COUNT(*) AS C, COALESCE(SUM(a."COSTO_PROMEDIO"), 0) AS S
       FROM ARTICULOS a WHERE COALESCE(a."COSTO_PROMEDIO", 0) > 0
-    `).catch(() => [{ C: 0, S: 0 }]);
+    `, [], 25000, dbo).catch(() => [{ C: 0, S: 0 }]);
     totalSum = sumRow && sumRow[0] ? +(sumRow[0].S || 0) : 0;
   } catch (e) {
     error = e.message || String(e);
   }
-  return { error, sample: sample || [], articulosConCosto: (sample || []).length, totalSum };
+  return { ok: !error, db: normalizeDbQueryId(req.query.db) || 'default', cols_count: cols && cols.size ? cols.size : 0, has_costo_promedio: cols instanceof Set ? cols.has('COSTO_PROMEDIO') : null, error, sample: sample || [], articulosConCosto: (sample || []).length, totalSum };
 });
 
 // Misma lógica de fechas que /api/resultados/pnl y misma consulta de costo contabilidad (solo DOCTOS_CO_DET+CUENTAS_CO).
