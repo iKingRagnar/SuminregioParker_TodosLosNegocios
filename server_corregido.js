@@ -4707,9 +4707,11 @@ async function invPrecioSubSql(dbo) {
 }
 
 const invCostoSubCache = new Map();
+const invCostoUnitExprCache = new Map();
 /**
  * Costo unitario por artículo desde ARTICULOS (COSTO_PROMEDIO, ULTIMO_COSTO o COSTO; alineado con Power BI).
- * Si ninguna columna existe, cae al subquery de precio mínimo (PRECIO1 renombrado a COSTO1).
+ * Si ninguna columna existe, intenta costo unitario desde COMPRAS (DOCTOS_IN + DOCTOS_IN_DET) por último movimiento.
+ * Si tampoco existe (o falta esquema), cae a precio mínimo (PRECIO1 renombrado a COSTO1).
  */
 async function invCostoSubSql(dbo) {
   const key = dbCacheKey(dbo);
@@ -4719,16 +4721,77 @@ async function invCostoSubSql(dbo) {
   if (costoCol) {
     invCostoSubCache.set(key, `( SELECT a.ARTICULO_ID, COALESCE(a.${costoCol}, 0) AS COSTO1 FROM ARTICULOS a )`);
   } else {
+    // Si ARTICULOS no trae costo, usar última compra desde DOCTOS_IN/DET (si existe esquema).
+    // OJO: aquí devolvemos una tabla (ARTICULO_ID, COSTO1). La tabla se usa solo para artículos con existencia ≠ 0.
+    const inCols = await getTableColumns('DOCTOS_IN', dbo).catch(() => new Set());
+    const inDetCols = await getTableColumns('DOCTOS_IN_DET', dbo).catch(() => new Set());
+    const hasIn = (inCols instanceof Set ? inCols.size : 0) > 0;
+    const hasInDet = (inDetCols instanceof Set ? inDetCols.size : 0) > 0;
+    const inHasFecha = hasIn && inCols.has('FECHA');
+    const inHasCancel = hasIn && inCols.has('CANCELADO');
+    const inHasAplicado = hasIn && inCols.has('APLICADO');
+    const inDetIdCol = firstExistingColumn(inDetCols || new Set(), ['DOCTO_IN_DET_ID', 'RENGLON', 'POSICION']);
+    const inCostoUnitCol = firstExistingColumn(inDetCols || new Set(), ['COSTO_UNITARIO', 'COSTO_U']);
+    const inCostoTotalCol = firstExistingColumn(inDetCols || new Set(), ['COSTO_TOTAL', 'IMPORTE']);
+    const inQtyCol = firstExistingColumn(inDetCols || new Set(), ['CANTIDAD', 'UNIDADES']);
+
+    if (hasIn && hasInDet && inHasFecha && (inCostoUnitCol || (inCostoTotalCol && inQtyCol))) {
+      const unitExpr = inCostoUnitCol
+        ? `NULLIF(ind.${inCostoUnitCol}, 0)`
+        : `CASE WHEN COALESCE(ind.${inQtyCol}, 0) <> 0 THEN COALESCE(ind.${inCostoTotalCol}, 0) / COALESCE(ind.${inQtyCol}, 1) ELSE NULL END`;
+      const w = [];
+      if (inHasCancel) w.push(`COALESCE(di.CANCELADO, 'N') = 'N'`);
+      if (inHasAplicado) w.push(`COALESCE(di.APLICADO, 'S') = 'S'`);
+      const docWhere = w.length ? `WHERE ${w.join(' AND ')}` : '';
+      const orderParts = ['di.FECHA DESC'];
+      if (inDetIdCol) orderParts.push(`ind.${inDetIdCol} DESC`);
+      else orderParts.push('ind.DOCTO_IN_ID DESC');
+
+      // Nota: Firebird no soporta window functions en todas las versiones; usamos FIRST 1 por artículo via subquery correlacionado,
+      // pero como las queries de inventario solo suman artículos con existencia != 0 (miles, no 70k), es aceptable.
+      const t = `
+        ( SELECT a.ARTICULO_ID,
+          COALESCE((
+            SELECT FIRST 1 COALESCE(${unitExpr}, 0)
+            FROM DOCTOS_IN di
+            JOIN DOCTOS_IN_DET ind ON ind.DOCTO_IN_ID = di.DOCTO_IN_ID
+            WHERE ind.ARTICULO_ID = a.ARTICULO_ID
+              ${w.length ? ' AND ' + w.join(' AND ') : ''}
+            ORDER BY ${orderParts.join(', ')}
+          ), 0) AS COSTO1
+          FROM ARTICULOS a
+        )
+      `;
+      invCostoSubCache.set(key, t);
+      return t;
+    }
+
     const priceSub = await invPrecioSubSql(dbo);
     // Si no pudimos leer columnas (cold-start / timeout), NO cachear el fallback;
     // de lo contrario podríamos quedarnos atorados valuando por precio en vez de costo.
     const fallback = priceSub.replace(/PRECIO1/g, 'COSTO1');
-    if ((cols instanceof Set ? cols.size : 0) > 0) {
-      invCostoSubCache.set(key, fallback);
-    }
+    if ((cols instanceof Set ? cols.size : 0) > 0) invCostoSubCache.set(key, fallback);
     return fallback;
   }
   return invCostoSubCache.get(key);
+}
+
+async function invCostoSourceInfo(dbo) {
+  const cols = await getTableColumns('ARTICULOS', dbo).catch(() => new Set());
+  const costoCol = firstExistingColumn(cols || new Set(), ['COSTO_PROMEDIO', 'ULTIMO_COSTO', 'COSTO']);
+  if (costoCol) return { source: 'ARTICULOS', detail: costoCol };
+  const inCols = await getTableColumns('DOCTOS_IN', dbo).catch(() => new Set());
+  const inDetCols = await getTableColumns('DOCTOS_IN_DET', dbo).catch(() => new Set());
+  const hasIn = (inCols instanceof Set ? inCols.size : 0) > 0;
+  const hasInDet = (inDetCols instanceof Set ? inDetCols.size : 0) > 0;
+  const inHasFecha = hasIn && inCols.has('FECHA');
+  const inCostoUnitCol = firstExistingColumn(inDetCols || new Set(), ['COSTO_UNITARIO', 'COSTO_U']);
+  const inCostoTotalCol = firstExistingColumn(inDetCols || new Set(), ['COSTO_TOTAL', 'IMPORTE']);
+  const inQtyCol = firstExistingColumn(inDetCols || new Set(), ['CANTIDAD', 'UNIDADES']);
+  if (hasIn && hasInDet && inHasFecha && (inCostoUnitCol || (inCostoTotalCol && inQtyCol))) {
+    return { source: 'DOCTOS_IN', detail: inCostoUnitCol || `${inCostoTotalCol}/${inQtyCol}` };
+  }
+  return { source: 'PRECIO_FALLBACK', detail: 'PRECIOS_ARTICULOS.MIN(PRECIO)' };
 }
 
 // SIN_STOCK = solo articulos con minimo definido y existencia 0 (alerta real). No contar todo el catalogo en cero.
@@ -4750,8 +4813,8 @@ get('/api/inv/resumen', async (req) => {
   const costoSub = await invCostoSubSql(dbo);
   const qValor = `
     SELECT COALESCE(SUM(COALESCE(s.EXISTENCIA, 0) * COALESCE(cs.COSTO1, 0)), 0) AS VALOR_INVENTARIO
-    FROM ARTICULOS a
-    LEFT JOIN ${SQL_EXIST_SUB} s ON s.ARTICULO_ID = a.ARTICULO_ID
+    FROM ( SELECT ARTICULO_ID, EXISTENCIA FROM ${SQL_EXIST_SUB} WHERE COALESCE(EXISTENCIA, 0) <> 0 ) s
+    JOIN ARTICULOS a ON a.ARTICULO_ID = s.ARTICULO_ID
     LEFT JOIN ${costoSub} cs ON cs.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A'
   `;
@@ -4794,14 +4857,16 @@ get('/api/debug/inv-reconcile', async (req) => {
     if (hasNombre) return ` AND UPPER(a.NOMBRE) NOT CONTAINING 'SERVICIO'`;
     return '';
   })();
+  const whereAlmacenable = colsSet.has('ES_ALMACENABLE') ? ` AND COALESCE(a.ES_ALMACENABLE, 'S') = 'S'` : '';
+  const costSrc = await invCostoSourceInfo(dbo).catch(() => ({ source: 'UNKNOWN', detail: null }));
 
   const qBase = (whereExtra) => `
     SELECT
       COUNT(DISTINCT a.ARTICULO_ID) AS ARTICULOS,
       COALESCE(SUM(COALESCE(s.EXISTENCIA, 0)), 0) AS UNIDADES,
       COALESCE(SUM(COALESCE(s.EXISTENCIA, 0) * COALESCE(cs.COSTO1, 0)), 0) AS VALOR
-    FROM ARTICULOS a
-    LEFT JOIN ${SQL_EXIST_SUB} s ON s.ARTICULO_ID = a.ARTICULO_ID
+    FROM ( SELECT ARTICULO_ID, EXISTENCIA FROM ${SQL_EXIST_SUB} WHERE COALESCE(EXISTENCIA, 0) <> 0 ) s
+    JOIN ARTICULOS a ON a.ARTICULO_ID = s.ARTICULO_ID
     LEFT JOIN ${costoSub} cs ON cs.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' ${whereExtra || ''}
   `;
@@ -4825,9 +4890,8 @@ get('/api/debug/inv-reconcile', async (req) => {
       AND COALESCE(d.UNIDADES, 0) > 0
   ` : null;
 
-  const [tot, conStock, vendidos, totNoServ, conStockNoServ, vendidosNoServ, vendidosVePv, vendidosVePvNoServ] = await Promise.all([
+  const [tot, vendidos, totNoServ, vendidosNoServ, totAlm, totAlmNoServ, vendidosVePv, vendidosVePvNoServ] = await Promise.all([
     query(qBase(''), [], invQTimeout, dbo).catch(() => [{}]),
-    query(qBase(' AND COALESCE(s.EXISTENCIA, 0) > 0'), [], invQTimeout, dbo).catch(() => [{}]),
     query(
       qBase(` AND COALESCE(s.EXISTENCIA, 0) > 0 AND a.ARTICULO_ID IN (${qVendidosVentana})`),
       [desdeStr],
@@ -4835,13 +4899,14 @@ get('/api/debug/inv-reconcile', async (req) => {
       dbo,
     ).catch(() => [{}]),
     query(qBase(`${whereNoServicios}`), [], invQTimeout, dbo).catch(() => [{}]),
-    query(qBase(` AND COALESCE(s.EXISTENCIA, 0) > 0 ${whereNoServicios}`), [], invQTimeout, dbo).catch(() => [{}]),
     query(
       qBase(` AND COALESCE(s.EXISTENCIA, 0) > 0 ${whereNoServicios} AND a.ARTICULO_ID IN (${qVendidosVentana})`),
       [desdeStr],
       invQTimeout,
       dbo,
     ).catch(() => [{}]),
+    query(qBase(`${whereAlmacenable}`), [], invQTimeout, dbo).catch(() => [{}]),
+    query(qBase(`${whereAlmacenable} ${whereNoServicios}`), [], invQTimeout, dbo).catch(() => [{}]),
     qVendidosVentanaVePv ? query(
       qBase(` AND COALESCE(s.EXISTENCIA, 0) > 0 AND a.ARTICULO_ID IN (${qVendidosVentanaVePv})`),
       [desdeStr],
@@ -4858,14 +4923,15 @@ get('/api/debug/inv-reconcile', async (req) => {
 
   const pick = (rows) => (rows && rows[0]) ? rows[0] : {};
   const a = pick(tot);
-  const b = pick(conStock);
   const c = pick(vendidos);
   const d = pick(totNoServ);
-  const e = pick(conStockNoServ);
   const f = pick(vendidosNoServ);
+  const k = pick(totAlm);
+  const m = pick(totAlmNoServ);
   const g = pick(vendidosVePv);
   const h = pick(vendidosVePvNoServ);
   const r2 = (x) => Math.round((+x || 0) * 100) / 100;
+  const avg = (valor, unidades) => (unidades && +unidades !== 0) ? r2((+valor || 0) / (+unidades || 1)) : 0;
 
   return {
     ok: true,
@@ -4879,46 +4945,56 @@ get('/api/debug/inv-reconcile', async (req) => {
         ve_only: true,
         ve_pv_union: !!qVendidosVentanaVePv,
       },
+      almacenable: whereAlmacenable ? true : false,
+      costo_fuente: costSrc,
     },
     totales: {
       articulos_activos: +a.ARTICULOS || 0,
       unidades: r2(a.UNIDADES),
       valor: r2(a.VALOR),
-    },
-    con_stock_mayor_cero: {
-      articulos_activos: +b.ARTICULOS || 0,
-      unidades: r2(b.UNIDADES),
-      valor: r2(b.VALOR),
+      costo_promedio_implicito: avg(a.VALOR, a.UNIDADES),
     },
     con_stock_y_ventas_en_ventana: {
       articulos_activos: +c.ARTICULOS || 0,
       unidades: r2(c.UNIDADES),
       valor: r2(c.VALOR),
+      costo_promedio_implicito: avg(c.VALOR, c.UNIDADES),
     },
     totales_sin_servicios: {
       articulos_activos: +d.ARTICULOS || 0,
       unidades: r2(d.UNIDADES),
       valor: r2(d.VALOR),
-    },
-    con_stock_sin_servicios: {
-      articulos_activos: +e.ARTICULOS || 0,
-      unidades: r2(e.UNIDADES),
-      valor: r2(e.VALOR),
+      costo_promedio_implicito: avg(d.VALOR, d.UNIDADES),
     },
     con_stock_y_ventas_en_ventana_sin_servicios: {
       articulos_activos: +f.ARTICULOS || 0,
       unidades: r2(f.UNIDADES),
       valor: r2(f.VALOR),
+      costo_promedio_implicito: avg(f.VALOR, f.UNIDADES),
+    },
+    totales_almacenable: {
+      articulos_activos: +k.ARTICULOS || 0,
+      unidades: r2(k.UNIDADES),
+      valor: r2(k.VALOR),
+      costo_promedio_implicito: avg(k.VALOR, k.UNIDADES),
+    },
+    totales_almacenable_sin_servicios: {
+      articulos_activos: +m.ARTICULOS || 0,
+      unidades: r2(m.UNIDADES),
+      valor: r2(m.VALOR),
+      costo_promedio_implicito: avg(m.VALOR, m.UNIDADES),
     },
     con_stock_y_ventas_en_ventana_ve_pv: {
       articulos_activos: +g.ARTICULOS || 0,
       unidades: r2(g.UNIDADES),
       valor: r2(g.VALOR),
+      costo_promedio_implicito: avg(g.VALOR, g.UNIDADES),
     },
     con_stock_y_ventas_en_ventana_ve_pv_sin_servicios: {
       articulos_activos: +h.ARTICULOS || 0,
       unidades: r2(h.UNIDADES),
       valor: r2(h.VALOR),
+      costo_promedio_implicito: avg(h.VALOR, h.UNIDADES),
     },
     nota:
       'Si BI no cuadra con totales, normalmente es por excluir servicios/líneas/grupos o por definir "vendido" como VE+PV. Usa este endpoint para identificar cuál variante se acerca al KPI de BI.',
