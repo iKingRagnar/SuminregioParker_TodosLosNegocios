@@ -438,9 +438,9 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
     <div id="filter-bar"></div>
     <div class="month-picker month-picker--inline" id="monthPicker" style="display:none">
       <div class="month-picker-head">
-        <div class="month-picker-title pnl-month-inline-title">Subconjunto de meses · elige varios y <strong>Aplicar</strong> (los de arriba siguen al instante)</div>
+        <div class="month-picker-title pnl-month-inline-title"><strong>Vista por meses</strong> · año en curso + anterior (elige y <strong>Aplicar</strong>; arriba sigue al instante)</div>
         <div class="month-dd" id="monthDd">
-          <button type="button" class="month-dd-btn" id="monthDdBtn" aria-haspopup="listbox" aria-expanded="false">Seleccionar meses…</button>
+          <button type="button" class="month-dd-btn" id="monthDdBtn" aria-haspopup="listbox" aria-expanded="false" title="Meses disponibles según año actual y anterior">Elegir meses…</button>
           <div class="month-dd-panel" id="monthDdPanel" role="listbox" aria-label="Meses del periodo">
             <div class="month-picker-actions">
               <button type="button" class="month-picker-btn" id="monthSelAll">Todos</button>
@@ -828,6 +828,24 @@ function sortMesesByPeriodo(rows){
   });
   return arr;
 }
+/** Une filas mensuales: base año-1 y año actual, luego sobrescribe con el periodo del filtro (autoridad). */
+function mergePnlMesesForPicker(primaryRows, prevYearRows, curYearRows){
+  const map=new Map();
+  const addIfMissing=(r)=>{
+    const k=monthKey(r);
+    if(!r||!k||/^0-/.test(k))return;
+    if(!map.has(k)) map.set(k,Object.assign({},r));
+  };
+  (prevYearRows||[]).forEach(addIfMissing);
+  (curYearRows||[]).forEach(addIfMissing);
+  sortMesesByPeriodo(primaryRows||[]).forEach(r=>{
+    const k=monthKey(r);
+    if(!k||/^0-/.test(k))return;
+    const base=map.get(k)||{};
+    map.set(k,Object.assign({},base,r));
+  });
+  return sortMesesByPeriodo([...map.values()]);
+}
 function pnlSetsEqual(a,b){
   if(!a||!b||a.size!==b.size)return false;
   for(const x of a){ if(!b.has(x)) return false; }
@@ -839,12 +857,12 @@ function updateMonthDdBtn(keys){
   const kk=keys||window._pnlMonthPickerKeys||[];
   const nSel=monthKeysSelected.size;
   const base=nSel===kk.length||!kk.length
-    ? 'Todos los meses'
+    ? 'Vista completa (calendario)'
     : `${nSel} mes(es) en vista`;
   if(!pnlSetsEqual(monthKeysPending,monthKeysSelected)){
-    ddBtn.textContent=base+' — pulsa Aplicar';
+    ddBtn.textContent=base+' — Aplicar';
   }else{
-    ddBtn.textContent=nSel===kk.length||!kk.length?'Todos los meses':`${nSel} mes(es) seleccionado(s)`;
+    ddBtn.textContent=nSel===kk.length||!kk.length?'Vista completa':`${nSel} mes(es) en vista`;
   }
 }
 function refreshPnlMonthSlice(){
@@ -868,14 +886,29 @@ function refreshPnlMonthSlice(){
     heroEl.textContent=(lastPnlHeroPrefix||'')+mesesVista.length+' mes(es) en vista · '+fmtM(+totVista.VENTAS_NETAS||0)+' ventas netas · '+(hasCosto?fmtM(+totVista.UTILIDAD_BRUTA||0)+' util. bruta':'Costo no en BD')+' · '+fmtM(+totVista.COBROS||0)+' cobrado';
   }
 }
-function setupMonthPicker(meses){
+function setupMonthPicker(meses, opts){
+  opts=opts||{};
+  const defaultKeySet=opts.defaultKeys instanceof Set?opts.defaultKeys:(Array.isArray(opts.defaultKeys)?new Set(opts.defaultKeys):null);
+  const primaryFallback=Array.isArray(opts.primaryRowsForFallback)?opts.primaryRowsForFallback:[];
+  const useFilterDefault=Object.prototype.hasOwnProperty.call(opts,'defaultKeys');
   const wrap=document.getElementById('monthPicker');
   if(!wrap) return sortMesesByPeriodo(meses||[]);
   const arr=sortMesesByPeriodo(meses||[]);
   if(!arr.length){ wrap.style.display='none'; return arr; }
   wrap.style.display='block';
   const keys=arr.map(monthKey);
-  if(!monthKeysSelected.size){
+  if(useFilterDefault){
+    if(defaultKeySet&&defaultKeySet.size){
+      monthKeysSelected=new Set();
+      defaultKeySet.forEach(k=>{ if(keys.indexOf(k)>=0) monthKeysSelected.add(k); });
+      if(!monthKeysSelected.size){
+        sortMesesByPeriodo(primaryFallback).map(monthKey).filter(k=>keys.indexOf(k)>=0).forEach(k=>monthKeysSelected.add(k));
+      }
+      if(!monthKeysSelected.size&&keys.length) monthKeysSelected.add(keys[keys.length-1]);
+    }else{
+      keys.forEach(k=>monthKeysSelected.add(k));
+    }
+  }else if(!monthKeysSelected.size){
     keys.forEach(k=>monthKeysSelected.add(k));
   }else{
     const next=new Set();
@@ -1829,8 +1862,21 @@ async function loadData(){
 
     }
     tablaMeses=sortMesesByPeriodo(tablaMeses);
+    const mesesPeriodoFiltro=tablaMeses.slice();
+    const filterMonthKeys=new Set(mesesPeriodoFiltro.map(monthKey).filter(k=>k&&!/^0-/.test(k)));
+    let mergedForPicker=mesesPeriodoFiltro.slice();
+    try{
+      const yN=new Date().getFullYear();
+      const uCur=buildPnlApiUrl('/api/resultados/pnl',`anio=${yN}`,{omitFilters:true})+'&_='+Date.now();
+      const uPrev=buildPnlApiUrl('/api/resultados/pnl',`anio=${yN-1}`,{omitFilters:true})+'&_='+Date.now();
+      const[dCur,dPrev]=await Promise.all([tryFetch(uCur,90000),tryFetch(uPrev,90000)]);
+      const mCur=Array.isArray(dCur&&dCur.meses)?dCur.meses:[];
+      const mPrev=Array.isArray(dPrev&&dPrev.meses)?dPrev.meses:[];
+      mergedForPicker=mergePnlMesesForPicker(mesesPeriodoFiltro,mPrev,mCur);
+    }catch(e){ console.warn('[P&L] enriquecer meses selector',e); }
+
     const hasCosto=(+tot.COSTO_VENTAS>0)||(data.tiene_costo===true);
-    lastPnlTablaMesesFull=tablaMeses.slice();
+    lastPnlTablaMesesFull=mergedForPicker.slice();
     lastPnlHasCosto=hasCosto;
     lastPnlTablaTieneGastos=tablaTieneGastos;
     lastPnlHeroPrefix='';
@@ -1840,9 +1886,9 @@ async function loadData(){
     }
     let mesesVista;
     try {
-      mesesVista = setupMonthPicker(tablaMeses);
+      mesesVista=setupMonthPicker(mergedForPicker,{ defaultKeys:filterMonthKeys, primaryRowsForFallback:mesesPeriodoFiltro });
     } catch (ePicker) {
-      mesesVista = sortMesesByPeriodo(tablaMeses.slice());
+      mesesVista=sortMesesByPeriodo(mergedForPicker.slice());
     }
     const totVista = rebuildTotalesFromMeses(mesesVista);
     try{ renderKPIs(totVista,mesesVista,hasCosto); }catch(e){ console.warn('renderKPIs',e); }
