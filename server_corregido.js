@@ -7637,6 +7637,88 @@ get('/api/debug/firebird-ping', async (req) => {
   }
 });
 
+/** Sonda DOCTOS_VE/DOCTOS_PV: identifica si el atasco es ORDER BY, MAX(), o lectura por PK. */
+get('/api/debug/doctos-probe', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const ms = Math.min(240000, Math.max(5000, parseInt(String(req.query.ms || '45000'), 10) || 45000));
+  const n = Math.min(30, Math.max(3, parseInt(String(req.query.n || '12'), 10) || 12));
+  const out = { timeout_ms: ms, n };
+
+  const step = async (key, fn) => {
+    const t0 = Date.now();
+    try {
+      const val = await fn();
+      out[key] = { ok: true, elapsed_ms: Date.now() - t0, value: val };
+    } catch (e) {
+      out[key] = { ok: false, elapsed_ms: Date.now() - t0, error: String(e && e.message ? e.message : e) };
+    }
+  };
+
+  // VE
+  await step('ve_max_id', async () => {
+    const r = await query('SELECT MAX(d.DOCTO_VE_ID) AS ID FROM DOCTOS_VE d', [], ms, dbo);
+    return r && r[0] ? +r[0].ID || 0 : 0;
+  });
+  const veMax = out.ve_max_id && out.ve_max_id.ok ? +out.ve_max_id.value || 0 : 0;
+  if (veMax > 0) {
+    await step('ve_by_pk', async () => {
+      const r = await query(
+        'SELECT d.DOCTO_VE_ID, d.FOLIO, TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40))) AS TIPO_DOCTO, TRIM(CAST(COALESCE(d.ESTATUS,\\'N\\') AS VARCHAR(8))) AS ESTATUS, CAST(d.FECHA AS DATE) AS FECHA_D FROM DOCTOS_VE d WHERE d.DOCTO_VE_ID = ?',
+        [veMax],
+        ms,
+        dbo,
+      );
+      return r && r[0] ? r[0] : null;
+    });
+    await step('ve_last_n_window', async () => {
+      const fromId = Math.max(1, veMax - 5000);
+      const r = await query(
+        `SELECT FIRST ${n} d.DOCTO_VE_ID, d.FOLIO, TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40))) AS TIPO_DOCTO, TRIM(CAST(COALESCE(d.ESTATUS,'N') AS VARCHAR(8))) AS ESTATUS, CAST(d.FECHA AS DATE) AS FECHA_D FROM DOCTOS_VE d WHERE d.DOCTO_VE_ID >= ? ORDER BY d.DOCTO_VE_ID DESC`,
+        [fromId],
+        ms,
+        dbo,
+      );
+      return { from_id: fromId, rows: r || [] };
+    });
+  }
+
+  // PV (solo si piden src=PV o BOTH)
+  const src = String(req.query.src || 'VE').trim().toUpperCase(); // VE|PV|BOTH
+  out.src = src;
+  if (src === 'PV' || src === 'BOTH') {
+    await step('pv_max_id', async () => {
+      const r = await query('SELECT MAX(d.DOCTO_PV_ID) AS ID FROM DOCTOS_PV d', [], ms, dbo);
+      return r && r[0] ? +r[0].ID || 0 : 0;
+    });
+    const pvMax = out.pv_max_id && out.pv_max_id.ok ? +out.pv_max_id.value || 0 : 0;
+    if (pvMax > 0) {
+      await step('pv_by_pk', async () => {
+        const r = await query(
+          'SELECT d.DOCTO_PV_ID, d.FOLIO, TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40))) AS TIPO_DOCTO, TRIM(CAST(COALESCE(d.ESTATUS,\\'N\\') AS VARCHAR(8))) AS ESTATUS, CAST(d.FECHA AS DATE) AS FECHA_D FROM DOCTOS_PV d WHERE d.DOCTO_PV_ID = ?',
+          [pvMax],
+          ms,
+          dbo,
+        );
+        return r && r[0] ? r[0] : null;
+      });
+      await step('pv_last_n_window', async () => {
+        const fromId = Math.max(1, pvMax - 5000);
+        const r = await query(
+          `SELECT FIRST ${n} d.DOCTO_PV_ID, d.FOLIO, TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40))) AS TIPO_DOCTO, TRIM(CAST(COALESCE(d.ESTATUS,'N') AS VARCHAR(8))) AS ESTATUS, CAST(d.FECHA AS DATE) AS FECHA_D FROM DOCTOS_PV d WHERE d.DOCTO_PV_ID >= ? ORDER BY d.DOCTO_PV_ID DESC`,
+          [fromId],
+          ms,
+          dbo,
+        );
+        return { from_id: fromId, rows: r || [] };
+      });
+    }
+  }
+
+  out.nota =
+    'Si ve_max_id falla → tabla/locks. Si ve_max_id ok pero ve_by_pk falla → lectura/índice. Si ve_by_pk ok pero ve_last_n_window falla → ORDER BY/plan. Con esto decidimos el siguiente fix.';
+  return out;
+});
+
 /** Muestra ultrarrápida: últimos N docs VE/PV (sin GROUP BY masivo). Si tipos hace timeout, esto suele responder. */
 get('/api/debug/cotizaciones-recientes', async (req) => {
   const dbo = getReqDbOpts(req);
