@@ -828,7 +828,7 @@ document.querySelectorAll('#panelRiesgo thead .th-sort[data-sort]').forEach(th=>
   });
 });
 if (typeof initFilters === 'function') {
-  initFilters({ containerId:'filter-bar', showVendedor:false, onReady:()=>loadData(), onChange:()=>loadData() });
+  initFilters({ containerId:'filter-bar', showVendedor:false, deferApply:true, onReady:()=>loadData(), onChange:()=>loadData() });
 } else {
   loadData();
 }

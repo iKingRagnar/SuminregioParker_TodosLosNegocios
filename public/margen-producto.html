@@ -490,7 +490,7 @@ async function loadMargen(keepRows) {
 document.getElementById('searchRow')?.addEventListener('input', () => renderTable(allRows));
 
 if (typeof initFilters === 'function') {
-  initFilters({ containerId: 'filter-bar', showVendedor: true, onReady: () => loadMargen(), onChange: () => loadMargen() });
+  initFilters({ containerId: 'filter-bar', showVendedor: true, deferApply: true, onReady: () => loadMargen(), onChange: () => loadMargen() });
 } else {
   loadMargen();
 }

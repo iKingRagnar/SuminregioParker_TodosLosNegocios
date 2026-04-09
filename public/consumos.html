@@ -576,7 +576,7 @@ async function loadAll(){
 (async function init(){
   initCharts();
   if (typeof initFilters === 'function') {
-    await initFilters({ containerId:'filter-bar', showVendedor:true, onChange:()=>loadAll() });
+    await initFilters({ containerId:'filter-bar', showVendedor:true, deferApply:true, onChange:()=>loadAll() });
   }
   await loadAll();
 })();
