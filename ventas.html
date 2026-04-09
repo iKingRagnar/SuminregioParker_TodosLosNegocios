@@ -768,9 +768,26 @@ async function loadAll() {
   } catch(e){}
 
   // Cotizaciones + conversión aparte: menos contienda en Firebird/Render (antes 9 rutas en paralelo).
-  await Promise.all([loadResumen(), loadSplit(), loadDiarias(), loadMensuales(), loadVendedores(), loadClientes(), loadRecientes()]);
-  await loadCotizaciones();
-  await loadConversion();
+  try {
+    await Promise.all([loadResumen(), loadSplit(), loadDiarias(), loadMensuales(), loadVendedores(), loadClientes(), loadRecientes()]);
+  } catch (e) {
+    console.error('ventas loadAll bloque principal', e);
+  }
+  try {
+    await loadCotizaciones();
+  } catch (e) {
+    console.error('loadCotizaciones', e);
+    if (typeof lastCotiData !== 'undefined' && lastCotiData) {
+      applyCotiData(lastCotiData.resObj, lastCotiData.diarias, lastCotiData.vends, lastCotiData.ventasVE);
+    } else {
+      applyCotiData({ HOY: 0, MES_ACTUAL: 0, COTIZACIONES_MES: 0, COTIZACIONES_HOY: 0 }, [], [], { MES_ACTUAL: 0 });
+    }
+  }
+  try {
+    await loadConversion();
+  } catch (e) {
+    console.error('loadConversion', e);
+  }
   const params = window.filterGetParams ? filterGetParams() : {};
   const labelParts = [];
   if(params.desde && params.hasta) labelParts.push(params.desde === params.hasta ? params.desde : `${params.desde} – ${params.hasta}`);
@@ -1046,7 +1063,8 @@ function applyCotiData(resObj, diarias, vends, ventasVE) {
   // ── 1. Vendedores: PRIMER paso, siempre se ejecuta antes que cualquier otra cosa ──
   const vendsArr = Array.isArray(vends) ? vends : [];
   const maxV = vendsArr.reduce((m,r)=>Math.max(m, fnumKeys(r, 'COTIZACIONES_MES')), 0);
-  document.getElementById('coti-vendedores-list').innerHTML = vendsArr.length ?
+  const cotiVendList = document.getElementById('coti-vendedores-list');
+  if (cotiVendList) cotiVendList.innerHTML = vendsArr.length ?
     `<div class="vendor-list">${vendsArr.map((r,i)=>{
       const cMes = fnumKeys(r, 'COTIZACIONES_MES');
       const nCoti = fnumKeys(r, 'NUM_COTI_MES');
@@ -1162,16 +1180,17 @@ function applyCotiData(resObj, diarias, vends, ventasVE) {
 
 async function loadCotizaciones() {
   const btnReintentar = document.getElementById('coti-reintentar');
-  document.getElementById('coti-vendedores-list').innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)">Cargando...</div>';
+  const cotiVendList = document.getElementById('coti-vendedores-list');
+  if (cotiVendList) cotiVendList.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)">Cargando...</div>';
   if (lastCotiData) applyCotiData(lastCotiData.resObj, lastCotiData.diarias, lastCotiData.vends, lastCotiData.ventasVE);
   try {
     // Misma estructura que ventas: llamar endpoints dedicados de resumen/diarias/por-vendedor
     // en lugar de derivar desde docs crudos (TIPO_DOCTO='C', igual que ventas usa 'F'/'V')
     const tCoti = 300000;
     const settled = await Promise.allSettled([
-      fetchJsonAbort(buildCotiApiUrl('/api/ventas/cotizaciones/resumen', tipoQ()), {}, tCoti),
-      fetchJsonAbort(buildCotiApiUrl('/api/ventas/cotizaciones/diarias', 'dias=35' + tipoQ()), [], tCoti),
-      fetchJsonAbort(buildCotiApiUrl('/api/ventas/por-vendedor/cotizaciones', tipoQ()), [], tCoti),
+      fetchJsonAbort(buildCotiApiUrl('/api/ventas/cotizaciones/resumen'), {}, tCoti),
+      fetchJsonAbort(buildCotiApiUrl('/api/ventas/cotizaciones/diarias', 'dias=35'), [], tCoti),
+      fetchJsonAbort(buildCotiApiUrl('/api/ventas/por-vendedor/cotizaciones'), [], tCoti),
       fetchJsonAbort(buildCotiApiUrl('/api/ventas/resumen', 'tipo=VE'), {}, 45000),
     ]);
     const safe = (idx, fb) => (settled[idx] && settled[idx].status === 'fulfilled') ? settled[idx].value : fb;

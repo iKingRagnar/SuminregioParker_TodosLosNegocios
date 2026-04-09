@@ -450,6 +450,34 @@ function buildApiUrl(path, extra, qsOpts) {
   const parts = [qs, e].filter(Boolean).join('&');
   return API + path + (parts ? '?' + parts : '');
 }
+/** Si director/resumen trae cotiz en 0 pero /ventas/cotizaciones/resumen sí responde, unificar nombres de KPI Director. */
+function mergeDirectorCotiFromVentasApi(co, raw) {
+  var base = co && typeof co === 'object' ? co : {};
+  var o = {};
+  if (raw == null) return base;
+  if (Array.isArray(raw) && raw[0] && typeof raw[0] === 'object') o = raw[0];
+  else if (raw.rows && raw.rows[0] && typeof raw.rows[0] === 'object') o = raw.rows[0];
+  else if (raw.data && typeof raw.data === 'object' && !Array.isArray(raw.data)) o = raw.data;
+  else if (Array.isArray(raw.data) && raw.data[0] && typeof raw.data[0] === 'object') o = raw.data[0];
+  else if (typeof raw === 'object' && !Array.isArray(raw)) o = raw;
+  function fn(x) {
+    if (x == null) return 0;
+    var n = parseFloat(String(x).replace(/,/g, ''));
+    return Number.isFinite(n) ? n : 0;
+  }
+  var h = fn(o.HOY != null ? o.HOY : o.IMPORTE_COTI_HOY);
+  var m = fn(o.MES_ACTUAL != null ? o.MES_ACTUAL : o.IMPORTE_COTI_MES);
+  if (h <= 0 && m <= 0) m = fn(o.TOTAL);
+  var ch = fn(o.COTIZACIONES_HOY != null ? o.COTIZACIONES_HOY : o.COTI_HOY);
+  var cm = fn(o.COTIZACIONES_MES != null ? o.COTIZACIONES_MES : o.COTI_MES);
+  if (h <= 0.005 && m <= 0.005 && ch <= 0 && cm <= 0) return base;
+  return Object.assign({}, base, {
+    IMPORTE_COTI_HOY: h,
+    IMPORTE_COTI_MES: m,
+    COTI_HOY: ch,
+    COTI_MES: cm
+  });
+}
 const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 function sanitizeLabel(s){ if(!s) return ''; return String(s).replace(/[\u0370-\u03FF\u0400-\u04FF]/g,'').trim() || String(s).trim(); }
 const fmt  = n => isNaN(+n)||n==null?'?':'$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
@@ -630,7 +658,22 @@ async function loadAll() {
     if (typeof window.mergeCxcDisplayForDashboard === 'function') {
       cxc = window.mergeCxcDisplayForDashboard(cxc, dir, cxcSnap);
     }
-    const v = dir.ventas||{}, c = cxc, co = dir.cotizaciones||{};
+    const v = dir.ventas||{}, c = cxc;
+    let co = Object.assign({}, dir.cotizaciones||{});
+    const ventaMesDir = +(v.MES_ACTUAL||0);
+    const coEmpty = !(
+      +(co.COTI_HOY||0) > 0 || +(co.IMPORTE_COTI_HOY||0) > 0.005 || +(co.IMPORTE_COTI_MES||0) > 0.005 || +(co.COTI_MES||0) > 0
+    );
+    if (coEmpty && ventaMesDir > 500) {
+      try {
+        const raw = await fetchJson(
+          buildApiUrl('/api/ventas/cotizaciones/resumen', 'cotizaciones_scope=todos', { omitCliente: true, omitVendedor: true }),
+          {},
+          tDir
+        );
+        co = mergeDirectorCotiFromVentasApi(co, raw);
+      } catch (_) {}
+    }
 
     if (dbgEnabled()) {
       const cRes = (cxcSnap && cxcSnap.resumen) ? cxcSnap.resumen : (cxcSnap || {});
