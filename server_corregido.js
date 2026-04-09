@@ -7611,7 +7611,8 @@ get('/api/debug/schema', async () => {
 get('/api/debug/cotizaciones-recientes', async (req) => {
   const dbo = getReqDbOpts(req);
   const n = Math.min(30, Math.max(3, parseInt(String(req.query.n || '12'), 10) || 12));
-  const t = 45000;
+  const src = String(req.query.src || 'both').trim().toUpperCase(); // VE | PV | BOTH
+  const t = 180000;
   const sqlVe = `
     SELECT FIRST ${n}
       d.FOLIO,
@@ -7632,15 +7633,18 @@ get('/api/debug/cotizaciones-recientes', async (req) => {
     FROM DOCTOS_PV d
     ORDER BY d.DOCTO_PV_ID DESC
   `;
-  const [ve, pv] = await Promise.all([
-    query(sqlVe, [], t, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) })),
-    query(sqlPv, [], t, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) })),
-  ]);
+  const out = { n, src, timeout_ms: t };
+  if (src !== 'PV') {
+    out.ve_ultimos = await query(sqlVe, [], t, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) }));
+  }
+  if (src !== 'VE') {
+    out.pv_ultimos = await query(sqlPv, [], t, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) }));
+  }
   return {
-    n,
-    ve_ultimos: ve && ve.error ? ve : ve || [],
-    pv_ultimos: pv && pv.error ? pv : pv || [],
-    nota: 'Sin filtro de cotización: solo últimos documentos por FECHA. Ver TIPO_DOCTO reales vs macro C,O,Q,P. Si esto también timeout, FB/red muy lentos.',
+    ...out,
+    ve_ultimos: out.ve_ultimos && out.ve_ultimos.error ? out.ve_ultimos : out.ve_ultimos || [],
+    pv_ultimos: out.pv_ultimos && out.pv_ultimos.error ? out.pv_ultimos : out.pv_ultimos || [],
+    nota: 'Sin filtro de cotización: solo últimos documentos (ordenados por ID). Ver TIPO_DOCTO reales vs macro C,O,Q,P. Si esto también timeout, FB/red muy lentos.',
   };
 });
 
