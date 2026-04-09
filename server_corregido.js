@@ -1621,23 +1621,18 @@ function sqlCotizInnerFechaBounds(feExpr, bounds) {
 }
 
 /**
- * Sub-SELECT cotizaciones: paralelo a ventasSub(), con TIPO_DOCTO 'C' y opcional sufijo de vigencia en VE.
+ * Sub-SELECT cotizaciones: idéntico a ventasSub() pero TIPO_DOCTO = 'C'.
+ * Las cotizaciones NO requieren APLICADO='S' (son documentos abiertos/pendientes).
  * @param {string} tipo - 'VE', 'PV' o '' (ambos)
- * @param {{ vigenciaVeSuffix?: string, sqlFeVe?: string, sqlFePv?: string }} opts
- * @param {{ desde?: string, hasta?: string } | null} innerBounds - filtro de fecha dentro del subquery (evita full-scan en tablas grandes).
+ * @param {object} opts - ignorado, mantenido por compatibilidad
+ * @param {{ desde?: string, hasta?: string } | null} innerBounds - filtro de fecha dentro del subquery.
  */
 function cotizacionesSub(tipo = '', opts = {}, innerBounds = null) {
-  const vigVe = String((opts && opts.vigenciaVeSuffix) || '');
   const feVe = (opts && opts.sqlFeVe) || 'd.FECHA';
   const fePv = (opts && opts.sqlFePv) || 'd.FECHA';
   const bVe = sqlCotizInnerFechaBounds(feVe, innerBounds);
   const bPv = sqlCotizInnerFechaBounds(fePv, innerBounds);
   const imp = sqlVentaImporteBaseExpr('d');
-  // En Render, priorizar WHERE rápido para evitar timeouts por full-scan.
-  const useFast = String(process.env.RENDER || '').toLowerCase() === 'true'
-    || (process.env.MICROSIP_COTIZACIONES_FAST_WHERE || '').match(/^(1|true|yes)$/i);
-  const wVe = useFast ? sqlWhereCotizacionFast('d', 'VE') : sqlWhereCotizacionComoVenta('d', 'VE');
-  const wPv = useFast ? sqlWhereCotizacionFast('d', 'PV') : sqlWhereCotizacionComoVenta('d', 'PV');
   const ve = `
     SELECT
       ${feVe} AS FECHA,
@@ -1651,23 +1646,15 @@ function cotizacionesSub(tipo = '', opts = {}, innerBounds = null) {
       CAST(NULL AS INTEGER) AS DOCTO_PV_ID,
       'VE' AS TIPO_SRC
     FROM DOCTOS_VE d
-    WHERE (${wVe})${vigVe}${bVe}
+    WHERE d.TIPO_DOCTO = 'C'
+      AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')${bVe}
   `;
   const pv = `
     SELECT
       ${fePv} AS FECHA,
       ${imp} AS IMPORTE_NETO,
-      COALESCE(
-        CASE WHEN d.TIPO_DOCTO = 'F' THEN
-          (SELECT d2.VENDEDOR_ID
-           FROM DOCTOS_PV_LIGAS liga
-           JOIN DOCTOS_PV d2 ON d2.DOCTO_PV_ID = liga.DOCTO_PV_FTE_ID
-           WHERE liga.DOCTO_PV_DEST_ID = d.DOCTO_PV_ID
-           ROWS 1)
-        ELSE d.VENDEDOR_ID
-        END,
-      0) AS VENDEDOR_ID,
-      COALESCE(d.CLIENTE_ID,  0)  AS CLIENTE_ID,
+      COALESCE(d.VENDEDOR_ID, 0) AS VENDEDOR_ID,
+      COALESCE(d.CLIENTE_ID,  0) AS CLIENTE_ID,
       d.FOLIO,
       d.TIPO_DOCTO,
       d.ESTATUS,
@@ -1675,7 +1662,8 @@ function cotizacionesSub(tipo = '', opts = {}, innerBounds = null) {
       d.DOCTO_PV_ID,
       'PV' AS TIPO_SRC
     FROM DOCTOS_PV d
-    WHERE (${wPv})${bPv}
+    WHERE d.TIPO_DOCTO = 'C'
+      AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')${bPv}
   `;
   if (tipo === 'VE') return `(${ve})`;
   if (tipo === 'PV') return `(${pv})`;
@@ -2293,72 +2281,24 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
     req.query.mes = now.getMonth() + 1;
   }
   const run = async (dbo) => {
-    // Optimización: materializar anio+mes a desde/hasta para que Firebird use índice de FECHA.
-    if (!req.query.desde && !req.query.hasta && req.query.anio && req.query.mes) {
-      const y = parseInt(String(req.query.anio || ''), 10);
-      const m = parseInt(String(req.query.mes || ''), 10);
-      if (Number.isFinite(y) && Number.isFinite(m) && m >= 1 && m <= 12) {
-        req.query.desde = `${y}-${String(m).padStart(2, '0')}-01`;
-        req.query.hasta = lastDayOfMonth(y, m);
-      }
-    }
-    // Consultar VE y PV por separado y sumar — evita UNION pesado con ligas PV.
+    const f = buildFiltros(req, 'd');
     const cotiOpts = await cotizacionSqlOpts(dbo);
-    const imp = sqlCotiImporteExpr('d');
-    const useFast = String(process.env.RENDER || '').toLowerCase() === 'true'
-      || (process.env.MICROSIP_COTIZACIONES_FAST_WHERE || '').match(/^(1|true|yes)$/i);
-    const wVeFast = sqlWhereCotizacionFast('d', 'VE');
-    const wPvFast = sqlWhereCotizacionFast('d', 'PV');
-    const wVeSlow = sqlWhereCotizacionComoVenta('d', 'VE');
-    const wPvSlow = sqlWhereCotizacionComoVenta('d', 'PV');
-    const feVe = cotiOpts.sqlFeVe || 'd.FECHA';
-    const fePv = cotiOpts.sqlFePv || 'd.FECHA';
-    const fVe = buildFiltros(req, 'd', { fechaExpr: feVe });
-    const fPv = buildFiltros(req, 'd', { fechaExpr: fePv });
-
-    const mkSql = (w, feExpr, fSql, tbl) => `
+    const innerBd = cotizQueryIsoBounds(req);
+    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts, innerBd);
+    const ci = sqlCotiImporteExpr('d');
+    const rows = await query(`
       SELECT
-        SUM(CASE WHEN CAST(${feExpr} AS DATE) = CURRENT_DATE THEN ${imp} ELSE 0 END) AS HOY,
-        COALESCE(SUM(${imp}), 0) AS MES_ACTUAL,
-        COUNT(*) AS COTIZACIONES_MES,
-        COUNT(CASE WHEN CAST(${feExpr} AS DATE) = CURRENT_DATE THEN 1 END) AS COTIZACIONES_HOY
-      FROM ${tbl} d
-      WHERE 1=1 ${fSql} AND (${w})
-    `;
-
-    const cotiResumenMs = 240000;
-    const q = (sql, params, tag) =>
-      query(sql, params, cotiResumenMs, dbo).catch((err) => {
-        console.error(tag, err && (err.message || err));
-        return [];
-      });
-
-    const veFastSql = mkSql(wVeFast, feVe, fVe.sql, 'DOCTOS_VE') + String(cotiOpts.vigenciaVeSuffix || '');
-    const pvFastSql = mkSql(wPvFast, fePv, fPv.sql, 'DOCTOS_PV');
-    let [veRows, pvRows] = await Promise.all([
-      q(veFastSql, fVe.params, '[cotizaciones/resumen][VE][fast]'),
-      q(pvFastSql, fPv.params, '[cotizaciones/resumen][PV][fast]'),
-    ]);
-
-    let ve = normalizeCotizacionResumenRow(veRows[0]);
-    let pv = normalizeCotizacionResumenRow(pvRows[0]);
-    let merged = mergeCotizacionResumenRows([ve, pv]);
-
-    // Auto-fallback: si fast devuelve TODO 0, intentar modo completo (string match).
-    const allowSlowFallback = !(process.env.MICROSIP_COTIZACIONES_NO_SLOW_FALLBACK || '').match(/^(1|true|yes)$/i);
-    if (allowSlowFallback && cotizRowIsAllZero(merged)) {
-      const veSlowSql = mkSql(wVeSlow, feVe, fVe.sql, 'DOCTOS_VE') + String(cotiOpts.vigenciaVeSuffix || '');
-      const pvSlowSql = mkSql(wPvSlow, fePv, fPv.sql, 'DOCTOS_PV');
-      [veRows, pvRows] = await Promise.all([
-        q(veSlowSql, fVe.params, '[cotizaciones/resumen][VE][slow]'),
-        q(pvSlowSql, fPv.params, '[cotizaciones/resumen][PV][slow]'),
-      ]);
-      ve = normalizeCotizacionResumenRow(veRows[0]);
-      pv = normalizeCotizacionResumenRow(pvRows[0]);
-      merged = mergeCotizacionResumenRows([ve, pv]);
-    }
-
-    return merged;
+        SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN ${ci} ELSE 0 END) AS HOY,
+        COALESCE(SUM(${ci}), 0)                                                    AS MES_ACTUAL,
+        COUNT(*)                                                                   AS COTIZACIONES_MES,
+        COUNT(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 END)           AS COTIZACIONES_HOY
+      FROM ${cotiSub} d
+      WHERE 1=1 ${f.sql}
+    `, f.params, 90000, dbo).catch((err) => {
+      console.error('[cotizaciones/resumen]', err && (err.message || err));
+      return [];
+    });
+    return normalizeCotizacionResumenRow(rows[0]);
   };
   if (isAllDbs(req)) {
     const rows = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
