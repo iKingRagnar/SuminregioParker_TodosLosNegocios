@@ -4811,12 +4811,19 @@ get('/api/inv/resumen', async (req) => {
   const invQTimeout = 60000;
   const countsRows = await query(qCounts, [], invQTimeout, dbo).catch(() => [{}]);
   const costoSub = await invCostoSubSql(dbo);
+  const cols = await getTableColumns('ARTICULOS', dbo).catch(() => new Set());
+  const colsSet = cols instanceof Set ? cols : new Set(Array.isArray(cols) ? cols : []);
+  const whereAlmacenable = colsSet.has('ES_ALMACENABLE') ? ` AND COALESCE(a.ES_ALMACENABLE, 'S') = 'S'` : '';
+  // No hay columna tipo/servicio en esta base; la heurística por nombre basta (y es lo que BI suele excluir).
+  const whereNoServicios = colsSet.has('NOMBRE') ? ` AND UPPER(a.NOMBRE) NOT CONTAINING 'SERVICIO'` : '';
   const qValor = `
     SELECT COALESCE(SUM(COALESCE(s.EXISTENCIA, 0) * COALESCE(cs.COSTO1, 0)), 0) AS VALOR_INVENTARIO
     FROM ( SELECT ARTICULO_ID, EXISTENCIA FROM ${SQL_EXIST_SUB} WHERE COALESCE(EXISTENCIA, 0) <> 0 ) s
     JOIN ARTICULOS a ON a.ARTICULO_ID = s.ARTICULO_ID
     LEFT JOIN ${costoSub} cs ON cs.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A'
+      ${whereAlmacenable}
+      ${whereNoServicios}
   `;
   const valorRows = await query(qValor, [], invQTimeout, dbo).catch(() => [{ VALOR_INVENTARIO: 0 }]);
   const c = countsRows[0] || {};
