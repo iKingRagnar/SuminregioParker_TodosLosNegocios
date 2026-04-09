@@ -4714,13 +4714,19 @@ const invCostoSubCache = new Map();
 async function invCostoSubSql(dbo) {
   const key = dbCacheKey(dbo);
   if (invCostoSubCache.has(key)) return invCostoSubCache.get(key);
-  const cols = await getTableColumns('ARTICULOS', dbo);
+  const cols = await getTableColumns('ARTICULOS', dbo).catch(() => new Set());
   const costoCol = firstExistingColumn(cols || new Set(), ['COSTO_PROMEDIO', 'ULTIMO_COSTO', 'COSTO']);
   if (costoCol) {
     invCostoSubCache.set(key, `( SELECT a.ARTICULO_ID, COALESCE(a.${costoCol}, 0) AS COSTO1 FROM ARTICULOS a )`);
   } else {
     const priceSub = await invPrecioSubSql(dbo);
-    invCostoSubCache.set(key, priceSub.replace(/PRECIO1/g, 'COSTO1'));
+    // Si no pudimos leer columnas (cold-start / timeout), NO cachear el fallback;
+    // de lo contrario podríamos quedarnos atorados valuando por precio en vez de costo.
+    const fallback = priceSub.replace(/PRECIO1/g, 'COSTO1');
+    if ((cols instanceof Set ? cols.size : 0) > 0) {
+      invCostoSubCache.set(key, fallback);
+    }
+    return fallback;
   }
   return invCostoSubCache.get(key);
 }
