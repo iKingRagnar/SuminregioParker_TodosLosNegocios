@@ -1188,17 +1188,37 @@ async function loadCotizaciones() {
     // Misma estructura que ventas: llamar endpoints dedicados de resumen/diarias/por-vendedor
     // en lugar de derivar desde docs crudos (TIPO_DOCTO='C', igual que ventas usa 'F'/'V')
     const tCoti = 300000;
-    const settled = await Promise.allSettled([
-      fetchJsonAbort(buildCotiApiUrl('/api/ventas/cotizaciones/resumen'), {}, tCoti),
-      fetchJsonAbort(buildCotiApiUrl('/api/ventas/cotizaciones/diarias', 'dias=35'), [], tCoti),
-      fetchJsonAbort(buildCotiApiUrl('/api/ventas/por-vendedor/cotizaciones'), [], tCoti),
-      fetchJsonAbort(buildCotiApiUrl('/api/ventas/resumen', 'tipo=VE'), {}, 45000),
-    ]);
-    const safe = (idx, fb) => (settled[idx] && settled[idx].status === 'fulfilled') ? settled[idx].value : fb;
-    let resObj = canonCotiResumen(safe(0, {}));
-    const diarias = Array.isArray(safe(1, [])) ? safe(1, []) : [];
-    const vends   = Array.isArray(safe(2, [])) ? safe(2, []) : [];
-    const ventasVE = (v => { const u = unwrapApiRow(v); return u && typeof u === 'object' && !Array.isArray(u) ? u : {}; })(safe(3, {}));
+    async function fetchCotiPack(extra) {
+      const ex = extra ? String(extra) : '';
+      const settled = await Promise.allSettled([
+        fetchJsonAbort(buildCotiApiUrl('/api/ventas/cotizaciones/resumen', ex), {}, tCoti),
+        fetchJsonAbort(buildCotiApiUrl('/api/ventas/cotizaciones/diarias', 'dias=35' + ex), [], tCoti),
+        fetchJsonAbort(buildCotiApiUrl('/api/ventas/por-vendedor/cotizaciones', ex), [], tCoti),
+        fetchJsonAbort(buildCotiApiUrl('/api/ventas/resumen', 'tipo=VE'), {}, 45000),
+      ]);
+      const safe = (idx, fb) => (settled[idx] && settled[idx].status === 'fulfilled') ? settled[idx].value : fb;
+      return {
+        resRaw: safe(0, {}),
+        diarias: safe(1, []),
+        vends: safe(2, []),
+        ventasVEraw: safe(3, {}),
+      };
+    }
+    let pack = await fetchCotiPack('');
+    let resObj = canonCotiResumen(pack.resRaw || {});
+    let diarias = Array.isArray(pack.diarias) ? pack.diarias : [];
+    let vends   = Array.isArray(pack.vends) ? pack.vends : [];
+    let ventasVE = (v => { const u = unwrapApiRow(v); return u && typeof u === 'object' && !Array.isArray(u) ? u : {}; })(pack.ventasVEraw || {});
+
+    // Si viene vacío, reintentar con tipoQ() (servidores que respetan tipo del panel).
+    const emptyAll = ((+resObj.MES_ACTUAL || 0) <= 0 && (+resObj.HOY || 0) <= 0 && (+resObj.COTIZACIONES_MES || 0) <= 0 && !diarias.length && !vends.length);
+    if (emptyAll) {
+      pack = await fetchCotiPack(tipoQ());
+      resObj = canonCotiResumen(pack.resRaw || {});
+      diarias = Array.isArray(pack.diarias) ? pack.diarias : [];
+      vends   = Array.isArray(pack.vends) ? pack.vends : [];
+      ventasVE = (v => { const u = unwrapApiRow(v); return u && typeof u === 'object' && !Array.isArray(u) ? u : {}; })(pack.ventasVEraw || {});
+    }
     // Si resumen va en 0 (timeout/SQL) pero por-vendedor sí trae filas, reconstruir KPIs desde pv
     if (vends.length && (+resObj.MES_ACTUAL || 0) === 0 && (+resObj.COTIZACIONES_MES || 0) === 0) {
       const totMes = vends.reduce((s, r) => s + fnumKeys(r, 'COTIZACIONES_MES'), 0);

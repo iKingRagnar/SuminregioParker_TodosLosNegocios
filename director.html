@@ -664,15 +664,16 @@ async function loadAll() {
     const coEmpty = !(
       +(co.COTI_HOY||0) > 0 || +(co.IMPORTE_COTI_HOY||0) > 0.005 || +(co.IMPORTE_COTI_MES||0) > 0.005 || +(co.COTI_MES||0) > 0
     );
+    // No bloquear el render: fallback en segundo plano (director/resumen a veces llega degradado).
+    let coFallback = null;
     if (coEmpty && ventaMesDir > 500) {
-      try {
-        const raw = await fetchJson(
-          buildApiUrl('/api/ventas/cotizaciones/resumen', 'cotizaciones_scope=todos', { omitCliente: true, omitVendedor: true }),
-          {},
-          tDir
-        );
-        co = mergeDirectorCotiFromVentasApi(co, raw);
-      } catch (_) {}
+      coFallback = fetchJson(
+        buildApiUrl('/api/ventas/cotizaciones/resumen', 'cotizaciones_scope=todos', { omitCliente: true, omitVendedor: true }),
+        {},
+        25000
+      ).then(function(raw){
+        try { return mergeDirectorCotiFromVentasApi(co, raw); } catch(_) { return null; }
+      }).catch(function(){ return null; });
     }
 
     if (dbgEnabled()) {
@@ -730,19 +731,36 @@ async function loadAll() {
     setSem('sem-pv','info',Math.round(ventaPV/totalCanal*100)+'% del mix');
     setText('v-docs', v.FACTURAS_MES||0);
 
-    // Cotizaciones: respetan el periodo del filtro (Hoy, Mes, Año Anterior, etc.)
-    const params = (typeof filterGetParams === 'function') ? filterGetParams() : {};
-    const preset = params.preset || 'mes';
-    const esPeriodoGeneral = ['semana','mes_ant','anio','anio_ant'].indexOf(preset) >= 0;
-    const cotiN=+(co.COTI_HOY||0), cotiM=+(co.IMPORTE_COTI_HOY||0);
-    const cotiMesM=+(co.IMPORTE_COTI_MES||0), cotiMesN=+(co.COTI_MES||0);
-    const lblCoti = esPeriodoGeneral ? 'Cotiz. en periodo' : 'Cotiz. Hoy';
-    const refMes = esPeriodoGeneral ? 'en el periodo' : 'este mes';
-    const elCotiLbl = document.getElementById('coti-card-label');
-    if (elCotiLbl) elCotiLbl.textContent = lblCoti;
-    setText('coti-hoy', (cotiN>0 ? fmtK(cotiM) : (cotiMesN>0 ? fmtK(cotiMesM) : '0')));
-    setText('coti-hoy-imp', cotiM>0 ? (cotiN+' cotiz. hoy · Meta ref. '+refMes) : (cotiMesM>0 ? cotiMesN+' cotiz. '+refMes+' · '+fmtK(cotiMesM) : (esPeriodoGeneral ? 'Sin cotiz. en el periodo' : 'Sin cotiz. hoy ni en el mes')));
-    setSem('sem-coti','info',(cotiN>0?cotiN+' hoy · ':'')+cotiMesN+' '+refMes);
+    function applyDirectorCotizKpi(coObj){
+      // Cotizaciones: respetan el periodo del filtro (Hoy, Mes, Año Anterior, etc.)
+      const params = (typeof filterGetParams === 'function') ? filterGetParams() : {};
+      const preset = params.preset || 'mes';
+      const esPeriodoGeneral = ['semana','mes_ant','anio','anio_ant'].indexOf(preset) >= 0;
+      const cotiN=+((coObj&&coObj.COTI_HOY)||0), cotiM=+((coObj&&coObj.IMPORTE_COTI_HOY)||0);
+      const cotiMesM=+((coObj&&coObj.IMPORTE_COTI_MES)||0), cotiMesN=+((coObj&&coObj.COTI_MES)||0);
+      const lblCoti = esPeriodoGeneral ? 'Cotiz. en periodo' : 'Cotiz. Hoy';
+      const refMes = esPeriodoGeneral ? 'en el periodo' : 'este mes';
+      const elCotiLbl = document.getElementById('coti-card-label');
+      if (elCotiLbl) elCotiLbl.textContent = lblCoti;
+      setText('coti-hoy', (cotiN>0 ? fmtK(cotiM) : (cotiMesN>0 ? fmtK(cotiMesM) : '0')));
+      setText('coti-hoy-imp', cotiM>0 ? (cotiN+' cotiz. hoy · Meta ref. '+refMes) : (cotiMesM>0 ? cotiMesN+' cotiz. '+refMes+' · '+fmtK(cotiMesM) : (esPeriodoGeneral ? 'Sin cotiz. en el periodo' : 'Sin cotiz. hoy ni en el mes')));
+      setSem('sem-coti','info',(cotiN>0?cotiN+' hoy · ':'')+cotiMesN+' '+refMes);
+      return { cotiN, cotiMesN };
+    }
+    const cotState = applyDirectorCotizKpi(co);
+    if (coFallback) {
+      coFallback.then(function(nextCo){
+        try{
+          if(!nextCo) return;
+          co = nextCo;
+          const s = applyDirectorCotizKpi(co);
+          if (typeof dashboardApplySem === 'function') {
+            const cotOk = (s.cotiN > 0 || s.cotiMesN > 0);
+            applyDirKpiSem('coti-hoy', cotOk ? 'ok' : 'warn');
+          }
+        }catch(_){}
+      });
+    }
 
     // CxC
     const cTotal=+(cxc.SALDO_TOTAL||0), cVenc=+(cxc.VENCIDO||0), cVig=+(cxc.POR_VENCER||0);
