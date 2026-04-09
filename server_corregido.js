@@ -7607,6 +7607,36 @@ get('/api/debug/schema', async () => {
   return out;
 });
 
+/**
+ * Diagnóstico ultra-ligero Firebird: valida si el cuello es ATTACH/red vs tablas grandes.
+ * Ejecuta una consulta mínima a RDB$DATABASE con timeout configurable (?ms=).
+ */
+get('/api/debug/firebird-ping', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const ms = Math.min(240000, Math.max(5000, parseInt(String(req.query.ms || '20000'), 10) || 20000));
+  const t0 = Date.now();
+  try {
+    const rows = await query('SELECT 1 AS OK FROM RDB$DATABASE', [], ms, dbo);
+    const t1 = Date.now();
+    return {
+      ok: true,
+      timeout_ms: ms,
+      elapsed_ms: t1 - t0,
+      sample: rows && rows[0] ? rows[0] : null,
+      nota: 'Si esto timeoutea, el problema es conexión/red/locks del servidor Firebird (no el SQL de cotizaciones).',
+    };
+  } catch (e) {
+    const t1 = Date.now();
+    return {
+      ok: false,
+      timeout_ms: ms,
+      elapsed_ms: t1 - t0,
+      error: String(e && e.message ? e.message : e),
+      nota: 'Si falla aquí, revisar host/puerto Firebird, VPN/firewall, locks, o latencia extrema entre Render y el servidor.',
+    };
+  }
+});
+
 /** Muestra ultrarrápida: últimos N docs VE/PV (sin GROUP BY masivo). Si tipos hace timeout, esto suele responder. */
 get('/api/debug/cotizaciones-recientes', async (req) => {
   const dbo = getReqDbOpts(req);
