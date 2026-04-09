@@ -1645,6 +1645,11 @@ function sqlWhereCotizacionFast(alias = 'd', src = 'VE') {
   return `( ( ${byCodes} OR (${fallback}) ) AND ${estOk} )${aplicado}`;
 }
 
+function cotizRowIsAllZero(r) {
+  const o = r && typeof r === 'object' ? r : {};
+  return (+o.HOY || 0) === 0 && (+o.MES_ACTUAL || 0) === 0 && (+o.COTIZACIONES_MES || 0) === 0 && (+o.COTIZACIONES_HOY || 0) === 0;
+}
+
 /** Rango ISO YYYY-MM-DD para acotar cotizaciones dentro del sub-SELECT (evita escanear todo el histórico). */
 function sqlCotizInnerFechaBounds(feExpr, bounds) {
   if (!bounds || typeof bounds !== 'object') return '';
@@ -2402,47 +2407,59 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
     const imp = sqlCotiImporteExpr('d'); // cabecera
     const useFast = String(process.env.RENDER || '').toLowerCase() === 'true'
       || (process.env.MICROSIP_COTIZACIONES_FAST_WHERE || '').match(/^(1|true|yes)$/i);
-    const wVe = useFast ? sqlWhereCotizacionFast('d', 'VE') : sqlWhereCotizacionComoVenta('d', 'VE');
-    const wPv = useFast ? sqlWhereCotizacionFast('d', 'PV') : sqlWhereCotizacionComoVenta('d', 'PV');
+    const wVeFast = sqlWhereCotizacionFast('d', 'VE');
+    const wPvFast = sqlWhereCotizacionFast('d', 'PV');
+    const wVeSlow = sqlWhereCotizacionComoVenta('d', 'VE');
+    const wPvSlow = sqlWhereCotizacionComoVenta('d', 'PV');
     const feVe = cotiOpts.sqlFeVe || 'd.FECHA';
     const fePv = cotiOpts.sqlFePv || 'd.FECHA';
     const fVe = buildFiltros(req, 'd', { fechaExpr: feVe });
     const fPv = buildFiltros(req, 'd', { fechaExpr: fePv });
 
-    const veSql = `
+    const mkSql = (w, feExpr, fSql) => `
       SELECT
-        SUM(CASE WHEN CAST(${feVe} AS DATE) = CURRENT_DATE THEN ${imp} ELSE 0 END) AS HOY,
+        SUM(CASE WHEN CAST(${feExpr} AS DATE) = CURRENT_DATE THEN ${imp} ELSE 0 END) AS HOY,
         COALESCE(SUM(${imp}), 0) AS MES_ACTUAL,
         COUNT(*) AS COTIZACIONES_MES,
-        COUNT(CASE WHEN CAST(${feVe} AS DATE) = CURRENT_DATE THEN 1 END) AS COTIZACIONES_HOY
-      FROM DOCTOS_VE d
-      WHERE 1=1 ${fVe.sql} AND (${wVe})${String(cotiOpts.vigenciaVeSuffix || '')}
-    `;
-    const pvSql = `
-      SELECT
-        SUM(CASE WHEN CAST(${fePv} AS DATE) = CURRENT_DATE THEN ${imp} ELSE 0 END) AS HOY,
-        COALESCE(SUM(${imp}), 0) AS MES_ACTUAL,
-        COUNT(*) AS COTIZACIONES_MES,
-        COUNT(CASE WHEN CAST(${fePv} AS DATE) = CURRENT_DATE THEN 1 END) AS COTIZACIONES_HOY
-      FROM DOCTOS_PV d
-      WHERE 1=1 ${fPv.sql} AND (${wPv})
+        COUNT(CASE WHEN CAST(${feExpr} AS DATE) = CURRENT_DATE THEN 1 END) AS COTIZACIONES_HOY
+      FROM ${w === wPvFast || w === wPvSlow ? 'DOCTOS_PV' : 'DOCTOS_VE'} d
+      WHERE 1=1 ${fSql} AND (${w})
     `;
 
     const cotiResumenMs = 240000;
-    const [veRows, pvRows] = await Promise.all([
-      query(veSql, fVe.params, cotiResumenMs, dbo).catch((err) => {
-        console.error('[cotizaciones/resumen][VE]', err && (err.message || err));
+    const q = (sql, params, tag) =>
+      query(sql, params, cotiResumenMs, dbo).catch((err) => {
+        console.error(tag, err && (err.message || err));
         return [];
-      }),
-      query(pvSql, fPv.params, cotiResumenMs, dbo).catch((err) => {
-        console.error('[cotizaciones/resumen][PV]', err && (err.message || err));
-        return [];
-      }),
+      });
+
+    const veFastSql = mkSql(wVeFast, feVe, fVe.sql) + String(cotiOpts.vigenciaVeSuffix || '');
+    const pvFastSql = mkSql(wPvFast, fePv, fPv.sql);
+    let [veRows, pvRows] = await Promise.all([
+      q(veFastSql, fVe.params, '[cotizaciones/resumen][VE][fast]'),
+      q(pvFastSql, fPv.params, '[cotizaciones/resumen][PV][fast]'),
     ]);
 
-    const ve = normalizeCotizacionResumenRow(veRows[0]);
-    const pv = normalizeCotizacionResumenRow(pvRows[0]);
-    return mergeCotizacionResumenRows([ve, pv]);
+    let ve = normalizeCotizacionResumenRow(veRows[0]);
+    let pv = normalizeCotizacionResumenRow(pvRows[0]);
+    let merged = mergeCotizacionResumenRows([ve, pv]);
+
+    // Auto-fallback: si el modo rápido devuelve TODO 0, intentar el modo completo (string match),
+    // pero con el rango de fechas ya materializado por buildFiltros (evita full-scan en la mayoría de casos).
+    const allowSlowFallback = useFast && !(process.env.MICROSIP_COTIZACIONES_NO_SLOW_FALLBACK || '').match(/^(1|true|yes)$/i);
+    if (allowSlowFallback && cotizRowIsAllZero(merged)) {
+      const veSlowSql = mkSql(wVeSlow, feVe, fVe.sql) + String(cotiOpts.vigenciaVeSuffix || '');
+      const pvSlowSql = mkSql(wPvSlow, fePv, fPv.sql);
+      [veRows, pvRows] = await Promise.all([
+        q(veSlowSql, fVe.params, '[cotizaciones/resumen][VE][slow]'),
+        q(pvSlowSql, fPv.params, '[cotizaciones/resumen][PV][slow]'),
+      ]);
+      ve = normalizeCotizacionResumenRow(veRows[0]);
+      pv = normalizeCotizacionResumenRow(pvRows[0]);
+      merged = mergeCotizacionResumenRows([ve, pv]);
+    }
+
+    return merged;
   };
   if (isAllDbs(req)) {
     const rows = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
