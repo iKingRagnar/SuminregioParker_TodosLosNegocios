@@ -627,9 +627,9 @@ function mergeCotizacionResumenRows(rows) {
   );
 }
 
-/** Tipos de documento considerados cotización (env MICROSIP_COTIZACION_TIPOS; default C,O,Q,P). */
+/** Tipos de documento considerados cotización (env MICROSIP_COTIZACION_TIPOS; default amplio por instalaciones Microsip). */
 function parseCotizacionTipos() {
-  const raw = (process.env.MICROSIP_COTIZACION_TIPOS || 'C,O,Q,P').trim();
+  const raw = (process.env.MICROSIP_COTIZACION_TIPOS || 'C,O,Q,P,CT,CU').trim();
   const parts = raw.split(/[,;|\s]+/).map((s) => s.trim().toUpperCase()).filter(Boolean);
   return parts.length ? parts : ['C', 'O'];
 }
@@ -1042,6 +1042,46 @@ function mergePorVendedorCotiz(rowsList) {
     }
   }
   return Array.from(map.values()).sort((a, b) => b.COTIZACIONES_MES - a.COTIZACIONES_MES);
+}
+
+/** Combina resultados VE + PV de por-vendedor/cotizaciones agrupando por VENDEDOR_ID. */
+function mergePorVendedorCotizVePv(veRows, pvRows) {
+  const map = new Map();
+  const add = (r) => {
+    if (!r) return;
+    const id = +(r.VENDEDOR_ID || 0);
+    const cur = map.get(id) || {
+      VENDEDOR_ID: id,
+      VENDEDOR: r.VENDEDOR || 'No asignado',
+      COTIZACIONES_HOY: 0,
+      COTIZACIONES_MES: 0,
+      NUM_COTI_MES: 0,
+    };
+    cur.COTIZACIONES_HOY += +(r.COTIZACIONES_HOY || 0);
+    cur.COTIZACIONES_MES += +(r.COTIZACIONES_MES || 0);
+    cur.NUM_COTI_MES += +(r.NUM_COTI_MES || 0);
+    if (r.VENDEDOR && String(r.VENDEDOR).trim() && r.VENDEDOR !== 'No asignado') cur.VENDEDOR = r.VENDEDOR;
+    map.set(id, cur);
+  };
+  (veRows || []).forEach(add);
+  (pvRows || []).forEach(add);
+  return Array.from(map.values()).sort((a, b) => (b.COTIZACIONES_MES || 0) - (a.COTIZACIONES_MES || 0));
+}
+
+/** Combina resultados VE + PV para vs-cotizaciones por mes. */
+function mergeVsCotizMesVePv(veRows, pvRows) {
+  const map = new Map();
+  const add = (r) => {
+    if (!r) return;
+    const k = `${+r.ANIO}-${+r.MES}`;
+    const cur = map.get(k) || { ANIO: +r.ANIO, MES: +r.MES, TOTAL_COTI: 0, NUM_COTI: 0 };
+    cur.TOTAL_COTI += +(r.TOTAL_COTI || 0);
+    cur.NUM_COTI += +(r.NUM_COTI || 0);
+    map.set(k, cur);
+  };
+  (veRows || []).forEach(add);
+  (pvRows || []).forEach(add);
+  return Array.from(map.values()).sort((a, b) => (a.ANIO - b.ANIO) || (a.MES - b.MES));
 }
 
 function mergeTopClientes(rowsList, limit) {
@@ -1488,36 +1528,116 @@ function remisionesSub(tipo = '') {
 //  Por defecto getCotizacionesTipo() = '' (VE+PV): el filtro Industrial/Mostrador no vacía cotizaciones.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function sqlWhereCotizacionComoVenta(alias = 'd') {
+/** @param {'VE'|'PV'} src — reglas de "no es venta cerrada" difieren entre DOCTOS_VE y DOCTOS_PV. */
+function sqlWhereCotizacionComoVenta(alias = 'd', src = 'VE') {
   const a = alias;
+  const soloTipoMarcado = (process.env.MICROSIP_COTIZACION_SOLO_TIPO_MARCADO || '').match(/^(1|true|yes)$/i);
   const reqAplicado = (process.env.MICROSIP_COTIZACION_REQUIERE_APLICADO || '').match(/^(1|true|yes)$/i);
   const aplicado = reqAplicado ? ` AND COALESCE(${a}.APLICADO, 'N') = 'S'` : '';
   const tipos = parseCotizacionTipos();
-  const trimmed = `UPPER(TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(24))))`;
+  const trimmed = `UPPER(TRIM(CAST(${a}.TIPO_DOCTO AS VARCHAR(40))))`;
   const one = tipos.filter((t) => t.length === 1);
   const multi = tipos.filter((t) => t.length > 1);
   const esc = (t) => `'${String(t).replace(/'/g, "''")}'`;
   const parts = [];
   if (one.length) parts.push(`SUBSTRING(${trimmed} FROM 1 FOR 1) IN (${one.map(esc).join(', ')})`);
   if (multi.length) parts.push(`${trimmed} IN (${multi.map(esc).join(', ')})`);
-  const tipoSql = parts.length ? `(${parts.join(' OR ')})` : '1=0';
-  return `(
-      ${tipoSql}
-      AND UPPER(TRIM(CAST(COALESCE(${a}.ESTATUS, 'N') AS VARCHAR(8)))) <> 'C'
-    )${aplicado}`;
+  const byCodes = parts.length ? `(${parts.join(' OR ')})` : '0=1';
+  const byCotizNombre = `(
+      POSITION('COTIZ' IN ${trimmed}) > 0
+      OR POSITION('COTI' IN ${trimmed}) > 0
+      OR POSITION('PRESUP' IN ${trimmed}) > 0
+      OR POSITION('PROPUE' IN ${trimmed}) > 0
+    )`;
+  const tipoSql = `(${byCodes} OR ${byCotizNombre})`;
+  const estNotC = `UPPER(TRIM(CAST(COALESCE(${a}.ESTATUS, 'N') AS VARCHAR(8)))) <> 'C'`;
+  if (soloTipoMarcado) {
+    return `( ${tipoSql} AND ${estNotC} )${aplicado}`;
+  }
+  const noEsVentaCerradaVe = `NOT (
+      ${a}.TIPO_DOCTO IN ('F', 'V', 'R')
+      AND COALESCE(${a}.APLICADO, 'N') = 'S'
+      AND COALESCE(${a}.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
+    )`;
+  const noEsVentaCerradaPv = `NOT (
+      ${a}.TIPO_DOCTO = 'F'
+      AND COALESCE(${a}.APLICADO, 'N') = 'S'
+      AND COALESCE(${a}.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
+    )`;
+  /* No excluir 'T': en varias bases las cotizaciones/pedidos abiertos usan ESTATUS T y quedaban fuera de toda macro (KPI $0). C,D,S siguen fuera como en ventas. */
+  const exEstFallback = `COALESCE(${a}.ESTATUS, 'N') NOT IN ('C', 'D', 'S')`;
+  const fallback =
+    src === 'PV'
+      ? `( ${noEsVentaCerradaPv} AND ${exEstFallback} )`
+      : `( ${noEsVentaCerradaVe} AND ${exEstFallback} )`;
+  return `( ( ${tipoSql} OR ${fallback} ) AND ${estNotC} )${aplicado}`;
+}
+
+/**
+ * WHERE "rápido" para cotizaciones:
+ * Evita UPPER/TRIM/POSITION sobre TIPO_DOCTO (rompe índice y provoca full-scan/timeouts).
+ * Usar cuando el cuello está en DOCTOS_* y necesitamos respuesta en Render.
+ */
+function sqlWhereCotizacionFast(alias = 'd', src = 'VE') {
+  const a = alias;
+  const reqAplicado = (process.env.MICROSIP_COTIZACION_REQUIERE_APLICADO || '').match(/^(1|true|yes)$/i);
+  const aplicado = reqAplicado ? ` AND COALESCE(${a}.APLICADO, 'N') = 'S'` : '';
+  const tipos = (parseCotizacionTipos() || []).filter(Boolean);
+  const esc = (t) => `'${String(t).replace(/'/g, "''")}'`;
+  const byCodes = tipos.length ? `${a}.TIPO_DOCTO IN (${tipos.map(esc).join(', ')})` : '0=1';
+  // Fallback sin funciones de string: "no es venta cerrada" (captura instalaciones donde la cotización no está marcada con C/O/Q/P).
+  const noEsVentaCerradaVe = `NOT (
+      ${a}.TIPO_DOCTO IN ('F', 'V', 'R')
+      AND COALESCE(${a}.APLICADO, 'N') = 'S'
+      AND COALESCE(${a}.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
+    )`;
+  const noEsVentaCerradaPv = `NOT (
+      ${a}.TIPO_DOCTO = 'F'
+      AND COALESCE(${a}.APLICADO, 'N') = 'S'
+      AND COALESCE(${a}.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
+    )`;
+  const fallback = src === 'PV' ? noEsVentaCerradaPv : noEsVentaCerradaVe;
+  const estOk = `COALESCE(${a}.ESTATUS, 'N') NOT IN ('C','D','S')`;
+  return `( ( ${byCodes} OR (${fallback}) ) AND ${estOk} )${aplicado}`;
+}
+
+function cotizRowIsAllZero(r) {
+  const o = r && typeof r === 'object' ? r : {};
+  return (+o.HOY || 0) === 0 && (+o.MES_ACTUAL || 0) === 0 && (+o.COTIZACIONES_MES || 0) === 0 && (+o.COTIZACIONES_HOY || 0) === 0;
+}
+
+/** Genera cláusula AND con bounds de fecha para uso interno en sub-SELECT de cotizaciones. */
+function sqlCotizInnerFechaBounds(feExpr, bounds) {
+  if (!bounds || typeof bounds !== 'object') return '';
+  const re = /^\d{4}-\d{2}-\d{2}$/;
+  let s = '';
+  if (bounds.desde && re.test(String(bounds.desde))) {
+    s += ` AND CAST(${feExpr} AS DATE) >= CAST('${String(bounds.desde)}' AS DATE)`;
+  }
+  if (bounds.hasta && re.test(String(bounds.hasta))) {
+    s += ` AND CAST(${feExpr} AS DATE) <= CAST('${String(bounds.hasta)}' AS DATE)`;
+  }
+  return s;
 }
 
 /**
  * Sub-SELECT cotizaciones: paralelo a ventasSub(), con TIPO_DOCTO 'C' y opcional sufijo de vigencia en VE.
  * @param {string} tipo - 'VE', 'PV' o '' (ambos)
- * @param {{ vigenciaVeSuffix?: string }} opts
+ * @param {{ vigenciaVeSuffix?: string, sqlFeVe?: string, sqlFePv?: string }} opts
+ * @param {{ desde?: string, hasta?: string } | null} innerBounds - filtro de fecha dentro del subquery (evita full-scan en tablas grandes).
  */
-function cotizacionesSub(tipo = '', opts = {}) {
+function cotizacionesSub(tipo = '', opts = {}, innerBounds = null) {
   const vigVe = String((opts && opts.vigenciaVeSuffix) || '');
   const feVe = (opts && opts.sqlFeVe) || 'd.FECHA';
   const fePv = (opts && opts.sqlFePv) || 'd.FECHA';
+  const bVe = sqlCotizInnerFechaBounds(feVe, innerBounds);
+  const bPv = sqlCotizInnerFechaBounds(fePv, innerBounds);
   const imp = sqlVentaImporteBaseExpr('d');
-  const w = sqlWhereCotizacionComoVenta('d');
+  // En Render, priorizar WHERE rápido para evitar timeouts por full-scan.
+  const useFast = String(process.env.RENDER || '').toLowerCase() === 'true'
+    || (process.env.MICROSIP_COTIZACIONES_FAST_WHERE || '').match(/^(1|true|yes)$/i);
+  const wVe = useFast ? sqlWhereCotizacionFast('d', 'VE') : sqlWhereCotizacionComoVenta('d', 'VE');
+  const wPv = useFast ? sqlWhereCotizacionFast('d', 'PV') : sqlWhereCotizacionComoVenta('d', 'PV');
   const ve = `
     SELECT
       ${feVe} AS FECHA,
@@ -1531,7 +1651,7 @@ function cotizacionesSub(tipo = '', opts = {}) {
       CAST(NULL AS INTEGER) AS DOCTO_PV_ID,
       'VE' AS TIPO_SRC
     FROM DOCTOS_VE d
-    WHERE (${w})${vigVe}
+    WHERE (${wVe})${vigVe}${bVe}
   `;
   const pv = `
     SELECT
@@ -1555,7 +1675,7 @@ function cotizacionesSub(tipo = '', opts = {}) {
       d.DOCTO_PV_ID,
       'PV' AS TIPO_SRC
     FROM DOCTOS_PV d
-    WHERE (${w})
+    WHERE (${wPv})${bPv}
   `;
   if (tipo === 'VE') return `(${ve})`;
   if (tipo === 'PV') return `(${pv})`;
@@ -2145,6 +2265,27 @@ function lastDayOfMonth(y, m) {
   const d = new Date(y, m, 0); // m 1-12
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
+
+/** desde/hasta ISO desde query (anio+mes materializable como en resumen cotizaciones). */
+function cotizQueryIsoBounds(req) {
+  const q = req && req.query ? req.query : {};
+  const reDate = /^\d{4}-\d{2}-\d{2}$/;
+  let desde = q.desde != null ? String(q.desde).trim() : '';
+  let hasta = q.hasta != null ? String(q.hasta).trim() : '';
+  if (desde && !reDate.test(desde)) desde = '';
+  if (hasta && !reDate.test(hasta)) hasta = '';
+  if (!desde && !hasta && q.anio && q.mes) {
+    const y = parseInt(String(q.anio || ''), 10);
+    const m = parseInt(String(q.mes || ''), 10);
+    if (Number.isFinite(y) && Number.isFinite(m) && m >= 1 && m <= 12) {
+      return { desde: `${y}-${String(m).padStart(2, '0')}-01`, hasta: lastDayOfMonth(y, m) };
+    }
+  }
+  if (desde && hasta) return { desde, hasta };
+  if (desde) return { desde };
+  return null;
+}
+
 get('/api/ventas/cotizaciones/resumen', async (req) => {
   if (!req.query.desde && !req.query.hasta && !req.query.anio) {
     const now = new Date();
@@ -2152,24 +2293,72 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
     req.query.mes = now.getMonth() + 1;
   }
   const run = async (dbo) => {
-    const f = buildFiltros(req, 'd');
+    // Optimización: materializar anio+mes a desde/hasta para que Firebird use índice de FECHA.
+    if (!req.query.desde && !req.query.hasta && req.query.anio && req.query.mes) {
+      const y = parseInt(String(req.query.anio || ''), 10);
+      const m = parseInt(String(req.query.mes || ''), 10);
+      if (Number.isFinite(y) && Number.isFinite(m) && m >= 1 && m <= 12) {
+        req.query.desde = `${y}-${String(m).padStart(2, '0')}-01`;
+        req.query.hasta = lastDayOfMonth(y, m);
+      }
+    }
+    // Consultar VE y PV por separado y sumar — evita UNION pesado con ligas PV.
     const cotiOpts = await cotizacionSqlOpts(dbo);
-    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
-    const ci = sqlCotiImporteExpr('d');
-    const rows = await query(`
-    SELECT
-      SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE
-               THEN ${ci} ELSE 0 END)         AS HOY,
-      COALESCE(SUM(${ci}), 0)                              AS MES_ACTUAL,
-      COUNT(*)                                                      AS COTIZACIONES_MES,
-      COUNT(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 END) AS COTIZACIONES_HOY
-    FROM ${cotiSub} d
-    WHERE 1=1 ${f.sql}
-  `, f.params, 30000, dbo).catch((err) => {
-      console.error('[cotizaciones/resumen]', err && (err.message || err));
-      return [];
-    });
-    return normalizeCotizacionResumenRow(rows[0]);
+    const imp = sqlCotiImporteExpr('d');
+    const useFast = String(process.env.RENDER || '').toLowerCase() === 'true'
+      || (process.env.MICROSIP_COTIZACIONES_FAST_WHERE || '').match(/^(1|true|yes)$/i);
+    const wVeFast = sqlWhereCotizacionFast('d', 'VE');
+    const wPvFast = sqlWhereCotizacionFast('d', 'PV');
+    const wVeSlow = sqlWhereCotizacionComoVenta('d', 'VE');
+    const wPvSlow = sqlWhereCotizacionComoVenta('d', 'PV');
+    const feVe = cotiOpts.sqlFeVe || 'd.FECHA';
+    const fePv = cotiOpts.sqlFePv || 'd.FECHA';
+    const fVe = buildFiltros(req, 'd', { fechaExpr: feVe });
+    const fPv = buildFiltros(req, 'd', { fechaExpr: fePv });
+
+    const mkSql = (w, feExpr, fSql, tbl) => `
+      SELECT
+        SUM(CASE WHEN CAST(${feExpr} AS DATE) = CURRENT_DATE THEN ${imp} ELSE 0 END) AS HOY,
+        COALESCE(SUM(${imp}), 0) AS MES_ACTUAL,
+        COUNT(*) AS COTIZACIONES_MES,
+        COUNT(CASE WHEN CAST(${feExpr} AS DATE) = CURRENT_DATE THEN 1 END) AS COTIZACIONES_HOY
+      FROM ${tbl} d
+      WHERE 1=1 ${fSql} AND (${w})
+    `;
+
+    const cotiResumenMs = 240000;
+    const q = (sql, params, tag) =>
+      query(sql, params, cotiResumenMs, dbo).catch((err) => {
+        console.error(tag, err && (err.message || err));
+        return [];
+      });
+
+    const veFastSql = mkSql(wVeFast, feVe, fVe.sql, 'DOCTOS_VE') + String(cotiOpts.vigenciaVeSuffix || '');
+    const pvFastSql = mkSql(wPvFast, fePv, fPv.sql, 'DOCTOS_PV');
+    let [veRows, pvRows] = await Promise.all([
+      q(veFastSql, fVe.params, '[cotizaciones/resumen][VE][fast]'),
+      q(pvFastSql, fPv.params, '[cotizaciones/resumen][PV][fast]'),
+    ]);
+
+    let ve = normalizeCotizacionResumenRow(veRows[0]);
+    let pv = normalizeCotizacionResumenRow(pvRows[0]);
+    let merged = mergeCotizacionResumenRows([ve, pv]);
+
+    // Auto-fallback: si fast devuelve TODO 0, intentar modo completo (string match).
+    const allowSlowFallback = !(process.env.MICROSIP_COTIZACIONES_NO_SLOW_FALLBACK || '').match(/^(1|true|yes)$/i);
+    if (allowSlowFallback && cotizRowIsAllZero(merged)) {
+      const veSlowSql = mkSql(wVeSlow, feVe, fVe.sql, 'DOCTOS_VE') + String(cotiOpts.vigenciaVeSuffix || '');
+      const pvSlowSql = mkSql(wPvSlow, fePv, fPv.sql, 'DOCTOS_PV');
+      [veRows, pvRows] = await Promise.all([
+        q(veSlowSql, fVe.params, '[cotizaciones/resumen][VE][slow]'),
+        q(pvSlowSql, fPv.params, '[cotizaciones/resumen][PV][slow]'),
+      ]);
+      ve = normalizeCotizacionResumenRow(veRows[0]);
+      pv = normalizeCotizacionResumenRow(pvRows[0]);
+      merged = mergeCotizacionResumenRows([ve, pv]);
+    }
+
+    return merged;
   };
   if (isAllDbs(req)) {
     const rows = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
@@ -2467,15 +2656,15 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
     req.query.mes = now.getMonth() + 1;
   }
   const f = buildFiltros(req, 'd');
-  const vid = req.query.vendedor ? parseInt(req.query.vendedor, 10) : null;
-  const vendSql = Number.isFinite(vid) ? ' AND d.VENDEDOR_ID = ?' : '';
-  const params = [...f.params];
-  if (Number.isFinite(vid)) params.push(vid);
+  const innerBd = cotizQueryIsoBounds(req);
   const run = async (dbo) => {
     const cotiOpts = await cotizacionSqlOpts(dbo);
-    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
     const ci = sqlCotiImporteExpr('d');
-    return query(`
+    const t = 240000;
+    const tipoPanel = getCotizacionesTipo(req);
+    const qSub = (sub) =>
+      query(
+        `
     SELECT
       COALESCE(d.VENDEDOR_ID, 0) AS VENDEDOR_ID,
       CASE WHEN COALESCE(d.VENDEDOR_ID, 0) = 0 THEN 'No asignado'
@@ -2484,15 +2673,27 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN ${ci} ELSE 0 END) AS COTIZACIONES_HOY,
       COALESCE(SUM(${ci}), 0) AS COTIZACIONES_MES,
       COUNT(*) AS NUM_COTI_MES
-    FROM ${cotiSub} d
+    FROM ${sub} d
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
-    WHERE 1=1 ${f.sql} ${vendSql}
+    WHERE 1=1 ${f.sql}
     GROUP BY COALESCE(d.VENDEDOR_ID, 0)
     ORDER BY COTIZACIONES_MES DESC
-  `, params, 30000, dbo).catch((err) => {
-      console.error('[por-vendedor/cotizaciones]', err && (err.message || err));
-      return [];
-    });
+  `,
+        f.params,
+        t,
+        dbo,
+      ).catch((err) => {
+        console.error('[por-vendedor/cotizaciones]', err && (err.message || err));
+        return [];
+      });
+    if (tipoPanel === 'VE' || tipoPanel === 'PV') {
+      return qSub(cotizacionesSub(tipoPanel, cotiOpts, innerBd));
+    }
+    const [ve, pv] = await Promise.all([
+      qSub(cotizacionesSub('VE', cotiOpts, innerBd)),
+      qSub(cotizacionesSub('PV', cotiOpts, innerBd)),
+    ]);
+    return mergePorVendedorCotizVePv(ve, pv);
   };
   if (isAllDbs(req)) {
     const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
@@ -4269,6 +4470,25 @@ async function invPrecioSubSql(dbo) {
   return sql;
 }
 
+const invCostoSubCache = new Map();
+/**
+ * Costo unitario promedio por artículo desde ARTICULOS.COSTO_PROMEDIO (igual que Power BI).
+ * Fallback en orden: ULTIMO_COSTO → COSTO. Si ninguno existe en ARTICULOS, usa precio de venta.
+ */
+async function invCostoSubSql(dbo) {
+  const key = dbCacheKey(dbo);
+  if (invCostoSubCache.has(key)) return invCostoSubCache.get(key);
+  const cols = await getTableColumns('ARTICULOS', dbo);
+  const costoCol = firstExistingColumn(cols || new Set(), ['COSTO_PROMEDIO', 'ULTIMO_COSTO', 'COSTO']);
+  if (costoCol) {
+    invCostoSubCache.set(key, `( SELECT a.ARTICULO_ID, COALESCE(a."${costoCol}", 0) AS COSTO1 FROM ARTICULOS a )`);
+  } else {
+    const priceSub = await invPrecioSubSql(dbo);
+    invCostoSubCache.set(key, priceSub.replace(/PRECIO1/g, 'COSTO1'));
+  }
+  return invCostoSubCache.get(key);
+}
+
 // SIN_STOCK = solo articulos con minimo definido y existencia 0 (alerta real). No contar todo el catalogo en cero.
 get('/api/inv/resumen', async (req) => {
   const dbo = getReqDbOpts(req);
@@ -4285,12 +4505,12 @@ get('/api/inv/resumen', async (req) => {
   `;
   const invQTimeout = 60000;
   const countsRows = await query(qCounts, [], invQTimeout, dbo).catch(() => [{}]);
-  const precioSub = await invPrecioSubSql(dbo);
+  const costoSub = await invCostoSubSql(dbo);
   const qValor = `
-    SELECT COALESCE(SUM(COALESCE(s.EXISTENCIA, 0) * COALESCE(pr.PRECIO1, 0)), 0) AS VALOR_INVENTARIO
+    SELECT COALESCE(SUM(COALESCE(s.EXISTENCIA, 0) * COALESCE(cs.COSTO1, 0)), 0) AS VALOR_INVENTARIO
     FROM ARTICULOS a
     LEFT JOIN ${SQL_EXIST_SUB} s ON s.ARTICULO_ID = a.ARTICULO_ID
-    LEFT JOIN ${precioSub} pr ON pr.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN ${costoSub} cs ON cs.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A'
   `;
   const valorRows = await query(qValor, [], invQTimeout, dbo).catch(() => [{ VALOR_INVENTARIO: 0 }]);
@@ -4554,13 +4774,15 @@ get('/api/inv/existencias', async (req) => {
 get('/api/inv/top-stock', async (req) => {
   const dbo = getReqDbOpts(req);
   const limit = Math.min(parseInt(req.query.limit) || 30, 100);
-  const precioSub = await invPrecioSubSql(dbo);
+  const costoSub = await invCostoSubSql(dbo);
   return query(`
     SELECT FIRST ${limit} a.ARTICULO_ID, a.NOMBRE AS DESCRIPCION, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
-      COALESCE(s.EXISTENCIA, 0) AS EXISTENCIA, COALESCE(s.EXISTENCIA, 0) * COALESCE(pr.PRECIO1, 0) AS VALOR_TOTAL, COALESCE(pr.PRECIO1, 0) AS PRECIO_VENTA
+      COALESCE(s.EXISTENCIA, 0) AS EXISTENCIA,
+      COALESCE(s.EXISTENCIA, 0) * COALESCE(cs.COSTO1, 0) AS VALOR_TOTAL,
+      COALESCE(cs.COSTO1, 0) AS PRECIO_VENTA
     FROM ARTICULOS a
     LEFT JOIN ${SQL_EXIST_SUB} s ON s.ARTICULO_ID = a.ARTICULO_ID
-    LEFT JOIN ${precioSub} pr ON pr.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN ${costoSub} cs ON cs.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND COALESCE(s.EXISTENCIA, 0) > 0
     ORDER BY VALOR_TOTAL DESC
   `, [], INV_LIST_Q_MS, dbo).catch(() => []);
