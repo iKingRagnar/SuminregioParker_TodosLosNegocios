@@ -627,9 +627,9 @@ function mergeCotizacionResumenRows(rows) {
   );
 }
 
-/** Tipos de documento considerados cotización (env MICROSIP_COTIZACION_TIPOS; default C,O,Q,P). */
+/** Tipos de documento considerados cotización (env MICROSIP_COTIZACION_TIPOS; default amplio por instalaciones Microsip). */
 function parseCotizacionTipos() {
-  const raw = (process.env.MICROSIP_COTIZACION_TIPOS || 'C,O,Q,P').trim();
+  const raw = (process.env.MICROSIP_COTIZACION_TIPOS || 'C,O,Q,P,CT,CU').trim();
   const parts = raw.split(/[,;|\s]+/).map((s) => s.trim().toUpperCase()).filter(Boolean);
   return parts.length ? parts : ['C', 'O'];
 }
@@ -1587,7 +1587,12 @@ function sqlWhereCotizacionComoVenta(alias = 'd', src = 'VE') {
   if (one.length) parts.push(`SUBSTRING(${trimmed} FROM 1 FOR 1) IN (${one.map(esc).join(', ')})`);
   if (multi.length) parts.push(`${trimmed} IN (${multi.map(esc).join(', ')})`);
   const byCodes = parts.length ? `(${parts.join(' OR ')})` : '0=1';
-  const byCotizNombre = `POSITION('COTIZ' IN ${trimmed}) > 0`;
+  const byCotizNombre = `(
+      POSITION('COTIZ' IN ${trimmed}) > 0
+      OR POSITION('COTI' IN ${trimmed}) > 0
+      OR POSITION('PRESUP' IN ${trimmed}) > 0
+      OR POSITION('PROPUE' IN ${trimmed}) > 0
+    )`;
   const tipoSql = `(${byCodes} OR ${byCotizNombre})`;
   const estNotC = `UPPER(TRIM(CAST(COALESCE(${a}.ESTATUS, 'N') AS VARCHAR(8)))) <> 'C'`;
   if (soloTipoMarcado) {
@@ -1603,7 +1608,8 @@ function sqlWhereCotizacionComoVenta(alias = 'd', src = 'VE') {
       AND COALESCE(${a}.APLICADO, 'N') = 'S'
       AND COALESCE(${a}.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
     )`;
-  const exEstFallback = `COALESCE(${a}.ESTATUS, 'N') NOT IN ('C', 'D', 'S', 'T')`;
+  /* No excluir 'T': en varias bases las cotizaciones/pedidos abiertos usan ESTATUS T y quedaban fuera de toda macro (KPI $0). C,D,S siguen fuera como en ventas. */
+  const exEstFallback = `COALESCE(${a}.ESTATUS, 'N') NOT IN ('C', 'D', 'S')`;
   const fallback =
     src === 'PV'
       ? `( ${noEsVentaCerradaPv} AND ${exEstFallback} )`
