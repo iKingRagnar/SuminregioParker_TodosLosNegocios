@@ -1061,23 +1061,25 @@ function applyCotiData(resObj, diarias, vends, ventasVE) {
   resObj = canonCotiResumen(resObj);
 
   // ── 1. Vendedores: PRIMER paso, siempre se ejecuta antes que cualquier otra cosa ──
-  const vendsArr = Array.isArray(vends) ? vends : [];
-  const maxV = vendsArr.reduce((m,r)=>Math.max(m, fnumKeys(r, 'COTIZACIONES_MES')), 0);
-  const cotiVendList = document.getElementById('coti-vendedores-list');
-  if (cotiVendList) cotiVendList.innerHTML = vendsArr.length ?
-    `<div class="vendor-list">${vendsArr.map((r,i)=>{
-      const cMes = fnumKeys(r, 'COTIZACIONES_MES');
-      const nCoti = fnumKeys(r, 'NUM_COTI_MES');
-      const pct = maxV>0 ? (cMes/maxV*100).toFixed(0) : 0;
-      const vendName = r.VENDEDOR ?? r.vendedor ?? '—';
-      return `<div class="vendor-item">
-        <div class="vendor-head">
-          <span class="vendor-name"><span class="rank-num">${i+1}</span>${vendName}</span>
-          <span><span class="vendor-amount" style="color:var(--yellow-ink)">${fmtK(cMes)}</span><span class="vendor-pct">${Math.round(nCoti)} coti</span></span>
-        </div>
-        <div class="vendor-bar-bg"><div style="height:5px;border-radius:99px;background:linear-gradient(90deg,var(--chart-yellow),var(--orange));width:${pct}%;transition:width 1.2s"></div></div>
-      </div>`;
-    }).join('')}</div>` : '<div class="ms-empty" role="status">Sin cotizaciones por vendedor en este periodo.</div>';
+  try {
+    const vendsArr = Array.isArray(vends) ? vends : [];
+    const maxV = vendsArr.reduce((m,r)=>Math.max(m, fnumKeys(r, 'COTIZACIONES_MES')), 0);
+    const cotiVendList = document.getElementById('coti-vendedores-list');
+    if (cotiVendList) cotiVendList.innerHTML = vendsArr.length ?
+      `<div class="vendor-list">${vendsArr.map((r,i)=>{
+        const cMes = fnumKeys(r, 'COTIZACIONES_MES');
+        const nCoti = fnumKeys(r, 'NUM_COTI_MES');
+        const pct = maxV>0 ? (cMes/maxV*100).toFixed(0) : 0;
+        const vendName = r.VENDEDOR ?? r.vendedor ?? '—';
+        return `<div class="vendor-item">
+          <div class="vendor-head">
+            <span class="vendor-name"><span class="rank-num">${i+1}</span>${vendName}</span>
+            <span><span class="vendor-amount" style="color:var(--yellow-ink)">${fmtK(cMes)}</span><span class="vendor-pct">${Math.round(nCoti)} coti</span></span>
+          </div>
+          <div class="vendor-bar-bg"><div style="height:5px;border-radius:99px;background:linear-gradient(90deg,var(--chart-yellow),var(--orange));width:${pct}%;transition:width 1.2s"></div></div>
+        </div>`;
+      }).join('')}</div>` : '<div class="ms-empty" role="status">Sin cotizaciones por vendedor en este periodo.</div>';
+  } catch(e) { console.error('applyCotiData vendors', e); }
 
   // ── 2. KPIs y metas (aislado: si el gráfico falla, los números ya quedaron) ──
   try {
