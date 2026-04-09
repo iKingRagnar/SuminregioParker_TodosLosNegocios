@@ -65,7 +65,11 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 .period-btn{font-family:'DM Mono',monospace;font-size:.64rem;padding:.3rem .7rem;border-radius:7px;border:1px solid var(--border2);color:var(--muted);cursor:pointer;background:none;transition:all .2s;letter-spacing:.06em}
 .period-btn:hover{color:var(--text2);border-color:rgba(77,166,255,.3)}
 .period-btn.active{color:var(--suminregio);border-color:rgba(230,168,0,.35);background:var(--suminregio-dim)}
+.pnl-time-stack{display:flex;flex-direction:column;gap:.55rem;margin-bottom:1.1rem}
+.pnl-time-stack #filter-bar{margin-bottom:0}
 .month-picker{margin:.65rem 0 1rem;padding:.75rem 1rem;border:1px solid var(--border);border-radius:12px;background:var(--s1)}
+.month-picker--inline{margin:0}
+.month-picker-apply{font-weight:600;border-color:rgba(230,168,0,.45)!important;background:var(--suminregio-dim)!important;color:var(--suminregio)!important}
 .month-picker-head{display:flex;align-items:center;justify-content:space-between;gap:.7rem;flex-wrap:wrap}
 .month-picker-title{font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
 .month-dd{position:relative;min-width:260px;max-width:480px;flex:1}
@@ -315,20 +319,22 @@ details.sr-gastos-blk>summary{cursor:pointer;font-family:'DM Mono',monospace;fon
     </div>
   </div>
 
-  <!-- Barra de filtros compartida -->
-  <div id="filter-bar"></div>
-
-  <div class="month-picker" id="monthPicker" style="display:none">
-    <div class="month-picker-head">
-      <div class="month-picker-title">Filtro de meses acumulativo</div>
-      <div class="month-dd" id="monthDd">
-        <button type="button" class="month-dd-btn" id="monthDdBtn">Seleccionar meses…</button>
-        <div class="month-dd-panel" id="monthDdPanel">
-          <div class="month-picker-actions">
-            <button type="button" class="month-picker-btn" id="monthSelAll">Todos</button>
-            <button type="button" class="month-picker-btn" id="monthSelNone">Solo uno</button>
+  <div class="pnl-time-stack" id="pnlTimeStack">
+    <!-- Barra de filtros compartida (misma tubería de fechas que el API) -->
+    <div id="filter-bar"></div>
+    <div class="month-picker month-picker--inline" id="monthPicker" style="display:none">
+      <div class="month-picker-head">
+        <div class="month-picker-title">Meses en la vista (mismos datos que arriba; elige y pulsa Aplicar)</div>
+        <div class="month-dd" id="monthDd">
+          <button type="button" class="month-dd-btn" id="monthDdBtn" aria-haspopup="listbox" aria-expanded="false">Seleccionar meses…</button>
+          <div class="month-dd-panel" id="monthDdPanel" role="listbox" aria-label="Meses del periodo">
+            <div class="month-picker-actions">
+              <button type="button" class="month-picker-btn" id="monthSelAll">Todos</button>
+              <button type="button" class="month-picker-btn" id="monthSelNone">Solo uno</button>
+              <button type="button" class="month-picker-btn month-picker-apply" id="monthApplyBtn">Aplicar</button>
+            </div>
+            <div class="month-picker-grid" id="monthPickerList"></div>
           </div>
-          <div class="month-picker-grid" id="monthPickerList"></div>
         </div>
       </div>
     </div>
@@ -596,6 +602,13 @@ let chartVC=null, chartCob=null, chartEmp=null, chartGastos=null;
 let bgGaugeChart=null, bgSparkChart=null, bgDonutChart=null;
 let currentMeses=3;
 let monthKeysSelected = new Set();
+/** Selección en el panel antes de pulsar Aplicar (evita recargar en cada clic). */
+let monthKeysPending = new Set();
+/** Último detalle mensual ya cargado desde API (filtro local sin nuevo fetch). */
+let lastPnlTablaMesesFull = [];
+let lastPnlHasCosto = false;
+let lastPnlTablaTieneGastos = false;
+let lastPnlHeroPrefix = '';
 let lastSubconceptos = {};
 /** null = una sola base por defecto; '__ALL__' = consolidado multi-empresa; string = id en FB_DATABASES_JSON */
 let selectedBizId=(function(){try{const p=new URLSearchParams(location.search).get('db');return normalizeBizSelectId(p||null);}catch(_){return null;}})();
@@ -701,6 +714,46 @@ function sortMesesByPeriodo(rows){
   });
   return arr;
 }
+function pnlSetsEqual(a,b){
+  if(!a||!b||a.size!==b.size)return false;
+  for(const x of a){ if(!b.has(x)) return false; }
+  return true;
+}
+function updateMonthDdBtn(keys){
+  const ddBtn=document.getElementById('monthDdBtn');
+  if(!ddBtn)return;
+  const kk=keys||window._pnlMonthPickerKeys||[];
+  const nSel=monthKeysSelected.size;
+  const base=nSel===kk.length||!kk.length
+    ? 'Todos los meses'
+    : `${nSel} mes(es) en vista`;
+  if(!pnlSetsEqual(monthKeysPending,monthKeysSelected)){
+    ddBtn.textContent=base+' — pulsa Aplicar';
+  }else{
+    ddBtn.textContent=nSel===kk.length||!kk.length?'Todos los meses':`${nSel} mes(es) seleccionado(s)`;
+  }
+}
+function refreshPnlMonthSlice(){
+  const arr=sortMesesByPeriodo(lastPnlTablaMesesFull||[]);
+  if(!arr.length)return;
+  let mesesVista=arr.filter(m=>monthKeysSelected.has(monthKey(m)));
+  if(!mesesVista.length){
+    const kk=window._pnlMonthPickerKeys||[];
+    if(kk[0]) monthKeysSelected.add(kk[0]);
+    mesesVista=arr.filter(m=>monthKeysSelected.has(monthKey(m)));
+  }
+  const totVista=rebuildTotalesFromMeses(mesesVista);
+  const hasCosto=lastPnlHasCosto;
+  try{ renderKPIs(totVista,mesesVista,hasCosto); }catch(e){ console.warn('renderKPIs',e); }
+  try{ renderInsight(totVista,mesesVista,hasCosto); }catch(e){ console.warn('renderInsight',e); }
+  try{ renderCharts(mesesVista,hasCosto); }catch(e){ console.warn('renderCharts',e); }
+  try{ renderTabla(mesesVista,totVista,hasCosto,lastPnlTablaTieneGastos); }catch(e){ console.warn('renderTabla',e); }
+  loadEstadoSrContable(mesesVista,totVista).catch(()=>{});
+  const heroEl=document.getElementById('heroSub');
+  if(heroEl){
+    heroEl.textContent=(lastPnlHeroPrefix||'')+mesesVista.length+' mes(es) en vista · '+fmtM(+totVista.VENTAS_NETAS||0)+' ventas netas · '+(hasCosto?fmtM(+totVista.UTILIDAD_BRUTA||0)+' util. bruta':'Costo no en BD')+' · '+fmtM(+totVista.COBROS||0)+' cobrado';
+  }
+}
 function setupMonthPicker(meses){
   const wrap=document.getElementById('monthPicker');
   if(!wrap) return sortMesesByPeriodo(meses||[]);
@@ -716,6 +769,20 @@ function setupMonthPicker(meses){
     if(!next.size) keys.forEach(k=>next.add(k));
     monthKeysSelected=next;
   }
+  monthKeysPending=new Set(monthKeysSelected);
+  if(wrap&&!wrap._pnlMonthOutsideClose){
+    wrap._pnlMonthOutsideClose=true;
+    document.addEventListener('click',(ev)=>{
+      const dd=document.getElementById('monthDd');
+      const btn=document.getElementById('monthDdBtn');
+      if(!dd||!dd.classList.contains('open'))return;
+      if(dd.contains(ev.target))return;
+      if(btn&&btn.contains(ev.target))return;
+      dd.classList.remove('open');
+      const b=document.getElementById('monthDdBtn');
+      if(b)b.setAttribute('aria-expanded','false');
+    });
+  }
   const list=document.getElementById('monthPickerList');
   const dd=document.getElementById('monthDd');
   const ddBtn=document.getElementById('monthDdBtn');
@@ -723,7 +790,7 @@ function setupMonthPicker(meses){
   if(list){
     list.innerHTML=arr.map(m=>{
       const k=monthKey(m);
-      const checked=monthKeysSelected.has(k)?'checked':'';
+      const checked=monthKeysPending.has(k)?'checked':'';
       return `<label class="month-chip"><input type="checkbox" data-mk="${k}" ${checked}/> ${mesLabel(m)}</label>`;
     }).join('');
     if(!list._pnlMonthChangeDelegated){
@@ -732,26 +799,57 @@ function setupMonthPicker(meses){
         const i=ev.target;
         if(!i||i.tagName!=='INPUT'||!i.getAttribute('data-mk'))return;
         const k=i.getAttribute('data-mk');
-        if(i.checked)monthKeysSelected.add(k);else monthKeysSelected.delete(k);
+        if(i.checked)monthKeysPending.add(k);else monthKeysPending.delete(k);
         const kk=window._pnlMonthPickerKeys||[];
-        if(!monthKeysSelected.size&&kk[0])monthKeysSelected.add(kk[0]);
-        loadData();
+        if(!monthKeysPending.size&&kk[0]){
+          monthKeysPending.add(kk[0]);
+          const firstInp=list.querySelector('input[data-mk="'+kk[0]+'"]');
+          if(firstInp) firstInp.checked=true;
+        }
+        updateMonthDdBtn(kk);
       });
     }
   }
   if(dd && ddBtn){
-    ddBtn.textContent = monthKeysSelected.size===keys.length
-      ? 'Todos los meses'
-      : `${monthKeysSelected.size} mes(es) seleccionado(s)`;
-    ddBtn.onclick=()=>dd.classList.toggle('open');
-    document.addEventListener('click',(ev)=>{
-      if(!dd.contains(ev.target)) dd.classList.remove('open');
-    },{once:true});
+    updateMonthDdBtn(keys);
+    ddBtn.onclick=(ev)=>{
+      ev.stopPropagation();
+      const open=!dd.classList.contains('open');
+      dd.classList.toggle('open',open);
+      ddBtn.setAttribute('aria-expanded',open?'true':'false');
+    };
   }
   const bAll=document.getElementById('monthSelAll');
   const bNone=document.getElementById('monthSelNone');
-  if(bAll) bAll.onclick=()=>{ keys.forEach(k=>monthKeysSelected.add(k)); loadData(); };
-  if(bNone) bNone.onclick=()=>{ monthKeysSelected.clear(); if(keys[0]) monthKeysSelected.add(keys[0]); loadData(); };
+  const bApply=document.getElementById('monthApplyBtn');
+  if(bAll) bAll.onclick=(ev)=>{
+    ev.stopPropagation();
+    keys.forEach(k=>monthKeysPending.add(k));
+    list&&list.querySelectorAll('input[data-mk]').forEach(inp=>{
+      inp.checked=true;
+    });
+    updateMonthDdBtn(keys);
+  };
+  if(bNone) bNone.onclick=(ev)=>{
+    ev.stopPropagation();
+    monthKeysPending.clear();
+    if(keys[0]) monthKeysPending.add(keys[0]);
+    list&&list.querySelectorAll('input[data-mk]').forEach(inp=>{
+      const mk=inp.getAttribute('data-mk');
+      inp.checked=monthKeysPending.has(mk);
+    });
+    updateMonthDdBtn(keys);
+  };
+  if(bApply && !bApply._pnlApplyBound){
+    bApply._pnlApplyBound=true;
+    bApply.onclick=(ev)=>{
+      ev.stopPropagation();
+      monthKeysSelected=new Set(monthKeysPending);
+      updateMonthDdBtn(keys);
+      if(dd){ dd.classList.remove('open'); ddBtn&&ddBtn.setAttribute('aria-expanded','false'); }
+      refreshPnlMonthSlice();
+    };
+  }
   const selected = arr.filter(m=>monthKeysSelected.has(monthKey(m)));
 
   return selected;
@@ -1616,7 +1714,14 @@ async function loadData(){
     }
     tablaMeses=sortMesesByPeriodo(tablaMeses);
     const hasCosto=(+tot.COSTO_VENTAS>0)||(data.tiene_costo===true);
-    try{ renderKPIs(tot,meses,hasCosto); }catch(e){ console.warn('renderKPIs',e); }
+    lastPnlTablaMesesFull=tablaMeses.slice();
+    lastPnlHasCosto=hasCosto;
+    lastPnlTablaTieneGastos=tablaTieneGastos;
+    lastPnlHeroPrefix='';
+    if(multi){
+      const lbl=(okEmp.find(e=>String(e.id)===String(selectedBizId))||{}).label;
+      if(lbl) lastPnlHeroPrefix=String(lbl)+' · ';
+    }
     let mesesVista;
     try {
       mesesVista = setupMonthPicker(tablaMeses);
@@ -1624,6 +1729,7 @@ async function loadData(){
       mesesVista = sortMesesByPeriodo(tablaMeses.slice());
     }
     const totVista = rebuildTotalesFromMeses(mesesVista);
+    try{ renderKPIs(totVista,mesesVista,hasCosto); }catch(e){ console.warn('renderKPIs',e); }
     try{ renderInsight(totVista,mesesVista,hasCosto); }catch(e){ console.warn('renderInsight',e); }
     try{ renderCharts(mesesVista,hasCosto); }catch(e){ console.warn('renderCharts',e); }
     try{ renderTabla(mesesVista,totVista,hasCosto,tablaTieneGastos); }catch(e){
@@ -1649,8 +1755,8 @@ async function loadData(){
       }
     }
     // Hero / subtítulo: actualizar aquí para no quedar en "Cargando..." si Balance/Estado SR tardan o fallan.
-    if(heroEl)heroEl.textContent=meses.length||tot.VENTAS_NETAS
-      ?((multi?(okEmp.find(e=>e.id===selectedBizId)||{}).label+' · ':'')+currentMeses+' meses · '+fmtM(+tot.VENTAS_NETAS||0)+' ventas netas · '+(hasCosto?fmtM(+tot.UTILIDAD_BRUTA||0)+' util. bruta':'Costo no en BD')+' · '+fmtM(+tot.COBROS||0)+' cobrado')
+    if(heroEl)heroEl.textContent=tablaMeses.length||tot.VENTAS_NETAS
+      ?(lastPnlHeroPrefix+mesesVista.length+' mes(es) en vista · '+fmtM(+totVista.VENTAS_NETAS||0)+' ventas netas · '+(hasCosto?fmtM(+totVista.UTILIDAD_BRUTA||0)+' util. bruta':'Costo no en BD')+' · '+fmtM(+totVista.COBROS||0)+' cobrado')
       :'Sin datos. ¿Servidor Node en marcha? Probar: '+url;
     try{
       await Promise.all([
@@ -1688,7 +1794,7 @@ function renderKPIs(tot,meses,hasCosto){
   }
 
   document.getElementById('kpiVentas').textContent=fmtM(ventas);
-  document.getElementById('kpiVentasSub').textContent=facts+' facturas · '+currentMeses+' meses';
+  document.getElementById('kpiVentasSub').textContent=facts+' facturas · '+meses.length+' mes(es) en vista';
   document.getElementById('kpiVentasTrend').innerHTML=trendVentas;
   document.getElementById('kpiUtilidad').textContent=hasCosto?fmtM(utilidad):fmtM(ventas);
   document.getElementById('kpiUtilidadSub').textContent=hasCosto?'Ventas netas − costo de ventas':'(sin costo en BD)';
@@ -1706,7 +1812,7 @@ function renderKPIs(tot,meses,hasCosto){
   document.getElementById('kpiCobrosSub').textContent=fmtPct(efic)+' de facturado cobrado';
   const eficColor=efic>=80?'var(--green)':efic>=50?'var(--brown-mid)':'var(--red)';
   document.getElementById('kpiCobrosEfic').innerHTML=`<span style="color:${eficColor}">${efic>=80?'✓ Eficiencia alta':efic>=50?'⚠ Mejorar cobro':'✗ Cobro bajo'}</span>`;
-  document.getElementById('chartBadge1').textContent=currentMeses+' meses';
+  document.getElementById('chartBadge1').textContent=meses.length+' mes(es)';
 
   if (typeof dashboardApplySem === 'function') {
     const ring = (id, lvl) => {
