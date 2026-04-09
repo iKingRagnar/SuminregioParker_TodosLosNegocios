@@ -2297,8 +2297,7 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
   const run = async (dbo) => {
     const f = buildFiltros(req, 'd');
     const cotiOpts = await cotizacionSqlOpts(dbo);
-    const innerBd = cotizQueryIsoBounds(req);
-    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts, innerBd);
+    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
     const ci = sqlCotiImporteExpr('d');
     const rows = await query(`
       SELECT
@@ -2610,7 +2609,6 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
     req.query.mes = now.getMonth() + 1;
   }
   const f = buildFiltros(req, 'd');
-  const innerBd = cotizQueryIsoBounds(req);
   const run = async (dbo) => {
     const cotiOpts = await cotizacionSqlOpts(dbo);
     const ci = sqlCotiImporteExpr('d');
@@ -2641,11 +2639,11 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
         return [];
       });
     if (tipoPanel === 'VE' || tipoPanel === 'PV') {
-      return qSub(cotizacionesSub(tipoPanel, cotiOpts, innerBd));
+      return qSub(cotizacionesSub(tipoPanel, cotiOpts));
     }
     const [ve, pv] = await Promise.all([
-      qSub(cotizacionesSub('VE', cotiOpts, innerBd)),
-      qSub(cotizacionesSub('PV', cotiOpts, innerBd)),
+      qSub(cotizacionesSub('VE', cotiOpts)),
+      qSub(cotizacionesSub('PV', cotiOpts)),
     ]);
     return mergePorVendedorCotizVePv(ve, pv);
   };
