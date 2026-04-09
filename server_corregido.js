@@ -2903,7 +2903,7 @@ get('/api/ventas/vs-cotizaciones', async (req) => {
   const run = async (dbo) => {
     const cotiOpts = await cotizacionSqlOpts(dbo);
     const ci = sqlCotiImporteExpr('d');
-    const tMs = 120000;
+    const tMs = 240000;
     const tipoPanel = getCotizacionesTipo(req);
     const qCotiSub = (sub) =>
       query(
@@ -7607,10 +7607,51 @@ get('/api/debug/schema', async () => {
   return out;
 });
 
-/** Diagnóstico: TIPO_DOCTO reciente + totales cotización (VE y PV por separado, sin UNION/ligas). ?db= & ?dias=30-800 (default 90; 400 suele timeout en tablas grandes). */
+/** Muestra ultrarrápida: últimos N docs VE/PV (sin GROUP BY masivo). Si tipos hace timeout, esto suele responder. */
+get('/api/debug/cotizaciones-recientes', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const n = Math.min(30, Math.max(3, parseInt(String(req.query.n || '12'), 10) || 12));
+  const t = 45000;
+  const sqlVe = `
+    SELECT FIRST ${n}
+      d.FOLIO,
+      TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40))) AS TIPO_DOCTO,
+      TRIM(CAST(COALESCE(d.ESTATUS, 'N') AS VARCHAR(8))) AS ESTATUS,
+      CAST(d.FECHA AS DATE) AS FECHA_D,
+      d.DOCTO_VE_ID
+    FROM DOCTOS_VE d
+    ORDER BY d.DOCTO_VE_ID DESC
+  `;
+  const sqlPv = `
+    SELECT FIRST ${n}
+      d.FOLIO,
+      TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40))) AS TIPO_DOCTO,
+      TRIM(CAST(COALESCE(d.ESTATUS, 'N') AS VARCHAR(8))) AS ESTATUS,
+      CAST(d.FECHA AS DATE) AS FECHA_D,
+      d.DOCTO_PV_ID
+    FROM DOCTOS_PV d
+    ORDER BY d.DOCTO_PV_ID DESC
+  `;
+  const [ve, pv] = await Promise.all([
+    query(sqlVe, [], t, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) })),
+    query(sqlPv, [], t, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) })),
+  ]);
+  return {
+    n,
+    ve_ultimos: ve && ve.error ? ve : ve || [],
+    pv_ultimos: pv && pv.error ? pv : pv || [],
+    nota: 'Sin filtro de cotización: solo últimos documentos por FECHA. Ver TIPO_DOCTO reales vs macro C,O,Q,P. Si esto también timeout, FB/red muy lentos.',
+  };
+});
+
+/** Diagnóstico: TIPO_DOCTO en ventana + macro cotización. Serial + fecha por parámetro; default 14 días (7–800). */
 get('/api/debug/cotizaciones-tipos', async (req) => {
   const dbo = getReqDbOpts(req);
-  const dias = Math.min(800, Math.max(30, parseInt(String(req.query.dias || '90'), 10) || 90));
+  const dias = Math.min(800, Math.max(7, parseInt(String(req.query.dias || '14'), 10) || 14));
+  const desde = new Date();
+  desde.setDate(desde.getDate() - dias);
+  const desdeStr =
+    desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-' + String(desde.getDate()).padStart(2, '0');
   const cotiOpts = await cotizacionSqlOpts(dbo);
   const feVe = cotiOpts.sqlFeVe || 'd.FECHA';
   const fePv = cotiOpts.sqlFePv || 'd.FECHA';
@@ -7618,8 +7659,9 @@ get('/api/debug/cotizaciones-tipos', async (req) => {
   const wPv = sqlWhereCotizacionComoVenta('d', 'PV');
   const imp = sqlCotiImporteExpr('d');
   const vig = String(cotiOpts.vigenciaVeSuffix || '');
-  const dateVe = `CAST(${feVe} AS DATE) >= (CURRENT_DATE - ${dias})`;
-  const datePv = `CAST(${fePv} AS DATE) >= (CURRENT_DATE - ${dias})`;
+  const dateVe = `CAST(${feVe} AS DATE) >= CAST(? AS DATE)`;
+  const datePv = `CAST(${fePv} AS DATE) >= CAST(? AS DATE)`;
+  const params = [desdeStr];
 
   const sqlVe = `
     SELECT TRIM(CAST(d.TIPO_DOCTO AS VARCHAR(40))) AS T, COUNT(*) AS N
@@ -7646,12 +7688,11 @@ get('/api/debug/cotizaciones-tipos', async (req) => {
     WHERE (${wPv}) AND ${datePv}
   `;
 
-  const [ve, pv, veMacroRows, pvMacroRows] = await Promise.all([
-    query(sqlVe, [], 120000, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) })),
-    query(sqlPv, [], 180000, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) })),
-    query(macroVeSql, [], 180000, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) })),
-    query(macroPvSql, [], 180000, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) })),
-  ]);
+  const qms = 240000;
+  const ve = await query(sqlVe, params, qms, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) }));
+  const pv = await query(sqlPv, params, qms, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) }));
+  const veMacroRows = await query(macroVeSql, params, qms, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) }));
+  const pvMacroRows = await query(macroPvSql, params, qms, dbo).catch((e) => ({ error: String(e && e.message ? e.message : e) }));
 
   const veErr = veMacroRows && veMacroRows.error;
   const pvErr = pvMacroRows && pvMacroRows.error;
@@ -7674,9 +7715,10 @@ get('/api/debug/cotizaciones-tipos', async (req) => {
     ve_tipos: ve,
     pv_tipos: pv,
     ventana_dias: dias,
+    desde_param: desdeStr,
     macro_cotizaciones_ult_400d: macro,
     nota:
-      'Ventana ?dias= (default 90). Para 400+ días usar solo si la red/FB aguanta; si timeout, bajar dias. Resumen KPI suma VE+PV por separado. MICROSIP_COTIZACION_SOLO_TIPO_MARCADO=1 desactiva el fallback amplio.',
+      'Consultas en serie; fecha por parámetro. Default ?dias=14 (min 7). Si timeout, usar /api/debug/cotizaciones-recientes. MICROSIP_COTIZACION_SOLO_TIPO_MARCADO=1 desactiva el fallback amplio.',
   };
 });
 
