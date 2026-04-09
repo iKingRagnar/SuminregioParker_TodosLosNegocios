@@ -2299,7 +2299,7 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
     const cotiOpts = await cotizacionSqlOpts(dbo);
     const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
     const ci = sqlCotiImporteExpr('d');
-    const rows = await query(`
+    const sql = `
       SELECT
         SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN ${ci} ELSE 0 END) AS HOY,
         COALESCE(SUM(${ci}), 0)                                                    AS MES_ACTUAL,
@@ -2307,10 +2307,19 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
         COUNT(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 END)           AS COTIZACIONES_HOY
       FROM ${cotiSub} d
       WHERE 1=1 ${f.sql}
-    `, f.params, 90000, dbo).catch((err) => {
+    `;
+    console.log('[cotizaciones/resumen] SQL:', sql);
+    console.log('[cotizaciones/resumen] params:', f.params);
+
+    // Debug: check if sub-select has rows at all
+    const debugRows = await query(`SELECT COUNT(*) AS cnt FROM ${cotiSub} d`, [], 10000, dbo).catch(() => []);
+    console.log('[cotizaciones/resumen] sub-select row count:', debugRows[0]?.cnt);
+
+    const rows = await query(sql, f.params, 90000, dbo).catch((err) => {
       console.error('[cotizaciones/resumen]', err && (err.message || err));
       return [];
     });
+    console.log('[cotizaciones/resumen] result:', rows);
     return normalizeCotizacionResumenRow(rows[0]);
   };
   if (isAllDbs(req)) {
@@ -2460,15 +2469,19 @@ get('/api/ventas/cotizaciones/diarias', async (req) => {
     const cotiOpts = await cotizacionSqlOpts(dbo);
     const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
     const ci = sqlCotiImporteExpr('d');
-    const rows = await query(`
+    const sql = `
     SELECT CAST(d.FECHA AS DATE) AS DIA, COUNT(*) AS COTIZACIONES, COALESCE(SUM(${ci}),0) AS TOTAL_COTIZACIONES
     FROM ${cotiSub} d
     WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
     GROUP BY CAST(d.FECHA AS DATE) ORDER BY 1
-  `, [desdeStr], 12000, dbo).catch((err) => {
+  `;
+    console.log('[cotizaciones/diarias] SQL:', sql);
+    console.log('[cotizaciones/diarias] desde:', desdeStr);
+    const rows = await query(sql, [desdeStr], 12000, dbo).catch((err) => {
       console.error('[cotizaciones/diarias]', err && (err.message || err));
       return [];
     });
+    console.log('[cotizaciones/diarias] rows count:', rows?.length);
     return (rows || []).map(r => ({ DIA: r.DIA, COTIZACIONES: r.COTIZACIONES, TOTAL_COTIZACIONES: r.TOTAL_COTIZACIONES || 0 }));
   };
   if (isAllDbs(req)) {
