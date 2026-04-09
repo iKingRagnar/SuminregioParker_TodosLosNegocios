@@ -1617,6 +1617,25 @@ function sqlWhereCotizacionComoVenta(alias = 'd', src = 'VE') {
   return `( ( ${tipoSql} OR ${fallback} ) AND ${estNotC} )${aplicado}`;
 }
 
+/**
+ * WHERE “rápido” para cotizaciones:
+ * Evita UPPER/TRIM/POSITION sobre TIPO_DOCTO (rompe índice y provoca full-scan/timeouts).
+ * Usar cuando el cuello está en DOCTOS_* y necesitamos respuesta en Render.
+ */
+function sqlWhereCotizacionFast(alias = 'd') {
+  const a = alias;
+  const reqAplicado = (process.env.MICROSIP_COTIZACION_REQUIERE_APLICADO || '').match(/^(1|true|yes)$/i);
+  const aplicado = reqAplicado ? ` AND COALESCE(${a}.APLICADO, 'N') = 'S'` : '';
+  const tipos = (parseCotizacionTipos() || []).filter(Boolean);
+  const esc = (t) => `'${String(t).replace(/'/g, "''")}'`;
+  // Si tipos viene vacío por configuración, caer al slow (pero eso puede ser pesado).
+  if (!tipos.length) return `0=1${aplicado}`;
+  // Direct IN sobre columna (usa índice si existe).
+  const byCodes = `${a}.TIPO_DOCTO IN (${tipos.map(esc).join(', ')})`;
+  const estOk = `COALESCE(${a}.ESTATUS, 'N') NOT IN ('C','D','S')`;
+  return `( ${byCodes} AND ${estOk} )${aplicado}`;
+}
+
 /** Rango ISO YYYY-MM-DD para acotar cotizaciones dentro del sub-SELECT (evita escanear todo el histórico). */
 function sqlCotizInnerFechaBounds(feExpr, bounds) {
   if (!bounds || typeof bounds !== 'object') return '';
@@ -1644,8 +1663,11 @@ function cotizacionesSub(tipo = '', opts = {}, innerBounds = null) {
   const bVe = sqlCotizInnerFechaBounds(feVe, innerBounds);
   const bPv = sqlCotizInnerFechaBounds(fePv, innerBounds);
   const imp = sqlVentaImporteBaseExpr('d');
-  const wVe = sqlWhereCotizacionComoVenta('d', 'VE');
-  const wPv = sqlWhereCotizacionComoVenta('d', 'PV');
+  // En Render, priorizar WHERE rápido para evitar timeouts por full-scan.
+  const useFast = String(process.env.RENDER || '').toLowerCase() === 'true'
+    || (process.env.MICROSIP_COTIZACIONES_FAST_WHERE || '').match(/^(1|true|yes)$/i);
+  const wVe = useFast ? sqlWhereCotizacionFast('d') : sqlWhereCotizacionComoVenta('d', 'VE');
+  const wPv = useFast ? sqlWhereCotizacionFast('d') : sqlWhereCotizacionComoVenta('d', 'PV');
   const ve = `
     SELECT
       ${feVe} AS FECHA,
@@ -2369,8 +2391,10 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
     // PV puede ser muy pesado (ver timeouts en /api/debug/cotizaciones-tipos); VE suele responder rápido.
     const cotiOpts = await cotizacionSqlOpts(dbo);
     const imp = sqlCotiImporteExpr('d'); // cabecera
-    const wVe = sqlWhereCotizacionComoVenta('d', 'VE');
-    const wPv = sqlWhereCotizacionComoVenta('d', 'PV');
+    const useFast = String(process.env.RENDER || '').toLowerCase() === 'true'
+      || (process.env.MICROSIP_COTIZACIONES_FAST_WHERE || '').match(/^(1|true|yes)$/i);
+    const wVe = useFast ? sqlWhereCotizacionFast('d') : sqlWhereCotizacionComoVenta('d', 'VE');
+    const wPv = useFast ? sqlWhereCotizacionFast('d') : sqlWhereCotizacionComoVenta('d', 'PV');
     const feVe = cotiOpts.sqlFeVe || 'd.FECHA';
     const fePv = cotiOpts.sqlFePv || 'd.FECHA';
     const fVe = buildFiltros(req, 'd', { fechaExpr: feVe });
