@@ -1633,12 +1633,11 @@ function sqlCotizInnerFechaBounds(feExpr, bounds) {
 function cotizacionesSub(tipo = '', opts = {}) {
   // Cotizaciones: SOLO DOCTOS_VE (usuario explícito: no usar PV)
   // Filtro: TIPO_DOCTO = 'C'
-  // Importe: SUM(líneas.PRECIO_TOTAL) - descuento_encabezado
-  // Descuento de encabezado: COALESCE(h.DSCTO_IMPORTE, 0) si existe, sino 0
+  // Importe: SUM(líneas.PRECIO_TOTAL) - descuento_encabezado (resta una sola vez por documento)
   const ve = `
     SELECT
       h.FECHA,
-      COALESCE(SUM(det.PRECIO_TOTAL), 0) - COALESCE(h.DSCTO_IMPORTE, 0) AS IMPORTE_NETO,
+      (SELECT COALESCE(SUM(det2.PRECIO_TOTAL), 0) FROM DOCTOS_VE_DET det2 WHERE det2.DOCTO_VE_ID = h.DOCTO_VE_ID) - COALESCE(h.DSCTO_IMPORTE, 0) AS IMPORTE_NETO,
       COALESCE(h.VENDEDOR_ID, 0) AS VENDEDOR_ID,
       COALESCE(h.CLIENTE_ID,  0) AS CLIENTE_ID,
       h.FOLIO,
@@ -1648,13 +1647,10 @@ function cotizacionesSub(tipo = '', opts = {}) {
       CAST(NULL AS INTEGER) AS DOCTO_PV_ID,
       'VE' AS TIPO_SRC
     FROM DOCTOS_VE h
-    JOIN DOCTOS_VE_DET det ON det.DOCTO_VE_ID = h.DOCTO_VE_ID
     WHERE (
       h.TIPO_DOCTO = 'C'
       AND COALESCE(h.ESTATUS, 'N') <> 'C'
     )
-    GROUP BY h.FECHA, h.VENDEDOR_ID, h.CLIENTE_ID,
-             h.FOLIO, h.TIPO_DOCTO, h.ESTATUS, h.DOCTO_VE_ID, h.DSCTO_IMPORTE
   `;
   if (tipo === 'VE') return `(${ve})`;
   if (tipo === 'PV') return `(${ve})`; // PV no existe para cotizaciones, retornar VE
