@@ -1631,12 +1631,14 @@ function sqlCotizInnerFechaBounds(feExpr, bounds) {
  * @param {{ desde?: string, hasta?: string } | null} innerBounds - filtro de fecha en el subquery.
  */
 function cotizacionesSub(tipo = '', opts = {}) {
-  // Cotizaciones: tipo_docto='C', importe desde líneas de detalle (PRECIO_TOTAL)
-  // Igual estructura que ventasSub pero para cotizaciones sin "APLICADO" requerido
+  // Cotizaciones: SOLO DOCTOS_VE (usuario explícito: no usar PV)
+  // Filtro: TIPO_DOCTO = 'C'
+  // Importe: SUM(líneas.PRECIO_TOTAL) - descuento_encabezado
+  // Descuento de encabezado: COALESCE(h.DSCTO_IMPORTE, 0) si existe, sino 0
   const ve = `
     SELECT
       h.FECHA,
-      COALESCE(SUM(det.PRECIO_TOTAL), 0) AS IMPORTE_NETO,
+      COALESCE(SUM(det.PRECIO_TOTAL), 0) - COALESCE(h.DSCTO_IMPORTE, 0) AS IMPORTE_NETO,
       COALESCE(h.VENDEDOR_ID, 0) AS VENDEDOR_ID,
       COALESCE(h.CLIENTE_ID,  0) AS CLIENTE_ID,
       h.FOLIO,
@@ -1652,32 +1654,11 @@ function cotizacionesSub(tipo = '', opts = {}) {
       AND COALESCE(h.ESTATUS, 'N') <> 'C'
     )
     GROUP BY h.FECHA, h.VENDEDOR_ID, h.CLIENTE_ID,
-             h.FOLIO, h.TIPO_DOCTO, h.ESTATUS, h.DOCTO_VE_ID
-  `;
-  const pv = `
-    SELECT
-      h.FECHA,
-      COALESCE(SUM(det.PRECIO_TOTAL), 0) AS IMPORTE_NETO,
-      COALESCE(h.VENDEDOR_ID, 0) AS VENDEDOR_ID,
-      COALESCE(h.CLIENTE_ID,  0) AS CLIENTE_ID,
-      h.FOLIO,
-      h.TIPO_DOCTO,
-      h.ESTATUS,
-      CAST(NULL AS INTEGER) AS DOCTO_VE_ID,
-      h.DOCTO_PV_ID,
-      'PV' AS TIPO_SRC
-    FROM DOCTOS_PV h
-    JOIN DOCTOS_PV_DET det ON det.DOCTO_PV_ID = h.DOCTO_PV_ID
-    WHERE (
-      h.TIPO_DOCTO = 'C'
-      AND COALESCE(h.ESTATUS, 'N') <> 'C'
-    )
-    GROUP BY h.FECHA, h.VENDEDOR_ID, h.CLIENTE_ID,
-             h.FOLIO, h.TIPO_DOCTO, h.ESTATUS, h.DOCTO_PV_ID
+             h.FOLIO, h.TIPO_DOCTO, h.ESTATUS, h.DOCTO_VE_ID, h.DSCTO_IMPORTE
   `;
   if (tipo === 'VE') return `(${ve})`;
-  if (tipo === 'PV') return `(${pv})`;
-  return `(${ve} UNION ALL ${pv})`;
+  if (tipo === 'PV') return `(${ve})`; // PV no existe para cotizaciones, retornar VE
+  return `(${ve})`;
 }
 
 function normalizeCotizacionResumenRow(row) {
