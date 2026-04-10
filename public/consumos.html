@@ -54,6 +54,14 @@ nav{display:flex;gap:4px;flex-wrap:wrap}
 .tbl th{padding:9px 10px;border-bottom:1px solid var(--brd);text-align:left;font:.6rem 'DM Mono',monospace;color:var(--muted);text-transform:uppercase}
 .tbl td{padding:9px 10px;border-bottom:1px solid rgba(255,255,255,.04);font:.78rem 'DM Mono',monospace}
 .tbl tr:hover td{background:var(--s2)}
+.tbl-sem .sem-total-row td{background:rgba(230,168,0,.12);font-weight:700;border-top:2px solid var(--brd)}
+html[data-theme="light"] .tbl-sem .sem-total-row td{background:rgba(180,83,9,.08)}
+.tbl-sem thead th.sem-wk-0{background:rgba(77,166,255,.12)}
+.tbl-sem thead th.sem-wk-1{background:rgba(0,229,160,.10)}
+.tbl-sem thead th.sem-wk-2{background:rgba(255,140,66,.10)}
+.tbl-sem tbody td.sem-wk-0{background:rgba(77,166,255,.05)}
+.tbl-sem tbody td.sem-wk-1{background:rgba(0,229,160,.04)}
+.tbl-sem tbody td.sem-wk-2{background:rgba(255,140,66,.05)}
 .num{text-align:right}
 .insights-body{padding:14px;font-size:.78rem}
 .ins-row{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:14px;align-items:flex-start}
@@ -287,18 +295,18 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
     <article class="card">
       <div class="ch">
         <div class="ct">Consumo semanal por artículo</div>
-        <div class="cb">Unidades + venta por semana (periodo del filtro)</div>
+        <div class="cb">Consumo = <strong>unidades vendidas</strong> por artículo; importe = venta del periodo. Semanas del mes según filtro Mes–Año / rango.</div>
       </div>
       <div class="bd" style="overflow-x:auto">
-        <table class="tbl" id="tblSemArt">
+        <table class="tbl tbl-sem" id="tblSemArt">
           <thead><tr><th>Artículo</th><th>U.Med</th><th class="num">Precio Unit.</th><th class="num">—</th></tr></thead>
           <tbody><tr><td colspan="4">Cargando…</td></tr></tbody>
         </table>
       </div>
       <div class="bd" style="overflow-x:auto;border-top:1px solid rgba(255,255,255,.08)">
         <div class="cb" style="margin-bottom:8px">Promedio y máximo semanal (por artículo)</div>
-        <table class="tbl" id="tblSemStats">
-          <thead><tr><th>Artículo</th><th>U.Med</th><th class="num">Consumo semanal</th><th class="num">Prom. semanal</th><th class="num">Máx. semana</th></tr></thead>
+        <table class="tbl tbl-sem" id="tblSemStats">
+          <thead><tr><th>Artículo</th><th>U.Med</th><th class="num">Consumo periodo (u.)</th><th class="num">Prom. u./sem.</th><th class="num">Máx. semana</th></tr></thead>
           <tbody><tr><td colspan="5">Cargando…</td></tr></tbody>
         </table>
       </div>
@@ -438,12 +446,14 @@ function weekLabel(i, weekStartIso){
   return `S${i} (${dd})`;
 }
 function weekOrdinalInMonth(weekStartIso){
+  // S1 = primer lunes del mes (aunque no haya datos), S2 = segundo lunes, etc.
   try{
     const d = new Date(weekStartIso);
     const y = d.getFullYear();
-    const m = d.getMonth();
+    const m = d.getMonth(); // 0-based
     const first = new Date(y, m, 1);
-    const dow = first.getDay();
+    // primer lunes del mes
+    const dow = first.getDay(); // 0 dom .. 6 sab
     const add = (dow === 0) ? 1 : (dow <= 1 ? 0 : (8 - dow));
     const firstMon = new Date(y, m, 1 + add);
     const diffDays = Math.round((d - firstMon) / 86400000);
@@ -469,10 +479,15 @@ function renderSemanalPorArticulo(payload){
     th.innerHTML = '<th>Artículo</th><th>U.Med</th><th class="num">Precio Unit.</th><th class="num">Sin datos</th>';
     tb.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sin datos para este filtro</td></tr>';
     sb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted)">Sin datos</td></tr>';
+    const tf0 = tbl.querySelector('tfoot');
+    if (tf0) tf0.innerHTML = '';
+    const sf0 = stats.querySelector('tfoot');
+    if (sf0) sf0.innerHTML = '';
     return;
   }
 
-  const qs = (typeof filterReadState === 'function') ? (filterReadState() || {}) : {};
+  // Build week index: por lunes del mes (S1..Sn). Omitimos semanas cuyo lunes no cae en el mes actual del filtro.
+  const qs = (typeof filterGetParams === 'function') ? (filterGetParams() || {}) : ((typeof filterReadState === 'function') ? (filterReadState() || {}) : {});
   const anioSel = qs.anio ? +qs.anio : null;
   const mesSel = qs.mes ? +qs.mes : null;
   const weekKeysRaw = [...new Set(rows.map(r => isoDay(r.SEMANA_INICIO)))].filter(Boolean).sort();
@@ -483,6 +498,7 @@ function renderSemanalPorArticulo(payload){
   });
   const wkIdx = new Map(weekKeys.map((k)=>[k, weekOrdinalInMonth(k) || 1]));
 
+  // Group by article
   const artMap = new Map();
   for(const r of rows){
     const aid = +r.ARTICULO_ID || 0;
@@ -500,6 +516,7 @@ function renderSemanalPorArticulo(payload){
   }
   const arts = [...artMap.values()].sort((a,b)=> (b.totI||0)-(a.totI||0)).slice(0, 60);
 
+  // Header (2 niveles como Excel): fila 1 = Sx(fecha) colspan=2, fila 2 = Unid/Importe
   const wkCols = weekKeys.map((k)=>({ key:k, idx:wkIdx.get(k), dd: new Date(k).toLocaleDateString('es-MX',{day:'2-digit',month:'2-digit'}) }));
   const thead = tbl.querySelector('thead');
   if(thead){
@@ -508,20 +525,21 @@ function renderSemanalPorArticulo(payload){
         '<th rowspan="2">Artículo</th>' +
         '<th rowspan="2">U.Med</th>' +
         '<th rowspan="2" class="num">Precio Unit.</th>' +
-        wkCols.map(w=>`<th class="num" colspan="2">S${w.idx} (${w.dd})</th>`).join('') +
+        wkCols.map((w,wi)=>`<th class="num sem-wk-${wi%3}" colspan="2">S${w.idx} (${w.dd})</th>`).join('') +
         '<th class="num" colspan="2">TOTAL</th>' +
       '</tr>' +
       '<tr>' +
-        wkCols.map(w=>'<th class="num">Unid</th><th class="num">Importe</th>').join('') +
+        wkCols.map((w,wi)=>'<th class="num sem-wk-'+ (wi%3) +'">Unid</th><th class="num sem-wk-'+ (wi%3) +'">Importe</th>').join('') +
         '<th class="num">Unid</th><th class="num">Importe</th>' +
       '</tr>';
   }
 
   tb.innerHTML = arts.map(a=>{
     const pu = a.totU > 0 ? (a.totI / a.totU) : 0;
-    const cells = wkCols.map(w=>{
+    const cells = wkCols.map((w,wi)=>{
       const x = a.weeks[w.key] || {u:0,im:0};
-      return `<td class="num">${fmtF(x.u)}</td><td class="num">${fmtMoney(x.im)}</td>`;
+      const cl = 'sem-wk-' + (wi % 3);
+      return `<td class="num ${cl}">${fmtF(x.u)}</td><td class="num ${cl}">${fmtMoney(x.im)}</td>`;
     }).join('');
     return `<tr>
       <td title="${esc(a.ARTICULO)}">${esc(String(a.ARTICULO).substring(0,42))}${String(a.ARTICULO).length>42?'…':''}</td>
@@ -533,6 +551,23 @@ function renderSemanalPorArticulo(payload){
     </tr>`;
   }).join('');
 
+  const weekTotU = weekKeys.map(k => arts.reduce((s, a) => s + (a.weeks[k]?.u || 0), 0));
+  const weekTotI = weekKeys.map(k => arts.reduce((s, a) => s + (a.weeks[k]?.im || 0), 0));
+  const grandU = arts.reduce((s, a) => s + a.totU, 0);
+  const grandI = arts.reduce((s, a) => s + a.totI, 0);
+  let tf = tbl.querySelector('tfoot');
+  if (!tf) { tf = document.createElement('tfoot'); tbl.appendChild(tf); }
+  const wkSumCells = wkCols.map((w, wi) => {
+    const cl = 'num sem-wk-' + (wi % 3);
+    return `<td class="${cl}">${fmtF(weekTotU[wi] || 0)}</td><td class="${cl}">${fmtMoney(weekTotI[wi] || 0)}</td>`;
+  }).join('');
+  tf.innerHTML = `<tr class="sem-total-row">
+    <td colspan="3"><strong>TOTAL periodo</strong> (${arts.length} art\u00edculos; filtro activo)</td>
+    ${wkSumCells}
+    <td class="num">${fmtF(grandU)}</td><td class="num">${fmtMoney(grandI)}</td>
+  </tr>`;
+
+  // Stats table
   sb.innerHTML = arts.map(a=>{
     const perWeekUnits = weekKeys.map(k => (a.weeks[k]?.u||0));
     const total = a.totU || 0;
@@ -547,6 +582,25 @@ function renderSemanalPorArticulo(payload){
       <td class="num">${fmtF(mx)}</td>
     </tr>`;
   }).join('');
+
+  const sumTotU = grandU;
+  const promSemGlobal = weekKeys.length ? (sumTotU / weekKeys.length) : 0;
+  const maxPicoMes = arts.length ? Math.max(...arts.map(a => {
+    const perWeekUnits = weekKeys.map(k => (a.weeks[k]?.u||0));
+    return perWeekUnits.length ? Math.max(...perWeekUnits) : 0;
+  })) : 0;
+  const sth = stats.querySelector('thead tr');
+  if (sth) sth.innerHTML = '<th>Artículo</th><th>U.Med</th><th class="num">Consumo periodo (u.)</th><th class="num">Prom. u./sem.</th><th class="num">Máx. semana</th>';
+  let sfoot = stats.querySelector('tfoot');
+  if (!sfoot) { sfoot = document.createElement('tfoot'); stats.appendChild(sfoot); }
+  const qsp = (typeof filterGetParams === 'function') ? filterGetParams() : {};
+  const perLabel = (qsp.desde && qsp.hasta) ? (qsp.desde + ' \u2192 ' + qsp.hasta) : (qsp.anio && qsp.mes ? (qsp.anio + '-' + String(qsp.mes).padStart(2,'0')) : 'periodo filtrado');
+  sfoot.innerHTML = `<tr class="sem-total-row">
+    <td colspan="2"><strong>Representativo ${esc(perLabel)}</strong></td>
+    <td class="num">${fmtF(sumTotU)}</td>
+    <td class="num">${fmtF(promSemGlobal)}</td>
+    <td class="num">${fmtF(maxPicoMes)}</td>
+  </tr>`;
 }
 
 async function loadSemanalPorArticulo(){

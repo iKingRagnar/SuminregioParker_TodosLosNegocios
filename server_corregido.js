@@ -3656,8 +3656,14 @@ get('/api/director/recientes', async (req) => {
 const CXC_RECIBO_BASE_EXPR = `CASE WHEN COALESCE(i2.IMPUESTO,0) > 0 THEN i2.IMPORTE ELSE i2.IMPORTE/1.16 END`;
 /** Misma fórmula cuando el alias de IMPORTES_DOCTOS_CC es `i` (consulta BI agregada por cliente). */
 const CXC_RECIBO_BASE_EXPR_I = `CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE/1.16 END`;
+/** Power BI «Cobrado Real»: solo líneas R con APLICADO='S'. Desactivar: MICROSIP_CXC_COBRO_REQUIERE_APLICADO=0 */
+function cxcCobroRRequiereAplicado() {
+  return !(process.env.MICROSIP_CXC_COBRO_REQUIERE_APLICADO || '1').match(/^(0|false|no)$/i);
+}
+const CXC_COBRO_R_APLICADO_SQL = ` AND COALESCE(i2.APLICADO, 'N') = 'S' `;
 
 function cxcDocSaldosInnerSQL(cfSql) {
+  const cobroAplicado = cxcCobroRRequiereAplicado() ? CXC_COBRO_R_APLICADO_SQL : '';
   // Cobros (R): además de DOCTO_CC_ACR_ID = factura, algunas instalaciones registran el recibo con DOCTO_CC_ID = factura y ACR nulo.
   return `(
     SELECT d.DOCTO_CC_ID, d.CLIENTE_ID, d.DIAS_VENCIDO,
@@ -3666,7 +3672,7 @@ function cxcDocSaldosInnerSQL(cfSql) {
           WHERE i.DOCTO_CC_ID = d.DOCTO_CC_ID AND i.TIPO_IMPTE = 'C' AND COALESCE(i.CANCELADO,'N') = 'N'), 0)
         - COALESCE((SELECT SUM(${CXC_RECIBO_BASE_EXPR})
           FROM IMPORTES_DOCTOS_CC i2
-          WHERE i2.TIPO_IMPTE = 'R' AND COALESCE(i2.CANCELADO,'N') = 'N'
+          WHERE i2.TIPO_IMPTE = 'R' AND COALESCE(i2.CANCELADO,'N') = 'N'${cobroAplicado}
             AND (
               i2.DOCTO_CC_ACR_ID = d.DOCTO_CC_ID
               OR (i2.DOCTO_CC_ID = d.DOCTO_CC_ID AND i2.DOCTO_CC_ACR_ID IS NULL)
@@ -3685,6 +3691,7 @@ function cxcDocSaldosInnerSQL(cfSql) {
 function cxcDocSaldosInnerSQLVariant(cfSql, opts) {
   const includeContado = !!(opts && opts.includeContado);
   const cf = cfSql || '';
+  const cobroAplicado = cxcCobroRRequiereAplicado() ? CXC_COBRO_R_APLICADO_SQL : '';
   return `(
     SELECT d.DOCTO_CC_ID, d.CLIENTE_ID, d.DIAS_VENCIDO,
       CAST(
@@ -3692,7 +3699,7 @@ function cxcDocSaldosInnerSQLVariant(cfSql, opts) {
           WHERE i.DOCTO_CC_ID = d.DOCTO_CC_ID AND i.TIPO_IMPTE = 'C' AND COALESCE(i.CANCELADO,'N') = 'N'), 0)
         - COALESCE((SELECT SUM(${CXC_RECIBO_BASE_EXPR})
           FROM IMPORTES_DOCTOS_CC i2
-          WHERE i2.TIPO_IMPTE = 'R' AND COALESCE(i2.CANCELADO,'N') = 'N'
+          WHERE i2.TIPO_IMPTE = 'R' AND COALESCE(i2.CANCELADO,'N') = 'N'${cobroAplicado}
             AND (
               i2.DOCTO_CC_ACR_ID = d.DOCTO_CC_ID
               OR (i2.DOCTO_CC_ID = d.DOCTO_CC_ID AND i2.DOCTO_CC_ACR_ID IS NULL)
@@ -4257,9 +4264,8 @@ get('/api/debug/cxc-contado-delta', async (req) => {
   };
 });
 
-// Facturas vencidas: misma base que aging (cxcDocSaldosInnerSQL). Incluye DOCTO con DIAS_VENCIDO > 0
-// aunque SALDO_NETO sea ~0: el resumen puede alinearse a aging legacy (líneas de cargo) y Power BI mientras
-// el neto por documento ya cuadra con cobros; antes el filtro SALDO_NETO > 0 dejaba la tabla vacía con KPIs de mora.
+// Facturas vencidas: SALDO_NETO = Cargo − Cobro(R) con base ex-IVA; cobros alineados a BI con APLICADO='S' (env MICROSIP_CXC_COBRO_REQUIERE_APLICADO).
+// Solo documentos con mora real: DIAS_VENCIDO > 0 y SALDO_NETO > 0 (evita filas “vencidas” ya liquidadas).
 get('/api/cxc/vencidas', async (req) => {
   const limit = Math.min(parseInt(req.query.limit) || 100, 500);
   const perDb = Math.min(Math.max(limit, 30), 250);
@@ -4287,7 +4293,7 @@ get('/api/cxc/vencidas', async (req) => {
         MAX(doc.DIAS_VENCIDO) AS DIAS_ATRASO,
         MAX(doc.SALDO_NETO) AS SALDO_NETO
       FROM ${cxcDocSaldosInnerSQL(cfSql)} doc
-      WHERE doc.DIAS_VENCIDO > 0
+      WHERE doc.DIAS_VENCIDO > 0 AND doc.SALDO_NETO > 0.005
       GROUP BY doc.DOCTO_CC_ID, doc.CLIENTE_ID
     ) x
     JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = x.DOCTO_CC_ID
@@ -4308,10 +4314,26 @@ get('/api/cxc/vencidas', async (req) => {
     });
     const flat = lists.flat();
     flat.sort((a, b) => (+b.SALDO || 0) - (+a.SALDO || 0));
-    return flat.slice(0, limit);
+    const out = flat.slice(0, limit);
+    // #region agent log
+    (function () {
+      const arr = out;
+      const zero = arr.filter((r) => +r.SALDO <= 0.005).length;
+      fetch('http://127.0.0.1:7807/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'c5910b' }, body: JSON.stringify({ sessionId: 'c5910b', location: 'server_corregido.js:/api/cxc/vencidas', message: 'vencidas all-dbs', data: { hypothesisId: 'H1', branch: 'all', total: arr.length, zeroSaldo: zero, posSaldo: arr.length - zero, cobroSoloAplicado: cxcCobroRRequiereAplicado(), sample: arr.slice(0, 4).map((r) => ({ folio: r.FOLIO, saldo: +r.SALDO, atraso: +r.ATRASO })) }, timestamp: Date.now(), runId: 'post-fix' }) }).catch(() => {});
+    }());
+    // #endregion
+    return out;
   }
   const dbo = getReqDbOpts(req);
-  return run(dbo, limit);
+  const rows = await run(dbo, limit);
+  // #region agent log
+  (function () {
+    const arr = rows || [];
+    const zero = arr.filter((r) => +r.SALDO <= 0.005).length;
+    fetch('http://127.0.0.1:7807/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'c5910b' }, body: JSON.stringify({ sessionId: 'c5910b', location: 'server_corregido.js:/api/cxc/vencidas', message: 'vencidas single-db', data: { hypothesisId: 'H1', branch: 'single', total: arr.length, zeroSaldo: zero, posSaldo: arr.length - zero, cobroSoloAplicado: cxcCobroRRequiereAplicado(), sample: arr.slice(0, 4).map((r) => ({ folio: r.FOLIO, saldo: +r.SALDO, atraso: +r.ATRASO })) }, timestamp: Date.now(), runId: 'post-fix' }) }).catch(() => {});
+  }());
+  // #endregion
+  return rows;
 });
 
 // Top Deudores: saldo neto + condición + vencido proporcional al saldo (igual que /api/cxc/resumen). Acepta ?cliente= para filtrar.

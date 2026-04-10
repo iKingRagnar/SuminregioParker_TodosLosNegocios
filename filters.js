@@ -1302,6 +1302,8 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   window.initFilters              = initFilters;
   window.filterBuildQS            = buildQS;
   window.filterGetParams          = getParams;
+  /** Alias para páginas que lean el periodo (p. ej. consumos semanal); mismo objeto que filterGetParams(). */
+  window.filterReadState          = function filterReadState() { return getParams(); };
   window.filterSetAnioMes         = filterSetAnioMes;
   window.syncFilterMesAnioToolbar = syncMesAnioToolbarUI;
   window.filterCommitDeferred     = filterCommitDeferred;
