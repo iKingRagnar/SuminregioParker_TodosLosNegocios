@@ -6985,9 +6985,20 @@ async function resultadosPnlCore(req, dbOpts) {
     const descuentosDev = descMap[key(r.ANIO, r.MES)] || 0;
     const kmKey = key(r.ANIO, r.MES);
     const ventasConta = +(ventasContaMap[kmKey] || 0);
-    // Para Estado de Resultados priorizar ingresos contables (clase 4*).
-    const ventas = ventasConta > 0.01 ? ventasConta : ventasBrutas;
-    ventasFuentes.push({ ANIO: r.ANIO, MES: r.MES, ventas_dashboard: ventasBrutas, ventas_conta4: ventasConta, ventas_usada: ventas, fuente: ventasConta > 0.01 ? 'SALDOS_CO_4*' : 'VENTAS_DOCS_FV' });
+    // P&L: por defecto "Ventas netas" debe cuadrar con VE+PV (doctos de venta).
+    // Contabilidad (SALDOS_CO 4*) puede incluir otros ingresos y rompe la igualdad esperada por Dirección.
+    const useConta = String(req.query.pnl_ventas || '').trim().toLowerCase() === 'conta'
+      || (String(process.env.MICROSIP_PNL_USAR_VENTAS_CONTA || '').trim().toLowerCase().match(/^(1|true|yes)$/i));
+    const ventas = useConta && ventasConta > 0.01 ? ventasConta : ventasBrutas;
+    ventasFuentes.push({
+      ANIO: r.ANIO,
+      MES: r.MES,
+      ventas_docs_f: ventasBrutas,
+      ventas_conta4: ventasConta,
+      ventas_usada: ventas,
+      fuente: (useConta && ventasConta > 0.01) ? 'SALDOS_CO_4*' : 'VENTAS_DOCS_F',
+      nota: useConta ? 'pnl_ventas=conta o MICROSIP_PNL_USAR_VENTAS_CONTA=1' : 'default: doctos (VE+PV)',
+    });
     const chosen = chooseCost(kmKey);
     const costo = chosen.value || 0;
     costMap[kmKey] = costo;
@@ -7002,6 +7013,8 @@ async function resultadosPnlCore(req, dbOpts) {
       VENTAS_BRUTAS: ventasBrutas,
       DESCUENTOS_DEV: descuentosDev,
       VENTAS_NETAS: ventas,
+      VENTAS_NETAS_DOCS: ventasBrutas,
+      VENTAS_NETAS_CONTA: ventasConta,
       VENTAS_VE: +r.VENTAS_VE || 0,
       VENTAS_PV: +r.VENTAS_PV || 0,
       COSTO_VENTAS: costo,
