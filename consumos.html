@@ -437,6 +437,22 @@ function weekLabel(i, weekStartIso){
   const dd = d ? d.toLocaleDateString('es-MX',{day:'2-digit',month:'2-digit'}) : '—';
   return `S${i} (${dd})`;
 }
+function weekOrdinalInMonth(weekStartIso){
+  // S1 = primer lunes del mes (aunque no haya datos), S2 = segundo lunes, etc.
+  try{
+    const d = new Date(weekStartIso);
+    const y = d.getFullYear();
+    const m = d.getMonth(); // 0-based
+    const first = new Date(y, m, 1);
+    // primer lunes del mes
+    const dow = first.getDay(); // 0 dom .. 6 sab
+    const add = (dow === 0) ? 1 : (dow <= 1 ? 0 : (8 - dow));
+    const firstMon = new Date(y, m, 1 + add);
+    const diffDays = Math.round((d - firstMon) / 86400000);
+    const idx = 1 + Math.floor(Math.max(0, diffDays) / 7);
+    return idx;
+  }catch(_){ return null; }
+}
 function isoDay(d){
   if(!d) return '';
   const x = new Date(d);
@@ -458,9 +474,17 @@ function renderSemanalPorArticulo(payload){
     return;
   }
 
-  // Build week index
-  const weekKeys = [...new Set(rows.map(r => isoDay(r.SEMANA_INICIO)))].filter(Boolean).sort();
-  const wkIdx = new Map(weekKeys.map((k,i)=>[k,i+1]));
+  // Build week index: por lunes del mes (S1..Sn). Omitimos semanas cuyo lunes no cae en el mes actual del filtro.
+  const qs = (typeof filterReadState === 'function') ? (filterReadState() || {}) : {};
+  const anioSel = qs.anio ? +qs.anio : null;
+  const mesSel = qs.mes ? +qs.mes : null;
+  const weekKeysRaw = [...new Set(rows.map(r => isoDay(r.SEMANA_INICIO)))].filter(Boolean).sort();
+  const weekKeys = weekKeysRaw.filter(k=>{
+    if(!anioSel || !mesSel) return true;
+    const d = new Date(k);
+    return (d.getFullYear() === anioSel) && ((d.getMonth()+1) === mesSel);
+  });
+  const wkIdx = new Map(weekKeys.map((k)=>[k, weekOrdinalInMonth(k) || 1]));
 
   // Group by article
   const artMap = new Map();
@@ -480,11 +504,23 @@ function renderSemanalPorArticulo(payload){
   }
   const arts = [...artMap.values()].sort((a,b)=> (b.totI||0)-(a.totI||0)).slice(0, 60);
 
-  // Header
-  const wkCols = weekKeys.map((k)=>({ key:k, idx:wkIdx.get(k), label: weekLabel(wkIdx.get(k), k) }));
-  th.innerHTML = '<th>Artículo</th><th>U.Med</th><th class="num">Precio Unit.</th>' +
-    wkCols.map(w=>`<th class="num">${w.label} Unid</th><th class="num">S${w.idx} Importe</th>`).join('') +
-    '<th class="num">TOTAL Unid</th><th class="num">TOTAL Importe</th>';
+  // Header (2 niveles como Excel): fila 1 = Sx(fecha) colspan=2, fila 2 = Unid/Importe
+  const wkCols = weekKeys.map((k)=>({ key:k, idx:wkIdx.get(k), dd: new Date(k).toLocaleDateString('es-MX',{day:'2-digit',month:'2-digit'}) }));
+  const thead = tbl.querySelector('thead');
+  if(thead){
+    thead.innerHTML =
+      '<tr>' +
+        '<th rowspan="2">Artículo</th>' +
+        '<th rowspan="2">U.Med</th>' +
+        '<th rowspan="2" class="num">Precio Unit.</th>' +
+        wkCols.map(w=>`<th class="num" colspan="2">S${w.idx} (${w.dd})</th>`).join('') +
+        '<th class="num" colspan="2">TOTAL</th>' +
+      '</tr>' +
+      '<tr>' +
+        wkCols.map(w=>'<th class="num">Unid</th><th class="num">Importe</th>').join('') +
+        '<th class="num">Unid</th><th class="num">Importe</th>' +
+      '</tr>';
+  }
 
   tb.innerHTML = arts.map(a=>{
     const pu = a.totU > 0 ? (a.totI / a.totU) : 0;

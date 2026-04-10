@@ -8309,9 +8309,31 @@ get('/api/consumos/semanal-por-articulo', async (req) => {
   // weekStart = fecha - ((weekday+6) % 7)
   const weekStartExpr = `DATEADD(-MOD(EXTRACT(WEEKDAY FROM CAST(d.FECHA AS DATE)) + 6, 7) DAY TO CAST(d.FECHA AS DATE))`;
 
-  const rows = await query(
+  // 1) Top artículos del periodo (por importe) — evita recortar semanas al usar FIRST sobre (artículo+semana).
+  const topRows = await query(
     `
     SELECT FIRST ${limit}
+      d.ARTICULO_ID,
+      COALESCE(SUM(d.IMPORTE_LINEA), 0) AS IMPORTE_TOTAL
+    FROM ${sub} d
+    WHERE d.UNIDADES > 0 ${f.sql}
+    GROUP BY d.ARTICULO_ID
+    ORDER BY IMPORTE_TOTAL DESC
+  `,
+    f.params,
+    60000,
+    dbo,
+  ).catch(() => []);
+
+  const ids = (Array.isArray(topRows) ? topRows : [])
+    .map((r) => +r.ARTICULO_ID || 0)
+    .filter((n) => Number.isFinite(n) && n > 0);
+
+  const inSql = ids.length ? ` AND d.ARTICULO_ID IN (${ids.map(() => '?').join(',')})` : '';
+  const rows = ids.length
+    ? await query(
+        `
+    SELECT
       d.ARTICULO_ID,
       COALESCE(a.NOMBRE, 'Art. ' || CAST(d.ARTICULO_ID AS VARCHAR(12))) AS ARTICULO,
       COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
@@ -8320,14 +8342,15 @@ get('/api/consumos/semanal-por-articulo', async (req) => {
       COALESCE(SUM(d.IMPORTE_LINEA), 0) AS IMPORTE
     FROM ${sub} d
     LEFT JOIN ARTICULOS a ON a.ARTICULO_ID = d.ARTICULO_ID
-    WHERE d.UNIDADES > 0 ${f.sql}
+    WHERE d.UNIDADES > 0 ${f.sql} ${inSql}
     GROUP BY d.ARTICULO_ID, a.NOMBRE, a.UNIDAD_VENTA, ${weekStartExpr}
-    ORDER BY IMPORTE DESC
+    ORDER BY d.ARTICULO_ID, SEMANA_INICIO
   `,
-    f.params,
-    60000,
-    dbo,
-  ).catch(() => []);
+        [...f.params, ...ids],
+        60000,
+        dbo,
+      ).catch(() => [])
+    : [];
 
   // Nota: la tabla dinámica (pivot) se arma en el front; aquí devolvemos renglones normalizados.
   return {
