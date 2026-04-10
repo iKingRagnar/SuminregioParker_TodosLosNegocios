@@ -711,9 +711,6 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
         <option value="bi">Modo BI (cargo+IVA / cobro base)</option>
       </select>
     </div>
-    <button type="button" class="btn" id="btnInclContado" aria-pressed="false" title="Conciliación Power BI: incluye contado/inmediato en el TOTAL (no cambia vencido).">
-      Incluye contado (BI)
-    </button>
     <button class="btn" onclick="loadAll()">Aplicar</button>
     <span style="font-size:11px;color:var(--txt3);font-family:var(--mono);margin-left:auto" title="Deuda total = cargos − cobros de cartera a cr&eacute;dito.">
       Deuda total = cargos − pagos por cliente (solo cr&eacute;dito). Cuadra con buckets.
@@ -1096,31 +1093,6 @@ function withDbParam(pathWithQuery){
   return pathWithQuery+j+'db='+encodeURIComponent(db);
 }
 
-function cxcInclContadoRead() {
-  try {
-    const u = (new URLSearchParams(location.search).get('incl_contado') || '').trim();
-    if (u) return u === '1' || /^true$/i.test(u) || /^yes$/i.test(u);
-    const s = (sessionStorage.getItem('cxc_incl_contado_bi') || '').trim();
-    return s === '1' || /^true$/i.test(s) || /^yes$/i.test(s);
-  } catch (_) {}
-  return false;
-}
-function cxcInclContadoWrite(v) {
-  const on = !!v;
-  try { sessionStorage.setItem('cxc_incl_contado_bi', on ? '1' : '0'); } catch (_) {}
-  try {
-    const u = new URL(window.location.href);
-    if (on) u.searchParams.set('incl_contado', '1');
-    else u.searchParams.delete('incl_contado');
-    history.replaceState({}, '', u);
-  } catch (_) {}
-  const b = document.getElementById('btnInclContado');
-  if (b) {
-    b.setAttribute('aria-pressed', on ? 'true' : 'false');
-    b.classList.toggle('btn-on', on);
-  }
-}
-
 async function fetchCxcContadoDelta(queryMs) {
   const ms = Math.min(Math.max(+queryMs || 60000, 8000), 180000);
   const q = buildCxcQuery('queryMs=' + encodeURIComponent(ms));
@@ -1210,50 +1182,56 @@ async function loadResumen() {
   const salSub = document.getElementById('kSaludSub');
   try {
     // Un solo round-trip: /resumen + /aging en paralelo duplicaban cxcResumenAgingUnificado (timeouts en producción).
-    const snap = await apiFetch('/api/cxc/resumen-aging' + buildCxcQuery('queryMs=180000'), { timeout: 195000 });
+    let snap = await apiFetch('/api/cxc/resumen-aging' + buildCxcQuery('queryMs=180000'), { timeout: 195000 });
+    const res0 = (snap && snap.resumen) || {};
+    const age0raw = (snap && snap.aging) || {};
+    const age0 = typeof window.normalizeCxcAging === 'function'
+      ? window.normalizeCxcAging(age0raw)
+      : (age0raw && typeof age0raw === 'object' && !Array.isArray(age0raw) ? age0raw : (Array.isArray(age0raw) && age0raw[0]) ? age0raw[0] : {});
+    const saldo0 = +res0.SALDO_TOTAL || 0;
+    const mora0 = (+age0.DIAS_1_30||0) + (+age0.DIAS_31_60||0) + (+age0.DIAS_61_90||0) + (+age0.DIAS_MAS_90||0);
+
+    // Defensa Render: si llega degradado (aging=0 pero saldo>0), reintentar sin caché para recuperar buckets/vencido.
+    if (saldo0 > 1000 && mora0 <= 0.005 && (+res0.VENCIDO || 0) <= 0.005) {
+      try {
+        const snap2 = await apiFetch('/api/cxc/resumen-aging' + buildCxcQuery('queryMs=180000&nocache=1'), { timeout: 195000 });
+        const r2 = (snap2 && snap2.resumen) || {};
+        const a2raw = (snap2 && snap2.aging) || {};
+        const a2 = typeof window.normalizeCxcAging === 'function'
+          ? window.normalizeCxcAging(a2raw)
+          : (a2raw && typeof a2raw === 'object' && !Array.isArray(a2raw) ? a2raw : (Array.isArray(a2raw) && a2raw[0]) ? a2raw[0] : {});
+        const mora2 = (+a2.DIAS_1_30||0) + (+a2.DIAS_31_60||0) + (+a2.DIAS_61_90||0) + (+a2.DIAS_MAS_90||0);
+        if ((+r2.VENCIDO || 0) > 0.005 || mora2 > 0.005) snap = snap2;
+      } catch (_) {}
+    }
+
     const res = (snap && snap.resumen) || {};
     const ageRaw = (snap && snap.aging) || {};
     const age = typeof window.normalizeCxcAging === 'function'
       ? window.normalizeCxcAging(ageRaw)
       : (ageRaw && typeof ageRaw === 'object' && !Array.isArray(ageRaw) ? ageRaw : (Array.isArray(ageRaw) && ageRaw[0]) ? ageRaw[0] : {});
-    const saldoBase = +res.SALDO_TOTAL||0;
+    const saldo = +res.SALDO_TOTAL||0;
     const vencFromAging = (+age.DIAS_1_30||0) + (+age.DIAS_31_60||0) + (+age.DIAS_61_90||0) + (+age.DIAS_MAS_90||0);
     const corrienteAging = +age.CORRIENTE || 0;
     const sumAging = vencFromAging + corrienteAging;
-    // KPIs: API unificada; si el resumen marca 0 vencido pero los buckets sí tienen mora, alinear con aging (defensa + coherencia).
     let venc = +res.VENCIDO || 0;
     let pvenc = +res.POR_VENCER || 0;
-    if (venc <= 0.005 && vencFromAging > 0.005) {
-      venc = vencFromAging;
-      pvenc = corrienteAging;
-    }
-    if (saldoBase > 0.005 && Math.abs(venc + pvenc - saldoBase) / saldoBase > 0.08) {
-      pvenc = Math.max(0, saldoBase - venc);
-    }
+    if (venc <= 0.005 && vencFromAging > 0.005) { venc = vencFromAging; pvenc = corrienteAging; }
+    if (saldo > 0.005 && Math.abs(venc + pvenc - saldo) / saldo > 0.08) pvenc = Math.max(0, saldo - venc);
 
-    let saldo = saldoBase;
-    let biDelta = null;
-    const inclContado = cxcInclContadoRead();
-    const modo = (res.CXC_TOTAL_MODO_REQ || '').toLowerCase();
-    if (inclContado && (modo === 'documento' || modo === 'auto' || modo === 'auto_iva')) {
-      biDelta = await fetchCxcContadoDelta(180000);
-      if (biDelta && biDelta.ok && biDelta.incl_contado && typeof biDelta.incl_contado.total === 'number') {
-        saldo = +biDelta.incl_contado.total || saldoBase;
-        pvenc = Math.max(0, saldo - venc);
-      }
-    }
-
+    // Comparación BI (incluye contado) solo informativa; no altera KPIs de crédito.
     const explain = document.getElementById('cxcBiExplain');
     if (explain) {
-      if (inclContado && biDelta && biDelta.ok && biDelta.delta && typeof biDelta.delta.total === 'number') {
-        explain.textContent =
-          'Conciliación BI: TOTAL incluye contado/inmediato (+'
-          + fmtK(biDelta.delta.total) + '). Vencido no cambia.';
-      } else if (inclContado && (modo !== 'documento' && modo !== 'auto' && modo !== 'auto_iva')) {
-        explain.textContent = 'Incluye contado (BI) aplica solo al total documental (modo documento/auto).';
-      } else {
-        explain.textContent = '';
-      }
+      explain.textContent = 'Conciliación BI: calculando total incl. contado…';
+      fetchCxcContadoDelta(180000).then((biDelta) => {
+        try{
+          if (!biDelta || !biDelta.ok) { explain.textContent = ''; return; }
+          const biTotal = (biDelta.incl_contado && typeof biDelta.incl_contado.total === 'number') ? biDelta.incl_contado.total : null;
+          const d = (biDelta.delta && typeof biDelta.delta.total === 'number') ? biDelta.delta.total : null;
+          if (biTotal == null || d == null) { explain.textContent = ''; return; }
+          explain.textContent = 'Conciliación BI: total incl. contado/inmediato ' + fmtK(biTotal) + ' (+' + fmtK(d) + '). Vencido no cambia.';
+        }catch(_){ explain.textContent = ''; }
+      }).catch(()=>{ explain.textContent = ''; });
     }
 
 
@@ -1613,17 +1591,6 @@ async function ensureClientesFiltro(){
 }
 
 async function loadAll(){
-  try{
-    const b = document.getElementById('btnInclContado');
-    if (b && !b.__bound) {
-      b.__bound = true;
-      b.addEventListener('click', function () {
-        cxcInclContadoWrite(!cxcInclContadoRead());
-        loadAll();
-      });
-    }
-    cxcInclContadoWrite(cxcInclContadoRead());
-  } catch (_) {}
   try {
     const tk = document.getElementById('cxcTotalKpi');
     if (tk && tk.value) {
