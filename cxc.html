@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');</script>
-<script src="filters.js"></script>
+<script src="filters.js?v=cxcfix-20260410-query"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -707,6 +707,7 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
         <option value="documento">Solo documentos</option>
         <option value="cliente">Cliente neto</option>
         <option value="con_iva">Cliente con IVA</option>
+        <option value="bi">Modo BI (cargo+IVA / cobro base)</option>
       </select>
     </div>
     <button class="btn" onclick="loadAll()">Aplicar</button>
@@ -1040,6 +1041,8 @@ function cxcRowSaldo(r) {
 
 function cxcTotalKpiRead() {
   try {
+    const tk = document.getElementById('cxcTotalKpi');
+    if (tk && typeof tk.value === 'string' && tk.value.trim()) return tk.value.trim().toLowerCase();
     const u = new URLSearchParams(location.search).get('cxc_total');
     if (u) return String(u).trim().toLowerCase();
     const s = sessionStorage.getItem('cxc_total_kpi');
@@ -1048,8 +1051,10 @@ function cxcTotalKpiRead() {
   return '';
 }
 
+/** Solo parámetros CxC (sin preset/anio/mes de la barra de ventas): evita mezclar periodo de facturación con snapshot de cartera. */
 function buildCxcQuery(extra){
-  const cf = (document.getElementById('fCliente')?.value || '').trim();
+  const sel = document.getElementById('fCliente');
+  const cf = (sel && sel.value ? String(sel.value) : '').trim();
   const e = extra ? String(extra).replace(/^[?&]+/, '') : '';
   const extraObj = {};
   if (e) {
@@ -1065,13 +1070,9 @@ function buildCxcQuery(extra){
   if (cf) extraObj.cliente = cf;
   const cxcTot = cxcTotalKpiRead();
   if (cxcTot) extraObj.cxc_total = cxcTot;
-  let qs = '';
-  if (typeof window.filterBuildQS === 'function') {
-    qs = window.filterBuildQS(Object.keys(extraObj).length ? extraObj : null, { omitDb: true });
-  } else {
-    qs = Object.keys(extraObj).map(function (k) { return k + '=' + encodeURIComponent(extraObj[k]); }).join('&');
-  }
-
+  const qs = Object.keys(extraObj)
+    .map(function (k) { return k + '=' + encodeURIComponent(extraObj[k]); })
+    .join('&');
   return qs ? ('?' + qs) : '';
 }
 
@@ -1245,6 +1246,7 @@ async function loadResumen() {
       else if (m === 'auto_iva' || (m === 'auto' && res.CXC_AUTO_INCLUYE_IVA)) suf = ' · modo: auto puede usar IVA';
       else if (m === 'auto') suf = ' · modo: auto solo neto (doc/cliente)';
       else if (m === 'documento') suf = ' · modo: documentos';
+      else if (m === 'bi') suf = ' · modo: BI (cargo+IVA / cobro base)';
       else if (m === 'cliente') suf = ' · modo: cliente neto';
       hintEl.textContent = 'Total KPI: ' + String(res.CXC_TOTAL_FUENTE) + suf + ' · ref. doc ' + fmtK(res.CXC_TOTAL_DOC) + ' · cliente neto ' + fmtK(res.CXC_TOTAL_ALT_NETO) + ' · cliente IVA ' + fmtK(res.CXC_TOTAL_ALT_IVA);
     } else if (hintEl) { hintEl.textContent = ''; }
@@ -1536,6 +1538,17 @@ async function ensureClientesFiltro(){
 }
 
 async function loadAll(){
+  try {
+    const tk = document.getElementById('cxcTotalKpi');
+    if (tk && tk.value) {
+      try { sessionStorage.setItem('cxc_total_kpi', tk.value); } catch (_) {}
+      try {
+        const u = new URL(window.location.href);
+        u.searchParams.set('cxc_total', tk.value);
+        history.replaceState({}, '', u);
+      } catch (_) {}
+    }
+  } catch (_) {}
 
   const [rRes, rVen] = await Promise.allSettled([loadResumen(), loadVencidas()]);
   if (rRes.status === 'rejected') console.error('[cxc] loadResumen', rRes.reason);
@@ -1584,7 +1597,7 @@ async function refreshCxcDbHint(){
     var tk = document.getElementById('cxcTotalKpi');
     if (tk) {
       var vr = cxcTotalKpiRead();
-      if (vr && ['auto', 'auto_iva', 'documento', 'cliente', 'con_iva'].indexOf(vr) >= 0) tk.value = vr;
+      if (vr && ['auto', 'auto_iva', 'documento', 'cliente', 'con_iva', 'bi'].indexOf(vr) >= 0) tk.value = vr;
       tk.addEventListener('change', function () {
         try { sessionStorage.setItem('cxc_total_kpi', tk.value); } catch (_) {}
         void loadAll();

@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <script>window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="filters.js?v=cxcfix-20260410-venc2"></script>
+<script src="filters.js?v=cxcfix-20260410-display-snap"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -614,6 +614,24 @@ function directorPickCxcResumenSaldoVenc(res) {
   }
   return { sal: n(['SALDO_TOTAL', 'saldo_total']), venc: n(['VENCIDO', 'vencido']) };
 }
+/** KPI CxC en tarjetas: si el merge JS pierde VENCIDO, tomar saldo/vencido/mora del mismo JSON que ya respondió resumen-aging. */
+function directorResolveCxcDisplayKpis(cxc, cxcSnap) {
+  var rawR = (cxcSnap && cxcSnap.resumen && typeof cxcSnap.resumen === 'object') ? cxcSnap.resumen : {};
+  var pr = directorPickCxcResumenSaldoVenc(rawR);
+  var pipeSal = +(cxc && cxc.SALDO_TOTAL) || 0;
+  var pipeVenc = +(cxc && cxc.VENCIDO) || 0;
+  var pipeVig = +(cxc && cxc.POR_VENCER) || 0;
+  var cTotal = pipeSal > 0.005 ? pipeSal : pr.sal;
+  var mora = directorMoraFromAgingObj(cxcSnap && cxcSnap.aging);
+  var cVenc = pipeVenc > 0.005 ? pipeVenc : pr.venc;
+  if (cVenc <= 0.005 && mora > 0.005 && cTotal > 0.005) cVenc = Math.min(mora, cTotal);
+  if (cVenc <= 0.005 && pr.venc > 0.005) cVenc = pr.venc;
+  var cVig = pipeVig > 0.005 ? pipeVig : (cTotal > 0.005 ? Math.max(0, cTotal - cVenc) : 0);
+  if (cTotal > 0.005 && Math.abs(cVenc + cVig - cTotal) / cTotal > 0.12) cVig = Math.max(0, cTotal - cVenc);
+  var numCli = (cxc && cxc.NUM_CLIENTES != null && cxc.NUM_CLIENTES !== '') ? +cxc.NUM_CLIENTES : (+rawR.NUM_CLIENTES || 0);
+  var numCliVen = (cxc && cxc.NUM_CLIENTES_VENCIDOS != null && cxc.NUM_CLIENTES_VENCIDOS !== '') ? cxc.NUM_CLIENTES_VENCIDOS : rawR.NUM_CLIENTES_VENCIDOS;
+  return { cTotal: cTotal, cVenc: cVenc, cVig: cVig, numCli: numCli, numCliVen: numCliVen };
+}
 /** Si director/resumen trae cotiz en 0 pero /ventas/cotizaciones/resumen sí responde, unificar nombres de KPI Director. */
 function mergeDirectorCotiFromVentasApi(co, raw) {
   var base = co && typeof co === 'object' ? co : {};
@@ -930,8 +948,10 @@ async function loadAll() {
       });
     }
 
-    // CxC
-    const cTotal=+(cxc.SALDO_TOTAL||0), cVenc=+(cxc.VENCIDO||0), cVig=+(cxc.POR_VENCER||0);
+    // CxC: pintar desde JSON crudo si el pipeline dejó vencido en 0 (mismo snapshot que CxC)
+    var dispCx = directorResolveCxcDisplayKpis(cxc, cxcSnap);
+    const cTotal = dispCx.cTotal, cVenc = dispCx.cVenc, cVig = dispCx.cVig;
+    cxc = Object.assign({}, cxc, { SALDO_TOTAL: cTotal, VENCIDO: cVenc, POR_VENCER: cVig, NUM_CLIENTES: dispCx.numCli, NUM_CLIENTES_VENCIDOS: dispCx.numCliVen });
     const pVenc=cTotal>0?Math.round(cVenc/cTotal*100):0;
     const pVig=cTotal>0?Math.round(cVig/cTotal*100):0;
     const pVigSafe=isNaN(pVig)?0:pVig;
