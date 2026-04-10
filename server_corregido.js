@@ -5067,6 +5067,68 @@ get('/api/debug/inv-almacenes', async (req) => {
   };
 });
 
+/**
+ * Debug: lista artículos de un ALMACEN_ID con existencia != 0, con costo/valor.
+ * Uso: /api/debug/inv-almacen-detalle?db=default&almacen_id=19&limit=200
+ */
+get('/api/debug/inv-almacen-detalle', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const almacenId = req.query && req.query.almacen_id != null ? parseInt(String(req.query.almacen_id), 10) : NaN;
+  const limit = Math.min(parseInt(req.query.limit) || 200, 1000);
+  if (!Number.isFinite(almacenId) || almacenId <= 0) {
+    return { ok: false, error: 'Indica ?almacen_id=N.' };
+  }
+  const colsArt = await getTableColumns('ARTICULOS', dbo);
+  const artTipoInv = invArticulosTipoInventarioWhereSql(colsArt);
+  const costoSub = await invCostoSubSql(dbo);
+  const rows = await query(
+    `
+    WITH ex AS (
+      SELECT si.ARTICULO_ID,
+        SUM(COALESCE(si.ENTRADAS_UNIDADES, 0) - COALESCE(si.SALIDAS_UNIDADES, 0)) AS EXISTENCIA
+      FROM SALDOS_IN si
+      WHERE si.ALMACEN_ID = ${almacenId}
+      GROUP BY si.ARTICULO_ID
+    )
+    SELECT FIRST ${limit}
+      a.ARTICULO_ID,
+      a.NOMBRE AS DESCRIPCION,
+      COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
+      COALESCE(a.ES_ALMACENABLE, 'S') AS ES_ALMACENABLE,
+      COALESCE(a.ESTATUS, 'A') AS ESTATUS,
+      ex.EXISTENCIA,
+      COALESCE(cs.COSTO1, 0) AS COSTO_UNITARIO,
+      ex.EXISTENCIA * COALESCE(cs.COSTO1, 0) AS VALOR_TOTAL
+    FROM ex
+    JOIN ARTICULOS a ON a.ARTICULO_ID = ex.ARTICULO_ID
+    LEFT JOIN ${costoSub} cs ON cs.ARTICULO_ID = a.ARTICULO_ID
+    WHERE COALESCE(a.ESTATUS, 'A') = 'A' ${artTipoInv}
+      AND ABS(COALESCE(ex.EXISTENCIA, 0)) > 0.00001
+    ORDER BY VALOR_TOTAL DESC
+  `,
+    [],
+    90000,
+    dbo,
+  ).catch(() => []);
+
+  const rowArr = Array.isArray(rows) ? rows : [];
+  const uds = rowArr.reduce((acc, r) => acc + (+(r.EXISTENCIA || 0)), 0);
+  const valor = rowArr.reduce((acc, r) => acc + (+(r.VALOR_TOTAL || 0)), 0);
+  return {
+    ok: true,
+    ts: new Date().toISOString(),
+    db: normalizeDbQueryId(req.query.db) || 'default',
+    almacen_id: almacenId,
+    resumen: {
+      articulos: rowArr.length,
+      uds: Math.round(uds * 100) / 100,
+      valor: Math.round(valor * 100) / 100,
+      cpu_implicito: uds ? Math.round((valor / uds) * 100) / 100 : 0,
+    },
+    rows: rowArr,
+  };
+});
+
 // Debug: compara Inventario con variaciones de costo/almacén para explicar diferencias vs Power BI.
 // Params opcionales:
 // - ?almacen_ids=1,2 (simula filtro de almacén sin tocar .env)
