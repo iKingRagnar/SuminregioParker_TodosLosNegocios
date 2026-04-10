@@ -2083,6 +2083,7 @@ function cxcTotalKpiMode(req) {
   if (raw === 'doc' || raw === 'documento') return 'documento';
   if (raw === 'cliente' || raw === 'neto') return 'cliente';
   if (raw === 'con_iva' || raw === 'iva') return 'con_iva';
+  if (raw === 'bi') return 'bi';
   if (raw === 'auto_iva') return 'auto_iva';
   return 'auto';
 }
@@ -3863,6 +3864,40 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
 
   const totClienteNeto = (Array.isArray(cxcSaldosLegacy) ? cxcSaldosLegacy : []).reduce((s, r) => s + (+r.SALDO || 0), 0);
   const totClienteConIva = +(Array.isArray(totClienteConIvaRows) && totClienteConIvaRows[0] && totClienteConIvaRows[0].T) || 0;
+  // Variante BI: cargo con IVA (si existe), cobro en base (normalizado), incluye contado.
+  let totClienteBi = 0;
+  try {
+    const rowsBi = await query(
+      `
+      SELECT COALESCE(SUM(x.SALDO), 0) AS T
+      FROM (
+        SELECT dc.CLIENTE_ID,
+          SUM(CASE
+            WHEN i.TIPO_IMPTE = 'C' THEN (i.IMPORTE + COALESCE(i.IMPUESTO, 0))
+            WHEN i.TIPO_IMPTE = 'R' THEN -(${CXC_RECIBO_BASE_EXPR})
+            ELSE 0
+          END) AS SALDO
+        FROM IMPORTES_DOCTOS_CC i
+        JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = i.DOCTO_CC_ID
+        LEFT JOIN CLIENTES clx ON clx.CLIENTE_ID = dc.CLIENTE_ID
+        LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, clx.COND_PAGO_ID)
+        WHERE COALESCE(i.CANCELADO, 'N') = 'N' ${cf ? ` AND dc.CLIENTE_ID = ${cf}` : ''}
+        GROUP BY dc.CLIENTE_ID
+        HAVING SUM(CASE
+          WHEN i.TIPO_IMPTE = 'C' THEN (i.IMPORTE + COALESCE(i.IMPUESTO, 0))
+          WHEN i.TIPO_IMPTE = 'R' THEN -(${CXC_RECIBO_BASE_EXPR})
+          ELSE 0
+        END) > 0
+      ) x
+    `,
+      [],
+      Math.min(ms, 60000),
+      dbo
+    ).catch(() => [{ T: 0 }]);
+    totClienteBi = +(rowsBi && rowsBi[0] && rowsBi[0].T) || 0;
+  } catch (_) {
+    totClienteBi = 0;
+  }
   const totalDocPostRecon = saldoTotal;
   const modoKpi = cxcTotalKpiMode(req);
   let fuenteKpi = 'documento';
@@ -3873,6 +3908,9 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
   } else if (modoKpi === 'con_iva' && totClienteConIva > 0.005) {
     chosen = totClienteConIva;
     fuenteKpi = 'cliente_con_iva';
+  } else if (modoKpi === 'bi' && totClienteBi > 0.005) {
+    chosen = totClienteBi;
+    fuenteKpi = 'bi:cargo_con_iva_cobro_base_incl_contado';
   } else if (modoKpi === 'auto' || modoKpi === 'auto_iva') {
     const inclIva = modoKpi === 'auto_iva' || cxcAutoIncluyeIvaEnMax(req);
     const base = totalDocPostRecon > 0.005
@@ -3953,6 +3991,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
     CXC_TOTAL_DOC: Math.round(totalDocPostRecon * 100) / 100,
     CXC_TOTAL_ALT_NETO: Math.round(totClienteNeto * 100) / 100,
     CXC_TOTAL_ALT_IVA: Math.round(totClienteConIva * 100) / 100,
+    CXC_TOTAL_ALT_BI: Math.round(totClienteBi * 100) / 100,
     CXC_AUTO_INCLUYE_IVA: cxcAutoIncluyeIvaEnMax(req),
     CXC_TOTAL_MODO_REQ: modoKpi,
   };
@@ -7604,13 +7643,18 @@ get('/api/debug/cxc-por-cliente', async (req) => {
     query(`SELECT cs.CLIENTE_ID, cs.SALDO AS SALDO_LEDGer FROM ${cxcClienteSQL()} cs`, [], ms, dbo).catch(() => []),
     query(`SELECT COALESCE(SUM(cs.SALDO), 0) AS T FROM ${cxcClienteSQL()} cs`, [], ms, dbo).catch(() => [{ T: 0 }]),
   ]);
-  const ledMap = new Map((Array.isArray(ledgerRows) ? ledgerRows : []).map((r) => [r.CLIENTE_ID, +r.SALDO_LEDGer || 0]));
-  const docIds = new Set((Array.isArray(porDocRows) ? porDocRows : []).map((r) => r.CLIENTE_ID));
+  const normId = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : v;
+  };
+  const ledMap = new Map((Array.isArray(ledgerRows) ? ledgerRows : []).map((r) => [normId(r.CLIENTE_ID), +r.SALDO_LEDGer || 0]));
+  const docIds = new Set((Array.isArray(porDocRows) ? porDocRows : []).map((r) => normId(r.CLIENTE_ID)));
   const clientes = (Array.isArray(porDocRows) ? porDocRows : []).map((r) => {
+    const id = normId(r.CLIENTE_ID);
     const doc = +r.SALDO_DOC || 0;
-    const led = ledMap.get(r.CLIENTE_ID) || 0;
+    const led = ledMap.get(id) || 0;
     return {
-      CLIENTE_ID: r.CLIENTE_ID,
+      CLIENTE_ID: id,
       NOMBRE: String(r.NOMBRE || ''),
       NUM_DOCS_SALDO: +(r.NUM_DOCS_SALDO || 0) || 0,
       SALDO_DOC: r2(doc),
