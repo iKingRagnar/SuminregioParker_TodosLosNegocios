@@ -1128,7 +1128,15 @@ async function fetchCxcContadoDelta(queryMs) {
   window.__CXC_CONTADO_DELTA = window.__CXC_CONTADO_DELTA || {};
   if (window.__CXC_CONTADO_DELTA[key]) return window.__CXC_CONTADO_DELTA[key];
   const p = apiFetch('/api/debug/cxc-contado-delta' + q, { timeout: ms + 5000 })
-    .catch(() => null);
+    .catch(() => null)
+    .then((r) => {
+      // Si falló (endpoint aún sin deploy, timeout, etc.), no cachear para poder reintentar.
+      if (!r || !r.ok) {
+        try { delete window.__CXC_CONTADO_DELTA[key]; } catch (_) {}
+        return r;
+      }
+      return r;
+    });
   window.__CXC_CONTADO_DELTA[key] = p;
   return p;
 }
