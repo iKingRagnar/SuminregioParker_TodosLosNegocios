@@ -282,6 +282,39 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
       </div>
     </article>
   </section>
+
+  <section class="g2" aria-label="Consumo semanal por artículo">
+    <article class="card">
+      <div class="ch">
+        <div class="ct">Consumo semanal por artículo</div>
+        <div class="cb">Unidades + venta por semana (periodo del filtro)</div>
+      </div>
+      <div class="bd" style="overflow-x:auto">
+        <table class="tbl" id="tblSemArt">
+          <thead><tr><th>Artículo</th><th>U.Med</th><th class="num">Precio Unit.</th><th class="num">—</th></tr></thead>
+          <tbody><tr><td colspan="4">Cargando…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="bd" style="overflow-x:auto;border-top:1px solid rgba(255,255,255,.08)">
+        <div class="cb" style="margin-bottom:8px">Promedio y máximo semanal (por artículo)</div>
+        <table class="tbl" id="tblSemStats">
+          <thead><tr><th>Artículo</th><th>U.Med</th><th class="num">Consumo semanal</th><th class="num">Prom. semanal</th><th class="num">Máx. semana</th></tr></thead>
+          <tbody><tr><td colspan="5">Cargando…</td></tr></tbody>
+        </table>
+      </div>
+    </article>
+    <article class="card">
+      <div class="ch">
+        <div class="ct">Notas</div>
+        <div class="cb">Cómo leer la tabla</div>
+      </div>
+      <div class="bd" style="font:.75rem 'DM Mono',monospace;color:var(--muted);line-height:1.55">
+        <div>- La semana inicia en <strong>lunes</strong> (fecha en encabezado).</div>
+        <div>- <strong>Precio Unit.</strong> es promedio del periodo: \(importe / unidades\).</div>
+        <div>- Si quieres que cuadre 1:1 con un Excel mensual, usa filtro <strong>Mes</strong> y año/mes del mismo periodo.</div>
+      </div>
+    </article>
+  </section>
 </main>
 
 <script>
@@ -292,6 +325,7 @@ let topConsumoN = 10;
 let lastConsumoRes = null;
 const fmtN = v => isNaN(+v) ? '0' : (+v).toLocaleString('es-MX', { maximumFractionDigits: 0 });
 const fmtF = v => isNaN(+v) ? '0' : (+v).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtMoney = v => isNaN(+v) ? '$0' : ('$' + (+v).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 const toFecha = d => d ? new Date(d).toLocaleDateString('es-MX') : '&mdash;';
 const getQS = (extra={}) => {
   if (typeof filterBuildQS === 'function') return filterBuildQS({ ...extra, ...(tipo ? { tipo } : {}) });
@@ -396,6 +430,109 @@ async function loadTop(){
     chartTop.data.datasets[1].data = rows.map(r => +r.VENTA_IMPORTE || 0);
     chartTop.update();
   } catch(e) { /* chart stays blank */ }
+}
+
+function weekLabel(i, weekStartIso){
+  const d = weekStartIso ? new Date(weekStartIso) : null;
+  const dd = d ? d.toLocaleDateString('es-MX',{day:'2-digit',month:'2-digit'}) : '—';
+  return `S${i} (${dd})`;
+}
+function isoDay(d){
+  if(!d) return '';
+  const x = new Date(d);
+  return x.toISOString().slice(0,10);
+}
+function renderSemanalPorArticulo(payload){
+  const tbl = document.getElementById('tblSemArt');
+  const stats = document.getElementById('tblSemStats');
+  const tb = tbl ? tbl.querySelector('tbody') : null;
+  const th = tbl ? tbl.querySelector('thead tr') : null;
+  const sb = stats ? stats.querySelector('tbody') : null;
+  if(!tbl || !tb || !th || !stats || !sb) return;
+
+  const rows = payload && payload.rows && Array.isArray(payload.rows) ? payload.rows : [];
+  if(!rows.length){
+    th.innerHTML = '<th>Artículo</th><th>U.Med</th><th class="num">Precio Unit.</th><th class="num">Sin datos</th>';
+    tb.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sin datos para este filtro</td></tr>';
+    sb.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted)">Sin datos</td></tr>';
+    return;
+  }
+
+  // Build week index
+  const weekKeys = [...new Set(rows.map(r => isoDay(r.SEMANA_INICIO)))].filter(Boolean).sort();
+  const wkIdx = new Map(weekKeys.map((k,i)=>[k,i+1]));
+
+  // Group by article
+  const artMap = new Map();
+  for(const r of rows){
+    const aid = +r.ARTICULO_ID || 0;
+    const key = String(aid);
+    if(!artMap.has(key)){
+      artMap.set(key, { ARTICULO_ID: aid, ARTICULO: r.ARTICULO||('Art. '+aid), UNIDAD: r.UNIDAD||'PZA', weeks: {}, totU:0, totI:0 });
+    }
+    const a = artMap.get(key);
+    const wk = isoDay(r.SEMANA_INICIO);
+    const u = +r.UNIDADES || 0;
+    const im = +r.IMPORTE || 0;
+    a.weeks[wk] = { u: (a.weeks[wk]?.u||0) + u, im: (a.weeks[wk]?.im||0) + im };
+    a.totU += u;
+    a.totI += im;
+  }
+  const arts = [...artMap.values()].sort((a,b)=> (b.totI||0)-(a.totI||0)).slice(0, 60);
+
+  // Header
+  const wkCols = weekKeys.map((k)=>({ key:k, idx:wkIdx.get(k), label: weekLabel(wkIdx.get(k), k) }));
+  th.innerHTML = '<th>Artículo</th><th>U.Med</th><th class="num">Precio Unit.</th>' +
+    wkCols.map(w=>`<th class="num">${w.label} Unid</th><th class="num">S${w.idx} Importe</th>`).join('') +
+    '<th class="num">TOTAL Unid</th><th class="num">TOTAL Importe</th>';
+
+  tb.innerHTML = arts.map(a=>{
+    const pu = a.totU > 0 ? (a.totI / a.totU) : 0;
+    const cells = wkCols.map(w=>{
+      const x = a.weeks[w.key] || {u:0,im:0};
+      return `<td class="num">${fmtF(x.u)}</td><td class="num">${fmtMoney(x.im)}</td>`;
+    }).join('');
+    return `<tr>
+      <td title="${esc(a.ARTICULO)}">${esc(String(a.ARTICULO).substring(0,42))}${String(a.ARTICULO).length>42?'…':''}</td>
+      <td>${esc(a.UNIDAD)}</td>
+      <td class="num">${fmtMoney(pu)}</td>
+      ${cells}
+      <td class="num">${fmtF(a.totU)}</td>
+      <td class="num">${fmtMoney(a.totI)}</td>
+    </tr>`;
+  }).join('');
+
+  // Stats table
+  sb.innerHTML = arts.map(a=>{
+    const perWeekUnits = weekKeys.map(k => (a.weeks[k]?.u||0));
+    const total = a.totU || 0;
+    const weeksCount = weekKeys.length || 1;
+    const avg = total / weeksCount;
+    const mx = perWeekUnits.length ? Math.max(...perWeekUnits) : 0;
+    return `<tr>
+      <td title="${esc(a.ARTICULO)}">${esc(String(a.ARTICULO).substring(0,42))}${String(a.ARTICULO).length>42?'…':''}</td>
+      <td>${esc(a.UNIDAD)}</td>
+      <td class="num">${fmtF(total)}</td>
+      <td class="num">${fmtF(avg)}</td>
+      <td class="num">${fmtF(mx)}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadSemanalPorArticulo(){
+  const tbl = document.getElementById('tblSemArt');
+  const stats = document.getElementById('tblSemStats');
+  const tb = tbl ? tbl.querySelector('tbody') : null;
+  const sb = stats ? stats.querySelector('tbody') : null;
+  if(tb) tb.innerHTML = '<tr><td colspan="4">Cargando…</td></tr>';
+  if(sb) sb.innerHTML = '<tr><td colspan="5">Cargando…</td></tr>';
+  try{
+    const d = await api('/api/consumos/semanal-por-articulo?' + getQS({ limit: 60 }));
+    renderSemanalPorArticulo(d);
+  }catch(e){
+    if(tb) tb.innerHTML = '<tr><td colspan="4" style="color:var(--orange)">Error al cargar consumo semanal</td></tr>';
+    if(sb) sb.innerHTML = '<tr><td colspan="5" style="color:var(--orange)">Error al cargar consumo semanal</td></tr>';
+  }
 }
 function esc(s){
   return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
@@ -570,7 +707,7 @@ function clearConsumosFilterLoadingUI(){
 async function loadAll(){
   clearConsumosFilterLoadingUI();
   // Cada función maneja sus propios errores; allSettled garantiza que un fallo no cancele las demás
-  await Promise.allSettled([loadResumen(), loadDiario(), loadTop(), loadVendedores(), loadInsights(), loadPedidosVsConsumo()]);
+  await Promise.allSettled([loadResumen(), loadDiario(), loadTop(), loadVendedores(), loadInsights(), loadPedidosVsConsumo(), loadSemanalPorArticulo()]);
   document.getElementById('pageSub').textContent = 'Consumo en unidades y venta ($) de las mismas l\u00edneas VE/PV seg\u00fan el filtro.';
 }
 (async function init(){

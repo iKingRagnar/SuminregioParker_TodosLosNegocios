@@ -8284,6 +8284,63 @@ get('/api/consumos/top-articulos', async (req) => {
   `, f.params, 30000, dbo).catch(() => []);
 });
 
+/**
+ * Consumo semanal por artículo (unidades + importe) en el periodo del filtro.
+ * Estructura pensada para tabla tipo Excel: semanas con fecha de inicio (lunes).
+ * Params:
+ * - limit (default 60, max 300)
+ * - tipo (VE/PV) via getTipo()
+ * - filtros (desde/hasta/anio/mes/preset, vendedor/cliente) via buildFiltros()
+ */
+get('/api/consumos/semanal-por-articulo', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const tipo = getTipo(req);
+  const parts = await resolveConsumosSchema(dbo);
+  const sub = consumosSubSql(tipo, parts);
+  if (!req.query.desde && !req.query.hasta && !req.query.anio) {
+    const now = new Date();
+    req.query.anio = now.getFullYear();
+    req.query.mes = now.getMonth() + 1;
+  }
+  const f = buildFiltros(req, 'd');
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 60, 10), 300);
+
+  // Firebird weekday: 0=domingo..6=sábado. Queremos lunes como inicio de semana.
+  // weekStart = fecha - ((weekday+6) % 7)
+  const weekStartExpr = `DATEADD(-MOD(EXTRACT(WEEKDAY FROM CAST(d.FECHA AS DATE)) + 6, 7) DAY TO CAST(d.FECHA AS DATE))`;
+
+  const rows = await query(
+    `
+    SELECT FIRST ${limit}
+      d.ARTICULO_ID,
+      COALESCE(a.NOMBRE, 'Art. ' || CAST(d.ARTICULO_ID AS VARCHAR(12))) AS ARTICULO,
+      COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
+      ${weekStartExpr} AS SEMANA_INICIO,
+      COALESCE(SUM(d.UNIDADES), 0) AS UNIDADES,
+      COALESCE(SUM(d.IMPORTE_LINEA), 0) AS IMPORTE
+    FROM ${sub} d
+    LEFT JOIN ARTICULOS a ON a.ARTICULO_ID = d.ARTICULO_ID
+    WHERE d.UNIDADES > 0 ${f.sql}
+    GROUP BY d.ARTICULO_ID, a.NOMBRE, a.UNIDAD_VENTA, ${weekStartExpr}
+    ORDER BY IMPORTE DESC
+  `,
+    f.params,
+    60000,
+    dbo,
+  ).catch(() => []);
+
+  // Nota: la tabla dinámica (pivot) se arma en el front; aquí devolvemos renglones normalizados.
+  return {
+    ok: true,
+    ts: new Date().toISOString(),
+    db: normalizeDbQueryId(req.query.db) || 'default',
+    tipo: tipo || '',
+    rows: Array.isArray(rows) ? rows : [],
+    note:
+      'SEMANA_INICIO es lunes (fecha de inicio de semana). El front puede pivotear a columnas S1/S2... y calcular precio unitario promedio (importe/uds), consumo promedio semanal y máximo semanal.',
+  };
+});
+
 get('/api/consumos/por-vendedor', async (req) => {
   const dbo = getReqDbOpts(req);
   const tipo = getTipo(req);
