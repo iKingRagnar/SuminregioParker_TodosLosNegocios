@@ -1210,7 +1210,7 @@ async function loadResumen() {
   const salSub = document.getElementById('kSaludSub');
   try {
     // Un solo round-trip: /resumen + /aging en paralelo duplicaban cxcResumenAgingUnificado (timeouts en producción).
-    const snap = await apiFetch('/api/cxc/resumen-aging' + buildCxcQuery('queryMs=120000'), { timeout: 130000 });
+    const snap = await apiFetch('/api/cxc/resumen-aging' + buildCxcQuery('queryMs=180000'), { timeout: 195000 });
     const res = (snap && snap.resumen) || {};
     const ageRaw = (snap && snap.aging) || {};
     const age = typeof window.normalizeCxcAging === 'function'
@@ -1236,7 +1236,7 @@ async function loadResumen() {
     const inclContado = cxcInclContadoRead();
     const modo = (res.CXC_TOTAL_MODO_REQ || '').toLowerCase();
     if (inclContado && (modo === 'documento' || modo === 'auto' || modo === 'auto_iva')) {
-      biDelta = await fetchCxcContadoDelta(120000);
+      biDelta = await fetchCxcContadoDelta(180000);
       if (biDelta && biDelta.ok && biDelta.incl_contado && typeof biDelta.incl_contado.total === 'number') {
         saldo = +biDelta.incl_contado.total || saldoBase;
         pvenc = Math.max(0, saldo - venc);
@@ -1369,14 +1369,14 @@ async function loadResumen() {
 async function loadVencidas() {
   const tb = document.getElementById('tbVenc');
   try {
-    const queryBase = buildCxcQuery('limit=120&queryMs=120000');
+    const queryBase = buildCxcQuery('limit=120&queryMs=180000');
 
-    const raw = await apiFetch('/api/cxc/vencidas' + queryBase, { timeout: 130000 });
+    const raw = await apiFetch('/api/cxc/vencidas' + queryBase, { timeout: 195000 });
     let rows = asArrayCxC(raw)
       .filter(r => (+r.DIAS_ATRASO || 0) > 0)
       .sort((a,b)=>cxcRowSaldo(b)-cxcRowSaldo(a));
     if(!rows.length && (document.getElementById('fCliente')?.value||'').trim()){
-      const rawNoCli = await apiFetch('/api/cxc/vencidas?limit=120&queryMs=120000', { timeout: 130000 });
+      const rawNoCli = await apiFetch('/api/cxc/vencidas?limit=120&queryMs=180000', { timeout: 195000 });
       rows = asArrayCxC(rawNoCli)
         .filter(r => (+r.DIAS_ATRASO || 0) > 0)
         .sort((a,b)=>cxcRowSaldo(b)-cxcRowSaldo(a));
