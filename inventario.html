@@ -209,14 +209,14 @@ html[data-theme="light"] select,html[data-theme="light"] input{
   </div>
   <div id="filter-bar"></div>
   <p class="inv-filter-hint" style="font-size:.78rem;color:var(--muted);margin:-0.5rem 0 1.25rem;line-height:1.45;max-width:56rem">
-    Las <strong style="color:var(--text2)">cuatro tarjetas KPI</strong> (totales, valor, bajo m&iacute;nimo, sin stock) son <strong style="color:var(--text2)">siempre al momento</strong> &mdash; <em>no</em> cambian al tocar Hoy / Esta semana / Este a&ntilde;o (es normal ver los mismos n&uacute;meros).
+    Las <strong style="color:var(--text2)">cuatro tarjetas KPI</strong> (totales, valor, bajo m&iacute;nimo, sin stock) son <strong style="color:var(--text2)">siempre la posici&oacute;n actual en Microsip</strong> (SALDOS_IN), no un &ldquo;cierre de este mes&rdquo; ni movimiento del periodo &mdash; <em>no</em> cambian al tocar el chip de fechas (es normal ver los mismos n&uacute;meros). El <strong style="color:var(--text2)">valor</strong> usa el mismo criterio de costo que el tablero BI: costo promedio y, si viene vac&iacute;o, &uacute;ltimo costo / costo.
     <strong style="color:var(--text2)">Consumo semanal</strong> (tabla) y <strong style="color:var(--text2)">forecast</strong> s&iacute; usan ventas del <strong style="color:var(--text2)">periodo</strong> del chip.
     <strong style="color:var(--text2)">Sin movimiento</strong> (&gt;180 y &ge;365 d&iacute;as, al final de la p&aacute;gina despu&eacute;s de Top y Forecast) y <strong style="color:var(--text2)">Operaci&oacute;n</strong> usan reglas fijas, no el chip de fechas.
   </p>
 
   <div class="kpi-grid">
     <div class="kpi-card blue"><div class="kpi-label">Total Art&iacute;culos</div><div class="kpi-value" id="kpi-total">&mdash;</div><div class="kpi-sub">Activos en cat&aacute;logo</div></div>
-    <div class="kpi-card yellow"><div class="kpi-label">Valor Inventario</div><div class="kpi-value" id="kpi-valor">&mdash;</div><div class="kpi-sub">Valor a costo promedio</div></div>
+    <div class="kpi-card yellow"><div class="kpi-label">Valor Inventario</div><div class="kpi-value" id="kpi-valor">&mdash;</div><div class="kpi-sub" id="kpi-valor-sub">Existencias actuales &times; costo (ver criterio al cargar)</div></div>
     <div class="kpi-card red"><div class="kpi-label">Bajo M&iacute;nimo</div><div class="kpi-value" id="kpi-minimo">&mdash;</div><div class="kpi-sub">Requieren reorden</div></div>
     <div class="kpi-card orange"><div class="kpi-label">Sin Stock</div><div class="kpi-value" id="kpi-cero">&mdash;</div><div class="kpi-sub">Con m&iacute;nimo definido y existencia 0</div></div>
   </div>
@@ -261,7 +261,7 @@ html[data-theme="light"] select,html[data-theme="light"] input{
       <div class="card-title"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 4l6 2.67V11c0 3.94-2.71 7.62-6 8.93-3.29-1.31-6-4.99-6-8.93V7.67L12 5z"/></svg>Top Art&iacute;culos por Valor de Inventario</div><div class="card-badge">Mayor valor en stock</div></div>
     <div class="card-body" id="inv-panel-topstock" style="padding:0">
       <table class="tbl" id="tbl-topstock">
-        <thead><tr><th>#</th><th>Art&iacute;culo</th><th>Unidad</th><th class="num">Existencia</th><th class="num">Costo Prom.</th><th class="num">Valor Inventario</th></tr></thead>
+        <thead><tr><th>#</th><th>Art&iacute;culo</th><th>Unidad</th><th class="num">Existencia</th><th class="num">Costo unit.</th><th class="num">Valor Inventario</th></tr></thead>
         <tbody><tr><td colspan="6" style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</td></tbody>
       </table>
     </div>
@@ -499,6 +499,7 @@ async function loadAll() {
   try {
     setText('kpi-total', '—');
     setText('kpi-valor', '—');
+    var kvs0 = document.getElementById('kpi-valor-sub'); if (kvs0) kvs0.textContent = 'Existencias actuales \u00d7 costo (ver criterio al cargar)';
     setText('kpi-minimo', '—');
     setText('kpi-cero', '—');
     const pl0 = invPeriodLabel();
@@ -523,18 +524,26 @@ async function loadAll() {
       if (d && d.__invTimeout) {
         setText('kpi-total', '—');
         setText('kpi-valor', '—');
+        var kvs = document.getElementById('kpi-valor-sub'); if (kvs) kvs.textContent = 'Existencias actuales \u00d7 costo (ver criterio al cargar)';
         setText('kpi-minimo', '—');
         setText('kpi-cero', '—');
         setText('page-sub', 'Resumen de inventario tardó (90 s). Las tablas de abajo siguen cargando; si los KPI quedan en —, revisa el API o recarga.');
       } else if (resErr) {
         setText('kpi-total', '—');
         setText('kpi-valor', '—');
+        var kvs2 = document.getElementById('kpi-valor-sub'); if (kvs2) kvs2.textContent = 'Existencias actuales \u00d7 costo (ver criterio al cargar)';
         setText('kpi-minimo', '—');
         setText('kpi-cero', '—');
         setText('page-sub', 'Resumen: ' + invEsc(resErr) + ' · Cargando tablas…');
       } else {
         setText('kpi-total', Number(d.TOTAL_ARTICULOS||0).toLocaleString());
         setText('kpi-valor', fmtK(d.VALOR_INVENTARIO));
+        (function(){
+          var el = document.getElementById('kpi-valor-sub');
+          if (!el) return;
+          var cr = d && d.VALOR_CRITERIO ? String(d.VALOR_CRITERIO) : '';
+          el.textContent = cr ? ('Costo: ' + cr + ' · posici\u00f3n actual (no es cierre del mes del filtro)') : 'Costo unitario \u00b7 posici\u00f3n actual';
+        })();
         setText('kpi-minimo', Number(d.BAJO_MINIMO||0).toLocaleString());
         setText('kpi-cero', Number(d.SIN_STOCK||0).toLocaleString());
         if (typeof dashboardApplySem === 'function') {
@@ -557,6 +566,7 @@ async function loadAll() {
       console.error('inv-resumen', e);
       setText('kpi-total', '—');
       setText('kpi-valor', '—');
+      var kvs3 = document.getElementById('kpi-valor-sub'); if (kvs3) kvs3.textContent = 'Existencias actuales \u00d7 costo (ver criterio al cargar)';
       setText('kpi-minimo', '—');
       setText('kpi-cero', '—');
       setText('page-sub', 'Error al cargar resumen. ' + (e && e.message ? String(e.message) : '') + ' · Cargando tablas…');

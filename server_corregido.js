@@ -4394,17 +4394,34 @@ async function invPrecioSubSql(dbo) {
 }
 
 const invCostoSubCache = new Map();
+/** Expresión COALESCE por renglón: Power BI suele usar primero promedio y si NULL último/costo; una sola columna del catálogo subvaloraba el valor de inventario. */
+function invCostoUnitCoalesceSql(cols) {
+  const cset = cols && cols.size ? cols : new Set();
+  const order = ['COSTO_PROMEDIO', 'ULTIMO_COSTO', 'COSTO'];
+  const parts = [];
+  for (const c of order) {
+    if (cset.has(c)) parts.push(`a.${c}`);
+  }
+  return parts.length ? `COALESCE(${parts.join(', ')}, 0)` : null;
+}
+function invCostoCriterioLabel(cols) {
+  const cset = cols && cols.size ? cols : new Set();
+  const order = ['COSTO_PROMEDIO', 'ULTIMO_COSTO', 'COSTO'];
+  const have = order.filter((c) => cset.has(c));
+  if (have.length) return `COALESCE(${have.join(', ')})`;
+  return 'PRECIOS_ARTICULOS (sin columnas de costo en ARTICULOS)';
+}
 /**
- * Costo unitario promedio por artículo desde ARTICULOS.COSTO_PROMEDIO (igual que Power BI).
- * Fallback en orden: ULTIMO_COSTO → COSTO. Si ninguno existe en ARTICULOS, usa precio de venta.
+ * Costo unitario por artículo: COALESCE(COSTO_PROMEDIO, ULTIMO_COSTO, COSTO) según columnas existentes (alineado a lectura típica en BI).
+ * Si no hay ninguna columna de costo en ARTICULOS, usa precio de venta (mismo fallback que antes).
  */
 async function invCostoSubSql(dbo) {
   const key = dbCacheKey(dbo);
   if (invCostoSubCache.has(key)) return invCostoSubCache.get(key);
   const cols = await getTableColumns('ARTICULOS', dbo);
-  const costoCol = firstExistingColumn(cols || new Set(), ['COSTO_PROMEDIO', 'ULTIMO_COSTO', 'COSTO']);
-  if (costoCol) {
-    invCostoSubCache.set(key, `( SELECT a.ARTICULO_ID, COALESCE(a."${costoCol}", 0) AS COSTO1 FROM ARTICULOS a )`);
+  const coalesceExpr = invCostoUnitCoalesceSql(cols);
+  if (coalesceExpr) {
+    invCostoSubCache.set(key, `( SELECT a.ARTICULO_ID, CAST(${coalesceExpr} AS DECIMAL(18,4)) AS COSTO1 FROM ARTICULOS a )`);
   } else {
     const priceSub = await invPrecioSubSql(dbo);
     invCostoSubCache.set(key, priceSub.replace(/PRECIO1/g, 'COSTO1'));
@@ -4415,6 +4432,7 @@ async function invCostoSubSql(dbo) {
 // SIN_STOCK = solo articulos con minimo definido y existencia 0 (alerta real). No contar todo el catalogo en cero.
 get('/api/inv/resumen', async (req) => {
   const dbo = getReqDbOpts(req);
+  const colsArt = await getTableColumns('ARTICULOS', dbo);
 
   const qCounts = `
     SELECT
@@ -4441,7 +4459,15 @@ get('/api/inv/resumen', async (req) => {
   const v = valorRows[0] || {};
   const r = Object.assign({}, c, v);
 
-  return { TOTAL_ARTICULOS: +(r.TOTAL_ARTICULOS||0), VALOR_INVENTARIO: +(r.VALOR_INVENTARIO||0), BAJO_MINIMO: +(r.BAJO_MINIMO||0), SIN_STOCK: +(r.SIN_STOCK||0) };
+  return {
+    TOTAL_ARTICULOS: +(r.TOTAL_ARTICULOS || 0),
+    VALOR_INVENTARIO: +(r.VALOR_INVENTARIO || 0),
+    BAJO_MINIMO: +(r.BAJO_MINIMO || 0),
+    SIN_STOCK: +(r.SIN_STOCK || 0),
+    VALOR_CRITERIO: invCostoCriterioLabel(colsArt),
+    nota_valor:
+      'Posición actual (SALDOS_IN) × costo unitario; no es movimiento ni cierre del mes del filtro. El chip de fechas aplica a consumo/forecast en esta página.',
+  };
 });
 
 // Diagnóstico duro de conectividad Firebird para inventario (no oculta errores).
