@@ -668,6 +668,8 @@ html[data-theme="light"] [style*="color:var(--acc)"],
 html.theme-premium-light [style*="color:var(--acc)"]{color:#B45309!important}
 html[data-theme="light"] [style*="color:var(--ylw)"],
 html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
+/* Barra global de periodo (Hoy/Mes/Año) no aplica a CxC; ocultar si caché antigua la inyecta */
+body.ms-page-cxc #filter-bar{display:none!important;height:0!important;margin:0!important;padding:0!important;overflow:hidden!important;border:0!important}
 </style>
 <link rel="stylesheet" href="app-ui.css">
 <script src="app-ui-boot.js" defer></script>
@@ -693,7 +695,9 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
     </div>
     <div class="cxc-hero-meta" id="cxcDbHint" title="Negocio activo">Cargando contexto&hellip;</div>
   </div>
-  <div id="filter-bar"></div>
+  <p class="cxc-no-period-hint" style="font-size:12px;color:var(--txt3);margin:0 auto 1rem;max-width:1900px;padding:0 1.5rem;line-height:1.45">
+    <strong>Cartera al corte:</strong> el saldo de CxC no usa periodo de ventas (mes/año/chips). Solo aplican filtros de <em>cliente</em> y <em>criterio de total KPI</em> abajo.
+  </p>
   <div class="client-filter-bar">
     <div class="filter-group">
       <span class="filter-label">CLIENTE</span>
@@ -880,6 +884,7 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
   <div id="pBuro" style="display:none">
     <div class="card">
       <div class="card-title">Comportamiento de Pago <span class="badge">Estilo Bur&oacute; de Cr&eacute;dito</span></div>
+      <p class="card-note" style="margin:-6px 0 10px">Cada columna es el <strong>mes y a&ntilde;o de emisi&oacute;n</strong> del cargo (no es filtro de cartera: la deuda mostrada arriba sigue siendo posici&oacute;n total). Incluye cr&eacute;ditos de a&ntilde;os anteriores en su mes correspondiente.</p>
       <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap;align-items:flex-end">
         <div class="filter-group">
           <span class="filter-label">MESES</span>
@@ -1274,8 +1279,35 @@ async function loadResumen() {
     const sumAging = vencFromAging + corrienteAging;
     let venc = +res.VENCIDO || 0;
     let pvenc = +res.POR_VENCER || 0;
-    if (venc <= 0.005 && vencFromAging > 0.005) { venc = vencFromAging; pvenc = corrienteAging; }
-    if (saldo > 0.005 && Math.abs(venc + pvenc - saldo) / saldo > 0.08) pvenc = Math.max(0, saldo - venc);
+    // No sustituir KPI por suma de buckets: aging puede venir de otra capa (líneas cargo) y desbordar el saldo documental.
+    if (saldo > 0.005) {
+      const sumVp = venc + pvenc;
+      if (sumVp > 0.005 && Math.abs(sumVp - saldo) / saldo > 0.08) {
+        const r = saldo / sumVp;
+        venc *= r;
+        pvenc *= r;
+      }
+    }
+    let ageUi = {
+      CORRIENTE: corrienteAging,
+      DIAS_1_30: +age.DIAS_1_30 || 0,
+      DIAS_31_60: +age.DIAS_31_60 || 0,
+      DIAS_61_90: +age.DIAS_61_90 || 0,
+      DIAS_MAS_90: +age.DIAS_MAS_90 || 0
+    };
+    const sumUi = ageUi.CORRIENTE + ageUi.DIAS_1_30 + ageUi.DIAS_31_60 + ageUi.DIAS_61_90 + ageUi.DIAS_MAS_90;
+    if (saldo > 0.005 && sumUi > 0.005 && Math.abs(sumUi - saldo) / saldo > 0.08) {
+      const rs = saldo / sumUi;
+      ageUi = {
+        CORRIENTE: ageUi.CORRIENTE * rs,
+        DIAS_1_30: ageUi.DIAS_1_30 * rs,
+        DIAS_31_60: ageUi.DIAS_31_60 * rs,
+        DIAS_61_90: ageUi.DIAS_61_90 * rs,
+        DIAS_MAS_90: ageUi.DIAS_MAS_90 * rs
+      };
+    }
+    const vencFromAgingUi = ageUi.DIAS_1_30 + ageUi.DIAS_31_60 + ageUi.DIAS_61_90 + ageUi.DIAS_MAS_90;
+    const sumAgingUi = vencFromAgingUi + ageUi.CORRIENTE;
 
     // Comparación BI (incluye contado) solo informativa; no altera KPIs de crédito.
     const explain = document.getElementById('cxcBiExplain');
@@ -1337,18 +1369,17 @@ async function loadResumen() {
         if (salSub) salSub.textContent = pV.toFixed(0) + '% vencido';
       }
     }
-    const total = (age.CORRIENTE||0)+(age.DIAS_1_30||0)+(age.DIAS_31_60||0)+(age.DIAS_61_90||0)+(age.DIAS_MAS_90||0);
-    const setPct = (id,v) => { const e=document.getElementById(id); if(e) e.style.width=(total>0?Math.min(100,(+v/total)*100):0)+'%'; };
-    setText('agC',  fmtK(age.CORRIENTE));  setPct('agCBar',  age.CORRIENTE);
-    setText('ag1',  fmtK(age.DIAS_1_30));  setPct('ag1Bar',  age.DIAS_1_30);
-    setText('ag2',  fmtK(age.DIAS_31_60)); setPct('ag2Bar',  age.DIAS_31_60);
-    setText('ag3',  fmtK(age.DIAS_61_90)); setPct('ag3Bar',  age.DIAS_61_90);
-    setText('ag4',  fmtK(age.DIAS_MAS_90));setPct('ag4Bar',  age.DIAS_MAS_90);
+    const setPct = (id,v) => { const e=document.getElementById(id); if(e) e.style.width=(saldo>0.005?Math.min(100,(+v/saldo)*100):0)+'%'; };
+    setText('agC',  fmtK(ageUi.CORRIENTE));  setPct('agCBar',  ageUi.CORRIENTE);
+    setText('ag1',  fmtK(ageUi.DIAS_1_30));  setPct('ag1Bar',  ageUi.DIAS_1_30);
+    setText('ag2',  fmtK(ageUi.DIAS_31_60)); setPct('ag2Bar',  ageUi.DIAS_31_60);
+    setText('ag3',  fmtK(ageUi.DIAS_61_90)); setPct('ag3Bar',  ageUi.DIAS_61_90);
+    setText('ag4',  fmtK(ageUi.DIAS_MAS_90));setPct('ag4Bar',  ageUi.DIAS_MAS_90);
     const ventaCargoAbierta = +(res.TOTAL_IMPORTE_CARGOS_ABIERTOS || 0);
     const lineaBi = ventaCargoAbierta > 0.005
       ? (' · Facturaci\u00f3n abierta (suma cargos en docs con saldo, referencia BI "Total Venta"): ' + fmtK(ventaCargoAbierta))
       : '';
-    setText('agingBreakdown', 'Aging: Corriente '+fmtK(corrienteAging)+' · Mora (1-30 … +90) '+fmtK(vencFromAging)+' · Suma buckets '+fmtK(sumAging)+'. KPI: Vencido '+fmtK(venc)+' · No vencido '+fmtK(pvenc)+' · Deuda total '+fmtK(saldo)+'.'+lineaBi);
+    setText('agingBreakdown', 'Aging (ajustado al saldo KPI): Corriente '+fmtK(ageUi.CORRIENTE)+' · Mora (1-30 … +90) '+fmtK(vencFromAgingUi)+' · Suma buckets '+fmtK(sumAgingUi)+'. KPI: Vencido '+fmtK(venc)+' · No vencido '+fmtK(pvenc)+' · Deuda total '+fmtK(saldo)+'.'+lineaBi);
     var hintEl = document.getElementById('cxcKpiTotalHint');
     if (hintEl && res.CXC_TOTAL_FUENTE) {
       var m = res.CXC_TOTAL_MODO_REQ || '';
@@ -1364,7 +1395,7 @@ async function loadResumen() {
     const agCorriente = document.getElementById('agC');
     if (agCorriente) agCorriente.style.color = '';
     if(chartAging){
-      chartAging.data.datasets[0].data=[age.CORRIENTE||0,age.DIAS_1_30||0,age.DIAS_31_60||0,age.DIAS_61_90||0,age.DIAS_MAS_90||0];
+      chartAging.data.datasets[0].data=[ageUi.CORRIENTE||0,ageUi.DIAS_1_30||0,ageUi.DIAS_31_60||0,ageUi.DIAS_61_90||0,ageUi.DIAS_MAS_90||0];
       chartAging.update();
     }
     if (typeof dashboardApplySem === 'function') {
@@ -1527,12 +1558,6 @@ async function loadTotales() {
       vig = asArrayCxC(rawG2).filter(r => (+r.DIAS_ATRASO || 0) <= 0).map(r => ({ r: r, tipo: 'vigente' }));
     }
     const merged = ven.concat(vig).sort(function (a, b) { return cxcRowSaldo(b.r) - cxcRowSaldo(a.r); });
-    // #region agent log
-    (function () {
-      const vL = ven.length; const gL = vig.length;
-      fetch('http://127.0.0.1:7807/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'c5910b' }, body: JSON.stringify({ sessionId: 'c5910b', location: 'cxc.html:loadTotales', message: 'doc list merge', data: { hypothesisId: 'H2', venLen: vL, vigLen: gL, merged: merged.length, limit: CXC_DOC_LIST_LIMIT }, timestamp: Date.now(), runId: 'cxc-doc-list' }) }).catch(function () {});
-    }());
-    // #endregion
     cxcSetTotalesTruncHint(ven.length, vig.length, CXC_DOC_LIST_LIMIT);
     setText('totBadge', merged.length + ' docs');
     if (!merged.length) {
@@ -1694,7 +1719,7 @@ async function loadBuro() {
     const cols = [];
     for(let i=meses-1;i>=0;i--){
       const d = new Date(hoy.getFullYear(), hoy.getMonth()-i, 1);
-      cols.push({ anio:d.getFullYear(), mes:d.getMonth()+1, lbl:MES_NOM[d.getMonth()]+"'"+(d.getFullYear()+'').slice(2) });
+      cols.push({ anio:d.getFullYear(), mes:d.getMonth()+1, lbl:MES_NOM[d.getMonth()]+' '+d.getFullYear() });
     }
     // Agrupar por cliente
     const byC = {};
@@ -1705,7 +1730,7 @@ async function loadBuro() {
     }
     let html='<table class="buro-tbl"><thead><tr>'
       +'<th style="min-width:140px">Cliente</th>'
-      +cols.map(c=>'<th style="text-align:center;min-width:34px">'+c.lbl+'</th>').join('')
+      +cols.map(c=>'<th style="text-align:center;min-width:52px;font-size:10px">'+c.lbl+'</th>').join('')
       +'<th>Saldo</th><th>Estado</th>'
       +'</tr></thead><tbody>';
     const pri = { bad:3, late:2, pending:1, ok:0 };
@@ -1848,6 +1873,7 @@ async function refreshCxcDbHint(){
 }
 
 (async function init(){
+  try { var _fbRm = document.getElementById('filter-bar'); if (_fbRm) _fbRm.remove(); } catch (_) {}
   try { initCharts(); } catch (e) { console.warn('[cxc] initCharts', e && e.message ? e.message : e); }
   try {
     var tk = document.getElementById('cxcTotalKpi');
@@ -1861,24 +1887,10 @@ async function refreshCxcDbHint(){
     }
   } catch (_) {}
   void checkStatus().catch(()=>{});
-  const fb = document.getElementById('filter-bar');
-  if (fb) fb.style.display = '';
-  const hasFilters = !!window.initFilters;
-  if (window.initFilters) {
-    await initFilters({
-      containerId  : 'filter-bar',
-      showVendedor : false,
-      defaultPreset: 'mes',
-      // Hint (/api/universe/databases) must not block resumen/vencidas — Render cold starts can stall the hint fetch.
-      onReady      : async () => { void refreshCxcDbHint().catch(()=>{}); await ensureClientesFiltro(); await loadAll(); },
-      onChange     : async () => { void refreshCxcDbHint().catch(()=>{}); await ensureClientesFiltro(); await loadAll(); },
-    });
-  }
-  if (!hasFilters) {
-    void refreshCxcDbHint().catch(()=>{});
-    await ensureClientesFiltro();
-    await loadAll();
-  }
+  // Sin barra de periodo (filters.js): la cartera es snapshot; mes/año/chips no aplican a las APIs CxC.
+  void refreshCxcDbHint().catch(()=>{});
+  await ensureClientesFiltro();
+  await loadAll();
   setInterval(loadResumen, 1800000);
   setInterval(checkStatus, 30000);
   window.addEventListener('popstate',async ()=>{ void refreshCxcDbHint().catch(()=>{}); await ensureClientesFiltro(); await loadAll(); });

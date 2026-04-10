@@ -37,23 +37,9 @@ async function selfFetch(path, ms = 30000) {
   }
 }
 
-/** Misma lógica que public/filters.js — alinea VENCIDO con buckets de mora. */
+/** Copia resumen sin rellenar VENCIDO desde buckets (misma regla que filters.js). */
 function reconcileCxcResumenWithAging(resumen, aging) {
-  const out = resumen && typeof resumen === 'object' ? { ...resumen } : {};
-  if (!aging || typeof aging !== 'object') aging = {};
-  let venc = +(out.VENCIDO || 0);
-  const mora =
-    (+aging.DIAS_1_30 || 0) +
-    (+aging.DIAS_31_60 || 0) +
-    (+aging.DIAS_61_90 || 0) +
-    (+aging.DIAS_MAS_90 || 0);
-  const cor = +aging.CORRIENTE || 0;
-  if (venc <= 0.005 && mora > 0.005) {
-    out.VENCIDO = mora;
-    const pv = +(out.POR_VENCER || 0);
-    if (pv <= 0.005) out.POR_VENCER = cor;
-  }
-  return out;
+  return resumen && typeof resumen === 'object' ? { ...resumen } : {};
 }
 
 // ── Recolector de KPIs en tiempo real ────────────────────────────────────────

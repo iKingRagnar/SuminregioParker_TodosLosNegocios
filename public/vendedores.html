@@ -395,10 +395,14 @@ function getVendedoresEnContextoV(metaObj) {
 
 // ── Helper: URL con filtros ────────────────────────────────────────────────
 function buildApiUrl(path, extra) {
-  const qs    = window.filterBuildQS ? filterBuildQS() : '';
-  const e     = extra ? String(extra).replace(/^[?&]+/, '') : '';
+  const p = String(path || '');
+  const cxcSnap = p.indexOf('/api/cxc/') >= 0;
+  const qs = window.filterBuildQS
+    ? filterBuildQS(null, cxcSnap ? { useCxcDbIdentity: true, omitPeriodForCxcSnapshot: true } : undefined)
+    : '';
+  const e = extra ? String(extra).replace(/^[?&]+/, '') : '';
   const parts = [qs, e].filter(Boolean).join('&');
-  return API + path + (parts ? '?' + parts : '');
+  return API + p + (parts ? '?' + parts : '');
 }
 
 const fmtM = v=>{

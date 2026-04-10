@@ -1019,33 +1019,20 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   }
 
   /**
-   * Alinea VENCIDO / POR_VENCER con la suma de buckets de mora del mismo snapshot que cxc.html (resumen-aging).
+   * Copia resumen sin rellenar VENCIDO desde buckets: la mora por buckets puede no ser el mismo universo que SALDO_TOTAL (documento vs líneas).
    */
   function reconcileCxcResumenWithAging(resumen, aging) {
     resumen = unwrapCxcResumenRow(resumen);
     if (!resumen || typeof resumen !== 'object') resumen = {};
-    aging = normalizeCxcAging(aging);
     var out = {};
     for (var k in resumen) {
       if (Object.prototype.hasOwnProperty.call(resumen, k)) out[k] = resumen[k];
-    }
-    var venc = +out.VENCIDO || 0;
-    var mora =
-      (+aging.DIAS_1_30 || 0) +
-      (+aging.DIAS_31_60 || 0) +
-      (+aging.DIAS_61_90 || 0) +
-      (+aging.DIAS_MAS_90 || 0);
-    var cor = +aging.CORRIENTE || 0;
-    if (venc <= 0.005 && mora > 0.005) {
-      out.VENCIDO = mora;
-      var pv = +out.POR_VENCER || 0;
-      if (pv <= 0.005) out.POR_VENCER = cor;
     }
     return out;
   }
 
   /**
-   * Misma coherencia que cxc.html tras cargar resumen-aging: alinear venc/vigente con buckets y con saldo total.
+   * Escala VENCIDO/POR_VENCER al saldo KPI si la suma difiere (>8%); no sustituye por suma de buckets de aging.
    */
   function finalizeCxcKpiDisplay(resumen, aging) {
     resumen = unwrapCxcResumenRow(resumen);
@@ -1056,20 +1043,15 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       if (Object.prototype.hasOwnProperty.call(resumen, k)) out[k] = resumen[k];
     }
     var saldo = +out.SALDO_TOTAL || 0;
-    var vencFromAging =
-      (+aging.DIAS_1_30 || 0) +
-      (+aging.DIAS_31_60 || 0) +
-      (+aging.DIAS_61_90 || 0) +
-      (+aging.DIAS_MAS_90 || 0);
-    var corrienteAging = +aging.CORRIENTE || 0;
     var venc = +out.VENCIDO || 0;
     var pvenc = +out.POR_VENCER || 0;
-    if (venc <= 0.005 && vencFromAging > 0.005) {
-      venc = vencFromAging;
-      pvenc = corrienteAging;
-    }
-    if (saldo > 0.005 && Math.abs(venc + pvenc - saldo) / saldo > 0.08) {
-      pvenc = Math.max(0, saldo - venc);
+    if (saldo > 0.005) {
+      var sumVp = venc + pvenc;
+      if (sumVp > 0.005 && Math.abs(sumVp - saldo) / saldo > 0.08) {
+        var r = saldo / sumVp;
+        venc *= r;
+        pvenc *= r;
+      }
     }
     out.VENCIDO = venc;
     out.POR_VENCER = pvenc;

@@ -441,7 +441,10 @@ function apiDb(rel){
   const q = p.indexOf('?');
   const pathOnly = q >= 0 ? p.slice(0, q) : p;
   const pathQs = q >= 0 ? p.slice(q + 1) : '';
-  const fq = (typeof filterBuildQS === 'function' ? filterBuildQS() : '').replace(/^[?&]+/, '');
+  const cxcSnap = pathOnly.indexOf('/api/cxc/') >= 0;
+  const fq = (typeof filterBuildQS === 'function'
+    ? filterBuildQS(null, cxcSnap ? { useCxcDbIdentity: true, omitPeriodForCxcSnapshot: true } : undefined)
+    : '').replace(/^[?&]+/, '');
   const combined = [fq, pathQs].filter(Boolean).join('&');
   return API + pathOnly + (combined ? '?' + combined : '');
 }
