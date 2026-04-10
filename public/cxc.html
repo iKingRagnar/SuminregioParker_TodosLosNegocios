@@ -707,9 +707,9 @@ body.ms-page-cxc #filter-bar{display:none!important;height:0!important;margin:0!
     </div>
     <div class="filter-group">
       <span class="filter-label">TOTAL KPI</span>
-      <select id="cxcTotalKpi" aria-label="Criterio deuda total vs Power BI" title="Auto: solo neto (documento vs cliente); no mezcla IVA salvo Auto+IVA o variable MICROSIP_CXC_AUTO_INCLUYE_IVA=1. El BI suele ser neto.">
-        <option value="auto">Auto neto (vs BI)</option>
-        <option value="auto_iva">Auto incl. IVA</option>
+      <select id="cxcTotalKpi" aria-label="Criterio deuda total vs Power BI" title="Por defecto: Auto incl. IVA — compara documento, cliente neto y cliente con IVA (cargos/cobros con IVA), alineado a medidas BI tipo bruto. Auto neto solo ex-IVA.">
+        <option value="auto_iva" selected>Auto incl. IVA (vs BI)</option>
+        <option value="auto">Auto neto (ex-IVA)</option>
         <option value="documento">Solo documentos</option>
         <option value="cliente">Cliente neto</option>
         <option value="con_iva">Cliente con IVA</option>
@@ -1113,7 +1113,7 @@ function cxcTotalKpiRead() {
     const s = sessionStorage.getItem('cxc_total_kpi');
     if (s) return String(s).trim().toLowerCase();
   } catch (_) {}
-  return '';
+  return 'auto_iva';
 }
 
 /** Solo parámetros CxC (sin preset/anio/mes de la barra de ventas): evita mezclar periodo de facturación con snapshot de cartera. */
@@ -1269,6 +1269,11 @@ async function loadResumen() {
     }
 
     const res = (snap && snap.resumen) || {};
+    // #region agent log
+    try {
+      fetch('http://127.0.0.1:7807/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c5910b'},body:JSON.stringify({sessionId:'c5910b',runId:'post-fix',hypothesisId:'H-iva-default',location:'cxc.html:loadResumen',message:'CXC resumen KPI fields',data:{SALDO_TOTAL:res.SALDO_TOTAL,CXC_TOTAL_FUENTE:res.CXC_TOTAL_FUENTE,CXC_TOTAL_DOC:res.CXC_TOTAL_DOC,CXC_TOTAL_ALT_NETO:res.CXC_TOTAL_ALT_NETO,CXC_TOTAL_ALT_IVA:res.CXC_TOTAL_ALT_IVA,CXC_TOTAL_MODO_REQ:res.CXC_TOTAL_MODO_REQ,kpiSelect:cxcTotalKpiRead()},timestamp:Date.now()})}).catch(function(){});
+    } catch (_) {}
+    // #endregion
     const ageRaw = (snap && snap.aging) || {};
     const age = typeof window.normalizeCxcAging === 'function'
       ? window.normalizeCxcAging(ageRaw)

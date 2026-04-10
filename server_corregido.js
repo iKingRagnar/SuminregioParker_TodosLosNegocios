@@ -4040,6 +4040,43 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
     fuenteKpi = modoKpi === 'cliente' ? 'cliente_neto' : fuenteKpi;
   }
 
+  // #region agent log
+  try {
+    const inclD = modoKpi === 'auto_iva' || cxcAutoIncluyeIvaEnMax(req);
+    const baseD = totalDocPostRecon > 0.005
+      ? totalDocPostRecon
+      : Math.max(totClienteNeto, inclD ? totClienteConIva : 0, 0.00001);
+    const maxD = inclD
+      ? Math.max(totalDocPostRecon, totClienteNeto, totClienteConIva)
+      : Math.max(totalDocPostRecon, totClienteNeto);
+    fs.appendFileSync(
+      path.join(__dirname, 'debug-c5910b.log'),
+      JSON.stringify({
+        sessionId: 'c5910b',
+        hypothesisId: 'H-auto-vs-iva',
+        location: 'server_corregido.js:cxcResumenAgingUnificado',
+        message: 'CXC KPI candidates vs chosen',
+        data: {
+          modoKpi,
+          totalDocPostRecon,
+          totClienteNeto,
+          totClienteConIva,
+          totClienteBi,
+          inclIvaAuto: inclD,
+          baseAuto: baseD,
+          maxCandAuto: maxD,
+          autoThresholdOk: maxD <= baseD * 1.18,
+          ratioMaxToBase: baseD > 0 ? maxD / baseD : null,
+          chosen,
+          fuenteKpi,
+          saldoTotalKpi: saldoTotal,
+        },
+        timestamp: Date.now(),
+      }) + '\n'
+    );
+  } catch (_) {}
+  // #endregion
+
   /** Suma importes cargo (facturación original) en documentos con saldo > 0 — comparable a columna "Venta" / Total Venta en modelos BI. */
   let totalImporteCargosAbierto = 0;
   try {
