@@ -4606,6 +4606,22 @@ function getSqlExistSub() {
   const w = invSaldosInAlmacenWhereSql();
   return `( SELECT ARTICULO_ID, SUM(ENTRADAS_UNIDADES - SALIDAS_UNIDADES) AS EXISTENCIA FROM SALDOS_IN WHERE 1=1 ${w} GROUP BY ARTICULO_ID )`;
 }
+
+function invSaldosInAlmacenWhereSqlFromRaw(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return '';
+  const ids = s
+    .split(/[,;\s]+/)
+    .map((x) => parseInt(x, 10))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  if (!ids.length) return '';
+  return ` AND ALMACEN_ID IN (${ids.join(',')}) `;
+}
+
+function getSqlExistSubVariant(opts) {
+  const w = invSaldosInAlmacenWhereSqlFromRaw(opts && opts.almacenIdsRaw ? opts.almacenIdsRaw : '');
+  return `( SELECT ARTICULO_ID, SUM(ENTRADAS_UNIDADES - SALIDAS_UNIDADES) AS EXISTENCIA FROM SALDOS_IN WHERE 1=1 ${w} GROUP BY ARTICULO_ID )`;
+}
 const SQL_MINIMO_SUB = `( SELECT ARTICULO_ID, MAX(INVENTARIO_MINIMO) AS INVENTARIO_MINIMO FROM NIVELES_ARTICULOS WHERE INVENTARIO_MINIMO > 0 GROUP BY ARTICULO_ID )`;
 /** Una sola agregación SALDOS_IN: existencia + entradas/salidas (mismo filtro de almacén que getSqlExistSub). */
 function getSqlSaldosBalSub() {
@@ -4853,6 +4869,17 @@ async function invCostoSubSql(dbo) {
   return invCostoSubCache.get(key);
 }
 
+async function invCostoSubSqlVariant(dbo, modoOverride) {
+  const prev = process.env.MICROSIP_INV_COSTO_MODO;
+  try {
+    if (modoOverride) process.env.MICROSIP_INV_COSTO_MODO = String(modoOverride);
+    // No reusar cache de invCostoSubSql porque el key depende del modo; invCostoSubSql ya maneja su cache por key.
+    return await invCostoSubSql(dbo);
+  } finally {
+    process.env.MICROSIP_INV_COSTO_MODO = prev;
+  }
+}
+
 // SIN_STOCK = solo articulos con minimo definido y existencia 0 (alerta real). No contar todo el catalogo en cero.
 get('/api/inv/resumen', async (req) => {
   const dbo = getReqDbOpts(req);
@@ -4917,6 +4944,84 @@ get('/api/debug/inv-columnas', async (req) => {
     sortSet('PRECIOS_ARTICULOS'),
   ]);
   return { ARTICULOS, SALDOS_IN, PRECIOS_ARTICULOS };
+});
+
+// Debug: compara Inventario con variaciones de costo/almacén para explicar diferencias vs Power BI.
+// Params opcionales:
+// - ?almacen_ids=1,2 (simula filtro de almacén sin tocar .env)
+// - ?pbi_valor=15700689.56&pbi_uds=128780.57 (para ver delta directo)
+get('/api/debug/inv-delta', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const colsArt = await getTableColumns('ARTICULOS', dbo);
+  const artTipoInv = invArticulosTipoInventarioWhereSql(colsArt);
+  const invQTimeout = 90000;
+
+  const almacenIdsRaw = (req.query && req.query.almacen_ids) ? String(req.query.almacen_ids).trim() : '';
+
+  const existSubEnv = getSqlExistSub();
+  const existSubVar = almacenIdsRaw ? getSqlExistSubVariant({ almacenIdsRaw }) : null;
+
+  async function compute(existSub, costoModo, label) {
+    const costoSub = await invCostoSubSqlVariant(dbo, costoModo);
+    const qValor = `
+      SELECT
+        COALESCE(SUM(COALESCE(s.EXISTENCIA, 0) * COALESCE(cs.COSTO1, 0)), 0) AS VALOR_INVENTARIO,
+        COALESCE(SUM(COALESCE(s.EXISTENCIA, 0)), 0) AS EXISTENCIA_UNIDADES_SUM
+      FROM ARTICULOS a
+      LEFT JOIN ${existSub} s ON s.ARTICULO_ID = a.ARTICULO_ID
+      LEFT JOIN ${costoSub} cs ON cs.ARTICULO_ID = a.ARTICULO_ID
+      WHERE COALESCE(a.ESTATUS, 'A') = 'A' ${artTipoInv}
+    `;
+    const rows = await query(qValor, [], invQTimeout, dbo).catch(() => [{ VALOR_INVENTARIO: 0, EXISTENCIA_UNIDADES_SUM: 0 }]);
+    const r = rows[0] || {};
+    const valor = +(r.VALOR_INVENTARIO || 0);
+    const uds = +(r.EXISTENCIA_UNIDADES_SUM || 0);
+    const cpu = uds > 0 ? (valor / uds) : 0;
+    return {
+      label,
+      costo_modo: String(costoModo || (process.env.MICROSIP_INV_COSTO_MODO || 'coalesce')),
+      almacen_ids: almacenIdsRaw || ((process.env.MICROSIP_INV_ALMACEN_IDS || '').trim() || null),
+      valor: Math.round(valor * 100) / 100,
+      uds: Math.round(uds * 100) / 100,
+      costo_promedio_implicito: Math.round(cpu * 100) / 100,
+    };
+  }
+
+  const scenarios = [];
+  // 1) Como está la API hoy (env)
+  scenarios.push(await compute(existSubEnv, (process.env.MICROSIP_INV_COSTO_MODO || 'coalesce'), 'WEB (modo actual)'));
+  // 2) PBI-like: costo promedio si existe (ARTICULOS.*)
+  scenarios.push(await compute(existSubEnv, 'promedio', 'Simulación: costo promedio (MICROSIP_INV_COSTO_MODO=promedio)'));
+  // 3) Si se pasó almacen_ids, repetir ambos con almacén simulado
+  if (existSubVar) {
+    scenarios.push(await compute(existSubVar, (process.env.MICROSIP_INV_COSTO_MODO || 'coalesce'), 'Simulación: almacén_ids + modo actual'));
+    scenarios.push(await compute(existSubVar, 'promedio', 'Simulación: almacén_ids + costo promedio'));
+  }
+
+  const pbiValor = req.query && req.query.pbi_valor != null ? parseFloat(String(req.query.pbi_valor).replace(/,/g, '')) : NaN;
+  const pbiUds = req.query && req.query.pbi_uds != null ? parseFloat(String(req.query.pbi_uds).replace(/,/g, '')) : NaN;
+
+  let deltas = null;
+  if (Number.isFinite(pbiValor) && Number.isFinite(pbiUds)) {
+    deltas = scenarios.map((s) => ({
+      label: s.label,
+      delta_valor_vs_pbi: Math.round((s.valor - pbiValor) * 100) / 100,
+      delta_uds_vs_pbi: Math.round((s.uds - pbiUds) * 100) / 100,
+    }));
+  }
+
+  return {
+    ok: true,
+    ts: new Date().toISOString(),
+    db: normalizeDbQueryId(req.query.db) || 'default',
+    pbi: Number.isFinite(pbiValor) && Number.isFinite(pbiUds)
+      ? { valor: pbiValor, uds: pbiUds, costo_promedio_implicito: pbiUds > 0 ? Math.round((pbiValor / pbiUds) * 100) / 100 : 0 }
+      : null,
+    scenarios,
+    deltas,
+    note:
+      'Usa este endpoint para explicar diferencias vs BI: almacén_ids y/o costo_promedio. Si el BI filtra almacén o usa costo promedio, aquí saldrá el delta.',
+  };
 });
 
 // Diagnóstico duro de conectividad Firebird para inventario (no oculta errores).
