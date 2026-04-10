@@ -955,6 +955,28 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   function applyCxcSnapshotForKpis(cxcSnap, directorRaw) {
     var snap = cxcSnap && typeof cxcSnap === 'object' ? cxcSnap : {};
     var res = snap.resumen && typeof snap.resumen === 'object' ? snap.resumen : snap;
+    if (res && typeof res === 'object') {
+      function cxcPickNum(r, keys) {
+        for (var i = 0; i < keys.length; i++) {
+          var k = keys[i];
+          if (!Object.prototype.hasOwnProperty.call(r, k)) continue;
+          if (r[k] === '' || r[k] == null) continue;
+          var t = parseFloat(String(r[k]).replace(/,/g, ''));
+          if (!isNaN(t)) return t;
+        }
+        return NaN;
+      }
+      var res2 = Object.assign({}, res);
+      var st = cxcPickNum(res2, ['SALDO_TOTAL', 'saldo_total']);
+      var ve = cxcPickNum(res2, ['VENCIDO', 'vencido']);
+      var pv = cxcPickNum(res2, ['POR_VENCER', 'por_vencer']);
+      var nc = cxcPickNum(res2, ['NUM_CLIENTES', 'num_clientes']);
+      if (!isNaN(st)) res2.SALDO_TOTAL = st;
+      if (!isNaN(ve)) res2.VENCIDO = ve;
+      if (!isNaN(pv)) res2.POR_VENCER = pv;
+      if (!isNaN(nc)) res2.NUM_CLIENTES = nc;
+      res = res2;
+    }
     var dc = getDirectorCxcPayload(directorRaw);
     var v0 = +res.VENCIDO || 0;
     // Director usa el mismo motor que resumen-aging; alinear saldo/clientes y, si el snapshot aún no trae mora, copiar VENCIDO del director.

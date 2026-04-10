@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <script>window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="filters.js?v=cxcfix-20260409-director-cxc"></script>
+<script src="filters.js?v=cxcfix-20260410-venc2"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -559,6 +559,61 @@ function buildApiUrl(path, extra, qsOpts) {
   const parts = [qs, e].filter(Boolean).join('&');
   return API + path + (parts ? '?' + parts : '');
 }
+/** Aplana respuestas raras de /api/cxc/resumen-aging (array, envoltorio data). */
+function normalizeDirectorCxcApiPayload(raw) {
+  if (raw == null) return {};
+  var o = raw;
+  if (Array.isArray(o) && o[0] && typeof o[0] === 'object' && !Array.isArray(o[0])) o = o[0];
+  if (o && typeof o.data === 'object' && o.data && !Array.isArray(o.data) && (o.data.resumen || o.data.aging)) o = o.data;
+  return o && typeof o === 'object' && !Array.isArray(o) ? o : {};
+}
+function directorMoraFromAgingObj(aging) {
+  if (!aging || typeof aging !== 'object' || Array.isArray(aging)) return 0;
+  function b(k1, k2) {
+    var v = aging[k1];
+    if (v == null && k2) v = aging[k2];
+    var n = parseFloat(String(v != null ? v : '').replace(/,/g, ''));
+    return Number.isFinite(n) ? n : 0;
+  }
+  return b('DIAS_1_30', 'dias_1_30') + b('DIAS_31_60', 'dias_31_60') + b('DIAS_61_90', 'dias_61_90') + b('DIAS_MAS_90', 'dias_mas_90');
+}
+/** Si el pipeline deja VENCIDO en 0 pero el mismo JSON trae buckets de mora, forzar KPI (Director no debe depender solo de un campo). */
+function directorBackfillCxcVencidoForUi(cxc, cxcSnap) {
+  var out = cxc && typeof cxc === 'object' ? cxc : {};
+  var st = +out.SALDO_TOTAL || 0;
+  var v0 = +out.VENCIDO || 0;
+  if (v0 > 0.005 || st <= 0.005) return out;
+  var mora = directorMoraFromAgingObj(cxcSnap && cxcSnap.aging);
+  if (mora <= 0.005) return out;
+  var cap = Math.min(mora, st);
+  var cor = 0;
+  try {
+    var a = cxcSnap && cxcSnap.aging;
+    if (a && typeof a === 'object' && !Array.isArray(a)) {
+      var cv = a.CORRIENTE != null ? a.CORRIENTE : a.corriente;
+      cor = parseFloat(String(cv != null ? cv : '').replace(/,/g, '')) || 0;
+    }
+  } catch (e) {}
+  return Object.assign({}, out, {
+    VENCIDO: cap,
+    POR_VENCER: cor > 0.005 ? cor : Math.max(0, st - cap)
+  });
+}
+/** Si resumen llega con claves distintas, leer saldo/vencido para lógica de snapshot degradado. */
+function directorPickCxcResumenSaldoVenc(res) {
+  if (!res || typeof res !== 'object') return { sal: 0, venc: 0 };
+  function n(keys) {
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      if (!Object.prototype.hasOwnProperty.call(res, k)) continue;
+      if (res[k] === '' || res[k] == null) continue;
+      var t = parseFloat(String(res[k]).replace(/,/g, ''));
+      if (!isNaN(t)) return t;
+    }
+    return 0;
+  }
+  return { sal: n(['SALDO_TOTAL', 'saldo_total']), venc: n(['VENCIDO', 'vencido']) };
+}
 /** Si director/resumen trae cotiz en 0 pero /ventas/cotizaciones/resumen sí responde, unificar nombres de KPI Director. */
 function mergeDirectorCotiFromVentasApi(co, raw) {
   var base = co && typeof co === 'object' ? co : {};
@@ -723,17 +778,20 @@ async function loadAll() {
     ]);
     const dir = (dirRes.status === 'fulfilled' && dirRes.value && typeof dirRes.value === 'object') ? dirRes.value : {};
     let cxcSnap = (cxcRes.status === 'fulfilled' && cxcRes.value && typeof cxcRes.value === 'object') ? cxcRes.value : {};
+    cxcSnap = normalizeDirectorCxcApiPayload(cxcSnap);
     // Evitar que un snapshot degradado (timeout parcial) pise un CxC vencido válido durante la sesión.
     try{
       const dbKey = (typeof window.getSelectedDbId === 'function' ? String(window.getSelectedDbId() || '').trim() : '') || (new URLSearchParams(location.search).get('db') || 'default').trim() || 'default';
       const last = (window.__LAST_CXC_SNAP && window.__LAST_CXC_SNAP[dbKey]) ? window.__LAST_CXC_SNAP[dbKey] : null;
       const res = cxcSnap && cxcSnap.resumen ? cxcSnap.resumen : (cxcSnap || {});
-      const sal = +res.SALDO_TOTAL || 0;
-      const venc = +res.VENCIDO || 0;
+      const pr = directorPickCxcResumenSaldoVenc(res);
+      const sal = pr.sal;
+      const venc = pr.venc;
       const isDeg = (sal > 1000 && venc <= 0.005);
       const lastRes = last && (last.resumen || last) ? (last.resumen || last) : null;
-      const lastSal = lastRes ? (+lastRes.SALDO_TOTAL || 0) : 0;
-      const lastVenc = lastRes ? (+lastRes.VENCIDO || 0) : 0;
+      const lastPr = directorPickCxcResumenSaldoVenc(lastRes);
+      const lastSal = lastRes ? lastPr.sal : 0;
+      const lastVenc = lastRes ? lastPr.venc : 0;
       const mx = Math.max(sal, lastSal);
       const rel = mx > 0 ? Math.abs(sal - lastSal) / mx : 1;
       if (isDeg && last && lastVenc > 0.005 && rel <= 0.25) {
@@ -767,6 +825,7 @@ async function loadAll() {
     if (typeof window.mergeCxcDisplayForDashboard === 'function') {
       cxc = window.mergeCxcDisplayForDashboard(cxc, dir, cxcSnap);
     }
+    cxc = directorBackfillCxcVencidoForUi(cxc, cxcSnap);
     const v = dir.ventas||{}, c = cxc;
     let co = Object.assign({}, dir.cotizaciones||{});
     const ventaMesDir = +(v.MES_ACTUAL||0);
