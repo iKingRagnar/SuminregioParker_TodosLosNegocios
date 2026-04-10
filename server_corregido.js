@@ -4997,6 +4997,77 @@ get('/api/debug/inv-articulos', async (req) => {
   };
 });
 
+/**
+ * Debug: desglosa inventario por ALMACEN_ID (unidades + valor).
+ * Útil para detectar si Power BI está filtrando a un almacén específico.
+ * Params:
+ * - ?pbi_valor=...&pbi_uds=... (opcional, para ver delta vs PBI por almacén)
+ */
+get('/api/debug/inv-almacenes', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const invQTimeout = 90000;
+  const colsArt = await getTableColumns('ARTICULOS', dbo);
+  const artTipoInv = invArticulosTipoInventarioWhereSql(colsArt);
+  const costoSub = await invCostoSubSql(dbo);
+
+  const pbiValor = req.query && req.query.pbi_valor != null ? parseFloat(String(req.query.pbi_valor).replace(/,/g, '')) : NaN;
+  const pbiUds = req.query && req.query.pbi_uds != null ? parseFloat(String(req.query.pbi_uds).replace(/,/g, '')) : NaN;
+
+  const rows = await query(
+    `
+    WITH ex AS (
+      SELECT si.ALMACEN_ID,
+        si.ARTICULO_ID,
+        SUM(COALESCE(si.ENTRADAS_UNIDADES, 0) - COALESCE(si.SALIDAS_UNIDADES, 0)) AS EXISTENCIA
+      FROM SALDOS_IN si
+      WHERE si.ANO = EXTRACT(YEAR FROM CURRENT_DATE)
+        AND si.MES = EXTRACT(MONTH FROM CURRENT_DATE)
+      GROUP BY si.ALMACEN_ID, si.ARTICULO_ID
+    )
+    SELECT
+      ex.ALMACEN_ID,
+      COUNT(DISTINCT a.ARTICULO_ID) AS ARTICULOS_CON_RENGLON,
+      SUM(COALESCE(ex.EXISTENCIA, 0)) AS UDS,
+      SUM(COALESCE(ex.EXISTENCIA, 0) * COALESCE(cs.COSTO1, 0)) AS VALOR
+    FROM ex
+    JOIN ARTICULOS a ON a.ARTICULO_ID = ex.ARTICULO_ID
+    LEFT JOIN ${costoSub} cs ON cs.ARTICULO_ID = a.ARTICULO_ID
+    WHERE COALESCE(a.ESTATUS, 'A') = 'A' ${artTipoInv}
+    GROUP BY ex.ALMACEN_ID
+    ORDER BY VALOR DESC
+  `,
+    [],
+    invQTimeout,
+    dbo,
+  ).catch(() => []);
+
+  const outRows = (Array.isArray(rows) ? rows : []).map((r) => {
+    const uds = +(r.UDS || 0);
+    const valor = +(r.VALOR || 0);
+    return {
+      ALMACEN_ID: r.ALMACEN_ID,
+      ARTICULOS_CON_RENGLON: +(r.ARTICULOS_CON_RENGLON || 0),
+      UDS: Math.round(uds * 100) / 100,
+      VALOR: Math.round(valor * 100) / 100,
+      CPU_IMPLICITO: uds > 0 ? Math.round((valor / uds) * 100) / 100 : 0,
+      delta_uds_vs_pbi: Number.isFinite(pbiUds) ? Math.round((uds - pbiUds) * 100) / 100 : null,
+      delta_valor_vs_pbi: Number.isFinite(pbiValor) ? Math.round((valor - pbiValor) * 100) / 100 : null,
+    };
+  });
+
+  return {
+    ok: true,
+    ts: new Date().toISOString(),
+    db: normalizeDbQueryId(req.query.db) || 'default',
+    pbi: Number.isFinite(pbiValor) && Number.isFinite(pbiUds)
+      ? { valor: pbiValor, uds: pbiUds, cpu: pbiUds > 0 ? Math.round((pbiValor / pbiUds) * 100) / 100 : 0 }
+      : null,
+    rows: outRows,
+    note:
+      'Si Power BI está filtrado a un solo ALMACEN_ID, aquí verás cuál almacén cuadra (uds/valor). Para alinear la WEB: configurar MICROSIP_INV_ALMACEN_IDS=... o usar inv-delta con ?almacen_ids=... para simular.',
+  };
+});
+
 // Debug: compara Inventario con variaciones de costo/almacén para explicar diferencias vs Power BI.
 // Params opcionales:
 // - ?almacen_ids=1,2 (simula filtro de almacén sin tocar .env)
