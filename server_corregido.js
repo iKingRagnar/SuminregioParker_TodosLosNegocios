@@ -3795,6 +3795,23 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
     );
   }
 
+  // Cartera por cliente (cxcClienteSQL) a veces supera al saldo neto agregado por documento; Power BI suele alinearse al subledger por cliente.
+  const saldoClientesSum = (Array.isArray(cxcSaldosLegacy) ? cxcSaldosLegacy : []).reduce((s, r) => s + (+r.SALDO || 0), 0);
+  if (saldoTotal > 0.005 && saldoClientesSum > saldoTotal + 0.01) {
+    const relUp = (saldoClientesSum - saldoTotal) / saldoTotal;
+    if (relUp <= 0.35 && saldoClientesSum <= saldoTotal * 1.35) {
+      const rAdj = saldoClientesSum / saldoTotal;
+      saldoTotal = saldoClientesSum;
+      vencido *= rAdj;
+      porVencer *= rAdj;
+      agCorr *= rAdj;
+      ag1 *= rAdj;
+      ag2 *= rAdj;
+      ag3 *= rAdj;
+      ag4 *= rAdj;
+    }
+  }
+
   /** Suma importes cargo (facturación original) en documentos con saldo > 0 — comparable a columna "Venta" / Total Venta en modelos BI. */
   let totalImporteCargosAbierto = 0;
   try {
@@ -4426,6 +4443,17 @@ function invHeavyQueryTimeoutMs() {
 }
 
 const invPrecioSubCache = new Map();
+/** Orden de preferencia: costo unitario en ARTICULOS (Microsip/versiones/custom usan nombres distintos a COSTO_PROMEDIO). */
+const INV_ARTICULOS_COSTO_UNIT_COLS = [
+  'COSTO_PROMEDIO', 'C_PROMEDIO', 'COSTO_MEDIO', 'COSTO_PROM', 'COSTO_MED', 'COSTO_MEDIANO', 'COSTO_STD',
+  'ULTIMO_COSTO', 'ULT_COSTO', 'ULTIMOCOSTO', 'COSTO_ULTIMO', 'COSTO_ULT',
+  'COSTO', 'COSTO_UNITARIO', 'COSTO_U', 'PRECIO_COSTO', 'COSTOINVENTARIO', 'COSTO_COMPRA',
+  'COSTO_INV', 'COSTO_BASE',
+];
+/** Columnas interpretadas como “costo promedio/medio” cuando MICROSIP_INV_COSTO_MODO=promedio. */
+const INV_ARTICULOS_COSTO_PROMEDIO_COLS = [
+  'COSTO_PROMEDIO', 'C_PROMEDIO', 'COSTO_MEDIO', 'COSTO_PROM', 'COSTO_MED', 'COSTO_MEDIANO', 'COSTO_STD',
+];
 /** Precio mínimo por artículo (PRECIO vs PRECIO_VENTA; MONEDA_ID opcional). Falla común: MONEDA_ID o PRECIO distintos → rompe solo el KPI agregado con precios. */
 async function invPrecioSubSql(dbo) {
   const key = dbCacheKey(dbo);
@@ -4459,20 +4487,25 @@ function invArticulosTipoInventarioWhereSql(cols) {
 /** Expresión COALESCE por renglón: Power BI suele usar primero promedio y si NULL último/costo; una sola columna del catálogo subvaloraba el valor de inventario. */
 function invCostoUnitCoalesceSql(cols) {
   const cset = cols && cols.size ? cols : new Set();
-  const order = ['COSTO_PROMEDIO', 'ULTIMO_COSTO', 'COSTO'];
   const parts = [];
-  for (const c of order) {
+  for (const c of INV_ARTICULOS_COSTO_UNIT_COLS) {
     if (cset.has(c)) parts.push(`a.${c}`);
   }
   return parts.length ? `COALESCE(${parts.join(', ')}, 0)` : null;
 }
 function invCostoCriterioLabel(cols) {
   const modo = (process.env.MICROSIP_INV_COSTO_MODO || 'coalesce').toLowerCase();
-  if (modo === 'promedio') return 'COSTO_PROMEDIO (MICROSIP_INV_COSTO_MODO=promedio)';
   const cset = cols && cols.size ? cols : new Set();
-  const order = ['COSTO_PROMEDIO', 'ULTIMO_COSTO', 'COSTO'];
-  const have = order.filter((c) => cset.has(c));
-  if (have.length) return `COALESCE(${have.join(', ')})`;
+  if (modo === 'promedio') {
+    const pc = firstExistingColumn(cset, INV_ARTICULOS_COSTO_PROMEDIO_COLS);
+    if (pc) return `${pc} (MICROSIP_INV_COSTO_MODO=promedio)`;
+  }
+  const have = INV_ARTICULOS_COSTO_UNIT_COLS.filter((c) => cset.has(c));
+  if (have.length) {
+    const short = have.length <= 5 ? have.join(', ') : `${have.slice(0, 4).join(', ')}, … (+${have.length - 4})`;
+    if (modo === 'promedio') return `COALESCE(${short}) — sin col. promedio dedicada; usar coalesce o revisar ARTICULOS`;
+    return `COALESCE(${short})`;
+  }
   return 'PRECIOS_ARTICULOS (sin columnas de costo en ARTICULOS)';
 }
 /**
@@ -4481,13 +4514,19 @@ function invCostoCriterioLabel(cols) {
  */
 async function invCostoSubSql(dbo) {
   const modo = (process.env.MICROSIP_INV_COSTO_MODO || 'coalesce').toLowerCase();
-  const key = `${dbCacheKey(dbo)}|costo:${modo}`;
+  const key = `${dbCacheKey(dbo)}|costo:${modo}:v3`;
   if (invCostoSubCache.has(key)) return invCostoSubCache.get(key);
   const cols = await getTableColumns('ARTICULOS', dbo);
   const cset = cols && cols.size ? cols : new Set();
-  if (modo === 'promedio' && cset.has('COSTO_PROMEDIO')) {
-    invCostoSubCache.set(key, `( SELECT a.ARTICULO_ID, CAST(COALESCE(a.COSTO_PROMEDIO, 0) AS DECIMAL(18,4)) AS COSTO1 FROM ARTICULOS a )`);
-    return invCostoSubCache.get(key);
+  if (modo === 'promedio') {
+    const promCol = firstExistingColumn(cset, INV_ARTICULOS_COSTO_PROMEDIO_COLS);
+    if (promCol) {
+      invCostoSubCache.set(
+        key,
+        `( SELECT a.ARTICULO_ID, CAST(COALESCE(a.${promCol}, 0) AS DECIMAL(18,4)) AS COSTO1 FROM ARTICULOS a )`
+      );
+      return invCostoSubCache.get(key);
+    }
   }
   const coalesceExpr = invCostoUnitCoalesceSql(cols);
   if (coalesceExpr) {

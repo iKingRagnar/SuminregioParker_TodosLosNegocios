@@ -544,7 +544,7 @@ async function loadAll() {
           var cr = d && d.VALOR_CRITERIO ? String(d.VALOR_CRITERIO) : '';
           var u = (d && d.EXISTENCIA_UNIDADES_SUM != null && !isNaN(+d.EXISTENCIA_UNIDADES_SUM)) ? Number(d.EXISTENCIA_UNIDADES_SUM) : null;
           var alm = (d && d.inv_almacen_ids) ? (' · almac\u00e9n ' + String(d.inv_almacen_ids)) : '';
-          var uds = (u != null) ? (' · \u03a3 uds ' + u.toLocaleString('es-MX', { maximumFractionDigits: 2 })) : '';
+          var uds = (u != null) ? (' · Sum. uds ' + u.toLocaleString('es-MX', { maximumFractionDigits: 2 })) : '';
           el.textContent = cr ? ('Costo: ' + cr + uds + alm + ' · posici\u00f3n actual') : ('Costo unitario' + uds + alm + ' \u00b7 posici\u00f3n actual');
         })();
         setText('kpi-minimo', Number(d.BAJO_MINIMO||0).toLocaleString());
