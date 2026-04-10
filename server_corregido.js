@@ -7514,6 +7514,101 @@ get('/api/debug/cxc-reconcile', async (req) => {
   return payload;
 });
 
+/**
+ * Desglose por cliente: saldo documental (mismo motor que el KPI ref. doc) vs ledger por cliente (cxcClienteSQL).
+ * Útil para ver en qué clientes está la cartera y cruzar nombres con la tabla del Power BI.
+ * No ejecuta el modelo DAX del BI; si hay hueco (~90k), compara SUMA_CARGOS_C_NETO con columna Venta del BI por cliente.
+ */
+get('/api/debug/cxc-por-cliente', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const limit = Math.min(250, Math.max(5, parseInt(req.query.limit, 10) || 120));
+  const ms = Math.min(120000, Math.max(5000, parseInt(req.query.queryMs, 10) || 60000));
+  const r2 = (x) => Math.round((+x || 0) * 100) / 100;
+  const innerDoc = cxcDocSaldosInnerSQL('');
+  const [porDocRows, ledgerRows, totLed] = await Promise.all([
+    query(
+      `
+      SELECT
+        doc.CLIENTE_ID,
+        COALESCE(cl.NOMBRE, '') AS NOMBRE,
+        COUNT(*) AS NUM_DOCS_SALDO,
+        COALESCE(SUM(doc.SALDO_NETO), 0) AS SALDO_DOC,
+        COALESCE(SUM(cb.CARGO_NETO), 0) AS SUMA_CARGOS_C_NETO
+      FROM (${innerDoc}) doc
+      LEFT JOIN CLIENTES cl ON cl.CLIENTE_ID = doc.CLIENTE_ID
+      LEFT JOIN (
+        SELECT i.DOCTO_CC_ID,
+          SUM(CASE WHEN i.TIPO_IMPTE = 'C' AND COALESCE(i.CANCELADO, 'N') = 'N' THEN i.IMPORTE ELSE 0 END) AS CARGO_NETO
+        FROM IMPORTES_DOCTOS_CC i
+        GROUP BY i.DOCTO_CC_ID
+      ) cb ON cb.DOCTO_CC_ID = doc.DOCTO_CC_ID
+      WHERE doc.SALDO_NETO > 0.005
+      GROUP BY doc.CLIENTE_ID, cl.NOMBRE
+      ORDER BY 4 DESC
+    `,
+      [],
+      ms,
+      dbo
+    ).catch(() => []),
+    query(`SELECT cs.CLIENTE_ID, cs.SALDO AS SALDO_LEDGer FROM ${cxcClienteSQL()} cs`, [], ms, dbo).catch(() => []),
+    query(`SELECT COALESCE(SUM(cs.SALDO), 0) AS T FROM ${cxcClienteSQL()} cs`, [], ms, dbo).catch(() => [{ T: 0 }]),
+  ]);
+  const ledMap = new Map((Array.isArray(ledgerRows) ? ledgerRows : []).map((r) => [r.CLIENTE_ID, +r.SALDO_LEDGer || 0]));
+  const docIds = new Set((Array.isArray(porDocRows) ? porDocRows : []).map((r) => r.CLIENTE_ID));
+  const clientes = (Array.isArray(porDocRows) ? porDocRows : []).map((r) => {
+    const doc = +r.SALDO_DOC || 0;
+    const led = ledMap.get(r.CLIENTE_ID) || 0;
+    return {
+      CLIENTE_ID: r.CLIENTE_ID,
+      NOMBRE: String(r.NOMBRE || ''),
+      NUM_DOCS_SALDO: +(r.NUM_DOCS_SALDO || 0) || 0,
+      SALDO_DOC: r2(doc),
+      SALDO_LEDGer: r2(led),
+      DIF_DOC_MENOS_LEDGer: r2(doc - led),
+      SUMA_CARGOS_C_NETO: r2(r.SUMA_CARGOS_C_NETO || 0),
+    };
+  });
+  let soloEnLedgerRaw = (Array.isArray(ledgerRows) ? ledgerRows : []).filter(
+    (r) => r && !docIds.has(r.CLIENTE_ID) && (+r.SALDO_LEDGer || 0) > 0.005
+  );
+  const soloIds = [...new Set(soloEnLedgerRaw.map((r) => r.CLIENTE_ID).filter((id) => id != null))];
+  let nombreSolo = new Map();
+  if (soloIds.length) {
+    const lim = soloIds.slice(0, 80);
+    const nmRows = await query(
+      `SELECT CLIENTE_ID, COALESCE(NOMBRE, '') AS NOMBRE FROM CLIENTES WHERE CLIENTE_ID IN (${lim.join(',')})`,
+      [],
+      Math.min(ms, 30000),
+      dbo
+    ).catch(() => []);
+    nombreSolo = new Map((nmRows || []).map((x) => [x.CLIENTE_ID, String(x.NOMBRE || '')]));
+  }
+  const soloEnLedger = soloEnLedgerRaw.map((r) => ({
+    CLIENTE_ID: r.CLIENTE_ID,
+    NOMBRE: nombreSolo.get(r.CLIENTE_ID) || '—',
+    SALDO_LEDGer: r2(r.SALDO_LEDGer),
+    nota: 'Saldo en ledger sin documentos abiertos en el agregado doc; revisar vínculos de cobros (DOCTO_CC_ACR_ID) o filtros.',
+  }));
+  const sumDoc = clientes.reduce((s, r) => s + r.SALDO_DOC, 0);
+  const sumCargo = clientes.reduce((s, r) => s + r.SUMA_CARGOS_C_NETO, 0);
+  const totLedger = +(totLed && totLed[0] && totLed[0].T) || 0;
+  return {
+    totales: {
+      saldo_doc_por_cliente_sum: r2(sumDoc),
+      suma_cargos_c_neto_docs_abiertos: r2(sumCargo),
+      saldo_ledger_total: r2(totLedger),
+      num_clientes_con_doc_abierto: clientes.length,
+      num_clientes_ledger: (Array.isArray(ledgerRows) ? ledgerRows : []).length,
+    },
+    clientes: clientes.slice(0, limit),
+    solo_en_ledger_sin_doc_agregado: soloEnLedger.slice(0, 40),
+    nota:
+      'Las filas de detalle HTML con saldo $0 no suman al KPI (saldo documental ≤ umbral). ' +
+      'Power BI Deuda ≈ Venta − Cobro en su tabla; aquí SALDO_DOC es cargo neto − cobros normalizados por documento. ' +
+      'Cruza NOMBRE / CLIENTE_ID con el BI para ver quién explica la brecha (~1.70M vs ~1.61M).',
+  };
+});
+
 get('/api/debug/ventas', async () => {
   const [ve, pv] = await Promise.all([
     query(`SELECT COUNT(*) AS N FROM DOCTOS_VE WHERE (TIPO_DOCTO = 'F' OR TIPO_DOCTO = 'V') AND ESTATUS <> 'C'`).catch(() => [{ N: 0 }]),
