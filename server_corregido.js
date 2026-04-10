@@ -1657,11 +1657,13 @@ function cotizacionesSub(tipo = '', opts = {}) {
   // Importe: SUM(líneas.PRECIO_TOTAL) - descuento_encabezado (resta una sola vez por documento)
   const feExprVe = (opts && opts.sqlFeVe) ? String(opts.sqlFeVe).replace(/\bd\./g, 'h.') : 'h.FECHA';
   const vigVe = (opts && opts.vigenciaVeSuffix) ? String(opts.vigenciaVeSuffix).replace(/\bd\./g, 'h.') : '';
+  const detSumExpr = (opts && opts.cotiDetSumExpr) ? String(opts.cotiDetSumExpr) : 'COALESCE(SUM(det2.PRECIO_TOTAL), 0)';
+  const dsctoExpr = (opts && opts.cotiDsctoExpr) ? String(opts.cotiDsctoExpr) : 'COALESCE(h.DSCTO_IMPORTE, 0)';
   const whereFast = sqlWhereCotizacionFast('h', 'VE');
   const ve = `
     SELECT
       ${feExprVe} AS FECHA,
-      (SELECT COALESCE(SUM(det2.PRECIO_TOTAL), 0) FROM DOCTOS_VE_DET det2 WHERE det2.DOCTO_VE_ID = h.DOCTO_VE_ID) - COALESCE(h.DSCTO_IMPORTE, 0) AS IMPORTE_NETO,
+      (SELECT ${detSumExpr} FROM DOCTOS_VE_DET det2 WHERE det2.DOCTO_VE_ID = h.DOCTO_VE_ID) - ${dsctoExpr} AS IMPORTE_NETO,
       COALESCE(h.VENDEDOR_ID, 0) AS VENDEDOR_ID,
       COALESCE(h.CLIENTE_ID,  0) AS CLIENTE_ID,
       h.FOLIO,
@@ -1749,14 +1751,27 @@ async function resolveDoctosHeaderFechaSqlPair(dbo) {
 }
 
 async function cotizacionSqlOpts(dbo) {
-  const [fePair, cotiEw] = await Promise.all([
+  const [fePair, cotiEw, veDetCols, veCols] = await Promise.all([
     resolveDoctosHeaderFechaSqlPair(dbo),
     resolveCotizacionVigenciaSqlSuffix(dbo),
+    getTableColumns('DOCTOS_VE_DET', dbo).catch(() => new Set()),
+    getTableColumns('DOCTOS_VE', dbo).catch(() => new Set()),
   ]);
+  const dsctoCol = firstExistingColumn(veCols, ['DSCTO_IMPORTE', 'DESCUENTO_IMPORTE', 'IMPORTE_DSCTO', 'DSCTO_TOTAL', 'DESCUENTO_TOTAL']);
+  const amtCandidates = ['PRECIO_TOTAL', 'IMPORTE', 'IMPORTE_TOTAL', 'SUBTOTAL', 'TOTAL_LINEA', 'IMPORTE_LINEA', 'IMPORTE_NETO', 'TOTAL', 'NETO', 'TOTAL_RENGLON', 'PRECIO_NETO'];
+  const detAmt = firstExistingColumn(veDetCols, amtCandidates);
+  const detQty = firstExistingColumn(veDetCols, ['UNIDADES', 'CANTIDAD']) || 'UNIDADES';
+  const detPU  = firstExistingColumn(veDetCols, ['PRECIO_UNITARIO', 'PRECIO', 'PRECIO_UNIDAD', 'PRECIO_VENTA']);
+  const detSumExpr = detAmt
+    ? `COALESCE(SUM(det2.${detAmt}), 0)`
+    : (detPU ? `COALESCE(SUM(COALESCE(det2.${detQty}, 0) * COALESCE(det2.${detPU}, 0)), 0)` : '0');
+  const dsctoExpr = dsctoCol ? `COALESCE(h.${dsctoCol}, 0)` : '0';
   return {
     vigenciaVeSuffix: cotiEw,
     sqlFeVe: fePair.ve,
     sqlFePv: fePair.pv,
+    cotiDetSumExpr: detSumExpr,
+    cotiDsctoExpr: dsctoExpr,
   };
 }
 
@@ -7566,7 +7581,7 @@ get('/api/debug/cxc-por-cliente', async (req) => {
         COUNT(*) AS NUM_DOCS_SALDO,
         COALESCE(SUM(doc.SALDO_NETO), 0) AS SALDO_DOC,
         COALESCE(SUM(cb.CARGO_NETO), 0) AS SUMA_CARGOS_C_NETO
-      FROM (${innerDoc}) doc
+      FROM ${innerDoc} doc
       LEFT JOIN CLIENTES cl ON cl.CLIENTE_ID = doc.CLIENTE_ID
       LEFT JOIN (
         SELECT i.DOCTO_CC_ID,
