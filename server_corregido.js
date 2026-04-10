@@ -3376,7 +3376,7 @@ get('/api/ventas/cumplimiento', async (req) => {
 //  DIRECTOR
 // ═══════════════════════════════════════════════════════════
 
-// director.html espera: dir.ventas (HOY, MES_ACTUAL, FACTURAS_MES, MES_VE, MES_PV), dir.cxc, dir.cotizaciones
+// director.html espera: dir.ventas, dir.cotizaciones; dir.cxc solo si no viene omitCxc=1 (evita objeto en ceros que confunde KPIs en cliente).
 // Respeta preset/filtro de fechas: ventas y cotizaciones del periodo (desde/hasta o anio/mes).
 // Cotizaciones: misma macro que ventas con TIPO_DOCTO='C' e IMPORTE_NETO vía sqlVentaImporteBaseExpr.
 async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
@@ -3430,13 +3430,15 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
   const v = vRow[0] || {};
   const rem = remRow[0] || {};
   const co = coRow[0] || {};
-  const cxc = (cxcSnap && cxcSnap.resumen) || { SALDO_TOTAL: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: 0, VENCIDO: 0, POR_VENCER: 0 };
-
-  return {
+  const out = {
     ventas: { HOY: +(v.HOY||0), MES_ACTUAL: +(v.MES_ACTUAL||0), FACTURAS_MES: +(v.FACTURAS_MES||0), MES_VE: +(v.MES_VE||0), MES_PV: +(v.MES_PV||0), REMISIONES_HOY: +(rem.REMISIONES_HOY||0), REMISIONES_MES: +(rem.REMISIONES_MES||0) },
-    cxc: { SALDO_TOTAL: +(cxc.SALDO_TOTAL||0), NUM_CLIENTES: +(cxc.NUM_CLIENTES||0), NUM_CLIENTES_VENCIDOS: +(cxc.NUM_CLIENTES_VENCIDOS||0), VENCIDO: +(cxc.VENCIDO||0), POR_VENCER: +(cxc.POR_VENCER||0) },
     cotizaciones: { COTI_HOY: +(co.COTI_HOY||0), IMPORTE_COTI_HOY: +(co.IMPORTE_COTI_HOY||0), IMPORTE_COTI_MES: +(co.IMPORTE_COTI_MES||0), COTI_MES: +(co.COTI_MES||0) },
   };
+  if (!omitCxc) {
+    const cxc = (cxcSnap && cxcSnap.resumen) || { SALDO_TOTAL: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: 0, VENCIDO: 0, POR_VENCER: 0 };
+    out.cxc = { SALDO_TOTAL: +(cxc.SALDO_TOTAL||0), NUM_CLIENTES: +(cxc.NUM_CLIENTES||0), NUM_CLIENTES_VENCIDOS: +(cxc.NUM_CLIENTES_VENCIDOS||0), VENCIDO: +(cxc.VENCIDO||0), POR_VENCER: +(cxc.POR_VENCER||0) };
+  }
+  return out;
 }
 
 get('/api/director/resumen', async (req) => {
@@ -3620,6 +3622,8 @@ get('/api/director/recientes', async (req) => {
 // Antes GROUP BY (... DIAS_VENCIDO) duplicaba el mismo saldo en docAgg y dejaba VENCIDO=0 al repartir mal corriente vs mora.
 /** Importe recibo/cobro en base (ex-IVA) alineado a cxcClienteSQL / DAX. */
 const CXC_RECIBO_BASE_EXPR = `CASE WHEN COALESCE(i2.IMPUESTO,0) > 0 THEN i2.IMPORTE ELSE i2.IMPORTE/1.16 END`;
+/** Misma fórmula cuando el alias de IMPORTES_DOCTOS_CC es `i` (consulta BI agregada por cliente). */
+const CXC_RECIBO_BASE_EXPR_I = `CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE/1.16 END`;
 
 function cxcDocSaldosInnerSQL(cfSql) {
   // Cobros (R): además de DOCTO_CC_ACR_ID = factura, algunas instalaciones registran el recibo con DOCTO_CC_ID = factura y ACR nulo.
@@ -3874,7 +3878,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
         SELECT dc.CLIENTE_ID,
           SUM(CASE
             WHEN i.TIPO_IMPTE = 'C' THEN (i.IMPORTE + COALESCE(i.IMPUESTO, 0))
-            WHEN i.TIPO_IMPTE = 'R' THEN -(${CXC_RECIBO_BASE_EXPR})
+            WHEN i.TIPO_IMPTE = 'R' THEN -(${CXC_RECIBO_BASE_EXPR_I})
             ELSE 0
           END) AS SALDO
         FROM IMPORTES_DOCTOS_CC i
@@ -3885,7 +3889,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
         GROUP BY dc.CLIENTE_ID
         HAVING SUM(CASE
           WHEN i.TIPO_IMPTE = 'C' THEN (i.IMPORTE + COALESCE(i.IMPUESTO, 0))
-          WHEN i.TIPO_IMPTE = 'R' THEN -(${CXC_RECIBO_BASE_EXPR})
+          WHEN i.TIPO_IMPTE = 'R' THEN -(${CXC_RECIBO_BASE_EXPR_I})
           ELSE 0
         END) > 0
       ) x

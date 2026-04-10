@@ -778,6 +778,17 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     return bucketSumCanonical(base);
   }
 
+  /** director/resumen con omitCxc=1 antes mandaba cxc en ceros; no es cartera real y no debe mezclarse con resumen-aging. */
+  function getDirectorCxcPayload(directorRaw) {
+    var raw = directorRaw && directorRaw.cxc;
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    var s = +raw.SALDO_TOTAL || 0;
+    var v = +raw.VENCIDO || 0;
+    var n = +raw.NUM_CLIENTES || 0;
+    if (s <= 0.005 && v <= 0.005 && n <= 0.005) return null;
+    return raw;
+  }
+
   /**
    * Une el snapshot de GET /api/cxc/resumen con dir.cxc de /api/director/resumen.
    * Cubre timeout/fetch vacío y el caso en que el resumen aislado llegue sin VENCIDO coherente
@@ -807,7 +818,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       };
     }
     var a = norm(cxcRaw);
-    var b = norm(directorRaw && directorRaw.cxc ? directorRaw.cxc : {});
+    var b = norm(getDirectorCxcPayload(directorRaw) || {});
     if (a.SALDO_TOTAL <= 0 && a.VENCIDO <= 0 && (b.SALDO_TOTAL > 0 || b.VENCIDO > 0)) return b;
     var out = {
       SALDO_TOTAL: a.SALDO_TOTAL,
@@ -906,7 +917,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     if (!merged || typeof merged !== 'object') return merged;
     var mv = +merged.VENCIDO || 0;
     if (mv > 0.005) return merged;
-    var dc = directorRaw && directorRaw.cxc ? directorRaw.cxc : null;
+    var dc = getDirectorCxcPayload(directorRaw);
     if (!dc || typeof dc !== 'object') return merged;
     var dv = +dc.VENCIDO || 0;
     if (dv <= 0.005) return merged;
@@ -944,7 +955,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   function applyCxcSnapshotForKpis(cxcSnap, directorRaw) {
     var snap = cxcSnap && typeof cxcSnap === 'object' ? cxcSnap : {};
     var res = snap.resumen && typeof snap.resumen === 'object' ? snap.resumen : snap;
-    var dc = directorRaw && directorRaw.cxc && typeof directorRaw.cxc === 'object' ? directorRaw.cxc : null;
+    var dc = getDirectorCxcPayload(directorRaw);
     var v0 = +res.VENCIDO || 0;
     // Director usa el mismo motor que resumen-aging; alinear saldo/clientes y, si el snapshot aún no trae mora, copiar VENCIDO del director.
     if (dc && +dc.SALDO_TOTAL > 0.005) {
@@ -1000,7 +1011,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
    */
   function mergeCxcDisplayForDashboard(cx, directorRaw, cxcSnap) {
     var px = cx && typeof cx === 'object' ? cx : {};
-    var dc = directorRaw && directorRaw.cxc && typeof directorRaw.cxc === 'object' ? directorRaw.cxc : null;
+    var dc = getDirectorCxcPayload(directorRaw);
     if (dc && (+dc.SALDO_TOTAL || 0) > 0.005) {
       var s0 = +px.SALDO_TOTAL || 0;
       var v0 = +px.VENCIDO || 0;
