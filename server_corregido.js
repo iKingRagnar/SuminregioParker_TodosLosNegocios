@@ -3952,12 +3952,15 @@ get('/api/debug/cxc-resumen-aging', async (req) => {
   };
 });
 
-// Facturas vencidas: misma base que aging (cxcDocSaldosSQL). Sin subconsultas anidadas extra (Firebird).
+// Facturas vencidas: misma base que aging (cxcDocSaldosInnerSQL). Incluye DOCTO con DIAS_VENCIDO > 0
+// aunque SALDO_NETO sea ~0: el resumen puede alinearse a aging legacy (líneas de cargo) y Power BI mientras
+// el neto por documento ya cuadra con cobros; antes el filtro SALDO_NETO > 0 dejaba la tabla vacía con KPIs de mora.
 get('/api/cxc/vencidas', async (req) => {
   const limit = Math.min(parseInt(req.query.limit) || 100, 500);
   const perDb = Math.min(Math.max(limit, 30), 250);
   const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
   const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
+  const qmsVen = Math.min(Math.max(parseInt(req.query.queryMs, 10) || 90000, 30000), 120000);
   const run = async (dbo, firstN) => {
     const n = Math.min(firstN, 500);
     return query(`
@@ -3979,14 +3982,14 @@ get('/api/cxc/vencidas', async (req) => {
         MAX(doc.DIAS_VENCIDO) AS DIAS_ATRASO,
         MAX(doc.SALDO_NETO) AS SALDO_NETO
       FROM ${cxcDocSaldosInnerSQL(cfSql)} doc
-      WHERE doc.SALDO_NETO > 0.005 AND doc.DIAS_VENCIDO > 0
+      WHERE doc.DIAS_VENCIDO > 0
       GROUP BY doc.DOCTO_CC_ID, doc.CLIENTE_ID
     ) x
     JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = x.DOCTO_CC_ID
     LEFT JOIN CLIENTES c ON c.CLIENTE_ID = x.CLIENTE_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, c.COND_PAGO_ID)
-    ORDER BY x.SALDO_NETO DESC, x.DIAS_ATRASO DESC
-  `, [], 30000, dbo).catch((err) => {
+    ORDER BY x.DIAS_ATRASO DESC, x.SALDO_NETO DESC
+  `, [], qmsVen, dbo).catch((err) => {
       const msg = err && (err.message || String(err));
       console.error('cxc /api/cxc/vencidas query error:', msg);
       return [];

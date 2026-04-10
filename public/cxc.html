@@ -1254,16 +1254,16 @@ async function loadResumen() {
 async function loadVencidas() {
   const tb = document.getElementById('tbVenc');
   try {
-    const queryBase = buildCxcQuery('limit=60');
+    const queryBase = buildCxcQuery('limit=120&queryMs=120000');
 
-    const raw = await apiFetch('/api/cxc/vencidas' + queryBase, { timeout: 45000 });
+    const raw = await apiFetch('/api/cxc/vencidas' + queryBase, { timeout: 130000 });
     let rows = asArrayCxC(raw)
-      .filter(r => cxcRowSaldo(r) > 0.005)
+      .filter(r => (+r.DIAS_ATRASO || 0) > 0)
       .sort((a,b)=>cxcRowSaldo(b)-cxcRowSaldo(a));
     if(!rows.length && (document.getElementById('fCliente')?.value||'').trim()){
-      const rawNoCli = await apiFetch('/api/cxc/vencidas?limit=120', { timeout: 45000 });
+      const rawNoCli = await apiFetch('/api/cxc/vencidas?limit=120&queryMs=120000', { timeout: 130000 });
       rows = asArrayCxC(rawNoCli)
-        .filter(r => cxcRowSaldo(r) > 0.005)
+        .filter(r => (+r.DIAS_ATRASO || 0) > 0)
         .sort((a,b)=>cxcRowSaldo(b)-cxcRowSaldo(a));
 
     }
