@@ -4598,7 +4598,7 @@ function invCostoCriterioLabel(cols) {
 const invSaldosInCostCache = new Map();
 /** Si ARTICULOS no trae costo, muchos BI usan costo en SALDOS_IN por almacén (mismo filtro MICROSIP_INV_ALMACEN_IDS). */
 async function invCostoSaldosInFallbackSubSql(dbo) {
-  const key = `${dbCacheKey(dbo)}|saldosInCost|wavg`;
+  const key = `${dbCacheKey(dbo)}|saldosInCost|ecosto`;
   if (invSaldosInCostCache.has(key)) return invSaldosInCostCache.get(key);
   const cols = await getTableColumns('SALDOS_IN', dbo);
   if (!cols || cols.size === 0) {
@@ -4606,6 +4606,24 @@ async function invCostoSaldosInFallbackSubSql(dbo) {
     return null;
   }
   const w = invSaldosInAlmacenWhereSql();
+  /** Microsip típico: costo acumulado por movimiento; costo unitario ≈ (ENTRADAS_COSTO−SALIDAS_COSTO)/(ENTRADAS_UNIDADES−SALIDAS_UNIDADES). */
+  if (
+    cols.has('ENTRADAS_COSTO') &&
+    cols.has('SALIDAS_COSTO') &&
+    cols.has('ENTRADAS_UNIDADES') &&
+    cols.has('SALIDAS_UNIDADES')
+  ) {
+    const ex = '(COALESCE(si.ENTRADAS_UNIDADES, 0) - COALESCE(si.SALIDAS_UNIDADES, 0))';
+    const ec = '(COALESCE(si.ENTRADAS_COSTO, 0) - COALESCE(si.SALIDAS_COSTO, 0))';
+    const sql = `( SELECT si.ARTICULO_ID,
+      CAST(CASE WHEN ABS(SUM(${ex})) > 0.00001
+        THEN SUM(${ec}) / SUM(${ex})
+        ELSE 0 END AS DECIMAL(18,4)) AS COSTO1
+      FROM SALDOS_IN si WHERE 1=1 ${w}
+      GROUP BY si.ARTICULO_ID )`;
+    invSaldosInCostCache.set(key, sql);
+    return sql;
+  }
   const unitCol = firstExistingColumn(cols, [
     'COSTO_ULTIMO', 'ULTIMO_COSTO', 'COSTO_PROMEDIO', 'COSTO_UNITARIO', 'COSTO', 'PRECIO_COSTO',
   ]);
@@ -4641,7 +4659,7 @@ async function invCostoSaldosInFallbackSubSql(dbo) {
  */
 async function invCostoSubSql(dbo) {
   const modo = (process.env.MICROSIP_INV_COSTO_MODO || 'coalesce').toLowerCase();
-  const key = `${dbCacheKey(dbo)}|costo:${modo}:v6`;
+  const key = `${dbCacheKey(dbo)}|costo:${modo}:v7`;
   if (invCostoSubCache.has(key)) return invCostoSubCache.get(key);
   const cols = await getTableColumns('ARTICULOS', dbo);
   const cset = cols && cols.size ? cols : new Set();
@@ -4704,7 +4722,9 @@ get('/api/inv/resumen', async (req) => {
   const r = Object.assign({}, c, v);
   let valorCriterio = invCostoCriterioLabel(colsArt);
   if (String(costoSub).toUpperCase().includes('SALDOS_IN')) {
-    valorCriterio = 'SALDOS_IN (costo por art\u00edculo; sin columnas de costo en ARTICULOS)';
+    valorCriterio = String(costoSub).includes('ENTRADAS_COSTO')
+      ? 'SALDOS_IN: (ENTRADAS_COSTO\u2212SALIDAS_COSTO)/(ENTRADAS_UNIDADES\u2212SALIDAS_UNIDADES) por art\u00edculo'
+      : 'SALDOS_IN (costo por art\u00edculo; sin columnas de costo en ARTICULOS)';
   }
 
   return {
@@ -7525,6 +7545,7 @@ get('/api/debug/cxc-por-cliente', async (req) => {
   const ms = Math.min(120000, Math.max(5000, parseInt(req.query.queryMs, 10) || 60000));
   const r2 = (x) => Math.round((+x || 0) * 100) / 100;
   const innerDoc = cxcDocSaldosInnerSQL('');
+  let porDocErr = null;
   const [porDocRows, ledgerRows, totLed] = await Promise.all([
     query(
       `
@@ -7541,15 +7562,19 @@ get('/api/debug/cxc-por-cliente', async (req) => {
           SUM(CASE WHEN i.TIPO_IMPTE = 'C' AND COALESCE(i.CANCELADO, 'N') = 'N' THEN i.IMPORTE ELSE 0 END) AS CARGO_NETO
         FROM IMPORTES_DOCTOS_CC i
         GROUP BY i.DOCTO_CC_ID
-      ) cb ON cb.DOCTO_CC_ID = doc.DOCTO_CC_ID
+      ) AS cb ON cb.DOCTO_CC_ID = doc.DOCTO_CC_ID
       WHERE doc.SALDO_NETO > 0.005
       GROUP BY doc.CLIENTE_ID, cl.NOMBRE
-      ORDER BY 4 DESC
+      ORDER BY SUM(doc.SALDO_NETO) DESC
     `,
       [],
       ms,
       dbo
-    ).catch(() => []),
+    ).catch((e) => {
+      porDocErr = e && (e.message || String(e));
+      console.error('[cxc-por-cliente] query principal:', porDocErr);
+      return [];
+    }),
     query(`SELECT cs.CLIENTE_ID, cs.SALDO AS SALDO_LEDGer FROM ${cxcClienteSQL()} cs`, [], ms, dbo).catch(() => []),
     query(`SELECT COALESCE(SUM(cs.SALDO), 0) AS T FROM ${cxcClienteSQL()} cs`, [], ms, dbo).catch(() => [{ T: 0 }]),
   ]);
@@ -7592,6 +7617,21 @@ get('/api/debug/cxc-por-cliente', async (req) => {
   const sumDoc = clientes.reduce((s, r) => s + r.SALDO_DOC, 0);
   const sumCargo = clientes.reduce((s, r) => s + r.SUMA_CARGOS_C_NETO, 0);
   const totLedger = +(totLed && totLed[0] && totLed[0].T) || 0;
+  if (!clientes.length && totLedger > 1000 && porDocErr) {
+    return {
+      ok: false,
+      error_sql: porDocErr,
+      totales: {
+        saldo_doc_por_cliente_sum: 0,
+        suma_cargos_c_neto_docs_abiertos: 0,
+        saldo_ledger_total: r2(totLedger),
+        num_clientes_con_doc_abierto: 0,
+        num_clientes_ledger: (Array.isArray(ledgerRows) ? ledgerRows : []).length,
+      },
+      clientes: [],
+      nota: 'Falló la agregación por documento; el ledger sí respondió. Revisa error_sql (Firebird).',
+    };
+  }
   return {
     totales: {
       saldo_doc_por_cliente_sum: r2(sumDoc),
