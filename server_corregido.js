@@ -23,6 +23,7 @@
  *                 por CLIENTE_ID). En Microsip, CARGO y RECIBO tienen diferentes
  *                 DOCTO_CC_ID, por lo que nunca se podía netear por documento.
  *  • cxcCargosSQL() = docs cargo de clientes con saldo pendiente (para aging)
+ *  • /api/cxc/vigentes      → deudas al corriente (DIAS_VENCIDO <= 0, SALDO_NETO > 0)
  *  • /api/cxc/top-deudores  → saldo por documento + DOCTOS_CC; condición COALESCE(dc.COND_PAGO_ID, cliente)
  *  • /api/cxc/historial     → usa cxcCargosSQL (CLIENTE_ID directo)
  *  • /api/cxc/por-condicion → saldo neto por DOCTO_CC y condición del documento (dc.COND_PAGO_ID); contado aparte
@@ -4334,6 +4335,61 @@ get('/api/cxc/vencidas', async (req) => {
   }());
   // #endregion
   return rows;
+});
+
+// Deudas vigentes (corriente): mismo SALDO_NETO que vencidas; DIAS_VENCIDO <= 0 y saldo > 0 (alinea con bucket Corriente / no vencido en Power BI).
+get('/api/cxc/vigentes', async (req) => {
+  const limit = Math.min(parseInt(req.query.limit) || 100, 500);
+  const perDb = Math.min(Math.max(limit, 30), 250);
+  const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
+  const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
+  const qmsVen = Math.min(Math.max(parseInt(req.query.queryMs, 10) || 90000, 30000), 120000);
+  const run = async (dbo, firstN) => {
+    const n = Math.min(firstN, 500);
+    return query(`
+    SELECT FIRST ${n}
+      dc.FOLIO,
+      COALESCE(c.NOMBRE, 'Sin cliente') AS CLIENTE,
+      COALESCE(cp.NOMBRE, 'S/D') AS CONDICION_PAGO,
+      x.SALDO_NETO AS SALDO,
+      x.DIAS_ATRASO AS ATRASO,
+      x.DIAS_ATRASO AS DIAS_ATRASO,
+      CAST(dc.FECHA AS DATE) AS FECHA_VENTA,
+      CAST(dc.FECHA AS DATE) + ${CXC_DIAS_SUM_INT}                   AS FECHA_VENC_PLAZO,
+      CAST(dc.FECHA AS DATE) + ${CXC_DIAS_SUM_INT}                   AS FECHA_VENCIMIENTO,
+      x.DIAS_ATRASO AS TIEMPO_SIN_PAGAR_DIAS
+    FROM (
+      SELECT
+        doc.DOCTO_CC_ID,
+        doc.CLIENTE_ID,
+        MAX(doc.DIAS_VENCIDO) AS DIAS_ATRASO,
+        MAX(doc.SALDO_NETO) AS SALDO_NETO
+      FROM ${cxcDocSaldosInnerSQL(cfSql)} doc
+      WHERE doc.DIAS_VENCIDO <= 0 AND doc.SALDO_NETO > 0.005
+      GROUP BY doc.DOCTO_CC_ID, doc.CLIENTE_ID
+    ) x
+    JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = x.DOCTO_CC_ID
+    LEFT JOIN CLIENTES c ON c.CLIENTE_ID = x.CLIENTE_ID
+    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, c.COND_PAGO_ID)
+    ORDER BY x.SALDO_NETO DESC, x.DIAS_ATRASO ASC
+  `, [], qmsVen, dbo).catch((err) => {
+      const msg = err && (err.message || String(err));
+      console.error('cxc /api/cxc/vigentes query error:', msg);
+      return [];
+    });
+  };
+  if (isAllDbs(req)) {
+    const lists = await mapPoolLimit(DATABASE_REGISTRY, 2, async (entry) => {
+      const rows = await run(entry.options, perDb);
+      const label = entry.label || entry.id || '';
+      return (rows || []).map((r) => Object.assign({}, r, { NEGOCIO: label }));
+    });
+    const flat = lists.flat();
+    flat.sort((a, b) => (+b.SALDO || 0) - (+a.SALDO || 0));
+    return flat.slice(0, limit);
+  }
+  const dbo = getReqDbOpts(req);
+  return run(dbo, limit);
 });
 
 // Top Deudores: saldo neto + condición + vencido proporcional al saldo (igual que /api/cxc/resumen). Acepta ?cliente= para filtrar.

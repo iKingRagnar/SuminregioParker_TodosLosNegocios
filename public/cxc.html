@@ -288,6 +288,7 @@ main{padding-top:24px;padding-bottom:48px;max-width:1520px;margin:0 auto;
 .aging-lbl{font-size:10px;color:var(--txt3);letter-spacing:.5px;font-weight:700;margin-bottom:8px;text-transform:uppercase}
 .aging-sub{font-size:10px;color:var(--txt3);margin-top:6px;line-height:1.3}
 .estatus-bkt{display:inline-block;padding:3px 8px;border-radius:6px;font-size:10px;text-transform:none;white-space:nowrap}
+.estatus-bkt.c0{background:rgba(34,197,94,.18);color:var(--grn)}
 .estatus-bkt.c1{background:rgba(245,158,11,.2);color:var(--ylw)}
 .estatus-bkt.c2{background:rgba(251,146,60,.2);color:#FB923C}
 .estatus-bkt.c4{background:rgba(239,68,68,.2);color:var(--red)}
@@ -788,6 +789,7 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
   <!-- TABS -->
   <div class="tabs">
     <button class="tab active" onclick="switchTab('vencidas')">Facturas Vencidas</button>
+    <button class="tab" onclick="switchTab('vigentes')">Deudas Vigentes</button>
     <button class="tab" onclick="switchTab('top')">Top Deudores</button>
     <button class="tab" onclick="switchTab('condicion')">Por Condici&oacute;n</button>
     <button class="tab" onclick="switchTab('buro')">Calendario Pagos</button>
@@ -809,6 +811,20 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
       <div class="card">
         <div class="card-title">Distribuci&oacute;n Aging</div>
         <div class="chart-wrap"><canvas id="chartAging"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL DEUDAS VIGENTES (corriente / no vencido) -->
+  <div id="pVigentes" style="display:none">
+    <div class="card">
+      <div class="card-title">Deudas vigentes <span class="badge" id="vigBadge">&mdash;</span></div>
+      <p class="card-note">Documentos de cr&eacute;dito <strong>sin atraso</strong> (corriente / por vencer), con saldo pendiente &gt; 0. Misma f&oacute;rmula de saldo que Facturas vencidas (cargo &minus; cobro aplicado). Alineado al KPI <em>Corriente / No vencido</em>.</p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Folio</th><th>Cliente</th><th>Condici&oacute;n</th><th>Estatus</th><th>Saldo</th><th>F. Venta</th><th>Venc. (plazo)</th><th>Atraso</th><th>Al plazo</th><th>F. Venc. (sist.)</th></tr></thead>
+          <tbody id="tbVig"><tr><td colspan="10"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr></tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -1183,28 +1199,16 @@ async function loadResumen() {
   try {
     // Un solo round-trip: /resumen + /aging en paralelo duplicaban cxcResumenAgingUnificado (timeouts en producción).
     let snap = await apiFetch('/api/cxc/resumen-aging' + buildCxcQuery('queryMs=180000'), { timeout: 195000 });
-    const res = (snap && snap.resumen) || {};
-    const ageRaw = (snap && snap.aging) || {};
-    const age = typeof window.normalizeCxcAging === 'function'
-      ? window.normalizeCxcAging(ageRaw)
-      : (ageRaw && typeof ageRaw === 'object' && !Array.isArray(ageRaw) ? ageRaw : (Array.isArray(ageRaw) && ageRaw[0]) ? ageRaw[0] : {});
-    const saldoBase = +res.SALDO_TOTAL||0;
-    const vencFromAging = (+age.DIAS_1_30||0) + (+age.DIAS_31_60||0) + (+age.DIAS_61_90||0) + (+age.DIAS_MAS_90||0);
-    const corrienteAging = +age.CORRIENTE || 0;
-    const sumAging = vencFromAging + corrienteAging;
-    // KPIs: API unificada; si el resumen marca 0 vencido pero los buckets sí tienen mora, alinear con aging (defensa + coherencia).
-    let venc = +res.VENCIDO || 0;
-    let pvenc = +res.POR_VENCER || 0;
-    if (venc <= 0.005 && vencFromAging > 0.005) {
-      venc = vencFromAging;
-      pvenc = corrienteAging;
-    }
-    if (saldoBase > 0.005 && Math.abs(venc + pvenc - saldoBase) / saldoBase > 0.08) {
-      pvenc = Math.max(0, saldoBase - venc);
-    }
+    const res0 = (snap && snap.resumen) || {};
+    const age0raw = (snap && snap.aging) || {};
+    const age0 = typeof window.normalizeCxcAging === 'function'
+      ? window.normalizeCxcAging(age0raw)
+      : (age0raw && typeof age0raw === 'object' && !Array.isArray(age0raw) ? age0raw : (Array.isArray(age0raw) && age0raw[0]) ? age0raw[0] : {});
+    const saldo0 = +res0.SALDO_TOTAL || 0;
+    const mora0 = (+age0.DIAS_1_30||0) + (+age0.DIAS_31_60||0) + (+age0.DIAS_61_90||0) + (+age0.DIAS_MAS_90||0);
 
-    // Defensa Render: si el snapshot llega degradado (aging todo en 0) pero hay saldo, reintentar sin caché.
-    if (saldoBase > 1000 && vencFromAging <= 0.005) {
+    // Defensa Render: si llega degradado (aging=0 pero saldo>0), reintentar sin caché para recuperar buckets/vencido.
+    if (saldo0 > 1000 && mora0 <= 0.005 && (+res0.VENCIDO || 0) <= 0.005) {
       try {
         const snap2 = await apiFetch('/api/cxc/resumen-aging' + buildCxcQuery('queryMs=180000&nocache=1'), { timeout: 195000 });
         const r2 = (snap2 && snap2.resumen) || {};
@@ -1213,26 +1217,25 @@ async function loadResumen() {
           ? window.normalizeCxcAging(a2raw)
           : (a2raw && typeof a2raw === 'object' && !Array.isArray(a2raw) ? a2raw : (Array.isArray(a2raw) && a2raw[0]) ? a2raw[0] : {});
         const mora2 = (+a2.DIAS_1_30||0) + (+a2.DIAS_31_60||0) + (+a2.DIAS_61_90||0) + (+a2.DIAS_MAS_90||0);
-        if ((+r2.VENCIDO || 0) > 0.005 || mora2 > 0.005) {
-          snap = snap2;
-        }
+        if ((+r2.VENCIDO || 0) > 0.005 || mora2 > 0.005) snap = snap2;
       } catch (_) {}
     }
 
-    const resX = (snap && snap.resumen) || res;
-    const ageRawX = (snap && snap.aging) || ageRaw;
-    const ageX = typeof window.normalizeCxcAging === 'function'
-      ? window.normalizeCxcAging(ageRawX)
-      : (ageRawX && typeof ageRawX === 'object' && !Array.isArray(ageRawX) ? ageRawX : (Array.isArray(ageRawX) && ageRawX[0]) ? ageRawX[0] : {});
-    const saldo = +resX.SALDO_TOTAL || 0;
-    const vencFromAgingX = (+ageX.DIAS_1_30||0) + (+ageX.DIAS_31_60||0) + (+ageX.DIAS_61_90||0) + (+ageX.DIAS_MAS_90||0);
-    const corrienteAgingX = +ageX.CORRIENTE || 0;
-    let vencX = +resX.VENCIDO || 0;
-    let pvencX = +resX.POR_VENCER || 0;
-    if (vencX <= 0.005 && vencFromAgingX > 0.005) { vencX = vencFromAgingX; pvencX = corrienteAgingX; }
-    if (saldo > 0.005 && Math.abs(vencX + pvencX - saldo) / saldo > 0.08) pvencX = Math.max(0, saldo - vencX);
+    const res = (snap && snap.resumen) || {};
+    const ageRaw = (snap && snap.aging) || {};
+    const age = typeof window.normalizeCxcAging === 'function'
+      ? window.normalizeCxcAging(ageRaw)
+      : (ageRaw && typeof ageRaw === 'object' && !Array.isArray(ageRaw) ? ageRaw : (Array.isArray(ageRaw) && ageRaw[0]) ? ageRaw[0] : {});
+    const saldo = +res.SALDO_TOTAL||0;
+    const vencFromAging = (+age.DIAS_1_30||0) + (+age.DIAS_31_60||0) + (+age.DIAS_61_90||0) + (+age.DIAS_MAS_90||0);
+    const corrienteAging = +age.CORRIENTE || 0;
+    const sumAging = vencFromAging + corrienteAging;
+    let venc = +res.VENCIDO || 0;
+    let pvenc = +res.POR_VENCER || 0;
+    if (venc <= 0.005 && vencFromAging > 0.005) { venc = vencFromAging; pvenc = corrienteAging; }
+    if (saldo > 0.005 && Math.abs(venc + pvenc - saldo) / saldo > 0.08) pvenc = Math.max(0, saldo - venc);
 
-    // Mostrar comparación BI (incluye contado) como línea informativa; no toca los KPIs de crédito.
+    // Comparación BI (incluye contado) solo informativa; no altera KPIs de crédito.
     const explain = document.getElementById('cxcBiExplain');
     if (explain) {
       explain.textContent = 'Conciliación BI: calculando total incl. contado…';
@@ -1250,17 +1253,17 @@ async function loadResumen() {
 
     setText('kSaldo', fmtK(saldo));
     setText('kCli', (res.NUM_CLIENTES||0)+' clientes');
-    const pV = (saldo > 0 && typeof vencX === 'number' && !isNaN(vencX)) ? (vencX / saldo) * 100 : NaN;
+    const pV = (saldo > 0 && typeof venc === 'number' && !isNaN(venc)) ? (venc / saldo) * 100 : NaN;
     const porcVencidoDec = (typeof pV === 'number' && !isNaN(pV)) ? pV / 100 : 0;
     const elVenc = document.getElementById('kVencido');
     const elVig = document.getElementById('kVigente');
-    if (elVenc) { elVenc.textContent = fmtK(vencX); elVenc.style.color = porcVencidoDec > 0.2 ? '#EF4444' : '#94A3B8'; }
-    if (elVig)  { elVig.textContent = fmtK(pvencX); elVig.style.color = '#22C55E'; elVig.classList.add('grn'); }
-    setText('kPctV', (saldo>0?((vencX/saldo)*100).toFixed(1):0)+'% del saldo');
-    setText('kPctVig', (saldo>0?((pvencX/saldo)*100).toFixed(1):0)+'% del saldo');
-    updateCxcKpiNarrative(saldo, vencX, pvencX, res.NUM_CLIENTES|0);
-    setKpiCompositionBars(saldo, vencX, pvencX);
-    setKpiShareMeters(saldo, vencX, pvencX, porcVencidoDec);
+    if (elVenc) { elVenc.textContent = fmtK(venc); elVenc.style.color = porcVencidoDec > 0.2 ? '#EF4444' : '#94A3B8'; }
+    if (elVig)  { elVig.textContent = fmtK(pvenc); elVig.style.color = '#22C55E'; elVig.classList.add('grn'); }
+    setText('kPctV', (saldo>0?((venc/saldo)*100).toFixed(1):0)+'% del saldo');
+    setText('kPctVig', (saldo>0?((pvenc/saldo)*100).toFixed(1):0)+'% del saldo');
+    updateCxcKpiNarrative(saldo, venc, pvenc, res.NUM_CLIENTES|0);
+    setKpiCompositionBars(saldo, venc, pvenc);
+    setKpiShareMeters(saldo, venc, pvenc, porcVencidoDec);
     staggerKpiStoryCards();
     staggerAgingBuckets();
     document.body.classList.remove('cxc-just-refreshed');
@@ -1403,6 +1406,52 @@ async function loadVencidas() {
     }).join('');
   } catch(e){
 
+    tb.innerHTML='<tr><td colspan="10" style="color:var(--red);padding:12px">Error: '+e.message+'</td></tr>';
+  }
+}
+
+// -- Deudas vigentes (corriente) -----------------------------------------------
+async function loadVigentes() {
+  const tb = document.getElementById('tbVig');
+  if (!tb) return;
+  try {
+    const queryBase = buildCxcQuery('limit=120&queryMs=180000');
+    const raw = await apiFetch('/api/cxc/vigentes' + queryBase, { timeout: 195000 });
+    let rows = asArrayCxC(raw)
+      .filter(r => (+r.DIAS_ATRASO || 0) <= 0)
+      .sort((a,b)=>cxcRowSaldo(b)-cxcRowSaldo(a));
+    if(!rows.length && (document.getElementById('fCliente')?.value||'').trim()){
+      const rawNoCli = await apiFetch('/api/cxc/vigentes?limit=120&queryMs=180000', { timeout: 195000 });
+      rows = asArrayCxC(rawNoCli)
+        .filter(r => (+r.DIAS_ATRASO || 0) <= 0)
+        .sort((a,b)=>cxcRowSaldo(b)-cxcRowSaldo(a));
+    }
+    setText('vigBadge', rows.length+' docs');
+    if(!rows.length){ tb.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--txt3);padding:20px">Sin deudas vigentes con saldo pendiente</td></tr>'; return; }
+    const fmtDay = x => (x ? new Date(x).toLocaleDateString('es-MX') : '\u2014');
+    tb.innerHTML = rows.map(r=>{
+      const d = +(r.DIAS_ATRASO||0);
+      const estatus = d < 0 ? 'Por vencer' : 'Corriente';
+      const estatusCl = 'c0';
+      const dSp = +(r.TIEMPO_SIN_PAGAR_DIAS != null ? r.TIEMPO_SIN_PAGAR_DIAS : r.DIAS_ATRASO) || 0;
+      const alPlazoTxt = d < 0 ? ('Faltan ' + Math.abs(d) + ' d\u00edas al venc.') : (d === 0 ? 'Vence hoy / en plazo' : '\u2014');
+      const atrasoHtml = d < 0
+        ? '<span style="background:rgba(34,197,94,.15);color:var(--grn);padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700">0d</span>'
+        : '<span style="background:rgba(34,197,94,.12);color:var(--grn);padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700">0d</span>';
+      return `<tr>
+      <td style="color:var(--acc2)">${r.FOLIO||'\u2014'}</td>
+      <td style="color:var(--txt)">${(r.CLIENTE||'').substring(0,28)}</td>
+      <td style="color:var(--txt3)">${r.CONDICION_PAGO||'S/D'}</td>
+      <td><span class="aging-lbl estatus-bkt ${estatusCl}">${estatus}</span></td>
+      <td style="color:var(--grn);font-weight:600">${fmtSaldoDoc(cxcRowSaldo(r))}</td>
+      <td style="color:var(--txt3);font-size:11px">${fmtDay(r.FECHA_VENTA)}</td>
+      <td style="color:var(--txt3);font-size:11px">${fmtDay(r.FECHA_VENC_PLAZO)}</td>
+      <td>${atrasoHtml}</td>
+      <td style="color:var(--txt2);font-size:11px;font-family:var(--mono)">${alPlazoTxt}</td>
+      <td style="color:var(--txt3);font-size:11px">${fmtDay(r.FECHA_VENCIMIENTO)}</td>
+    </tr>`;
+    }).join('');
+  } catch(e){
     tb.innerHTML='<tr><td colspan="10" style="color:var(--red);padding:12px">Error: '+e.message+'</td></tr>';
   }
 }
@@ -1558,7 +1607,7 @@ async function loadBuro() {
 }
 
 // -- Tabs ----------------------------------------------------------------------
-const PANELS=['vencidas','top','condicion','buro'];
+const PANELS=['vencidas','vigentes','top','condicion','buro'];
 let curTab='vencidas';
 function switchTab(name){
   const prevTab = curTab;
@@ -1569,6 +1618,7 @@ function switchTab(name){
   });
   document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',PANELS[i]===name));
 
+  if(name==='vigentes') loadVigentes();
   if(name==='top') loadTop();
   if(name==='condicion') loadCond();
   if(name==='buro') loadBuro();
@@ -1616,9 +1666,10 @@ async function loadAll(){
     }
   } catch (_) {}
 
-  const [rRes, rVen] = await Promise.allSettled([loadResumen(), loadVencidas()]);
+  const [rRes, rVen, rVig] = await Promise.allSettled([loadResumen(), loadVencidas(), loadVigentes()]);
   if (rRes.status === 'rejected') console.error('[cxc] loadResumen', rRes.reason);
   if (rVen.status === 'rejected') console.error('[cxc] loadVencidas', rVen.reason);
+  if (rVig.status === 'rejected') console.error('[cxc] loadVigentes', rVig.reason);
   // Carga secuencial de pestañas: menos contención en Firebird que 3× en paralelo tras el resumen.
   const results = [];
   for (const fn of [loadTop, loadCond, loadBuro]) {
