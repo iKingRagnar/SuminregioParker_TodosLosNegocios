@@ -65,15 +65,6 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 .period-btn{font-family:'DM Mono',monospace;font-size:.64rem;padding:.3rem .7rem;border-radius:7px;border:1px solid var(--border2);color:var(--muted);cursor:pointer;background:none;transition:all .2s;letter-spacing:.06em}
 .period-btn:hover{color:var(--text2);border-color:rgba(77,166,255,.3)}
 .period-btn.active{color:var(--suminregio);border-color:rgba(230,168,0,.35);background:var(--suminregio-dim)}
-.pnl-time-stack{display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;gap:.75rem 1rem;margin-bottom:1.1rem}
-.pnl-time-stack #filter-bar{flex:1 1 320px;min-width:min(100%,260px);margin-bottom:0}
-.pnl-mes-anio-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem .75rem;padding:.55rem .85rem;border:1px solid var(--border2);border-radius:12px;background:var(--s1);flex:0 1 auto}
-.pnl-ma-lbl{font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
-.pnl-ma-select{font-family:'DM Mono',monospace;font-size:.68rem;padding:.38rem .55rem;border-radius:8px;border:1px solid var(--border2);background:var(--s2);color:var(--text2);min-width:7.2rem;cursor:pointer}
-.pnl-ma-select:focus{outline:none;border-color:rgba(230,168,0,.45)}
-@media(max-width:900px){
-  .pnl-time-stack{flex-direction:column;align-items:stretch}
-}
 .pnl-drill-btn{display:inline-flex;align-items:center;gap:.35rem;background:none;border:none;color:var(--muted);font-family:'DM Mono',monospace;font-size:.65rem;cursor:pointer}
 .pnl-drill-btn .caret{display:inline-block;transition:transform .16s}
 .pnl-drill-btn.open .caret{transform:rotate(90deg)}
@@ -415,16 +406,8 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
     </div>
   </div>
 
-  <div class="pnl-time-stack" id="pnlTimeStack">
-    <!-- Barra de filtros compartida (misma tubería de fechas que el API) -->
-    <div id="filter-bar"></div>
-    <div class="pnl-mes-anio-toolbar" id="pnlMesAnioToolbar" title="Mes calendario (enero–diciembre) y año — alinea la tabla y el API con el periodo elegido">
-      <span class="pnl-ma-lbl">Mes</span>
-      <select id="pnlSelMes" class="pnl-ma-select" aria-label="Mes (Ene–Dic)"></select>
-      <span class="pnl-ma-lbl">Año</span>
-      <select id="pnlSelAnio" class="pnl-ma-select" aria-label="Año"></select>
-    </div>
-  </div>
+  <!-- Barra de filtros + Mes/Año (filters.js) -->
+  <div id="filter-bar"></div>
 
   <!-- Multi-empresa: chips + scorecard (inspirado en complemento MTD/YTD; aquí periodo = filtros + meses) -->
   <div id="bizContextBar" class="biz-context-bar biz-context-bar--compact" style="display:none">
@@ -858,53 +841,6 @@ function computeMesesVista(mergedForPicker,mesesPeriodoFiltro,fp){
     return merged.filter(m=>+m.ANIO===+p.anio);
   }
   return merged.length?merged:periodo;
-}
-function syncPnlMesAnioToolbar(){
-  const selM=document.getElementById('pnlSelMes');
-  const selA=document.getElementById('pnlSelAnio');
-  if(!selM||!selA)return;
-  const fp=(typeof window.filterGetParams==='function')?window.filterGetParams():{};
-  if(fp.anio!=null&&fp.anio!==''&&fp.mes!=null&&fp.mes!==''){
-    selA.value=String(+fp.anio);
-    selM.value=String(+fp.mes);
-    return;
-  }
-  if(fp.anio!=null&&fp.anio!==''&&(fp.mes==null||fp.mes==='')){
-    selA.value=String(+fp.anio);
-    selM.value='1';
-    return;
-  }
-  if(fp.desde&&fp.hasta){
-    const end=String(fp.hasta).split('-');
-    if(end.length===3){
-      selA.value=end[0];
-      selM.value=String(parseInt(end[1],10));
-    }
-  }
-}
-function wirePnlMesAnioToolbar(){
-  const selM=document.getElementById('pnlSelMes');
-  const selA=document.getElementById('pnlSelAnio');
-  if(!selM||!selA||selM._pnlMesAnioWired)return;
-  selM._pnlMesAnioWired=true;
-  const y0=new Date().getFullYear();
-  selA.innerHTML='';
-  for(let y=y0-4;y<=y0+1;y++){
-    selA.appendChild(new Option(String(y),String(y)));
-  }
-  selM.innerHTML='';
-  for(let m=1;m<=12;m++){
-    selM.appendChild(new Option(MESES_ES[m],String(m)));
-  }
-  const apply=()=>{
-    const y=parseInt(selA.value,10);
-    const mo=parseInt(selM.value,10);
-    if(isNaN(y)||isNaN(mo))return;
-    if(typeof window.filterSetAnioMes==='function')window.filterSetAnioMes(y,mo);
-  };
-  selM.addEventListener('change',apply);
-  selA.addEventListener('change',apply);
-  syncPnlMesAnioToolbar();
 }
 function deltaTag(pct){
   if(isNaN(pct)||pct===null)return'';
@@ -2321,12 +2257,8 @@ initFilters({
   containerId:'filter-bar',
   showVendedor:false,
   defaultPreset:'mes_ant',
-  onReady(){
-    loadData().finally(()=>{ try{ wirePnlMesAnioToolbar(); syncPnlMesAnioToolbar(); }catch(_){} });
-  },
-  onChange(){
-    loadData().finally(()=>{ try{ syncPnlMesAnioToolbar(); }catch(_){} });
-  }
+  onReady(){ loadData(); },
+  onChange(){ loadData(); }
 });
 setInterval(loadData, 1800000);
 </script>

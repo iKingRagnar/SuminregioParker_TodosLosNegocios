@@ -479,6 +479,16 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     const style = document.createElement('style');
     style.id = 'filter-bar-css';
     style.textContent = `
+      #filter-bar {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 16px;
+        align-items: stretch;
+      }
+      #filter-bar > .filter-bar {
+        margin-bottom: 0;
+      }
       .filter-bar {
         display: flex;
         flex-wrap: wrap;
@@ -490,6 +500,41 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
         margin-bottom: 16px;
         border: 1px solid rgba(120,155,196,.24);
         box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 8px 24px rgba(2,8,23,.25);
+      }
+      .filter-mes-anio-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 10px;
+        padding: 8px 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(140,174,212,.22);
+        background: rgba(19,31,46,.55);
+        align-self: flex-start;
+        box-sizing: border-box;
+      }
+      .filter-ma-lbl {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        color: #6A85A6;
+        white-space: nowrap;
+      }
+      .filter-ma-select {
+        padding: 6px 10px;
+        border-radius: 10px;
+        border: 1px solid rgba(140,174,212,.24);
+        background: rgba(15,26,40,.86);
+        color: #d3deea;
+        font-size: 12px;
+        cursor: pointer;
+        min-width: 7rem;
+      }
+      .filter-ma-select:focus {
+        outline: none;
+        border-color: rgba(230,168,0,.6);
+        box-shadow: 0 0 0 3px rgba(230,168,0,.14);
       }
       .fb-presets { display: flex; flex-wrap: wrap; gap: 6px; }
       .fb-preset {
@@ -584,6 +629,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       .fb-label-active { font-size: 11px; color: var(--accent,#3b82f6); font-weight: 600; white-space: nowrap; }
       @media (max-width: 780px) {
         .filter-bar, .biz-context-bar { padding: 10px 10px; border-radius: 12px; }
+        .filter-mes-anio-toolbar { padding: 8px 10px; }
         .fb-preset, .biz-chip { font-size: 10px; padding: 6px 10px; }
         .db-chip-sub { display: none; }
       }
@@ -647,8 +693,80 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
         color: #422006 !important;
       }
       html.theme-premium-light[data-theme="light"] .fb-apply-hint { color: #64748b !important; }
+      html.theme-premium-light[data-theme="light"] #filter-bar > .filter-mes-anio-toolbar {
+        background: #fff !important;
+        border: 1px solid rgba(15, 23, 42, 0.1) !important;
+        box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04) !important;
+      }
+      html.theme-premium-light[data-theme="light"] .filter-ma-lbl { color: #64748b !important; }
+      html.theme-premium-light[data-theme="light"] .filter-ma-select {
+        background: #fff !important;
+        color: #0f172a !important;
+        border-color: rgba(15, 23, 42, 0.12) !important;
+      }
     `;
     document.head.appendChild(s);
+  }
+
+  /** Sincroniza selects Mes/Año con el estado actual (preset, rango, etc.). */
+  function syncMesAnioToolbarUI() {
+    var selM = document.getElementById('filterSelMes');
+    var selA = document.getElementById('filterSelAnio');
+    if (!selM || !selA) return;
+    var p = getParams();
+    if (p.anio != null && p.anio !== '' && p.mes != null && p.mes !== '') {
+      selA.value = String(+p.anio);
+      selM.value = String(+p.mes);
+      return;
+    }
+    if (p.anio != null && p.anio !== '' && (p.mes == null || p.mes === '')) {
+      selA.value = String(+p.anio);
+      selM.value = '1';
+      return;
+    }
+    if (p.desde && p.hasta) {
+      var end = String(p.hasta).split('-');
+      if (end.length === 3) {
+        selA.value = end[0];
+        selM.value = String(parseInt(end[1], 10));
+      }
+    }
+  }
+
+  /** Toolbar compartida Ene–Dic + año; se monta debajo de los chips en #filter-bar. */
+  function mountMesAnioToolbar(containerEl) {
+    if (_cfg.showMesAnioToolbar === false) return;
+    if (!containerEl) return;
+    injectCSS();
+    var old = document.getElementById('filterMesAnioToolbar');
+    if (old) old.remove();
+    var tb = document.createElement('div');
+    tb.id = 'filterMesAnioToolbar';
+    tb.className = 'filter-mes-anio-toolbar';
+    tb.setAttribute('title', 'Mes calendario (enero–diciembre) y año — alinea datos con el periodo elegido');
+    tb.innerHTML = '<span class="filter-ma-lbl">Mes</span><select id="filterSelMes" class="filter-ma-select" aria-label="Mes (Ene–Dic)"></select>' +
+      '<span class="filter-ma-lbl">Año</span><select id="filterSelAnio" class="filter-ma-select" aria-label="Año"></select>';
+    containerEl.appendChild(tb);
+    var selM = document.getElementById('filterSelMes');
+    var selA = document.getElementById('filterSelAnio');
+    var y0 = new Date().getFullYear();
+    selA.innerHTML = '';
+    for (var y = y0 - 4; y <= y0 + 1; y++) {
+      selA.appendChild(new Option(String(y), String(y)));
+    }
+    selM.innerHTML = '';
+    for (var mo = 1; mo <= 12; mo++) {
+      selM.appendChild(new Option(MESES_ES[mo - 1], String(mo)));
+    }
+    syncMesAnioToolbarUI();
+    function applyMesAnio() {
+      var y = parseInt(selA.value, 10);
+      var m = parseInt(selM.value, 10);
+      if (isNaN(y) || isNaN(m)) return;
+      filterSetAnioMes(y, m);
+    }
+    selM.addEventListener('change', applyMesAnio);
+    selA.addEventListener('change', applyMesAnio);
   }
 
   function renderBar() {
@@ -748,6 +866,8 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       renderBar();
       if (!_cfg.deferApply) fire();
     });
+
+    mountMesAnioToolbar(c);
   }
 
   async function initFilters(config) {
@@ -1183,6 +1303,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   window.filterBuildQS            = buildQS;
   window.filterGetParams          = getParams;
   window.filterSetAnioMes         = filterSetAnioMes;
+  window.syncFilterMesAnioToolbar = syncMesAnioToolbarUI;
   window.filterCommitDeferred     = filterCommitDeferred;
   window.filterDeferDirty         = filterDeferDirty;
   window.getSelectedDbId          = getSelectedDbId;
