@@ -139,6 +139,17 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     return '';
   }
 
+  /** Mismo criterio que cxc.html buildCxcQuery: Director/Inicio deben pedir el mismo snapshot que la pestaña CxC (caché + modo KPI en servidor). */
+  function getCxcTotalKpiParam() {
+    try {
+      var u = (new URLSearchParams(window.location.search).get('cxc_total') || '').trim();
+      if (u) return u.toLowerCase();
+      var s = (sessionStorage.getItem('cxc_total_kpi') || '').trim();
+      if (s) return s.toLowerCase();
+    } catch (e) {}
+    return '';
+  }
+
   function getParams() {
     const p = { preset: _state.preset || 'mes' };
     if (_state.desde && _state.hasta) {
@@ -170,6 +181,8 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       delete p.preset;
       delete p.vendedor;
       delete p.cliente;
+      var cxcTotSnap = getCxcTotalKpiParam();
+      if (cxcTotSnap) p.cxc_total = cxcTotSnap;
     }
     if (!opts || !opts.omitDb) {
       var db;

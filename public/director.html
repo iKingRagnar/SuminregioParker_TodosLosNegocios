@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <script>window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="filters.js?v=cxcfix-20260409-resumen-array-unwrap"></script>
+<script src="filters.js?v=cxcfix-20260410-cxc-total-snapshot"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -657,13 +657,11 @@ async function directorEnsureCxcSnap(snap, tMs) {
   var mora = directorMoraFromAgingObj(s.aging);
   if (pr.venc > 0.005 || mora > 0.005) return s;
   if (pr.sal <= 1000) return s;
-  var db = '';
+  var url = API + '/api/cxc/resumen-aging?queryMs=180000&nocache=1';
   try {
-    db = (new URLSearchParams(location.search).get('db') || '').trim();
-    if (!db && typeof window.getSelectedDbId === 'function') db = String(window.getSelectedDbId() || '').trim();
-    if (!db) db = (sessionStorage.getItem('microsip_erp_db') || '').trim();
+    var tail = (typeof window.filterCxcKpiQueryString === 'function') ? window.filterCxcKpiQueryString() : '';
+    if (tail) url += '&' + tail;
   } catch (e1) {}
-  var url = API + '/api/cxc/resumen-aging?queryMs=180000&nocache=1' + (db ? '&db=' + encodeURIComponent(db) : '');
   var fresh = normalizeDirectorCxcApiPayload(await fetchJson(url, {}, tMs));
   var r2 = fresh.resumen && typeof fresh.resumen === 'object' ? fresh.resumen : {};
   var pr2 = directorPickCxcResumenSaldoVenc(r2);
