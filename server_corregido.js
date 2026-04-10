@@ -2125,6 +2125,38 @@ function cxcCargosSQL() {
   )`;
 }
 
+/** Variante para diagnóstico: permite incluir contado/inmediato en la tubería CxC. */
+function cxcCargosSQLVariant(opts) {
+  const includeContado = !!(opts && opts.includeContado);
+  const contadoWhere = includeContado ? '' : CXC_EXCLUIR_CONTADO;
+  const clienteSub = includeContado
+    ? cxcClienteBalancesSubSql({ conIva: false, excludeContado: false })
+    : cxcClienteSQL();
+  return `(
+    SELECT
+      i.DOCTO_CC_ID,
+      dc.CLIENTE_ID,
+      dc.FOLIO,
+      i.IMPORTE                                                       AS SALDO,
+      CAST(dc.FECHA AS DATE) + ${CXC_DIAS_SUM_INT}                   AS FECHA_VENCIMIENTO,
+      CASE
+        WHEN ${CXC_SQL_ES_CONTADO} THEN 0
+        ELSE (CURRENT_DATE - (CAST(dc.FECHA AS DATE) + ${CXC_DIAS_SUM_INT}))
+      END                                                             AS DIAS_VENCIDO
+    FROM IMPORTES_DOCTOS_CC i
+    JOIN  DOCTOS_CC dc         ON dc.DOCTO_CC_ID  = i.DOCTO_CC_ID
+    LEFT JOIN CLIENTES clx ON clx.CLIENTE_ID = dc.CLIENTE_ID
+    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, clx.COND_PAGO_ID)
+    WHERE i.TIPO_IMPTE = 'C'
+      AND COALESCE(i.CANCELADO, 'N') = 'N'
+      AND COALESCE(dc.ESTATUS, 'A') NOT IN ('C') ${contadoWhere}
+      AND dc.CLIENTE_ID IN (
+        SELECT cs.CLIENTE_ID
+        FROM ${clienteSub} cs
+      )
+  )`;
+}
+
 // Deprecated — mantener para compatibilidad pero los endpoints usan cxcClienteSQL/cxcCargosSQL
 function cxcSaldosSub() { return cxcCargosSQL(); }
 
@@ -3650,6 +3682,32 @@ function cxcDocSaldosInnerSQL(cfSql) {
   )`;
 }
 
+function cxcDocSaldosInnerSQLVariant(cfSql, opts) {
+  const includeContado = !!(opts && opts.includeContado);
+  const cf = cfSql || '';
+  return `(
+    SELECT d.DOCTO_CC_ID, d.CLIENTE_ID, d.DIAS_VENCIDO,
+      CAST(
+        COALESCE((SELECT SUM(i.IMPORTE) FROM IMPORTES_DOCTOS_CC i
+          WHERE i.DOCTO_CC_ID = d.DOCTO_CC_ID AND i.TIPO_IMPTE = 'C' AND COALESCE(i.CANCELADO,'N') = 'N'), 0)
+        - COALESCE((SELECT SUM(${CXC_RECIBO_BASE_EXPR})
+          FROM IMPORTES_DOCTOS_CC i2
+          WHERE i2.TIPO_IMPTE = 'R' AND COALESCE(i2.CANCELADO,'N') = 'N'
+            AND (
+              i2.DOCTO_CC_ACR_ID = d.DOCTO_CC_ID
+              OR (i2.DOCTO_CC_ID = d.DOCTO_CC_ID AND i2.DOCTO_CC_ACR_ID IS NULL)
+            )), 0)
+      AS DECIMAL(18,2)) AS SALDO_NETO
+    FROM (
+      SELECT cd.DOCTO_CC_ID, cd.CLIENTE_ID,
+        MAX(cd.DIAS_VENCIDO) AS DIAS_VENCIDO
+      FROM ${cxcCargosSQLVariant({ includeContado })} cd
+      WHERE 1=1 ${cf}
+      GROUP BY cd.DOCTO_CC_ID, cd.CLIENTE_ID
+    ) d
+  )`;
+}
+
 // Subconsulta usable en FROM: alias doc + solo documentos con saldo pendiente.
 // Contado / efectivo inmediato: DIAS_VENCIDO = 0 (no entra a morosidad). No duplicar alias doc al anidar (rompía /api/cxc/vencidas).
 function cxcDocSaldosSQL(cfSql) {
@@ -4153,6 +4211,49 @@ get('/api/debug/cxc-resumen-aging', async (req) => {
     server_tz_offset_min: new Date().getTimezoneOffset(),
     pieces: { docAgg, agingLegacy: legacy },
     snapshot: snap,
+  };
+});
+
+// Debug: ¿cuánto cambia el saldo si se incluye contado/inmediato?
+// Útil para explicar diferencias vs BI (si el modelo BI incluye contado, aquí se ve el delta).
+get('/api/debug/cxc-contado-delta', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const qms = Math.min(Math.max(parseInt(req.query.queryMs, 10) || 60000, 8000), 180000);
+  const t0 = Date.now();
+  const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
+  const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
+  const whereCliDoc = cf ? ` AND doc.CLIENTE_ID = ${cf}` : '';
+  const docAggSql = (innerSql) => `
+    SELECT
+      COUNT(DISTINCT doc.CLIENTE_ID) AS NUM_CLIENTES_DOC,
+      SUM(doc.SALDO_NETO) AS TOTAL_C,
+      SUM(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.SALDO_NETO ELSE 0 END) AS VENC_C
+    FROM ${innerSql} doc
+    WHERE doc.SALDO_NETO > 0.005 ${whereCliDoc}
+  `;
+  const [exclRows, inclRows] = await Promise.all([
+    query(docAggSql(cxcDocSaldosInnerSQLVariant(cfSql, { includeContado: false })), [], qms, dbo).catch(() => [{}]),
+    query(docAggSql(cxcDocSaldosInnerSQLVariant(cfSql, { includeContado: true })), [], qms, dbo).catch(() => [{}]),
+  ]);
+  const a = exclRows[0] || {};
+  const b = inclRows[0] || {};
+  const excl = { total: +(a.TOTAL_C || 0), venc: +(a.VENC_C || 0), num_cli: +(a.NUM_CLIENTES_DOC || 0) };
+  const incl = { total: +(b.TOTAL_C || 0), venc: +(b.VENC_C || 0), num_cli: +(b.NUM_CLIENTES_DOC || 0) };
+  return {
+    ok: true,
+    ts: new Date().toISOString(),
+    elapsed_ms: Date.now() - t0,
+    queryMs: qms,
+    db: normalizeDbQueryId(req.query.db) || 'default',
+    cliente: cf,
+    excl_contado: excl,
+    incl_contado: incl,
+    delta: {
+      total: Math.round((incl.total - excl.total) * 100) / 100,
+      venc: Math.round((incl.venc - excl.venc) * 100) / 100,
+      num_cli: incl.num_cli - excl.num_cli,
+    },
+    note: 'Si delta>0, el BI probablemente incluye contado/inmediato o el texto de CONDICION_PAGO no coincide con los patrones de exclusión.',
   };
 });
 
