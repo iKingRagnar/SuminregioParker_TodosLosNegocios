@@ -790,6 +790,7 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
   <div class="tabs">
     <button class="tab active" onclick="switchTab('vencidas')">Facturas Vencidas</button>
     <button class="tab" onclick="switchTab('vigentes')">Deudas Vigentes</button>
+    <button class="tab" onclick="switchTab('totales')">Deudas Totales</button>
     <button class="tab" onclick="switchTab('top')">Top Deudores</button>
     <button class="tab" onclick="switchTab('condicion')">Por Condici&oacute;n</button>
     <button class="tab" onclick="switchTab('buro')">Calendario Pagos</button>
@@ -801,6 +802,7 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
       <div class="card">
         <div class="card-title">Facturas vencidas <span class="badge" id="vBadge">&mdash;</span></div>
         <p class="card-note">Estatus por d&iacute;as como Power BI para documentos de cr&eacute;dito. Saldo = neto por documento (cargo &minus; cobro). <strong>No aparecen facturas ya liquidadas</strong> (saldo pendiente 0).</p>
+        <p class="card-note" id="vencListHint" style="display:none;font-size:12px;color:var(--ylw)"></p>
         <div class="tbl-wrap">
           <table>
             <thead><tr><th>Folio</th><th>Cliente</th><th>Condici&oacute;n</th><th>Estatus</th><th>Saldo</th><th>F. Venta</th><th>Venc. (plazo)</th><th>Atraso</th><th>Sin pagar</th><th>F. Venc. (sist.)</th></tr></thead>
@@ -820,10 +822,26 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
     <div class="card">
       <div class="card-title">Deudas vigentes <span class="badge" id="vigBadge">&mdash;</span></div>
       <p class="card-note">Documentos de cr&eacute;dito <strong>sin atraso</strong> (corriente / por vencer), con saldo pendiente &gt; 0. Misma f&oacute;rmula de saldo que Facturas vencidas (cargo &minus; cobro aplicado). Alineado al KPI <em>Corriente / No vencido</em>.</p>
+      <p class="card-note" id="vigListHint" style="display:none;font-size:12px;color:var(--ylw)"></p>
       <div class="tbl-wrap">
         <table>
           <thead><tr><th>Folio</th><th>Cliente</th><th>Condici&oacute;n</th><th>Estatus</th><th>Saldo</th><th>F. Venta</th><th>Venc. (plazo)</th><th>Atraso</th><th>Al plazo</th><th>F. Venc. (sist.)</th></tr></thead>
           <tbody id="tbVig"><tr><td colspan="10"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL DEUDAS TOTALES (vencidas + vigentes) -->
+  <div id="pTotales" style="display:none">
+    <div class="card">
+      <div class="card-title">Deudas Totales <span class="badge" id="totBadge">&mdash;</span></div>
+      <p class="card-note">Documentos de cr&eacute;dito con saldo pendiente &gt; 0: <strong>vencidas</strong> (mora) y <strong>vigentes</strong> (corriente / por vencer), misma f&oacute;rmula de saldo que las pesta&ntilde;as anteriores. Orden por saldo descendente.</p>
+      <p class="card-note" id="totListHint" style="display:none;font-size:12px;color:var(--ylw)"></p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>Tipo</th><th>Folio</th><th>Cliente</th><th>Condici&oacute;n</th><th>Estatus</th><th>Saldo</th><th>F. Venta</th><th>Venc. (plazo)</th><th>Atraso</th><th>Al plazo / Sin pagar</th><th>F. Venc. (sist.)</th></tr></thead>
+          <tbody id="tbTot"><tr><td colspan="11"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr></tbody>
         </table>
       </div>
     </div>
@@ -1056,6 +1074,30 @@ function cxcRowSaldo(r) {
   return +v || 0;
 }
 
+/** Coincide con CXC_DETAIL_LIST_MAX en server_corregido.js (env MICROSIP_CXC_DETAIL_LIST_MAX). Listados completos de documentos con saldo. */
+var CXC_DOC_LIST_LIMIT = 10000;
+function cxcSetListTruncHint(hintId, rowCount, limit) {
+  const el = document.getElementById(hintId);
+  if (!el) return;
+  if (rowCount >= limit) {
+    el.style.display = '';
+    el.textContent = 'Listado al límite (' + limit + ' documentos por consulta). Puede haber más registros; los KPI del resumen superior reflejan la cartera completa.';
+  } else {
+    el.style.display = 'none';
+    el.textContent = '';
+  }
+}
+function cxcSetTotalesTruncHint(venLen, vigLen, limit) {
+  const el = document.getElementById('totListHint');
+  if (!el) return;
+  if (venLen >= limit || vigLen >= limit) {
+    el.style.display = '';
+    el.textContent = 'Uno o ambos listados (vencidas / vigentes) llegaron al límite (' + limit + ' docs cada uno). Puede haber más documentos; los KPI del resumen reflejan totales completos.';
+  } else {
+    el.style.display = 'none';
+    el.textContent = '';
+  }
+}
 
 function cxcTotalKpiRead() {
   try {
@@ -1363,14 +1405,14 @@ async function loadResumen() {
 async function loadVencidas() {
   const tb = document.getElementById('tbVenc');
   try {
-    const queryBase = buildCxcQuery('limit=120&queryMs=180000');
+    const queryBase = buildCxcQuery('limit=' + CXC_DOC_LIST_LIMIT + '&queryMs=180000');
 
     const raw = await apiFetch('/api/cxc/vencidas' + queryBase, { timeout: 195000 });
     let rows = asArrayCxC(raw)
       .filter(r => (+r.DIAS_ATRASO || 0) > 0)
       .sort((a,b)=>cxcRowSaldo(b)-cxcRowSaldo(a));
     if(!rows.length && (document.getElementById('fCliente')?.value||'').trim()){
-      const rawNoCli = await apiFetch('/api/cxc/vencidas?limit=120&queryMs=180000', { timeout: 195000 });
+      const rawNoCli = await apiFetch('/api/cxc/vencidas?limit=' + CXC_DOC_LIST_LIMIT + '&queryMs=180000', { timeout: 195000 });
       rows = asArrayCxC(rawNoCli)
         .filter(r => (+r.DIAS_ATRASO || 0) > 0)
         .sort((a,b)=>cxcRowSaldo(b)-cxcRowSaldo(a));
@@ -1378,6 +1420,7 @@ async function loadVencidas() {
     }
 
     setText('vBadge', rows.length+' docs');
+    cxcSetListTruncHint('vencListHint', rows.length, CXC_DOC_LIST_LIMIT);
     if(!rows.length){ tb.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--txt3);padding:20px">Sin facturas vencidas</td></tr>'; return; }
     function estatusRango(d){
       if(d<=0) return 'No Vencido';
@@ -1415,18 +1458,19 @@ async function loadVigentes() {
   const tb = document.getElementById('tbVig');
   if (!tb) return;
   try {
-    const queryBase = buildCxcQuery('limit=120&queryMs=180000');
+    const queryBase = buildCxcQuery('limit=' + CXC_DOC_LIST_LIMIT + '&queryMs=180000');
     const raw = await apiFetch('/api/cxc/vigentes' + queryBase, { timeout: 195000 });
     let rows = asArrayCxC(raw)
       .filter(r => (+r.DIAS_ATRASO || 0) <= 0)
       .sort((a,b)=>cxcRowSaldo(b)-cxcRowSaldo(a));
     if(!rows.length && (document.getElementById('fCliente')?.value||'').trim()){
-      const rawNoCli = await apiFetch('/api/cxc/vigentes?limit=120&queryMs=180000', { timeout: 195000 });
+      const rawNoCli = await apiFetch('/api/cxc/vigentes?limit=' + CXC_DOC_LIST_LIMIT + '&queryMs=180000', { timeout: 195000 });
       rows = asArrayCxC(rawNoCli)
         .filter(r => (+r.DIAS_ATRASO || 0) <= 0)
         .sort((a,b)=>cxcRowSaldo(b)-cxcRowSaldo(a));
     }
     setText('vigBadge', rows.length+' docs');
+    cxcSetListTruncHint('vigListHint', rows.length, CXC_DOC_LIST_LIMIT);
     if(!rows.length){ tb.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--txt3);padding:20px">Sin deudas vigentes con saldo pendiente</td></tr>'; return; }
     const fmtDay = x => (x ? new Date(x).toLocaleDateString('es-MX') : '\u2014');
     tb.innerHTML = rows.map(r=>{
@@ -1453,6 +1497,93 @@ async function loadVigentes() {
     }).join('');
   } catch(e){
     tb.innerHTML='<tr><td colspan="10" style="color:var(--red);padding:12px">Error: '+e.message+'</td></tr>';
+  }
+}
+
+// -- Deudas totales (vencidas + vigentes, una sola tabla) -----------------------
+async function loadTotales() {
+  const tb = document.getElementById('tbTot');
+  if (!tb) return;
+  try {
+    const queryBase = buildCxcQuery('limit=' + CXC_DOC_LIST_LIMIT + '&queryMs=180000');
+    const [rawV, rawG] = await Promise.all([
+      apiFetch('/api/cxc/vencidas' + queryBase, { timeout: 195000 }),
+      apiFetch('/api/cxc/vigentes' + queryBase, { timeout: 195000 }),
+    ]);
+    function estatusRango(d){
+      if(d<=0) return 'No Vencido';
+      if(d<=30) return 'Vencido \u2264 30 d\u00edas';
+      if(d<=60) return 'Vencido \u2264 60 d\u00edas';
+      return 'Vencido > 60 d\u00edas';
+    }
+    let ven = asArrayCxC(rawV).filter(r => (+r.DIAS_ATRASO || 0) > 0).map(r => ({ r: r, tipo: 'vencida' }));
+    let vig = asArrayCxC(rawG).filter(r => (+r.DIAS_ATRASO || 0) <= 0).map(r => ({ r: r, tipo: 'vigente' }));
+    if (!ven.length && !vig.length && (document.getElementById('fCliente')?.value||'').trim()) {
+      const [rawV2, rawG2] = await Promise.all([
+        apiFetch('/api/cxc/vencidas?limit=' + CXC_DOC_LIST_LIMIT + '&queryMs=180000', { timeout: 195000 }),
+        apiFetch('/api/cxc/vigentes?limit=' + CXC_DOC_LIST_LIMIT + '&queryMs=180000', { timeout: 195000 }),
+      ]);
+      ven = asArrayCxC(rawV2).filter(r => (+r.DIAS_ATRASO || 0) > 0).map(r => ({ r: r, tipo: 'vencida' }));
+      vig = asArrayCxC(rawG2).filter(r => (+r.DIAS_ATRASO || 0) <= 0).map(r => ({ r: r, tipo: 'vigente' }));
+    }
+    const merged = ven.concat(vig).sort(function (a, b) { return cxcRowSaldo(b.r) - cxcRowSaldo(a.r); });
+    // #region agent log
+    (function () {
+      const vL = ven.length; const gL = vig.length;
+      fetch('http://127.0.0.1:7807/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'c5910b' }, body: JSON.stringify({ sessionId: 'c5910b', location: 'cxc.html:loadTotales', message: 'doc list merge', data: { hypothesisId: 'H2', venLen: vL, vigLen: gL, merged: merged.length, limit: CXC_DOC_LIST_LIMIT }, timestamp: Date.now(), runId: 'cxc-doc-list' }) }).catch(function () {});
+    }());
+    // #endregion
+    cxcSetTotalesTruncHint(ven.length, vig.length, CXC_DOC_LIST_LIMIT);
+    setText('totBadge', merged.length + ' docs');
+    if (!merged.length) {
+      tb.innerHTML = '<tr><td colspan="11" style="text-align:center;color:var(--txt3);padding:20px">Sin documentos con saldo en esta vista</td></tr>';
+      return;
+    }
+    const fmtDay = function (x) { return (x ? new Date(x).toLocaleDateString('es-MX') : '\u2014'); };
+    tb.innerHTML = merged.map(function (item) {
+      const r = item.r;
+      const tipo = item.tipo;
+      if (tipo === 'vencida') {
+        const d = +(r.DIAS_ATRASO || 0);
+        const estatus = estatusRango(d);
+        const estatusCl = d <= 30 ? 'c1' : d <= 60 ? 'c2' : 'c4';
+        const dSp = +(r.TIEMPO_SIN_PAGAR_DIAS != null ? r.TIEMPO_SIN_PAGAR_DIAS : r.DIAS_ATRASO) || 0;
+        return '<tr>' +
+          '<td><span style="background:rgba(239,68,68,.12);color:var(--red);padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">Vencida</span></td>' +
+          '<td style="color:var(--acc2)">' + (r.FOLIO || '\u2014') + '</td>' +
+          '<td style="color:var(--txt)">' + (r.CLIENTE || '').substring(0, 28) + '</td>' +
+          '<td style="color:var(--txt3)">' + (r.CONDICION_PAGO || 'S/D') + '</td>' +
+          '<td><span class="aging-lbl estatus-bkt ' + estatusCl + '">' + estatus + '</span></td>' +
+          '<td style="color:var(--red)">' + fmtSaldoDoc(cxcRowSaldo(r)) + '</td>' +
+          '<td style="color:var(--txt3);font-size:11px">' + fmtDay(r.FECHA_VENTA) + '</td>' +
+          '<td style="color:var(--txt3);font-size:11px">' + fmtDay(r.FECHA_VENC_PLAZO) + '</td>' +
+          '<td><span style="background:rgba(239,68,68,.15);color:var(--red);padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700">+' + d + 'd</span></td>' +
+          '<td style="color:var(--txt2);font-size:11px;font-family:var(--mono)">' + dSp + ' d\u00edas</td>' +
+          '<td style="color:var(--txt3);font-size:11px">' + fmtDay(r.FECHA_VENCIMIENTO) + '</td>' +
+          '</tr>';
+      }
+      const d = +(r.DIAS_ATRASO || 0);
+      const estatus = d < 0 ? 'Por vencer' : 'Corriente';
+      const estatusCl = 'c0';
+      const dSp = +(r.TIEMPO_SIN_PAGAR_DIAS != null ? r.TIEMPO_SIN_PAGAR_DIAS : r.DIAS_ATRASO) || 0;
+      const alPlazoTxt = d < 0 ? ('Faltan ' + Math.abs(d) + ' d\u00edas al venc.') : (d === 0 ? 'Vence hoy / en plazo' : '\u2014');
+      const atrasoHtml = '<span style="background:rgba(34,197,94,.12);color:var(--grn);padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700">0d</span>';
+      return '<tr>' +
+        '<td><span style="background:rgba(34,197,94,.12);color:var(--grn);padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700">Vigente</span></td>' +
+        '<td style="color:var(--acc2)">' + (r.FOLIO || '\u2014') + '</td>' +
+        '<td style="color:var(--txt)">' + (r.CLIENTE || '').substring(0, 28) + '</td>' +
+        '<td style="color:var(--txt3)">' + (r.CONDICION_PAGO || 'S/D') + '</td>' +
+        '<td><span class="aging-lbl estatus-bkt ' + estatusCl + '">' + estatus + '</span></td>' +
+        '<td style="color:var(--grn);font-weight:600">' + fmtSaldoDoc(cxcRowSaldo(r)) + '</td>' +
+        '<td style="color:var(--txt3);font-size:11px">' + fmtDay(r.FECHA_VENTA) + '</td>' +
+        '<td style="color:var(--txt3);font-size:11px">' + fmtDay(r.FECHA_VENC_PLAZO) + '</td>' +
+        '<td>' + atrasoHtml + '</td>' +
+        '<td style="color:var(--txt2);font-size:11px;font-family:var(--mono)">' + alPlazoTxt + '</td>' +
+        '<td style="color:var(--txt3);font-size:11px">' + fmtDay(r.FECHA_VENCIMIENTO) + '</td>' +
+        '</tr>';
+    }).join('');
+  } catch (e) {
+    tb.innerHTML = '<tr><td colspan="11" style="color:var(--red);padding:12px">Error: ' + e.message + '</td></tr>';
   }
 }
 
@@ -1607,7 +1738,7 @@ async function loadBuro() {
 }
 
 // -- Tabs ----------------------------------------------------------------------
-const PANELS=['vencidas','vigentes','top','condicion','buro'];
+const PANELS=['vencidas','vigentes','totales','top','condicion','buro'];
 let curTab='vencidas';
 function switchTab(name){
   const prevTab = curTab;
@@ -1619,6 +1750,7 @@ function switchTab(name){
   document.querySelectorAll('.tab').forEach((b,i)=>b.classList.toggle('active',PANELS[i]===name));
 
   if(name==='vigentes') loadVigentes();
+  if(name==='totales') loadTotales();
   if(name==='top') loadTop();
   if(name==='condicion') loadCond();
   if(name==='buro') loadBuro();
@@ -1678,6 +1810,13 @@ async function loadAll(){
     } catch (e) {
       console.error('[cxc]', fn.name, e);
       results.push({ name: fn.name, status: 'rejected', reason: (e && e.message) || String(e) });
+    }
+  }
+  if (curTab === 'totales') {
+    try {
+      await loadTotales();
+    } catch (e) {
+      console.error('[cxc] loadTotales', e);
     }
   }
 

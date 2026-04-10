@@ -1785,7 +1785,7 @@ const consumosSchemaInFlight = new Map();
  * Si se usa FECHA_DOCUMENTO o CANTIDAD incorrectamente, la query falla y los KPIs quedan en 0.
  */
 async function resolveConsumosSchema(dbo) {
-  const key = dbCacheKey(dbo) + ':v3amt';
+  const key = dbCacheKey(dbo) + ':v4consumosUnion';
   if (consumosSchemaCache.has(key)) return consumosSchemaCache.get(key);
   // Deduplication: share in-flight promise across concurrent callers (prevents N×4 DB queries on cold start)
   if (consumosSchemaInFlight.has(key)) return consumosSchemaInFlight.get(key);
@@ -1809,6 +1809,9 @@ async function resolveConsumosSchema(dbo) {
       pvQty,
       veAmt,
       pvAmt,
+      /** Si RDB$ no ve cabecera+det de PV, no incluir DOCTOS_PV en UNION (evita KPI en 0 en bases solo VE). */
+      _consumosHasVe: veCols.size > 0 && veDetCols.size > 0,
+      _consumosHasPv: pvCols.size > 0 && pvDetCols.size > 0,
     };
 
     // Only cache if schema detection actually worked (at least one table had columns)
@@ -1822,6 +1825,22 @@ async function resolveConsumosSchema(dbo) {
   });
   consumosSchemaInFlight.set(key, p);
   return p;
+}
+
+/**
+ * Con ?tipo vacío (Todos), usar UNION solo si metadata indica VE y PV; si una rama no existe, una sola fuente.
+ * Así "Todos" no ejecuta `... UNION ALL ... DOCTOS_PV` cuando la base no tiene PV (antes: query fallaba → KPI 0; con ?tipo=VE sí cargaba).
+ */
+function consumosEffectiveTipo(reqTipo, parts) {
+  const t = reqTipo || '';
+  if (t === 'VE' || t === 'PV') return t;
+  const p = parts || {};
+  const hasVe = p._consumosHasVe !== false;
+  const hasPv = p._consumosHasPv !== false;
+  if (hasVe && hasPv) return '';
+  if (hasVe) return 'VE';
+  if (hasPv) return 'PV';
+  return 'VE';
 }
 
 /**
@@ -1893,8 +1912,9 @@ function consumosSubSql(tipo = '', parts) {
     JOIN DOCTOS_PV_DET det ON det.DOCTO_PV_ID = d.DOCTO_PV_ID
     WHERE ${pvDocWhere}`;
 
-  if (tipo === 'VE') return `(${ve})`;
-  if (tipo === 'PV') return `(${pv})`;
+  const eff = consumosEffectiveTipo(tipo, p);
+  if (eff === 'VE') return `(${ve})`;
+  if (eff === 'PV') return `(${pv})`;
   return `(${ve} UNION ALL ${pv})`;
 }
 
@@ -1968,8 +1988,9 @@ function consumosSubSqlWithLookback(tipo = '', parts, limitDays) {
     WHERE ${pvDocWhere}
       AND ${fePv} >= (CURRENT_DATE - ${days})`;
 
-  if (tipo === 'VE') return `(${ve})`;
-  if (tipo === 'PV') return `(${pv})`;
+  const eff = consumosEffectiveTipo(tipo, p);
+  if (eff === 'VE') return `(${ve})`;
+  if (eff === 'PV') return `(${pv})`;
   return `(${ve} UNION ALL ${pv})`;
 }
 
@@ -4265,16 +4286,23 @@ get('/api/debug/cxc-contado-delta', async (req) => {
   };
 });
 
+/** Tope de filas en /api/cxc/vencidas y /api/cxc/vigentes (FIRST n). Env MICROSIP_CXC_DETAIL_LIST_MAX (default 10000, máx. 50000). */
+const CXC_DETAIL_LIST_MAX = (() => {
+  const n = parseInt(process.env.MICROSIP_CXC_DETAIL_LIST_MAX, 10);
+  if (!Number.isFinite(n) || n < 1) return 10000;
+  return Math.min(n, 50000);
+})();
+
 // Facturas vencidas: SALDO_NETO = Cargo − Cobro(R) con base ex-IVA; cobros alineados a BI con APLICADO='S' (env MICROSIP_CXC_COBRO_REQUIERE_APLICADO).
 // Solo documentos con mora real: DIAS_VENCIDO > 0 y SALDO_NETO > 0 (evita filas “vencidas” ya liquidadas).
 get('/api/cxc/vencidas', async (req) => {
-  const limit = Math.min(parseInt(req.query.limit) || 100, 500);
-  const perDb = Math.min(Math.max(limit, 30), 250);
+  const limit = Math.min(parseInt(req.query.limit) || 100, CXC_DETAIL_LIST_MAX);
+  const perDb = Math.min(Math.max(limit, 30), CXC_DETAIL_LIST_MAX);
   const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
   const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
   const qmsVen = Math.min(Math.max(parseInt(req.query.queryMs, 10) || 90000, 30000), 120000);
   const run = async (dbo, firstN) => {
-    const n = Math.min(firstN, 500);
+    const n = Math.min(firstN, CXC_DETAIL_LIST_MAX);
     return query(`
     SELECT FIRST ${n}
       dc.FOLIO,
@@ -4339,13 +4367,13 @@ get('/api/cxc/vencidas', async (req) => {
 
 // Deudas vigentes (corriente): mismo SALDO_NETO que vencidas; DIAS_VENCIDO <= 0 y saldo > 0 (alinea con bucket Corriente / no vencido en Power BI).
 get('/api/cxc/vigentes', async (req) => {
-  const limit = Math.min(parseInt(req.query.limit) || 100, 500);
-  const perDb = Math.min(Math.max(limit, 30), 250);
+  const limit = Math.min(parseInt(req.query.limit) || 100, CXC_DETAIL_LIST_MAX);
+  const perDb = Math.min(Math.max(limit, 30), CXC_DETAIL_LIST_MAX);
   const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
   const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
   const qmsVen = Math.min(Math.max(parseInt(req.query.queryMs, 10) || 90000, 30000), 120000);
   const run = async (dbo, firstN) => {
-    const n = Math.min(firstN, 500);
+    const n = Math.min(firstN, CXC_DETAIL_LIST_MAX);
     return query(`
     SELECT FIRST ${n}
       dc.FOLIO,
@@ -4392,54 +4420,133 @@ get('/api/cxc/vigentes', async (req) => {
   return run(dbo, limit);
 });
 
-// Top Deudores: saldo neto + condición + vencido proporcional al saldo (igual que /api/cxc/resumen). Acepta ?cliente= para filtrar.
+// Top Deudores: saldo neto por documento (cxcDocSaldosInnerSQL) + vencido = suma donde DIAS_VENCIDO>0 (misma lógica que vencidas/vigentes).
+// Timeout alineado a /api/cxc/vencidas (?queryMs, default 90s). Si la query principal falla o va vacía, fallback: saldo cliente + aging por líneas de cargo (cxcCargosSQL) con vencido proporcional — nunca ceros en vencido/docs si hay mora en cargos.
 get('/api/cxc/top-deudores', async (req) => {
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
   const perDb = Math.min(Math.max(limit, 15), 80);
   const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
   const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
+  const qmsTop = Math.min(Math.max(parseInt(req.query.queryMs, 10) || 90000, 30000), 120000);
   const runMain = async (dbo, firstN) => {
     const n = Math.min(firstN, 100);
     return query(`
     SELECT FIRST ${n}
       doc.CLIENTE_ID,
-      COALESCE(cl.NOMBRE, 'Cliente ' || CAST(doc.CLIENTE_ID AS VARCHAR(12))) AS CLIENTE,
+      COALESCE(MAX(cl.NOMBRE), 'Cliente ' || CAST(doc.CLIENTE_ID AS VARCHAR(12))) AS CLIENTE,
       COALESCE(MAX(cp.NOMBRE), 'S/D') AS CONDICION_PAGO,
       SUM(doc.SALDO_NETO) AS SALDO_TOTAL,
       SUM(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.SALDO_NETO ELSE 0 END) AS VENCIDO,
-      MAX(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.DIAS_VENCIDO ELSE 0 END) AS MAX_DIAS_ATRASO,
+      COALESCE(MAX(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.DIAS_VENCIDO END), 0) AS MAX_DIAS_ATRASO,
       COUNT(*) AS NUM_DOCUMENTOS
     FROM ${cxcDocSaldosInnerSQL(cfSql)} doc
     JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = doc.DOCTO_CC_ID
     LEFT JOIN CLIENTES cl ON cl.CLIENTE_ID = doc.CLIENTE_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, cl.COND_PAGO_ID)
     WHERE doc.SALDO_NETO > 0.005
-    GROUP BY doc.CLIENTE_ID, cl.NOMBRE
-    ORDER BY SALDO_TOTAL DESC, VENCIDO DESC
-  `, [], 12000, dbo).catch(err => { console.error('cxc top-deudores main error:', err && (err.message || err)); return []; });
+    GROUP BY doc.CLIENTE_ID
+    ORDER BY SUM(doc.SALDO_NETO) DESC,
+      SUM(CASE WHEN doc.DIAS_VENCIDO > 0 THEN doc.SALDO_NETO ELSE 0 END) DESC
+  `, [], qmsTop, dbo).catch(err => { console.error('cxc top-deudores main error:', err && (err.message || err)); return []; });
   };
-  const runFb = async (dbo, firstN) => {
+  /** Fallback: mismo criterio de mora que KPIs vía líneas de cargo; reparte vencido al saldo neto cliente cuando TOTAL_C>0. */
+  const runFallbackHybrid = async (dbo, firstN) => {
     const n = Math.min(firstN, 100);
-    return query(`
-    SELECT FIRST ${n}
-      c.CLIENTE_ID,
-      COALESCE(cl.NOMBRE, 'Cliente ' || CAST(c.CLIENTE_ID AS VARCHAR(12))) AS CLIENTE,
-      COALESCE(cp.NOMBRE, 'S/D') AS CONDICION_PAGO,
-      c.SALDO AS SALDO_TOTAL,
-      CAST(0 AS DOUBLE PRECISION) AS VENCIDO,
-      CAST(0 AS INTEGER) AS MAX_DIAS_ATRASO,
-      CAST(0 AS INTEGER) AS NUM_DOCUMENTOS
-    FROM ${cxcClienteSQL()} c
-    LEFT JOIN CLIENTES cl ON cl.CLIENTE_ID = c.CLIENTE_ID
-    LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = cl.COND_PAGO_ID
-    WHERE c.SALDO > 0.005 ${cf ? `AND c.CLIENTE_ID = ${cf}` : ''}
-    ORDER BY c.SALDO DESC
-  `, [], 12000, dbo).catch(err => { console.error('cxc top-deudores fallback error:', err && (err.message || err)); return []; });
+    const cfSqlS = cf ? ` WHERE s.CLIENTE_ID = ${cf}` : '';
+    const cfSqlCd = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
+    const [saldos, aging] = await Promise.all([
+      query(`SELECT s.CLIENTE_ID, s.SALDO FROM ${cxcClienteSQL()} s ${cfSqlS}`, [], qmsTop, dbo).catch(() => []),
+      query(`
+        SELECT cd.CLIENTE_ID,
+          SUM(cd.SALDO) AS TOTAL_C,
+          SUM(CASE WHEN cd.DIAS_VENCIDO > 0 THEN cd.SALDO ELSE 0 END) AS VENC_C,
+          MAX(CASE WHEN cd.DIAS_VENCIDO > 0 THEN cd.DIAS_VENCIDO ELSE 0 END) AS MAX_DIAS,
+          COUNT(*) AS NUM_DOCS
+        FROM ${cxcCargosSQL()} cd
+        WHERE 1=1 ${cfSqlCd}
+        GROUP BY cd.CLIENTE_ID
+      `, [], qmsTop, dbo).catch(() => []),
+    ]);
+    const agingMap = {};
+    (aging || []).forEach((a) => { agingMap[a.CLIENTE_ID] = a; });
+    const clienteIds = (saldos || []).map((s) => s.CLIENTE_ID).filter(Boolean);
+    if (!clienteIds.length) return [];
+    const clientes = await query(
+      `
+      SELECT cl.CLIENTE_ID, cl.NOMBRE AS CLIENTE, COALESCE(cp.NOMBRE, 'S/D') AS CONDICION_PAGO
+      FROM CLIENTES cl
+      LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = cl.COND_PAGO_ID
+      WHERE cl.CLIENTE_ID IN (${clienteIds.join(',')})
+    `,
+      [],
+      qmsTop,
+      dbo
+    ).catch(() => []);
+    const clMap = {};
+    (clientes || []).forEach((c) => { clMap[c.CLIENTE_ID] = c; });
+    return (saldos || [])
+      .map((s) => {
+        const cl = clMap[s.CLIENTE_ID] || {};
+        const ag = agingMap[s.CLIENTE_ID] || {};
+        const saldo = +s.SALDO || 0;
+        const totalC = +ag.TOTAL_C || 0;
+        const vencC = +ag.VENC_C || 0;
+        const pct = totalC > 0 ? Math.min(vencC / totalC, 1) : 0;
+        const vencido = Math.round(saldo * pct * 100) / 100;
+        return {
+          CLIENTE_ID: s.CLIENTE_ID,
+          CLIENTE: cl.CLIENTE || 'Cliente ' + s.CLIENTE_ID,
+          CONDICION_PAGO: cl.CONDICION_PAGO || 'S/D',
+          SALDO_TOTAL: saldo,
+          VENCIDO: vencido,
+          MAX_DIAS_ATRASO: +ag.MAX_DIAS || 0,
+          NUM_DOCUMENTOS: +ag.NUM_DOCS || 0,
+        };
+      })
+      .sort((a, b) => (+b.SALDO_TOTAL || 0) - (+a.SALDO_TOTAL || 0))
+      .slice(0, n);
   };
   const oneDb = async (dbo, firstN) => {
     const rows = await runMain(dbo, firstN);
-    if ((rows || []).length) return rows;
-    return runFb(dbo, firstN);
+    if ((rows || []).length) {
+      // #region agent log
+      try {
+        fs.appendFileSync(
+          path.join(__dirname, 'debug-c5910b.log'),
+          JSON.stringify({
+            sessionId: 'c5910b',
+            hypothesisId: 'H-topdeudor',
+            location: 'server:/api/cxc/top-deudores',
+            branch: 'main',
+            n: rows.length,
+            sampleVenc: rows[0] ? +rows[0].VENCIDO : null,
+            timestamp: Date.now(),
+          }) + '\n',
+          'utf8'
+        );
+      } catch (_e) { /* ignore */ }
+      // #endregion
+      return rows;
+    }
+    const fb = await runFallbackHybrid(dbo, firstN);
+    // #region agent log
+    try {
+      fs.appendFileSync(
+        path.join(__dirname, 'debug-c5910b.log'),
+        JSON.stringify({
+          sessionId: 'c5910b',
+          hypothesisId: 'H-topdeudor',
+          location: 'server:/api/cxc/top-deudores',
+          branch: 'fallback-hybrid',
+          n: (fb || []).length,
+          sampleVenc: fb && fb[0] ? +fb[0].VENCIDO : null,
+          timestamp: Date.now(),
+        }) + '\n',
+        'utf8'
+      );
+    } catch (_e) { /* ignore */ }
+    // #endregion
+    return fb;
   };
   if (isAllDbs(req)) {
     const lists = await mapPoolLimit(DATABASE_REGISTRY, 2, async (entry) => {
@@ -8338,6 +8445,32 @@ get('/api/consumos/resumen', async (req) => {
   const m = maxRows[0] || {};
   const unidadesPeriodo = +t.UNIDADES_PERIODO || 0;
   const diasConMov = +t.DIAS_CON_MOVIMIENTO || 0;
+  // #region agent log
+  try {
+    const effT = consumosEffectiveTipo(tipo, parts);
+    fs.appendFileSync(
+      path.join(__dirname, 'debug-c5910b.log'),
+      JSON.stringify({
+        sessionId: 'c5910b',
+        hypothesisId: 'H-union',
+        location: 'server:/api/consumos/resumen',
+        message: 'resumen computed',
+        data: {
+          reqTipo: tipo || '(none)',
+          effTipo: effT === '' ? 'UNION' : effT,
+          hasVe: parts._consumosHasVe,
+          hasPv: parts._consumosHasPv,
+          unionInSub: String(sub).includes('UNION ALL'),
+          unidadesPeriodo,
+          movimientos: +t.MOVIMIENTOS || 0,
+        },
+        timestamp: Date.now(),
+        runId: 'post-fix',
+      }) + '\n',
+      'utf8'
+    );
+  } catch (_logErr) { /* ignore */ }
+  // #endregion
   return {
     HOY_UNIDADES: +t.HOY_UNIDADES || 0,
     HOY_VENTA_IMPORTE: +t.HOY_VENTA_IMPORTE || 0,
