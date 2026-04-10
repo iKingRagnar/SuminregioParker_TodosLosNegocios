@@ -171,6 +171,7 @@ main{padding-top:24px;padding-bottom:48px;max-width:1520px;margin:0 auto;
 .btn{background:var(--accent);color:#050B14;border:none;border-radius:8px;padding:8px 18px;
      font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;transition:.2s}
 .btn:hover{background:var(--acc2);color:#050B14}
+.btn.btn-on{background:rgba(56,189,248,.14);border:1px solid rgba(56,189,248,.35);color:var(--txt)}
 
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:18px;margin-bottom:26px}
 .kpi{background:linear-gradient(165deg,rgba(17,34,51,.95),rgba(12,27,41,.88));border:1px solid var(--brd);border-radius:16px;padding:22px 24px;
@@ -710,12 +711,16 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
         <option value="bi">Modo BI (cargo+IVA / cobro base)</option>
       </select>
     </div>
+    <button type="button" class="btn" id="btnInclContado" aria-pressed="false" title="Conciliación Power BI: incluye contado/inmediato en el TOTAL (no cambia vencido).">
+      Incluye contado (BI)
+    </button>
     <button class="btn" onclick="loadAll()">Aplicar</button>
     <span style="font-size:11px;color:var(--txt3);font-family:var(--mono);margin-left:auto" title="Deuda total = cargos − cobros de cartera a cr&eacute;dito.">
       Deuda total = cargos − pagos por cliente (solo cr&eacute;dito). Cuadra con buckets.
     </span>
   </div>
   <p id="cxcKpiTotalHint" class="cxc-total-hint" style="font-size:11px;color:var(--txt3);margin:4px 0 0;font-family:var(--mono);" aria-live="polite"></p>
+  <p id="cxcBiExplain" class="cxc-total-hint" style="font-size:11px;color:var(--txt3);margin:2px 0 0;font-family:var(--mono);" aria-live="polite"></p>
 
   <!-- KPIs: narrativa + datos (alineado Power BI: saldo, vencido, por vencer) -->
   <section class="cxc-kpi-journey ms-reveal" aria-labelledby="cxcKpiStoryTitle">
@@ -1090,6 +1095,43 @@ function withDbParam(pathWithQuery){
   const j=pathWithQuery.indexOf('?')>=0?'&':'?';
   return pathWithQuery+j+'db='+encodeURIComponent(db);
 }
+
+function cxcInclContadoRead() {
+  try {
+    const u = (new URLSearchParams(location.search).get('incl_contado') || '').trim();
+    if (u) return u === '1' || /^true$/i.test(u) || /^yes$/i.test(u);
+    const s = (sessionStorage.getItem('cxc_incl_contado_bi') || '').trim();
+    return s === '1' || /^true$/i.test(s) || /^yes$/i.test(s);
+  } catch (_) {}
+  return false;
+}
+function cxcInclContadoWrite(v) {
+  const on = !!v;
+  try { sessionStorage.setItem('cxc_incl_contado_bi', on ? '1' : '0'); } catch (_) {}
+  try {
+    const u = new URL(window.location.href);
+    if (on) u.searchParams.set('incl_contado', '1');
+    else u.searchParams.delete('incl_contado');
+    history.replaceState({}, '', u);
+  } catch (_) {}
+  const b = document.getElementById('btnInclContado');
+  if (b) {
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.classList.toggle('btn-on', on);
+  }
+}
+
+async function fetchCxcContadoDelta(queryMs) {
+  const ms = Math.min(Math.max(+queryMs || 60000, 8000), 180000);
+  const q = buildCxcQuery('queryMs=' + encodeURIComponent(ms));
+  const key = (cxcEffectiveDb() || '') + '|' + q;
+  window.__CXC_CONTADO_DELTA = window.__CXC_CONTADO_DELTA || {};
+  if (window.__CXC_CONTADO_DELTA[key]) return window.__CXC_CONTADO_DELTA[key];
+  const p = apiFetch('/api/debug/cxc-contado-delta' + q, { timeout: ms + 5000 })
+    .catch(() => null);
+  window.__CXC_CONTADO_DELTA[key] = p;
+  return p;
+}
 async function apiFetch(pathWithQuery, opts){
   const skipDb=opts&&opts.skipDb;
   const ms=(opts&&opts.timeout)||20000;
@@ -1166,7 +1208,7 @@ async function loadResumen() {
     const age = typeof window.normalizeCxcAging === 'function'
       ? window.normalizeCxcAging(ageRaw)
       : (ageRaw && typeof ageRaw === 'object' && !Array.isArray(ageRaw) ? ageRaw : (Array.isArray(ageRaw) && ageRaw[0]) ? ageRaw[0] : {});
-    const saldo = +res.SALDO_TOTAL||0;
+    const saldoBase = +res.SALDO_TOTAL||0;
     const vencFromAging = (+age.DIAS_1_30||0) + (+age.DIAS_31_60||0) + (+age.DIAS_61_90||0) + (+age.DIAS_MAS_90||0);
     const corrienteAging = +age.CORRIENTE || 0;
     const sumAging = vencFromAging + corrienteAging;
@@ -1177,8 +1219,33 @@ async function loadResumen() {
       venc = vencFromAging;
       pvenc = corrienteAging;
     }
-    if (saldo > 0.005 && Math.abs(venc + pvenc - saldo) / saldo > 0.08) {
-      pvenc = Math.max(0, saldo - venc);
+    if (saldoBase > 0.005 && Math.abs(venc + pvenc - saldoBase) / saldoBase > 0.08) {
+      pvenc = Math.max(0, saldoBase - venc);
+    }
+
+    let saldo = saldoBase;
+    let biDelta = null;
+    const inclContado = cxcInclContadoRead();
+    const modo = (res.CXC_TOTAL_MODO_REQ || '').toLowerCase();
+    if (inclContado && (modo === 'documento' || modo === 'auto' || modo === 'auto_iva')) {
+      biDelta = await fetchCxcContadoDelta(120000);
+      if (biDelta && biDelta.ok && biDelta.incl_contado && typeof biDelta.incl_contado.total === 'number') {
+        saldo = +biDelta.incl_contado.total || saldoBase;
+        pvenc = Math.max(0, saldo - venc);
+      }
+    }
+
+    const explain = document.getElementById('cxcBiExplain');
+    if (explain) {
+      if (inclContado && biDelta && biDelta.ok && biDelta.delta && typeof biDelta.delta.total === 'number') {
+        explain.textContent =
+          'Conciliación BI: TOTAL incluye contado/inmediato (+'
+          + fmtK(biDelta.delta.total) + '). Vencido no cambia.';
+      } else if (inclContado && (modo !== 'documento' && modo !== 'auto' && modo !== 'auto_iva')) {
+        explain.textContent = 'Incluye contado (BI) aplica solo al total documental (modo documento/auto).';
+      } else {
+        explain.textContent = '';
+      }
     }
 
 
@@ -1538,6 +1605,17 @@ async function ensureClientesFiltro(){
 }
 
 async function loadAll(){
+  try{
+    const b = document.getElementById('btnInclContado');
+    if (b && !b.__bound) {
+      b.__bound = true;
+      b.addEventListener('click', function () {
+        cxcInclContadoWrite(!cxcInclContadoRead());
+        loadAll();
+      });
+    }
+    cxcInclContadoWrite(cxcInclContadoRead());
+  } catch (_) {}
   try {
     const tk = document.getElementById('cxcTotalKpi');
     if (tk && tk.value) {
