@@ -5509,6 +5509,7 @@ get('/api/inv/operacion-critica', async (req) => {
 
 get('/api/clientes/riesgo', async (req) => {
   const dbo = getReqDbOpts(req);
+  const qms = Math.min(180000, Math.max(15000, parseInt(req.query.queryMs, 10) || 120000));
 
   const limit = Math.min(parseInt(req.query.limit) || 100, 500);
   return query(`
@@ -5589,12 +5590,13 @@ get('/api/clientes/riesgo', async (req) => {
     ) buy ON buy.CLIENTE_ID = agg.CLIENTE_ID
     WHERE agg.MONTO_VENCIDO > 0
     ORDER BY agg.MONTO_VENCIDO DESC, COALESCE(buy.TICKET_PROMEDIO_MES, 0) DESC
-  `, [], 35000, dbo).catch(() => []);
+  `, [], qms, dbo).catch(() => []);
 });
 
 /** Sin compra >180 días (≈6 meses). Ticket mensual = promedio simple últimos 12 meses de historial. */
 get('/api/clientes/inactivos', async (req) => {
   const dbo = getReqDbOpts(req);
+  const qms = Math.min(180000, Math.max(10000, parseInt(req.query.queryMs, 10) || 90000));
 
   const limit = Math.min(parseInt(req.query.limit) || 200, 500);
   return query(`
@@ -5635,12 +5637,13 @@ get('/api/clientes/inactivos', async (req) => {
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = c.COND_PAGO_ID
     WHERE (CURRENT_DATE - ult.ULTIMA) > 180
     ORDER BY 4 DESC
-  `, [], 15000, dbo).catch(() => []);
+  `, [], qms, dbo).catch(() => []);
 });
 
 /** Inteligencia de clientes: CxC en riesgo + inactivos sin compra >90d que hayan comprado al menos 1 vez. */
 get('/api/clientes/inteligencia', async (req) => {
   const limit = Math.min(parseInt(req.query.limit) || 300, 800);
+  const qms = Math.min(180000, Math.max(15000, parseInt(req.query.queryMs, 10) || 120000));
   async function inteligenciaForDb(dbo) {
     const [riesgo, inactivos] = await Promise.all([
       query(`
@@ -5688,7 +5691,7 @@ get('/api/clientes/inteligencia', async (req) => {
         ) buy ON buy.CLIENTE_ID=agg.CLIENTE_ID
         WHERE agg.MONTO_VENCIDO>0
         ORDER BY agg.MONTO_VENCIDO DESC
-      `, [], 35000, dbo).catch(() => []),
+      `, [], qms, dbo).catch(() => []),
       query(`
         SELECT FIRST 300
           c.CLIENTE_ID, c.NOMBRE,
@@ -5710,7 +5713,7 @@ get('/api/clientes/inteligencia', async (req) => {
         ) ult ON ult.CLIENTE_ID=c.CLIENTE_ID
         LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID=c.COND_PAGO_ID
         ORDER BY ult.ULTIMA ASC
-      `, [], 35000, dbo).catch(() => []),
+      `, [], qms, dbo).catch(() => []),
     ]);
     // Merge: riesgo clients first, then inactivos not already in riesgo
     const riesgoIds = new Set((riesgo || []).map(r => r.CLIENTE_ID));
@@ -5727,6 +5730,7 @@ get('/api/clientes/inteligencia', async (req) => {
 /** Comercial: sin compra en los últimos 60 días pero sí en los últimos 6 meses (61–180 días). */
 get('/api/clientes/comercial-atraso', async (req) => {
   const dbo = getReqDbOpts(req);
+  const qms = Math.min(180000, Math.max(10000, parseInt(req.query.queryMs, 10) || 90000));
 
   const limit = Math.min(parseInt(req.query.limit) || 200, 500);
   return query(`
@@ -5768,11 +5772,12 @@ get('/api/clientes/comercial-atraso', async (req) => {
     WHERE (CURRENT_DATE - ult.ULTIMA) > 60
       AND (CURRENT_DATE - ult.ULTIMA) <= 180
     ORDER BY 4 DESC
-  `, [], 15000, dbo).catch(() => []);
+  `, [], qms, dbo).catch(() => []);
 });
 
 get('/api/clientes/resumen-riesgo', async (req) => {
   const dbo = getReqDbOpts(req);
+  const qms = Math.min(180000, Math.max(15000, parseInt(req.query.queryMs, 10) || 120000));
 
   const defaultRes = { TOTAL_EN_RIESGO: 0, MONTO_CRITICO: 0, MONTO_ALTO: 0, MONTO_MEDIO: 0, MONTO_LEVE: 0 };
   try {
@@ -5784,7 +5789,7 @@ get('/api/clientes/resumen-riesgo', async (req) => {
         SUM(CASE WHEN doc.DIAS_VENCIDO <= 30 THEN doc.SALDO_NETO ELSE 0 END) AS MONTO_LEVE
       FROM ${cxcDocSaldosInnerSQL('')} doc
       WHERE doc.SALDO_NETO > 0 AND doc.DIAS_VENCIDO > 0
-    `, [], 12000, dbo).catch(() => [null]);
+    `, [], qms, dbo).catch(() => [null]);
     return { ...defaultRes, ...(totales || {}) };
   } catch (e) {
     return defaultRes;

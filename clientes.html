@@ -467,7 +467,7 @@ function showTab(tab, btn){
 
 function fwt(url, fallback, ms=15000){
   return Promise.race([
-    fetch(url).then(r=>r.json()).catch(()=>fallback),
+    fetch(url).then(r=>{ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }).catch(()=>fallback),
     new Promise(r=>setTimeout(()=>r(fallback),ms))
   ]);
 }
@@ -522,11 +522,11 @@ async function loadData(){
     if(heroSub) heroSub.textContent = 'Conectando con el servidor…';
 
     const [riesgo, resumen, comercial, inactivos, cxcSnap] = await Promise.all([
-      fwt(apiDb('/api/clientes/inteligencia?limit=400'), [], 35000),
-      fwt(apiDb('/api/clientes/resumen-riesgo'), {}, 35000),
-      fwt(apiDb('/api/clientes/comercial-atraso?limit=300'), [], 35000),
-      fwt(apiDb('/api/clientes/inactivos?limit=300'), [], 25000),
-      fwt(apiDb('/api/cxc/resumen-aging'), {}, 60000),
+      fwt(apiDb('/api/clientes/inteligencia?limit=400&queryMs=120000'), [], 130000),
+      fwt(apiDb('/api/clientes/resumen-riesgo?queryMs=120000'), {}, 130000),
+      fwt(apiDb('/api/clientes/comercial-atraso?limit=300&queryMs=90000'), [], 100000),
+      fwt(apiDb('/api/clientes/inactivos?limit=300&queryMs=90000'), [], 100000),
+      fwt(apiDb('/api/cxc/resumen-aging?queryMs=120000'), {}, 130000),
     ]);
     riesgoData = Array.isArray(riesgo) ? riesgo : [];
     comercialData = Array.isArray(comercial) ? comercial : [];
@@ -556,7 +556,7 @@ async function loadData(){
 
 async function loadInactivos(){
   try{
-    const inactivos = await fwt(apiDb('/api/clientes/inactivos?limit=300'), [], 15000);
+    const inactivos = await fwt(apiDb('/api/clientes/inactivos?limit=300&queryMs=90000'), [], 100000);
     inactivosData = Array.isArray(inactivos) ? inactivos : [];
     clientesSemCtx.inactivos = inactivosData;
 
