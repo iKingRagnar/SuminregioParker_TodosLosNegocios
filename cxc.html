@@ -701,8 +701,9 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
     </div>
     <div class="filter-group">
       <span class="filter-label">TOTAL KPI</span>
-      <select id="cxcTotalKpi" aria-label="Criterio deuda total vs Power BI" title="Auto: elige el mayor entre saldo documental, suma cliente neto y suma con IVA si no supera en m&#225;s de un 18% al documental (evita desbordes).">
-        <option value="auto">Auto (vs BI)</option>
+      <select id="cxcTotalKpi" aria-label="Criterio deuda total vs Power BI" title="Auto: solo neto (documento vs cliente); no mezcla IVA salvo Auto+IVA o variable MICROSIP_CXC_AUTO_INCLUYE_IVA=1. El BI suele ser neto.">
+        <option value="auto">Auto neto (vs BI)</option>
+        <option value="auto_iva">Auto incl. IVA</option>
         <option value="documento">Solo documentos</option>
         <option value="cliente">Cliente neto</option>
         <option value="con_iva">Cliente con IVA</option>
@@ -1238,7 +1239,14 @@ async function loadResumen() {
     setText('agingBreakdown', 'Aging: Corriente '+fmtK(corrienteAging)+' · Mora (1-30 … +90) '+fmtK(vencFromAging)+' · Suma buckets '+fmtK(sumAging)+'. KPI: Vencido '+fmtK(venc)+' · No vencido '+fmtK(pvenc)+' · Deuda total '+fmtK(saldo)+'.'+lineaBi);
     var hintEl = document.getElementById('cxcKpiTotalHint');
     if (hintEl && res.CXC_TOTAL_FUENTE) {
-      hintEl.textContent = 'Total KPI: ' + String(res.CXC_TOTAL_FUENTE) + ' · ref. doc ' + fmtK(res.CXC_TOTAL_DOC) + ' · cliente neto ' + fmtK(res.CXC_TOTAL_ALT_NETO) + ' · cliente IVA ' + fmtK(res.CXC_TOTAL_ALT_IVA);
+      var m = res.CXC_TOTAL_MODO_REQ || '';
+      var suf = '';
+      if (m === 'con_iva') suf = ' · modo: total con IVA';
+      else if (m === 'auto_iva' || (m === 'auto' && res.CXC_AUTO_INCLUYE_IVA)) suf = ' · modo: auto puede usar IVA';
+      else if (m === 'auto') suf = ' · modo: auto solo neto (doc/cliente)';
+      else if (m === 'documento') suf = ' · modo: documentos';
+      else if (m === 'cliente') suf = ' · modo: cliente neto';
+      hintEl.textContent = 'Total KPI: ' + String(res.CXC_TOTAL_FUENTE) + suf + ' · ref. doc ' + fmtK(res.CXC_TOTAL_DOC) + ' · cliente neto ' + fmtK(res.CXC_TOTAL_ALT_NETO) + ' · cliente IVA ' + fmtK(res.CXC_TOTAL_ALT_IVA);
     } else if (hintEl) { hintEl.textContent = ''; }
     const agCorriente = document.getElementById('agC');
     if (agCorriente) agCorriente.style.color = '';
@@ -1576,7 +1584,7 @@ async function refreshCxcDbHint(){
     var tk = document.getElementById('cxcTotalKpi');
     if (tk) {
       var vr = cxcTotalKpiRead();
-      if (vr && ['auto', 'documento', 'cliente', 'con_iva'].indexOf(vr) >= 0) tk.value = vr;
+      if (vr && ['auto', 'auto_iva', 'documento', 'cliente', 'con_iva'].indexOf(vr) >= 0) tk.value = vr;
       tk.addEventListener('change', function () {
         try { sessionStorage.setItem('cxc_total_kpi', tk.value); } catch (_) {}
         void loadAll();

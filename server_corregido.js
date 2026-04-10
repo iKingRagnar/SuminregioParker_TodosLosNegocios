@@ -764,6 +764,8 @@ function mergeCxcResumenAgingSnaps(snaps) {
       CXC_TOTAL_ALT_NETO: 0,
       CXC_TOTAL_ALT_IVA: 0,
       CXC_TOTAL_FUENTE: 'consolidado',
+      CXC_AUTO_INCLUYE_IVA: false,
+      CXC_TOTAL_MODO_REQ: '',
     },
     aging: {
       CORRIENTE: 0,
@@ -784,6 +786,12 @@ function mergeCxcResumenAgingSnaps(snaps) {
     out.resumen.CXC_TOTAL_DOC += +s.resumen.CXC_TOTAL_DOC || 0;
     out.resumen.CXC_TOTAL_ALT_NETO += +s.resumen.CXC_TOTAL_ALT_NETO || 0;
     out.resumen.CXC_TOTAL_ALT_IVA += +s.resumen.CXC_TOTAL_ALT_IVA || 0;
+    if (s.resumen && typeof s.resumen.CXC_AUTO_INCLUYE_IVA === 'boolean') {
+      out.resumen.CXC_AUTO_INCLUYE_IVA = s.resumen.CXC_AUTO_INCLUYE_IVA;
+    }
+    if (s.resumen && s.resumen.CXC_TOTAL_MODO_REQ) {
+      out.resumen.CXC_TOTAL_MODO_REQ = String(s.resumen.CXC_TOTAL_MODO_REQ);
+    }
     if (s.aging) {
       out.aging.CORRIENTE += +s.aging.CORRIENTE || 0;
       out.aging.DIAS_1_30 += +s.aging.DIAS_1_30 || 0;
@@ -2054,13 +2062,19 @@ function cxcClienteSQL() {
   return cxcClienteBalancesSubSql({ conIva: false, excludeContado: true });
 }
 
-/** Criterio del KPI “Deuda total” vs Power BI: auto (defecto) permite subir al mayor neto/IVA si no desborda; documento fuerza saldo documental. */
+/** Criterio del KPI “Deuda total” vs Power BI: auto (defecto) solo compara documento vs cliente neto (sin IVA). Incluir IVA en auto: MICROSIP_CXC_AUTO_INCLUYE_IVA=1 o cxc_total=auto_iva. */
 function cxcTotalKpiMode(req) {
   const raw = String((req && req.query && req.query.cxc_total) || process.env.MICROSIP_CXC_TOTAL_KPI || 'auto').trim().toLowerCase();
   if (raw === 'doc' || raw === 'documento') return 'documento';
   if (raw === 'cliente' || raw === 'neto') return 'cliente';
   if (raw === 'con_iva' || raw === 'iva') return 'con_iva';
+  if (raw === 'auto_iva') return 'auto_iva';
   return 'auto';
+}
+
+function cxcAutoIncluyeIvaEnMax(req) {
+  if (cxcTotalKpiMode(req) === 'auto_iva') return true;
+  return !!(process.env.MICROSIP_CXC_AUTO_INCLUYE_IVA || '').match(/^(1|true|yes)$/i);
 }
 
 // ── v9: Documentos de CARGO para clientes que aún tienen saldo pendiente ─────
@@ -3838,13 +3852,18 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
   } else if (modoKpi === 'con_iva' && totClienteConIva > 0.005) {
     chosen = totClienteConIva;
     fuenteKpi = 'cliente_con_iva';
-  } else if (modoKpi === 'auto') {
-    const base = totalDocPostRecon > 0.005 ? totalDocPostRecon : Math.max(totClienteNeto, totClienteConIva, 0.00001);
-    const maxCand = Math.max(totalDocPostRecon, totClienteNeto, totClienteConIva);
+  } else if (modoKpi === 'auto' || modoKpi === 'auto_iva') {
+    const inclIva = modoKpi === 'auto_iva' || cxcAutoIncluyeIvaEnMax(req);
+    const base = totalDocPostRecon > 0.005
+      ? totalDocPostRecon
+      : Math.max(totClienteNeto, inclIva ? totClienteConIva : 0, 0.00001);
+    const maxCand = inclIva
+      ? Math.max(totalDocPostRecon, totClienteNeto, totClienteConIva)
+      : Math.max(totalDocPostRecon, totClienteNeto);
     if (maxCand <= base * 1.18) {
       chosen = maxCand;
       const near = (a, b) => Math.abs(a - b) < 1 + Math.abs(a) * 1e-9;
-      if (near(chosen, totClienteConIva) && totClienteConIva >= totClienteNeto - 1) fuenteKpi = 'auto:con_iva';
+      if (inclIva && near(chosen, totClienteConIva) && totClienteConIva >= totClienteNeto - 1) fuenteKpi = 'auto:con_iva';
       else if (near(chosen, totClienteNeto) && totClienteNeto > totalDocPostRecon + 0.01) fuenteKpi = 'auto:cliente_neto';
       else fuenteKpi = 'auto:documento';
     } else {
@@ -3913,6 +3932,8 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
     CXC_TOTAL_DOC: Math.round(totalDocPostRecon * 100) / 100,
     CXC_TOTAL_ALT_NETO: Math.round(totClienteNeto * 100) / 100,
     CXC_TOTAL_ALT_IVA: Math.round(totClienteConIva * 100) / 100,
+    CXC_AUTO_INCLUYE_IVA: cxcAutoIncluyeIvaEnMax(req),
+    CXC_TOTAL_MODO_REQ: modoKpi,
   };
   const aging = {
     CORRIENTE: Math.round(agCorr * 100) / 100,
@@ -3980,7 +4001,8 @@ get('/api/cxc/resumen-aging', async (req) => {
   const cfRaw = req.query && req.query.cliente ? parseInt(req.query.cliente, 10) : null;
   const cfKey = Number.isFinite(cfRaw) && cfRaw > 0 ? String(cfRaw) : '';
   const cxcTotKey = String((req.query && req.query.cxc_total) || process.env.MICROSIP_CXC_TOTAL_KPI || 'auto').trim().toLowerCase();
-  const cacheKey = `${dbCacheKey(dbo)}|cxcSnap|${cfKey}|${cxcTotKey}`;
+  const cxcIvaKey = (process.env.MICROSIP_CXC_AUTO_INCLUYE_IVA || '').match(/^(1|true|yes)$/i) ? 'iva1' : 'iva0';
+  const cacheKey = `${dbCacheKey(dbo)}|cxcSnap|${cfKey}|${cxcTotKey}|${cxcIvaKey}`;
   if (!nocache && ttlMs > 0) {
     const hit = cxcResumenAgingSnapCache.get(cacheKey);
     if (hit && hit.expireAt > Date.now()) return hit.payload;
@@ -4576,7 +4598,7 @@ function invCostoCriterioLabel(cols) {
 const invSaldosInCostCache = new Map();
 /** Si ARTICULOS no trae costo, muchos BI usan costo en SALDOS_IN por almacén (mismo filtro MICROSIP_INV_ALMACEN_IDS). */
 async function invCostoSaldosInFallbackSubSql(dbo) {
-  const key = `${dbCacheKey(dbo)}|saldosInCost`;
+  const key = `${dbCacheKey(dbo)}|saldosInCost|wavg`;
   if (invSaldosInCostCache.has(key)) return invSaldosInCostCache.get(key);
   const cols = await getTableColumns('SALDOS_IN', dbo);
   if (!cols || cols.size === 0) {
@@ -4588,7 +4610,11 @@ async function invCostoSaldosInFallbackSubSql(dbo) {
     'COSTO_ULTIMO', 'ULTIMO_COSTO', 'COSTO_PROMEDIO', 'COSTO_UNITARIO', 'COSTO', 'PRECIO_COSTO',
   ]);
   if (unitCol) {
-    const sql = `( SELECT si.ARTICULO_ID, CAST(MAX(COALESCE(si.${unitCol}, 0)) AS DECIMAL(18,4)) AS COSTO1
+    const ex = '(COALESCE(si.ENTRADAS_UNIDADES, 0) - COALESCE(si.SALIDAS_UNIDADES, 0))';
+    const sql = `( SELECT si.ARTICULO_ID,
+      CAST(CASE WHEN ABS(SUM(${ex})) > 0.00001
+        THEN SUM(COALESCE(si.${unitCol}, 0) * ${ex}) / SUM(${ex})
+        ELSE MAX(COALESCE(si.${unitCol}, 0)) END AS DECIMAL(18,4)) AS COSTO1
       FROM SALDOS_IN si WHERE 1=1 ${w}
       GROUP BY si.ARTICULO_ID )`;
     invSaldosInCostCache.set(key, sql);
@@ -4615,7 +4641,7 @@ async function invCostoSaldosInFallbackSubSql(dbo) {
  */
 async function invCostoSubSql(dbo) {
   const modo = (process.env.MICROSIP_INV_COSTO_MODO || 'coalesce').toLowerCase();
-  const key = `${dbCacheKey(dbo)}|costo:${modo}:v5`;
+  const key = `${dbCacheKey(dbo)}|costo:${modo}:v6`;
   if (invCostoSubCache.has(key)) return invCostoSubCache.get(key);
   const cols = await getTableColumns('ARTICULOS', dbo);
   const cset = cols && cols.size ? cols : new Set();
