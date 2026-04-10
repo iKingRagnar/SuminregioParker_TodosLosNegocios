@@ -6345,7 +6345,7 @@ async function resultadosPnlCore(req, dbOpts) {
       CAST(NULL AS INTEGER) AS DOCTO_PV_ID,
       'VE' AS TIPO_SRC
     FROM DOCTOS_VE d
-    WHERE d.TIPO_DOCTO IN ('V', 'F')
+    WHERE d.TIPO_DOCTO IN ('F')
       AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
       AND COALESCE(d.APLICADO, 'N') = 'S'
     UNION ALL
@@ -6371,7 +6371,7 @@ async function resultadosPnlCore(req, dbOpts) {
       d.DOCTO_PV_ID,
       'PV' AS TIPO_SRC
     FROM DOCTOS_PV d
-    WHERE d.TIPO_DOCTO IN ('V', 'F')
+    WHERE d.TIPO_DOCTO IN ('F')
       AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
       AND COALESCE(d.APLICADO, 'N') = 'S'
   )`;
@@ -6402,7 +6402,7 @@ async function resultadosPnlCore(req, dbOpts) {
 
     const doDocOk = (hdrCols) => {
       const conds = [];
-      if (hdrCols.has('TIPO_DOCTO')) conds.push(`d.TIPO_DOCTO IN ('F', 'V')`);
+      if (hdrCols.has('TIPO_DOCTO')) conds.push(`d.TIPO_DOCTO IN ('F')`);
       if (hdrCols.has('ESTATUS')) conds.push(`COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')`);
       if (hdrCols.has('APLICADO')) conds.push(`COALESCE(d.APLICADO, 'S') = 'S'`);
       return conds.length ? `(${conds.join(' AND ')})` : '(1=1)';

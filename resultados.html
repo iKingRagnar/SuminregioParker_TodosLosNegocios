@@ -425,12 +425,6 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
       <div class="hero-title">P&amp;L</div>
       <div class="hero-sub" id="heroSub">Cargando datos financieros...</div>
     </div>
-    <div class="period-btns">
-      <button class="period-btn active" onclick="setMeses(3,this)">3 meses</button>
-      <button class="period-btn" onclick="setMeses(6,this)">6 meses</button>
-      <button class="period-btn" onclick="setMeses(12,this)">12 meses</button>
-      <button class="period-btn" onclick="setMeses(24,this)">24 meses</button>
-    </div>
   </div>
 
   <div class="pnl-time-stack" id="pnlTimeStack">
@@ -785,8 +779,13 @@ function getPinnedDbId(){
 setInterval(()=>{const n=new Date();document.getElementById('reloj').textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');},1000);
 
 // ── Formateo ───────────────────────────────────────────────────────────────────
-const fmtM=v=>{if(v===null||v===undefined||isNaN(+v))return'—';v=+v;return'$'+v.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2})};
-const fmtMNeg=v=>{if(v===null||v===undefined||isNaN(+v))return'—';const n=+v;const s='$'+Math.abs(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});return n<0?'('+s+')':s};
+const fmtM=v=>{
+  if(v===null||v===undefined||isNaN(+v))return'—';
+  const n=+v;
+  const s='$'+Math.abs(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
+  return n<0?'('+s+')':s;
+};
+const fmtMNeg=v=>fmtM(v);
 const fmtPct=v=>isNaN(+v)?'—':(+v).toFixed(1)+'%';
 function escHtml(s){
   return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
