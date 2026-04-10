@@ -542,7 +542,10 @@ async function loadAll() {
           var el = document.getElementById('kpi-valor-sub');
           if (!el) return;
           var cr = d && d.VALOR_CRITERIO ? String(d.VALOR_CRITERIO) : '';
-          el.textContent = cr ? ('Costo: ' + cr + ' · posici\u00f3n actual (no es cierre del mes del filtro)') : 'Costo unitario \u00b7 posici\u00f3n actual';
+          var u = (d && d.EXISTENCIA_UNIDADES_SUM != null && !isNaN(+d.EXISTENCIA_UNIDADES_SUM)) ? Number(d.EXISTENCIA_UNIDADES_SUM) : null;
+          var alm = (d && d.inv_almacen_ids) ? (' · almac\u00e9n ' + String(d.inv_almacen_ids)) : '';
+          var uds = (u != null) ? (' · \u03a3 uds ' + u.toLocaleString('es-MX', { maximumFractionDigits: 2 })) : '';
+          el.textContent = cr ? ('Costo: ' + cr + uds + alm + ' · posici\u00f3n actual') : ('Costo unitario' + uds + alm + ' \u00b7 posici\u00f3n actual');
         })();
         setText('kpi-minimo', Number(d.BAJO_MINIMO||0).toLocaleString());
         setText('kpi-cero', Number(d.SIN_STOCK||0).toLocaleString());

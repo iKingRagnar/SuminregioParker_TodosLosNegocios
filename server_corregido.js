@@ -759,6 +759,7 @@ function mergeCxcResumenAgingSnaps(snaps) {
       NUM_CLIENTES_VENCIDOS: 0,
       VENCIDO: 0,
       POR_VENCER: 0,
+      TOTAL_IMPORTE_CARGOS_ABIERTOS: 0,
     },
     aging: {
       CORRIENTE: 0,
@@ -775,6 +776,7 @@ function mergeCxcResumenAgingSnaps(snaps) {
     out.resumen.NUM_CLIENTES_VENCIDOS += +s.resumen.NUM_CLIENTES_VENCIDOS || 0;
     out.resumen.VENCIDO += +s.resumen.VENCIDO || 0;
     out.resumen.POR_VENCER += +s.resumen.POR_VENCER || 0;
+    out.resumen.TOTAL_IMPORTE_CARGOS_ABIERTOS += +s.resumen.TOTAL_IMPORTE_CARGOS_ABIERTOS || 0;
     if (s.aging) {
       out.aging.CORRIENTE += +s.aging.CORRIENTE || 0;
       out.aging.DIAS_1_30 += +s.aging.DIAS_1_30 || 0;
@@ -787,6 +789,7 @@ function mergeCxcResumenAgingSnaps(snaps) {
   out.resumen.SALDO_TOTAL = r2(out.resumen.SALDO_TOTAL);
   out.resumen.VENCIDO = r2(out.resumen.VENCIDO);
   out.resumen.POR_VENCER = r2(out.resumen.POR_VENCER);
+  out.resumen.TOTAL_IMPORTE_CARGOS_ABIERTOS = r2(out.resumen.TOTAL_IMPORTE_CARGOS_ABIERTOS);
   Object.keys(out.aging).forEach((k) => { out.aging[k] = r2(out.aging[k]); });
   return out;
 }
@@ -3593,6 +3596,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
   const ms = typeof qms === 'number' && qms > 0 ? Math.min(qms, 120000) : cxcAgingQueryMs();
   const t0 = Date.now();
   const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
+  const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
   const whereCliDoc = cf ? ` AND doc.CLIENTE_ID = ${cf}` : '';
   const whereCliSaldo = cf ? ` WHERE cs.CLIENTE_ID = ${cf}` : '';
   const agingLegacySql = `
@@ -3744,17 +3748,18 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
   ) {
     const mx = Math.max(saldoTotal, legacySum);
     const relDiff = mx > 0 ? Math.abs(saldoTotal - legacySum) / mx : 1;
-    // Doc (saldo neto por factura) vs legacy (suma de líneas de cargo) a veces divergen >35% y dejaban VENCIDO=0 con mora real.
-    // 0.72: tolera bases donde docAgg y legacy no cuadran al 55% pero la mora legacy sigue siendo la lectura útil (Power BI / cargos).
+    // Doc (saldo neto por factura) vs legacy (suma de líneas de cargo) a veces divergen; la mora legacy sigue útil para buckets.
+    // Importante: NO sustituir SALDO_TOTAL por legacySum — en Power BI la "Deuda total" suele ser saldo documental; escalar buckets al total doc.
+    // 0.72: misma tolerancia que antes para mezclar lecturas.
     if (relDiff <= 0.72) {
-      vencido = aggLegacyFlat.venc;
-      agCorr = aggLegacyFlat.cor;
-      ag1 = aggLegacyFlat.b1;
-      ag2 = aggLegacyFlat.b2;
-      ag3 = aggLegacyFlat.b3;
-      ag4 = aggLegacyFlat.b4;
+      const scale = saldoTotal / legacySum;
+      vencido = aggLegacyFlat.venc * scale;
+      agCorr = aggLegacyFlat.cor * scale;
+      ag1 = aggLegacyFlat.b1 * scale;
+      ag2 = aggLegacyFlat.b2 * scale;
+      ag3 = aggLegacyFlat.b3 * scale;
+      ag4 = aggLegacyFlat.b4 * scale;
       porVencer = agCorr;
-      saldoTotal = legacySum;
       numCliVenc = cxcAgingLegacy.filter((r) => (+r.VENC_C || 0) > 0.005).length;
     }
   }
@@ -3790,12 +3795,44 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
     );
   }
 
+  /** Suma importes cargo (facturación original) en documentos con saldo > 0 — comparable a columna "Venta" / Total Venta en modelos BI. */
+  let totalImporteCargosAbierto = 0;
+  try {
+    const rowsIm = await query(
+      `
+      SELECT COALESCE(SUM(cg.CARGO_BRUTO), 0) AS T
+      FROM (
+        SELECT dc.DOCTO_CC_ID,
+          SUM(CASE WHEN i.TIPO_IMPTE = 'C' AND COALESCE(i.CANCELADO, 'N') = 'N' THEN i.IMPORTE ELSE 0 END) AS CARGO_BRUTO
+        FROM IMPORTES_DOCTOS_CC i
+        JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = i.DOCTO_CC_ID
+        WHERE COALESCE(i.CANCELADO, 'N') = 'N'
+          ${CXC_EXCLUIR_CONTADO}
+          ${cf ? `AND dc.CLIENTE_ID = ${cf}` : ''}
+        GROUP BY dc.DOCTO_CC_ID
+      ) cg
+      INNER JOIN (
+        SELECT doc.DOCTO_CC_ID
+        FROM ${cxcDocSaldosInnerSQL(cfSql)} doc
+        WHERE doc.SALDO_NETO > 0.005
+      ) op ON op.DOCTO_CC_ID = cg.DOCTO_CC_ID
+    `,
+      [],
+      Math.min(ms, 60000),
+      dbo
+    ).catch(() => []);
+    totalImporteCargosAbierto = rowsIm && rowsIm[0] ? +rowsIm[0].T || 0 : 0;
+  } catch (_) {
+    totalImporteCargosAbierto = 0;
+  }
+
   const resumen = {
     SALDO_TOTAL: Math.round(saldoTotal * 100) / 100,
     NUM_CLIENTES: cf ? ((cxcSaldosLegacy || []).length ? 1 : 0) : Math.max(+(docAgg.NUM_CLIENTES_DOC || 0), (cxcSaldosLegacy || []).length),
     NUM_CLIENTES_VENCIDOS: numCliVenc,
     VENCIDO: Math.round(vencido * 100) / 100,
     POR_VENCER: Math.round(porVencer * 100) / 100,
+    TOTAL_IMPORTE_CARGOS_ABIERTOS: Math.round(totalImporteCargosAbierto * 100) / 100,
   };
   const aging = {
     CORRIENTE: Math.round(agCorr * 100) / 100,
@@ -4286,14 +4323,31 @@ get('/api/cxc/comportamiento-pago', async (req) => {
 // ═══════════════════════════════════════════════════════════
 //  INVENTARIO — Microsip: SALDOS_IN, NIVELES_ARTICULOS, PRECIOS_ARTICULOS
 // ═══════════════════════════════════════════════════════════
-const SQL_EXIST_SUB = `( SELECT ARTICULO_ID, SUM(ENTRADAS_UNIDADES - SALIDAS_UNIDADES) AS EXISTENCIA FROM SALDOS_IN GROUP BY ARTICULO_ID )`;
+/** Filtro opcional por almacén(es) para alinear con Power BI (un solo almacén principal). Env: MICROSIP_INV_ALMACEN_IDS=1 o 1,2 */
+function invSaldosInAlmacenWhereSql() {
+  const raw = (process.env.MICROSIP_INV_ALMACEN_IDS || '').trim();
+  if (!raw) return '';
+  const ids = raw
+    .split(/[,;\s]+/)
+    .map((x) => parseInt(x, 10))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  if (!ids.length) return '';
+  return ` AND ALMACEN_ID IN (${ids.join(',')}) `;
+}
+function getSqlExistSub() {
+  const w = invSaldosInAlmacenWhereSql();
+  return `( SELECT ARTICULO_ID, SUM(ENTRADAS_UNIDADES - SALIDAS_UNIDADES) AS EXISTENCIA FROM SALDOS_IN WHERE 1=1 ${w} GROUP BY ARTICULO_ID )`;
+}
 const SQL_MINIMO_SUB = `( SELECT ARTICULO_ID, MAX(INVENTARIO_MINIMO) AS INVENTARIO_MINIMO FROM NIVELES_ARTICULOS WHERE INVENTARIO_MINIMO > 0 GROUP BY ARTICULO_ID )`;
-/** Una sola agregación SALDOS_IN: existencia + entradas/salidas (evita dos full-scan en operación crítica). */
-const SQL_SALDOS_BAL_SUB = `( SELECT ARTICULO_ID,
+/** Una sola agregación SALDOS_IN: existencia + entradas/salidas (mismo filtro de almacén que getSqlExistSub). */
+function getSqlSaldosBalSub() {
+  const w = invSaldosInAlmacenWhereSql();
+  return `( SELECT ARTICULO_ID,
   SUM(COALESCE(ENTRADAS_UNIDADES, 0)) AS ENTRADAS_TOTAL,
   SUM(COALESCE(SALIDAS_UNIDADES, 0)) AS SALIDAS_TOTAL,
   SUM(COALESCE(ENTRADAS_UNIDADES, 0) - COALESCE(SALIDAS_UNIDADES, 0)) AS EXISTENCIA
-  FROM SALDOS_IN GROUP BY ARTICULO_ID )`;
+  FROM SALDOS_IN WHERE 1=1 ${w} GROUP BY ARTICULO_ID )`;
+}
 const SQL_PRECIO_SUB = `( SELECT ARTICULO_ID, MIN(PRECIO) AS PRECIO1 FROM PRECIOS_ARTICULOS WHERE MONEDA_ID = 1 AND PRECIO > 0 GROUP BY ARTICULO_ID )`;
 /** Timeout Firebird para consumo semanal / forecast inventario (antes 12s → [] vacío en hosts lentos). */
 const INV_CONSUMO_Q_MS = 90000;
@@ -4394,6 +4448,14 @@ async function invPrecioSubSql(dbo) {
 }
 
 const invCostoSubCache = new Map();
+/** Excluye servicios del valor/cantidad si el catálogo trae bandera (muchos modelos BI no valorizan servicios como inventario). */
+function invArticulosTipoInventarioWhereSql(cols) {
+  const c = cols && cols.size ? cols : new Set();
+  const parts = [];
+  if (c.has('SERVICIO')) parts.push("COALESCE(a.SERVICIO, 'N') <> 'S'");
+  if (c.has('ES_SERVICIO')) parts.push('COALESCE(a.ES_SERVICIO, 0) = 0');
+  return parts.length ? ` AND ${parts.join(' AND ')}` : '';
+}
 /** Expresión COALESCE por renglón: Power BI suele usar primero promedio y si NULL último/costo; una sola columna del catálogo subvaloraba el valor de inventario. */
 function invCostoUnitCoalesceSql(cols) {
   const cset = cols && cols.size ? cols : new Set();
@@ -4405,6 +4467,8 @@ function invCostoUnitCoalesceSql(cols) {
   return parts.length ? `COALESCE(${parts.join(', ')}, 0)` : null;
 }
 function invCostoCriterioLabel(cols) {
+  const modo = (process.env.MICROSIP_INV_COSTO_MODO || 'coalesce').toLowerCase();
+  if (modo === 'promedio') return 'COSTO_PROMEDIO (MICROSIP_INV_COSTO_MODO=promedio)';
   const cset = cols && cols.size ? cols : new Set();
   const order = ['COSTO_PROMEDIO', 'ULTIMO_COSTO', 'COSTO'];
   const have = order.filter((c) => cset.has(c));
@@ -4416,9 +4480,15 @@ function invCostoCriterioLabel(cols) {
  * Si no hay ninguna columna de costo en ARTICULOS, usa precio de venta (mismo fallback que antes).
  */
 async function invCostoSubSql(dbo) {
-  const key = dbCacheKey(dbo);
+  const modo = (process.env.MICROSIP_INV_COSTO_MODO || 'coalesce').toLowerCase();
+  const key = `${dbCacheKey(dbo)}|costo:${modo}`;
   if (invCostoSubCache.has(key)) return invCostoSubCache.get(key);
   const cols = await getTableColumns('ARTICULOS', dbo);
+  const cset = cols && cols.size ? cols : new Set();
+  if (modo === 'promedio' && cset.has('COSTO_PROMEDIO')) {
+    invCostoSubCache.set(key, `( SELECT a.ARTICULO_ID, CAST(COALESCE(a.COSTO_PROMEDIO, 0) AS DECIMAL(18,4)) AS COSTO1 FROM ARTICULOS a )`);
+    return invCostoSubCache.get(key);
+  }
   const coalesceExpr = invCostoUnitCoalesceSql(cols);
   if (coalesceExpr) {
     invCostoSubCache.set(key, `( SELECT a.ARTICULO_ID, CAST(${coalesceExpr} AS DECIMAL(18,4)) AS COSTO1 FROM ARTICULOS a )`);
@@ -4433,6 +4503,7 @@ async function invCostoSubSql(dbo) {
 get('/api/inv/resumen', async (req) => {
   const dbo = getReqDbOpts(req);
   const colsArt = await getTableColumns('ARTICULOS', dbo);
+  const artTipoInv = invArticulosTipoInventarioWhereSql(colsArt);
 
   const qCounts = `
     SELECT
@@ -4440,19 +4511,21 @@ get('/api/inv/resumen', async (req) => {
       SUM(CASE WHEN COALESCE(s.EXISTENCIA, 0) < COALESCE(n.INVENTARIO_MINIMO, 0) AND COALESCE(n.INVENTARIO_MINIMO, 0) > 0 THEN 1 ELSE 0 END) AS BAJO_MINIMO,
       SUM(CASE WHEN COALESCE(n.INVENTARIO_MINIMO, 0) > 0 AND COALESCE(s.EXISTENCIA, 0) <= 0 THEN 1 ELSE 0 END) AS SIN_STOCK
     FROM ARTICULOS a
-    LEFT JOIN ${SQL_EXIST_SUB} s ON s.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN ${getSqlExistSub()} s ON s.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${SQL_MINIMO_SUB} n ON n.ARTICULO_ID = a.ARTICULO_ID
-    WHERE COALESCE(a.ESTATUS, 'A') = 'A'
+    WHERE COALESCE(a.ESTATUS, 'A') = 'A' ${artTipoInv}
   `;
   const invQTimeout = 60000;
   const countsRows = await query(qCounts, [], invQTimeout, dbo).catch(() => [{}]);
   const costoSub = await invCostoSubSql(dbo);
   const qValor = `
-    SELECT COALESCE(SUM(COALESCE(s.EXISTENCIA, 0) * COALESCE(cs.COSTO1, 0)), 0) AS VALOR_INVENTARIO
+    SELECT
+      COALESCE(SUM(COALESCE(s.EXISTENCIA, 0) * COALESCE(cs.COSTO1, 0)), 0) AS VALOR_INVENTARIO,
+      COALESCE(SUM(COALESCE(s.EXISTENCIA, 0)), 0) AS EXISTENCIA_UNIDADES_SUM
     FROM ARTICULOS a
-    LEFT JOIN ${SQL_EXIST_SUB} s ON s.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN ${getSqlExistSub()} s ON s.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${costoSub} cs ON cs.ARTICULO_ID = a.ARTICULO_ID
-    WHERE COALESCE(a.ESTATUS, 'A') = 'A'
+    WHERE COALESCE(a.ESTATUS, 'A') = 'A' ${artTipoInv}
   `;
   const valorRows = await query(qValor, [], invQTimeout, dbo).catch(() => [{ VALOR_INVENTARIO: 0 }]);
   const c = countsRows[0] || {};
@@ -4462,11 +4535,13 @@ get('/api/inv/resumen', async (req) => {
   return {
     TOTAL_ARTICULOS: +(r.TOTAL_ARTICULOS || 0),
     VALOR_INVENTARIO: +(r.VALOR_INVENTARIO || 0),
+    EXISTENCIA_UNIDADES_SUM: Math.round((+(r.EXISTENCIA_UNIDADES_SUM || 0)) * 100) / 100,
     BAJO_MINIMO: +(r.BAJO_MINIMO || 0),
     SIN_STOCK: +(r.SIN_STOCK || 0),
     VALOR_CRITERIO: invCostoCriterioLabel(colsArt),
+    inv_almacen_ids: (process.env.MICROSIP_INV_ALMACEN_IDS || '').trim() || null,
     nota_valor:
-      'Posición actual (SALDOS_IN) × costo unitario; no es movimiento ni cierre del mes del filtro. El chip de fechas aplica a consumo/forecast en esta página.',
+      'Posición actual (SALDOS_IN) × costo; sin movimiento del mes del filtro. Alinear con Power BI: MICROSIP_INV_ALMACEN_IDS (almacén), MICROSIP_INV_COSTO_MODO=promedio si el modelo usa solo costo promedio, exclusión de servicios vía columnas SERVICIO/ES_SERVICIO cuando existen.',
   };
 });
 
@@ -4488,7 +4563,7 @@ app.get('/api/debug/firebird-inv', async (req, res) => {
         SUM(COALESCE(s.EXISTENCIA, 0) * COALESCE(pr.PRECIO1, 0)) AS VALOR_INVENTARIO,
         SUM(CASE WHEN COALESCE(n.INVENTARIO_MINIMO, 0) > 0 AND COALESCE(s.EXISTENCIA, 0) <= 0 THEN 1 ELSE 0 END) AS SIN_STOCK
       FROM ARTICULOS a
-      LEFT JOIN ${SQL_EXIST_SUB} s ON s.ARTICULO_ID = a.ARTICULO_ID
+      LEFT JOIN ${getSqlExistSub()} s ON s.ARTICULO_ID = a.ARTICULO_ID
       LEFT JOIN ${SQL_MINIMO_SUB} n ON n.ARTICULO_ID = a.ARTICULO_ID
       LEFT JOIN ${precioSubDbg} pr ON pr.ARTICULO_ID = a.ARTICULO_ID
       WHERE COALESCE(a.ESTATUS, 'A') = 'A'
@@ -4550,7 +4625,7 @@ app.get('/api/debug/inv-articulo', async (req, res) => {
     });
   }
   try {
-    const balSub = SQL_SALDOS_BAL_SUB;
+    const balSub = getSqlSaldosBalSub();
     let rows;
     if (Number.isFinite(id) && id > 0) {
       rows = await query(
@@ -4645,7 +4720,7 @@ app.get('/api/debug/inv-sin-movimiento-counts', async (req, res) => {
       query(`SELECT COUNT(*) AS N FROM ARTICULOS a WHERE COALESCE(a.ESTATUS, 'A') = 'A'`, [], 20000, dbo),
       query(
         `SELECT COUNT(*) AS N FROM ARTICULOS a
-         LEFT JOIN ${SQL_EXIST_SUB} ex ON ex.ARTICULO_ID = a.ARTICULO_ID
+         LEFT JOIN ${getSqlExistSub()} ex ON ex.ARTICULO_ID = a.ARTICULO_ID
          WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND COALESCE(ex.EXISTENCIA, 0) > 0`,
         [],
         45000,
@@ -4696,7 +4771,7 @@ get('/api/inv/bajo-minimo', async (req) => {
       (n.INVENTARIO_MINIMO - COALESCE(s.EXISTENCIA, 0)) AS FALTANTE
     FROM ARTICULOS a
     JOIN ${SQL_MINIMO_SUB} n ON n.ARTICULO_ID = a.ARTICULO_ID
-    LEFT JOIN ${SQL_EXIST_SUB} s ON s.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN ${getSqlExistSub()} s ON s.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND COALESCE(s.EXISTENCIA, 0) < n.INVENTARIO_MINIMO ${extra}
     ORDER BY FALTANTE DESC
   `, [], INV_LIST_Q_MS, dbo).catch(() => []);
@@ -4712,7 +4787,7 @@ get('/api/inv/existencias', async (req) => {
     SELECT FIRST 50 a.ARTICULO_ID, a.NOMBRE AS DESCRIPCION, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
       COALESCE(s.EXISTENCIA, 0) AS EXISTENCIA, COALESCE(n.INVENTARIO_MINIMO, 0) AS EXISTENCIA_MINIMA, COALESCE(pr.PRECIO1, 0) AS PRECIO_VENTA
     FROM ARTICULOS a
-    LEFT JOIN ${SQL_EXIST_SUB} s ON s.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN ${getSqlExistSub()} s ON s.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${SQL_MINIMO_SUB} n ON n.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${precioSub} pr ON pr.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND (UPPER(a.NOMBRE) LIKE ? OR UPPER(CAST(a.ARTICULO_ID AS VARCHAR(50))) LIKE ?)
@@ -4730,7 +4805,7 @@ get('/api/inv/top-stock', async (req) => {
       COALESCE(s.EXISTENCIA, 0) * COALESCE(cs.COSTO1, 0) AS VALOR_TOTAL,
       COALESCE(cs.COSTO1, 0) AS PRECIO_VENTA
     FROM ARTICULOS a
-    LEFT JOIN ${SQL_EXIST_SUB} s ON s.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN ${getSqlExistSub()} s ON s.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${costoSub} cs ON cs.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND COALESCE(s.EXISTENCIA, 0) > 0
     ORDER BY VALOR_TOTAL DESC
@@ -4761,7 +4836,7 @@ get('/api/inv/consumo-semanal', async (req) => {
       ) AS SEMANAS_STOCK
     FROM ${subDoc} d
     JOIN ARTICULOS a ON a.ARTICULO_ID = d.ARTICULO_ID
-    LEFT JOIN ${SQL_EXIST_SUB} s ON s.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN ${getSqlExistSub()} s ON s.ARTICULO_ID = a.ARTICULO_ID
     WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(d.FECHA AS DATE) <= CAST(? AS DATE)
     GROUP BY a.NOMBRE, a.ARTICULO_ID, s.EXISTENCIA
     HAVING SUM(d.UNIDADES) > 0
@@ -4844,7 +4919,7 @@ get('/api/inv/consumo', async (req) => {
       ELSE 0 END AS STOCK_MINIMO_RECOMENDADO
     FROM ${subDoc} d
     JOIN ARTICULOS a ON a.ARTICULO_ID = d.ARTICULO_ID
-    LEFT JOIN ${SQL_EXIST_SUB} ex ON ex.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN ${getSqlExistSub()} ex ON ex.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${SQL_MINIMO_SUB} mn ON mn.ARTICULO_ID = a.ARTICULO_ID
     WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE) AND CAST(d.FECHA AS DATE) <= CAST(? AS DATE) AND COALESCE(a.ESTATUS, 'A') = 'A'
     GROUP BY a.NOMBRE, a.ARTICULO_ID, a.UNIDAD_VENTA, ex.EXISTENCIA, mn.INVENTARIO_MINIMO
@@ -4942,7 +5017,7 @@ get('/api/inv/sin-movimiento', async (req) => {
         COALESCE(ex.EXISTENCIA, 0) AS EXISTENCIA_ACTUAL,
         COALESCE(mn.INVENTARIO_MINIMO, 0) AS MIN_ACTUAL
       FROM ARTICULOS a
-      JOIN ${SQL_EXIST_SUB} ex ON ex.ARTICULO_ID = a.ARTICULO_ID
+      JOIN ${getSqlExistSub()} ex ON ex.ARTICULO_ID = a.ARTICULO_ID
       LEFT JOIN ${SQL_MINIMO_SUB} mn ON mn.ARTICULO_ID = a.ARTICULO_ID
       WHERE COALESCE(a.ESTATUS, 'A') = 'A'
         AND COALESCE(ex.EXISTENCIA, 0) > 0
@@ -4980,7 +5055,7 @@ get('/api/inv/sin-movimiento', async (req) => {
       CAST(NULL AS DATE) AS ULTIMO_MOVIMIENTO,
       CAST(NULL AS INTEGER) AS DIAS_SIN_VENTA
     FROM ARTICULOS a
-    LEFT JOIN ${SQL_EXIST_SUB} ex ON ex.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN ${getSqlExistSub()} ex ON ex.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${SQL_MINIMO_SUB} mn ON mn.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND COALESCE(ex.EXISTENCIA, 0) > 0
       AND NOT EXISTS (SELECT 1 FROM recent r WHERE r.AID = a.ARTICULO_ID)
@@ -5012,7 +5087,7 @@ get('/api/inv/sin-movimiento', async (req) => {
       um.ULTIMO_MOVIMIENTO,
       CASE WHEN um.ULTIMO_MOVIMIENTO IS NULL THEN NULL ELSE (CURRENT_DATE - um.ULTIMO_MOVIMIENTO) END AS DIAS_SIN_VENTA
     FROM ARTICULOS a
-    LEFT JOIN ${SQL_EXIST_SUB} ex ON ex.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN ${getSqlExistSub()} ex ON ex.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${SQL_MINIMO_SUB} mn ON mn.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN idle_um um ON um.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND COALESCE(ex.EXISTENCIA, 0) > 0
@@ -5045,6 +5120,7 @@ function invOperacionCeroCap() {
 
 /** SQL principal operación crítica: ultra (CTE zid) o scan completo. */
 function operacionCriticaSelectSql(subOc, limit, opLb, ultra) {
+  const wBal = invSaldosInAlmacenWhereSql();
   const csInner = `SELECT
         d.ARTICULO_ID,
         SUM(CASE WHEN CAST(d.FECHA AS DATE) >= (CURRENT_DATE - 28) THEN ABS(COALESCE(d.UNIDADES, 0)) ELSE 0 END) AS CONSUMO_4S,
@@ -5065,7 +5141,7 @@ WITH bal AS (
     SUM(COALESCE(ENTRADAS_UNIDADES, 0)) AS ENTRADAS_TOTAL,
     SUM(COALESCE(SALIDAS_UNIDADES, 0)) AS SALIDAS_TOTAL,
     SUM(COALESCE(ENTRADAS_UNIDADES, 0) - COALESCE(SALIDAS_UNIDADES, 0)) AS EXISTENCIA
-  FROM SALDOS_IN GROUP BY ARTICULO_ID
+  FROM SALDOS_IN WHERE 1=1 ${wBal} GROUP BY ARTICULO_ID
 ),
 cs AS (
   ${csInner}
@@ -5120,7 +5196,7 @@ ORDER BY
       cs.ULTIMO_MOVIMIENTO,
       cs.DIAS_SIN_VENTA
     FROM ARTICULOS a
-    LEFT JOIN ${SQL_SALDOS_BAL_SUB} bal ON bal.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN ${getSqlSaldosBalSub()} bal ON bal.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${SQL_MINIMO_SUB} mn ON mn.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN (
       ${csInner}
@@ -7696,7 +7772,7 @@ get('/api/consumos/insights', async (req) => {
         ORDER BY 2 DESC
       ) agg
       LEFT JOIN ARTICULOS a ON a.ARTICULO_ID = agg.ARTICULO_ID
-      LEFT JOIN ${SQL_EXIST_SUB} ex ON ex.ARTICULO_ID = agg.ARTICULO_ID
+      LEFT JOIN ${getSqlExistSub()} ex ON ex.ARTICULO_ID = agg.ARTICULO_ID
       LEFT JOIN ${SQL_MINIMO_SUB} mn ON mn.ARTICULO_ID = agg.ARTICULO_ID
       ORDER BY agg.UNIDADES DESC
     `,

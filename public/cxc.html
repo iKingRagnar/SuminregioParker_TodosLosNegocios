@@ -1209,7 +1209,11 @@ async function loadResumen() {
     setText('ag2',  fmtK(age.DIAS_31_60)); setPct('ag2Bar',  age.DIAS_31_60);
     setText('ag3',  fmtK(age.DIAS_61_90)); setPct('ag3Bar',  age.DIAS_61_90);
     setText('ag4',  fmtK(age.DIAS_MAS_90));setPct('ag4Bar',  age.DIAS_MAS_90);
-    setText('agingBreakdown', 'Aging: Corriente '+fmtK(corrienteAging)+' · Mora (1-30 … +90) '+fmtK(vencFromAging)+' · Suma buckets '+fmtK(sumAging)+'. KPI: Vencido '+fmtK(venc)+' · No vencido '+fmtK(pvenc)+' · Deuda total '+fmtK(saldo)+'.');
+    const ventaCargoAbierta = +(res.TOTAL_IMPORTE_CARGOS_ABIERTOS || 0);
+    const lineaBi = ventaCargoAbierta > 0.005
+      ? (' · Facturaci\u00f3n abierta (suma cargos en docs con saldo, referencia BI "Total Venta"): ' + fmtK(ventaCargoAbierta))
+      : '';
+    setText('agingBreakdown', 'Aging: Corriente '+fmtK(corrienteAging)+' · Mora (1-30 … +90) '+fmtK(vencFromAging)+' · Suma buckets '+fmtK(sumAging)+'. KPI: Vencido '+fmtK(venc)+' · No vencido '+fmtK(pvenc)+' · Deuda total '+fmtK(saldo)+'.'+lineaBi);
     const agCorriente = document.getElementById('agC');
     if (agCorriente) agCorriente.style.color = '';
     if(chartAging){
