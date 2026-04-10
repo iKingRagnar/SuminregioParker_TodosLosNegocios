@@ -1653,11 +1653,14 @@ function sqlCotizInnerFechaBounds(feExpr, bounds) {
  */
 function cotizacionesSub(tipo = '', opts = {}) {
   // Cotizaciones: SOLO DOCTOS_VE (usuario explícito: no usar PV)
-  // Filtro: TIPO_DOCTO = 'C'
+  // Filtro: por env MICROSIP_COTIZACION_TIPOS (default amplio) con fallback "no es venta cerrada".
   // Importe: SUM(líneas.PRECIO_TOTAL) - descuento_encabezado (resta una sola vez por documento)
+  const feExprVe = (opts && opts.sqlFeVe) ? String(opts.sqlFeVe).replace(/\bd\./g, 'h.') : 'h.FECHA';
+  const vigVe = (opts && opts.vigenciaVeSuffix) ? String(opts.vigenciaVeSuffix).replace(/\bd\./g, 'h.') : '';
+  const whereFast = sqlWhereCotizacionFast('h', 'VE');
   const ve = `
     SELECT
-      h.FECHA,
+      ${feExprVe} AS FECHA,
       (SELECT COALESCE(SUM(det2.PRECIO_TOTAL), 0) FROM DOCTOS_VE_DET det2 WHERE det2.DOCTO_VE_ID = h.DOCTO_VE_ID) - COALESCE(h.DSCTO_IMPORTE, 0) AS IMPORTE_NETO,
       COALESCE(h.VENDEDOR_ID, 0) AS VENDEDOR_ID,
       COALESCE(h.CLIENTE_ID,  0) AS CLIENTE_ID,
@@ -1668,10 +1671,7 @@ function cotizacionesSub(tipo = '', opts = {}) {
       CAST(NULL AS INTEGER) AS DOCTO_PV_ID,
       'VE' AS TIPO_SRC
     FROM DOCTOS_VE h
-    WHERE (
-      h.TIPO_DOCTO = 'C'
-      AND COALESCE(h.ESTATUS, 'N') <> 'C'
-    )
+    WHERE ${whereFast} ${vigVe}
   `;
   if (tipo === 'VE') return `(${ve})`;
   if (tipo === 'PV') return `(${ve})`; // PV no existe para cotizaciones, retornar VE
@@ -2316,13 +2316,15 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
   const run = async (dbo) => {
     const f = buildFiltros(req, 'd');
     const tipo = getCotizacionesTipo(req);
+    const cotiOpts = await cotizacionSqlOpts(dbo);
+    const cotiSub = cotizacionesSub(tipo, cotiOpts);
     const rows = await query(`
       SELECT
         SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END) AS HOY,
         COALESCE(SUM(d.IMPORTE_NETO), 0)                                                    AS MES_ACTUAL,
         COUNT(*)                                                                            AS COTIZACIONES_MES,
         COUNT(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 END)                   AS COTIZACIONES_HOY
-      FROM ${cotizacionesSub(tipo)} d
+      FROM ${cotiSub} d
       WHERE 1=1 ${f.sql}
     `, f.params, 90000, dbo).catch((err) => {
       console.error('[cotizaciones/resumen]', err && (err.message || err));
@@ -2474,7 +2476,8 @@ get('/api/ventas/cotizaciones/diarias', async (req) => {
   desde.setDate(desde.getDate() - dias);
   const desdeStr = desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-' + String(desde.getDate()).padStart(2, '0');
   const run = async (dbo) => {
-    const cotiSub = cotizacionesSub(getCotizacionesTipo(req));
+    const cotiOpts = await cotizacionSqlOpts(dbo);
+    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
     const rows = await query(`
     SELECT CAST(d.FECHA AS DATE) AS DIA, COUNT(*) AS COTIZACIONES, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL_COTIZACIONES
     FROM ${cotiSub} d
@@ -2502,7 +2505,8 @@ get('/api/ventas/cotizaciones/diarias', async (req) => {
 get('/api/ventas/cotizaciones/semanales', async (req) => {
   const f = buildFiltros(req, 'd');
   const run = async (dbo) => {
-    const cotiSub = cotizacionesSub(getCotizacionesTipo(req));
+    const cotiOpts = await cotizacionSqlOpts(dbo);
+    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
     return query(`
     SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(WEEK FROM d.FECHA) AS SEMANA,
       COUNT(*) AS COTIZACIONES, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL
@@ -2526,7 +2530,8 @@ get('/api/ventas/cotizaciones/semanales', async (req) => {
 get('/api/ventas/cotizaciones/mensuales', async (req) => {
   const f = buildFiltros(req, 'd');
   const run = async (dbo) => {
-    const cotiSub = cotizacionesSub(getCotizacionesTipo(req));
+    const cotiOpts = await cotizacionSqlOpts(dbo);
+    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
     return query(`
     SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
       COUNT(*) AS COTIZACIONES, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL
@@ -2623,6 +2628,7 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
   const run = async (dbo) => {
     const t = 240000;
     const tipoPanel = getCotizacionesTipo(req);
+    const cotiOpts = await cotizacionSqlOpts(dbo);
     const qSub = (sub) =>
       query(
         `
@@ -2648,11 +2654,11 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
         return [];
       });
     if (tipoPanel === 'VE' || tipoPanel === 'PV') {
-      return qSub(cotizacionesSub(tipoPanel));
+      return qSub(cotizacionesSub(tipoPanel, cotiOpts));
     }
     const [ve, pv] = await Promise.all([
-      qSub(cotizacionesSub('VE')),
-      qSub(cotizacionesSub('PV')),
+      qSub(cotizacionesSub('VE', cotiOpts)),
+      qSub(cotizacionesSub('PV', cotiOpts)),
     ]);
     return mergePorVendedorCotizVePv(ve, pv);
   };
