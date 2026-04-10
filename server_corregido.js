@@ -760,6 +760,10 @@ function mergeCxcResumenAgingSnaps(snaps) {
       VENCIDO: 0,
       POR_VENCER: 0,
       TOTAL_IMPORTE_CARGOS_ABIERTOS: 0,
+      CXC_TOTAL_DOC: 0,
+      CXC_TOTAL_ALT_NETO: 0,
+      CXC_TOTAL_ALT_IVA: 0,
+      CXC_TOTAL_FUENTE: 'consolidado',
     },
     aging: {
       CORRIENTE: 0,
@@ -777,6 +781,9 @@ function mergeCxcResumenAgingSnaps(snaps) {
     out.resumen.VENCIDO += +s.resumen.VENCIDO || 0;
     out.resumen.POR_VENCER += +s.resumen.POR_VENCER || 0;
     out.resumen.TOTAL_IMPORTE_CARGOS_ABIERTOS += +s.resumen.TOTAL_IMPORTE_CARGOS_ABIERTOS || 0;
+    out.resumen.CXC_TOTAL_DOC += +s.resumen.CXC_TOTAL_DOC || 0;
+    out.resumen.CXC_TOTAL_ALT_NETO += +s.resumen.CXC_TOTAL_ALT_NETO || 0;
+    out.resumen.CXC_TOTAL_ALT_IVA += +s.resumen.CXC_TOTAL_ALT_IVA || 0;
     if (s.aging) {
       out.aging.CORRIENTE += +s.aging.CORRIENTE || 0;
       out.aging.DIAS_1_30 += +s.aging.DIAS_1_30 || 0;
@@ -790,6 +797,9 @@ function mergeCxcResumenAgingSnaps(snaps) {
   out.resumen.VENCIDO = r2(out.resumen.VENCIDO);
   out.resumen.POR_VENCER = r2(out.resumen.POR_VENCER);
   out.resumen.TOTAL_IMPORTE_CARGOS_ABIERTOS = r2(out.resumen.TOTAL_IMPORTE_CARGOS_ABIERTOS);
+  out.resumen.CXC_TOTAL_DOC = r2(out.resumen.CXC_TOTAL_DOC);
+  out.resumen.CXC_TOTAL_ALT_NETO = r2(out.resumen.CXC_TOTAL_ALT_NETO);
+  out.resumen.CXC_TOTAL_ALT_IVA = r2(out.resumen.CXC_TOTAL_ALT_IVA);
   Object.keys(out.aging).forEach((k) => { out.aging[k] = r2(out.aging[k]); });
   return out;
 }
@@ -2005,19 +2015,28 @@ const CXC_DIAS_SUM_INT = `CAST((
         ELSE 30
       END
     ) AS INTEGER)`;
-function cxcClienteSQL() {
+/**
+ * Saldos por cliente desde IMPORTES_DOCTOS_CC con el mismo CASE de factura que cxcDocSaldos (cobro aplicado a DOCTO_CC_ACR_ID).
+ * opts.conIva: cargo y cobro con IVA (común en medidas BI “bruto”).
+ * opts.excludeContado: false incluye condiciones contado/inmediato.
+ */
+function cxcClienteBalancesSubSql(opts) {
+  const conIva = !!(opts && opts.conIva);
+  const excludeContado = !(opts && opts.excludeContado === false);
+  const cargoExpr = conIva ? '(i.IMPORTE + COALESCE(i.IMPUESTO, 0))' : 'i.IMPORTE';
+  const reciboExpr = conIva
+    ? '(i.IMPORTE + COALESCE(i.IMPUESTO, 0))'
+    : '(CASE WHEN COALESCE(i.IMPUESTO, 0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END)';
+  const excl = excludeContado ? CXC_EXCLUIR_CONTADO : '';
+  const sumCase = `SUM(CASE
+        WHEN i.TIPO_IMPTE = 'C' THEN ${cargoExpr}
+        WHEN i.TIPO_IMPTE = 'R' THEN -(${reciboExpr})
+        ELSE 0
+      END)`;
   return `(
     SELECT
-      dc_cargo.CLIENTE_ID,
-      SUM(CASE
-        WHEN i.TIPO_IMPTE = 'C'
-          THEN i.IMPORTE
-        WHEN i.TIPO_IMPTE = 'R'
-          THEN -(CASE WHEN COALESCE(i.IMPUESTO, 0) > 0
-                      THEN i.IMPORTE
-                      ELSE i.IMPORTE / 1.16 END)
-        ELSE 0
-      END) AS SALDO
+      dc_cargo.CLIENTE_ID AS CLIENTE_ID,
+      ${sumCase} AS SALDO
     FROM IMPORTES_DOCTOS_CC i
     JOIN DOCTOS_CC dc_cargo ON dc_cargo.DOCTO_CC_ID = CASE
       WHEN i.TIPO_IMPTE = 'R' AND i.DOCTO_CC_ACR_ID IS NOT NULL THEN i.DOCTO_CC_ACR_ID
@@ -2025,18 +2044,23 @@ function cxcClienteSQL() {
     END
     LEFT JOIN CLIENTES clx ON clx.CLIENTE_ID = dc_cargo.CLIENTE_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc_cargo.COND_PAGO_ID, clx.COND_PAGO_ID)
-    WHERE COALESCE(i.CANCELADO, 'N') = 'N' ${CXC_EXCLUIR_CONTADO}
+    WHERE COALESCE(i.CANCELADO, 'N') = 'N' ${excl}
     GROUP BY dc_cargo.CLIENTE_ID
-    HAVING SUM(CASE
-        WHEN i.TIPO_IMPTE = 'C'
-          THEN i.IMPORTE
-        WHEN i.TIPO_IMPTE = 'R'
-          THEN -(CASE WHEN COALESCE(i.IMPUESTO, 0) > 0
-                      THEN i.IMPORTE
-                      ELSE i.IMPORTE / 1.16 END)
-        ELSE 0
-      END) > 0
+    HAVING ${sumCase} > 0
   )`;
+}
+
+function cxcClienteSQL() {
+  return cxcClienteBalancesSubSql({ conIva: false, excludeContado: true });
+}
+
+/** Criterio del KPI “Deuda total” vs Power BI: auto (defecto) permite subir al mayor neto/IVA si no desborda; documento fuerza saldo documental. */
+function cxcTotalKpiMode(req) {
+  const raw = String((req && req.query && req.query.cxc_total) || process.env.MICROSIP_CXC_TOTAL_KPI || 'auto').trim().toLowerCase();
+  if (raw === 'doc' || raw === 'documento') return 'documento';
+  if (raw === 'cliente' || raw === 'neto') return 'cliente';
+  if (raw === 'con_iva' || raw === 'iva') return 'con_iva';
+  return 'auto';
 }
 
 // ── v9: Documentos de CARGO para clientes que aún tienen saldo pendiente ─────
@@ -3599,6 +3623,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
   const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
   const whereCliDoc = cf ? ` AND doc.CLIENTE_ID = ${cf}` : '';
   const whereCliSaldo = cf ? ` WHERE cs.CLIENTE_ID = ${cf}` : '';
+  const whereBlSaldo = cf ? ` WHERE bl.CLIENTE_ID = ${cf}` : '';
   const agingLegacySql = `
       SELECT
         cd.CLIENTE_ID,
@@ -3614,7 +3639,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
       GROUP BY cd.CLIENTE_ID
     `;
 
-  const [docAggRows, cxcSaldosLegacy, cxcAgingLegacyRaw, docStatsRows, movStatsRows, saldoCutRows] = await Promise.all([
+  const [docAggRows, cxcSaldosLegacy, cxcAgingLegacyRaw, docStatsRows, movStatsRows, saldoCutRows, totClienteConIvaRows] = await Promise.all([
     query(`
       SELECT
         COUNT(DISTINCT doc.CLIENTE_ID) AS NUM_CLIENTES_DOC,
@@ -3666,6 +3691,12 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
       FROM ${cxcDocSaldosInnerSQL('')} doc
       WHERE 1 = 1 ${whereCliDoc}
     `, [], ms, dbo).catch((err) => { console.error('cxcResumenAgingUnificado saldoCut error:', err && (err.message || err)); return []; }),
+    query(
+      `SELECT COALESCE(SUM(bl.SALDO), 0) AS T FROM ${cxcClienteBalancesSubSql({ conIva: true, excludeContado: true })} bl${whereBlSaldo}`,
+      [],
+      ms,
+      dbo
+    ).catch((err) => { console.error('cxcResumenAgingUnificado totIva error:', err && (err.message || err)); return []; }),
   ]);
 
   let saldoTotal = 0, vencido = 0, porVencer = 0;
@@ -3795,21 +3826,49 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
     );
   }
 
-  // Cartera por cliente (cxcClienteSQL) a veces supera al saldo neto agregado por documento; Power BI suele alinearse al subledger por cliente.
-  const saldoClientesSum = (Array.isArray(cxcSaldosLegacy) ? cxcSaldosLegacy : []).reduce((s, r) => s + (+r.SALDO || 0), 0);
-  if (saldoTotal > 0.005 && saldoClientesSum > saldoTotal + 0.01) {
-    const relUp = (saldoClientesSum - saldoTotal) / saldoTotal;
-    if (relUp <= 0.35 && saldoClientesSum <= saldoTotal * 1.35) {
-      const rAdj = saldoClientesSum / saldoTotal;
-      saldoTotal = saldoClientesSum;
-      vencido *= rAdj;
-      porVencer *= rAdj;
-      agCorr *= rAdj;
-      ag1 *= rAdj;
-      ag2 *= rAdj;
-      ag3 *= rAdj;
-      ag4 *= rAdj;
+  const totClienteNeto = (Array.isArray(cxcSaldosLegacy) ? cxcSaldosLegacy : []).reduce((s, r) => s + (+r.SALDO || 0), 0);
+  const totClienteConIva = +(Array.isArray(totClienteConIvaRows) && totClienteConIvaRows[0] && totClienteConIvaRows[0].T) || 0;
+  const totalDocPostRecon = saldoTotal;
+  const modoKpi = cxcTotalKpiMode(req);
+  let fuenteKpi = 'documento';
+  let chosen = saldoTotal;
+  if (modoKpi === 'cliente' && totClienteNeto > 0.005) {
+    chosen = totClienteNeto;
+    fuenteKpi = 'cliente_neto';
+  } else if (modoKpi === 'con_iva' && totClienteConIva > 0.005) {
+    chosen = totClienteConIva;
+    fuenteKpi = 'cliente_con_iva';
+  } else if (modoKpi === 'auto') {
+    const base = totalDocPostRecon > 0.005 ? totalDocPostRecon : Math.max(totClienteNeto, totClienteConIva, 0.00001);
+    const maxCand = Math.max(totalDocPostRecon, totClienteNeto, totClienteConIva);
+    if (maxCand <= base * 1.18) {
+      chosen = maxCand;
+      const near = (a, b) => Math.abs(a - b) < 1 + Math.abs(a) * 1e-9;
+      if (near(chosen, totClienteConIva) && totClienteConIva >= totClienteNeto - 1) fuenteKpi = 'auto:con_iva';
+      else if (near(chosen, totClienteNeto) && totClienteNeto > totalDocPostRecon + 0.01) fuenteKpi = 'auto:cliente_neto';
+      else fuenteKpi = 'auto:documento';
+    } else {
+      chosen = totalDocPostRecon;
+      fuenteKpi = 'documento';
     }
+  } else {
+    chosen = totalDocPostRecon;
+    fuenteKpi = 'documento';
+  }
+
+  if (saldoTotal > 0.005 && Math.abs(chosen - saldoTotal) > 0.01) {
+    const rAdj = chosen / saldoTotal;
+    saldoTotal = chosen;
+    vencido *= rAdj;
+    porVencer *= rAdj;
+    agCorr *= rAdj;
+    ag1 *= rAdj;
+    ag2 *= rAdj;
+    ag3 *= rAdj;
+    ag4 *= rAdj;
+  } else if (saldoTotal <= 0.005 && chosen > 0.005) {
+    saldoTotal = chosen;
+    fuenteKpi = modoKpi === 'cliente' ? 'cliente_neto' : fuenteKpi;
   }
 
   /** Suma importes cargo (facturación original) en documentos con saldo > 0 — comparable a columna "Venta" / Total Venta en modelos BI. */
@@ -3850,6 +3909,10 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
     VENCIDO: Math.round(vencido * 100) / 100,
     POR_VENCER: Math.round(porVencer * 100) / 100,
     TOTAL_IMPORTE_CARGOS_ABIERTOS: Math.round(totalImporteCargosAbierto * 100) / 100,
+    CXC_TOTAL_FUENTE: fuenteKpi,
+    CXC_TOTAL_DOC: Math.round(totalDocPostRecon * 100) / 100,
+    CXC_TOTAL_ALT_NETO: Math.round(totClienteNeto * 100) / 100,
+    CXC_TOTAL_ALT_IVA: Math.round(totClienteConIva * 100) / 100,
   };
   const aging = {
     CORRIENTE: Math.round(agCorr * 100) / 100,
@@ -3916,7 +3979,8 @@ get('/api/cxc/resumen-aging', async (req) => {
   const ttlMs = Number.isFinite(ttlRaw) ? Math.min(Math.max(ttlRaw, 0), 120000) : 12000;
   const cfRaw = req.query && req.query.cliente ? parseInt(req.query.cliente, 10) : null;
   const cfKey = Number.isFinite(cfRaw) && cfRaw > 0 ? String(cfRaw) : '';
-  const cacheKey = `${dbCacheKey(dbo)}|cxcSnap|${cfKey}`;
+  const cxcTotKey = String((req.query && req.query.cxc_total) || process.env.MICROSIP_CXC_TOTAL_KPI || 'auto').trim().toLowerCase();
+  const cacheKey = `${dbCacheKey(dbo)}|cxcSnap|${cfKey}|${cxcTotKey}`;
   if (!nocache && ttlMs > 0) {
     const hit = cxcResumenAgingSnapCache.get(cacheKey);
     if (hit && hit.expireAt > Date.now()) return hit.payload;
@@ -4508,13 +4572,50 @@ function invCostoCriterioLabel(cols) {
   }
   return 'PRECIOS_ARTICULOS (sin columnas de costo en ARTICULOS)';
 }
+
+const invSaldosInCostCache = new Map();
+/** Si ARTICULOS no trae costo, muchos BI usan costo en SALDOS_IN por almacén (mismo filtro MICROSIP_INV_ALMACEN_IDS). */
+async function invCostoSaldosInFallbackSubSql(dbo) {
+  const key = `${dbCacheKey(dbo)}|saldosInCost`;
+  if (invSaldosInCostCache.has(key)) return invSaldosInCostCache.get(key);
+  const cols = await getTableColumns('SALDOS_IN', dbo);
+  if (!cols || cols.size === 0) {
+    invSaldosInCostCache.set(key, null);
+    return null;
+  }
+  const w = invSaldosInAlmacenWhereSql();
+  const unitCol = firstExistingColumn(cols, [
+    'COSTO_ULTIMO', 'ULTIMO_COSTO', 'COSTO_PROMEDIO', 'COSTO_UNITARIO', 'COSTO', 'PRECIO_COSTO',
+  ]);
+  if (unitCol) {
+    const sql = `( SELECT si.ARTICULO_ID, CAST(MAX(COALESCE(si.${unitCol}, 0)) AS DECIMAL(18,4)) AS COSTO1
+      FROM SALDOS_IN si WHERE 1=1 ${w}
+      GROUP BY si.ARTICULO_ID )`;
+    invSaldosInCostCache.set(key, sql);
+    return sql;
+  }
+  const extCol = firstExistingColumn(cols, ['IMPORTE_COSTO', 'COSTO_TOTAL', 'MONTO_COSTO', 'VALOR_COSTO']);
+  if (extCol && cols.has('ENTRADAS_UNIDADES') && cols.has('SALIDAS_UNIDADES')) {
+    const sql = `( SELECT si.ARTICULO_ID,
+      CAST(CASE WHEN ABS(SUM(COALESCE(si.ENTRADAS_UNIDADES, 0) - COALESCE(si.SALIDAS_UNIDADES, 0))) > 0.00001
+        THEN SUM(COALESCE(si.${extCol}, 0)) / SUM(COALESCE(si.ENTRADAS_UNIDADES, 0) - COALESCE(si.SALIDAS_UNIDADES, 0))
+        ELSE 0 END AS DECIMAL(18,4)) AS COSTO1
+      FROM SALDOS_IN si WHERE 1=1 ${w}
+      GROUP BY si.ARTICULO_ID )`;
+    invSaldosInCostCache.set(key, sql);
+    return sql;
+  }
+  invSaldosInCostCache.set(key, null);
+  return null;
+}
+
 /**
  * Costo unitario por artículo: COALESCE(COSTO_PROMEDIO, ULTIMO_COSTO, COSTO) según columnas existentes (alineado a lectura típica en BI).
- * Si no hay ninguna columna de costo en ARTICULOS, usa precio de venta (mismo fallback que antes).
+ * Si no hay ninguna columna de costo en ARTICULOS, intenta SALDOS_IN; si no, precio de venta.
  */
 async function invCostoSubSql(dbo) {
   const modo = (process.env.MICROSIP_INV_COSTO_MODO || 'coalesce').toLowerCase();
-  const key = `${dbCacheKey(dbo)}|costo:${modo}:v3`;
+  const key = `${dbCacheKey(dbo)}|costo:${modo}:v5`;
   if (invCostoSubCache.has(key)) return invCostoSubCache.get(key);
   const cols = await getTableColumns('ARTICULOS', dbo);
   const cset = cols && cols.size ? cols : new Set();
@@ -4532,8 +4633,13 @@ async function invCostoSubSql(dbo) {
   if (coalesceExpr) {
     invCostoSubCache.set(key, `( SELECT a.ARTICULO_ID, CAST(${coalesceExpr} AS DECIMAL(18,4)) AS COSTO1 FROM ARTICULOS a )`);
   } else {
-    const priceSub = await invPrecioSubSql(dbo);
-    invCostoSubCache.set(key, priceSub.replace(/PRECIO1/g, 'COSTO1'));
+    const saldosFb = await invCostoSaldosInFallbackSubSql(dbo);
+    if (saldosFb) {
+      invCostoSubCache.set(key, saldosFb);
+    } else {
+      const priceSub = await invPrecioSubSql(dbo);
+      invCostoSubCache.set(key, priceSub.replace(/PRECIO1/g, 'COSTO1'));
+    }
   }
   return invCostoSubCache.get(key);
 }
@@ -4570,6 +4676,10 @@ get('/api/inv/resumen', async (req) => {
   const c = countsRows[0] || {};
   const v = valorRows[0] || {};
   const r = Object.assign({}, c, v);
+  let valorCriterio = invCostoCriterioLabel(colsArt);
+  if (String(costoSub).toUpperCase().includes('SALDOS_IN')) {
+    valorCriterio = 'SALDOS_IN (costo por art\u00edculo; sin columnas de costo en ARTICULOS)';
+  }
 
   return {
     TOTAL_ARTICULOS: +(r.TOTAL_ARTICULOS || 0),
@@ -4577,11 +4687,25 @@ get('/api/inv/resumen', async (req) => {
     EXISTENCIA_UNIDADES_SUM: Math.round((+(r.EXISTENCIA_UNIDADES_SUM || 0)) * 100) / 100,
     BAJO_MINIMO: +(r.BAJO_MINIMO || 0),
     SIN_STOCK: +(r.SIN_STOCK || 0),
-    VALOR_CRITERIO: invCostoCriterioLabel(colsArt),
+    VALOR_CRITERIO: valorCriterio,
     inv_almacen_ids: (process.env.MICROSIP_INV_ALMACEN_IDS || '').trim() || null,
     nota_valor:
       'Posición actual (SALDOS_IN) × costo; sin movimiento del mes del filtro. Alinear con Power BI: MICROSIP_INV_ALMACEN_IDS (almacén), MICROSIP_INV_COSTO_MODO=promedio si el modelo usa solo costo promedio, exclusión de servicios vía columnas SERVICIO/ES_SERVICIO cuando existen.',
   };
+});
+
+get('/api/debug/inv-columnas', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const sortSet = async (table) => {
+    const s = await getTableColumns(table, dbo);
+    return s && s.size ? [...s].sort() : [];
+  };
+  const [ARTICULOS, SALDOS_IN, PRECIOS_ARTICULOS] = await Promise.all([
+    sortSet('ARTICULOS'),
+    sortSet('SALDOS_IN'),
+    sortSet('PRECIOS_ARTICULOS'),
+  ]);
+  return { ARTICULOS, SALDOS_IN, PRECIOS_ARTICULOS };
 });
 
 // Diagnóstico duro de conectividad Firebird para inventario (no oculta errores).

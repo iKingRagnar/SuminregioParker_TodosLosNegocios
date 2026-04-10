@@ -699,11 +699,21 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
         <option value="">Todos los clientes</option>
       </select>
     </div>
+    <div class="filter-group">
+      <span class="filter-label">TOTAL KPI</span>
+      <select id="cxcTotalKpi" aria-label="Criterio deuda total vs Power BI" title="Auto: elige el mayor entre saldo documental, suma cliente neto y suma con IVA si no supera en m&#225;s de un 18% al documental (evita desbordes).">
+        <option value="auto">Auto (vs BI)</option>
+        <option value="documento">Solo documentos</option>
+        <option value="cliente">Cliente neto</option>
+        <option value="con_iva">Cliente con IVA</option>
+      </select>
+    </div>
     <button class="btn" onclick="loadAll()">Aplicar</button>
     <span style="font-size:11px;color:var(--txt3);font-family:var(--mono);margin-left:auto" title="Deuda total = cargos − cobros de cartera a cr&eacute;dito.">
       Deuda total = cargos − pagos por cliente (solo cr&eacute;dito). Cuadra con buckets.
     </span>
   </div>
+  <p id="cxcKpiTotalHint" class="cxc-total-hint" style="font-size:11px;color:var(--txt3);margin:4px 0 0;font-family:var(--mono);" aria-live="polite"></p>
 
   <!-- KPIs: narrativa + datos (alineado Power BI: saldo, vencido, por vencer) -->
   <section class="cxc-kpi-journey ms-reveal" aria-labelledby="cxcKpiStoryTitle">
@@ -1027,6 +1037,16 @@ function cxcRowSaldo(r) {
 }
 
 
+function cxcTotalKpiRead() {
+  try {
+    const u = new URLSearchParams(location.search).get('cxc_total');
+    if (u) return String(u).trim().toLowerCase();
+    const s = sessionStorage.getItem('cxc_total_kpi');
+    if (s) return String(s).trim().toLowerCase();
+  } catch (_) {}
+  return '';
+}
+
 function buildCxcQuery(extra){
   const cf = (document.getElementById('fCliente')?.value || '').trim();
   const e = extra ? String(extra).replace(/^[?&]+/, '') : '';
@@ -1042,6 +1062,8 @@ function buildCxcQuery(extra){
     });
   }
   if (cf) extraObj.cliente = cf;
+  const cxcTot = cxcTotalKpiRead();
+  if (cxcTot) extraObj.cxc_total = cxcTot;
   let qs = '';
   if (typeof window.filterBuildQS === 'function') {
     qs = window.filterBuildQS(Object.keys(extraObj).length ? extraObj : null, { omitDb: true });
@@ -1214,6 +1236,10 @@ async function loadResumen() {
       ? (' · Facturaci\u00f3n abierta (suma cargos en docs con saldo, referencia BI "Total Venta"): ' + fmtK(ventaCargoAbierta))
       : '';
     setText('agingBreakdown', 'Aging: Corriente '+fmtK(corrienteAging)+' · Mora (1-30 … +90) '+fmtK(vencFromAging)+' · Suma buckets '+fmtK(sumAging)+'. KPI: Vencido '+fmtK(venc)+' · No vencido '+fmtK(pvenc)+' · Deuda total '+fmtK(saldo)+'.'+lineaBi);
+    var hintEl = document.getElementById('cxcKpiTotalHint');
+    if (hintEl && res.CXC_TOTAL_FUENTE) {
+      hintEl.textContent = 'Total KPI: ' + String(res.CXC_TOTAL_FUENTE) + ' · ref. doc ' + fmtK(res.CXC_TOTAL_DOC) + ' · cliente neto ' + fmtK(res.CXC_TOTAL_ALT_NETO) + ' · cliente IVA ' + fmtK(res.CXC_TOTAL_ALT_IVA);
+    } else if (hintEl) { hintEl.textContent = ''; }
     const agCorriente = document.getElementById('agC');
     if (agCorriente) agCorriente.style.color = '';
     if(chartAging){
@@ -1546,6 +1572,17 @@ async function refreshCxcDbHint(){
 
 (async function init(){
   try { initCharts(); } catch (e) { console.warn('[cxc] initCharts', e && e.message ? e.message : e); }
+  try {
+    var tk = document.getElementById('cxcTotalKpi');
+    if (tk) {
+      var vr = cxcTotalKpiRead();
+      if (vr && ['auto', 'documento', 'cliente', 'con_iva'].indexOf(vr) >= 0) tk.value = vr;
+      tk.addEventListener('change', function () {
+        try { sessionStorage.setItem('cxc_total_kpi', tk.value); } catch (_) {}
+        void loadAll();
+      });
+    }
+  } catch (_) {}
   void checkStatus().catch(()=>{});
   const fb = document.getElementById('filter-bar');
   if (fb) fb.style.display = '';
