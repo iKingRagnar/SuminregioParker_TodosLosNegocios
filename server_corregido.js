@@ -4946,6 +4946,57 @@ get('/api/debug/inv-columnas', async (req) => {
   return { ARTICULOS, SALDOS_IN, PRECIOS_ARTICULOS };
 });
 
+/**
+ * Debug: inspecciona una lista de ARTICULO_ID (flags + existencia + costo + valor).
+ * Uso:
+ * - /api/debug/inv-articulos?db=default&ids=584819,584904
+ * - /api/debug/inv-articulos?db=default&ids=584819
+ */
+get('/api/debug/inv-articulos', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const idsRaw = req.query && req.query.ids != null ? String(req.query.ids) : '';
+  const ids = [...new Set(
+    idsRaw
+      .split(',')
+      .map((s) => parseInt(String(s).trim(), 10))
+      .filter((n) => Number.isFinite(n) && n > 0)
+  )].slice(0, 200);
+  if (!ids.length) return { ok: false, error: 'Indica ?ids=1,2,3 (máx. 200).' };
+
+  const costoSub = await invCostoSubSql(dbo);
+  const idList = ids.join(',');
+  const rows = await query(
+    `
+    SELECT
+      a.ARTICULO_ID,
+      a.NOMBRE AS DESCRIPCION,
+      COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
+      COALESCE(a.ES_ALMACENABLE, 'S') AS ES_ALMACENABLE,
+      COALESCE(a.ESTATUS, 'A') AS ESTATUS,
+      COALESCE(s.EXISTENCIA, 0) AS EXISTENCIA,
+      COALESCE(cs.COSTO1, 0) AS COSTO_UNITARIO,
+      COALESCE(s.EXISTENCIA, 0) * COALESCE(cs.COSTO1, 0) AS VALOR_TOTAL
+    FROM ARTICULOS a
+    LEFT JOIN ${getSqlExistSub()} s ON s.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN ${costoSub} cs ON cs.ARTICULO_ID = a.ARTICULO_ID
+    WHERE a.ARTICULO_ID IN (${idList})
+    ORDER BY VALOR_TOTAL DESC
+  `,
+    [],
+    60000,
+    dbo,
+  ).catch(() => []);
+
+  return {
+    ok: true,
+    db: normalizeDbQueryId(req.query.db) || 'default',
+    ids_requested: ids,
+    rows: Array.isArray(rows) ? rows : [],
+    note:
+      'Si BI filtra ES_ALMACENABLE="S" (o excluye servicios), y aquí aparece ES_ALMACENABLE<>"S" con existencia>0, eso explica deltas pequeños (p. ej. +6 uds) aunque el valor/costo coincidan.',
+  };
+});
+
 // Debug: compara Inventario con variaciones de costo/almacén para explicar diferencias vs Power BI.
 // Params opcionales:
 // - ?almacen_ids=1,2 (simula filtro de almacén sin tocar .env)
