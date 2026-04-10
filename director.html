@@ -8,7 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <script>window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="filters.js?v=cxcfix-20260410-display-snap"></script>
+<script src="filters.js?v=cxcfix-20260409-resumen-array-unwrap"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -565,13 +565,29 @@ function normalizeDirectorCxcApiPayload(raw) {
   var o = raw;
   if (Array.isArray(o) && o[0] && typeof o[0] === 'object' && !Array.isArray(o[0])) o = o[0];
   if (o && typeof o.data === 'object' && o.data && !Array.isArray(o.data) && (o.data.resumen || o.data.aging)) o = o.data;
+  if (o && typeof o === 'object' && !Array.isArray(o)) {
+    var r = o.resumen;
+    if (Array.isArray(r) && r[0] && typeof r[0] === 'object' && !Array.isArray(r[0])) {
+      o = Object.assign({}, o, { resumen: r[0] });
+    }
+  }
   return o && typeof o === 'object' && !Array.isArray(o) ? o : {};
 }
+/** Igual que normalizeCxcAging: Firebird/proxy a veces devuelve aging como array de una fila. */
+function directorUnwrapAging(ageRaw) {
+  if (ageRaw == null) return {};
+  if (Array.isArray(ageRaw)) {
+    return (ageRaw[0] && typeof ageRaw[0] === 'object' && !Array.isArray(ageRaw[0])) ? ageRaw[0] : {};
+  }
+  if (typeof ageRaw === 'object') return ageRaw;
+  return {};
+}
 function directorMoraFromAgingObj(aging) {
-  if (!aging || typeof aging !== 'object' || Array.isArray(aging)) return 0;
+  var a = directorUnwrapAging(aging);
+  if (!a || typeof a !== 'object' || Array.isArray(a)) return 0;
   function b(k1, k2) {
-    var v = aging[k1];
-    if (v == null && k2) v = aging[k2];
+    var v = a[k1];
+    if (v == null && k2) v = a[k2];
     var n = parseFloat(String(v != null ? v : '').replace(/,/g, ''));
     return Number.isFinite(n) ? n : 0;
   }
@@ -588,7 +604,7 @@ function directorBackfillCxcVencidoForUi(cxc, cxcSnap) {
   var cap = Math.min(mora, st);
   var cor = 0;
   try {
-    var a = cxcSnap && cxcSnap.aging;
+    var a = directorUnwrapAging(cxcSnap && cxcSnap.aging);
     if (a && typeof a === 'object' && !Array.isArray(a)) {
       var cv = a.CORRIENTE != null ? a.CORRIENTE : a.corriente;
       cor = parseFloat(String(cv != null ? cv : '').replace(/,/g, '')) || 0;
@@ -601,6 +617,7 @@ function directorBackfillCxcVencidoForUi(cxc, cxcSnap) {
 }
 /** Si resumen llega con claves distintas, leer saldo/vencido para lógica de snapshot degradado. */
 function directorPickCxcResumenSaldoVenc(res) {
+  if (Array.isArray(res) && res[0] && typeof res[0] === 'object' && !Array.isArray(res[0])) res = res[0];
   if (!res || typeof res !== 'object') return { sal: 0, venc: 0 };
   function n(keys) {
     for (var i = 0; i < keys.length; i++) {
@@ -631,6 +648,28 @@ function directorResolveCxcDisplayKpis(cxc, cxcSnap) {
   var numCli = (cxc && cxc.NUM_CLIENTES != null && cxc.NUM_CLIENTES !== '') ? +cxc.NUM_CLIENTES : (+rawR.NUM_CLIENTES || 0);
   var numCliVen = (cxc && cxc.NUM_CLIENTES_VENCIDOS != null && cxc.NUM_CLIENTES_VENCIDOS !== '') ? cxc.NUM_CLIENTES_VENCIDOS : rawR.NUM_CLIENTES_VENCIDOS;
   return { cTotal: cTotal, cVenc: cVenc, cVig: cVig, numCli: numCli, numCliVen: numCliVen };
+}
+/** Si el fetch paralelo devolvió cartera sin vencido ni buckets (JSON raro/caché), un segundo GET mínimo sin barra de filtros. */
+async function directorEnsureCxcSnap(snap, tMs) {
+  var s = snap && typeof snap === 'object' ? snap : {};
+  var r = s.resumen && typeof s.resumen === 'object' ? s.resumen : {};
+  var pr = directorPickCxcResumenSaldoVenc(r);
+  var mora = directorMoraFromAgingObj(s.aging);
+  if (pr.venc > 0.005 || mora > 0.005) return s;
+  if (pr.sal <= 1000) return s;
+  var db = '';
+  try {
+    db = (new URLSearchParams(location.search).get('db') || '').trim();
+    if (!db && typeof window.getSelectedDbId === 'function') db = String(window.getSelectedDbId() || '').trim();
+    if (!db) db = (sessionStorage.getItem('microsip_erp_db') || '').trim();
+  } catch (e1) {}
+  var url = API + '/api/cxc/resumen-aging?queryMs=180000&nocache=1' + (db ? '&db=' + encodeURIComponent(db) : '');
+  var fresh = normalizeDirectorCxcApiPayload(await fetchJson(url, {}, tMs));
+  var r2 = fresh.resumen && typeof fresh.resumen === 'object' ? fresh.resumen : {};
+  var pr2 = directorPickCxcResumenSaldoVenc(r2);
+  var mora2 = directorMoraFromAgingObj(fresh.aging);
+  if (pr2.venc > 0.005 || mora2 > 0.005) return fresh;
+  return s;
 }
 /** Si director/resumen trae cotiz en 0 pero /ventas/cotizaciones/resumen sí responde, unificar nombres de KPI Director. */
 function mergeDirectorCotiFromVentasApi(co, raw) {
@@ -823,6 +862,11 @@ async function loadAll() {
         if (dbgEnabled() && window.__DBG_STATE) window.__DBG_STATE.note = 'cxc: último snapshot (respuesta vacía con filtro corto)';
       }
     }catch(_){}
+    try {
+      cxcSnap = await directorEnsureCxcSnap(cxcSnap, tDir);
+    } catch (eEns) {
+      if (dbgEnabled() && window.__DBG_STATE) window.__DBG_STATE.note = 'cxc: ensure falló ' + (eEns && eEns.message ? eEns.message : String(eEns));
+    }
     const metas = (metasRes.status === 'fulfilled' && metasRes.value && typeof metasRes.value === 'object') ? metasRes.value : {};
 
     let cxc;

@@ -778,6 +778,16 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     return bucketSumCanonical(base);
   }
 
+  /** Igual que aging: ODBC/proxy a veces devuelve resumen como array de una fila; sin unwrap VENCIDO queda en 0 en Director/Inicio. */
+  function unwrapCxcResumenRow(res) {
+    if (res == null) return {};
+    if (Array.isArray(res)) {
+      return (res[0] && typeof res[0] === 'object' && !Array.isArray(res[0])) ? res[0] : {};
+    }
+    if (typeof res === 'object') return res;
+    return {};
+  }
+
   /** director/resumen con omitCxc=1 antes mandaba cxc en ceros; no es cartera real y no debe mezclarse con resumen-aging. */
   function getDirectorCxcPayload(directorRaw) {
     var raw = directorRaw && directorRaw.cxc;
@@ -799,7 +809,8 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       if (!o || typeof o !== 'object') {
         return { SALDO_TOTAL: 0, VENCIDO: 0, POR_VENCER: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: null };
       }
-      var r = o.resumen && typeof o.resumen === 'object' ? o.resumen : o;
+      var rSrc = o.resumen != null && typeof o.resumen === 'object' ? o.resumen : o;
+      var r = unwrapCxcResumenRow(rSrc);
       function pickNum() {
         for (var i = 0; i < arguments.length; i++) {
           var k = arguments[i];
@@ -856,6 +867,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
    * Alinea VENCIDO / POR_VENCER con la suma de buckets de mora del mismo snapshot que cxc.html (resumen-aging).
    */
   function reconcileCxcResumenWithAging(resumen, aging) {
+    resumen = unwrapCxcResumenRow(resumen);
     if (!resumen || typeof resumen !== 'object') resumen = {};
     aging = normalizeCxcAging(aging);
     var out = {};
@@ -881,6 +893,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
    * Misma coherencia que cxc.html tras cargar resumen-aging: alinear venc/vigente con buckets y con saldo total.
    */
   function finalizeCxcKpiDisplay(resumen, aging) {
+    resumen = unwrapCxcResumenRow(resumen);
     if (!resumen || typeof resumen !== 'object') resumen = {};
     aging = normalizeCxcAging(aging);
     var out = {};
@@ -954,7 +967,8 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
    */
   function applyCxcSnapshotForKpis(cxcSnap, directorRaw) {
     var snap = cxcSnap && typeof cxcSnap === 'object' ? cxcSnap : {};
-    var res = snap.resumen && typeof snap.resumen === 'object' ? snap.resumen : snap;
+    var resSrc = snap.resumen != null && typeof snap.resumen === 'object' ? snap.resumen : snap;
+    var res = unwrapCxcResumenRow(resSrc);
     if (res && typeof res === 'object') {
       function cxcPickNum(r, keys) {
         for (var i = 0; i < keys.length; i++) {
@@ -1066,7 +1080,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     // Resumen crudo del snapshot (antes de pipelines): si algún paso dejó VENCIDO en 0 pero el JSON del servidor sí traía mora, no perderlo.
     var vSnap = 0;
     try {
-      var rr = cxcSnap && cxcSnap.resumen;
+      var rr = unwrapCxcResumenRow(cxcSnap && cxcSnap.resumen);
       if (rr && typeof rr === 'object') vSnap = +rr.VENCIDO || 0;
     } catch (e) {}
     var saldo = 0;
