@@ -6985,11 +6985,31 @@ async function resultadosPnlCore(req, dbOpts) {
     const descuentosDev = descMap[key(r.ANIO, r.MES)] || 0;
     const kmKey = key(r.ANIO, r.MES);
     const ventasConta = +(ventasContaMap[kmKey] || 0);
-    // P&L: por defecto "Ventas netas" debe cuadrar con VE+PV (doctos de venta).
-    // Contabilidad (SALDOS_CO 4*) puede incluir otros ingresos y rompe la igualdad esperada por Dirección.
-    const useConta = String(req.query.pnl_ventas || '').trim().toLowerCase() === 'conta'
-      || (String(process.env.MICROSIP_PNL_USAR_VENTAS_CONTA || '').trim().toLowerCase().match(/^(1|true|yes)$/i));
+    // Ventas netas P&L: por defecto alinear con Estado de resultados / Power BI (SALDOS_CO cuentas 4*)
+    // cuando hay saldo. La suma VE+PV en facturas (TIPO F) puede quedar ~3% por debajo vs contable
+    // (remisiones/cruces/timing). Forzar suma documentos: ?pnl_ventas=docs o MICROSIP_PNL_USAR_VENTAS_DOCS=1
+    const qVentas = String(req.query.pnl_ventas || '').trim().toLowerCase();
+    const envDocs = /^(1|true|yes)$/i.test(String(process.env.MICROSIP_PNL_USAR_VENTAS_DOCS || '').trim());
+    const envConta = /^(1|true|yes)$/i.test(String(process.env.MICROSIP_PNL_USAR_VENTAS_CONTA || '').trim());
+    let useConta;
+    if (qVentas === 'docs' || envDocs) useConta = false;
+    else if (qVentas === 'conta' || envConta) useConta = true;
+    else useConta = ventasConta > 0.01;
     const ventas = useConta && ventasConta > 0.01 ? ventasConta : ventasBrutas;
+    // #region agent log
+    try {
+      fs.appendFileSync(path.join(process.cwd(), 'debug-c5910b.log'), JSON.stringify({
+        sessionId: 'c5910b',
+        hypothesisId: 'H1',
+        location: 'resultadosPnlCore:ventas-netas',
+        message: 'P&L fuente ventas netas',
+        data: {
+          ANIO: r.ANIO, MES: r.MES, qVentas, ventasBrutas, ventasConta, useConta, ventasElegidas: ventas,
+        },
+        timestamp: Date.now(),
+      }) + '\n');
+    } catch (_e) { /* debug ingest local */ }
+    // #endregion
     ventasFuentes.push({
       ANIO: r.ANIO,
       MES: r.MES,
@@ -6997,7 +7017,9 @@ async function resultadosPnlCore(req, dbOpts) {
       ventas_conta4: ventasConta,
       ventas_usada: ventas,
       fuente: (useConta && ventasConta > 0.01) ? 'SALDOS_CO_4*' : 'VENTAS_DOCS_F',
-      nota: useConta ? 'pnl_ventas=conta o MICROSIP_PNL_USAR_VENTAS_CONTA=1' : 'default: doctos (VE+PV)',
+      nota: (useConta && ventasConta > 0.01)
+        ? (qVentas === 'conta' || envConta ? 'pnl_ventas=conta o MICROSIP_PNL_USAR_VENTAS_CONTA=1' : 'default: saldo 4* (Estado resultados)')
+        : (qVentas === 'docs' || envDocs ? 'pnl_ventas=docs' : 'sin saldo 4* o forzado docs'),
     });
     const chosen = chooseCost(kmKey);
     const costo = chosen.value || 0;

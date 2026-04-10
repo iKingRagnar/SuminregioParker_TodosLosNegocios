@@ -369,12 +369,26 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   function syncFiltersToUrl() {
     try {
       const u = new URL(window.location.href);
-      // P&L (resultados): no reescribir query con preset global — el usuario y el back usan anio/mes propios
+      const p = getParams();
+      // P&L: persistir periodo (anio/mes o desde/hasta) + preset para que loadData() y recargas lean el mismo estado.
       if (/resultados\.html$/i.test(u.pathname)) {
-
+        const sp = new URLSearchParams();
+        try {
+          const qdb = (new URLSearchParams(window.location.search).get('db') || '').trim();
+          if (qdb) sp.set('db', qdb);
+        } catch (_) {}
+        if (p.desde && p.hasta) {
+          sp.set('desde', p.desde);
+          sp.set('hasta', p.hasta);
+        } else {
+          if (p.anio != null && p.anio !== '') sp.set('anio', String(p.anio));
+          if (p.mes != null && p.mes !== '') sp.set('mes', String(p.mes));
+        }
+        if (p.preset) sp.set('preset', String(p.preset));
+        const qs = sp.toString();
+        history.replaceState({}, '', u.pathname + (qs ? '?' + qs : '') + (u.hash || ''));
         return;
       }
-      const p = getParams();
       const sp = new URLSearchParams();
       const db = getSelectedDbId();
       if (db) sp.set('db', db);
@@ -414,13 +428,21 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
         return;
       }
       const pr = sp.get('preset');
+      const anioUrl = parseInt(sp.get('anio'), 10);
+      const mesUrl = parseInt(sp.get('mes'), 10);
+      if (pr === 'custom_mes' && !isNaN(anioUrl) && !isNaN(mesUrl) && mesUrl >= 1 && mesUrl <= 12) {
+        _state.preset = 'custom_mes';
+        _state.desde = '';
+        _state.hasta = '';
+        _state.anio = anioUrl;
+        _state.mes = mesUrl;
+        return;
+      }
       if (pr && ['hoy', 'semana', 'mes', 'mes_ant', 'ytd', 'anio', 'anio_ant'].indexOf(pr) >= 0) {
         applyPreset(pr, _state);
       }
-      const anio = parseInt(sp.get('anio'), 10);
-      const mes = parseInt(sp.get('mes'), 10);
-      if (!isNaN(anio)) _state.anio = anio;
-      if (!isNaN(mes)) _state.mes = mes;
+      if (!isNaN(anioUrl)) _state.anio = anioUrl;
+      if (!isNaN(mesUrl)) _state.mes = mesUrl;
     } catch (_) {}
   }
 
@@ -1135,9 +1157,32 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     return !!(_cfg.deferApply && _pending && !filterStatesEqual(_pending, _state));
   }
 
+  /** P&L resultados: fija mes–año calendario (Ene–Dic) y dispara recarga. */
+  function filterSetAnioMes(anio, mes) {
+    const y = parseInt(anio, 10);
+    const mo = parseInt(mes, 10);
+    if (isNaN(y) || isNaN(mo) || mo < 1 || mo > 12) return;
+    _state.preset = 'custom_mes';
+    _state.desde = '';
+    _state.hasta = '';
+    _state.anio = y;
+    _state.mes = mo;
+    if (_cfg.deferApply && _pending) {
+      _pending.preset = 'custom_mes';
+      _pending.desde = '';
+      _pending.hasta = '';
+      _pending.anio = y;
+      _pending.mes = mo;
+    }
+    renderBar();
+    syncFiltersToUrl();
+    fire();
+  }
+
   window.initFilters              = initFilters;
   window.filterBuildQS            = buildQS;
   window.filterGetParams          = getParams;
+  window.filterSetAnioMes         = filterSetAnioMes;
   window.filterCommitDeferred     = filterCommitDeferred;
   window.filterDeferDirty         = filterDeferDirty;
   window.getSelectedDbId          = getSelectedDbId;

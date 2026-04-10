@@ -65,27 +65,15 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 .period-btn{font-family:'DM Mono',monospace;font-size:.64rem;padding:.3rem .7rem;border-radius:7px;border:1px solid var(--border2);color:var(--muted);cursor:pointer;background:none;transition:all .2s;letter-spacing:.06em}
 .period-btn:hover{color:var(--text2);border-color:rgba(77,166,255,.3)}
 .period-btn.active{color:var(--suminregio);border-color:rgba(230,168,0,.35);background:var(--suminregio-dim)}
-.pnl-time-stack{display:flex;flex-direction:row;flex-wrap:wrap;align-items:flex-start;gap:.75rem 1rem;margin-bottom:1.1rem}
+.pnl-time-stack{display:flex;flex-direction:row;flex-wrap:wrap;align-items:center;gap:.75rem 1rem;margin-bottom:1.1rem}
 .pnl-time-stack #filter-bar{flex:1 1 320px;min-width:min(100%,260px);margin-bottom:0}
-.month-picker{margin:.65rem 0 1rem;padding:.75rem 1rem;border:1px solid var(--border);border-radius:12px;background:var(--s1)}
-.month-picker--inline{margin:0;flex:1 1 220px;min-width:min(100%,200px);max-width:min(100%,480px)}
-.pnl-month-inline-title{font-size:.56rem}
+.pnl-mes-anio-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem .75rem;padding:.55rem .85rem;border:1px solid var(--border2);border-radius:12px;background:var(--s1);flex:0 1 auto}
+.pnl-ma-lbl{font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+.pnl-ma-select{font-family:'DM Mono',monospace;font-size:.68rem;padding:.38rem .55rem;border-radius:8px;border:1px solid var(--border2);background:var(--s2);color:var(--text2);min-width:7.2rem;cursor:pointer}
+.pnl-ma-select:focus{outline:none;border-color:rgba(230,168,0,.45)}
 @media(max-width:900px){
-  .pnl-time-stack{flex-direction:column}
-  .month-picker--inline{max-width:100%}
+  .pnl-time-stack{flex-direction:column;align-items:stretch}
 }
-.month-picker-apply{font-weight:600;border-color:rgba(230,168,0,.45)!important;background:var(--suminregio-dim)!important;color:var(--suminregio)!important}
-.month-picker-head{display:flex;align-items:center;justify-content:space-between;gap:.7rem;flex-wrap:wrap}
-.month-picker-title{font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
-.month-dd{position:relative;min-width:260px;max-width:480px;flex:1}
-.month-dd-btn{width:100%;text-align:left;font-family:'DM Mono',monospace;font-size:.62rem;padding:.45rem .7rem;border-radius:8px;border:1px solid var(--border2);background:var(--s2);color:var(--text2);cursor:pointer}
-.month-dd-panel{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:15;border:1px solid var(--border2);border-radius:10px;background:var(--s1);padding:.55rem;display:none;box-shadow:0 12px 24px rgba(0,0,0,.25)}
-.month-dd.open .month-dd-panel{display:block}
-.month-picker-actions{display:flex;gap:.35rem;margin-bottom:.45rem}
-.month-picker-btn{font-family:'DM Mono',monospace;font-size:.58rem;padding:.2rem .5rem;border-radius:7px;border:1px solid var(--border2);background:none;color:var(--text2);cursor:pointer}
-.month-picker-grid{display:flex;gap:.42rem;flex-wrap:wrap;max-height:190px;overflow:auto}
-.month-chip{display:inline-flex;align-items:center;gap:.3rem;padding:.28rem .5rem;border:1px solid var(--border2);border-radius:999px;background:var(--s2);cursor:pointer;font-family:'DM Mono',monospace;font-size:.58rem;color:var(--text2)}
-.month-chip input{accent-color:#e6a800}
 .pnl-drill-btn{display:inline-flex;align-items:center;gap:.35rem;background:none;border:none;color:var(--muted);font-family:'DM Mono',monospace;font-size:.65rem;cursor:pointer}
 .pnl-drill-btn .caret{display:inline-block;transition:transform .16s}
 .pnl-drill-btn.open .caret{transform:rotate(90deg)}
@@ -430,21 +418,11 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
   <div class="pnl-time-stack" id="pnlTimeStack">
     <!-- Barra de filtros compartida (misma tubería de fechas que el API) -->
     <div id="filter-bar"></div>
-    <div class="month-picker month-picker--inline" id="monthPicker" style="display:none">
-      <div class="month-picker-head">
-        <div class="month-picker-title pnl-month-inline-title"><strong>Vista por meses</strong> · año en curso + anterior (elige y <strong>Aplicar</strong>; arriba sigue al instante)</div>
-        <div class="month-dd" id="monthDd">
-          <button type="button" class="month-dd-btn" id="monthDdBtn" aria-haspopup="listbox" aria-expanded="false" title="Meses disponibles según año actual y anterior">Elegir meses…</button>
-          <div class="month-dd-panel" id="monthDdPanel" role="listbox" aria-label="Meses del periodo">
-            <div class="month-picker-actions">
-              <button type="button" class="month-picker-btn" id="monthSelAll">Todos</button>
-              <button type="button" class="month-picker-btn" id="monthSelNone">Solo uno</button>
-              <button type="button" class="month-picker-btn month-picker-apply" id="monthApplyBtn">Aplicar</button>
-            </div>
-            <div class="month-picker-grid" id="monthPickerList"></div>
-          </div>
-        </div>
-      </div>
+    <div class="pnl-mes-anio-toolbar" id="pnlMesAnioToolbar" title="Mes calendario (enero–diciembre) y año — alinea la tabla y el API con el periodo elegido">
+      <span class="pnl-ma-lbl">Mes</span>
+      <select id="pnlSelMes" class="pnl-ma-select" aria-label="Mes (Ene–Dic)"></select>
+      <span class="pnl-ma-lbl">Año</span>
+      <select id="pnlSelAnio" class="pnl-ma-select" aria-label="Año"></select>
     </div>
   </div>
 
@@ -709,10 +687,7 @@ function canonicalDbForUrl(id){
 let chartVC=null, chartCob=null, chartEmp=null, chartGastos=null;
 let bgGaugeChart=null, bgSparkChart=null, bgDonutChart=null;
 let currentMeses=3;
-let monthKeysSelected = new Set();
-/** Selección en el panel antes de pulsar Aplicar (evita recargar en cada clic). */
-let monthKeysPending = new Set();
-/** Último detalle mensual ya cargado desde API (filtro local sin nuevo fetch). */
+/** Último detalle mensual ya cargado desde API (enriquecido año actual/anterior para gráficas). */
 let lastPnlTablaMesesFull = [];
 let lastPnlHasCosto = false;
 let lastPnlTablaTieneGastos = false;
@@ -845,160 +820,91 @@ function mergePnlMesesForPicker(primaryRows, prevYearRows, curYearRows){
   });
   return sortMesesByPeriodo([...map.values()]);
 }
-function pnlSetsEqual(a,b){
-  if(!a||!b||a.size!==b.size)return false;
-  for(const x of a){ if(!b.has(x)) return false; }
-  return true;
+/** Query explícito para /api/resultados/pnl: prioriza estado de filters.js (filterGetParams), luego URL. */
+function getExplicitPnlQueryParts(){
+  const fp=(typeof window.filterGetParams==='function')?window.filterGetParams():{};
+  const usp=new URLSearchParams(window.location.search||'');
+  const desde=(fp.desde||usp.get('desde')||'').trim();
+  const hasta=(fp.hasta||usp.get('hasta')||'').trim();
+  if(desde&&hasta&&/^\d{4}-\d{2}-\d{2}$/.test(desde)&&/^\d{4}-\d{2}-\d{2}$/.test(hasta)){
+    return['desde='+encodeURIComponent(desde),'hasta='+encodeURIComponent(hasta)];
+  }
+  const anio=(fp.anio!=null&&fp.anio!=='')?+fp.anio:parseInt(usp.get('anio'),10);
+  const mes=(fp.mes!=null&&fp.mes!=='')?+fp.mes:parseInt(usp.get('mes'),10);
+  if(!isNaN(anio)&&!isNaN(mes)&&mes>=1&&mes<=12){
+    return['anio='+encodeURIComponent(String(anio)),'mes='+encodeURIComponent(String(mes))];
+  }
+  if(!isNaN(anio)){
+    return['anio='+encodeURIComponent(String(anio))];
+  }
+  return[];
 }
-function updateMonthDdBtn(keys){
-  const ddBtn=document.getElementById('monthDdBtn');
-  if(!ddBtn)return;
-  const kk=keys||window._pnlMonthPickerKeys||[];
-  const nSel=monthKeysSelected.size;
-  const base=nSel===kk.length||!kk.length
-    ? 'Vista completa (calendario)'
-    : `${nSel} mes(es) en vista`;
-  if(!pnlSetsEqual(monthKeysPending,monthKeysSelected)){
-    ddBtn.textContent=base+' — Aplicar';
-  }else{
-    ddBtn.textContent=nSel===kk.length||!kk.length?'Vista completa':`${nSel} mes(es) en vista`;
+/** Columnas mes a mes en tabla/gráficas según periodo del filtro (un mes, año completo, o rango). */
+function computeMesesVista(mergedForPicker,mesesPeriodoFiltro,fp){
+  const merged=sortMesesByPeriodo(mergedForPicker||[]);
+  const periodo=sortMesesByPeriodo(mesesPeriodoFiltro||[]);
+  if(!merged.length&&!periodo.length)return[];
+  const p=fp||{};
+  if(p.desde&&p.hasta)return periodo.length?periodo:merged;
+  if(p.anio!=null&&p.anio!==''&&p.mes!=null&&p.mes!==''){
+    const k=`${+p.anio}-${String(+p.mes).padStart(2,'0')}`;
+    const hit=merged.filter(m=>monthKey(m)===k);
+    if(hit.length)return hit;
+    const hit2=periodo.filter(m=>monthKey(m)===k);
+    if(hit2.length)return hit2;
+    return periodo.length?periodo:merged;
   }
+  if(p.anio!=null&&p.anio!==''&&(p.mes==null||p.mes==='')){
+    return merged.filter(m=>+m.ANIO===+p.anio);
+  }
+  return merged.length?merged:periodo;
 }
-function refreshPnlMonthSlice(){
-  const arr=sortMesesByPeriodo(lastPnlTablaMesesFull||[]);
-  if(!arr.length)return;
-  let mesesVista=arr.filter(m=>monthKeysSelected.has(monthKey(m)));
-  if(!mesesVista.length){
-    const kk=window._pnlMonthPickerKeys||[];
-    if(kk[0]) monthKeysSelected.add(kk[0]);
-    mesesVista=arr.filter(m=>monthKeysSelected.has(monthKey(m)));
+function syncPnlMesAnioToolbar(){
+  const selM=document.getElementById('pnlSelMes');
+  const selA=document.getElementById('pnlSelAnio');
+  if(!selM||!selA)return;
+  const fp=(typeof window.filterGetParams==='function')?window.filterGetParams():{};
+  if(fp.anio!=null&&fp.anio!==''&&fp.mes!=null&&fp.mes!==''){
+    selA.value=String(+fp.anio);
+    selM.value=String(+fp.mes);
+    return;
   }
-  const totVista=rebuildTotalesFromMeses(mesesVista);
-  const hasCosto=lastPnlHasCosto;
-  try{ renderKPIs(totVista,mesesVista,hasCosto); }catch(e){ console.warn('renderKPIs',e); }
-  try{ renderInsight(totVista,mesesVista,hasCosto); }catch(e){ console.warn('renderInsight',e); }
-  try{ renderCharts(mesesVista,hasCosto); }catch(e){ console.warn('renderCharts',e); }
-  try{ renderTabla(mesesVista,totVista,hasCosto,lastPnlTablaTieneGastos); }catch(e){ console.warn('renderTabla',e); }
-  loadEstadoSrContable(mesesVista,totVista).catch(()=>{});
-  const heroEl=document.getElementById('heroSub');
-  if(heroEl){
-    heroEl.textContent=(lastPnlHeroPrefix||'')+mesesVista.length+' mes(es) en vista · '+fmtM(+totVista.VENTAS_NETAS||0)+' ventas netas · '+(hasCosto?fmtM(+totVista.UTILIDAD_BRUTA||0)+' util. bruta':'Costo no en BD')+' · '+fmtM(+totVista.COBROS||0)+' cobrado';
+  if(fp.anio!=null&&fp.anio!==''&&(fp.mes==null||fp.mes==='')){
+    selA.value=String(+fp.anio);
+    selM.value='1';
+    return;
   }
-}
-function setupMonthPicker(meses, opts){
-  opts=opts||{};
-  const defaultKeySet=opts.defaultKeys instanceof Set?opts.defaultKeys:(Array.isArray(opts.defaultKeys)?new Set(opts.defaultKeys):null);
-  const primaryFallback=Array.isArray(opts.primaryRowsForFallback)?opts.primaryRowsForFallback:[];
-  const useFilterDefault=Object.prototype.hasOwnProperty.call(opts,'defaultKeys');
-  const wrap=document.getElementById('monthPicker');
-  if(!wrap) return sortMesesByPeriodo(meses||[]);
-  const arr=sortMesesByPeriodo(meses||[]);
-  if(!arr.length){ wrap.style.display='none'; return arr; }
-  wrap.style.display='block';
-  const keys=arr.map(monthKey);
-  if(useFilterDefault){
-    if(defaultKeySet&&defaultKeySet.size){
-      monthKeysSelected=new Set();
-      defaultKeySet.forEach(k=>{ if(keys.indexOf(k)>=0) monthKeysSelected.add(k); });
-      if(!monthKeysSelected.size){
-        sortMesesByPeriodo(primaryFallback).map(monthKey).filter(k=>keys.indexOf(k)>=0).forEach(k=>monthKeysSelected.add(k));
-      }
-      if(!monthKeysSelected.size&&keys.length) monthKeysSelected.add(keys[keys.length-1]);
-    }else{
-      keys.forEach(k=>monthKeysSelected.add(k));
-    }
-  }else if(!monthKeysSelected.size){
-    keys.forEach(k=>monthKeysSelected.add(k));
-  }else{
-    const next=new Set();
-    keys.forEach(k=>{ if(monthKeysSelected.has(k)) next.add(k); });
-    if(!next.size) keys.forEach(k=>next.add(k));
-    monthKeysSelected=next;
-  }
-  monthKeysPending=new Set(monthKeysSelected);
-  if(wrap&&!wrap._pnlMonthOutsideClose){
-    wrap._pnlMonthOutsideClose=true;
-    document.addEventListener('click',(ev)=>{
-      const dd=document.getElementById('monthDd');
-      const btn=document.getElementById('monthDdBtn');
-      if(!dd||!dd.classList.contains('open'))return;
-      if(dd.contains(ev.target))return;
-      if(btn&&btn.contains(ev.target))return;
-      dd.classList.remove('open');
-      const b=document.getElementById('monthDdBtn');
-      if(b)b.setAttribute('aria-expanded','false');
-    });
-  }
-  const list=document.getElementById('monthPickerList');
-  const dd=document.getElementById('monthDd');
-  const ddBtn=document.getElementById('monthDdBtn');
-  window._pnlMonthPickerKeys=keys;
-  if(list){
-    list.innerHTML=arr.map(m=>{
-      const k=monthKey(m);
-      const checked=monthKeysPending.has(k)?'checked':'';
-      return `<label class="month-chip"><input type="checkbox" data-mk="${k}" ${checked}/> ${mesLabel(m)}</label>`;
-    }).join('');
-    if(!list._pnlMonthChangeDelegated){
-      list._pnlMonthChangeDelegated=true;
-      list.addEventListener('change',(ev)=>{
-        const i=ev.target;
-        if(!i||i.tagName!=='INPUT'||!i.getAttribute('data-mk'))return;
-        const k=i.getAttribute('data-mk');
-        if(i.checked)monthKeysPending.add(k);else monthKeysPending.delete(k);
-        const kk=window._pnlMonthPickerKeys||[];
-        if(!monthKeysPending.size&&kk[0]){
-          monthKeysPending.add(kk[0]);
-          const firstInp=list.querySelector('input[data-mk="'+kk[0]+'"]');
-          if(firstInp) firstInp.checked=true;
-        }
-        updateMonthDdBtn(kk);
-      });
+  if(fp.desde&&fp.hasta){
+    const end=String(fp.hasta).split('-');
+    if(end.length===3){
+      selA.value=end[0];
+      selM.value=String(parseInt(end[1],10));
     }
   }
-  if(dd && ddBtn){
-    updateMonthDdBtn(keys);
-    ddBtn.onclick=(ev)=>{
-      ev.stopPropagation();
-      const open=!dd.classList.contains('open');
-      dd.classList.toggle('open',open);
-      ddBtn.setAttribute('aria-expanded',open?'true':'false');
-    };
+}
+function wirePnlMesAnioToolbar(){
+  const selM=document.getElementById('pnlSelMes');
+  const selA=document.getElementById('pnlSelAnio');
+  if(!selM||!selA||selM._pnlMesAnioWired)return;
+  selM._pnlMesAnioWired=true;
+  const y0=new Date().getFullYear();
+  selA.innerHTML='';
+  for(let y=y0-4;y<=y0+1;y++){
+    selA.appendChild(new Option(String(y),String(y)));
   }
-  const bAll=document.getElementById('monthSelAll');
-  const bNone=document.getElementById('monthSelNone');
-  const bApply=document.getElementById('monthApplyBtn');
-  if(bAll) bAll.onclick=(ev)=>{
-    ev.stopPropagation();
-    keys.forEach(k=>monthKeysPending.add(k));
-    list&&list.querySelectorAll('input[data-mk]').forEach(inp=>{
-      inp.checked=true;
-    });
-    updateMonthDdBtn(keys);
-  };
-  if(bNone) bNone.onclick=(ev)=>{
-    ev.stopPropagation();
-    monthKeysPending.clear();
-    if(keys[0]) monthKeysPending.add(keys[0]);
-    list&&list.querySelectorAll('input[data-mk]').forEach(inp=>{
-      const mk=inp.getAttribute('data-mk');
-      inp.checked=monthKeysPending.has(mk);
-    });
-    updateMonthDdBtn(keys);
-  };
-  if(bApply && !bApply._pnlApplyBound){
-    bApply._pnlApplyBound=true;
-    bApply.onclick=(ev)=>{
-      ev.stopPropagation();
-      monthKeysSelected=new Set(monthKeysPending);
-      updateMonthDdBtn(keys);
-      if(dd){ dd.classList.remove('open'); ddBtn&&ddBtn.setAttribute('aria-expanded','false'); }
-      refreshPnlMonthSlice();
-    };
+  selM.innerHTML='';
+  for(let m=1;m<=12;m++){
+    selM.appendChild(new Option(MESES_ES[m],String(m)));
   }
-  const selected = arr.filter(m=>monthKeysSelected.has(monthKey(m)));
-
-  return selected;
+  const apply=()=>{
+    const y=parseInt(selA.value,10);
+    const mo=parseInt(selM.value,10);
+    if(isNaN(y)||isNaN(mo))return;
+    if(typeof window.filterSetAnioMes==='function')window.filterSetAnioMes(y,mo);
+  };
+  selM.addEventListener('change',apply);
+  selA.addEventListener('change',apply);
+  syncPnlMesAnioToolbar();
 }
 function deltaTag(pct){
   if(isNaN(pct)||pct===null)return'';
@@ -1685,7 +1591,6 @@ async function loadData(){
   document.getElementById('plScoreStrip')&&(document.getElementById('plScoreStrip').style.display='none');
   document.getElementById('plMiniTableWrap')&&(document.getElementById('plMiniTableWrap').style.display='none');
   document.getElementById('chartEmpresasWrap')&&(document.getElementById('chartEmpresasWrap').style.display='none');
-  document.getElementById('monthPicker')&&(document.getElementById('monthPicker').style.display='none');
   try{
     // Si ya hay negocio concreto (URL/session), no escanear todo el registro — evita colgarse minutos en pnl-universe.
     const uniOmitDb = !selectedBizId || isAllBizId(selectedBizId);
@@ -1775,17 +1680,7 @@ async function loadData(){
     document.getElementById('chartsNormal')&&(document.getElementById('chartsNormal').style.display='grid');
     document.getElementById('plScoreStrip')&&(document.getElementById('plScoreStrip').style.display='none');
 
-    const uspBase=new URLSearchParams(window.location.search||'');
-    const explicitParts=[];
-    if(uspBase.get('desde')&&uspBase.get('hasta')){
-      explicitParts.push('desde='+encodeURIComponent(uspBase.get('desde')));
-      explicitParts.push('hasta='+encodeURIComponent(uspBase.get('hasta')));
-    }else if(uspBase.get('anio')&&uspBase.get('mes')){
-      explicitParts.push('anio='+encodeURIComponent(uspBase.get('anio')));
-      explicitParts.push('mes='+encodeURIComponent(uspBase.get('mes')));
-    }else if(uspBase.get('anio')){
-      explicitParts.push('anio='+encodeURIComponent(uspBase.get('anio')));
-    }
+    const explicitParts=getExplicitPnlQueryParts();
     url = explicitParts.length
       ? buildPnlApiUrl('/api/resultados/pnl',explicitParts.join('&'),{omitFilters:true})+'&_='+Date.now()
       : buildPnlApiUrl('/api/resultados/pnl','meses='+currentMeses)+'&_='+Date.now();
@@ -1862,7 +1757,6 @@ async function loadData(){
     }
     tablaMeses=sortMesesByPeriodo(tablaMeses);
     const mesesPeriodoFiltro=tablaMeses.slice();
-    const filterMonthKeys=new Set(mesesPeriodoFiltro.map(monthKey).filter(k=>k&&!/^0-/.test(k)));
     let mergedForPicker=mesesPeriodoFiltro.slice();
     try{
       const yN=new Date().getFullYear();
@@ -1883,9 +1777,10 @@ async function loadData(){
       const lbl=(okEmp.find(e=>String(e.id)===String(selectedBizId))||{}).label;
       if(lbl) lastPnlHeroPrefix=String(lbl)+' · ';
     }
+    const fpPeriodo=(typeof window.filterGetParams==='function')?window.filterGetParams():{};
     let mesesVista;
     try {
-      mesesVista=setupMonthPicker(mergedForPicker,{ defaultKeys:filterMonthKeys, primaryRowsForFallback:mesesPeriodoFiltro });
+      mesesVista=computeMesesVista(mergedForPicker,mesesPeriodoFiltro,fpPeriodo);
     } catch (ePicker) {
       mesesVista=sortMesesByPeriodo(mergedForPicker.slice());
     }
@@ -2422,7 +2317,17 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
 }
 
 if (window.syncDbContextFromUrlOrFallback) window.syncDbContextFromUrlOrFallback();
-initFilters({ containerId:'filter-bar', showVendedor:false, defaultPreset:'mes_ant', onReady:()=>loadData(), onChange:()=>loadData() });
+initFilters({
+  containerId:'filter-bar',
+  showVendedor:false,
+  defaultPreset:'mes_ant',
+  onReady(){
+    loadData().finally(()=>{ try{ wirePnlMesAnioToolbar(); syncPnlMesAnioToolbar(); }catch(_){} });
+  },
+  onChange(){
+    loadData().finally(()=>{ try{ syncPnlMesAnioToolbar(); }catch(_){} });
+  }
+});
 setInterval(loadData, 1800000);
 </script>
 <script src="nav.js"></script>
