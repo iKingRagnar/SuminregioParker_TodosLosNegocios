@@ -5020,8 +5020,6 @@ get('/api/debug/inv-almacenes', async (req) => {
         si.ARTICULO_ID,
         SUM(COALESCE(si.ENTRADAS_UNIDADES, 0) - COALESCE(si.SALIDAS_UNIDADES, 0)) AS EXISTENCIA
       FROM SALDOS_IN si
-      WHERE si.ANO = EXTRACT(YEAR FROM CURRENT_DATE)
-        AND si.MES = EXTRACT(MONTH FROM CURRENT_DATE)
       GROUP BY si.ALMACEN_ID, si.ARTICULO_ID
     )
     SELECT
@@ -5033,6 +5031,7 @@ get('/api/debug/inv-almacenes', async (req) => {
     JOIN ARTICULOS a ON a.ARTICULO_ID = ex.ARTICULO_ID
     LEFT JOIN ${costoSub} cs ON cs.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' ${artTipoInv}
+      AND ABS(COALESCE(ex.EXISTENCIA, 0)) > 0.00001
     GROUP BY ex.ALMACEN_ID
     ORDER BY VALOR DESC
   `,
