@@ -117,6 +117,7 @@ const staticOpts = {
   }
 };
 app.use(express.static(path.join(__dirname, 'public'), staticOpts));
+// Los HTML duplicados en la raíz del repo enlazan public/app-ui.css y public/app-ui-boot.js; el siguiente static(__dirname) sirve /public/* desde disco.
 app.use(express.static(__dirname, staticOpts));
 
 // ── Configuración Firebird ────────────────────────────────────────────────────

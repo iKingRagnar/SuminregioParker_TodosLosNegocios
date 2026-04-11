@@ -613,6 +613,30 @@ html.theme-premium-light[data-theme="light"] .cxc-hero-meta {
   font-family: "JetBrains Mono", "DM Mono", monospace !important;
 }
 
+/* CxC: chips de unidad de negocio (nav global) — refuerzo; sin injectCSS los botones quedan inline sin gap */
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .biz-context-bar.nav-global-db-bar,
+body.ms-page-cxc .biz-context-bar.nav-global-db-bar {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc #navGlobalDbChips.biz-chips,
+body.ms-page-cxc #navGlobalDbChips.biz-chips {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 10px !important;
+  row-gap: 10px !important;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  align-content: flex-start !important;
+}
+html.theme-premium-light[data-theme="light"] body.ms-page-cxc .nav-global-db-bar .biz-chip,
+body.ms-page-cxc .nav-global-db-bar .biz-chip {
+  flex: 0 1 auto !important;
+  min-width: 0 !important;
+}
+
 html.theme-premium-light[data-theme="light"] .client-filter-bar {
   background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) !important;
   border: 1px solid rgba(15, 23, 42, 0.1) !important;

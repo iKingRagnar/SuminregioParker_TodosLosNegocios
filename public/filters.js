@@ -248,6 +248,13 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     }).join(' ').trim();
     return cleaned || raw;
   }
+  /** Evita "AGUA" + "Agua" cuando main y sub son el mismo texto en distinto casing/acento. */
+  function dbChipSubRedundant(main, sub) {
+    if (!sub || !main) return true;
+    const a = normDbText(main).replace(/[^a-z0-9]+/g, '');
+    const b = normDbText(sub).replace(/[^a-z0-9]+/g, '');
+    return a.length > 0 && a === b;
+  }
   function filterAllowedDatabases(list) {
     const arr = Array.isArray(list) ? list : [];
     const out = arr.filter(function (e) {
@@ -298,10 +305,13 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       const labelClean = cleanDbDisplayName(String(e.label || '').replace(/\.fdb$/i, ''));
       const idPretty = cleanDbDisplayName(idClean);
       const sub = (labelClean && labelClean !== main && labelClean !== idPretty) ? labelClean : idPretty;
+      const subHtml = dbChipSubRedundant(main, sub)
+        ? ''
+        : '<span class="db-chip-sub">' + escChip(sub) + '</span>';
       const active = (!isAll && urlDb === id) ? ' active' : '';
       const title = escChip((e.database || '') + (e.host ? ' \u00b7 ' + e.host : ''));
       html += '<button type="button" class="biz-chip db-chip' + active + '" data-db="' + escChip(id) + '" title="' + title + '">' +
-        '<span class="db-chip-main">' + escChip(main) + '</span><span class="db-chip-sub">' + escChip(sub) + '</span></button>';
+        '<span class="db-chip-main">' + escChip(main) + '</span>' + subHtml + '</button>';
     });
     container.innerHTML = html;
 
@@ -358,6 +368,8 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     }
     list = filterAllowedDatabases(list);
     if (!Array.isArray(list) || !list.length || !chips) return;
+    /* Sin initFilters() (p. ej. cxc.html), injectCSS nunca corría: .biz-chips quedaba sin flex/gap y los botones pegados. */
+    injectCSS();
     bar.style.display = 'flex';
     renderDbChipsInto(chips, list, function () {
       if (typeof window.filterSyncFiltersToUrl === 'function') window.filterSyncFiltersToUrl();

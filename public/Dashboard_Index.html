@@ -32,7 +32,7 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
 .c15 { border-color:#d62828; } .c15 .metric { color:#d62828; }
 .c16 { border-color:#606c38; } .c16 .metric { color:#606c38; }
 .footer { text-align:center; padding:24px; font-size:11px; color:var(--muted); }
-</style><link rel="stylesheet" href="app-ui.css"><script src="app-ui-boot.js" defer></script></head><body>
+</style><link rel="stylesheet" href="app-ui.css"><script src="app-ui-boot.js" defer></script><script>window.__manualRefreshDeferSuccess=true;</script></head><body>
 <div class="page">
 <div class="hero"><h1>Suminregio Industrial</h1><p>Centro de Análisis — 16 Dashboards — Datos MicroSIP ERP (Almacén General)</p></div>
 
@@ -72,6 +72,7 @@ body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif
 
 <script>
 async function updateKPIs() {
+  try {
   const fmt = n => {
     return '$' + (+n || 0).toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   };
@@ -116,6 +117,9 @@ async function updateKPIs() {
         if (el) el.textContent = t.fallback;
       }
     }
+  }
+  } finally {
+    if (window.markManualRefreshComplete) window.markManualRefreshComplete();
   }
 }
 
