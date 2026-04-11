@@ -8165,6 +8165,144 @@ get('/api/debug/cxc-reconcile', async (req) => {
 });
 
 /**
+ * Diagnóstico: ¿el hueco vs Power BI (~remisiones/pedidos) viene de VE/PV sin DOCTOS_CC o ya está en IMPORTES?
+ * H1: El saldo R/V enlazado a CC ya forma parte del total doc (desglose por TIPO_DOCTO VE/PV).
+ * H2: Hay VE/PV abiertos sin fila en DOCTOS_CC (cartera solo en ventas / BI).
+ * H3: PV sin CC distinto de VE sin CC.
+ */
+get('/api/debug/cxc-ve-pv-gap', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const ms = Math.min(120000, Math.max(8000, parseInt(req.query.queryMs, 10) || 60000));
+  const innerDoc = cxcDocSaldosInnerSQL('');
+  const baseVe = sqlVentaImporteBaseExpr('ve');
+  const basePv = sqlVentaImporteBaseExpr('pv');
+  const veAbierto = `(
+    (ve.TIPO_DOCTO = 'V' AND ve.ESTATUS NOT IN ('C', 'T'))
+    OR (ve.TIPO_DOCTO = 'R' AND ve.ESTATUS <> 'C')
+  )`;
+  const pvAbierto = `(
+    (pv.TIPO_DOCTO = 'V' AND pv.ESTATUS NOT IN ('C', 'T'))
+    OR (pv.TIPO_DOCTO = 'R' AND pv.ESTATUS <> 'C')
+  )`;
+
+  const [
+    totalDocRows,
+    breakdownRows,
+    veSinCcRows,
+    pvSinCcRows,
+  ] = await Promise.all([
+    query(
+      `SELECT COALESCE(SUM(doc.SALDO_NETO), 0) AS T
+       FROM ${innerDoc} doc
+       WHERE doc.SALDO_NETO > 0.005`,
+      [],
+      ms,
+      dbo
+    ).catch(() => [{ T: 0 }]),
+    query(
+      `SELECT
+         COALESCE(ve.TIPO_DOCTO, pv.TIPO_DOCTO, 'SIN_ENLACE_VE_PV') AS ORIGEN_TIPO,
+         COUNT(*) AS N_DOCS,
+         COALESCE(SUM(doc.SALDO_NETO), 0) AS SALDO
+       FROM ${innerDoc} doc
+       JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = doc.DOCTO_CC_ID
+       LEFT JOIN DOCTOS_VE ve ON ve.DOCTO_VE_ID = dc.DOCTO_VE_ID
+       LEFT JOIN DOCTOS_PV pv ON pv.DOCTO_PV_ID = dc.DOCTO_PV_ID
+       WHERE doc.SALDO_NETO > 0.005
+       GROUP BY COALESCE(ve.TIPO_DOCTO, pv.TIPO_DOCTO, 'SIN_ENLACE_VE_PV')`,
+      [],
+      ms,
+      dbo
+    ).catch(() => []),
+    query(
+      `SELECT
+         COUNT(*) AS N_DOCS,
+         COALESCE(SUM(${baseVe}), 0) AS SUMA_IMPORTE_BASE
+       FROM DOCTOS_VE ve
+       WHERE ve.TIPO_DOCTO IN ('R', 'V')
+         AND ${veAbierto}
+         AND COALESCE(ve.CLIENTE_ID, 0) > 0
+         AND NOT EXISTS (SELECT 1 FROM DOCTOS_CC dc WHERE dc.DOCTO_VE_ID = ve.DOCTO_VE_ID)`,
+      [],
+      ms,
+      dbo
+    ).catch(() => [{ N_DOCS: 0, SUMA_IMPORTE_BASE: 0 }]),
+    query(
+      `SELECT
+         COUNT(*) AS N_DOCS,
+         COALESCE(SUM(${basePv}), 0) AS SUMA_IMPORTE_BASE
+       FROM DOCTOS_PV pv
+       WHERE pv.TIPO_DOCTO IN ('R', 'V')
+         AND ${pvAbierto}
+         AND COALESCE(pv.CLIENTE_ID, 0) > 0
+         AND NOT EXISTS (SELECT 1 FROM DOCTOS_CC dc WHERE dc.DOCTO_PV_ID = pv.DOCTO_PV_ID)`,
+      [],
+      ms,
+      dbo
+    ).catch(() => [{ N_DOCS: 0, SUMA_IMPORTE_BASE: 0 }]),
+  ]);
+
+  const totalDoc = Math.round((+(totalDocRows[0] && totalDocRows[0].T) || 0) * 100) / 100;
+  const breakdown = (Array.isArray(breakdownRows) ? breakdownRows : []).map((r) => ({
+    ORIGEN_TIPO: String(r.ORIGEN_TIPO || ''),
+    N_DOCS: +(r.N_DOCS || 0) || 0,
+    SALDO: Math.round((+(r.SALDO || 0)) * 100) / 100,
+  }));
+  const saldoRvEnCc = breakdown
+    .filter((b) => b.ORIGEN_TIPO === 'R' || b.ORIGEN_TIPO === 'V')
+    .reduce((a, b) => a + b.SALDO, 0);
+  const veSin = veSinCcRows[0] || {};
+  const pvSin = pvSinCcRows[0] || {};
+
+  const payload = {
+    ok: true,
+    ts: new Date().toISOString(),
+    queryMs: ms,
+    db: normalizeDbQueryId(req.query.db) || 'default',
+    nota: 'total_doc_pipeline debe coincidir con resumen-aging (modo documento). ve/pv_sin_cc miden pedidos/remisiones abiertos sin cargo en CC (no son saldo CxC hasta que exista IMPORTES TIPO C).',
+    total_doc_pipeline: totalDoc,
+    breakdown_por_tipo_docto_ve_pv: breakdown,
+    saldo_solo_docs_enlazados_R_o_V: Math.round(saldoRvEnCc * 100) / 100,
+    ve_rv_abiertos_sin_doctos_cc: {
+      n_docs: +(veSin.N_DOCS || 0) || 0,
+      suma_importe_venta_base: Math.round((+(veSin.SUMA_IMPORTE_BASE || 0)) * 100) / 100,
+    },
+    pv_rv_abiertos_sin_doctos_cc: {
+      n_docs: +(pvSin.N_DOCS || 0) || 0,
+      suma_importe_venta_base: Math.round((+(pvSin.SUMA_IMPORTE_BASE || 0)) * 100) / 100,
+    },
+    hipotesis: {
+      H1: 'Si saldo_solo_docs_enlazados_R_o_V ~ 183k, el API ya incluye remisiones/pedidos vía CC; el total BI puede usar otra base (IVA, contado, etc.).',
+      H2: 'Si ve/pv_sin_cc.suma_importe_venta_base ~ 183k, el BI está sumando ventas abiertas que aún no generaron cargo CC.',
+      H3: 'IMPORTE venta base no es saldo pendiente (puede haber anticipos); cruzar con medida DAX exacta.',
+    },
+  };
+
+  // #region agent log
+  fetch('http://127.0.0.1:7807/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'c5910b' },
+    body: JSON.stringify({
+      sessionId: 'c5910b',
+      location: 'server_corregido.js:/api/debug/cxc-ve-pv-gap',
+      message: 'CxC VE/PV gap diagnostics',
+      data: {
+        total_doc_pipeline: payload.total_doc_pipeline,
+        saldo_RV_en_cc: payload.saldo_solo_docs_enlazados_R_o_V,
+        ve_sin_cc: payload.ve_rv_abiertos_sin_doctos_cc,
+        pv_sin_cc: payload.pv_rv_abiertos_sin_doctos_cc,
+        breakdown_tipos: (breakdown || []).map((b) => b.ORIGEN_TIPO),
+      },
+      timestamp: Date.now(),
+      hypothesisId: 'H1-H3',
+    }),
+  }).catch(() => {});
+  // #endregion
+
+  return payload;
+});
+
+/**
  * Desglose por cliente: saldo documental (mismo motor que el KPI ref. doc) vs ledger por cliente (cxcClienteSQL).
  * Útil para ver en qué clientes está la cartera y cruzar nombres con la tabla del Power BI.
  * No ejecuta el modelo DAX del BI; si hay hueco (~90k), compara SUMA_CARGOS_C_NETO con columna Venta del BI por cliente.
