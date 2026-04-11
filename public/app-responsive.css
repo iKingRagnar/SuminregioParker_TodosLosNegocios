@@ -1,0 +1,300 @@
+/**
+ * app-responsive.css — Vista móvil y tablets: safe areas, navegación deslizable,
+ * tablas con scroll táctil, KPIs en una columna, filtros usables con el pulgar.
+ * Última capa (importada al final de app-ui.css).
+ */
+
+:root {
+  --ms-touch-min: 44px;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Evita desbordes horizontales accidentales sin romper scroll interno en nav/tablas */
+body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+/* —— Safe area: notch / barra de inicio (iOS / Android) —— */
+@supports (padding: max(0px)) {
+  header,
+  #app-header {
+    padding-left: max(0px, env(safe-area-inset-left, 0px));
+    padding-right: max(0px, env(safe-area-inset-right, 0px));
+  }
+
+  .dash {
+    padding-left: max(14px, env(safe-area-inset-left, 0px));
+    padding-right: max(14px, env(safe-area-inset-right, 0px));
+    padding-bottom: max(14px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .ms-refresh-bar {
+    padding-left: max(14px, env(safe-area-inset-left, 0px));
+    padding-right: max(14px, env(safe-area-inset-right, 0px));
+  }
+}
+
+.page,
+main {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+}
+
+/* —— Navegación superior: muchos enlaces → carril horizontal con scroll —— */
+@media (max-width: 1180px) {
+  header nav,
+  #app-header nav {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.15rem;
+    max-width: min(100vw - 4.5rem, 100%);
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    padding-bottom: 4px;
+    scroll-padding-inline: 8px;
+  }
+
+  header nav::-webkit-scrollbar,
+  #app-header nav::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  header .nav-link,
+  #app-header .nav-link {
+    flex-shrink: 0;
+  }
+}
+
+@media (max-width: 680px) {
+  .header-inner,
+  #app-header .header-inner {
+    height: auto !important;
+    min-height: 54px;
+    padding-top: 0.45rem !important;
+    padding-bottom: 0.45rem !important;
+    padding-left: max(0.65rem, env(safe-area-inset-left, 0px)) !important;
+    padding-right: max(0.65rem, env(safe-area-inset-right, 0px)) !important;
+    flex-wrap: wrap;
+    row-gap: 0.5rem;
+    align-items: center;
+  }
+
+  .logo-text {
+    font-size: clamp(0.78rem, 3.5vw, 0.9rem) !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .logo-sub {
+    display: none !important;
+  }
+}
+
+/* —— Touch: objetivos mínimos (WCAG 2.5.5) —— */
+@media (pointer: coarse) {
+  header .nav-link,
+  #app-header .nav-link {
+    min-height: var(--ms-touch-min);
+    padding-top: 0.4rem;
+    padding-bottom: 0.4rem;
+  }
+
+  .tab {
+    min-height: var(--ms-touch-min);
+    padding: 10px 16px !important;
+  }
+
+  .fb-preset,
+  .biz-chip {
+    min-height: 40px;
+  }
+
+  .fb-apply,
+  .btn {
+    min-height: var(--ms-touch-min);
+  }
+}
+
+/* —— Barra de filtros (filters.js): presets en carril —— */
+@media (max-width: 760px) {
+  .filter-bar {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .filter-bar .fb-presets {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px;
+    max-width: 100%;
+    padding-bottom: 6px;
+    overscroll-behavior-x: contain;
+  }
+
+  .filter-bar .fb-preset {
+    flex-shrink: 0;
+  }
+
+  .biz-context-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+
+  .biz-chips {
+    flex-wrap: nowrap;
+    min-width: min-content;
+  }
+
+  .biz-chip {
+    flex-shrink: 0;
+  }
+}
+
+/* —— Pestañas (CxC, etc.): scroll horizontal en pantallas estrechas —— */
+@media (max-width: 600px) {
+  .tabs {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    -webkit-overflow-scrolling: touch;
+    box-sizing: border-box;
+    padding: 6px !important;
+    gap: 6px !important;
+  }
+
+  .tab {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+}
+
+/* —— Tablas: scroll táctil y ancho contenido —— */
+.tbl-wrap,
+.buro-tbl-wrap,
+.uni-table-scroll,
+.uni-detail-panel .uni-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  border-radius: 10px;
+}
+
+main table,
+.page table,
+.uni-table,
+.buro-tbl {
+  max-width: none;
+}
+
+/* —— Gráficos —— */
+.chart-wrap,
+main .chart-wrap {
+  width: 100%;
+  max-width: 100%;
+  min-height: min(260px, 50vh);
+  position: relative;
+}
+
+.chart-wrap canvas {
+  max-width: 100% !important;
+}
+
+/* —— Scorecard / index: una columna en móvil pequeño —— */
+@media (max-width: 520px) {
+  .uni-card-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .kpi-mega-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .modules-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .secondary-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* —— CxC (public/cxc.html) —— */
+@media (max-width: 600px) {
+  body.ms-page-cxc .kpi-grid,
+  body.ms-page-cxc .kpi-grid--story {
+    grid-template-columns: 1fr !important;
+  }
+
+  body.ms-page-cxc .aging-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  body.ms-page-cxc .client-filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px 14px !important;
+  }
+
+  body.ms-page-cxc .client-filter-bar select {
+    min-width: 0 !important;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  body.ms-page-cxc .cxc-hero {
+    padding: 14px 16px !important;
+  }
+
+  body.ms-page-cxc .cxc-spectacle-dock {
+    max-width: calc(100vw - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px));
+  }
+}
+
+@media (max-width: 400px) {
+  body.ms-page-cxc .aging-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* —— Dashboards .dash —— */
+@media (max-width: 768px) {
+  .dash .kpi-row,
+  .dash .charts-grid,
+  .dash .row-2 {
+    flex-direction: column;
+  }
+
+  .dash .kpi-row .kpi,
+  .dash .ccard,
+  .dash .tcard {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
+/* —— Preferencias de movimiento —— */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}
