@@ -1104,14 +1104,35 @@ function cxcSetTotalesTruncHint(venLen, vigLen, limit) {
   }
 }
 
+/** Alinea el <select> con ?cxc_total= o sessionStorage (solo al hidratar / popstate). El valor activo del select manda en las APIs. */
+function syncCxcTotalKpiFromLocation() {
+  const tk = document.getElementById('cxcTotalKpi');
+  if (!tk) return;
+  const valid = ['auto', 'auto_iva', 'documento', 'cliente', 'con_iva', 'bi'];
+  try {
+    const u = new URLSearchParams(location.search).get('cxc_total');
+    if (u) {
+      const v = String(u).trim().toLowerCase();
+      if (valid.indexOf(v) >= 0) { tk.value = v; return; }
+    }
+  } catch (_) {}
+  try {
+    const s = sessionStorage.getItem('cxc_total_kpi');
+    if (s) {
+      const v = String(s).trim().toLowerCase();
+      if (valid.indexOf(v) >= 0) { tk.value = v; return; }
+    }
+  } catch (_) {}
+}
+
 function cxcTotalKpiRead() {
   try {
+    const tk = document.getElementById('cxcTotalKpi');
+    if (tk && typeof tk.value === 'string' && tk.value.trim()) return tk.value.trim().toLowerCase();
     const u = new URLSearchParams(location.search).get('cxc_total');
     if (u) return String(u).trim().toLowerCase();
     const s = sessionStorage.getItem('cxc_total_kpi');
     if (s) return String(s).trim().toLowerCase();
-    const tk = document.getElementById('cxcTotalKpi');
-    if (tk && typeof tk.value === 'string' && tk.value.trim()) return tk.value.trim().toLowerCase();
   } catch (_) {}
   return 'auto';
 }
@@ -1270,7 +1291,7 @@ async function loadResumen() {
 
     const res = (snap && snap.resumen) || {};
     // #region agent log
-    fetch('http://127.0.0.1:7807/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c5910b'},body:JSON.stringify({sessionId:'c5910b',location:'public/cxc.html:loadResumen',message:'cxc resumen-aging',data:{cxcTotal:cxcTotalKpiRead(),SALDO_TOTAL:res.SALDO_TOTAL,CXC_TOTAL_FUENTE:res.CXC_TOTAL_FUENTE,CXC_TOTAL_DOC:res.CXC_TOTAL_DOC,CXC_TOTAL_ALT_NETO:res.CXC_TOTAL_ALT_NETO,CXC_TOTAL_ALT_IVA:res.CXC_TOTAL_ALT_IVA,href:String(location.href||'')},timestamp:Date.now(),hypothesisId:'H1'})}).catch(function(){});
+    fetch('http://127.0.0.1:7807/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c5910b'},body:JSON.stringify({sessionId:'c5910b',location:'public/cxc.html:loadResumen',message:'cxc resumen-aging',data:{cxcTotal:cxcTotalKpiRead(),selectVal:(document.getElementById('cxcTotalKpi')||{}).value,CXC_TOTAL_MODO_REQ:res.CXC_TOTAL_MODO_REQ,SALDO_TOTAL:res.SALDO_TOTAL,CXC_TOTAL_FUENTE:res.CXC_TOTAL_FUENTE,CXC_TOTAL_DOC:res.CXC_TOTAL_DOC,CXC_TOTAL_ALT_NETO:res.CXC_TOTAL_ALT_NETO,CXC_TOTAL_ALT_IVA:res.CXC_TOTAL_ALT_IVA,href:String(location.href||'')},timestamp:Date.now(),hypothesisId:'H2'})}).catch(function(){});
     // #endregion
     const ageRaw = (snap && snap.aging) || {};
     const age = typeof window.normalizeCxcAging === 'function'
@@ -1879,10 +1900,9 @@ async function refreshCxcDbHint(){
   try { var _fbRm = document.getElementById('filter-bar'); if (_fbRm) _fbRm.remove(); } catch (_) {}
   try { initCharts(); } catch (e) { console.warn('[cxc] initCharts', e && e.message ? e.message : e); }
   try {
+    syncCxcTotalKpiFromLocation();
     var tk = document.getElementById('cxcTotalKpi');
     if (tk) {
-      var vr = cxcTotalKpiRead();
-      if (vr && ['auto', 'auto_iva', 'documento', 'cliente', 'con_iva', 'bi'].indexOf(vr) >= 0) tk.value = vr;
       tk.addEventListener('change', function () {
         try { sessionStorage.setItem('cxc_total_kpi', tk.value); } catch (_) {}
         void loadAll();
@@ -1896,7 +1916,7 @@ async function refreshCxcDbHint(){
   await loadAll();
   setInterval(loadResumen, 1800000);
   setInterval(checkStatus, 30000);
-  window.addEventListener('popstate',async ()=>{ void refreshCxcDbHint().catch(()=>{}); await ensureClientesFiltro(); await loadAll(); });
+  window.addEventListener('popstate',async ()=>{ try { syncCxcTotalKpiFromLocation(); } catch (_) {} void refreshCxcDbHint().catch(()=>{}); await ensureClientesFiltro(); await loadAll(); });
 })();
 
 /* --- Espectáculo CxC: partículas + sonido opcional + modo presentación (solo esta página) --- */
