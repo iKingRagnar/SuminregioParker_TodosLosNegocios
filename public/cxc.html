@@ -1106,12 +1106,12 @@ function cxcSetTotalesTruncHint(venLen, vigLen, limit) {
 
 function cxcTotalKpiRead() {
   try {
-    const tk = document.getElementById('cxcTotalKpi');
-    if (tk && typeof tk.value === 'string' && tk.value.trim()) return tk.value.trim().toLowerCase();
     const u = new URLSearchParams(location.search).get('cxc_total');
     if (u) return String(u).trim().toLowerCase();
     const s = sessionStorage.getItem('cxc_total_kpi');
     if (s) return String(s).trim().toLowerCase();
+    const tk = document.getElementById('cxcTotalKpi');
+    if (tk && typeof tk.value === 'string' && tk.value.trim()) return tk.value.trim().toLowerCase();
   } catch (_) {}
   return 'auto';
 }
@@ -1269,6 +1269,9 @@ async function loadResumen() {
     }
 
     const res = (snap && snap.resumen) || {};
+    // #region agent log
+    fetch('http://127.0.0.1:7807/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c5910b'},body:JSON.stringify({sessionId:'c5910b',location:'public/cxc.html:loadResumen',message:'cxc resumen-aging',data:{cxcTotal:cxcTotalKpiRead(),SALDO_TOTAL:res.SALDO_TOTAL,CXC_TOTAL_FUENTE:res.CXC_TOTAL_FUENTE,CXC_TOTAL_DOC:res.CXC_TOTAL_DOC,CXC_TOTAL_ALT_NETO:res.CXC_TOTAL_ALT_NETO,CXC_TOTAL_ALT_IVA:res.CXC_TOTAL_ALT_IVA,href:String(location.href||'')},timestamp:Date.now(),hypothesisId:'H1'})}).catch(function(){});
+    // #endregion
     const ageRaw = (snap && snap.aging) || {};
     const age = typeof window.normalizeCxcAging === 'function'
       ? window.normalizeCxcAging(ageRaw)
