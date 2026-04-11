@@ -2020,6 +2020,7 @@ function getCotizacionesTipo(req) {
 //   · Si IMPUESTO > 0 el IMPORTE ya es ex-IVA   → usar IMPORTE
 //   · Si IMPUESTO = 0 el pago incluye IVA 16%   → dividir entre 1.16
 // Referencia DAX: Cobro = IF(IMPUESTO>0, IMPORTE, IMPORTE/1.16)
+// Conciliación folio Power BI vs este API: (1) Cartera a crédito excluye condiciones “contado/efectivo/inmediato/…” (CXC_EXCLUIR_CONTADO); si el BI incluye esos folios, solo salen en BI. (2) “Facturas vencidas” solo DIAS_VENCIDO>0; al corriente están en “Deudas vigentes” o “Deudas totales”. (3) Sin saldo (cargo−cobro ≤ ~0) no se listan. (4) Cobros tipo R: por defecto solo APLICADO='S' (MICROSIP_CXC_COBRO_REQUIERE_APLICADO). (5) Listados con FIRST n (MICROSIP_CXC_DETAIL_LIST_MAX).
 // Excluir contado/inmediato de CxC por requerimiento operativo.
 const CXC_EXCLUIR_CONTADO = ` AND (
   cp.COND_PAGO_ID IS NULL OR (
@@ -2100,9 +2101,9 @@ function cxcClienteSQL() {
   return cxcClienteBalancesSubSql({ conIva: false, excludeContado: true });
 }
 
-/** Criterio del KPI “Deuda total” vs Power BI: auto (defecto) solo compara documento vs cliente neto (sin IVA). Incluir IVA en auto: MICROSIP_CXC_AUTO_INCLUYE_IVA=1 o cxc_total=auto_iva. */
+/** Criterio del KPI “Deuda total”: defecto `documento` (saldo neto por documento, base ex-IVA). Otros modos (auto, con_iva, bi) por query o MICROSIP_CXC_TOTAL_KPI. */
 function cxcTotalKpiMode(req) {
-  const raw = String((req && req.query && req.query.cxc_total) || process.env.MICROSIP_CXC_TOTAL_KPI || 'auto').trim().toLowerCase();
+  const raw = String((req && req.query && req.query.cxc_total) || process.env.MICROSIP_CXC_TOTAL_KPI || 'documento').trim().toLowerCase();
   if (raw === 'doc' || raw === 'documento') return 'documento';
   if (raw === 'cliente' || raw === 'neto') return 'cliente';
   if (raw === 'con_iva' || raw === 'iva') return 'con_iva';
@@ -4159,7 +4160,7 @@ get('/api/cxc/resumen-aging', async (req) => {
   const ttlMs = Number.isFinite(ttlRaw) ? Math.min(Math.max(ttlRaw, 0), 120000) : 12000;
   const cfRaw = req.query && req.query.cliente ? parseInt(req.query.cliente, 10) : null;
   const cfKey = Number.isFinite(cfRaw) && cfRaw > 0 ? String(cfRaw) : '';
-  const cxcTotKey = String((req.query && req.query.cxc_total) || process.env.MICROSIP_CXC_TOTAL_KPI || 'auto').trim().toLowerCase();
+  const cxcTotKey = String((req.query && req.query.cxc_total) || process.env.MICROSIP_CXC_TOTAL_KPI || 'documento').trim().toLowerCase();
   const cxcIvaKey = (process.env.MICROSIP_CXC_AUTO_INCLUYE_IVA || '').match(/^(1|true|yes)$/i) ? 'iva1' : 'iva0';
   const cacheKey = `${dbCacheKey(dbo)}|cxcSnap|${cfKey}|${cxcTotKey}|${cxcIvaKey}`;
   if (!nocache && ttlMs > 0) {

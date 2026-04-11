@@ -139,7 +139,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     return '';
   }
 
-  /** Mismo criterio que cxc.html buildCxcQuery: Director/Inicio deben pedir el mismo snapshot que la pestaña CxC (caché + modo KPI en servidor). */
+  /** Mismo criterio que cxc.html: saldo neto documento (`documento`) salvo URL/sessionStorage explícitos. */
   function getCxcTotalKpiParam() {
     try {
       var u = (new URLSearchParams(window.location.search).get('cxc_total') || '').trim();
@@ -147,7 +147,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       var s = (sessionStorage.getItem('cxc_total_kpi') || '').trim();
       if (s) return s.toLowerCase();
     } catch (e) {}
-    return '';
+    return 'documento';
   }
 
   function getParams() {

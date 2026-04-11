@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');</script>
-<script src="filters.js?v=cxcfix-20260410-bizchips"></script>
+<script src="filters.js?v=cxcfix-20260411-docneto"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -696,7 +696,7 @@ body.ms-page-cxc #filter-bar{display:none!important;height:0!important;margin:0!
     <div class="cxc-hero-meta" id="cxcDbHint" title="Negocio activo">Cargando contexto&hellip;</div>
   </div>
   <p class="cxc-no-period-hint" style="font-size:12px;color:var(--txt3);margin:0 auto 1rem;max-width:1900px;padding:0 1.5rem;line-height:1.45">
-    <strong>Cartera al corte:</strong> el saldo de CxC no usa periodo de ventas (mes/año/chips). Solo aplican filtros de <em>cliente</em> y <em>criterio de total KPI</em> abajo.
+    <strong>Cartera al corte:</strong> el saldo de CxC no usa periodo de ventas (mes/año/chips). Solo aplica el filtro de <em>cliente</em> abajo. Criterio fijo: <strong>saldo neto por documento</strong> (cargo − cobro en base ex-IVA), cartera a crédito (sin contado).
   </p>
   <div class="client-filter-bar">
     <div class="filter-group">
@@ -705,23 +705,15 @@ body.ms-page-cxc #filter-bar{display:none!important;height:0!important;margin:0!
         <option value="">Todos los clientes</option>
       </select>
     </div>
-    <div class="filter-group">
-      <span class="filter-label">TOTAL KPI</span>
-      <select id="cxcTotalKpi" aria-label="Criterio deuda total vs Power BI" title="Por defecto Auto neto: mismo criterio que Saldo documento (cargo/cobro en base ex-IVA), alineado al Deuda total típico en Power BI. Auto incl. IVA sube el total si el BI usa medidas con IVA.">
-        <option value="auto" selected>Auto neto (Power BI / saldo documento)</option>
-        <option value="auto_iva">Auto incl. IVA (bruto)</option>
-        <option value="documento">Solo documentos</option>
-        <option value="cliente">Cliente neto</option>
-        <option value="con_iva">Cliente con IVA</option>
-        <option value="bi">Modo BI (cargo+IVA / cobro base)</option>
-      </select>
-    </div>
     <button class="btn" onclick="loadAll()">Aplicar</button>
-    <span style="font-size:11px;color:var(--txt3);font-family:var(--mono);margin-left:auto" title="Deuda total = cargos − cobros de cartera a cr&eacute;dito.">
-      Deuda total = cargos − pagos por cliente (solo cr&eacute;dito). Cuadra con buckets.
+    <span style="font-size:11px;color:var(--txt3);font-family:var(--mono);margin-left:auto" title="Saldo neto por documento (Microsip IMPORTES_DOCTOS_CC), alineado al modelo DAX de referencia.">
+      Deuda total = cargos − cobros (neto documento, solo cr&eacute;dito).
     </span>
   </div>
   <p id="cxcKpiTotalHint" class="cxc-total-hint" style="font-size:11px;color:var(--txt3);margin:4px 0 0;font-family:var(--mono);" aria-live="polite"></p>
+  <p class="cxc-no-period-hint" style="font-size:11px;color:var(--txt3);margin:0 auto 0.75rem;max-width:1900px;padding:0 1.5rem;line-height:1.4">
+    <strong>Buscar un folio:</strong> usa la pestaña <em>Deudas vigentes</em> (al corriente) o <em>Facturas vencidas</em> (mora); o <em>Deudas Totales</em> para ambos. Si un folio est&aacute; en Power BI y no aqu&iacute;, suele ser <em>condici&oacute;n contado/efectivo</em> (excluida en este panel), saldo liquidado en Microsip, o cobros sin <code>APLICADO</code> seg&uacute;n configuraci&oacute;n del servidor.
+  </p>
   <p id="cxcBiExplain" class="cxc-total-hint" style="font-size:11px;color:var(--txt3);margin:2px 0 0;font-family:var(--mono);" aria-live="polite"></p>
 
   <!-- KPIs: narrativa + datos (alineado Power BI: saldo, vencido, por vencer) -->
@@ -1104,37 +1096,9 @@ function cxcSetTotalesTruncHint(venLen, vigLen, limit) {
   }
 }
 
-/** Alinea el <select> con ?cxc_total= o sessionStorage (solo al hidratar / popstate). El valor activo del select manda en las APIs. */
-function syncCxcTotalKpiFromLocation() {
-  const tk = document.getElementById('cxcTotalKpi');
-  if (!tk) return;
-  const valid = ['auto', 'auto_iva', 'documento', 'cliente', 'con_iva', 'bi'];
-  try {
-    const u = new URLSearchParams(location.search).get('cxc_total');
-    if (u) {
-      const v = String(u).trim().toLowerCase();
-      if (valid.indexOf(v) >= 0) { tk.value = v; return; }
-    }
-  } catch (_) {}
-  try {
-    const s = sessionStorage.getItem('cxc_total_kpi');
-    if (s) {
-      const v = String(s).trim().toLowerCase();
-      if (valid.indexOf(v) >= 0) { tk.value = v; return; }
-    }
-  } catch (_) {}
-}
-
+/** Un solo criterio: saldo neto por documento (servidor `cxc_total=documento`), alineado al DAX base ex-IVA del repo. */
 function cxcTotalKpiRead() {
-  try {
-    const tk = document.getElementById('cxcTotalKpi');
-    if (tk && typeof tk.value === 'string' && tk.value.trim()) return tk.value.trim().toLowerCase();
-    const u = new URLSearchParams(location.search).get('cxc_total');
-    if (u) return String(u).trim().toLowerCase();
-    const s = sessionStorage.getItem('cxc_total_kpi');
-    if (s) return String(s).trim().toLowerCase();
-  } catch (_) {}
-  return 'auto';
+  return 'documento';
 }
 
 /** Solo parámetros CxC (sin preset/anio/mes de la barra de ventas): evita mezclar periodo de facturación con snapshot de cartera. */
@@ -1290,9 +1254,6 @@ async function loadResumen() {
     }
 
     const res = (snap && snap.resumen) || {};
-    // #region agent log
-    fetch('http://127.0.0.1:7807/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c5910b'},body:JSON.stringify({sessionId:'c5910b',location:'public/cxc.html:loadResumen',message:'cxc resumen-aging',data:{cxcTotal:cxcTotalKpiRead(),selectVal:(document.getElementById('cxcTotalKpi')||{}).value,CXC_TOTAL_MODO_REQ:res.CXC_TOTAL_MODO_REQ,SALDO_TOTAL:res.SALDO_TOTAL,CXC_TOTAL_FUENTE:res.CXC_TOTAL_FUENTE,CXC_TOTAL_DOC:res.CXC_TOTAL_DOC,CXC_TOTAL_ALT_NETO:res.CXC_TOTAL_ALT_NETO,CXC_TOTAL_ALT_IVA:res.CXC_TOTAL_ALT_IVA,href:String(location.href||'')},timestamp:Date.now(),hypothesisId:'H2'})}).catch(function(){});
-    // #endregion
     const ageRaw = (snap && snap.aging) || {};
     const age = typeof window.normalizeCxcAging === 'function'
       ? window.normalizeCxcAging(ageRaw)
@@ -1405,17 +1366,9 @@ async function loadResumen() {
       : '';
     setText('agingBreakdown', 'Aging (ajustado al saldo KPI): Corriente '+fmtK(ageUi.CORRIENTE)+' · Mora (1-30 … +90) '+fmtK(vencFromAgingUi)+' · Suma buckets '+fmtK(sumAgingUi)+'. KPI: Vencido '+fmtK(venc)+' · No vencido '+fmtK(pvenc)+' · Deuda total '+fmtK(saldo)+'.'+lineaBi);
     var hintEl = document.getElementById('cxcKpiTotalHint');
-    if (hintEl && res.CXC_TOTAL_FUENTE) {
-      var m = res.CXC_TOTAL_MODO_REQ || '';
-      var suf = '';
-      if (m === 'con_iva') suf = ' · modo: total con IVA';
-      else if (m === 'auto_iva' || (m === 'auto' && res.CXC_AUTO_INCLUYE_IVA)) suf = ' · modo: auto puede usar IVA';
-      else if (m === 'auto') suf = ' · modo: auto solo neto (doc/cliente)';
-      else if (m === 'documento') suf = ' · modo: documentos';
-      else if (m === 'bi') suf = ' · modo: BI (cargo+IVA / cobro base)';
-      else if (m === 'cliente') suf = ' · modo: cliente neto';
-      hintEl.textContent = 'Total KPI: ' + String(res.CXC_TOTAL_FUENTE) + suf + ' · ref. doc ' + fmtK(res.CXC_TOTAL_DOC) + ' · cliente neto ' + fmtK(res.CXC_TOTAL_ALT_NETO) + ' · cliente IVA ' + fmtK(res.CXC_TOTAL_ALT_IVA);
-    } else if (hintEl) { hintEl.textContent = ''; }
+    if (hintEl) {
+      hintEl.textContent = 'Saldo neto documento (KPI): ' + fmtK(res.CXC_TOTAL_DOC || res.SALDO_TOTAL) + ' · referencia cliente neto ' + fmtK(res.CXC_TOTAL_ALT_NETO) + ' · referencia con IVA ' + fmtK(res.CXC_TOTAL_ALT_IVA);
+    }
     const agCorriente = document.getElementById('agC');
     if (agCorriente) agCorriente.style.color = '';
     if(chartAging){
@@ -1836,15 +1789,10 @@ async function ensureClientesFiltro(){
 
 async function loadAll(){
   try {
-    const tk = document.getElementById('cxcTotalKpi');
-    if (tk && tk.value) {
-      try { sessionStorage.setItem('cxc_total_kpi', tk.value); } catch (_) {}
-      try {
-        const u = new URL(window.location.href);
-        u.searchParams.set('cxc_total', tk.value);
-        history.replaceState({}, '', u);
-      } catch (_) {}
-    }
+    try { sessionStorage.removeItem('cxc_total_kpi'); } catch (_) {}
+    const u = new URL(window.location.href);
+    u.searchParams.set('cxc_total', 'documento');
+    history.replaceState({}, '', u);
   } catch (_) {}
 
   const [rRes, rVen, rVig] = await Promise.allSettled([loadResumen(), loadVencidas(), loadVigentes()]);
@@ -1899,16 +1847,6 @@ async function refreshCxcDbHint(){
 (async function init(){
   try { var _fbRm = document.getElementById('filter-bar'); if (_fbRm) _fbRm.remove(); } catch (_) {}
   try { initCharts(); } catch (e) { console.warn('[cxc] initCharts', e && e.message ? e.message : e); }
-  try {
-    syncCxcTotalKpiFromLocation();
-    var tk = document.getElementById('cxcTotalKpi');
-    if (tk) {
-      tk.addEventListener('change', function () {
-        try { sessionStorage.setItem('cxc_total_kpi', tk.value); } catch (_) {}
-        void loadAll();
-      });
-    }
-  } catch (_) {}
   void checkStatus().catch(()=>{});
   // Sin barra de periodo (filters.js): la cartera es snapshot; mes/año/chips no aplican a las APIs CxC.
   void refreshCxcDbHint().catch(()=>{});
@@ -1916,7 +1854,7 @@ async function refreshCxcDbHint(){
   await loadAll();
   setInterval(loadResumen, 1800000);
   setInterval(checkStatus, 30000);
-  window.addEventListener('popstate',async ()=>{ try { syncCxcTotalKpiFromLocation(); } catch (_) {} void refreshCxcDbHint().catch(()=>{}); await ensureClientesFiltro(); await loadAll(); });
+  window.addEventListener('popstate',async ()=>{ void refreshCxcDbHint().catch(()=>{}); await ensureClientesFiltro(); await loadAll(); });
 })();
 
 /* --- Espectáculo CxC: partículas + sonido opcional + modo presentación (solo esta página) --- */
