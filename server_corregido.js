@@ -2116,6 +2116,13 @@ function cxcAutoIncluyeIvaEnMax(req) {
   return !!(process.env.MICROSIP_CXC_AUTO_INCLUYE_IVA || '').match(/^(1|true|yes)$/i);
 }
 
+/** Tope relativo doc vs cliente en modo auto: antes 1.18 cortaba diferencias ~20% (p.ej. +80k sobre 400k doc) y el HTML mostraba menos deuda que el saldo por cliente. Default 1.32; MICROSIP_CXC_AUTO_MAX_RATIO (1.05–2). */
+function cxcAutoMaxRatio() {
+  const v = parseFloat(String(process.env.MICROSIP_CXC_AUTO_MAX_RATIO || '').trim(), 10);
+  if (Number.isFinite(v) && v >= 1.05 && v <= 2) return v;
+  return 1.32;
+}
+
 // ── v9: Documentos de CARGO para clientes que aún tienen saldo pendiente ─────
 // Días hasta vencimiento: DIAS_PPAG del catálogo (0 = contado / vence mismo día).
 // Antes: NULLIF(DIAS_PPAG,0) + default 30 convertía contado (0) en +30 días → "vencido" falso.
@@ -4011,7 +4018,7 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
     const maxCand = inclIva
       ? Math.max(totalDocPostRecon, totClienteNeto, totClienteConIva)
       : Math.max(totalDocPostRecon, totClienteNeto);
-    if (maxCand <= base * 1.18) {
+    if (maxCand <= base * cxcAutoMaxRatio()) {
       chosen = maxCand;
       const near = (a, b) => Math.abs(a - b) < 1 + Math.abs(a) * 1e-9;
       if (inclIva && near(chosen, totClienteConIva) && totClienteConIva >= totClienteNeto - 1) fuenteKpi = 'auto:con_iva';
