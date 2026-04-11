@@ -2063,14 +2063,10 @@ const CXC_DIAS_SUM_INT = `CAST((
       END
     ) AS INTEGER)`;
 /**
- * Folio visible (Microsip / Power BI): pedidos, remisiones y facturas suelen estar en DOCTOS_VE/PV con serie+folio;
- * DOCTOS_CC.FOLIO a veces es solo el número (p. ej. 2, 4) o distinto. Preferir FOLIO del documento de ventas ligado.
+ * Nota folio VE/PV: un LEFT JOIN a DOCTOS_VE/PV en cxcCargosSQL o en el SELECT de vencidas/vigentes
+ * llegó a vaciar listados (query con error → []) o alterar aging. El folio “bonito” debe resolverse
+ * con subconsulta escalar o en el cliente, sin multiplicar filas del JOIN principal.
  */
-const CXC_FOLIO_DISPLAY_FROM_DC_VE_PV = `COALESCE(
-  NULLIF(TRIM(CAST(ve.FOLIO AS VARCHAR(80))), ''),
-  NULLIF(TRIM(CAST(pv.FOLIO AS VARCHAR(80))), ''),
-  TRIM(CAST(dc.FOLIO AS VARCHAR(80)))
-)`;
 /**
  * Saldos por cliente desde IMPORTES_DOCTOS_CC con el mismo CASE de factura que cxcDocSaldos (cobro aplicado a DOCTO_CC_ACR_ID).
  * opts.conIva: cargo y cobro con IVA (común en medidas BI “bruto”).
@@ -2144,7 +2140,7 @@ function cxcCargosSQL() {
     SELECT
       i.DOCTO_CC_ID,
       dc.CLIENTE_ID,
-      ${CXC_FOLIO_DISPLAY_FROM_DC_VE_PV}                              AS FOLIO,
+      dc.FOLIO,
       i.IMPORTE                                                       AS SALDO,
       CAST(dc.FECHA AS DATE) + ${CXC_DIAS_SUM_INT}                   AS FECHA_VENCIMIENTO,
       CASE
@@ -2153,8 +2149,6 @@ function cxcCargosSQL() {
       END                                                             AS DIAS_VENCIDO
     FROM IMPORTES_DOCTOS_CC i
     JOIN  DOCTOS_CC dc         ON dc.DOCTO_CC_ID  = i.DOCTO_CC_ID
-    LEFT JOIN DOCTOS_VE ve     ON ve.DOCTO_VE_ID = dc.DOCTO_VE_ID
-    LEFT JOIN DOCTOS_PV pv     ON pv.DOCTO_PV_ID = dc.DOCTO_PV_ID
     LEFT JOIN CLIENTES clx ON clx.CLIENTE_ID = dc.CLIENTE_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, clx.COND_PAGO_ID)
     WHERE i.TIPO_IMPTE = 'C'
@@ -2178,7 +2172,7 @@ function cxcCargosSQLVariant(opts) {
     SELECT
       i.DOCTO_CC_ID,
       dc.CLIENTE_ID,
-      ${CXC_FOLIO_DISPLAY_FROM_DC_VE_PV}                              AS FOLIO,
+      dc.FOLIO,
       i.IMPORTE                                                       AS SALDO,
       CAST(dc.FECHA AS DATE) + ${CXC_DIAS_SUM_INT}                   AS FECHA_VENCIMIENTO,
       CASE
@@ -2187,8 +2181,6 @@ function cxcCargosSQLVariant(opts) {
       END                                                             AS DIAS_VENCIDO
     FROM IMPORTES_DOCTOS_CC i
     JOIN  DOCTOS_CC dc         ON dc.DOCTO_CC_ID  = i.DOCTO_CC_ID
-    LEFT JOIN DOCTOS_VE ve     ON ve.DOCTO_VE_ID = dc.DOCTO_VE_ID
-    LEFT JOIN DOCTOS_PV pv     ON pv.DOCTO_PV_ID = dc.DOCTO_PV_ID
     LEFT JOIN CLIENTES clx ON clx.CLIENTE_ID = dc.CLIENTE_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, clx.COND_PAGO_ID)
     WHERE i.TIPO_IMPTE = 'C'
@@ -4325,9 +4317,9 @@ get('/api/cxc/vencidas', async (req) => {
   const qmsVen = Math.min(Math.max(parseInt(req.query.queryMs, 10) || 90000, 30000), 120000);
   const run = async (dbo, firstN) => {
     const n = Math.min(firstN, CXC_DETAIL_LIST_MAX);
-    const rows = await query(`
+    return query(`
     SELECT FIRST ${n}
-      ${CXC_FOLIO_DISPLAY_FROM_DC_VE_PV} AS FOLIO,
+      dc.FOLIO,
       COALESCE(c.NOMBRE, 'Sin cliente') AS CLIENTE,
       COALESCE(cp.NOMBRE, 'S/D') AS CONDICION_PAGO,
       x.SALDO_NETO AS SALDO,
@@ -4348,8 +4340,6 @@ get('/api/cxc/vencidas', async (req) => {
       GROUP BY doc.DOCTO_CC_ID, doc.CLIENTE_ID
     ) x
     JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = x.DOCTO_CC_ID
-    LEFT JOIN DOCTOS_VE ve ON ve.DOCTO_VE_ID = dc.DOCTO_VE_ID
-    LEFT JOIN DOCTOS_PV pv ON pv.DOCTO_PV_ID = dc.DOCTO_PV_ID
     LEFT JOIN CLIENTES c ON c.CLIENTE_ID = x.CLIENTE_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, c.COND_PAGO_ID)
     ORDER BY x.DIAS_ATRASO DESC, x.SALDO_NETO DESC
@@ -4358,12 +4348,6 @@ get('/api/cxc/vencidas', async (req) => {
       console.error('cxc /api/cxc/vencidas query error:', msg);
       return [];
     });
-    // #region agent log
-    try {
-      fetch('http://127.0.0.1:7807/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'c5910b' }, body: JSON.stringify({ sessionId: 'c5910b', location: 'server_corregido.js:/api/cxc/vencidas', message: 'folio_sample_post_ve_join', data: { n: (rows || []).length, sample: (rows || []).slice(0, 12).map((r) => ({ FOLIO: String(r.FOLIO || '').slice(0, 40), len: String(r.FOLIO || '').length })) }, timestamp: Date.now(), hypothesisId: 'H1', runId: 'post-ve-pv' }) }).catch(() => {});
-    } catch (_) { /* ignore */ }
-    // #endregion
-    return rows;
   };
   if (isAllDbs(req)) {
     const lists = await mapPoolLimit(DATABASE_REGISTRY, 2, async (entry) => {
@@ -4392,7 +4376,7 @@ get('/api/cxc/vigentes', async (req) => {
     const n = Math.min(firstN, CXC_DETAIL_LIST_MAX);
     return query(`
     SELECT FIRST ${n}
-      ${CXC_FOLIO_DISPLAY_FROM_DC_VE_PV} AS FOLIO,
+      dc.FOLIO,
       COALESCE(c.NOMBRE, 'Sin cliente') AS CLIENTE,
       COALESCE(cp.NOMBRE, 'S/D') AS CONDICION_PAGO,
       x.SALDO_NETO AS SALDO,
@@ -4413,8 +4397,6 @@ get('/api/cxc/vigentes', async (req) => {
       GROUP BY doc.DOCTO_CC_ID, doc.CLIENTE_ID
     ) x
     JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = x.DOCTO_CC_ID
-    LEFT JOIN DOCTOS_VE ve ON ve.DOCTO_VE_ID = dc.DOCTO_VE_ID
-    LEFT JOIN DOCTOS_PV pv ON pv.DOCTO_PV_ID = dc.DOCTO_PV_ID
     LEFT JOIN CLIENTES c ON c.CLIENTE_ID = x.CLIENTE_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, c.COND_PAGO_ID)
     ORDER BY x.SALDO_NETO DESC, x.DIAS_ATRASO ASC
@@ -4712,7 +4694,7 @@ get('/api/cxc/historial-pagos', async (req) => {
   const rows = await query(`
     SELECT FIRST ${limit}
       dc.DOCTO_CC_ID,
-      ${CXC_FOLIO_DISPLAY_FROM_DC_VE_PV}                              AS FOLIO,
+      dc.FOLIO,
       cl.NOMBRE                                                         AS CLIENTE,
       cl.CLIENTE_ID,
       COALESCE(cp.NOMBRE, 'S/D')                                        AS CONDICION_PAGO,
@@ -4726,14 +4708,12 @@ get('/api/cxc/historial-pagos', async (req) => {
       EXTRACT(MONTH FROM COALESCE(MIN(CASE WHEN i.TIPO_IMPTE = 'C' THEN COALESCE(i.FECHA, dc.FECHA) END), CAST(dc.FECHA AS DATE))) AS MES_EMISION
     FROM IMPORTES_DOCTOS_CC i
     JOIN DOCTOS_CC dc ON dc.DOCTO_CC_ID = i.DOCTO_CC_ID
-    LEFT JOIN DOCTOS_VE ve ON ve.DOCTO_VE_ID = dc.DOCTO_VE_ID
-    LEFT JOIN DOCTOS_PV pv ON pv.DOCTO_PV_ID = dc.DOCTO_PV_ID
     JOIN CLIENTES cl ON cl.CLIENTE_ID = dc.CLIENTE_ID
     LEFT JOIN CONDICIONES_PAGO cp ON cp.COND_PAGO_ID = COALESCE(dc.COND_PAGO_ID, cl.COND_PAGO_ID)
     WHERE COALESCE(i.CANCELADO, 'N') = 'N' ${CXC_EXCLUIR_CONTADO}
       ${fechaSql}
       ${clienteFiltro}
-    GROUP BY dc.DOCTO_CC_ID, cl.NOMBRE, cl.CLIENTE_ID, cp.NOMBRE, cp.DIAS_PPAG, dc.FECHA, ve.FOLIO, pv.FOLIO, dc.FOLIO
+    GROUP BY dc.DOCTO_CC_ID, dc.FOLIO, cl.NOMBRE, cl.CLIENTE_ID, cp.NOMBRE, cp.DIAS_PPAG, dc.FECHA
     HAVING SUM(CASE WHEN i.TIPO_IMPTE = 'C' THEN i.IMPORTE ELSE 0 END) > 0
     ORDER BY dc.FECHA DESC
   `, [], 12000, dbo).catch(() => []);
