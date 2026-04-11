@@ -19,6 +19,26 @@ body {
   max-width: 100vw;
 }
 
+/* Barra de refresco (sticky z-index alto) + header (sticky): sin offset, ambos compiten por top:0 y el nav puede quedar tapado. */
+.ms-refresh-bar ~ header {
+  top: var(--ms-sticky-top, 0px) !important;
+}
+
+/* Nav horizontal: gesto pan-x; enlaces: tap inmediato sin doble-zoom */
+@media (max-width: 1180px) {
+  header nav,
+  #app-header nav,
+  #main-nav {
+    touch-action: pan-x;
+  }
+}
+header .nav-link,
+#app-header .nav-link {
+  touch-action: manipulation;
+  position: relative;
+  z-index: 1;
+}
+
 /* —— Safe area: notch / barra de inicio (iOS / Android) —— */
 @supports (padding: max(0px)) {
   header,

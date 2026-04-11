@@ -716,6 +716,7 @@ body.ms-page-cxc #filter-bar{display:none!important;height:0!important;margin:0!
     <strong>Buscar un folio:</strong> usa la pestaña <em>Deudas vigentes</em> (al corriente) o <em>Facturas vencidas</em> (mora); o <em>Deudas Totales</em> para ambos. Si un folio est&aacute; en Power BI y no aqu&iacute;, suele ser <em>condici&oacute;n contado/efectivo</em> (excluida en este panel), saldo liquidado en Microsip, o cobros sin <code>APLICADO</code> seg&uacute;n configuraci&oacute;n del servidor.
   </p>
   <p id="cxcBiExplain" class="cxc-total-hint" style="font-size:11px;color:var(--txt3);margin:2px 0 0;font-family:var(--mono);" aria-live="polite"></p>
+  <p id="cxcRvOpenExplain" class="cxc-total-hint" style="font-size:11px;color:var(--txt3);margin:4px 0 0;font-family:var(--mono);line-height:1.45" aria-live="polite"></p>
 
   <!-- KPIs: narrativa + datos (alineado Power BI: saldo, vencido, por vencer) -->
   <section class="cxc-kpi-journey ms-reveal" aria-labelledby="cxcKpiStoryTitle">
@@ -1230,8 +1231,13 @@ async function loadResumen() {
   const salEl = document.getElementById('kSalud');
   const salSub = document.getElementById('kSaludSub');
   try {
-    // Un solo round-trip: /resumen + /aging en paralelo duplicaban cxcResumenAgingUnificado (timeouts en producción).
-    let snap = await apiFetch('/api/cxc/resumen-aging' + buildCxcQuery('queryMs=180000'), { timeout: 195000 });
+    // Resumen-aging + diagnóstico VE/PV sin DOCTOS_CC (remisiones/pedidos aún no en cartera).
+    const _cxcPair = await Promise.all([
+      apiFetch('/api/cxc/resumen-aging' + buildCxcQuery('queryMs=180000'), { timeout: 195000 }),
+      apiFetch('/api/debug/cxc-ve-pv-gap' + buildCxcQuery('queryMs=90000'), { timeout: 95000 }).catch(function () { return null; }),
+    ]);
+    let snap = _cxcPair[0];
+    const gapRv = _cxcPair[1];
     const res0 = (snap && snap.resumen) || {};
     const age0raw = (snap && snap.aging) || {};
     const age0 = typeof window.normalizeCxcAging === 'function'
@@ -1310,6 +1316,33 @@ async function loadResumen() {
       }).catch(()=>{ explain.textContent = ''; });
     }
 
+    const rvExplain = document.getElementById('cxcRvOpenExplain');
+    if (rvExplain) {
+      try {
+        if (gapRv && gapRv.ok) {
+          const ve = gapRv.ve_rv_abiertos_sin_doctos_cc || {};
+          const pv = gapRv.pv_rv_abiertos_sin_doctos_cc || {};
+          const sumVe = +ve.suma_importe_venta_base || 0;
+          const sumPv = +pv.suma_importe_venta_base || 0;
+          const nVe = +ve.n_docs || 0;
+          const nPv = +pv.n_docs || 0;
+          rvExplain.textContent =
+            'Remisiones/pedidos (tipos R/V) abiertos sin documento CxC (sin cargo aún): Industrial ' +
+            fmtK(sumVe) +
+            ' (' +
+            nVe +
+            ' docs) · Mostrador ' +
+            fmtK(sumPv) +
+            ' (' +
+            nPv +
+            ' docs). Importe referencia venta; no suma al saldo CxC hasta que exista cargo en por cobrar.';
+        } else {
+          rvExplain.textContent = '';
+        }
+      } catch (_) {
+        rvExplain.textContent = '';
+      }
+    }
 
     setText('kSaldo', fmtK(saldo));
     setText('kCli', (res.NUM_CLIENTES||0)+' clientes');

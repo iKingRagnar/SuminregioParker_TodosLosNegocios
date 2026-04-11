@@ -8279,10 +8279,8 @@ get('/api/debug/cxc-ve-pv-gap', async (req) => {
   };
 
   // #region agent log
-  fetch('http://127.0.0.1:7807/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'c5910b' },
-    body: JSON.stringify({
+  try {
+    const line = JSON.stringify({
       sessionId: 'c5910b',
       location: 'server_corregido.js:/api/debug/cxc-ve-pv-gap',
       message: 'CxC VE/PV gap diagnostics',
@@ -8294,9 +8292,10 @@ get('/api/debug/cxc-ve-pv-gap', async (req) => {
         breakdown_tipos: (breakdown || []).map((b) => b.ORIGEN_TIPO),
       },
       timestamp: Date.now(),
-      hypothesisId: 'H1-H3',
-    }),
-  }).catch(() => {});
+      hypothesisId: 'H-gap-rv',
+    });
+    fs.appendFileSync(path.join(__dirname, 'debug-c5910b.log'), line + '\n');
+  } catch (_) {}
   // #endregion
 
   return payload;

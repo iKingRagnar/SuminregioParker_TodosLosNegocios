@@ -86,6 +86,55 @@
     if (document.readyState === "complete" && !window.__manualRefreshDeferSuccess) {
       setSuccess();
     }
+
+    applyRefreshBarStickyOffset(bar);
+  }
+
+  /** Evita que header sticky (top:0) quede bajo .ms-refresh-bar (mismo top:0, z-index mayor) y bloquee toques en el nav. */
+  function applyRefreshBarStickyOffset(barEl) {
+    if (typeof document === "undefined" || !barEl) return;
+    function push() {
+      try {
+        var h = barEl.offsetHeight || 0;
+        document.documentElement.style.setProperty("--ms-sticky-top", h + "px");
+        // #region agent log
+        fetch("http://127.0.0.1:7807/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "c5910b" },
+          body: JSON.stringify({
+            sessionId: "c5910b",
+            location: "app-ui-boot.js:applyRefreshBarStickyOffset",
+            message: "refresh bar height -> --ms-sticky-top",
+            data: { barHeight: h, href: typeof location !== "undefined" ? String(location.pathname || "") : "" },
+            timestamp: Date.now(),
+            hypothesisId: "H-sticky-overlap",
+          }),
+        }).catch(function () {});
+        // #endregion
+      } catch (_) {}
+    }
+    push();
+    if (typeof window !== "undefined") {
+      window.addEventListener("resize", push, { passive: true });
+      window.addEventListener("orientationchange", push, { passive: true });
+    }
+    if (typeof ResizeObserver !== "undefined") {
+      try {
+        var ro = new ResizeObserver(function () {
+          push();
+        });
+        ro.observe(barEl);
+      } catch (_) {}
+    }
+    if (typeof window !== "undefined") {
+      window.addEventListener(
+        "load",
+        function () {
+          push();
+        },
+        { passive: true }
+      );
+    }
   }
 
   function bootAiMotion() {
@@ -187,9 +236,38 @@
     }, 2800);
   }
 
+  function bootNavTapDebug() {
+    var done = false;
+    document.addEventListener(
+      "click",
+      function (ev) {
+        if (done) return;
+        var el = ev.target && ev.target.closest && ev.target.closest("header nav a.nav-link, #main-nav a.nav-link");
+        if (!el || !el.getAttribute) return;
+        done = true;
+        // #region agent log
+        fetch("http://127.0.0.1:7807/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "c5910b" },
+          body: JSON.stringify({
+            sessionId: "c5910b",
+            location: "app-ui-boot.js:nav-link-click",
+            message: "first nav link click",
+            data: { href: String(el.getAttribute("href") || "") },
+            timestamp: Date.now(),
+            hypothesisId: "H-nav-tap",
+          }),
+        }).catch(function () {});
+        // #endregion
+      },
+      true
+    );
+  }
+
   function bootAll() {
     bootAiMotion();
     bootManualRefreshBar();
+    bootNavTapDebug();
   }
 
   if (document.readyState === "loading") {
