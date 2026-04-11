@@ -4040,43 +4040,6 @@ async function cxcResumenAgingUnificado(req, dbo, qms) {
     fuenteKpi = modoKpi === 'cliente' ? 'cliente_neto' : fuenteKpi;
   }
 
-  // #region agent log
-  try {
-    const inclD = modoKpi === 'auto_iva' || cxcAutoIncluyeIvaEnMax(req);
-    const baseD = totalDocPostRecon > 0.005
-      ? totalDocPostRecon
-      : Math.max(totClienteNeto, inclD ? totClienteConIva : 0, 0.00001);
-    const maxD = inclD
-      ? Math.max(totalDocPostRecon, totClienteNeto, totClienteConIva)
-      : Math.max(totalDocPostRecon, totClienteNeto);
-    fs.appendFileSync(
-      path.join(__dirname, 'debug-c5910b.log'),
-      JSON.stringify({
-        sessionId: 'c5910b',
-        hypothesisId: 'H-auto-vs-iva',
-        location: 'server_corregido.js:cxcResumenAgingUnificado',
-        message: 'CXC KPI candidates vs chosen',
-        data: {
-          modoKpi,
-          totalDocPostRecon,
-          totClienteNeto,
-          totClienteConIva,
-          totClienteBi,
-          inclIvaAuto: inclD,
-          baseAuto: baseD,
-          maxCandAuto: maxD,
-          autoThresholdOk: maxD <= baseD * 1.18,
-          ratioMaxToBase: baseD > 0 ? maxD / baseD : null,
-          chosen,
-          fuenteKpi,
-          saldoTotalKpi: saldoTotal,
-        },
-        timestamp: Date.now(),
-      }) + '\n'
-    );
-  } catch (_) {}
-  // #endregion
-
   /** Suma importes cargo (facturación original) en documentos con saldo > 0 — comparable a columna "Venta" / Total Venta en modelos BI. */
   let totalImporteCargosAbierto = 0;
   try {
@@ -4381,24 +4344,10 @@ get('/api/cxc/vencidas', async (req) => {
     const flat = lists.flat();
     flat.sort((a, b) => (+b.SALDO || 0) - (+a.SALDO || 0));
     const out = flat.slice(0, limit);
-    // #region agent log
-    (function () {
-      const arr = out;
-      const zero = arr.filter((r) => +r.SALDO <= 0.005).length;
-      fetch('http://127.0.0.1:7807/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'c5910b' }, body: JSON.stringify({ sessionId: 'c5910b', location: 'server_corregido.js:/api/cxc/vencidas', message: 'vencidas all-dbs', data: { hypothesisId: 'H1', branch: 'all', total: arr.length, zeroSaldo: zero, posSaldo: arr.length - zero, cobroSoloAplicado: cxcCobroRRequiereAplicado(), sample: arr.slice(0, 4).map((r) => ({ folio: r.FOLIO, saldo: +r.SALDO, atraso: +r.ATRASO })) }, timestamp: Date.now(), runId: 'post-fix' }) }).catch(() => {});
-    }());
-    // #endregion
     return out;
   }
   const dbo = getReqDbOpts(req);
   const rows = await run(dbo, limit);
-  // #region agent log
-  (function () {
-    const arr = rows || [];
-    const zero = arr.filter((r) => +r.SALDO <= 0.005).length;
-    fetch('http://127.0.0.1:7807/ingest/dccd4d73-a0a8-497c-b252-2fef711ed56a', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': 'c5910b' }, body: JSON.stringify({ sessionId: 'c5910b', location: 'server_corregido.js:/api/cxc/vencidas', message: 'vencidas single-db', data: { hypothesisId: 'H1', branch: 'single', total: arr.length, zeroSaldo: zero, posSaldo: arr.length - zero, cobroSoloAplicado: cxcCobroRRequiereAplicado(), sample: arr.slice(0, 4).map((r) => ({ folio: r.FOLIO, saldo: +r.SALDO, atraso: +r.ATRASO })) }, timestamp: Date.now(), runId: 'post-fix' }) }).catch(() => {});
-  }());
-  // #endregion
   return rows;
 });
 
@@ -4546,43 +4495,9 @@ get('/api/cxc/top-deudores', async (req) => {
   const oneDb = async (dbo, firstN) => {
     const rows = await runMain(dbo, firstN);
     if ((rows || []).length) {
-      // #region agent log
-      try {
-        fs.appendFileSync(
-          path.join(__dirname, 'debug-c5910b.log'),
-          JSON.stringify({
-            sessionId: 'c5910b',
-            hypothesisId: 'H-topdeudor',
-            location: 'server:/api/cxc/top-deudores',
-            branch: 'main',
-            n: rows.length,
-            sampleVenc: rows[0] ? +rows[0].VENCIDO : null,
-            timestamp: Date.now(),
-          }) + '\n',
-          'utf8'
-        );
-      } catch (_e) { /* ignore */ }
-      // #endregion
       return rows;
     }
     const fb = await runFallbackHybrid(dbo, firstN);
-    // #region agent log
-    try {
-      fs.appendFileSync(
-        path.join(__dirname, 'debug-c5910b.log'),
-        JSON.stringify({
-          sessionId: 'c5910b',
-          hypothesisId: 'H-topdeudor',
-          location: 'server:/api/cxc/top-deudores',
-          branch: 'fallback-hybrid',
-          n: (fb || []).length,
-          sampleVenc: fb && fb[0] ? +fb[0].VENCIDO : null,
-          timestamp: Date.now(),
-        }) + '\n',
-        'utf8'
-      );
-    } catch (_e) { /* ignore */ }
-    // #endregion
     return fb;
   };
   if (isAllDbs(req)) {
@@ -7218,20 +7133,6 @@ async function resultadosPnlCore(req, dbOpts) {
     else if (qVentas === 'conta' || envConta) useConta = true;
     else useConta = ventasConta > 0.01;
     const ventas = useConta && ventasConta > 0.01 ? ventasConta : ventasBrutas;
-    // #region agent log
-    try {
-      fs.appendFileSync(path.join(process.cwd(), 'debug-c5910b.log'), JSON.stringify({
-        sessionId: 'c5910b',
-        hypothesisId: 'H1',
-        location: 'resultadosPnlCore:ventas-netas',
-        message: 'P&L fuente ventas netas',
-        data: {
-          ANIO: r.ANIO, MES: r.MES, qVentas, ventasBrutas, ventasConta, useConta, ventasElegidas: ventas,
-        },
-        timestamp: Date.now(),
-      }) + '\n');
-    } catch (_e) { /* debug ingest local */ }
-    // #endregion
     ventasFuentes.push({
       ANIO: r.ANIO,
       MES: r.MES,
@@ -8482,32 +8383,6 @@ get('/api/consumos/resumen', async (req) => {
   const m = maxRows[0] || {};
   const unidadesPeriodo = +t.UNIDADES_PERIODO || 0;
   const diasConMov = +t.DIAS_CON_MOVIMIENTO || 0;
-  // #region agent log
-  try {
-    const effT = consumosEffectiveTipo(tipo, parts);
-    fs.appendFileSync(
-      path.join(__dirname, 'debug-c5910b.log'),
-      JSON.stringify({
-        sessionId: 'c5910b',
-        hypothesisId: 'H-union',
-        location: 'server:/api/consumos/resumen',
-        message: 'resumen computed',
-        data: {
-          reqTipo: tipo || '(none)',
-          effTipo: effT === '' ? 'UNION' : effT,
-          hasVe: parts._consumosHasVe,
-          hasPv: parts._consumosHasPv,
-          unionInSub: String(sub).includes('UNION ALL'),
-          unidadesPeriodo,
-          movimientos: +t.MOVIMIENTOS || 0,
-        },
-        timestamp: Date.now(),
-        runId: 'post-fix',
-      }) + '\n',
-      'utf8'
-    );
-  } catch (_logErr) { /* ignore */ }
-  // #endregion
   return {
     HOY_UNIDADES: +t.HOY_UNIDADES || 0,
     HOY_VENTA_IMPORTE: +t.HOY_VENTA_IMPORTE || 0,
