@@ -681,8 +681,6 @@ body.ms-page-cxc #filter-bar{display:none!important;height:0!important;margin:0!
 <canvas id="cxc-particles" width="1920" height="1080" aria-hidden="true"></canvas>
 <div class="cxc-spectacle-dock" role="toolbar" aria-label="Controles de experiencia CxC">
   <span class="cxc-dock-hint" id="cxcDockHint">Espect&aacute;culo</span>
-  <button type="button" id="cxcBtnParticles" aria-pressed="true" title="Part&iacute;culas ambientales">&#10022;</button>
-  <button type="button" id="cxcBtnSound" aria-pressed="false" title="Sonido suave al cargar datos y al cambiar pesta&ntilde;a">&#9835;</button>
   <button type="button" class="cxc-dock-present" id="cxcBtnPresent" aria-pressed="false" title="Modo presentaci&oacute;n: tipograf&iacute;a amplia y foco en lectura">&#9638;</button>
 </div>
 <header></header>
@@ -1898,8 +1896,6 @@ async function refreshCxcDbHint(){
   function setB(k,v){ try{ sessionStorage.setItem(k,v); }catch(_){} }
 
   var canvas=document.getElementById('cxc-particles');
-  var btnP=document.getElementById('cxcBtnParticles');
-  var btnS=document.getElementById('cxcBtnSound');
   var btnR=document.getElementById('cxcBtnPresent');
   var reduce=typeof matchMedia!=='undefined'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
   var particlesOn=!reduce&&getB(SK_PART,'1')!=='0';
@@ -1953,17 +1949,6 @@ async function refreshCxcDbHint(){
   if(presentOn) document.body.classList.add('cxc-present');
   if(btnR) btnR.setAttribute('aria-pressed', presentOn?'true':'false');
 
-  if(btnS){
-    btnS.setAttribute('aria-pressed', soundOn?'true':'false');
-    btnS.title=soundOn?'Sonido suave activo (clic para apagar)':'Sonido suave apagado (clic para activar chimes)';
-    btnS.addEventListener('click',function(){
-      soundOn=!soundOn; setB(SK_SND,soundOn?'1':'0');
-      btnS.setAttribute('aria-pressed',soundOn?'true':'false');
-      btnS.title=soundOn?'Sonido suave activo':'Sonido suave apagado';
-      if(soundOn) window.__cxcPlaySoft('data');
-    });
-  }
-
   if(btnR){
     btnR.addEventListener('click',function(){
       presentOn=!presentOn; setB(SK_PR,presentOn?'1':'0');
@@ -1975,7 +1960,6 @@ async function refreshCxcDbHint(){
   }
 
   if(!canvas||reduce){
-    if(btnP){ btnP.style.opacity='0.45'; btnP.disabled=true; btnP.title='Partículas desactivadas (accesibilidad)'; }
     return;
   }
 
@@ -2023,15 +2007,11 @@ async function refreshCxcDbHint(){
   }
   function start(){ cancelAnimationFrame(raf); if(particlesOn) raf=requestAnimationFrame(tick); }
   function syncParticlesBtn(){
-    if(!btnP) return;
-    btnP.setAttribute('aria-pressed',particlesOn?'true':'false');
-    btnP.title=particlesOn?'Partículas activas (clic para ocultar)':'Partículas ocultas (clic para mostrar)';
     canvas.style.display=particlesOn?'':'none';
     if(particlesOn) start(); else cancelAnimationFrame(raf);
   }
   resize(); spawn(120); syncParticlesBtn();
   window.addEventListener('resize',function(){ resize(); spawn(120); if(particlesOn) start(); });
-  if(btnP) btnP.addEventListener('click',function(){ particlesOn=!particlesOn; setB(SK_PART,particlesOn?'1':'0'); syncParticlesBtn(); });
 
   document.addEventListener('visibilitychange',function(){ if(document.hidden) cancelAnimationFrame(raf); else if(particlesOn) start(); });
 })();
