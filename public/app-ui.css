@@ -831,3 +831,222 @@ main .ms-reveal.ms-inview,
   filter: none !important;
   transition: none !important;
 }
+
+/* ==========================================================================
+   FASE 1 REDISENO CLEAN-LIGHT (shell + dashboard + clientes)
+   ========================================================================== */
+:root {
+  --ms-bg: #f3f6fb;
+  --ms-surface: #ffffff;
+  --ms-surface-soft: #f8fafd;
+  --ms-border: #dbe4ef;
+  --ms-text: #0f172a;
+  --ms-text-soft: #475569;
+  --ms-brand: #b45309;
+  --ms-brand-soft: #fff4e8;
+  --ms-shadow-sm: 0 2px 10px rgba(15, 23, 42, 0.06);
+  --ms-shadow-md: 0 8px 28px rgba(15, 23, 42, 0.09);
+}
+
+html.theme-premium-light,
+html[data-theme="light"] {
+  color-scheme: light;
+}
+
+html.theme-premium-light body,
+html[data-theme="light"] body {
+  background: var(--ms-bg) !important;
+  color: var(--ms-text) !important;
+}
+
+/* Shell: force clean-light over nav.js injected styles */
+html.theme-premium-light body #app-header,
+html[data-theme="light"] body #app-header {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-bottom: 1px solid var(--ms-border) !important;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06) !important;
+}
+html.theme-premium-light body #app-header .header-inner,
+html[data-theme="light"] body #app-header .header-inner {
+  min-height: 68px !important;
+  padding: 0.6rem 1.25rem !important;
+  gap: 0.75rem !important;
+}
+html.theme-premium-light body #app-header #main-nav,
+html[data-theme="light"] body #app-header #main-nav {
+  background: #f8fafc !important;
+  border: 1px solid var(--ms-border) !important;
+  border-radius: 12px !important;
+  padding: 0.28rem !important;
+}
+html.theme-premium-light body #app-header .nav-link,
+html[data-theme="light"] body #app-header .nav-link {
+  color: #475569 !important;
+  border-radius: 10px !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+}
+html.theme-premium-light body #app-header .nav-link:hover,
+html[data-theme="light"] body #app-header .nav-link:hover {
+  background: #eef3f9 !important;
+  color: #1f2937 !important;
+}
+html.theme-premium-light body #app-header .nav-link.active,
+html[data-theme="light"] body #app-header .nav-link.active {
+  color: var(--ms-brand) !important;
+  background: var(--ms-brand-soft) !important;
+  border: 1px solid #f0c9a8 !important;
+  box-shadow: none !important;
+}
+html.theme-premium-light body #app-header .header-right .live-pill,
+html[data-theme="light"] body #app-header .header-right .live-pill {
+  background: #ecfdf5 !important;
+  border-color: #bbf7d0 !important;
+  color: #166534 !important;
+}
+html.theme-premium-light body #app-header .header-right .clock,
+html[data-theme="light"] body #app-header .header-right .clock {
+  background: #f8fafc !important;
+  border-color: var(--ms-border) !important;
+  color: #475569 !important;
+}
+
+/* Layout + hero */
+html.theme-premium-light .page,
+html[data-theme="light"] .page {
+  max-width: 1680px !important;
+  padding: 1.5rem !important;
+}
+html.theme-premium-light .hero,
+html[data-theme="light"] .hero,
+html.theme-premium-light .page-header,
+html[data-theme="light"] .page-header {
+  background: var(--ms-surface) !important;
+  border: 1px solid var(--ms-border) !important;
+  border-radius: 16px !important;
+  padding: 1.2rem 1.35rem !important;
+  margin-bottom: 1rem !important;
+  box-shadow: var(--ms-shadow-sm) !important;
+}
+html.theme-premium-light .hero-eyebrow,
+html[data-theme="light"] .hero-eyebrow,
+html.theme-premium-light .page-sub,
+html[data-theme="light"] .page-sub {
+  color: var(--ms-text-soft) !important;
+  font-size: 0.7rem !important;
+  letter-spacing: 0.08em !important;
+}
+html.theme-premium-light .hero-title,
+html[data-theme="light"] .hero-title,
+html.theme-premium-light .page-title,
+html[data-theme="light"] .page-title {
+  color: var(--ms-text) !important;
+  background: none !important;
+  -webkit-text-fill-color: initial !important;
+  font-size: clamp(1.6rem, 2.6vw, 2.1rem) !important;
+  letter-spacing: -0.02em !important;
+}
+html.theme-premium-light .hero-sub,
+html[data-theme="light"] .hero-sub {
+  color: var(--ms-text-soft) !important;
+  font-size: 0.82rem !important;
+}
+
+/* Card and KPI system */
+html.theme-premium-light :where(.card, .kpi, .kpi-card, .module-card, .uni-portfolio, .scorecard-wrap, .uni-detail-panel),
+html[data-theme="light"] :where(.card, .kpi, .kpi-card, .module-card, .uni-portfolio, .scorecard-wrap, .uni-detail-panel) {
+  background: var(--ms-surface) !important;
+  border: 1px solid var(--ms-border) !important;
+  border-radius: 14px !important;
+  box-shadow: var(--ms-shadow-sm) !important;
+}
+html.theme-premium-light :where(.card-head, .scorecard-head, .uni-detail-head),
+html[data-theme="light"] :where(.card-head, .scorecard-head, .uni-detail-head) {
+  background: var(--ms-surface-soft) !important;
+  border-bottom: 1px solid var(--ms-border) !important;
+}
+html.theme-premium-light :where(.kpi-label, .kpi-lbl, .mod-kpi-label, .sc-kpi-area, .card-badge),
+html[data-theme="light"] :where(.kpi-label, .kpi-lbl, .mod-kpi-label, .sc-kpi-area, .card-badge) {
+  color: #64748b !important;
+  font-size: 0.62rem !important;
+  letter-spacing: 0.07em !important;
+}
+html.theme-premium-light :where(.kpi-value, .kpi-val, .kpi-v, .sc-val, .vendor-amount),
+html[data-theme="light"] :where(.kpi-value, .kpi-val, .kpi-v, .sc-val, .vendor-amount) {
+  color: var(--ms-text) !important;
+  font-weight: 700 !important;
+}
+html.theme-premium-light :where(.kpi-sub, .mod-desc, .card-note, .meta-pct, .sc-meta, .uni-subtitle),
+html[data-theme="light"] :where(.kpi-sub, .mod-desc, .card-note, .meta-pct, .sc-meta, .uni-subtitle) {
+  color: var(--ms-text-soft) !important;
+}
+
+/* Dashboard table styles */
+html.theme-premium-light :where(.tbl, .sc-table, .uni-table, .risk-table),
+html[data-theme="light"] :where(.tbl, .sc-table, .uni-table, .risk-table) {
+  background: transparent !important;
+}
+html.theme-premium-light :where(.tbl th, .sc-table th, .uni-table th, .risk-table th),
+html[data-theme="light"] :where(.tbl th, .sc-table th, .uni-table th, .risk-table th) {
+  background: #f8fafc !important;
+  color: #475569 !important;
+  border-bottom: 1px solid var(--ms-border) !important;
+}
+html.theme-premium-light :where(.tbl td, .sc-table td, .uni-table td, .risk-table td),
+html[data-theme="light"] :where(.tbl td, .sc-table td, .uni-table td, .risk-table td) {
+  color: #0f172a !important;
+  border-bottom: 1px solid #e8eef5 !important;
+}
+html.theme-premium-light :where(.tbl tr:hover td, .sc-table tr:hover td, .uni-table tr:hover td, .risk-table tr:hover td),
+html[data-theme="light"] :where(.tbl tr:hover td, .sc-table tr:hover td, .uni-table tr:hover td, .risk-table tr:hover td) {
+  background: #f8fafc !important;
+}
+
+/* Clientes focused polish */
+html.theme-premium-light :where(.main-tabs .main-tab),
+html[data-theme="light"] :where(.main-tabs .main-tab) {
+  background: #fff !important;
+  border: 1px solid var(--ms-border) !important;
+  color: #475569 !important;
+  font-weight: 700 !important;
+}
+html.theme-premium-light :where(.main-tabs .main-tab.active-red, .main-tabs .main-tab.active-yellow, .main-tabs .main-tab.active-orange),
+html[data-theme="light"] :where(.main-tabs .main-tab.active-red, .main-tabs .main-tab.active-yellow, .main-tabs .main-tab.active-orange) {
+  color: var(--ms-brand) !important;
+  background: var(--ms-brand-soft) !important;
+  border-color: #f0c9a8 !important;
+}
+html.theme-premium-light :where(.badge, .tipo-badge),
+html[data-theme="light"] :where(.badge, .tipo-badge) {
+  border-radius: 999px !important;
+  font-weight: 700 !important;
+}
+
+/* Responsive for shell and cards */
+@media (max-width: 1024px) {
+  html.theme-premium-light body #app-header .header-inner,
+  html[data-theme="light"] body #app-header .header-inner {
+    grid-template-columns: auto minmax(0, 1fr) auto !important;
+    grid-template-areas:
+      "logo aux right"
+      "nav nav nav";
+    row-gap: 0.45rem !important;
+  }
+  html.theme-premium-light body #app-header .logo,
+  html[data-theme="light"] body #app-header .logo {
+    grid-area: logo;
+  }
+  html.theme-premium-light body #app-header #main-nav,
+  html[data-theme="light"] body #app-header #main-nav {
+    grid-area: nav;
+  }
+  html.theme-premium-light body #app-header .nav-aux-wrap,
+  html[data-theme="light"] body #app-header .nav-aux-wrap {
+    grid-area: aux;
+    justify-self: end;
+  }
+  html.theme-premium-light body #app-header .header-right,
+  html[data-theme="light"] body #app-header .header-right {
+    grid-area: right;
+  }
+}

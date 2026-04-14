@@ -112,10 +112,24 @@ main {
   .logo-text {
     font-size: clamp(0.78rem, 3.5vw, 0.9rem) !important;
   }
+
+  #app-header .header-right .live-pill {
+    display: none !important;
+  }
+
+  #app-header .header-right .clock {
+    min-width: 6.65rem !important;
+    width: 6.65rem !important;
+    font-size: 0.68rem !important;
+  }
 }
 
 @media (max-width: 360px) {
   .logo-sub {
+    display: none !important;
+  }
+
+  #app-header .nav-aux-wrap {
     display: none !important;
   }
 }
