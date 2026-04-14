@@ -322,6 +322,16 @@ main .chart-wrap {
     min-width: 0;
     max-width: 100%;
   }
+
+  .ms-table-shell {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-x: contain !important;
+  }
+
+  table.ms-table-glass {
+    min-width: 720px !important;
+  }
 }
 
 /* —— Preferencias de movimiento —— */

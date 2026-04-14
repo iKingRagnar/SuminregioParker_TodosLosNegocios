@@ -318,7 +318,7 @@ html.theme-premium-light .mission{background:linear-gradient(135deg,rgba(59,130,
       <div class="ch"><div class="ct">Consumo por Vendedor</div><div class="cb">Unidades y venta alineada al periodo</div></div>
       <div class="bd">
         <div class="table-shell">
-        <table class="tbl tbl-pro" id="tblVend">
+        <table class="tbl tbl-pro table--ops" id="tblVend">
           <thead><tr><th>Vendedor</th><th class="num">Unidades</th><th class="num">% u.</th><th class="num">Venta</th><th class="num">% $</th></tr></thead>
           <tbody><tr><td colspan="5">Cargando...</td></tr></tbody>
         </table>
@@ -344,7 +344,7 @@ html.theme-premium-light .mission{background:linear-gradient(135deg,rgba(59,130,
       </div>
       <div class="bd table-shell--scroll" style="padding-top:12px">
         <div class="table-shell">
-        <table class="tbl tbl-pro tbl-sem" id="tblSemArt">
+        <table class="tbl tbl-pro tbl-sem table--ops" id="tblSemArt">
           <thead><tr><th>Artículo</th><th>U.Med</th><th class="num">Precio Unit.</th><th class="num">—</th></tr></thead>
           <tbody><tr><td colspan="4">Cargando…</td></tr></tbody>
         </table>
@@ -353,7 +353,7 @@ html.theme-premium-light .mission{background:linear-gradient(135deg,rgba(59,130,
       <div class="bd table-shell--scroll" style="border-top:1px solid rgba(255,255,255,.08);padding-top:0">
         <div class="cb" style="margin:10px 0 10px 2px">Resumen por art&iacute;culo: promedio y m&aacute;ximo semanal</div>
         <div class="table-shell">
-        <table class="tbl tbl-pro tbl-sem" id="tblSemStats">
+        <table class="tbl tbl-pro tbl-sem table--ops" id="tblSemStats">
           <thead><tr><th>Artículo</th><th>U.Med</th><th class="num">Consumo periodo (u.)</th><th class="num">Prom. u./sem.</th><th class="num">Máx. semana</th></tr></thead>
           <tbody><tr><td colspan="5">Cargando…</td></tr></tbody>
         </table>
@@ -876,7 +876,7 @@ function renderInsights(d){
     const nb = isNaN(db) ? 999999 : db;
     return na - nb;
   });
-  let tbl = '<table class="ins-tbl"><thead><tr><th>Art&iacute;culo</th><th class="num">Cons. periodo</th><th class="num">Exist.</th><th class="num">D&iacute;as cob.</th></tr></thead><tbody>';
+  let tbl = '<table class="ins-tbl table--ops"><thead><tr><th>Art&iacute;culo</th><th class="num">Cons. periodo</th><th class="num">Exist.</th><th class="num">D&iacute;as cob.</th></tr></thead><tbody>';
   if(!rowsCov.length) tbl += '<tr><td colspan="4" class="ins-empty">Sin art&iacute;culos en el periodo</td></tr>';
   else rowsCov.forEach(r => {
     const rawDc = r.DIAS_COBERTURA;
@@ -887,7 +887,7 @@ function renderInsights(d){
   tbl += '</tbody></table>';
   const alertasHtml = !al.length
     ? '<div class="ins-empty" style="padding:6px 0">Sin focos rojos en top consumo.</div>'
-    : '<table class="ins-tbl" style="margin-top:8px"><thead><tr><th>Art&iacute;culo cr&iacute;tico</th><th class="num">D&iacute;as cob.</th><th class="num">Exist.</th><th class="num">M&iacute;nimo</th></tr></thead><tbody>' +
+    : '<table class="ins-tbl table--ops" style="margin-top:8px"><thead><tr><th>Art&iacute;culo cr&iacute;tico</th><th class="num">D&iacute;as cob.</th><th class="num">Exist.</th><th class="num">M&iacute;nimo</th></tr></thead><tbody>' +
       al.map(r => '<tr><td title="' + esc(r.ARTICULO) + '">' + esc((r.ARTICULO || '').substring(0, 30)) + ((String(r.ARTICULO || '').length > 30) ? '…' : '') + '</td><td class="num cov-cell ' + coberturaDiasClass(r.DIAS_COBERTURA).cls + '">' + (r.DIAS_COBERTURA != null ? fmtF(r.DIAS_COBERTURA) : '—') + '</td><td class="num">' + fmtN(r.EXISTENCIA) + '</td><td class="num">' + fmtN(r.INVENTARIO_MINIMO) + '</td></tr>').join('') +
       '</tbody></table>';
   box.innerHTML =
@@ -950,7 +950,7 @@ function renderPedidosVsConsumo(d){
   if (srcLow) {
     html += '<div class="ins-sub" style="color:var(--ylw);margin-top:4px">Aviso: la fuente detectada es CM (movimientos), puede incluir traspasos internos además de compras.</div>';
   }
-  html += '<table class="ins-tbl" style="margin-top:8px"><thead><tr><th>Artículo</th><th class="num">Consumo</th><th class="num">Pedidos/OC</th><th class="num">Brecha</th><th class="num">Cobertura</th></tr></thead><tbody>';
+  html += '<table class="ins-tbl table--ops" style="margin-top:8px"><thead><tr><th>Artículo</th><th class="num">Consumo</th><th class="num">Pedidos/OC</th><th class="num">Brecha</th><th class="num">Cobertura</th></tr></thead><tbody>';
   if(!rows.length){
     html += '<tr><td colspan="5" class="ins-empty">Sin artículos para el periodo actual.</td></tr>';
   }else{

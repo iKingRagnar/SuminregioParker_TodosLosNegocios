@@ -364,7 +364,7 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
         </div>
         <div class="card-badge">8% del cobro</div>
       </div>
-      <table class="comision-table">
+      <table class="comision-table table--analytic">
         <thead>
           <tr>
             <th>#</th>
@@ -449,7 +449,7 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
       Cada fila es un pago/cobro en <strong>IMPORTES_DOCTOS_CC</strong> (tipo R), importe en base sin IVA cuando aplica. El periodo es la <strong>fecha del movimiento</strong> (<code>i.FECHA</code>). Cliente y vendedor salen del CC aplicado (<code>COALESCE(DOCTO_CC_ACR_ID, DOCTO_CC_ID)</code>) ligado a <code>DOCTOS_VE</code> / <code>DOCTOS_PV</code>.
     </p>
     <div class="detalle-wrap">
-      <table class="detalle-table">
+      <table class="detalle-table table--analytic">
         <thead><tr><th>Fecha cobro</th><th>Folio CC</th><th>Cliente</th><th class="num">Monto</th><th>Vendedor</th></tr></thead>
         <tbody id="detalleCobrosBody"><tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px">Cargando&hellip;</td></tr></tbody>
       </table>
@@ -539,7 +539,7 @@ function invoiceBlockHtml(vendedorId){
     const fd = x.FECHA_FACTURA ? new Date(x.FECHA_FACTURA).toLocaleDateString('es-MX') : '\u2014';
     return '<tr><td>' + esc(x.FOLIO_VE) + '</td><td>' + esc(fd) + '</td><td class="num">' + fmtM(+x.TOTAL_VENTA || 0) + '</td><td class="num" style="color:var(--blue)">' + fmtM(cob) + '</td><td class="num" style="color:var(--green)">' + fmtM(cob * COMISION_PCT) + '</td></tr>';
   }).join('');
-  return '<div class="fact-inv-wrap"><table class="fact-inv-table"><thead><tr><th>Folio</th><th>Fecha fact.</th><th class="num">Venta total</th><th class="num">Cobrado</th><th class="num">Comisi\u00f3n 8%</th></tr></thead><tbody>' + body + '</tbody></table></div>';
+  return '<div class="fact-inv-wrap"><table class="fact-inv-table table--analytic"><thead><tr><th>Folio</th><th>Fecha fact.</th><th class="num">Venta total</th><th class="num">Cobrado</th><th class="num">Comisi\u00f3n 8%</th></tr></thead><tbody>' + body + '</tbody></table></div>';
 }
 
 function clearCobradasFilterLoadingUI(){

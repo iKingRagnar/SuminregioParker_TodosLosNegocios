@@ -800,7 +800,7 @@ body.ms-page-cxc #filter-bar{display:none!important;height:0!important;margin:0!
         <p class="card-note">Estatus por d&iacute;as como Power BI para documentos de cr&eacute;dito. Saldo = neto por documento (cargo &minus; cobro). <strong>No aparecen facturas ya liquidadas</strong> (saldo pendiente 0).</p>
         <p class="card-note" id="vencListHint" style="display:none;font-size:12px;color:var(--ylw)"></p>
         <div class="tbl-wrap">
-          <table>
+          <table class="table--analytic">
             <thead><tr><th>Folio</th><th>Cliente</th><th>Condici&oacute;n</th><th>Estatus</th><th>Saldo</th><th>F. Venta</th><th>Venc. (plazo)</th><th>Atraso</th><th>Sin pagar</th><th>F. Venc. (sist.)</th></tr></thead>
             <tbody id="tbVenc"><tr><td colspan="10"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr></tbody>
           </table>
@@ -820,7 +820,7 @@ body.ms-page-cxc #filter-bar{display:none!important;height:0!important;margin:0!
       <p class="card-note">Documentos de cr&eacute;dito <strong>sin atraso</strong> (corriente / por vencer), con saldo pendiente &gt; 0. Misma f&oacute;rmula de saldo que Facturas vencidas (cargo &minus; cobro aplicado). Alineado al KPI <em>Corriente / No vencido</em>.</p>
       <p class="card-note" id="vigListHint" style="display:none;font-size:12px;color:var(--ylw)"></p>
       <div class="tbl-wrap">
-        <table>
+        <table class="table--analytic">
           <thead><tr><th>Folio</th><th>Cliente</th><th>Condici&oacute;n</th><th>Estatus</th><th>Saldo</th><th>F. Venta</th><th>Venc. (plazo)</th><th>Atraso</th><th>Al plazo</th><th>F. Venc. (sist.)</th></tr></thead>
           <tbody id="tbVig"><tr><td colspan="10"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr></tbody>
         </table>
@@ -835,7 +835,7 @@ body.ms-page-cxc #filter-bar{display:none!important;height:0!important;margin:0!
       <p class="card-note">Documentos de cr&eacute;dito con saldo pendiente &gt; 0: <strong>vencidas</strong> (mora) y <strong>vigentes</strong> (corriente / por vencer), misma f&oacute;rmula de saldo que las pesta&ntilde;as anteriores. Orden por saldo descendente.</p>
       <p class="card-note" id="totListHint" style="display:none;font-size:12px;color:var(--ylw)"></p>
       <div class="tbl-wrap">
-        <table>
+        <table class="table--analytic">
           <thead><tr><th>Tipo</th><th>Folio</th><th>Cliente</th><th>Condici&oacute;n</th><th>Estatus</th><th>Saldo</th><th>F. Venta</th><th>Venc. (plazo)</th><th>Atraso</th><th>Al plazo / Sin pagar</th><th>F. Venc. (sist.)</th></tr></thead>
           <tbody id="tbTot"><tr><td colspan="11"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr></tbody>
         </table>
@@ -848,7 +848,7 @@ body.ms-page-cxc #filter-bar{display:none!important;height:0!important;margin:0!
     <div class="card">
       <div class="card-title">Top Deudores <span class="badge" title="Deuda total = Cargo − Cobro (Saldo_Documento)">Saldo neto real</span></div>
       <div class="tbl-wrap">
-        <table>
+        <table class="table--analytic">
           <thead><tr><th>#</th><th>Cliente</th><th>Condici&oacute;n</th><th>Saldo Total</th><th>Vencido</th><th>M&aacute;x. Atraso</th><th>Docs</th></tr></thead>
           <tbody id="tbTop"><tr><td colspan="7"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr></tbody>
         </table>
@@ -1737,7 +1737,7 @@ async function loadBuro() {
       if(!byC[cid]) byC[cid]={ nombre:r.CLIENTE, docs:[] };
       byC[cid].docs.push(r);
     }
-    let html='<table class="buro-tbl"><thead><tr>'
+    let html='<table class="buro-tbl table--analytic"><thead><tr>'
       +'<th style="min-width:140px">Cliente</th>'
       +cols.map(c=>'<th style="text-align:center;min-width:52px;font-size:10px">'+c.lbl+'</th>').join('')
       +'<th>Saldo</th><th>Estado</th>'

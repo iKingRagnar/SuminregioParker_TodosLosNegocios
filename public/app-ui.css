@@ -1050,3 +1050,104 @@ html[data-theme="light"] :where(.badge, .tipo-badge) {
     grid-area: right;
   }
 }
+
+/* ==========================================================================
+   GLOBAL TABLE UX — PREMIUM GLASS
+   ========================================================================== */
+html.theme-premium-light :where(.ms-table-shell),
+html[data-theme="light"] :where(.ms-table-shell) {
+  border: 1px solid var(--ms-border) !important;
+  border-radius: 14px !important;
+  background: linear-gradient(180deg, #ffffff 0%, #fcfdff 100%) !important;
+  box-shadow: var(--ms-shadow-sm) !important;
+}
+
+html.theme-premium-light :where(table.ms-table-glass),
+html[data-theme="light"] :where(table.ms-table-glass) {
+  width: 100% !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  background: transparent !important;
+}
+
+html.theme-premium-light :where(table.ms-table-glass thead th),
+html[data-theme="light"] :where(table.ms-table-glass thead th) {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 2 !important;
+  background: linear-gradient(180deg, #f7fafe 0%, #f2f7fc 100%) !important;
+  color: #475569 !important;
+  border-bottom: 1px solid #dbe4ef !important;
+  font-size: 0.63rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  padding: 0.62rem 0.72rem !important;
+  white-space: nowrap !important;
+}
+
+html.theme-premium-light :where(table.ms-table-glass tbody td),
+html[data-theme="light"] :where(table.ms-table-glass tbody td) {
+  color: #0f172a !important;
+  border-bottom: 1px solid #e9eff6 !important;
+  padding: 0.64rem 0.72rem !important;
+  vertical-align: middle !important;
+  background: transparent !important;
+}
+
+html.theme-premium-light :where(table.ms-table-glass tbody tr:nth-child(even) td),
+html[data-theme="light"] :where(table.ms-table-glass tbody tr:nth-child(even) td) {
+  background: rgba(248, 251, 255, 0.75) !important;
+}
+
+html.theme-premium-light :where(table.ms-table-glass tbody tr:hover td),
+html[data-theme="light"] :where(table.ms-table-glass tbody tr:hover td) {
+  background: #eef5ff !important;
+}
+
+html.theme-premium-light :where(table.ms-table-glass .num),
+html[data-theme="light"] :where(table.ms-table-glass .num) {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums !important;
+  font-family: "DM Mono", "JetBrains Mono", ui-monospace, monospace !important;
+}
+
+/* Variant: dense dashboards */
+html.theme-premium-light :where(table.ms-table-glass.table--dense thead th),
+html[data-theme="light"] :where(table.ms-table-glass.table--dense thead th) {
+  font-size: 0.58rem !important;
+  padding: 0.5rem 0.58rem !important;
+}
+html.theme-premium-light :where(table.ms-table-glass.table--dense tbody td),
+html[data-theme="light"] :where(table.ms-table-glass.table--dense tbody td) {
+  font-size: 0.75rem !important;
+  padding: 0.48rem 0.58rem !important;
+}
+
+/* Variant: analytical tables (finanzas/cxc/pnl) */
+html.theme-premium-light :where(table.ms-table-glass.table--analytic tbody td),
+html[data-theme="light"] :where(table.ms-table-glass.table--analytic tbody td) {
+  font-size: 0.78rem !important;
+}
+html.theme-premium-light :where(table.ms-table-glass.table--analytic .tr),
+html[data-theme="light"] :where(table.ms-table-glass.table--analytic .tr) {
+  font-weight: 700 !important;
+}
+
+/* Variant: ops tables */
+html.theme-premium-light :where(table.ms-table-glass.table--ops tbody td),
+html[data-theme="light"] :where(table.ms-table-glass.table--ops tbody td) {
+  font-size: 0.77rem !important;
+}
+
+/* Sorting affordance (global from nav.js) */
+html.theme-premium-light :where(table.ms-table-glass .ms-sortable-th),
+html[data-theme="light"] :where(table.ms-table-glass .ms-sortable-th) {
+  cursor: pointer !important;
+}
+html.theme-premium-light :where(table.ms-table-glass .ms-sortable-th[data-ms-sort-dir="asc"]),
+html.theme-premium-light :where(table.ms-table-glass .ms-sortable-th[data-ms-sort-dir="desc"]),
+html[data-theme="light"] :where(table.ms-table-glass .ms-sortable-th[data-ms-sort-dir="asc"]),
+html[data-theme="light"] :where(table.ms-table-glass .ms-sortable-th[data-ms-sort-dir="desc"]) {
+  color: #334155 !important;
+}

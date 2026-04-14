@@ -266,7 +266,7 @@ html[data-theme="light"]{
   --border:rgba(15,23,42,.08);--border2:rgba(15,23,42,.12);
   --text:#0f172a;--text2:#334155;--muted:#64748b;--dim:#e2e8f0;
 }
-/* CxC (body.ms-page-cxc): no aplastar KPI/tablas  la pgina trae su propio tema + app-ui cxc */
+/* CxC (body.ms-page-cxc): no aplastar KPI/tablas ï¿½ la pï¿½gina trae su propio tema + app-ui cxc */
 html[data-theme="light"] body:not(.ms-page-cxc){background:var(--bg)!important;color:var(--text)!important}
 html[data-theme="light"] body:not(.ms-page-cxc) header#app-header{
   background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(248,250,252,.94));
@@ -471,11 +471,33 @@ body:not(.ms-page-cxc) :where(main,.page) :where(.chart-wrap,.chart-h220,.chart-
     return { type: 'str', val: s.toUpperCase() };
   }
 
+  function tableVariantForPage(page) {
+    if (/^Dashboard_/i.test(page)) return 'table--dense';
+    if (['cxc.html', 'cobradas.html', 'resultados.html', 'index.html', 'director.html', 'ventas.html', 'clientes.html'].includes(page)) return 'table--analytic';
+    if (['inventario.html', 'consumos.html', 'margen-producto.html', 'vendedores.html'].includes(page)) return 'table--ops';
+    return 'table--ops';
+  }
+
+  function decorateTableUx(table, page) {
+    if (!table) return;
+    table.classList.add('ms-table-glass');
+    table.classList.add(tableVariantForPage(page));
+
+    const shell = table.closest('.tbl-wrap, .buro-tbl-wrap, .uni-table-scroll, .table-wrap, .doc-table-container, .card, .tc') || table.parentElement;
+    if (shell) shell.classList.add('ms-table-shell');
+
+    if (table.dataset.msHeadSticky !== 'off') {
+      const ths = table.querySelectorAll('thead th');
+      ths.forEach(th => th.classList.add('table-head-sticky'));
+    }
+  }
+
   function makeTableSortable(table) {
     if (!table || table.dataset.msSortReady === '1') return;
     const thead = table.querySelector('thead');
     const tbody = table.querySelector('tbody');
     if (!thead || !tbody) return;
+    if (table.dataset.msSort === 'off' || table.closest('[data-ms-sort="off"]')) return;
     if (thead.querySelector('th[data-sort]')) return; // tabla con sorting custom
     const headers = Array.from(thead.querySelectorAll('th'));
     if (!headers.length) return;
@@ -507,7 +529,11 @@ body:not(.ms-page-cxc) :where(main,.page) :where(.chart-wrap,.chart-h220,.chart-
   }
 
   function initGlobalTableSort() {
-    document.querySelectorAll('table').forEach(makeTableSortable);
+    const page = currentPage();
+    document.querySelectorAll('table').forEach((table) => {
+      decorateTableUx(table, page);
+      makeTableSortable(table);
+    });
   }
 
   function pageNarrative(page) {

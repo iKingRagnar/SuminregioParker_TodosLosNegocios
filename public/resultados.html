@@ -426,7 +426,7 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
   <div id="plMiniTableWrap" class="pl-mini-wrap" style="display:none">
     <div class="pl-mini-head">Scorecard P&amp;L por Unidad de Negocio <span id="plMiniMeta"></span></div>
     <div style="overflow-x:auto">
-      <table class="pl-mini-table">
+      <table class="pl-mini-table table--analytic">
         <thead>
           <tr>
             <th>Unidad de Negocio</th>
@@ -561,7 +561,7 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
 
   <div class="card" style="margin-bottom:2rem">
     <div style="overflow-x:auto">
-      <table class="pnl-structured">
+      <table class="pnl-structured table--analytic">
         <thead>
           <tr id="pnlHeadRow">
             <th style="width:22%">Concepto / Mes</th>
@@ -980,7 +980,7 @@ async function loadBalanceGeneral(){
       const capSocial = Math.max(0, (+t.CAPITAL_TOTAL || 0) - utilRet);
       const pct = (v, base) => (base > 0 ? ((v / base) * 100).toFixed(1) + '%' : '0.0%');
       wrap.innerHTML = `
-        <table>
+        <table class="table--analytic">
           <tbody>
             <tr class="sec"><td colspan="3">Activo</td></tr>
             <tr><td>Caja / Bancos</td><td class="num">${fmtM(caja)}</td><td class="pct">${pct(caja,activoTotal)}</td></tr>
@@ -993,7 +993,7 @@ async function loadBalanceGeneral(){
             <tr class="total"><td>Total Activo</td><td class="num">${fmtM(activoTotal)}</td><td class="pct">100.0%</td></tr>
           </tbody>
         </table>
-        <table>
+        <table class="table--analytic">
           <tbody>
             <tr class="sec"><td colspan="3">Pasivo y Capital</td></tr>
             <tr><td>Préstamo bancario c/p</td><td class="num">${fmtM(bancosCorto)}</td><td class="pct">${pct(bancosCorto,activoTotal)}</td></tr>
