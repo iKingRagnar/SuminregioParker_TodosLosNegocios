@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<!DOCTYPE html><html lang="es" data-theme="dark"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Estacionalidad — Suminregio</title><link rel="icon" href="favicon.svg" type="image/svg+xml"/>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
 <style>
@@ -46,9 +46,226 @@ tbody tr:hover { background:#f8f9fa; }
   canvas { max-height:280px !important; }
 }
 </style><link rel="stylesheet" href="app-ui.css">
-<link rel="stylesheet" href="app-responsive.css"><script src="app-ui-boot.js" defer></script></head><body>
+<link rel="stylesheet" href="app-responsive.css"><script src="app-ui-boot.js" defer></script><style>
+/* ═══════════════════════════════════════════════════
+   PREMIUM DARK THEME OVERRIDE — auto-injected
+═══════════════════════════════════════════════════ */
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap');
+
+:root {
+  --bg:#060E1A!important;--bg2:#0B1628!important;--bg3:#0F1E35!important;
+  --card:rgba(11,22,40,.9)!important;--text:#E8EEF6!important;--muted:#8FA3BE!important;
+  --light:rgba(255,255,255,.05)!important;
+  --gold:#E6A800;--gold-glow:rgba(230,168,0,.18);
+  --pos:#00E5A0!important;--neg:#FF5A5A!important;--warn:#E6A800!important;
+  --rad:14px!important;--gap:16px!important;
+  --border:rgba(255,255,255,.07);
+}
+
+*, *::before, *::after { font-family:'Syne',system-ui,sans-serif!important; }
+code, .mono, .kpi-v, td.tr, th.tr { font-family:'DM Mono',monospace!important; }
+
+html, body { background:#060E1A!important; color:#E8EEF6!important; }
+
+.dash { background:#060E1A; max-width:1440px; padding:16px 20px; }
+
+/* ── Header premium ── */
+.hdr {
+  background:linear-gradient(135deg,#060E1A 0%,#0B1628 40%,#0F1E35 100%)!important;
+  border:1px solid rgba(230,168,0,.15)!important;
+  border-radius:20px!important;
+  padding:20px 24px!important;
+  position:relative!important;
+  box-shadow:0 0 60px rgba(230,168,0,.07),0 8px 32px rgba(0,0,0,.4)!important;
+  margin-bottom:var(--gap)!important;
+}
+.hdr::before {
+  content:'';position:absolute;inset:0;border-radius:20px;
+  background:radial-gradient(ellipse at 20% 0%,rgba(230,168,0,.06) 0%,transparent 60%);
+  pointer-events:none;
+}
+.hdr h1 {
+  font-size:clamp(1.1rem,2.5vw,1.5rem)!important;
+  font-weight:800!important;
+  background:linear-gradient(135deg,#fff 0%,#E6A800 100%)!important;
+  -webkit-background-clip:text!important;
+  -webkit-text-fill-color:transparent!important;
+  background-clip:text!important;
+  margin-bottom:2px!important;
+}
+.hdr .sub {
+  font-size:11px!important;color:#8FA3BE!important;opacity:1!important;
+  font-family:'DM Mono',monospace!important;letter-spacing:.04em!important;
+}
+.hdr .nav, .hdr nav {
+  margin-top:14px!important;display:flex!important;gap:4px!important;
+  flex-wrap:nowrap!important;overflow-x:auto!important;
+  padding-bottom:4px!important;-webkit-overflow-scrolling:touch!important;
+}
+.hdr .nav a, .hdr nav a {
+  color:#8FA3BE!important;text-decoration:none!important;
+  font-size:11px!important;padding:5px 12px!important;
+  border-radius:20px!important;border:1px solid rgba(255,255,255,.08)!important;
+  transition:all .15s!important;white-space:nowrap!important;flex-shrink:0!important;
+  background:transparent!important;
+}
+.hdr .nav a:hover, .hdr nav a:hover {
+  background:rgba(255,255,255,.07)!important;
+  border-color:rgba(255,255,255,.15)!important;
+  color:#E8EEF6!important;
+}
+.hdr .nav a.active, .hdr nav a.active {
+  background:linear-gradient(135deg,rgba(230,168,0,.2),rgba(230,168,0,.08))!important;
+  border-color:rgba(230,168,0,.4)!important;
+  color:#E6A800!important;font-weight:600!important;
+}
+
+/* ── KPI Cards ── */
+.kpi {
+  background:linear-gradient(135deg,rgba(11,22,40,.95),rgba(15,30,53,.9))!important;
+  border:1px solid rgba(255,255,255,.07)!important;
+  border-radius:16px!important;
+  padding:18px 20px!important;
+  box-shadow:0 4px 24px rgba(0,0,0,.3)!important;
+  transition:transform .2s,box-shadow .2s!important;
+}
+.kpi:hover {
+  transform:translateY(-2px)!important;
+  box-shadow:0 8px 32px rgba(230,168,0,.1),0 4px 24px rgba(0,0,0,.4)!important;
+}
+.kpi-l, .kpi label {
+  font-size:10px!important;color:#8FA3BE!important;
+  text-transform:uppercase!important;letter-spacing:.06em!important;
+  font-family:'DM Mono',monospace!important;
+}
+.kpi-v {
+  font-size:clamp(1.2rem,2.5vw,1.8rem)!important;
+  font-weight:700!important;color:#E8EEF6!important;
+  font-family:'DM Mono',monospace!important;
+}
+.kpi-s { font-size:11px!important;color:#4A6280!important; }
+
+/* ── Chart Cards ── */
+.cc {
+  background:linear-gradient(135deg,rgba(11,22,40,.95),rgba(15,30,53,.9))!important;
+  border:1px solid rgba(255,255,255,.07)!important;
+  border-radius:16px!important;
+  padding:20px!important;
+  box-shadow:0 4px 24px rgba(0,0,0,.3)!important;
+}
+.cc h3, .cc h2 {
+  font-size:13px!important;font-weight:600!important;
+  color:#E8EEF6!important;margin-bottom:14px!important;
+  letter-spacing:.02em!important;
+}
+
+/* ── Table Cards ── */
+.tc {
+  background:linear-gradient(135deg,rgba(11,22,40,.95),rgba(15,30,53,.9))!important;
+  border:1px solid rgba(255,255,255,.07)!important;
+  border-radius:16px!important;
+  padding:20px!important;
+  box-shadow:0 4px 24px rgba(0,0,0,.3)!important;
+  overflow-x:auto!important;
+}
+.tc h3 {
+  font-size:13px!important;font-weight:600!important;
+  color:#E8EEF6!important;margin-bottom:14px!important;
+}
+
+/* ── Tables ── */
+table { border-collapse:collapse!important;width:100%!important;font-size:12px!important; }
+thead th {
+  color:#8FA3BE!important;font-size:10px!important;
+  text-transform:uppercase!important;letter-spacing:.05em!important;
+  padding:10px 12px!important;
+  border-bottom:1px solid rgba(255,255,255,.08)!important;
+  background:rgba(255,255,255,.03)!important;
+  font-family:'DM Mono',monospace!important;
+}
+tbody td {
+  padding:10px 12px!important;color:#E8EEF6!important;
+  border-bottom:1px solid rgba(255,255,255,.04)!important;
+}
+tbody tr:hover { background:rgba(255,255,255,.03)!important; }
+
+/* ── Colors ── */
+.pos { color:#00E5A0!important; }
+.neg { color:#FF5A5A!important; }
+.warn { color:#E6A800!important; }
+
+/* ── Filters ── */
+.filters, .filters-bar {
+  display:flex!important;gap:10px!important;flex-wrap:wrap!important;
+  align-items:center!important;margin-bottom:var(--gap)!important;
+}
+.filters select,.filters input,.filters-bar select,.filters-bar input {
+  background:rgba(11,22,40,.9)!important;
+  color:#E8EEF6!important;
+  border:1px solid rgba(255,255,255,.1)!important;
+  border-radius:10px!important;padding:8px 12px!important;
+  font-size:12px!important;
+}
+.filters label,.filters-bar label {
+  font-size:11px!important;color:#8FA3BE!important;font-weight:600!important;
+  font-family:'DM Mono',monospace!important;
+}
+.filters .sep,.filters-bar .sep {
+  width:1px!important;height:28px!important;
+  background:rgba(255,255,255,.1)!important;
+}
+
+/* ── Footer ── */
+.footer {
+  text-align:center!important;padding:16px!important;
+  font-size:11px!important;color:#4A6280!important;
+  font-family:'DM Mono',monospace!important;
+}
+
+/* ── Grid sections ── */
+.g2, .g3 {
+  display:grid!important;
+  gap:var(--gap)!important;
+  margin-bottom:var(--gap)!important;
+}
+.g2 { grid-template-columns:repeat(2,1fr)!important; }
+.g3 { grid-template-columns:repeat(3,1fr)!important; }
+@media(max-width:900px) {
+  .g2, .g3 { grid-template-columns:1fr!important; }
+  .krow { grid-template-columns:repeat(2,1fr)!important; }
+}
+@media(max-width:480px) {
+  .krow { grid-template-columns:1fr!important; }
+}
+
+/* ── Nav scrollbar ── */
+.hdr .nav::-webkit-scrollbar, .hdr nav::-webkit-scrollbar {
+  height:3px;background:transparent;
+}
+.hdr .nav::-webkit-scrollbar-thumb, .hdr nav::-webkit-scrollbar-thumb {
+  background:rgba(230,168,0,.3);border-radius:3px;
+}
+
+/* ── Tooltip ── */
+.tip:hover::after {
+  background:#0F1E35!important;color:#E8EEF6!important;
+  border:1px solid rgba(255,255,255,.1)!important;
+}
+.tip:hover::before {
+  border-top-color:#0F1E35!important;
+}
+
+/* Print */
+@media print {
+  body { background:white!important;color:black!important; }
+  .hdr { background:white!important;border:1px solid #ddd!important; }
+  .hdr h1 { -webkit-text-fill-color:black!important;background:none!important;color:black!important; }
+  .cc, .kpi, .tc { background:white!important;border:1px solid #ddd!important; }
+}
+</style>
+</head><body>
 <div class="dash">
-<div class="hdr"><button onclick="window.print()" style="position:absolute;right:24px;top:20px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);padding:6px 16px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500;">Exportar PDF</button><h1>Análisis de Estacionalidad</h1><div class="sub">Suminregio Industrial — Patrones de venta por día de la semana, del mes y quincena</div><div class="nav">
+<div class="hdr"><button onclick="window.print()" style="position:absolute;right:24px;top:20px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);padding:6px 16px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500;">Exportar PDF</button><h1>Análisis de Estacionalidad</h1><div class="sub">Suminregio Industrial — Patrones de venta por día de la semana, del mes y quincena</div><nav class="hdr-nav nav">
 <a href="Dashboard_Index.html">Inicio</a>
 <a href="Dashboard_Ventas.html" >Ventas</a>
 <a href="Dashboard_CC.html" >Cartera CC</a>

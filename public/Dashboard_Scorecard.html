@@ -1,127 +1,394 @@
 <!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Scorecard Vendedores — Suminregio</title><link rel="icon" href="favicon.svg" type="image/svg+xml"/>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-:root { --bg:#f0f2f5; --card:#fff; --text:#212529; --muted:#6c757d; --light:#e9ecef;
-  --c1:#4C72B0; --c2:#DD8452; --c3:#55A868; --c4:#C44E52; --c5:#8172B3;
-  --c6:#937860; --c7:#DA8BC3; --c8:#CCB974; --c9:#64B5CD; --c10:#8C8C8C;
-  --pos:#28a745; --neg:#dc3545; --warn:#ffc107; --gap:14px; --rad:10px; }
-* { margin:0; padding:0; box-sizing:border-box; }
-body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); line-height:1.5; }
-.dash { max-width:1400px; margin:0 auto; padding:var(--gap); }
-.hdr { background:linear-gradient(135deg,#1a2e3a,#163e4e); color:#fff; padding:20px 24px; border-radius:var(--rad); margin-bottom:var(--gap); position:relative; }
-.hdr h1 { font-size:20px; font-weight:700; }
-.hdr .sub { font-size:12px; opacity:.6; margin-top:2px; }
-.hdr .nav { margin-top:10px; display:flex; gap:6px; flex-wrap:wrap; }
-.hdr .nav a { color:rgba(255,255,255,.7); text-decoration:none; font-size:11px; padding:4px 10px; border-radius:12px; border:1px solid rgba(255,255,255,.2); transition:all .15s; }
-.hdr .nav a:hover, .hdr .nav a.active { background:rgba(255,255,255,.2); color:#fff; }
-.filters { display:flex; gap:10px; margin-bottom:var(--gap); flex-wrap:wrap; align-items:center; }
-.filters select, .filters input { padding:8px 14px; border-radius:8px; border:1px solid #ddd; font-size:13px; background:#fff; cursor:pointer; }
-.filters label { font-size:12px; color:var(--muted); font-weight:600; }
-.krow { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:var(--gap); margin-bottom:var(--gap); }
-.kpi { background:var(--card); border-radius:var(--rad); padding:14px 16px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
-.kpi-l { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; }
-.kpi-v { font-size:20px; font-weight:700; margin-top:2px; }
-.kpi-s { font-size:11px; color:var(--muted); }
-.g2 { display:grid; grid-template-columns:repeat(2,1fr); gap:var(--gap); margin-bottom:var(--gap); }
-.cc { background:var(--card); border-radius:var(--rad); padding:16px 20px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
-.cc.full { grid-column:1/-1; }
-.cc h3 { font-size:13px; font-weight:600; margin-bottom:10px; }
-.cc canvas { max-height:300px; }
-.tc { background:var(--card); border-radius:var(--rad); padding:16px 20px; box-shadow:0 1px 3px rgba(0,0,0,.06); margin-bottom:var(--gap); overflow-x:auto; }
-.tc h3 { font-size:13px; font-weight:600; margin-bottom:10px; }
-table { width:100%; border-collapse:collapse; font-size:12px; }
-thead th { text-align:left; padding:7px 8px; border-bottom:2px solid #dee2e6; color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; cursor:pointer; }
-thead th:hover { color:var(--text); }
-tbody td { padding:7px 8px; border-bottom:1px solid #f0f0f0; }
-tbody tr:hover { background:#f8f9fa; }
-.tr { text-align:right; }
-.pos { color:var(--pos); } .neg { color:var(--neg); }
-.badge { display:inline-block; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:600; }
-.badge-g { background:#d4edda; color:#155724; }
-.badge-r { background:#f8d7da; color:#721c24; }
-.badge-y { background:#fff3cd; color:#856404; }
-.footer { text-align:center; padding:12px; font-size:11px; color:var(--muted); }
-@media(max-width:900px) { .g2 { grid-template-columns:1fr; } .krow { grid-template-columns:repeat(2,1fr); } }
-@media print {
-  body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-  .hdr .nav { display:none; }
-  button { display:none !important; }
-  .dash, .page { max-width:100%; padding:0; }
-  .hdr { break-after:avoid; }
-  .cc, .tc, .ccard, .tcard, .kpi { break-inside:avoid; }
-  canvas { max-height:280px !important; }
+:root {
+  --bg:#060E1A; --card:#0C1B29; --card2:#0F2035;
+  --border:rgba(255,255,255,.06); --border2:rgba(255,255,255,.12);
+  --gold:#E6A800; --blue:#4DA6FF; --green:#00E5A0; --red:#FF4566; --orange:#FF8C42;
+  --silver:#C0C8D4; --bronze:#CD7F32;
+  --text:#E8EDF5; --muted:#6B7A8D; --muted2:#8A96A8;
+  --c1:#4DA6FF; --c2:#FF8C42; --c3:#00E5A0; --c4:#FF4566; --c5:#B47DFF;
+  --c6:#FFD166; --c7:#FF6EC7; --c8:#4ECDC4; --c9:#64B5CD; --c10:#8C8C8C;
+  --pos:#00E5A0; --neg:#FF4566; --warn:#E6A800; --gap:16px; --rad:14px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);line-height:1.5;min-height:100vh;overflow-x:hidden;}
+
+/* ── Background orbs ── */
+body::before{
+  content:'';position:fixed;top:-200px;left:-200px;width:600px;height:600px;
+  background:radial-gradient(circle,rgba(77,166,255,.08) 0%,transparent 70%);
+  border-radius:50%;pointer-events:none;z-index:0;
+}
+body::after{
+  content:'';position:fixed;bottom:-150px;right:-150px;width:500px;height:500px;
+  background:radial-gradient(circle,rgba(0,229,160,.06) 0%,transparent 70%);
+  border-radius:50%;pointer-events:none;z-index:0;
+}
+.orb-mid{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:800px;height:800px;
+  background:radial-gradient(circle,rgba(230,168,0,.03) 0%,transparent 60%);
+  border-radius:50%;pointer-events:none;z-index:0;
+}
+
+.dash{max-width:1440px;margin:0 auto;padding:var(--gap);position:relative;z-index:1;}
+
+/* ── HEADER ── */
+.hdr{
+  background:linear-gradient(135deg,rgba(12,27,41,.95) 0%,rgba(6,14,26,.98) 100%);
+  border:1px solid var(--border2);
+  padding:22px 28px 18px;border-radius:var(--rad);margin-bottom:var(--gap);
+  position:relative;overflow:hidden;
+  box-shadow:0 4px 32px rgba(0,0,0,.4);
+}
+.hdr::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--gold),var(--blue),var(--green),transparent);
+}
+.hdr-top{display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:space-between;}
+.hdr-brand{display:flex;align-items:center;gap:14px;}
+.hdr-logo{
+  width:42px;height:42px;border-radius:10px;
+  background:linear-gradient(135deg,var(--gold),#c88a00);
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;font-weight:800;color:#060E1A;flex-shrink:0;
+  box-shadow:0 0 20px rgba(230,168,0,.35);
+}
+.hdr h1{font-size:20px;font-weight:800;letter-spacing:-.3px;color:var(--text);}
+.hdr .sub{font-size:11px;color:var(--muted2);margin-top:1px;font-family:'DM Mono',monospace;letter-spacing:.3px;}
+.hdr-right{display:flex;align-items:center;gap:12px;}
+.live-pill{
+  display:flex;align-items:center;gap:6px;
+  background:rgba(0,229,160,.1);border:1px solid rgba(0,229,160,.3);
+  color:var(--green);padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;
+  font-family:'DM Mono',monospace;letter-spacing:.5px;
+}
+.live-pill::before{
+  content:'';width:7px;height:7px;border-radius:50%;background:var(--green);
+  animation:pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,229,160,.4);}50%{opacity:.7;box-shadow:0 0 0 6px rgba(0,229,160,0);}}
+#live-clock{font-family:'DM Mono',monospace;font-size:12px;color:var(--muted2);letter-spacing:.5px;}
+.btn-export{
+  background:rgba(255,255,255,.06);color:var(--text);
+  border:1px solid var(--border2);padding:7px 18px;border-radius:8px;
+  font-size:12px;cursor:pointer;font-weight:600;font-family:'Syne',sans-serif;
+  transition:all .2s;white-space:nowrap;
+}
+.btn-export:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.2);}
+
+.hdr .nav{margin-top:14px;display:flex;gap:5px;flex-wrap:wrap;}
+.hdr .nav a{
+  color:var(--muted2);text-decoration:none;font-size:11px;font-weight:600;
+  padding:5px 12px;border-radius:8px;border:1px solid transparent;
+  transition:all .15s;letter-spacing:.2px;
+}
+.hdr .nav a:hover{color:var(--text);background:rgba(255,255,255,.06);border-color:var(--border2);}
+.hdr .nav a.active{
+  color:var(--gold);background:rgba(230,168,0,.1);
+  border-color:rgba(230,168,0,.3);
+}
+
+/* ── FILTER BADGE ── */
+#filter-badge{display:none;text-align:center;margin:0 0 14px;}
+#filter-badge span{
+  background:rgba(77,166,255,.1);border:1px solid rgba(77,166,255,.3);
+  color:var(--blue);border-radius:20px;padding:6px 16px;font-size:13px;
+  display:inline-flex;align-items:center;gap:8px;font-weight:600;
+}
+#filter-badge button{background:none;border:none;color:var(--blue);cursor:pointer;font-size:16px;padding:0 2px;opacity:.7;transition:opacity .15s;}
+#filter-badge button:hover{opacity:1;}
+
+/* ── FILTERS ── */
+.filters{
+  display:flex;gap:10px;margin-bottom:var(--gap);flex-wrap:wrap;align-items:center;
+  background:var(--card);border:1px solid var(--border);border-radius:var(--rad);
+  padding:12px 16px;
+}
+.filters select,.filters input{
+  padding:7px 12px;border-radius:8px;
+  border:1px solid var(--border2);font-size:12px;
+  background:rgba(255,255,255,.04);color:var(--text);cursor:pointer;
+  font-family:'Syne',sans-serif;outline:none;transition:border-color .15s;
+}
+.filters select:focus,.filters input:focus{border-color:var(--blue);}
+.filters select option{background:#0C1B29;color:var(--text);}
+.filters label{font-size:11px;color:var(--muted2);font-weight:700;letter-spacing:.5px;text-transform:uppercase;}
+
+/* ── KPI ROW ── */
+.krow{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:var(--gap);margin-bottom:var(--gap);}
+.kpi{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--rad);
+  padding:16px 18px;position:relative;overflow:hidden;
+  transition:transform .2s,border-color .2s;
+}
+.kpi:hover{transform:translateY(-2px);border-color:var(--border2);}
+.kpi::after{
+  content:'';position:absolute;bottom:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,var(--blue),transparent);
+  opacity:.4;
+}
+.kpi-l{font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:.7px;font-weight:700;margin-bottom:4px;}
+.kpi-v{font-size:22px;font-weight:700;font-family:'DM Mono',monospace;color:var(--text);}
+.kpi-s{font-size:10px;color:var(--muted);margin-top:3px;font-family:'DM Mono',monospace;}
+.kpi-v.pos{color:var(--green);}
+.kpi-v.neg{color:var(--red);}
+
+/* ── CHART GRID ── */
+.g2{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--gap);margin-bottom:var(--gap);}
+.cc{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--rad);
+  padding:20px 22px;
+}
+.cc.full{grid-column:1/-1;}
+.cc h3{
+  font-size:12px;font-weight:700;margin-bottom:14px;color:var(--muted2);
+  text-transform:uppercase;letter-spacing:.7px;
+  display:flex;align-items:center;gap:8px;
+}
+.cc h3::before{content:'';width:3px;height:14px;border-radius:2px;background:var(--blue);}
+.cc canvas{max-height:280px;}
+
+/* ── TABLE ── */
+.tc{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--rad);
+  padding:20px 22px;margin-bottom:var(--gap);overflow-x:auto;
+}
+.tc h3{
+  font-size:12px;font-weight:700;margin-bottom:14px;color:var(--muted2);
+  text-transform:uppercase;letter-spacing:.7px;
+  display:flex;align-items:center;gap:8px;
+}
+.tc h3::before{content:'';width:3px;height:14px;border-radius:2px;background:var(--gold);}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+thead th{
+  text-align:left;padding:10px 12px;
+  border-bottom:1px solid var(--border2);
+  color:var(--muted2);font-size:10px;text-transform:uppercase;
+  letter-spacing:.6px;white-space:nowrap;cursor:pointer;
+  font-family:'DM Mono',monospace;font-weight:500;transition:color .15s;
+  position:relative;
+}
+thead th:hover{color:var(--blue);}
+thead th.sort-asc::after{content:' ↑';color:var(--gold);}
+thead th.sort-desc::after{content:' ↓';color:var(--gold);}
+tbody td{
+  padding:10px 12px;border-bottom:1px solid var(--border);
+  font-family:'DM Mono',monospace;font-size:12px;transition:background .15s;
+}
+tbody tr{cursor:pointer;transition:background .15s;}
+tbody tr:nth-child(even) td{background:rgba(255,255,255,.018);}
+tbody tr:hover td{background:rgba(77,166,255,.07)!important;}
+tbody tr.row-active td{background:rgba(77,166,255,.1)!important;border-bottom-color:rgba(77,166,255,.2)!important;}
+tbody tr:first-child td{border-left:none;}
+/* Ranking row accents */
+tbody tr.rank-1 td:first-child{border-left:2px solid var(--gold);}
+tbody tr.rank-2 td:first-child{border-left:2px solid var(--silver);}
+tbody tr.rank-3 td:first-child{border-left:2px solid var(--bronze);}
+.tr{text-align:right;}
+.pos{color:var(--green);}
+.neg{color:var(--red);}
+
+/* ── BADGES ── */
+.badge{
+  display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;
+  font-size:10px;font-weight:700;font-family:'DM Mono',monospace;letter-spacing:.3px;
+}
+.badge-g{background:rgba(0,229,160,.12);color:var(--green);border:1px solid rgba(0,229,160,.25);}
+.badge-r{background:rgba(255,69,102,.12);color:var(--red);border:1px solid rgba(255,69,102,.25);}
+.badge-y{background:rgba(230,168,0,.12);color:var(--gold);border:1px solid rgba(230,168,0,.25);}
+
+/* ── RANK MEDAL ── */
+.medal{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:22px;height:22px;border-radius:50%;font-size:10px;font-weight:800;
+  margin-right:6px;flex-shrink:0;font-family:'DM Mono',monospace;
+}
+.medal-1{background:rgba(230,168,0,.2);color:var(--gold);border:1px solid rgba(230,168,0,.4);}
+.medal-2{background:rgba(192,200,212,.15);color:var(--silver);border:1px solid rgba(192,200,212,.35);}
+.medal-3{background:rgba(205,127,50,.2);color:var(--bronze);border:1px solid rgba(205,127,50,.4);}
+.medal-n{background:rgba(255,255,255,.05);color:var(--muted2);border:1px solid var(--border);}
+
+/* ── VENDOR AVATAR ── */
+.vend-cell{display:flex;align-items:center;gap:10px;}
+.avatar{
+  width:32px;height:32px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:800;flex-shrink:0;
+  font-family:'DM Mono',monospace;letter-spacing:-.5px;
+}
+.vend-name{font-family:'Syne',sans-serif;font-size:12px;font-weight:600;color:var(--text);}
+.vend-sub{font-size:10px;color:var(--muted2);font-family:'DM Mono',monospace;}
+
+/* ── PROGRESS BAR ── */
+.pbar-wrap{display:flex;align-items:center;gap:8px;margin-top:2px;}
+.pbar{height:4px;border-radius:2px;background:rgba(255,255,255,.06);flex:1;overflow:hidden;}
+.pbar-fill{height:100%;border-radius:2px;transition:width .4s ease;}
+.pbar-fill.green{background:linear-gradient(90deg,var(--green),#00b87a);}
+.pbar-fill.yellow{background:linear-gradient(90deg,var(--gold),#c88a00);}
+.pbar-fill.red{background:linear-gradient(90deg,var(--red),#cc1234);}
+.pbar-pct{font-size:10px;color:var(--muted2);font-family:'DM Mono',monospace;min-width:32px;text-align:right;}
+
+/* ── FOOTER ── */
+.footer{
+  text-align:center;padding:16px;font-size:11px;color:var(--muted);
+  font-family:'DM Mono',monospace;letter-spacing:.3px;
+  border-top:1px solid var(--border);margin-top:8px;
+}
+
+/* ── SECTION DIVIDER ── */
+.section-label{
+  font-size:10px;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:1px;
+  margin-bottom:10px;margin-top:4px;
+  display:flex;align-items:center;gap:10px;
+}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border);}
+
+@media(max-width:900px){.g2{grid-template-columns:1fr;}.krow{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:600px){.krow{grid-template-columns:repeat(1,1fr);}.hdr-right{display:none;}}
+@media print{
+  body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;background:#fff;color:#000;}
+  .hdr .nav{display:none;}
+  button{display:none!important;}
+  .dash,.page{max-width:100%;padding:0;}
+  .hdr{break-after:avoid;}
+  .cc,.tc,.ccard,.tcard,.kpi{break-inside:avoid;}
+  canvas{max-height:280px!important;}
+  body::before,body::after,.orb-mid{display:none;}
 }
 </style><link rel="stylesheet" href="app-ui.css">
-<link rel="stylesheet" href="app-responsive.css"><script src="app-ui-boot.js" defer></script></head><body>
+<link rel="stylesheet" href="app-responsive.css"><script src="app-ui-boot.js" defer></script></head>
+<body>
+<div class="orb-mid"></div>
 <div class="dash">
-<div class="hdr"><button onclick="window.print()" style="position:absolute;right:24px;top:20px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);padding:6px 16px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500;">Exportar PDF</button><h1>Scorecard por Vendedor</h1><div class="sub">Suminregio Industrial — Ventas, margen, clientes, cotizaciones</div><div class="nav">
-<a href="Dashboard_Index.html">Inicio</a>
-<a href="Dashboard_Ventas.html" >Ventas</a>
-<a href="Dashboard_CC.html" >Cartera CC</a>
-<a href="Dashboard_CP.html" >Cuentas x Pagar</a>
-<a href="Dashboard_ABC.html" >ABC Inventario</a>
-<a href="Dashboard_Compras.html" >Compras</a>
-<a href="Dashboard_Clientes.html" >Clientes</a>
-<a href="Dashboard_Comisiones.html" >Comisiones</a>
-<a href="Dashboard_Rotacion.html" >Rotación Resumen</a>
-<a href="Dashboard_Rotacion_Profundo.html" >Rotación Profundo</a>
-<a href="Dashboard_DSO.html" >Cobranza DSO</a>
-<a href="Dashboard_Rentabilidad.html" >Rentabilidad</a>
-<a href="Dashboard_Flujo.html" >Flujo Efectivo</a>
-<a href="Dashboard_Estacionalidad.html" >Estacionalidad</a>
-<a href="Dashboard_Scorecard.html" class="active">Scorecard</a>
-<a href="Dashboard_Alertas.html" >Alertas</a>
-</div></div>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="hdr-top">
+    <div class="hdr-brand">
+      <div class="hdr-logo">S</div>
+      <div>
+        <h1>Scorecard por Vendedor</h1>
+        <div class="sub">SUMINREGIO INDUSTRIAL — Ventas · Margen · Clientes · Cotizaciones</div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div class="live-pill">LIVE</div>
+      <span id="live-clock">--:--:--</span>
+      <button class="btn-export" onclick="window.print()">Exportar PDF</button>
+    </div>
+  </div>
+  <div class="nav">
+    <a href="Dashboard_Index.html">Inicio</a>
+    <a href="Dashboard_Ventas.html">Ventas</a>
+    <a href="Dashboard_CC.html">Cartera CC</a>
+    <a href="Dashboard_CP.html">Cuentas x Pagar</a>
+    <a href="Dashboard_ABC.html">ABC Inventario</a>
+    <a href="Dashboard_Compras.html">Compras</a>
+    <a href="Dashboard_Clientes.html">Clientes</a>
+    <a href="Dashboard_Comisiones.html">Comisiones</a>
+    <a href="Dashboard_Rotacion.html">Rotación Resumen</a>
+    <a href="Dashboard_Rotacion_Profundo.html">Rotación Profundo</a>
+    <a href="Dashboard_DSO.html">Cobranza DSO</a>
+    <a href="Dashboard_Rentabilidad.html">Rentabilidad</a>
+    <a href="Dashboard_Flujo.html">Flujo Efectivo</a>
+    <a href="Dashboard_Estacionalidad.html">Estacionalidad</a>
+    <a href="Dashboard_Scorecard.html" class="active">Scorecard</a>
+    <a href="Dashboard_Alertas.html">Alertas</a>
+  </div>
+</div>
+
+<!-- FILTER BADGE -->
 <div id="filter-badge" style="display:none;text-align:center;margin:0 0 14px;">
-  <span style="background:#e3f2fd;border:1px solid #2196f3;color:#1565c0;border-radius:20px;padding:6px 16px;font-size:13px;display:inline-flex;align-items:center;gap:8px;">
+  <span style="background:rgba(77,166,255,.1);border:1px solid rgba(77,166,255,.3);color:#4DA6FF;border-radius:20px;padding:6px 16px;font-size:13px;display:inline-flex;align-items:center;gap:8px;">
     <span id="filter-text"></span>
-    <button onclick="clearFilter()" style="background:none;border:none;color:#1565c0;cursor:pointer;font-size:16px;padding:0 2px;">✕</button>
+    <button onclick="clearFilter()" style="background:none;border:none;color:#4DA6FF;cursor:pointer;font-size:16px;padding:0 2px;">✕</button>
   </span>
 </div>
+
+<!-- FILTERS -->
 <div class="filters">
-<label>Periodo:</label>
-<select id="f-periodo"><option value="all">Todo el periodo</option><option value="mes">Por mes</option><option value="rango">Rango de fechas</option></select>
-<select id="f-mes" style="display:none"></select>
-<input type="month" id="f-desde" style="display:none">
-<span id="lbl-a" style="display:none;font-size:12px;color:#6c757d">a</span>
-<input type="month" id="f-hasta" style="display:none">
-<label style="margin-left:16px">Vendedor:</label>
-<select id="sel-vend"><option value="ALL">Todos los vendedores</option></select>
+  <label>Periodo:</label>
+  <select id="f-periodo"><option value="all">Todo el periodo</option><option value="mes">Por mes</option><option value="rango">Rango de fechas</option></select>
+  <select id="f-mes" style="display:none"></select>
+  <input type="month" id="f-desde" style="display:none">
+  <span id="lbl-a" style="display:none;font-size:12px;color:var(--muted2)">a</span>
+  <input type="month" id="f-hasta" style="display:none">
+  <label style="margin-left:16px">Vendedor:</label>
+  <select id="sel-vend"><option value="ALL">Todos los vendedores</option></select>
 </div>
+
+<!-- KPI SUMMARY ROW -->
+<div class="section-label">KPIs del equipo</div>
 <section class="krow" id="kpi-row"></section>
+
+<!-- CHARTS ROW 1 -->
+<div class="section-label">Tendencia y comparativa</div>
 <section class="g2">
-<div class="cc"><h3>Venta Mensual</h3><canvas id="ch-trend"></canvas></div>
-<div class="cc"><h3>Comparativa Vendedores</h3><canvas id="ch-radar"></canvas></div>
+  <div class="cc"><h3>Venta Mensual</h3><canvas id="ch-trend"></canvas></div>
+  <div class="cc"><h3>Comparativa Vendedores</h3><canvas id="ch-radar"></canvas></div>
 </section>
+
+<!-- CHARTS ROW 2 -->
+<div class="section-label">Rankings</div>
 <section class="g2">
-<div class="cc"><h3>Ranking por Venta</h3><canvas id="ch-rank"></canvas></div>
-<div class="cc"><h3>Margen Real por Vendedor</h3><canvas id="ch-margen"></canvas></div>
+  <div class="cc"><h3>Ranking por Venta</h3><canvas id="ch-rank"></canvas></div>
+  <div class="cc"><h3>Margen Real por Vendedor</h3><canvas id="ch-margen"></canvas></div>
 </section>
+
+<!-- TABLE -->
+<div class="section-label">Scorecard detallado</div>
 <div class="tc"><h3>Tabla Scorecard Completa</h3>
 <table id="tbl-sc">
 <thead><tr>
-<th onclick="sortTbl(0)">Vendedor</th>
-<th class="tr" onclick="sortTbl(1)">Venta Total</th>
-<th class="tr" onclick="sortTbl(2)">Utilidad</th>
-<th class="tr" onclick="sortTbl(3)">Margen %</th>
-<th class="tr" onclick="sortTbl(4)">Ticket Prom</th>
-<th class="tr" onclick="sortTbl(5)"># Facturas</th>
-<th class="tr" onclick="sortTbl(6)">Clientes</th>
-<th class="tr" onclick="sortTbl(7)">Nuevos</th>
-<th class="tr" onclick="sortTbl(8)">Perdidos</th>
-<th class="tr" onclick="sortTbl(9)">Cotiz.</th>
-<th class="tr" onclick="sortTbl(10)">Conv. %</th>
+  <th onclick="sortTbl(0)" id="th0">Vendedor</th>
+  <th class="tr" onclick="sortTbl(1)" id="th1">Venta Total</th>
+  <th class="tr" onclick="sortTbl(2)" id="th2">Utilidad</th>
+  <th class="tr" onclick="sortTbl(3)" id="th3">Margen %</th>
+  <th class="tr" onclick="sortTbl(4)" id="th4">Ticket Prom</th>
+  <th class="tr" onclick="sortTbl(5)" id="th5"># Facturas</th>
+  <th class="tr" onclick="sortTbl(6)" id="th6">Clientes</th>
+  <th class="tr" onclick="sortTbl(7)" id="th7">Nuevos</th>
+  <th class="tr" onclick="sortTbl(8)" id="th8">Perdidos</th>
+  <th class="tr" onclick="sortTbl(9)" id="th9">Cotiz.</th>
+  <th class="tr" onclick="sortTbl(10)" id="th10">Conv. %</th>
 </tr></thead>
 <tbody id="tbl-body"></tbody>
 </table></div>
-<div class="footer">Última actualización: 11 Mar 2026 — Datos MicroSIP ERP — Suminregio Industrial</div></div>
+
+<div class="footer">Última actualización: 11 Mar 2026 &nbsp;·&nbsp; Datos MicroSIP ERP &nbsp;·&nbsp; Suminregio Industrial</div>
+</div><!-- /.dash -->
+
 <script>
-const CC=['#4C72B0','#DD8452','#55A868','#C44E52','#8172B3','#937860','#DA8BC3','#CCB974','#64B5CD','#8C8C8C'];
+// Live clock
+function tickClock(){
+  const now=new Date();
+  const h=String(now.getHours()).padStart(2,'0');
+  const m=String(now.getMinutes()).padStart(2,'0');
+  const s=String(now.getSeconds()).padStart(2,'0');
+  const el=document.getElementById('live-clock');
+  if(el)el.textContent=h+':'+m+':'+s;
+}
+tickClock();setInterval(tickClock,1000);
+
+const CC=['#4DA6FF','#FF8C42','#00E5A0','#FF4566','#B47DFF','#FFD166','#FF6EC7','#4ECDC4','#64B5CD','#8C8C8C'];
+const AVATAR_COLORS=[
+  ['#4DA6FF','#1a3a5c'],['#FF8C42','#5c3010'],['#00E5A0','#003d2b'],
+  ['#FF4566','#5c0015'],['#B47DFF','#2d1a5c'],['#FFD166','#5c4200'],
+  ['#FF6EC7','#5c1042'],['#4ECDC4','#0f3b39'],
+];
 const MNAMES=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
-function fmt$(n){return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});}
-function fmtS(n){return '$'+(+n||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});}
+function fmt$(n){return'$'+n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:0});}
+function fmtS(n){return'$'+(+n||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});}
 function mesL(m){const[y,mo]=m.split('-');return MNAMES[parseInt(mo)]+' '+y.slice(2);}
+function initials(name){const parts=name.split(' - ')[0].split(' ');return(parts[0]?.[0]||'')+(parts[1]?.[0]||'');}
 
 const D={"scorecards": [{"vendedor": "RICARDO PUENTE - 8186824105", "vendedor_id": 1252033, "total_venta": 2205193.32, "total_utilidad": 940641.77, "margen": 42.7, "n_facturas": 154, "ticket_promedio": 14319.44, "clientes_unicos": 34, "clientes_nuevos": 15, "clientes_perdidos": 14, "n_cotizaciones": 199, "conversion": 26.3, "monthly": [{"mes": "2025-02", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-03", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-04", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-05", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-06", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-07", "venta": 2847.54, "utilidad": 692.19, "n_ops": 3}, {"mes": "2025-08", "venta": 13315.33, "utilidad": 3720.59, "n_ops": 11}, {"mes": "2025-09", "venta": 49151.96, "utilidad": 17206.59, "n_ops": 14}, {"mes": "2025-10", "venta": 65728.85, "utilidad": 28743.41, "n_ops": 15}, {"mes": "2025-11", "venta": 94530.05, "utilidad": 34119.99, "n_ops": 22}, {"mes": "2025-12", "venta": 27919.36, "utilidad": 13406.83, "n_ops": 22}, {"mes": "2026-01", "venta": 137746.88, "utilidad": 50366.47, "n_ops": 24}, {"mes": "2026-02", "venta": 344747.98, "utilidad": 165282.47, "n_ops": 35}, {"mes": "2026-03", "venta": 1469205.37, "utilidad": 627103.24, "n_ops": 8}]}, {"vendedor": "ESTEFANIA LONGORIA - 8124282927", "vendedor_id": 909938, "total_venta": 2155628.37, "total_utilidad": 830604.11, "margen": 38.5, "n_facturas": 1460, "ticket_promedio": 1476.46, "clientes_unicos": 178, "clientes_nuevos": 33, "clientes_perdidos": 112, "n_cotizaciones": 280, "conversion": 5.1, "monthly": [{"mes": "2025-02", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-03", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-04", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-05", "venta": 8357.65, "utilidad": 2093.55, "n_ops": 22}, {"mes": "2025-06", "venta": 78268.66, "utilidad": 29076.36, "n_ops": 112}, {"mes": "2025-07", "venta": 164893.74, "utilidad": 51463.04, "n_ops": 221}, {"mes": "2025-08", "venta": 293579.19, "utilidad": 122865.05, "n_ops": 179}, {"mes": "2025-09", "venta": 252868.1, "utilidad": 77265.59, "n_ops": 207}, {"mes": "2025-10", "venta": 321892.78, "utilidad": 120767.06, "n_ops": 174}, {"mes": "2025-11", "venta": 196666.9, "utilidad": 78853.68, "n_ops": 106}, {"mes": "2025-12", "venta": 183421.57, "utilidad": 66461.1, "n_ops": 118}, {"mes": "2026-01", "venta": 336090.09, "utilidad": 139773.25, "n_ops": 168}, {"mes": "2026-02", "venta": 234963.69, "utilidad": 99265.63, "n_ops": 113}, {"mes": "2026-03", "venta": 84626.0, "utilidad": 42719.78, "n_ops": 40}]}, {"vendedor": "JOSE ANTONIO HERNANDEZ - 8110736102", "vendedor_id": 1249747, "total_venta": 1332912.19, "total_utilidad": 637778.6, "margen": 47.8, "n_facturas": 43, "ticket_promedio": 30997.96, "clientes_unicos": 8, "clientes_nuevos": 2, "clientes_perdidos": 3, "n_cotizaciones": 65, "conversion": 33.7, "monthly": [{"mes": "2025-02", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-03", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-04", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-05", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-06", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-07", "venta": 120000.0, "utilidad": -21060.24, "n_ops": 2}, {"mes": "2025-08", "venta": 98249.48, "utilidad": 45679.62, "n_ops": 8}, {"mes": "2025-09", "venta": 674622.0, "utilidad": 420712.81, "n_ops": 4}, {"mes": "2025-10", "venta": 26912.81, "utilidad": 7928.39, "n_ops": 2}, {"mes": "2025-11", "venta": 65485.79, "utilidad": 14774.57, "n_ops": 6}, {"mes": "2025-12", "venta": 92369.08, "utilidad": 32826.46, "n_ops": 6}, {"mes": "2026-01", "venta": 178804.78, "utilidad": 104502.5, "n_ops": 5}, {"mes": "2026-02", "venta": 76468.25, "utilidad": 32414.5, "n_ops": 10}, {"mes": "2026-03", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}]}, {"vendedor": "CARLOS CABALLERO - 8124451808", "vendedor_id": 1260275, "total_venta": 1254250.93, "total_utilidad": 461658.03, "margen": 36.8, "n_facturas": 507, "ticket_promedio": 2473.87, "clientes_unicos": 88, "clientes_nuevos": 32, "clientes_perdidos": 44, "n_cotizaciones": 81, "conversion": 19.8, "monthly": [{"mes": "2025-02", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-03", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-04", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-05", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-06", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-07", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-08", "venta": 4205.06, "utilidad": 1441.02, "n_ops": 11}, {"mes": "2025-09", "venta": 5791.26, "utilidad": 2112.59, "n_ops": 15}, {"mes": "2025-10", "venta": 234251.81, "utilidad": 67882.56, "n_ops": 60}, {"mes": "2025-11", "venta": 96962.3, "utilidad": 29755.26, "n_ops": 94}, {"mes": "2025-12", "venta": 84737.24, "utilidad": 32581.88, "n_ops": 98}, {"mes": "2026-01", "venta": 509054.75, "utilidad": 183250.66, "n_ops": 78}, {"mes": "2026-02", "venta": 143681.55, "utilidad": 65700.24, "n_ops": 127}, {"mes": "2026-03", "venta": 175566.96, "utilidad": 78933.81, "n_ops": 24}]}, {"vendedor": "JOSE GARZA LOZANO", "vendedor_id": 813928, "total_venta": 1140391.11, "total_utilidad": 402402.29, "margen": 35.3, "n_facturas": 77, "ticket_promedio": 14810.27, "clientes_unicos": 14, "clientes_nuevos": 0, "clientes_perdidos": 14, "n_cotizaciones": 57, "conversion": 55.5, "monthly": [{"mes": "2025-02", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-03", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-04", "venta": 261.03, "utilidad": 155.38, "n_ops": 3}, {"mes": "2025-05", "venta": 127782.44, "utilidad": 44517.18, "n_ops": 17}, {"mes": "2025-06", "venta": 191266.85, "utilidad": 64556.16, "n_ops": 12}, {"mes": "2025-07", "venta": 220773.21, "utilidad": 55417.04, "n_ops": 17}, {"mes": "2025-08", "venta": 314530.07, "utilidad": 70223.56, "n_ops": 15}, {"mes": "2025-09", "venta": 285777.51, "utilidad": 167532.96, "n_ops": 13}, {"mes": "2025-10", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-11", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-12", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2026-01", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2026-02", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2026-03", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}]}, {"vendedor": "ELIAS MARIN - 8187091260", "vendedor_id": 986405, "total_venta": 404005.62, "total_utilidad": 67423.77, "margen": 16.7, "n_facturas": 59, "ticket_promedio": 6847.55, "clientes_unicos": 6, "clientes_nuevos": 0, "clientes_perdidos": 4, "n_cotizaciones": 62, "conversion": 40.4, "monthly": [{"mes": "2025-02", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-03", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-04", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-05", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-06", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-07", "venta": 17312.35, "utilidad": -90.47, "n_ops": 5}, {"mes": "2025-08", "venta": 56167.07, "utilidad": 9682.91, "n_ops": 4}, {"mes": "2025-09", "venta": 42597.25, "utilidad": 10514.98, "n_ops": 10}, {"mes": "2025-10", "venta": 39273.48, "utilidad": 8530.49, "n_ops": 8}, {"mes": "2025-11", "venta": 101207.03, "utilidad": 5958.11, "n_ops": 11}, {"mes": "2025-12", "venta": 38381.98, "utilidad": 7756.76, "n_ops": 7}, {"mes": "2026-01", "venta": 67548.48, "utilidad": 14057.21, "n_ops": 9}, {"mes": "2026-02", "venta": 11285.78, "utilidad": -680.01, "n_ops": 3}, {"mes": "2026-03", "venta": 30232.2, "utilidad": 11693.78, "n_ops": 2}]}, {"vendedor": "GUADALUPE ZARATE", "vendedor_id": 793260, "total_venta": 339945.8, "total_utilidad": 97338.73, "margen": 28.6, "n_facturas": 388, "ticket_promedio": 876.15, "clientes_unicos": 65, "clientes_nuevos": 0, "clientes_perdidos": 65, "n_cotizaciones": 46, "conversion": 0.0, "monthly": [{"mes": "2025-02", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-03", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-04", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-05", "venta": 136490.43, "utilidad": 44033.97, "n_ops": 145}, {"mes": "2025-06", "venta": 53879.64, "utilidad": 17099.35, "n_ops": 88}, {"mes": "2025-07", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-08", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-09", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-10", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-11", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-12", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2026-01", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2026-02", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2026-03", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}]}, {"vendedor": "DEBANHI LOPEZ", "vendedor_id": 1316974, "total_venta": 244042.79, "total_utilidad": 124616.76, "margen": 51.1, "n_facturas": 45, "ticket_promedio": 5423.17, "clientes_unicos": 5, "clientes_nuevos": 0, "clientes_perdidos": 4, "n_cotizaciones": 21, "conversion": 53.3, "monthly": [{"mes": "2025-02", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-03", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-04", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-05", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-06", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-07", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-08", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-09", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2025-10", "venta": 65687.47, "utilidad": 38123.17, "n_ops": 8}, {"mes": "2025-11", "venta": 49766.7, "utilidad": 26586.39, "n_ops": 23}, {"mes": "2025-12", "venta": 57275.07, "utilidad": 24923.99, "n_ops": 7}, {"mes": "2026-01", "venta": 71313.55, "utilidad": 34983.2, "n_ops": 7}, {"mes": "2026-02", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}, {"mes": "2026-03", "venta": 0.0, "utilidad": 0.0, "n_ops": 0}]}], "months": ["2025-02", "2025-03", "2025-04", "2025-05", "2025-06", "2025-07", "2025-08", "2025-09", "2025-10", "2025-11", "2025-12", "2026-01", "2026-02", "2026-03"], "total_venta": 9076370.13, "total_utilidad": 3562464.06};
 
@@ -207,6 +474,11 @@ function updateAll(){
   render(vend);
 }
 
+// Chart.js dark theme defaults
+Chart.defaults.color='#6B7A8D';
+Chart.defaults.borderColor='rgba(255,255,255,0.06)';
+Chart.defaults.font.family="'DM Mono', monospace";
+
 function render(vend){
   const isAll=vend==='ALL';
   const scs=isAll?D.scorecards:D.scorecards.filter(s=>s.vendedor===vend);
@@ -234,10 +506,11 @@ function render(vend){
   const ncot=scs.reduce((a,s)=>a+s.n_cotizaciones,0);
   const conv=(ncot+nf)>0?(nf/(ncot+nf)*100):0;
 
+  const mgColor=mg>=35?'var(--green)':mg>=25?'var(--gold)':'var(--red)';
   document.getElementById('kpi-row').innerHTML=`
-    <div class="kpi"><div class="kpi-l">Venta Total</div><div class="kpi-v">${fmtS(tv)}</div></div>
-    <div class="kpi"><div class="kpi-l">Utilidad</div><div class="kpi-v" style="color:var(--c3)">${fmtS(tu)}</div></div>
-    <div class="kpi"><div class="kpi-l">Margen</div><div class="kpi-v">${mg.toFixed(1)}%</div></div>
+    <div class="kpi"><div class="kpi-l">Venta Total</div><div class="kpi-v" style="color:var(--blue)">${fmtS(tv)}</div></div>
+    <div class="kpi"><div class="kpi-l">Utilidad</div><div class="kpi-v" style="color:var(--green)">${fmtS(tu)}</div></div>
+    <div class="kpi"><div class="kpi-l">Margen</div><div class="kpi-v" style="color:${mgColor}">${mg.toFixed(1)}%</div></div>
     <div class="kpi"><div class="kpi-l">Ticket Prom</div><div class="kpi-v">${fmtS(tp)}</div></div>
     <div class="kpi"><div class="kpi-l">Facturas</div><div class="kpi-v">${nf.toLocaleString()}</div></div>
     <div class="kpi"><div class="kpi-l">Clientes</div><div class="kpi-v">${nc}</div></div>
@@ -254,13 +527,13 @@ function render(vend){
       const selectedColor=FILTER_STATE.vendedor===s.vendedor?baseColor:baseColor+'4D';
       return{label:s.vendedor.split(' ')[0],data:filteredMonths.map(m=>mMap[m]||0),borderColor:selectedColor,borderWidth:FILTER_STATE.vendedor===s.vendedor?2:1,tension:.3,pointRadius:2,fill:false};
     });
-    chTrend=new Chart(document.getElementById('ch-trend'),{type:'line',data:{labels:filteredMonths.map(m=>mesL(m)),datasets},options:{responsive:true,maintainAspectRatio:false,onClick:(evt,elements)=>{if(elements.length>0){const idx=elements[0].datasetIndex;const vendedor=D.scorecards[idx].vendedor;applyFilter(vendedor);}},plugins:{legend:{position:'top',labels:{usePointStyle:true,font:{size:10}}},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+fmt$(ctx.parsed.y)}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>fmtS(v)}},x:{grid:{display:false}}}}});
+    chTrend=new Chart(document.getElementById('ch-trend'),{type:'line',data:{labels:filteredMonths.map(m=>mesL(m)),datasets},options:{responsive:true,maintainAspectRatio:false,onClick:(evt,elements)=>{if(elements.length>0){const idx=elements[0].datasetIndex;const vendedor=D.scorecards[idx].vendedor;applyFilter(vendedor);}},plugins:{legend:{position:'top',labels:{usePointStyle:true,font:{size:10},color:'#8A96A8'}},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+fmt$(ctx.parsed.y)},backgroundColor:'rgba(12,27,41,.95)',borderColor:'rgba(255,255,255,.1)',borderWidth:1}},scales:{y:{beginAtZero:true,ticks:{callback:v=>fmtS(v),color:'#6B7A8D'},grid:{color:'rgba(255,255,255,.04)'}},x:{grid:{display:false},ticks:{color:'#6B7A8D'}}}}});
   }else{
     const mMap=Object.fromEntries(sc1.monthly.map(m=>[m.mes,m]));
     chTrend=new Chart(document.getElementById('ch-trend'),{type:'bar',data:{labels:filteredMonths.map(m=>mesL(m)),datasets:[
-      {label:'Venta',data:filteredMonths.map(m=>(mMap[m]||{venta:0}).venta||0),backgroundColor:'#4C72B0CC',borderRadius:4},
-      {label:'Utilidad',data:filteredMonths.map(m=>(mMap[m]||{utilidad:0}).utilidad||0),backgroundColor:'#55A868CC',borderRadius:4}
-    ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{usePointStyle:true}},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+fmt$(ctx.parsed.y)}}},scales:{y:{beginAtZero:true,ticks:{callback:v=>fmtS(v)}},x:{grid:{display:false}}}}});
+      {label:'Venta',data:filteredMonths.map(m=>(mMap[m]||{venta:0}).venta||0),backgroundColor:'#4DA6FFCC',borderRadius:4},
+      {label:'Utilidad',data:filteredMonths.map(m=>(mMap[m]||{utilidad:0}).utilidad||0),backgroundColor:'#00E5A0CC',borderRadius:4}
+    ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{usePointStyle:true,color:'#8A96A8'}},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+fmt$(ctx.parsed.y)},backgroundColor:'rgba(12,27,41,.95)',borderColor:'rgba(255,255,255,.1)',borderWidth:1}},scales:{y:{beginAtZero:true,ticks:{callback:v=>fmtS(v),color:'#6B7A8D'},grid:{color:'rgba(255,255,255,.04)'}},x:{grid:{display:false},ticks:{color:'#6B7A8D'}}}}});
   }
 
   // Radar with click handler
@@ -281,12 +554,12 @@ function render(vend){
       borderColor:selectedColor,backgroundColor:selectedColor+'CC',borderWidth:FILTER_STATE.vendedor===s.vendedor?2:1,pointRadius:3
     };
   });
-  chRadar=new Chart(document.getElementById('ch-radar'),{type:'radar',data:{labels:['Venta','Margen','Clientes','Nuevos','Conversión'],datasets:rds},options:{responsive:true,maintainAspectRatio:false,onClick:(evt,elements)=>{if(elements.length>0){const idx=elements[0].datasetIndex;const vendedor=radarScs[idx].vendedor;applyFilter(vendedor);}},scales:{r:{beginAtZero:true,max:100,ticks:{display:false}}},plugins:{legend:{position:'top',labels:{usePointStyle:true,font:{size:10}}}}}});
+  chRadar=new Chart(document.getElementById('ch-radar'),{type:'radar',data:{labels:['Venta','Margen','Clientes','Nuevos','Conversión'],datasets:rds},options:{responsive:true,maintainAspectRatio:false,onClick:(evt,elements)=>{if(elements.length>0){const idx=elements[0].datasetIndex;const vendedor=radarScs[idx].vendedor;applyFilter(vendedor);}},scales:{r:{beginAtZero:true,max:100,ticks:{display:false},grid:{color:'rgba(255,255,255,.06)'},pointLabels:{color:'#8A96A8',font:{size:11}},angleLines:{color:'rgba(255,255,255,.06)'}}},plugins:{legend:{position:'top',labels:{usePointStyle:true,font:{size:10},color:'#8A96A8'}},tooltip:{backgroundColor:'rgba(12,27,41,.95)',borderColor:'rgba(255,255,255,.1)',borderWidth:1}}}});
 
   // Rank bar with click handler
   if(chRank)chRank.destroy();
   const ranked=[...scData].sort((a,b)=>b.fventa-a.fventa);
-  chRank=new Chart(document.getElementById('ch-rank'),{type:'bar',data:{labels:ranked.map(s=>s.vendedor.split(' ')[0]),datasets:[{label:'Venta',data:ranked.map(s=>s.fventa),backgroundColor:ranked.map(s=>FILTER_STATE.vendedor===s.vendedor?'#DD8452CC':'#4C72B0CC'),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',onClick:(evt,elements)=>{if(elements.length>0){const idx=elements[0].index;const vendedor=ranked[idx].vendedor;applyFilter(vendedor);}},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>fmt$(ctx.parsed.x)}}},scales:{x:{beginAtZero:true,ticks:{callback:v=>fmtS(v)}},y:{grid:{display:false}}}}});
+  chRank=new Chart(document.getElementById('ch-rank'),{type:'bar',data:{labels:ranked.map(s=>s.vendedor.split(' ')[0]),datasets:[{label:'Venta',data:ranked.map(s=>s.fventa),backgroundColor:ranked.map((s,i)=>{if(i===0)return'#E6A800CC';if(i===1)return'#C0C8D4CC';if(i===2)return'#CD7F32CC';return FILTER_STATE.vendedor===s.vendedor?'#4DA6FFCC':'#4DA6FF33';}),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',onClick:(evt,elements)=>{if(elements.length>0){const idx=elements[0].index;const vendedor=ranked[idx].vendedor;applyFilter(vendedor);}},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>fmt$(ctx.parsed.x)},backgroundColor:'rgba(12,27,41,.95)',borderColor:'rgba(255,255,255,.1)',borderWidth:1}},scales:{x:{beginAtZero:true,ticks:{callback:v=>fmtS(v),color:'#6B7A8D'},grid:{color:'rgba(255,255,255,.04)'}},y:{grid:{display:false},ticks:{color:'#8A96A8'}}}}});
 
   // Margen bar with click handler
   if(chMargen)chMargen.destroy();
@@ -295,18 +568,48 @@ function render(vend){
     const mgb=b.fventa>0?(b.futilidad/b.fventa*100):0;
     return mgb-mga;
   });
-  chMargen=new Chart(document.getElementById('ch-margen'),{type:'bar',data:{labels:byMargen.map(s=>s.vendedor.split(' ')[0]),datasets:[{label:'Margen %',data:byMargen.map(s=>s.fventa>0?(s.futilidad/s.fventa*100):0),backgroundColor:byMargen.map(s=>{const m=s.fventa>0?(s.futilidad/s.fventa*100):0;let c=m>=35?'#55A868CC':m>=25?'#CCB974CC':'#C44E52CC';return FILTER_STATE.vendedor===s.vendedor?c:c.replace('CC','4D');}),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',onClick:(evt,elements)=>{if(elements.length>0){const idx=elements[0].index;const vendedor=byMargen[idx].vendedor;applyFilter(vendedor);}},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.parsed.x.toFixed(1)+'%'}}},scales:{x:{beginAtZero:true,max:60,ticks:{callback:v=>v+'%'}},y:{grid:{display:false}}}}});
+  chMargen=new Chart(document.getElementById('ch-margen'),{type:'bar',data:{labels:byMargen.map(s=>s.vendedor.split(' ')[0]),datasets:[{label:'Margen %',data:byMargen.map(s=>s.fventa>0?(s.futilidad/s.fventa*100):0),backgroundColor:byMargen.map(s=>{const m=s.fventa>0?(s.futilidad/s.fventa*100):0;let c=m>=35?'#00E5A0CC':m>=25?'#E6A800CC':'#FF4566CC';return FILTER_STATE.vendedor===s.vendedor?c:c.replace('CC','4D');}),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',onClick:(evt,elements)=>{if(elements.length>0){const idx=elements[0].index;const vendedor=byMargen[idx].vendedor;applyFilter(vendedor);}},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.parsed.x.toFixed(1)+'%'},backgroundColor:'rgba(12,27,41,.95)',borderColor:'rgba(255,255,255,.1)',borderWidth:1}},scales:{x:{beginAtZero:true,max:60,ticks:{callback:v=>v+'%',color:'#6B7A8D'},grid:{color:'rgba(255,255,255,.04)'}},y:{grid:{display:false},ticks:{color:'#8A96A8'}}}}});
 
-  // Table
+  // Table — sorted by fventa desc, with ranking decorations
   let h='';
   const tblData=[...scData].sort((a,b)=>b.fventa-a.fventa);
-  tblData.forEach(s=>{
+  const maxVenta=tblData[0]?.fventa||1;
+
+  tblData.forEach((s,idx)=>{
     const mg_=s.fventa>0?(s.futilidad/s.fventa*100):0;
     const mbg=mg_>=35?'badge-g':mg_>=25?'badge-y':'badge-r';
     const tp_=s.fnops>0?s.fventa/s.fnops:0;
-    const rowClass=FILTER_STATE.vendedor===s.vendedor?'style="background:#f0f7ff;"':'';
-    h+=`<tr ${rowClass} onclick="applyFilter('${s.vendedor}')" style="cursor:pointer;">
-      <td>${s.vendedor.split(' - ')[0]}</td>
+    const isActive=FILTER_STATE.vendedor===s.vendedor;
+    const rankClass=idx===0?'rank-1':idx===1?'rank-2':idx===2?'rank-3':'';
+    const activeClass=isActive?'row-active':'';
+
+    // Medal
+    let medalHtml='';
+    if(idx===0)medalHtml='<span class="medal medal-1">1</span>';
+    else if(idx===1)medalHtml='<span class="medal medal-2">2</span>';
+    else if(idx===2)medalHtml='<span class="medal medal-3">3</span>';
+    else medalHtml=`<span class="medal medal-n">${idx+1}</span>`;
+
+    // Avatar
+    const [avFg,avBg]=AVATAR_COLORS[idx%AVATAR_COLORS.length];
+    const ini=initials(s.vendedor);
+    const avatarHtml=`<span class="avatar" style="background:${avBg};color:${avFg};border:1.5px solid ${avFg}33;">${ini}</span>`;
+
+    // Progress bar for margen
+    const pbarClass=mg_>=35?'green':mg_>=25?'yellow':'red';
+    const pbarW=Math.min(100,Math.max(0,mg_/60*100)).toFixed(1);
+    const progressHtml=`<div class="pbar-wrap"><div class="pbar"><div class="pbar-fill ${pbarClass}" style="width:${pbarW}%"></div></div><span class="pbar-pct">${mg_.toFixed(1)}%</span></div>`;
+
+    h+=`<tr class="${rankClass} ${activeClass}" onclick="applyFilter('${s.vendedor.replace(/'/g,"\\'")}')">
+      <td>
+        <div class="vend-cell">
+          ${medalHtml}${avatarHtml}
+          <div>
+            <div class="vend-name">${s.vendedor.split(' - ')[0]}</div>
+            ${progressHtml}
+          </div>
+        </div>
+      </td>
       <td class="tr">${fmt$(s.fventa)}</td>
       <td class="tr">${fmt$(s.futilidad)}</td>
       <td class="tr"><span class="badge ${mbg}">${mg_.toFixed(1)}%</span></td>
@@ -326,7 +629,11 @@ render('ALL');
 
 let sortCol=-1,sortAsc=true;
 function sortTbl(col){
+  // Clear previous sort indicators
+  document.querySelectorAll('thead th').forEach(th=>{th.classList.remove('sort-asc','sort-desc');});
   if(sortCol===col)sortAsc=!sortAsc;else{sortCol=col;sortAsc=false;}
+  const th=document.getElementById('th'+col);
+  if(th)th.classList.add(sortAsc?'sort-asc':'sort-desc');
   const tbody=document.getElementById('tbl-body');
   const rows=[...tbody.querySelectorAll('tr')];
   rows.sort((a,b)=>{

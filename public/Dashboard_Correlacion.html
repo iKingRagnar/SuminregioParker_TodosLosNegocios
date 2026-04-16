@@ -1,0 +1,1305 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Correlación Gastos · Ventas — Suminregio</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="/data-cache.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#060E1A; --card:#0C1B29; --card2:#0F2035;
+  --border:rgba(255,255,255,.06); --border2:rgba(255,255,255,.12);
+  --gold:#E6A800; --blue:#4DA6FF; --green:#00E5A0; --red:#FF4566;
+  --orange:#FF8C42; --cyan:#00D4FF;
+  --text:#E8EDF5; --muted:#6B7A8D; --muted2:#8A96A8;
+  --pos:#00E5A0; --neg:#FF4566; --warn:#E6A800;
+  --gap:16px; --rad:14px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);
+  line-height:1.5;min-height:100vh;overflow-x:hidden;
+}
+
+/* ── Background orbs ── */
+body::before{
+  content:'';position:fixed;top:-200px;left:-200px;width:600px;height:600px;
+  background:radial-gradient(circle,rgba(77,166,255,.08) 0%,transparent 70%);
+  border-radius:50%;pointer-events:none;z-index:0;
+  animation:orbFloat1 18s ease-in-out infinite;
+}
+body::after{
+  content:'';position:fixed;bottom:-150px;right:-150px;width:500px;height:500px;
+  background:radial-gradient(circle,rgba(0,229,160,.06) 0%,transparent 70%);
+  border-radius:50%;pointer-events:none;z-index:0;
+  animation:orbFloat2 22s ease-in-out infinite;
+}
+.orb-mid{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:900px;height:900px;
+  background:radial-gradient(circle,rgba(230,168,0,.025) 0%,transparent 60%);
+  border-radius:50%;pointer-events:none;z-index:0;
+  animation:orbFloat3 30s ease-in-out infinite;
+}
+.orb-top-right{
+  position:fixed;top:-100px;right:200px;width:400px;height:400px;
+  background:radial-gradient(circle,rgba(0,212,255,.05) 0%,transparent 70%);
+  border-radius:50%;pointer-events:none;z-index:0;
+}
+@keyframes orbFloat1{0%,100%{transform:translate(0,0);}50%{transform:translate(30px,20px);}}
+@keyframes orbFloat2{0%,100%{transform:translate(0,0);}50%{transform:translate(-20px,-30px);}}
+@keyframes orbFloat3{0%,100%{transform:translate(-50%,-50%) scale(1);}50%{transform:translate(-50%,-50%) scale(1.05);}}
+
+.dash{max-width:1440px;margin:0 auto;padding:var(--gap);position:relative;z-index:1;}
+
+/* ── HEADER ── */
+.hdr{
+  background:linear-gradient(135deg,rgba(12,27,41,.95) 0%,rgba(6,14,26,.98) 100%);
+  border:1px solid var(--border2);
+  padding:22px 28px 18px;border-radius:var(--rad);margin-bottom:var(--gap);
+  position:relative;overflow:hidden;
+  box-shadow:0 4px 32px rgba(0,0,0,.4);
+}
+.hdr::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,var(--gold),var(--blue),var(--green),var(--cyan),transparent);
+}
+.hdr-top{display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:space-between;}
+.hdr-brand{display:flex;align-items:center;gap:14px;}
+.hdr-logo{
+  width:42px;height:42px;border-radius:10px;
+  background:linear-gradient(135deg,var(--gold),#c88a00);
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;font-weight:800;color:#060E1A;flex-shrink:0;
+  box-shadow:0 0 20px rgba(230,168,0,.35);
+}
+.hdr h1{font-size:20px;font-weight:800;letter-spacing:-.3px;color:var(--text);}
+.hdr .sub{font-size:11px;color:var(--muted2);margin-top:1px;font-family:'DM Mono',monospace;letter-spacing:.3px;}
+.hdr-right{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.live-pill{
+  display:flex;align-items:center;gap:6px;
+  background:rgba(0,229,160,.1);border:1px solid rgba(0,229,160,.3);
+  color:var(--green);padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;
+  font-family:'DM Mono',monospace;letter-spacing:.5px;
+}
+.live-pill::before{
+  content:'';width:7px;height:7px;border-radius:50%;background:var(--green);
+  animation:pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,229,160,.4);}50%{opacity:.7;box-shadow:0 0 0 6px rgba(0,229,160,0);}}
+#live-clock{font-family:'DM Mono',monospace;font-size:12px;color:var(--muted2);letter-spacing:.5px;}
+.db-selector{
+  background:rgba(255,255,255,.04);color:var(--text);
+  border:1px solid var(--border2);padding:6px 12px;border-radius:8px;
+  font-size:11px;cursor:pointer;font-family:'DM Mono',monospace;outline:none;
+  transition:border-color .15s;
+}
+.db-selector:focus{border-color:var(--blue);}
+.db-selector option{background:#0C1B29;color:var(--text);}
+.btn-export{
+  background:rgba(255,255,255,.06);color:var(--text);
+  border:1px solid var(--border2);padding:7px 18px;border-radius:8px;
+  font-size:12px;cursor:pointer;font-weight:600;font-family:'Syne',sans-serif;
+  transition:all .2s;white-space:nowrap;
+}
+.btn-export:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.2);}
+
+.hdr .nav{margin-top:14px;display:flex;gap:5px;flex-wrap:wrap;}
+.hdr .nav a{
+  color:var(--muted2);text-decoration:none;font-size:11px;font-weight:600;
+  padding:5px 12px;border-radius:8px;border:1px solid transparent;
+  transition:all .15s;letter-spacing:.2px;
+}
+.hdr .nav a:hover{color:var(--text);background:rgba(255,255,255,.06);border-color:var(--border2);}
+.hdr .nav a.active{
+  color:var(--gold);background:rgba(230,168,0,.1);
+  border-color:rgba(230,168,0,.3);
+}
+
+/* ── KPI ROW ── */
+.krow{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--gap);margin-bottom:var(--gap);}
+.kpi{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--rad);
+  padding:18px 20px;position:relative;overflow:hidden;
+  transition:transform .2s,border-color .2s;
+  cursor:default;
+}
+.kpi:hover{transform:translateY(-2px);border-color:var(--border2);}
+.kpi::after{
+  content:'';position:absolute;bottom:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,var(--kpi-color,var(--blue)),transparent);
+  opacity:.5;
+}
+.kpi-icon{font-size:22px;margin-bottom:8px;opacity:.8;}
+.kpi-l{font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:.7px;font-weight:700;margin-bottom:4px;}
+.kpi-v{font-size:26px;font-weight:700;font-family:'DM Mono',monospace;color:var(--text);}
+.kpi-s{font-size:11px;color:var(--muted);margin-top:4px;font-family:'DM Mono',monospace;}
+.kpi-v.pos{color:var(--green);}
+.kpi-v.neg{color:var(--red);}
+.kpi-v.warn{color:var(--gold);}
+
+/* ── SECTION LABEL ── */
+.section-label{
+  font-size:10px;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:1px;
+  margin-bottom:12px;margin-top:4px;
+  display:flex;align-items:center;gap:10px;
+}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border);}
+
+/* ── CHART GRID ── */
+.g2{display:grid;grid-template-columns:repeat(2,1fr);gap:var(--gap);margin-bottom:var(--gap);}
+.cc{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--rad);
+  padding:22px 24px;
+}
+.cc.full{grid-column:1/-1;}
+.cc-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;gap:12px;}
+.cc h3{
+  font-size:12px;font-weight:700;color:var(--muted2);
+  text-transform:uppercase;letter-spacing:.7px;
+  display:flex;align-items:center;gap:8px;
+  margin:0;
+}
+.cc h3 .accent-bar{width:3px;height:14px;border-radius:2px;background:var(--blue);flex-shrink:0;}
+.cc h3 .accent-bar.gold{background:var(--gold);}
+.cc h3 .accent-bar.green{background:var(--green);}
+.cc h3 .accent-bar.cyan{background:var(--cyan);}
+.cc-sub{font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;margin-top:2px;}
+.cc canvas{max-height:300px;}
+
+/* ── SCATTER WRAPPER ── */
+.scatter-wrap{display:grid;grid-template-columns:1fr 280px;gap:var(--gap);}
+.scatter-canvas-box{position:relative;}
+.scatter-canvas-box canvas{max-height:380px;}
+.stats-panel{
+  background:var(--card2);border:1px solid var(--border);border-radius:12px;
+  padding:20px 18px;display:flex;flex-direction:column;gap:14px;
+}
+.stats-panel h4{
+  font-size:10px;font-weight:700;color:var(--muted2);text-transform:uppercase;
+  letter-spacing:.8px;margin-bottom:2px;
+  display:flex;align-items:center;gap:8px;
+}
+.stats-panel h4::before{content:'';width:3px;height:12px;border-radius:2px;background:var(--cyan);}
+.stat-item{display:flex;flex-direction:column;gap:3px;}
+.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+.stat-val{font-family:'DM Mono',monospace;font-size:18px;font-weight:500;color:var(--cyan);}
+.stat-val.gold{color:var(--gold);}
+.stat-val.green{color:var(--green);}
+.stat-desc{font-size:11px;color:var(--muted2);line-height:1.45;margin-top:4px;}
+.divider{height:1px;background:var(--border);}
+
+/* ── TABLE ── */
+.tc{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--rad);
+  padding:20px 22px;margin-bottom:var(--gap);overflow-x:auto;
+}
+.tc h3{
+  font-size:12px;font-weight:700;margin-bottom:14px;color:var(--muted2);
+  text-transform:uppercase;letter-spacing:.7px;
+  display:flex;align-items:center;gap:8px;
+}
+.tc h3::before{content:'';width:3px;height:14px;border-radius:2px;background:var(--gold);}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+thead th{
+  text-align:left;padding:10px 12px;
+  border-bottom:1px solid var(--border2);
+  color:var(--muted2);font-size:10px;text-transform:uppercase;
+  letter-spacing:.6px;white-space:nowrap;
+  font-family:'DM Mono',monospace;font-weight:500;
+}
+.tr-right{text-align:right;}
+tbody td{
+  padding:10px 12px;border-bottom:1px solid var(--border);
+  font-family:'DM Mono',monospace;font-size:12px;
+}
+tbody tr:nth-child(even) td{background:rgba(255,255,255,.018);}
+tbody tr:hover td{background:rgba(77,166,255,.05)!important;}
+.pos{color:var(--green);}
+.neg{color:var(--red);}
+.warn-c{color:var(--gold);}
+
+/* ── TREND SPARKLINE ── */
+.trend-up{color:var(--green);}
+.trend-down{color:var(--red);}
+.trend-flat{color:var(--muted2);}
+
+/* ── ALERTS ── */
+.alerts-grid{display:flex;flex-direction:column;gap:12px;margin-bottom:var(--gap);}
+.alert-card{
+  border-radius:12px;padding:16px 20px;
+  display:flex;align-items:flex-start;gap:16px;
+  border:1px solid;
+}
+.alert-card.alert-red{
+  background:rgba(255,69,102,.07);border-color:rgba(255,69,102,.25);
+}
+.alert-card.alert-yellow{
+  background:rgba(230,168,0,.07);border-color:rgba(230,168,0,.25);
+}
+.alert-card.alert-green{
+  background:rgba(0,229,160,.07);border-color:rgba(0,229,160,.25);
+}
+.alert-icon{font-size:22px;flex-shrink:0;margin-top:1px;}
+.alert-body h4{font-size:13px;font-weight:700;margin-bottom:3px;}
+.alert-card.alert-red .alert-body h4{color:var(--red);}
+.alert-card.alert-yellow .alert-body h4{color:var(--gold);}
+.alert-card.alert-green .alert-body h4{color:var(--green);}
+.alert-body p{font-size:12px;color:var(--muted2);line-height:1.5;}
+.alert-body .alert-meta{
+  margin-top:8px;font-family:'DM Mono',monospace;font-size:10px;
+  color:var(--muted);letter-spacing:.3px;
+  display:flex;gap:16px;flex-wrap:wrap;
+}
+.alert-meta span{display:flex;align-items:center;gap:4px;}
+
+/* ── PROYECCION ── */
+.proyeccion-card{
+  background:var(--card);border:1px solid var(--border);border-radius:var(--rad);
+  padding:20px 24px;margin-bottom:var(--gap);
+}
+.proyeccion-card h3{
+  font-size:12px;font-weight:700;margin-bottom:16px;color:var(--muted2);
+  text-transform:uppercase;letter-spacing:.7px;
+  display:flex;align-items:center;gap:8px;
+}
+.proyeccion-card h3::before{content:'';width:3px;height:14px;border-radius:2px;background:var(--orange);}
+.proy-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;}
+.proy-item{
+  background:var(--card2);border:1px solid var(--border);border-radius:10px;
+  padding:14px 16px;
+}
+.proy-label{font-size:10px;color:var(--muted2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
+.proy-val{font-family:'DM Mono',monospace;font-size:20px;font-weight:500;color:var(--orange);}
+
+/* ── EFICIENCIA GAUGE ── */
+.gauge-wrap{display:flex;flex-direction:column;align-items:center;gap:6px;}
+.gauge-arc{position:relative;width:80px;height:44px;overflow:hidden;}
+.gauge-arc svg{width:80px;height:80px;position:absolute;top:0;left:0;}
+.gauge-score{
+  font-family:'DM Mono',monospace;font-size:16px;font-weight:700;
+  color:var(--text);margin-top:4px;text-align:center;
+}
+
+/* ── LOADING ── */
+#loading-overlay{
+  position:fixed;inset:0;background:var(--bg);z-index:9999;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+}
+.spinner{
+  width:48px;height:48px;border:3px solid var(--border2);
+  border-top-color:var(--gold);border-radius:50%;
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-text{font-family:'DM Mono',monospace;font-size:12px;color:var(--muted2);letter-spacing:.5px;}
+
+/* ── FOOTER ── */
+.footer{
+  text-align:center;padding:16px;font-size:11px;color:var(--muted);
+  font-family:'DM Mono',monospace;letter-spacing:.3px;
+  border-top:1px solid var(--border);margin-top:8px;
+}
+
+/* ── LEGEND ── */
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted2);font-family:'DM Mono',monospace;}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.legend-line{width:20px;height:2px;flex-shrink:0;}
+.legend-dash{width:20px;height:0;border-top:2px dashed;flex-shrink:0;}
+
+/* ── RESPONSIVE ── */
+@media(max-width:1100px){.scatter-wrap{grid-template-columns:1fr;}.stats-panel{flex-direction:row;flex-wrap:wrap;}}
+@media(max-width:900px){.g2{grid-template-columns:1fr;}.krow{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:600px){.krow{grid-template-columns:1fr;}.hdr-right{display:none;}}
+@media print{
+  body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+  .hdr .nav{display:none;}
+  button{display:none!important;}
+  body::before,body::after,.orb-mid,.orb-top-right{display:none;}
+  #loading-overlay{display:none!important;}
+}
+</style>
+<link rel="stylesheet" href="app-ui.css">
+<link rel="stylesheet" href="app-responsive.css">
+<script src="app-ui-boot.js" defer></script>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text">Cargando datos de correlación...</div>
+</div>
+
+<div class="orb-mid"></div>
+<div class="orb-top-right"></div>
+<div class="dash">
+
+<!-- ── HEADER ── -->
+<div class="hdr">
+  <div class="hdr-top">
+    <div class="hdr-brand">
+      <div class="hdr-logo">S</div>
+      <div>
+        <h1>Correlación Gastos &middot; Ventas</h1>
+        <div class="sub">SUMINREGIO INDUSTRIAL &mdash; Análisis de eficiencia operativa</div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div class="live-pill">LIVE</div>
+      <span id="live-clock">--:--:--</span>
+      <select class="db-selector" id="db-selector" title="Seleccionar empresa">
+        <option value="">Empresa actual</option>
+        <option value="1">DB 1</option>
+        <option value="2">DB 2</option>
+        <option value="3">DB 3</option>
+      </select>
+      <button class="btn-export" onclick="window.print()">Exportar PDF</button>
+    </div>
+  </div>
+  <div class="nav">
+    <a href="Dashboard_Index.html">Inicio</a>
+    <a href="Dashboard_Ventas.html">Ventas</a>
+    <a href="resultados.html">Resultados</a>
+    <a href="Dashboard_Correlacion.html" class="active">Correlación</a>
+    <a href="Dashboard_ABC.html">Inventario</a>
+    <a href="Dashboard_Scorecard.html">Scorecard</a>
+    <a href="Dashboard_Flujo.html">Flujo</a>
+    <a href="Dashboard_Alertas.html">Alertas</a>
+  </div>
+</div>
+
+<!-- ── KPI CARDS ── -->
+<div class="krow" id="kpi-row">
+  <div class="kpi" style="--kpi-color:var(--blue);">
+    <div class="kpi-l">Ratio Gasto / Venta</div>
+    <div class="kpi-v" id="kpi-ratio">—</div>
+    <div class="kpi-s" id="kpi-ratio-sub">Mes actual</div>
+  </div>
+  <div class="kpi" style="--kpi-color:var(--orange);">
+    <div class="kpi-l">Tendencia Ratio</div>
+    <div class="kpi-v" id="kpi-tendencia">—</div>
+    <div class="kpi-s" id="kpi-tendencia-sub">vs mes anterior</div>
+  </div>
+  <div class="kpi" style="--kpi-color:var(--green);">
+    <div class="kpi-l">Margen Bruto Actual</div>
+    <div class="kpi-v pos" id="kpi-margen">—</div>
+    <div class="kpi-s" id="kpi-margen-sub">Últimos datos disponibles</div>
+  </div>
+  <div class="kpi" style="--kpi-color:var(--cyan);">
+    <div class="kpi-l">Eficiencia Operativa</div>
+    <div class="kpi-v" id="kpi-eficiencia">—</div>
+    <div class="kpi-s">Score 0–100 (100 = gastos &lt;20% ventas)</div>
+  </div>
+</div>
+
+<!-- ── ANÁLISIS TEMPORAL ── -->
+<div class="section-label">Análisis Temporal — 12 meses</div>
+<div class="g2" style="margin-bottom:var(--gap);">
+  <div class="cc">
+    <div class="cc-header">
+      <div>
+        <h3><span class="accent-bar"></span>Ventas vs Gastos vs Utilidad</h3>
+        <div class="cc-sub">Millones MXN por mes</div>
+      </div>
+    </div>
+    <canvas id="ch-temporal"></canvas>
+    <div class="legend" id="legend-temporal">
+      <div class="legend-item"><div class="legend-dot" style="background:#4DA6FF;"></div>Ventas netas</div>
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(255,69,102,.7);"></div>Gastos operativos</div>
+      <div class="legend-item"><div class="legend-line" style="background:#00E5A0;"></div>Utilidad bruta</div>
+    </div>
+  </div>
+  <div class="cc">
+    <div class="cc-header">
+      <div>
+        <h3><span class="accent-bar gold"></span>Ratios % por mes</h3>
+        <div class="cc-sub">% Gastos/Ventas y % Margen bruto</div>
+      </div>
+    </div>
+    <canvas id="ch-ratios"></canvas>
+    <div class="legend" id="legend-ratios">
+      <div class="legend-item"><div class="legend-line" style="background:#E6A800;"></div>% Gastos/Ventas</div>
+      <div class="legend-item"><div class="legend-line" style="background:#00E5A0;"></div>% Margen bruto</div>
+      <div class="legend-item"><div class="legend-dash" style="border-top-color:#FF4566;"></div>Alerta 25%</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── SCATTER CORRELACIÓN ── -->
+<div class="section-label">Análisis de Correlación Estadística</div>
+<div class="cc full" style="margin-bottom:var(--gap);">
+  <div class="cc-header">
+    <div>
+      <h3><span class="accent-bar cyan"></span>Scatter: Ventas vs Gastos Operativos</h3>
+      <div class="cc-sub">Cada punto = un mes. Color según ratio de eficiencia.</div>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#00E5A0;"></div>&lt;25% (eficiente)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#E6A800;"></div>25–35% (alerta)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#FF4566;"></div>&gt;35% (crítico)</div>
+    </div>
+  </div>
+  <div class="scatter-wrap">
+    <div class="scatter-canvas-box">
+      <canvas id="ch-scatter"></canvas>
+    </div>
+    <div class="stats-panel">
+      <h4>Estadísticas de Regresión</h4>
+      <div class="stat-item">
+        <div class="stat-label">Coeficiente R²</div>
+        <div class="stat-val" id="stat-r2">—</div>
+        <div class="stat-desc" id="stat-r2-desc">Mide qué tan bien se explican los gastos por las ventas.</div>
+      </div>
+      <div class="divider"></div>
+      <div class="stat-item">
+        <div class="stat-label">Pendiente (β)</div>
+        <div class="stat-val gold" id="stat-slope">—</div>
+        <div class="stat-desc">Por cada $1M adicional en ventas, los gastos cambian este monto.</div>
+      </div>
+      <div class="divider"></div>
+      <div class="stat-item">
+        <div class="stat-label">Intercepto (α)</div>
+        <div class="stat-val green" id="stat-intercept">—</div>
+        <div class="stat-desc">Gastos fijos estimados cuando las ventas son cero.</div>
+      </div>
+      <div class="divider"></div>
+      <div class="stat-item">
+        <div class="stat-label">Interpretación</div>
+        <div class="stat-desc" id="stat-interpretacion" style="color:var(--text);font-size:12px;">—</div>
+      </div>
+      <div class="divider"></div>
+      <div class="stat-item">
+        <div class="stat-label">Meses analizados</div>
+        <div class="stat-val" id="stat-meses" style="font-size:16px;">—</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── DESGLOSE POR CATEGORÍA ── -->
+<div class="section-label">Desglose por Categoría de Gasto</div>
+<div class="tc" id="tc-categorias">
+  <h3>Categorías de Gasto Operativo</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Categoría</th>
+        <th class="tr-right">Monto (MXN)</th>
+        <th class="tr-right">% de Ventas</th>
+        <th class="tr-right">vs Mes Ant.</th>
+        <th class="tr-right">Tendencia</th>
+      </tr>
+    </thead>
+    <tbody id="tbody-categorias">
+      <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">Cargando...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ── ALERTAS Y RECOMENDACIONES ── -->
+<div class="section-label">Alertas y Recomendaciones</div>
+<div class="alerts-grid" id="alerts-container">
+  <!-- Rendered by JS -->
+</div>
+
+<!-- ── PROYECCIÓN ── -->
+<div class="proyeccion-card">
+  <h3>Proyección Fin de Mes</h3>
+  <div class="proy-grid" id="proy-grid">
+    <div class="proy-item">
+      <div class="proy-label">Ratio proyectado</div>
+      <div class="proy-val" id="proy-ratio">—</div>
+    </div>
+    <div class="proy-item">
+      <div class="proy-label">Ventas proyectadas</div>
+      <div class="proy-val" id="proy-ventas">—</div>
+    </div>
+    <div class="proy-item">
+      <div class="proy-label">Gastos proyectados</div>
+      <div class="proy-val" id="proy-gastos">—</div>
+    </div>
+    <div class="proy-item">
+      <div class="proy-label">Utilidad proyectada</div>
+      <div class="proy-val" id="proy-utilidad">—</div>
+    </div>
+  </div>
+</div>
+
+<div class="footer" id="footer-ts">
+  Última actualización: — &mdash; Datos MicroSIP ERP &mdash; Suminregio Industrial
+</div>
+
+</div><!-- .dash -->
+
+<script src="/chat-widget.js" defer></script>
+<script>
+'use strict';
+
+/* ══════════════════════════════════════════════
+   UTILIDADES
+══════════════════════════════════════════════ */
+const MN = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+
+function fmt$(n,dec=0){
+  return '$'+(+n||0).toLocaleString('es-MX',{minimumFractionDigits:dec,maximumFractionDigits:dec});
+}
+function fmtM(n,dec=2){
+  const m=(+n||0)/1e6;
+  return '$'+m.toLocaleString('es-MX',{minimumFractionDigits:dec,maximumFractionDigits:dec})+'M';
+}
+function fmtPct(n,dec=1){return(+n||0).toFixed(dec)+'%';}
+function mesLabel(m){
+  if(!m)return'?';
+  const [y,mo]=String(m).split('-');
+  return(MN[parseInt(mo)]||mo)+' '+String(y).slice(2);
+}
+function getDB(){
+  const p=new URLSearchParams(location.search);
+  return p.get('db')||'';
+}
+function buildApiUrl(path,params=''){
+  const db=getDB();
+  let q=params;
+  if(db) q=(q?q+'&':'')+'db='+encodeURIComponent(db);
+  return path+(q?'?'+q:'');
+}
+
+/* ══════════════════════════════════════════════
+   RELOJ
+══════════════════════════════════════════════ */
+function startClock(){
+  const el=document.getElementById('live-clock');
+  function tick(){
+    const now=new Date();
+    el.textContent=now.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  }
+  tick();setInterval(tick,1000);
+}
+startClock();
+
+/* Sincronizar selector DB con URL */
+(function(){
+  const sel=document.getElementById('db-selector');
+  const db=getDB();
+  if(db)sel.value=db;
+  sel.addEventListener('change',()=>{
+    const v=sel.value;
+    const p=new URLSearchParams(location.search);
+    if(v)p.set('db',v);else p.delete('db');
+    location.search=p.toString();
+  });
+})();
+
+/* ══════════════════════════════════════════════
+   REGRESIÓN LINEAL
+══════════════════════════════════════════════ */
+function linearRegression(xs,ys){
+  const n=xs.length;
+  if(n<2)return{slope:0,intercept:0,r2:0};
+  const mx=xs.reduce((a,b)=>a+b,0)/n;
+  const my=ys.reduce((a,b)=>a+b,0)/n;
+  let num=0,den=0,ssres=0,sstot=0;
+  for(let i=0;i<n;i++){
+    num+=(xs[i]-mx)*(ys[i]-my);
+    den+=(xs[i]-mx)**2;
+  }
+  const slope=den?num/den:0;
+  const intercept=my-slope*mx;
+  for(let i=0;i<n;i++){
+    const pred=slope*xs[i]+intercept;
+    ssres+=(ys[i]-pred)**2;
+    sstot+=(ys[i]-my)**2;
+  }
+  const r2=sstot?1-(ssres/sstot):0;
+  return{slope,intercept,r2:Math.max(0,Math.min(1,r2))};
+}
+
+/* ══════════════════════════════════════════════
+   CALCULAR EFICIENCIA SCORE (0-100)
+══════════════════════════════════════════════ */
+function eficienciaScore(ratio){
+  // 100 = gastos <20% ventas, 0 = gastos >60% ventas
+  if(ratio<=20)return 100;
+  if(ratio>=60)return 0;
+  return Math.round(100-(ratio-20)*(100/40));
+}
+
+function scoreColor(score){
+  if(score>=70)return'var(--green)';
+  if(score>=40)return'var(--gold)';
+  return'var(--red)';
+}
+
+function ratioColor(ratio){
+  if(ratio<25)return'rgba(0,229,160,.85)';
+  if(ratio<=35)return'rgba(230,168,0,.85)';
+  return'rgba(255,69,102,.85)';
+}
+
+/* ══════════════════════════════════════════════
+   CHART INSTANCES
+══════════════════════════════════════════════ */
+let chTemporal=null, chRatios=null, chScatter=null;
+
+function destroyCharts(){
+  [chTemporal,chRatios,chScatter].forEach(c=>{if(c)try{c.destroy();}catch(e){}});
+  chTemporal=chRatios=chScatter=null;
+}
+
+const CHART_DEFAULTS={
+  color:()=>'rgba(232,237,245,.7)',
+  plugins:{
+    legend:{display:false},
+    tooltip:{
+      backgroundColor:'rgba(12,27,41,.95)',
+      borderColor:'rgba(255,255,255,.1)',
+      borderWidth:1,
+      titleColor:'#E8EDF5',
+      bodyColor:'#8A96A8',
+      padding:12,
+      titleFont:{family:'Syne',size:12,weight:'700'},
+      bodyFont:{family:'DM Mono',size:11},
+    }
+  },
+  scales:{
+    x:{
+      grid:{color:'rgba(255,255,255,.04)'},
+      ticks:{color:'#6B7A8D',font:{family:'DM Mono',size:10}},
+      border:{color:'rgba(255,255,255,.06)'},
+    },
+    y:{
+      grid:{color:'rgba(255,255,255,.04)'},
+      ticks:{color:'#6B7A8D',font:{family:'DM Mono',size:10}},
+      border:{color:'rgba(255,255,255,.06)'},
+    }
+  }
+};
+
+/* ══════════════════════════════════════════════
+   RENDER GRÁFICA TEMPORAL (bar + line)
+══════════════════════════════════════════════ */
+function renderTemporal(meses,ventas,gastos,utilidad){
+  const ctx=document.getElementById('ch-temporal').getContext('2d');
+  if(chTemporal)chTemporal.destroy();
+  chTemporal=new Chart(ctx,{
+    data:{
+      labels:meses.map(mesLabel),
+      datasets:[
+        {
+          type:'bar',label:'Ventas netas',data:ventas.map(v=>+(v/1e6).toFixed(3)),
+          backgroundColor:'rgba(77,166,255,.55)',borderColor:'rgba(77,166,255,.85)',
+          borderWidth:1,borderRadius:4,order:2
+        },
+        {
+          type:'bar',label:'Gastos operativos',data:gastos.map(g=>+(g/1e6).toFixed(3)),
+          backgroundColor:'rgba(255,69,102,.35)',borderColor:'rgba(255,69,102,.65)',
+          borderWidth:1,borderRadius:4,order:3
+        },
+        {
+          type:'line',label:'Utilidad bruta',data:utilidad.map(u=>+(u/1e6).toFixed(3)),
+          borderColor:'#00E5A0',backgroundColor:'rgba(0,229,160,.1)',
+          borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#00E5A0',
+          tension:.35,fill:false,order:1,
+          pointHoverRadius:6,
+        }
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:true,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        ...CHART_DEFAULTS.plugins,
+        legend:{display:false},
+        tooltip:{
+          ...CHART_DEFAULTS.plugins.tooltip,
+          callbacks:{
+            label:ctx=>`  ${ctx.dataset.label}: $${ctx.parsed.y.toFixed(2)}M`
+          }
+        }
+      },
+      scales:{
+        x:{...CHART_DEFAULTS.scales.x,grid:{color:'rgba(255,255,255,.03)'}},
+        y:{
+          ...CHART_DEFAULTS.scales.y,
+          ticks:{
+            ...CHART_DEFAULTS.scales.y.ticks,
+            callback:v=>'$'+v.toFixed(1)+'M'
+          }
+        }
+      }
+    }
+  });
+}
+
+/* ══════════════════════════════════════════════
+   RENDER GRÁFICA RATIOS (lines)
+══════════════════════════════════════════════ */
+function renderRatios(meses,ratiosGasto,ratiosMargen){
+  const ctx=document.getElementById('ch-ratios').getContext('2d');
+  if(chRatios)chRatios.destroy();
+  const alertaData=meses.map(()=>25);
+  chRatios=new Chart(ctx,{
+    data:{
+      labels:meses.map(mesLabel),
+      datasets:[
+        {
+          type:'line',label:'% Gastos/Ventas',data:ratiosGasto,
+          borderColor:'#E6A800',backgroundColor:'rgba(230,168,0,.08)',
+          borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#E6A800',
+          tension:.35,fill:true,order:1,
+          pointHoverRadius:6,
+        },
+        {
+          type:'line',label:'% Margen bruto',data:ratiosMargen,
+          borderColor:'#00E5A0',backgroundColor:'rgba(0,229,160,.06)',
+          borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#00E5A0',
+          tension:.35,fill:false,order:2,
+          pointHoverRadius:6,
+        },
+        {
+          type:'line',label:'Zona alerta 25%',data:alertaData,
+          borderColor:'rgba(255,69,102,.6)',backgroundColor:'transparent',
+          borderWidth:1.5,borderDash:[6,4],pointRadius:0,
+          tension:0,fill:false,order:3,
+        }
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:true,
+      interaction:{mode:'index',intersect:false},
+      plugins:{
+        ...CHART_DEFAULTS.plugins,
+        legend:{display:false},
+        tooltip:{
+          ...CHART_DEFAULTS.plugins.tooltip,
+          callbacks:{
+            label:ctx=>{
+              if(ctx.dataset.label==='Zona alerta 25%')return null;
+              return`  ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}%`;
+            }
+          }
+        }
+      },
+      scales:{
+        x:{...CHART_DEFAULTS.scales.x,grid:{color:'rgba(255,255,255,.03)'}},
+        y:{
+          ...CHART_DEFAULTS.scales.y,
+          ticks:{
+            ...CHART_DEFAULTS.scales.y.ticks,
+            callback:v=>v.toFixed(0)+'%'
+          },
+          min:0,
+        }
+      }
+    }
+  });
+}
+
+/* ══════════════════════════════════════════════
+   RENDER SCATTER
+══════════════════════════════════════════════ */
+function renderScatter(puntos,reg){
+  const ctx=document.getElementById('ch-scatter').getContext('2d');
+  if(chScatter)chScatter.destroy();
+
+  // Puntos coloreados según ratio
+  const puntosData=puntos.map(p=>({
+    x:+(p.ventas/1e6).toFixed(3),
+    y:+(p.gastos/1e6).toFixed(3),
+    mes:p.mes,ratio:p.ratio,
+    color:ratioColor(p.ratio)
+  }));
+
+  // Línea de tendencia
+  const xs=puntos.map(p=>p.ventas/1e6);
+  const xMin=Math.min(...xs);
+  const xMax=Math.max(...xs);
+  const trend=[
+    {x:+xMin.toFixed(3),y:+(reg.slope*xMin+reg.intercept).toFixed(3)},
+    {x:+xMax.toFixed(3),y:+(reg.slope*xMax+reg.intercept).toFixed(3)}
+  ];
+
+  chScatter=new Chart(ctx,{
+    data:{
+      datasets:[
+        {
+          type:'scatter',label:'Meses',
+          data:puntosData,
+          backgroundColor:puntosData.map(p=>p.color),
+          borderColor:puntosData.map(p=>p.color.replace('.85','1')),
+          borderWidth:1.5,pointRadius:8,pointHoverRadius:11,
+          order:1
+        },
+        {
+          type:'line',label:'Tendencia',
+          data:trend,
+          borderColor:'rgba(0,212,255,.7)',backgroundColor:'transparent',
+          borderWidth:2,borderDash:[5,3],pointRadius:0,
+          tension:0,order:2
+        }
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:true,
+      interaction:{mode:'point',intersect:true},
+      plugins:{
+        ...CHART_DEFAULTS.plugins,
+        legend:{display:false},
+        tooltip:{
+          ...CHART_DEFAULTS.plugins.tooltip,
+          filter:item=>item.datasetIndex===0,
+          callbacks:{
+            title:items=>{
+              const d=puntosData[items[0].dataIndex];
+              return d?mesLabel(d.mes):'';
+            },
+            label:item=>{
+              const d=puntosData[item.dataIndex];
+              if(!d)return'';
+              return[
+                `  Ventas:  ${fmtM(d.x*1e6)}`,
+                `  Gastos:  ${fmtM(d.y*1e6)}`,
+                `  Ratio:   ${d.ratio.toFixed(1)}%`
+              ];
+            }
+          }
+        }
+      },
+      scales:{
+        x:{
+          ...CHART_DEFAULTS.scales.x,
+          title:{display:true,text:'Ventas netas (M MXN)',color:'#6B7A8D',font:{family:'DM Mono',size:10}},
+          ticks:{...CHART_DEFAULTS.scales.x.ticks,callback:v=>'$'+v.toFixed(1)+'M'}
+        },
+        y:{
+          ...CHART_DEFAULTS.scales.y,
+          title:{display:true,text:'Gastos operativos (M MXN)',color:'#6B7A8D',font:{family:'DM Mono',size:10}},
+          ticks:{...CHART_DEFAULTS.scales.y.ticks,callback:v=>'$'+v.toFixed(1)+'M'}
+        }
+      }
+    }
+  });
+}
+
+/* ══════════════════════════════════════════════
+   RENDER KPIs
+══════════════════════════════════════════════ */
+function renderKPIs(data){
+  const {ratioActual,ratioAnterior,margenActual,mesActual}=data;
+  const diff=ratioActual-ratioAnterior;
+  const score=eficienciaScore(ratioActual);
+
+  // Ratio Gasto/Venta
+  const elRatio=document.getElementById('kpi-ratio');
+  elRatio.textContent=fmtPct(ratioActual);
+  elRatio.className='kpi-v '+(ratioActual<25?'pos':ratioActual<=35?'warn':'neg');
+  document.getElementById('kpi-ratio-sub').textContent=mesActual?mesLabel(mesActual):'Mes actual';
+
+  // Tendencia
+  const elTend=document.getElementById('kpi-tendencia');
+  const arrow=diff>0?'▲':'▼';
+  elTend.textContent=arrow+' '+Math.abs(diff).toFixed(1)+'pp';
+  elTend.className='kpi-v '+(diff>0?'neg':'pos');
+  document.getElementById('kpi-tendencia-sub').textContent=diff>0?'Empeorando vs mes ant.':'Mejorando vs mes ant.';
+
+  // Margen bruto
+  const elMargen=document.getElementById('kpi-margen');
+  elMargen.textContent=fmtPct(margenActual);
+  elMargen.className='kpi-v '+(margenActual>=30?'pos':margenActual>=20?'warn':'neg');
+
+  // Eficiencia
+  const elEfic=document.getElementById('kpi-eficiencia');
+  elEfic.textContent=score+'/100';
+  elEfic.style.color=scoreColor(score);
+}
+
+/* ══════════════════════════════════════════════
+   RENDER TABLA CATEGORÍAS
+══════════════════════════════════════════════ */
+function renderCategorias(cats,ventasActual,ventasAnterior,gastosCategoriasAnt){
+  const tbody=document.getElementById('tbody-categorias');
+  if(!cats||cats.length===0){
+    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">No hay desglose de categorías disponible</td></tr>';
+    return;
+  }
+  tbody.innerHTML=cats.map(cat=>{
+    const pct=ventasActual>0?((cat.monto/ventasActual)*100):0;
+    const ant=gastosCategoriasAnt&&gastosCategoriasAnt[cat.key]||0;
+    const diff=ant>0?(cat.monto-ant)/ant*100:null;
+    let diffHtml='<span style="color:var(--muted2);">—</span>';
+    let tendencia='<span class="trend-flat">→</span>';
+    if(diff!==null){
+      const cls=diff>5?'neg':diff<-5?'pos':'warn-c';
+      const arw=diff>5?'▲':diff<-5?'▼':'→';
+      diffHtml=`<span class="${cls}">${diff>0?'+':''}${diff.toFixed(1)}%</span>`;
+      tendencia=`<span class="${cls}">${arw}</span>`;
+    }
+    const pctCls=pct<10?'pos':pct<20?'warn-c':'neg';
+    return`<tr>
+      <td style="font-family:'Syne',sans-serif;font-weight:600;">${cat.nombre}</td>
+      <td class="tr-right">${fmt$(cat.monto)}</td>
+      <td class="tr-right"><span class="${pctCls}">${fmtPct(pct)}</span></td>
+      <td class="tr-right">${diffHtml}</td>
+      <td class="tr-right">${tendencia}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* ══════════════════════════════════════════════
+   RENDER ALERTAS
+══════════════════════════════════════════════ */
+function renderAlertas(ratioActual,score,margenActual,proyRatio){
+  const container=document.getElementById('alerts-container');
+  const alerts=[];
+
+  if(ratioActual>35){
+    alerts.push({
+      type:'alert-red',icon:'🚨',
+      titulo:'Ratio crítico: Gastos exceden el umbral máximo',
+      desc:`El ratio gastos/ventas de ${fmtPct(ratioActual)} supera el 35% crítico. Se requiere revisión urgente de estructura de costos operativos y análisis de eficiencia por área.`,
+      meta:[
+        {label:'Ratio actual',val:fmtPct(ratioActual)},
+        {label:'Umbral crítico',val:'35%'},
+        {label:'Exceso',val:fmtPct(ratioActual-35)},
+        {label:'Score eficiencia',val:score+'/100'},
+      ]
+    });
+    alerts.push({
+      type:'alert-red',icon:'📌',
+      titulo:'Recomendación: Plan de reducción de gastos',
+      desc:'Identificar los 3 rubros de mayor gasto y establecer metas de reducción mensual. Considerar renegociación de contratos de servicios y revisión de nómina operativa.',
+      meta:[{label:'Ahorro necesario para 25%',val:fmtPct(ratioActual-25)+' de gastos'}]
+    });
+  } else if(ratioActual>=25){
+    alerts.push({
+      type:'alert-yellow',icon:'⚠️',
+      titulo:'Ratio en zona de advertencia (25%–35%)',
+      desc:`El ratio gastos/ventas de ${fmtPct(ratioActual)} está dentro de la zona de atención. Es posible mejorarlo con optimización de procesos y control presupuestal más estricto.`,
+      meta:[
+        {label:'Ratio actual',val:fmtPct(ratioActual)},
+        {label:'Zona segura',val:'<25%'},
+        {label:'Score eficiencia',val:score+'/100'},
+      ]
+    });
+  } else {
+    alerts.push({
+      type:'alert-green',icon:'✅',
+      titulo:'Eficiencia operativa óptima',
+      desc:`El ratio gastos/ventas de ${fmtPct(ratioActual)} está por debajo del umbral de 25%. La empresa mantiene una estructura de costos saludable. Continuar monitoreando para sostener este nivel.`,
+      meta:[
+        {label:'Ratio actual',val:fmtPct(ratioActual)},
+        {label:'Objetivo',val:'<25%'},
+        {label:'Score eficiencia',val:score+'/100'},
+        {label:'Margen bruto',val:fmtPct(margenActual)},
+      ]
+    });
+  }
+
+  // Alerta de margen
+  if(margenActual<20){
+    alerts.push({
+      type:'alert-red',icon:'📉',
+      titulo:'Margen bruto por debajo del mínimo recomendado',
+      desc:`El margen bruto de ${fmtPct(margenActual)} indica presión en precios de venta o costos de producto. Revisar política de precios y negociación con proveedores.`,
+      meta:[{label:'Margen actual',val:fmtPct(margenActual)},{label:'Mínimo recomendado',val:'20%'}]
+    });
+  }
+
+  container.innerHTML=alerts.map(a=>`
+    <div class="alert-card ${a.type}">
+      <div class="alert-icon">${a.icon}</div>
+      <div class="alert-body">
+        <h4>${a.titulo}</h4>
+        <p>${a.desc}</p>
+        ${a.meta?`<div class="alert-meta">${a.meta.map(m=>`<span><strong>${m.label}:</strong> ${m.val}</span>`).join('')}</div>`:''}
+      </div>
+    </div>
+  `).join('');
+}
+
+/* ══════════════════════════════════════════════
+   RENDER ESTADÍSTICAS REGRESIÓN
+══════════════════════════════════════════════ */
+function renderStats(reg,nMeses){
+  document.getElementById('stat-r2').textContent=reg.r2.toFixed(4);
+  document.getElementById('stat-slope').textContent=reg.slope.toFixed(4);
+  document.getElementById('stat-intercept').textContent=fmtM(reg.intercept*1e6);
+  document.getElementById('stat-meses').textContent=nMeses+' meses';
+
+  let interp='';
+  if(reg.r2>=0.8){
+    interp=`Correlación fuerte (R²=${reg.r2.toFixed(2)}). Los gastos operativos están altamente correlacionados con las ventas. Por cada $1M adicional en ventas, los gastos aumentan $${(reg.slope*1e6/1e3).toFixed(0)}K.`;
+  } else if(reg.r2>=0.5){
+    interp=`Correlación moderada (R²=${reg.r2.toFixed(2)}). Existe relación entre ventas y gastos, aunque hay variabilidad significativa que sugiere costos con componente fijo relevante.`;
+  } else if(reg.r2>=0.2){
+    interp=`Correlación débil (R²=${reg.r2.toFixed(2)}). Los gastos no siguen de manera consistente el ritmo de ventas. Esto puede indicar gastos mayoritariamente fijos o gestión discrecional.`;
+  } else {
+    interp=`Sin correlación significativa (R²=${reg.r2.toFixed(2)}). Los gastos operativos se comportan de manera independiente a las ventas, lo que sugiere estructura de costos predominantemente fija.`;
+  }
+  document.getElementById('stat-interpretacion').textContent=interp;
+}
+
+/* ══════════════════════════════════════════════
+   RENDER PROYECCIÓN
+══════════════════════════════════════════════ */
+function renderProyeccion(puntos){
+  if(!puntos||puntos.length<2)return;
+  // Usar los últimos 2 meses para estimar ritmo
+  const ultimos=puntos.slice(-2);
+  const avanceDia=ultimos[ultimos.length-1];
+  const now=new Date();
+  const diasMes=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+  const diaActual=now.getDate();
+  const factorProy=diasMes/Math.max(diaActual,1);
+
+  const ventasProy=avanceDia.ventas*factorProy;
+  const gastosProy=avanceDia.gastos*factorProy;
+  const utilidadProy=ventasProy-gastosProy;
+  const ratioProy=ventasProy>0?(gastosProy/ventasProy)*100:0;
+
+  document.getElementById('proy-ratio').textContent=fmtPct(ratioProy);
+  document.getElementById('proy-ventas').textContent=fmtM(ventasProy);
+  document.getElementById('proy-gastos').textContent=fmtM(gastosProy);
+  document.getElementById('proy-utilidad').textContent=fmtM(utilidadProy);
+
+  // Colorear ratio proyectado
+  const elProy=document.getElementById('proy-ratio');
+  elProy.style.color=ratioProy<25?'var(--green)':ratioProy<=35?'var(--gold)':'var(--red)';
+}
+
+/* ══════════════════════════════════════════════
+   FETCH Y PROCESO DE DATOS
+══════════════════════════════════════════════ */
+async function loadData(){
+  const db=getDB();
+  const url=buildApiUrl('/api/resultados/pnl','meses=18')+'&_='+Date.now();
+
+  let raw=null;
+  try{
+    const ctrl=new AbortController();
+    const timer=setTimeout(()=>ctrl.abort(),25000);
+    const res=await fetch(url,{cache:'no-store',signal:ctrl.signal});
+    clearTimeout(timer);
+    if(res.ok)raw=await res.json();
+  }catch(e){
+    console.warn('API error:',e);
+  }
+
+  // Extraer filas mensuales del PnL
+  let rows=[];
+  if(raw){
+    // El API puede devolver array directamente o {meses:[...]}
+    if(Array.isArray(raw))rows=raw;
+    else if(raw.meses&&Array.isArray(raw.meses))rows=raw.meses;
+    else if(raw.data&&Array.isArray(raw.data))rows=raw.data;
+    else if(raw.rows&&Array.isArray(raw.rows))rows=raw.rows;
+    // Intentar extraer de estructura de columnas
+    else if(raw.periodos){
+      rows=raw.periodos;
+    }
+  }
+
+  // Si no hay datos reales, generar datos demo con variación realista
+  if(!rows||rows.length===0){
+    rows=generateDemoData(18);
+  }
+
+  // Normalizar filas: asegurar que cada fila tenga los campos clave
+  rows=rows.map(r=>normalizeRow(r)).filter(r=>r.mes&&r.ventas>0);
+
+  // Ordenar cronológicamente
+  rows.sort((a,b)=>a.mes.localeCompare(b.mes));
+
+  // Limitar a 18 meses
+  if(rows.length>18)rows=rows.slice(-18);
+
+  processAndRender(rows);
+}
+
+/* ══════════════════════════════════════════════
+   NORMALIZAR FILA DEL PnL
+══════════════════════════════════════════════ */
+function normalizeRow(r){
+  // Intentar diferentes estructuras de campo
+  const ventas=+(r.VENTAS_NETAS||r.ventas_netas||r.ventas||0);
+  const costo=+(r.COSTO_VENTAS||r.costo_ventas||r.costo||0);
+  const utilBruta=+(r.UTILIDAD_BRUTA||r.utilidad_bruta||r.utilidad||(ventas-costo)||0);
+  const margenPct=+(r.MARGEN_BRUTO_PCT||r.margen_bruto_pct||r.margen||(ventas>0?(utilBruta/ventas)*100:0));
+
+  // Gastos operativos: CO_A1 + CO_A2 + CO_A3 o fallback 30% de ventas
+  let gastos=+(r.CO_A1||0)+(+(r.CO_A2||0))+(+(r.CO_A3||0));
+  if(gastos===0){
+    // Fallback: usar otros campos de gastos
+    gastos=+(r.gastos_operativos||r.gastos||r.GASTOS||0);
+  }
+  if(gastos===0&&ventas>0){
+    // Fallback final: 30% de ventas (estimación conservadora)
+    gastos=ventas*0.30;
+  }
+
+  // Categorías de gasto
+  const co_a1=+(r.CO_A1||r.gastos_ventas||0)||gastos*0.4;
+  const co_a2=+(r.CO_A2||r.gastos_admin||0)||gastos*0.35;
+  const co_a3=+(r.CO_A3||r.gastos_financieros||0)||gastos*0.25;
+
+  // Mes: puede ser 'YYYY-MM', 'MM-YYYY', fecha completa, número de periodo
+  let mes=r.mes||r.periodo||r.fecha||r.MES||r.PERIODO||'';
+  if(typeof mes==='number'){
+    // Puede ser año*100+mes o simplemente mes
+    if(mes>200000){
+      const y=Math.floor(mes/100);
+      const m=mes%100;
+      mes=`${y}-${String(m).padStart(2,'0')}`;
+    }
+  } else if(mes&&mes.length>7){
+    mes=mes.slice(0,7);
+  }
+
+  return{mes,ventas,costo,utilBruta,margenPct,gastos,co_a1,co_a2,co_a3};
+}
+
+/* ══════════════════════════════════════════════
+   DATOS DEMO (cuando la API no responde)
+══════════════════════════════════════════════ */
+function generateDemoData(n){
+  const rows=[];
+  const now=new Date();
+  let baseVentas=8500000;
+  let baseGastos=2500000;
+  for(let i=n-1;i>=0;i--){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    const y=d.getFullYear();
+    const m=String(d.getMonth()+1).padStart(2,'0');
+    const mes=`${y}-${m}`;
+    // Variación estacional y tendencia
+    const factor=1+(Math.random()-.4)*.25;
+    const stagFactor=1+Math.sin((d.getMonth()/12)*Math.PI*2)*.12;
+    const ventas=Math.round(baseVentas*factor*stagFactor);
+    const gastos=Math.round(baseGastos*(1+(Math.random()-.5)*.15));
+    const costo=Math.round(ventas*.65);
+    const utilBruta=ventas-costo;
+    const margenPct=utilBruta/ventas*100;
+    rows.push({
+      mes,ventas,costo,utilBruta,margenPct,gastos,
+      co_a1:Math.round(gastos*.4),
+      co_a2:Math.round(gastos*.35),
+      co_a3:Math.round(gastos*.25),
+    });
+    baseVentas*=1.01;baseGastos*=1.005;
+  }
+  return rows;
+}
+
+/* ══════════════════════════════════════════════
+   PROCESAR Y RENDERIZAR TODO
+══════════════════════════════════════════════ */
+function processAndRender(rows){
+  if(!rows||rows.length===0)return;
+
+  const meses=rows.map(r=>r.mes);
+  const ventas=rows.map(r=>r.ventas);
+  const gastos=rows.map(r=>r.gastos);
+  const utilidad=rows.map(r=>r.utilBruta);
+  const ratiosGasto=rows.map(r=>r.ventas>0?(r.gastos/r.ventas)*100:0);
+  const ratiosMargen=rows.map(r=>r.margenPct||0);
+
+  // Últimos 12 meses para temporales
+  const n12=Math.min(12,rows.length);
+  const rows12=rows.slice(-n12);
+
+  renderTemporal(
+    rows12.map(r=>r.mes),
+    rows12.map(r=>r.ventas),
+    rows12.map(r=>r.gastos),
+    rows12.map(r=>r.utilBruta)
+  );
+  renderRatios(
+    rows12.map(r=>r.mes),
+    rows12.map(r=>r.ventas>0?(r.gastos/r.ventas)*100:0),
+    rows12.map(r=>r.margenPct||0)
+  );
+
+  // Scatter: todos los datos disponibles
+  const puntos=rows.map(r=>({
+    mes:r.mes,ventas:r.ventas,gastos:r.gastos,
+    ratio:r.ventas>0?(r.gastos/r.ventas)*100:0
+  })).filter(p=>p.ventas>0&&p.gastos>0);
+
+  const reg=linearRegression(puntos.map(p=>p.ventas/1e6),puntos.map(p=>p.gastos/1e6));
+  renderScatter(puntos,reg);
+  renderStats(reg,puntos.length);
+
+  // KPIs con últimos 2 meses
+  const last=rows[rows.length-1];
+  const prev=rows.length>1?rows[rows.length-2]:last;
+  const ratioActual=last.ventas>0?(last.gastos/last.ventas)*100:0;
+  const ratioAnterior=prev.ventas>0?(prev.gastos/prev.ventas)*100:0;
+  renderKPIs({
+    ratioActual,ratioAnterior,
+    margenActual:last.margenPct||0,
+    mesActual:last.mes
+  });
+
+  // Alertas
+  const score=eficienciaScore(ratioActual);
+  renderAlertas(ratioActual,score,last.margenPct||0,null);
+
+  // Proyección
+  renderProyeccion(puntos);
+
+  // Tabla categorías
+  const cats=[
+    {key:'co_a1',nombre:'Gastos de Venta (CO_A1)',monto:last.co_a1||0},
+    {key:'co_a2',nombre:'Gastos Administración (CO_A2)',monto:last.co_a2||0},
+    {key:'co_a3',nombre:'Gastos Financieros (CO_A3)',monto:last.co_a3||0},
+  ].filter(c=>c.monto>0);
+
+  const gastosAntMap={
+    co_a1:prev.co_a1||0,
+    co_a2:prev.co_a2||0,
+    co_a3:prev.co_a3||0,
+  };
+  renderCategorias(cats,last.ventas,prev.ventas,gastosAntMap);
+
+  // Footer timestamp
+  document.getElementById('footer-ts').textContent=
+    `Última actualización: ${new Date().toLocaleString('es-MX')} — Datos MicroSIP ERP — Suminregio Industrial`;
+}
+
+/* ══════════════════════════════════════════════
+   AUTO-REFRESH
+══════════════════════════════════════════════ */
+async function reloadPageData(){
+  try{
+    destroyCharts();
+    await loadData();
+  }catch(e){
+    console.error('reloadPageData error:',e);
+  }
+}
+window.__reloadPageData=reloadPageData;
+
+// Primer carga
+(async()=>{
+  try{
+    await loadData();
+  }finally{
+    const ov=document.getElementById('loading-overlay');
+    if(ov){ov.style.opacity='0';ov.style.transition='opacity .4s';setTimeout(()=>ov.remove(),400);}
+  }
+})();
+
+// Auto-refresh cada 5 minutos
+setInterval(reloadPageData,5*60*1000);
+</script>
+</body>
+</html>

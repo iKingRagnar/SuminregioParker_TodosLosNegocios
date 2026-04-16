@@ -11,15 +11,33 @@
   const PAGE    = (() => { try { return document.title.split('—')[0].trim() || location.pathname.split('/').pop(); } catch { return ''; } })();
   const DB_PARAM = (() => { try { return new URLSearchParams(location.search).get('db') || ''; } catch { return ''; } })();
 
-  const SUGGESTIONS = [
-    '¿Cuánto llevamos de ventas?',
-    '¿Estamos en meta?',
-    '¿Cuánto se vence de CXC?',
-    '¿Cómo está el margen bruto?',
-    'Top 5 vendedores del mes',
-    'Proyección fin de mes',
-    'Enviar alerta por email',
-  ];
+  // Sugerencias contextuales por página
+  const SUGGESTIONS_BY_PAGE = {
+    'Dashboard_Ventas':      ['¿Cuánto llevamos de ventas?', '¿Estamos en meta?', 'Proyección fin de mes', 'Top 5 clientes del mes', '¿Qué vendedor va mejor?'],
+    'Dashboard_CC':          ['¿Cuánto está vencido?', 'Top 5 deudores', '¿Quién tiene más de 60 días?', 'Riesgo de cartera', 'DSO actual'],
+    'Dashboard_Scorecard':   ['¿Quién va mejor en cumplimiento?', 'Perfil de Abel Cabrera', 'Perfil de Alejandro Medina', '¿Quién necesita coaching?', 'Ranking vendedores mes'],
+    'resultados':            ['¿Cómo va el margen bruto?', 'Tendencia de gastos vs ventas', '¿Hay desviación en gastos?', 'Proyección utilidad mes', 'Balance general actual'],
+    'inventario':            ['¿Cuántos artículos bajo mínimo?', 'Valor del inventario', 'Días de cobertura', 'Artículos sin movimiento', 'Tendencia inventario MoM'],
+    'Dashboard_Correlacion': ['¿Cuál es el ratio gasto/venta?', 'Eficiencia operativa', '¿Están los gastos bien alineados?', 'Correlación mes actual', 'Recomendación de margen'],
+    'default': [
+      '¿Cuánto llevamos de ventas?',
+      '¿Estamos en meta?',
+      '¿Cuánto se vence de CXC?',
+      '¿Cómo está el margen bruto?',
+      'Top 5 vendedores del mes',
+      'Proyección fin de mes',
+      'Estado del inventario',
+      'Analiza la eficiencia de gastos',
+      '¿Cómo va Boostrategy?',
+    ],
+  };
+
+  function getSuggestions() {
+    const pageKey = Object.keys(SUGGESTIONS_BY_PAGE).find(k => PAGE.includes(k));
+    return pageKey ? SUGGESTIONS_BY_PAGE[pageKey] : SUGGESTIONS_BY_PAGE['default'];
+  }
+
+  const SUGGESTIONS = getSuggestions();
 
   let history  = [];
   let pendingImg = null;  // { dataUrl, base64 }

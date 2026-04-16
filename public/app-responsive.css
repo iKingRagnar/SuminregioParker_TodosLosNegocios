@@ -342,3 +342,264 @@ main .chart-wrap {
     scroll-behavior: auto !important;
   }
 }
+
+/* ════════════════════════════════════════════════════════════
+   PREMIUM DASHBOARD HEADERS (.hdr) — Mobile
+════════════════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  .hdr {
+    padding: 12px 16px !important;
+  }
+  .hdr-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .hdr-right {
+    align-self: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .hdr-nav {
+    gap: 4px;
+    overflow-x: auto;
+    flex-wrap: nowrap !important;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+  .hdr-nav a {
+    flex-shrink: 0;
+    white-space: nowrap;
+    font-size: 11px !important;
+    padding: 6px 10px !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .hdr-titles h1 {
+    font-size: clamp(1rem, 5vw, 1.4rem) !important;
+  }
+  .hdr-titles .sub {
+    font-size: 11px !important;
+  }
+  .hdr-logo {
+    width: 36px !important;
+    height: 36px !important;
+    font-size: 16px !important;
+  }
+  .live-badge {
+    font-size: 9px !important;
+    padding: 3px 8px !important;
+  }
+  #hdr-clock {
+    display: none;
+  }
+  .btn-print {
+    font-size: 11px !important;
+    padding: 6px 12px !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   PREMIUM KPI CARDS — Mobile
+════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* KPI rows that use flex */
+  .kpi-row,
+  .kpi-grid,
+  .kpi-panel,
+  .kpi-mega-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+  }
+
+  /* Charts grid 2-col on tablet */
+  .charts-grid,
+  .chart-section,
+  .grid-2 {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  /* Filter bars */
+  .filters-bar,
+  #filter-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .fgroup {
+    width: 100%;
+  }
+  .fgroup select,
+  .fgroup input {
+    width: 100%;
+  }
+
+  /* Source tabs */
+  .source-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  .source-tab {
+    flex-shrink: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .kpi-row,
+  .kpi-grid,
+  .kpi-panel,
+  .kpi-mega-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Scatter / correlation charts: smaller height on mobile */
+  .scatter-wrap canvas,
+  .chart-wrap canvas {
+    max-height: 280px !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   SCORECARD RANKING CARDS — Mobile
+════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .scorecard-wrap,
+  .ranking-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .rank-card {
+    padding: 14px 16px !important;
+  }
+
+  .rank-card .avatar {
+    width: 40px !important;
+    height: 40px !important;
+    font-size: 14px !important;
+  }
+
+  .rank-card .name {
+    font-size: 13px !important;
+  }
+
+  .progress-bar-wrap {
+    gap: 6px !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   CORRELATION DASHBOARD — Mobile
+════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .corr-kpi-row {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+  }
+
+  .corr-charts-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .alert-panel {
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .corr-kpi-row {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   CC (AGING) DASHBOARD — Mobile
+════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .aging-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .cxc-hero,
+  .cxc-kpi-journey {
+    padding: 14px 16px !important;
+  }
+
+  .risk-badge {
+    font-size: 10px !important;
+    padding: 2px 8px !important;
+  }
+}
+
+@media (max-width: 400px) {
+  .aging-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   BALANCE GENERAL / RESULTADOS — Mobile
+════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .balance-kpis {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+  }
+
+  .balance-table-wrap {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .balance-cols {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .balance-kpis {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   AI PRO BUTTON IN NAV — Mobile
+════════════════════════════════════════════════════════════ */
+@media (max-width: 480px) {
+  #sumi-ai-pro-btn {
+    font-size: 10px !important;
+    padding: 4px 8px !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════
+   GENERAL UTILITY — Mobile
+════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .section-title {
+    font-size: clamp(1rem, 4vw, 1.2rem) !important;
+    margin-bottom: 12px !important;
+  }
+
+  .intel-bar {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .exec-mission {
+    padding: 14px 16px !important;
+  }
+
+  /* Hide decorative orbs on very small screens */
+  .orb-bg,
+  .orb-1,
+  .orb-2 {
+    display: none !important;
+  }
+}

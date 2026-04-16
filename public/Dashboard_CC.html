@@ -1,97 +1,778 @@
 <!DOCTYPE html>
-<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Cobranza CxC — Suminregio Industrial</title><link rel="icon" href="favicon.svg" type="image/svg+xml"/>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Cobranza CxC — Suminregio Industrial</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-:root{--rad:12px;--gap:20px}
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',system-ui,sans-serif;background:#f0f2f5;color:#1a1a2e}
-.dash{max-width:1400px;margin:0 auto;padding:20px}
-.hdr{background:linear-gradient(135deg,#1a2e3a,#163e4e);color:#fff;padding:20px 24px;border-radius:var(--rad);margin-bottom:var(--gap)}
-.hdr h1{font-size:20px;font-weight:700}
-.hdr .sub{font-size:12px;opacity:.6;margin-top:2px}
-.hdr .nav{margin-top:10px;display:flex;gap:6px;flex-wrap:wrap}
-.hdr .nav a{color:rgba(255,255,255,.7);text-decoration:none;font-size:11px;padding:4px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.2);transition:all .15s}
-.hdr .nav a:hover,.hdr .nav a.active{background:rgba(255,255,255,.2);color:#fff}
-.container{max-width:1400px;margin:0 auto;padding:0}
-.tabs{display:flex;gap:4px;margin-bottom:20px;background:#fff;border-radius:12px;padding:4px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
-.tab{padding:10px 20px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;color:#718096;transition:all .2s}
-.tab.active{background:#1a1a2e;color:#fff}
-.tab:hover:not(.active){background:#f7fafc}
-.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px}
-.kpi{background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
-.kpi-label{font-size:12px;color:#718096;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
-.kpi-value{font-size:26px;font-weight:700;color:#1a1a2e}.kpi-value.danger{color:#e53e3e}.kpi-value.success{color:#38a169}
-.kpi-sub{font-size:12px;color:#a0aec0;margin-top:2px}
-.filters{background:#fff;border-radius:12px;padding:14px 20px;margin-bottom:20px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;box-shadow:0 1px 3px rgba(0,0,0,.08)}
-.filters label{font-size:13px;color:#718096;font-weight:600}
-.filters select,.filters input{padding:7px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px}
-.filters select{min-width:160px}
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px}
-.card{background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
-.card h3{font-size:15px;font-weight:600;color:#2d3748;margin-bottom:12px}
-.card-full{margin-bottom:24px}
-table{width:100%;border-collapse:collapse;font-size:13px}
-th{background:#f7fafc;padding:10px 8px;text-align:left;font-weight:600;color:#4a5568;border-bottom:2px solid #e2e8f0;cursor:pointer;white-space:nowrap}
-th:hover{background:#edf2f7}
-td{padding:8px;border-bottom:1px solid #f0f0f0}
-tr:hover td{background:#f7fafc}
-.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
-.badge-danger{background:#fed7d7;color:#c53030}.badge-success{background:#c6f6d5;color:#276749}.badge-warning{background:#fefcbf;color:#975a16}
-.text-right{text-align:right}
-.bar-container{width:100%;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden}
-.bar-fill{height:100%;border-radius:4px;background:#e53e3e}
-.section-hidden{display:none}
-.doc-table-container,.prov-table-container{max-height:500px;overflow-y:auto}
-@media(max-width:900px){.grid-2{grid-template-columns:1fr}}
-.tip{position:relative;cursor:help;border-bottom:1px dotted var(--muted);}
-.tip:hover::after{content:attr(data-tip);position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:6px 10px;border-radius:6px;font-size:11px;white-space:nowrap;z-index:999;pointer-events:none;}
-.tip:hover::before{content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#333;margin-bottom:-10px;z-index:999;}
-.filter-badge{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:0 0 15px;padding:12px;background:#f0f4f8;border-radius:12px;border-left:4px solid #4299e1}
-.filter-pill{display:inline-flex;align-items:center;gap:6px;background:#fff;padding:6px 12px;border-radius:6px;border:1px solid #cbd5e0;font-size:12px;color:#2d3748;box-shadow:0 1px 2px rgba(0,0,0,.05)}
-.filter-pill-btn{cursor:pointer;color:#718096;font-weight:700;padding:0 4px;border:none;background:none;font-size:14px;transition:all .15s}
-.filter-pill-btn:hover{color:#e53e3e}
-.filter-clear-all{display:inline-flex;align-items:center;gap:4px;background:transparent;color:#4299e1;font-size:12px;font-weight:600;cursor:pointer;border:none;padding:0;transition:all .15s}
-.filter-clear-all:hover{color:#2c5282;text-decoration:underline}
-.chart-clickable{cursor:pointer}
-.table-row-clickable{cursor:pointer;transition:background .15s}
-.table-row-clickable:hover{background:#e3f2fd !important}
-.table-row-clickable.selected{background:#e3f2fd !important}
-.footer { text-align:center; padding:12px; font-size:11px; color:var(--muted); }@media print {
-  body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-  .hdr .nav { display:none; }
-  button { display:none !important; }
-  .dash, .page { max-width:100%; padding:0; }
-  .hdr { break-after:avoid; }
-  .cc, .tc, .ccard, .tcard, .kpi { break-inside:avoid; }
-  canvas { max-height:280px !important; }
+/* ========================================
+   DESIGN TOKENS
+   ======================================== */
+:root {
+  --bg:          #060E1A;
+  --card:        #0C1B29;
+  --card2:       #0F2035;
+  --border:      rgba(255,255,255,.06);
+  --border-glow: rgba(230,168,0,.25);
+
+  --gold:    #E6A800;
+  --blue:    #4DA6FF;
+  --green:   #00E5A0;
+  --red:     #FF4566;
+  --orange:  #FF8C42;
+  --purple:  #A78BFA;
+
+  --gold-dim:   rgba(230,168,0,.15);
+  --blue-dim:   rgba(77,166,255,.15);
+  --green-dim:  rgba(0,229,160,.15);
+  --red-dim:    rgba(255,69,102,.15);
+  --orange-dim: rgba(255,140,66,.15);
+
+  --text-primary:   #F0F4FA;
+  --text-secondary: #8899AA;
+  --text-muted:     #4A5F72;
+
+  --rad:  14px;
+  --rad-sm: 8px;
+  --gap:  20px;
+
+  --font-title: 'Syne', system-ui, sans-serif;
+  --font-mono:  'DM Mono', 'Courier New', monospace;
 }
-</style><link rel="stylesheet" href="app-ui.css">
-<link rel="stylesheet" href="app-responsive.css"><script src="app-ui-boot.js" defer></script></head><body>
+
+/* ========================================
+   RESET & BASE
+   ======================================== */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  font-family: var(--font-title);
+  background: var(--bg);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ========================================
+   BACKGROUND ORBS
+   ======================================== */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(ellipse 700px 500px at 10% 15%,  rgba(77,166,255,.07) 0%, transparent 70%),
+    radial-gradient(ellipse 500px 400px at 90% 80%,  rgba(230,168,0,.06)  0%, transparent 70%),
+    radial-gradient(ellipse 600px 400px at 50% 50%,  rgba(0,229,160,.04)  0%, transparent 70%);
+}
+
+/* ========================================
+   SCROLLBAR
+   ======================================== */
+::-webkit-scrollbar { width:6px; height:6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: rgba(77,166,255,.3); border-radius:3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(77,166,255,.6); }
+
+/* ========================================
+   DASH WRAPPER
+   ======================================== */
+.dash {
+  position: relative;
+  z-index: 1;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 20px 24px 40px;
+}
+
+/* ========================================
+   HEADER
+   ======================================== */
+.hdr {
+  position: relative;
+  background: linear-gradient(135deg, #0A1929 0%, #0D2238 60%, #091523 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--rad);
+  padding: 22px 28px 18px;
+  margin-bottom: var(--gap);
+  overflow: hidden;
+}
+
+/* header shimmer line */
+.hdr::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, var(--gold) 40%, var(--blue) 70%, transparent 100%);
+}
+
+/* side accent */
+.hdr::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--gold), var(--blue));
+  border-radius: 2px 0 0 2px;
+}
+
+.hdr-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.hdr-brand { display: flex; align-items: center; gap: 14px; }
+
+.hdr-logo {
+  width: 42px; height: 42px;
+  background: linear-gradient(135deg, var(--gold), #B8880A);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 13px; font-weight: 500;
+  color: #060E1A;
+  letter-spacing: -.5px;
+  flex-shrink: 0;
+}
+
+.hdr-title-block { }
+.hdr h1 {
+  font-family: var(--font-title);
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -.3px;
+  line-height: 1.2;
+}
+.hdr .sub {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  margin-top: 3px;
+  font-family: var(--font-mono);
+  letter-spacing: .2px;
+}
+
+.hdr-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* LIVE indicator */
+.live-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(230,168,0,.12);
+  border: 1px solid rgba(230,168,0,.35);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--gold);
+  letter-spacing: .8px;
+  text-transform: uppercase;
+}
+
+.live-dot {
+  width: 7px; height: 7px;
+  background: var(--gold);
+  border-radius: 50%;
+  animation: livePulse 1.8s ease-in-out infinite;
+}
+
+@keyframes livePulse {
+  0%, 100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(230,168,0,.5); }
+  50% { opacity: .7; transform: scale(.85); box-shadow: 0 0 0 4px rgba(230,168,0,0); }
+}
+
+/* clock */
+#live-clock {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 5px 10px;
+  letter-spacing: 1px;
+}
+
+/* print button */
+.hdr .btn-export {
+  background: rgba(77,166,255,.12);
+  color: var(--blue);
+  border: 1px solid rgba(77,166,255,.3);
+  padding: 7px 16px;
+  border-radius: var(--rad-sm);
+  font-family: var(--font-title);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .2s;
+  letter-spacing: .3px;
+}
+.hdr .btn-export:hover {
+  background: rgba(77,166,255,.22);
+  border-color: rgba(77,166,255,.6);
+  color: #fff;
+}
+
+/* ===== NAV ===== */
+.hdr .nav {
+  margin-top: 16px;
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.hdr .nav a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  transition: all .2s;
+  letter-spacing: .2px;
+  font-family: var(--font-title);
+}
+
+.hdr .nav a:hover {
+  background: rgba(255,255,255,.07);
+  color: var(--text-primary);
+  border-color: rgba(255,255,255,.18);
+}
+
+.hdr .nav a.active {
+  background: linear-gradient(135deg, rgba(230,168,0,.25), rgba(230,168,0,.1));
+  color: var(--gold);
+  border-color: rgba(230,168,0,.45);
+}
+
+/* ========================================
+   TABS
+   ======================================== */
+.container { max-width:1440px; margin:0 auto; padding:0; }
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 22px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--rad);
+  padding: 5px;
+}
+
+.tab {
+  flex: 1;
+  padding: 11px 20px;
+  border-radius: calc(var(--rad) - 4px);
+  cursor: pointer;
+  font-family: var(--font-title);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: center;
+  transition: all .25s;
+  letter-spacing: .2px;
+}
+
+.tab:hover:not(.active) {
+  background: rgba(255,255,255,.05);
+  color: var(--text-primary);
+}
+
+.tab.active {
+  background: linear-gradient(135deg, rgba(77,166,255,.2), rgba(77,166,255,.08));
+  color: var(--blue);
+  border: 1px solid rgba(77,166,255,.3);
+  box-shadow: 0 2px 12px rgba(77,166,255,.12);
+}
+
+/* ========================================
+   FILTER BADGE
+   ======================================== */
+.filter-badge {
+  display: flex;
+  justify-content: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  background: rgba(77,166,255,.06);
+  border-radius: var(--rad);
+  border: 1px solid rgba(77,166,255,.2);
+  border-left: 3px solid var(--blue);
+}
+
+.filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,.06);
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+.filter-pill-btn {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-weight: 700;
+  padding: 0 4px;
+  border: none;
+  background: none;
+  font-size: 13px;
+  transition: color .15s;
+}
+.filter-pill-btn:hover { color: var(--red); }
+
+.filter-clear-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  padding: 0 6px;
+  font-family: var(--font-title);
+  transition: all .15s;
+}
+.filter-clear-all:hover { color: #fff; text-decoration: underline; }
+
+/* ========================================
+   KPI ROW
+   ======================================== */
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+/* KPI card base — JS renders into .kpi divs */
+.kpi {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--rad);
+  padding: 20px 20px 18px;
+  overflow: hidden;
+  transition: transform .2s, box-shadow .2s;
+  animation: fadeUp .4s ease both;
+}
+
+.kpi:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0,0,0,.35);
+}
+
+/* top accent bar */
+.kpi::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--kpi-accent, var(--blue));
+  border-radius: var(--rad) var(--rad) 0 0;
+}
+
+/* staggered animation */
+.kpi:nth-child(1) { animation-delay: .05s; }
+.kpi:nth-child(2) { animation-delay: .10s; }
+.kpi:nth-child(3) { animation-delay: .15s; }
+.kpi:nth-child(4) { animation-delay: .20s; }
+.kpi:nth-child(5) { animation-delay: .25s; }
+.kpi:nth-child(6) { animation-delay: .30s; }
+
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(16px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+.kpi-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.kpi-value {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.1;
+  letter-spacing: -.5px;
+}
+
+/* JS sets these color classes */
+.kpi-value.danger  { color: var(--red); }
+.kpi-value.success { color: var(--green); }
+.kpi-value.warning { color: var(--gold); }
+
+.kpi-sub {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+/* ========================================
+   FILTERS BAR
+   ======================================== */
+.filters {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--rad);
+  padding: 14px 20px;
+  margin-bottom: 22px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.filters label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+
+.filters select,
+.filters input {
+  padding: 8px 12px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid var(--border);
+  border-radius: var(--rad-sm);
+  font-size: 12.5px;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  transition: border-color .2s, box-shadow .2s;
+  outline: none;
+  cursor: pointer;
+}
+
+.filters select:hover,
+.filters input:hover {
+  border-color: rgba(77,166,255,.35);
+}
+
+.filters select:focus,
+.filters input:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(77,166,255,.1);
+}
+
+/* Firefox select dark */
+.filters select option { background: #0C1B29; color: var(--text-primary); }
+
+.filters select { min-width:160px; }
+
+/* ========================================
+   GRID & CARDS
+   ======================================== */
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--gap);
+  margin-bottom: 24px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--rad);
+  padding: 22px;
+  transition: border-color .25s;
+  animation: fadeUp .45s ease both;
+}
+
+.card:hover { border-color: rgba(255,255,255,.12); }
+
+.card h3 {
+  font-family: var(--font-title);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: .1px;
+}
+
+.card-full { margin-bottom: 24px; }
+
+/* ========================================
+   TABLES
+   ======================================== */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  font-family: var(--font-mono);
+}
+
+th {
+  background: rgba(255,255,255,.03);
+  padding: 11px 10px;
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color .15s;
+}
+
+th:hover { color: var(--blue); }
+
+td {
+  padding: 10px 10px;
+  border-bottom: 1px solid rgba(255,255,255,.03);
+  color: var(--text-primary);
+  transition: background .15s;
+}
+
+tbody tr:hover td {
+  background: rgba(77,166,255,.04);
+}
+
+.text-right { text-align: right; }
+
+/* ========================================
+   BADGES
+   ======================================== */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 5px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: .3px;
+  white-space: nowrap;
+}
+
+.badge-danger  { background: rgba(255,69,102,.15);  color: var(--red);    border: 1px solid rgba(255,69,102,.3); }
+.badge-success { background: rgba(0,229,160,.12);   color: var(--green);  border: 1px solid rgba(0,229,160,.25); }
+.badge-warning { background: rgba(230,168,0,.15);   color: var(--gold);   border: 1px solid rgba(230,168,0,.3); }
+.badge-info    { background: rgba(77,166,255,.12);  color: var(--blue);   border: 1px solid rgba(77,166,255,.25); }
+.badge-orange  { background: rgba(255,140,66,.12);  color: var(--orange); border: 1px solid rgba(255,140,66,.25); }
+
+/* ========================================
+   BAR (vencimiento mini-bar)
+   ======================================== */
+.bar-container {
+  width: 100%;
+  height: 5px;
+  background: rgba(255,255,255,.06);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--red);
+  transition: width .4s ease;
+}
+
+/* ========================================
+   SCROLL CONTAINERS
+   ======================================== */
+.doc-table-container,
+.prov-table-container {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+/* ========================================
+   SECTION HIDDEN
+   ======================================== */
+.section-hidden { display: none !important; }
+
+/* ========================================
+   TOOLTIP
+   ======================================== */
+.tip {
+  position: relative;
+  cursor: help;
+  border-bottom: 1px dotted var(--text-muted);
+  color: var(--blue);
+}
+.tip:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: 120%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0A1929;
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  padding: 7px 11px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  z-index: 999;
+  pointer-events: none;
+  box-shadow: 0 8px 24px rgba(0,0,0,.5);
+}
+.tip:hover::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--border);
+  margin-bottom: -5px;
+  z-index: 999;
+}
+
+/* ========================================
+   INTERACTIVE TABLE ROWS
+   ======================================== */
+.chart-clickable { cursor: pointer; }
+
+.table-row-clickable {
+  cursor: pointer;
+  transition: background .15s;
+}
+.table-row-clickable:hover td {
+  background: rgba(77,166,255,.07) !important;
+}
+.table-row-clickable.selected td {
+  background: rgba(77,166,255,.1) !important;
+}
+
+/* ========================================
+   FOOTER
+   ======================================== */
+.footer {
+  text-align: center;
+  padding: 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  margin-top: 20px;
+}
+
+/* ========================================
+   PRINT
+   ======================================== */
+@media print {
+  body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; background: #fff !important; color: #000 !important; }
+  .hdr .nav { display: none; }
+  button { display: none !important; }
+  .dash, .page { max-width: 100%; padding: 0; }
+  .hdr { break-after: avoid; }
+  .cc, .tc, .ccard, .tcard, .kpi { break-inside: avoid; }
+  canvas { max-height: 280px !important; }
+  body::before { display: none; }
+}
+
+/* ========================================
+   RESPONSIVE
+   ======================================== */
+@media (max-width: 900px) {
+  .grid-2 { grid-template-columns: 1fr; }
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .hdr-right { flex-wrap: wrap; gap: 8px; }
+  #live-clock { display: none; }
+}
+</style>
+<link rel="stylesheet" href="app-ui.css">
+<link rel="stylesheet" href="app-responsive.css">
+<script src="app-ui-boot.js" defer></script>
+</head>
+<body>
+
+<!-- Background orb decorations -->
+<div aria-hidden="true" style="position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;">
+  <div style="position:absolute;width:600px;height:600px;top:-150px;left:-150px;background:radial-gradient(circle,rgba(77,166,255,.08) 0%,transparent 70%);border-radius:50%;"></div>
+  <div style="position:absolute;width:500px;height:500px;bottom:-100px;right:-100px;background:radial-gradient(circle,rgba(230,168,0,.06) 0%,transparent 70%);border-radius:50%;"></div>
+  <div style="position:absolute;width:400px;height:400px;top:50%;left:50%;transform:translate(-50%,-50%);background:radial-gradient(circle,rgba(0,229,160,.04) 0%,transparent 70%);border-radius:50%;"></div>
+</div>
+
 <div class="dash">
-<div class="hdr"><button onclick="window.print()" style="position:absolute;right:24px;top:20px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);padding:6px 16px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:500;">Exportar PDF</button><h1>Cuentas por Cobrar</h1><div class="sub">Cartera, antigüedad de saldos y eficiencia de cobranza semanal</div><div class="nav">
-<a href="Dashboard_Index.html">Inicio</a>
-<a href="Dashboard_Ventas.html">Ventas</a>
-<a href="Dashboard_CC.html" class="active">Cartera CC</a>
-<a href="Dashboard_CP.html">Cuentas x Pagar</a>
-<a href="Dashboard_ABC.html">ABC Inventario</a>
-<a href="Dashboard_Compras.html">Compras</a>
-<a href="Dashboard_Clientes.html">Clientes</a>
-<a href="Dashboard_Comisiones.html">Comisiones</a>
-<a href="Dashboard_Rotacion.html">Rotación Resumen</a>
-<a href="Dashboard_Rotacion_Profundo.html">Rotación Profundo</a>
-<a href="Dashboard_DSO.html">Cobranza DSO</a>
-<a href="Dashboard_Rentabilidad.html">Rentabilidad</a>
-<a href="Dashboard_Flujo.html">Flujo Efectivo</a>
-<a href="Dashboard_Estacionalidad.html">Estacionalidad</a>
-<a href="Dashboard_Scorecard.html">Scorecard</a>
-<a href="Dashboard_Alertas.html">Alertas</a>
-</div></div>
+<!-- ===== HEADER ===== -->
+<div class="hdr">
+  <button class="btn-export" onclick="window.print()" style="position:absolute;right:24px;top:22px;">&#10515; Exportar PDF</button>
+  <div class="hdr-top">
+    <div class="hdr-brand">
+      <div class="hdr-logo">CXC</div>
+      <div class="hdr-title-block">
+        <h1>Cuentas por Cobrar</h1>
+        <div class="sub">Cartera, antigüedad de saldos y eficiencia de cobranza &mdash; SUMINREGIO INDUSTRIAL</div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+      <div id="live-clock">--:--:--</div>
+    </div>
+  </div>
+  <div class="nav">
+    <a href="Dashboard_Index.html">Inicio</a>
+    <a href="Dashboard_Ventas.html">Ventas</a>
+    <a href="Dashboard_CC.html" class="active">Cartera CC</a>
+    <a href="Dashboard_CP.html">Cuentas x Pagar</a>
+    <a href="Dashboard_ABC.html">ABC Inventario</a>
+    <a href="Dashboard_Compras.html">Compras</a>
+    <a href="Dashboard_Clientes.html">Clientes</a>
+    <a href="Dashboard_Comisiones.html">Comisiones</a>
+    <a href="Dashboard_Rotacion.html">Rotación Resumen</a>
+    <a href="Dashboard_Rotacion_Profundo.html">Rotación Profundo</a>
+    <a href="Dashboard_DSO.html">Cobranza DSO</a>
+    <a href="Dashboard_Rentabilidad.html">Rentabilidad</a>
+    <a href="Dashboard_Flujo.html">Flujo Efectivo</a>
+    <a href="Dashboard_Estacionalidad.html">Estacionalidad</a>
+    <a href="Dashboard_Scorecard.html">Scorecard</a>
+    <a href="Dashboard_Alertas.html">Alertas</a>
+  </div>
+</div>
+
 <div class="container">
 <div class="tabs">
-<div class="tab active" onclick="showTab('cartera')">Cartera Pendiente</div>
-<div class="tab" onclick="showTab('eficiencia')">Eficiencia de Cobranza</div>
-<div class="tab" onclick="showTab('perfil')">Perfil de Pago</div>
+  <div class="tab active" onclick="showTab('cartera')">Cartera Pendiente</div>
+  <div class="tab" onclick="showTab('eficiencia')">Eficiencia de Cobranza</div>
+  <div class="tab" onclick="showTab('perfil')">Perfil de Pago</div>
 </div>
 <div id="filter-badge" class="filter-badge" style="display:none"></div>
 
@@ -99,25 +780,30 @@ tr:hover td{background:#f7fafc}
 <div id="tab-cartera">
 <div class="kpi-row" id="kpis-cartera"></div>
 <div class="filters">
-<label>Estatus:</label><select id="fEstatus"><option value="todo">Todo</option><option value="vencido">Vencido</option><option value="vigente">Vigente</option></select>
-<label>Cliente:</label><select id="fCliente"><option value="todos">Todos</option></select>
-<label>Vendedor:</label><select id="fVendedor"><option value="todos">Todos</option></select>
-<label>Antigüedad:</label><select id="fBucket"><option value="todos">Todos</option><option value="Vigente">Vigente</option><option value="1-30 días">1-30</option><option value="31-60 días">31-60</option><option value="61-90 días">61-90</option><option value="90+ días">90+</option></select>
-<label>Buscar:</label><input type="text" id="fSearch" placeholder="Folio o cliente..." style="width:200px">
+  <label>Estatus:</label><select id="fEstatus"><option value="todo">Todo</option><option value="vencido">Vencido</option><option value="vigente">Vigente</option></select>
+  <label>Cliente:</label><select id="fCliente"><option value="todos">Todos</option></select>
+  <label>Vendedor:</label><select id="fVendedor"><option value="todos">Todos</option></select>
+  <label>Antigüedad:</label><select id="fBucket"><option value="todos">Todos</option><option value="Vigente">Vigente</option><option value="1-30 días">1-30</option><option value="31-60 días">31-60</option><option value="61-90 días">61-90</option><option value="90+ días">90+</option></select>
+  <label>Buscar:</label><input type="text" id="fSearch" placeholder="Folio o cliente..." style="width:200px">
 </div>
 <div class="grid-2">
-<div class="card"><h3>Antigüedad de Saldos</h3><canvas id="cAging"></canvas></div>
-<div class="card"><h3>Top Clientes por Saldo</h3><canvas id="cTopCli"></canvas></div>
+  <div class="card"><h3>&#9642; Antigüedad de Saldos</h3><canvas id="cAging"></canvas></div>
+  <div class="card"><h3>&#9642; Top Clientes por Saldo</h3><canvas id="cTopCli"></canvas></div>
 </div>
 <div class="card card-full">
-<h3>Detalle de Documentos <span id="docCount" style="font-weight:400;color:#a0aec0;font-size:13px"></span></h3>
-<div class="doc-table-container"><table id="tDocs"><thead><tr>
-<th onclick="sortDocs(0)">Folio</th><th onclick="sortDocs(1)">Cliente</th><th onclick="sortDocs(2)">Vendedor</th>
-<th onclick="sortDocs(3)">Fecha</th><th onclick="sortDocs(4)">Vencimiento</th>
-<th onclick="sortDocs(5)" class="text-right">Cargo</th><th onclick="sortDocs(6)" class="text-right">Pagado</th>
-<th onclick="sortDocs(7)" class="text-right">Saldo</th><th onclick="sortDocs(8)" class="text-right">Días</th>
-<th onclick="sortDocs(9)">Estatus</th>
-</tr></thead><tbody></tbody></table></div>
+  <h3>&#9642; Detalle de Documentos <span id="docCount" style="font-weight:400;color:var(--text-muted);font-size:12px;font-family:var(--font-mono)"></span></h3>
+  <div class="doc-table-container"><table id="tDocs"><thead><tr>
+    <th onclick="sortDocs(0)">Folio</th>
+    <th onclick="sortDocs(1)">Cliente</th>
+    <th onclick="sortDocs(2)">Vendedor</th>
+    <th onclick="sortDocs(3)">Fecha</th>
+    <th onclick="sortDocs(4)">Vencimiento</th>
+    <th onclick="sortDocs(5)" class="text-right">Cargo</th>
+    <th onclick="sortDocs(6)" class="text-right">Pagado</th>
+    <th onclick="sortDocs(7)" class="text-right">Saldo</th>
+    <th onclick="sortDocs(8)" class="text-right">Días</th>
+    <th onclick="sortDocs(9)">Estatus</th>
+  </tr></thead><tbody></tbody></table></div>
 </div>
 </div>
 
@@ -125,78 +811,84 @@ tr:hover td{background:#f7fafc}
 <div id="tab-eficiencia" class="section-hidden">
 <div class="kpi-row" id="kpis-eficiencia"></div>
 <div class="filters">
-<label>Periodo:</label><select id="fPeriodo"><option value="todo">Todo</option><option value="3m">Últimos 3 meses</option><option value="6m">Últimos 6 meses</option></select>
-<label>Vendedor:</label><select id="fVendedorEf"><option value="todos">Todos</option></select>
-<label>Desde:</label><input type="date" id="fDesde" value="">
-<label>Hasta:</label><input type="date" id="fHasta" value="">
+  <label>Periodo:</label><select id="fPeriodo"><option value="todo">Todo</option><option value="3m">Últimos 3 meses</option><option value="6m">Últimos 6 meses</option></select>
+  <label>Vendedor:</label><select id="fVendedorEf"><option value="todos">Todos</option></select>
+  <label>Desde:</label><input type="date" id="fDesde" value="">
+  <label>Hasta:</label><input type="date" id="fHasta" value="">
 </div>
-<div class="card card-full"><h3><span class="tip" data-tip="Collection Effectiveness Index: % de cartera vencida que se cobró">CEI</span> Semanal (%)</h3><canvas id="cCEIWeekly"></canvas></div>
+<div class="card card-full"><h3>&#9642; <span class="tip" data-tip="Collection Effectiveness Index: % de cartera vencida que se cobró">CEI</span> Semanal (%)</h3><canvas id="cCEIWeekly"></canvas></div>
 <div class="grid-2">
-<div class="card"><h3><span class="tip" data-tip="Collection Effectiveness Index: % de cartera vencida que se cobró">CEI</span> Mensual por Vendedor</h3><canvas id="cCEIVendor"></canvas></div>
-<div class="card"><h3>Detalle <span class="tip" data-tip="Collection Effectiveness Index: % de cartera vencida que se cobró">CEI</span> Semanal <span id="ceiDetailCount" style="font-weight:400;color:#a0aec0;font-size:13px"></span></h3>
-<div class="doc-table-container"><table id="tCEI" style="font-size:12px"><thead><tr>
-<th onclick="sortCEI(0)">Semana</th><th onclick="sortCEI(1)" class="text-right">Vencido</th><th onclick="sortCEI(2)" class="text-right">Cobrado</th><th onclick="sortCEI(3)" class="text-right"><span class="tip" data-tip="Collection Effectiveness Index: % de cartera vencida que se cobró">CEI</span> %</th>
-</tr></thead><tbody></tbody></table></div>
-</div>
+  <div class="card"><h3>&#9642; <span class="tip" data-tip="Collection Effectiveness Index: % de cartera vencida que se cobró">CEI</span> Mensual por Vendedor</h3><canvas id="cCEIVendor"></canvas></div>
+  <div class="card"><h3>&#9642; Detalle <span class="tip" data-tip="Collection Effectiveness Index: % de cartera vencida que se cobró">CEI</span> Semanal <span id="ceiDetailCount" style="font-weight:400;color:var(--text-muted);font-size:12px;font-family:var(--font-mono)"></span></h3>
+    <div class="doc-table-container"><table id="tCEI" style="font-size:12px"><thead><tr>
+      <th onclick="sortCEI(0)">Semana</th>
+      <th onclick="sortCEI(1)" class="text-right">Vencido</th>
+      <th onclick="sortCEI(2)" class="text-right">Cobrado</th>
+      <th onclick="sortCEI(3)" class="text-right"><span class="tip" data-tip="Collection Effectiveness Index: % de cartera vencida que se cobró">CEI</span> %</th>
+    </tr></thead><tbody></tbody></table></div>
+  </div>
 </div>
 <div class="grid-2">
-<div class="card"><h3>Cobranza Semanal</h3><canvas id="cWeekly"></canvas></div>
-<div class="card"><h3>Cobranza Mensual</h3><canvas id="cMonthly"></canvas></div>
+  <div class="card"><h3>&#9642; Cobranza Semanal</h3><canvas id="cWeekly"></canvas></div>
+  <div class="card"><h3>&#9642; Cobranza Mensual</h3><canvas id="cMonthly"></canvas></div>
 </div>
 <div class="grid-2">
-<div class="card"><h3>Tendencia Acumulada</h3><canvas id="cCumulative"></canvas></div>
-<div class="card"><h3>Promedio Móvil (4 semanas)</h3><canvas id="cMovAvg"></canvas></div>
+  <div class="card"><h3>&#9642; Tendencia Acumulada</h3><canvas id="cCumulative"></canvas></div>
+  <div class="card"><h3>&#9642; Promedio Móvil (4 semanas)</h3><canvas id="cMovAvg"></canvas></div>
 </div>
 <div class="card card-full">
-<h3>Detalle de Cobros <span id="cobroCount" style="font-weight:400;color:#a0aec0;font-size:13px"></span></h3>
-<div class="doc-table-container"><table id="tCobros"><thead><tr>
-<th onclick="sortCobros(0)">Fecha</th><th onclick="sortCobros(1)">Cliente</th>
-<th onclick="sortCobros(2)">Vendedor</th><th onclick="sortCobros(3)" class="text-right">Cobrado</th>
-<th onclick="sortCobros(4)">Semana</th>
-</tr></thead><tbody></tbody></table></div>
-</div>
+  <h3>&#9642; Detalle de Cobros <span id="cobroCount" style="font-weight:400;color:var(--text-muted);font-size:12px;font-family:var(--font-mono)"></span></h3>
+  <div class="doc-table-container"><table id="tCobros"><thead><tr>
+    <th onclick="sortCobros(0)">Fecha</th>
+    <th onclick="sortCobros(1)">Cliente</th>
+    <th onclick="sortCobros(2)">Vendedor</th>
+    <th onclick="sortCobros(3)" class="text-right">Cobrado</th>
+    <th onclick="sortCobros(4)">Semana</th>
+  </tr></thead><tbody></tbody></table></div>
 </div>
 </div>
 
-<!-- ===== TAB 3: PERFIL DE PAGO POR CLIENTE ===== -->
+<!-- ===== TAB 3: PERFIL DE PAGO ===== -->
 <div id="tab-perfil" class="section-hidden">
 <div class="kpi-row" id="kpis-perfil"></div>
 <div class="filters">
-<label>Vendedor:</label><select id="pfVendedor"><option value="todos">Todos</option></select>
-<label>Clasificación:</label><select id="pfClasif"><option value="con_saldo">Con saldo pendiente</option><option value="todos">Todos (incluye sin saldo)</option><option value="Excelente">Excelente</option><option value="Bueno">Bueno</option><option value="Regular">Regular</option><option value="Riesgo">Riesgo</option><option value="Critico">Crítico</option><option value="Sin saldo">Sin saldo</option></select>
-<label>Buscar:</label><input type="text" id="pfSearch" placeholder="Cliente..." style="width:200px">
+  <label>Vendedor:</label><select id="pfVendedor"><option value="todos">Todos</option></select>
+  <label>Clasificación:</label><select id="pfClasif"><option value="con_saldo">Con saldo pendiente</option><option value="todos">Todos (incluye sin saldo)</option><option value="Excelente">Excelente</option><option value="Bueno">Bueno</option><option value="Regular">Regular</option><option value="Riesgo">Riesgo</option><option value="Critico">Crítico</option><option value="Sin saldo">Sin saldo</option></select>
+  <label>Buscar:</label><input type="text" id="pfSearch" placeholder="Cliente..." style="width:200px">
 </div>
 <div class="grid-2">
-<div class="card"><h3>Clientes con Saldo — ¿Cómo Pagan?</h3><canvas id="cPfDist"></canvas><div id="pfDistLegend" style="margin-top:8px;font-size:12px;color:#718096;text-align:center"></div></div>
-<div class="card"><h3>¿Quién Me Debe Más?</h3><div style="min-height:400px"><canvas id="cPfTop"></canvas></div></div>
+  <div class="card"><h3>&#9642; Clientes con Saldo — ¿Cómo Pagan?</h3><canvas id="cPfDist"></canvas><div id="pfDistLegend" style="margin-top:8px;font-size:12px;color:var(--text-secondary);text-align:center;font-family:var(--font-mono)"></div></div>
+  <div class="card"><h3>&#9642; ¿Quién Me Debe Más?</h3><div style="min-height:400px"><canvas id="cPfTop"></canvas></div></div>
 </div>
 <div class="card card-full">
-<h3>¿Qué vendedor tiene más cartera en riesgo?</h3>
-<table id="tPfVendedor"><thead><tr>
-<th onclick="sortPfVendedor(0)">Vendedor</th>
-<th onclick="sortPfVendedor(1)" class="text-right">Clientes</th>
-<th onclick="sortPfVendedor(2)" class="text-right">Me Deben</th>
-<th onclick="sortPfVendedor(3)" class="text-right">Atraso Prom (días)</th>
-<th onclick="sortPfVendedor(4)" class="text-right">Críticos</th>
-<th onclick="sortPfVendedor(5)" class="text-right">En Riesgo</th>
-</tr></thead><tbody></tbody></table>
+  <h3>&#9642; ¿Qué vendedor tiene más cartera en riesgo?</h3>
+  <table id="tPfVendedor"><thead><tr>
+    <th onclick="sortPfVendedor(0)">Vendedor</th>
+    <th onclick="sortPfVendedor(1)" class="text-right">Clientes</th>
+    <th onclick="sortPfVendedor(2)" class="text-right">Me Deben</th>
+    <th onclick="sortPfVendedor(3)" class="text-right">Atraso Prom (días)</th>
+    <th onclick="sortPfVendedor(4)" class="text-right">Críticos</th>
+    <th onclick="sortPfVendedor(5)" class="text-right">En Riesgo</th>
+  </tr></thead><tbody></tbody></table>
 </div>
 <div class="card card-full">
-<h3>Detalle por Cliente <span id="pfDetailCount" style="font-weight:400;color:#a0aec0;font-size:13px"></span></h3>
-<div class="doc-table-container"><table id="tPfDetalle" style="font-size:12px"><thead><tr>
-<th onclick="sortPfDetalle(0)">Cliente</th>
-<th onclick="sortPfDetalle(1)">Vendedor</th>
-<th onclick="sortPfDetalle(2)" class="text-right">Facturas</th>
-<th onclick="sortPfDetalle(3)" class="text-right">Total Facturado</th>
-<th onclick="sortPfDetalle(4)" class="text-right">Me Debe</th>
-<th onclick="sortPfDetalle(5)" class="text-right" title="Promedio de días de atraso después del vencimiento">Atraso Prom</th>
-<th onclick="sortPfDetalle(6)" class="text-right" title="Máximo de días de atraso registrado">Atraso Máx</th>
-<th onclick="sortPfDetalle(7)" class="text-right" title="% cobrado vs vencido en últimos 3 meses">Eficiencia 3M</th>
-<th onclick="sortPfDetalle(8)" title="Comparación últimos 45 días vs 45 anteriores">Tendencia</th>
-<th onclick="sortPfDetalle(9)">Estado</th>
-</tr></thead><tbody></tbody></table></div>
+  <h3>&#9642; Detalle por Cliente <span id="pfDetailCount" style="font-weight:400;color:var(--text-muted);font-size:12px;font-family:var(--font-mono)"></span></h3>
+  <div class="doc-table-container"><table id="tPfDetalle" style="font-size:12px"><thead><tr>
+    <th onclick="sortPfDetalle(0)">Cliente</th>
+    <th onclick="sortPfDetalle(1)">Vendedor</th>
+    <th onclick="sortPfDetalle(2)" class="text-right">Facturas</th>
+    <th onclick="sortPfDetalle(3)" class="text-right">Total Facturado</th>
+    <th onclick="sortPfDetalle(4)" class="text-right">Me Debe</th>
+    <th onclick="sortPfDetalle(5)" class="text-right" title="Promedio de días de atraso después del vencimiento">Atraso Prom</th>
+    <th onclick="sortPfDetalle(6)" class="text-right" title="Máximo de días de atraso registrado">Atraso Máx</th>
+    <th onclick="sortPfDetalle(7)" class="text-right" title="% cobrado vs vencido en últimos 3 meses">Eficiencia 3M</th>
+    <th onclick="sortPfDetalle(8)" title="Comparación últimos 45 días vs 45 anteriores">Tendencia</th>
+    <th onclick="sortPfDetalle(9)">Estado</th>
+  </tr></thead><tbody></tbody></table></div>
 </div>
 </div>
+
+</div><!-- .container -->
 
 <script>
 // ===== CROSS-FILTER STATE & FUNCTIONS =====
@@ -527,7 +1219,26 @@ populatePfFilters();
 updateCartera();
 </script>
 </div>
-</div>
-<div class="footer">Última actualización: 11 Mar 2026 — Datos MicroSIP ERP — Suminregio Industrial</div>
+
+</div><!-- .dash -->
+
+<script>
+// ===== LIVE CLOCK =====
+(function(){
+  function tick(){
+    const now=new Date();
+    const hh=String(now.getHours()).padStart(2,'0');
+    const mm=String(now.getMinutes()).padStart(2,'0');
+    const ss=String(now.getSeconds()).padStart(2,'0');
+    const el=document.getElementById('live-clock');
+    if(el) el.textContent=hh+':'+mm+':'+ss;
+  }
+  tick();
+  setInterval(tick,1000);
+})();
+</script>
+
+<div class="footer">Última actualización: 11 Mar 2026 &mdash; Datos MicroSIP ERP &mdash; Suminregio Industrial</div>
 <script src="/chat-widget.js" defer></script>
-</body></html>
+</body>
+</html>

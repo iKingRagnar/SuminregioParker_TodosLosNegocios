@@ -3,6 +3,17 @@
  * Barra de refresco manual + estado (Cargando / Last refresh succeeded at).
  * Se carga con defer en las páginas que enlazan app-ui.css.
  */
+
+// ── Inyectar data-cache.js antes que cualquier otra lógica ───────────────────
+(function injectDataCache() {
+  if (typeof window.__sumiCache !== 'undefined') return; // ya cargado
+  var s = document.createElement('script');
+  var base = (typeof window.__API_BASE === 'string' && window.__API_BASE) ? window.__API_BASE : '';
+  s.src = base + '/data-cache.js';
+  s.async = false; // síncrono para que intercepte fetch antes del DOMContentLoaded
+  document.head.appendChild(s);
+})();
+
 (function () {
   function injectManualRefreshStyles() {
     if (typeof document === "undefined" || document.getElementById("ms-refresh-bar-styles")) return;
@@ -264,10 +275,52 @@
     );
   }
 
+  /** Inyecta un botón "IA Pro" en el nav para abrir el Asistente IA avanzado */
+  function bootAiProLauncher() {
+    if (typeof document === 'undefined') return;
+    var nav = document.querySelector('header nav.hdr-nav, header .hdr-nav, nav#main-nav');
+    if (!nav || document.getElementById('sumi-ai-pro-btn')) return;
+
+    // URL configurable: window.__ASISTENTE_AI_URL o localhost por defecto
+    var aiUrl = (typeof window.__ASISTENTE_AI_URL === 'string' && window.__ASISTENTE_AI_URL)
+      ? window.__ASISTENTE_AI_URL
+      : 'http://localhost:5173';
+
+    var btn = document.createElement('a');
+    btn.id = 'sumi-ai-pro-btn';
+    btn.href = aiUrl;
+    btn.target = '_blank';
+    btn.rel = 'noopener';
+    btn.setAttribute('aria-label', 'Abrir Asistente IA Pro');
+    btn.innerHTML =
+      '<span style="font-size:13px;margin-right:4px">✦</span>' +
+      'IA Pro';
+    btn.style.cssText =
+      'display:inline-flex;align-items:center;gap:2px;' +
+      'background:linear-gradient(135deg,#E6A800,#B87D00);' +
+      'color:#060E1A!important;font-weight:700;font-size:11px;' +
+      'padding:5px 10px;border-radius:20px;letter-spacing:.04em;' +
+      'border:none!important;text-decoration:none;white-space:nowrap;' +
+      'box-shadow:0 2px 12px rgba(230,168,0,.35);' +
+      'transition:transform .15s,box-shadow .15s;cursor:pointer;';
+    btn.addEventListener('mouseenter', function() {
+      btn.style.transform = 'translateY(-1px)';
+      btn.style.boxShadow = '0 4px 20px rgba(230,168,0,.55)';
+    });
+    btn.addEventListener('mouseleave', function() {
+      btn.style.transform = '';
+      btn.style.boxShadow = '0 2px 12px rgba(230,168,0,.35)';
+    });
+
+    nav.appendChild(btn);
+  }
+
   function bootAll() {
     bootAiMotion();
     bootManualRefreshBar();
     bootNavTapDebug();
+    // Intentar inyectar el launcher después del DOM listo
+    setTimeout(bootAiProLauncher, 100);
   }
 
   if (document.readyState === "loading") {
