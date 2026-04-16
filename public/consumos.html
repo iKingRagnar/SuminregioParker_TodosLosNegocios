@@ -270,11 +270,149 @@ html[data-theme="light"] .sec-badge,html.theme-premium-light .sec-badge{backgrou
 html[data-theme="light"] .q-warn .qcard-dias,html.theme-premium-light .q-warn .qcard-dias{color:#DC2626!important;background:rgba(220,38,38,.1)!important}
 html[data-theme="light"] .q-low .qcard-dias,html.theme-premium-light .q-low .qcard-dias{color:#D97706!important;background:rgba(217,119,6,.1)!important}
 html[data-theme="light"] .q-ok .qcard-dias,html.theme-premium-light .q-ok .qcard-dias{color:#16A34A!important;background:rgba(22,163,74,.1)!important}
-@media print{
+/* ═══ ULTRA-PREMIUM ANIMATIONS v4 ════════════════════════════════ */
+
+/* — CSS @property for conic-gradient rotation — */
+@property --grad-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes rotateBorder { to { --grad-angle: 360deg; } }
+
+/* Animated border glow on hover for KPI cards */
+.kc { position:relative; isolation:isolate; }
+.kc::after {
+  content:'';
+  position:absolute;
+  inset:-1px;
+  border-radius:calc(var(--rad) + 1px);
+  background: conic-gradient(from var(--grad-angle), transparent 70%, var(--acc) 85%, transparent 100%);
+  opacity:0;
+  transition: opacity .4s ease;
+  z-index:-1;
+  --grad-angle: 0deg;
+  animation: rotateBorder 3s linear infinite paused;
+}
+.kc:hover::after { opacity:.6; animation-play-state: running; }
+.kc.red:hover::after { background: conic-gradient(from var(--grad-angle), transparent 70%, var(--red) 85%, transparent 100%); }
+.kc.grn:hover::after { background: conic-gradient(from var(--grad-angle), transparent 70%, var(--green) 85%, transparent 100%); }
+.kc.blu:hover::after { background: conic-gradient(from var(--grad-angle), transparent 70%, var(--blue) 85%, transparent 100%); }
+.kc.prp:hover::after { background: conic-gradient(from var(--grad-angle), transparent 70%, var(--purple) 85%, transparent 100%); }
+
+/* Count-up number transition */
+.kc-value { transition: all .3s ease; }
+.kc-value.cu-active { color: var(--acc) !important; }
+
+/* Scroll-reveal */
+.reveal { opacity:0; transform:translateY(24px); transition: opacity .55s ease, transform .55s ease; }
+.reveal.visible { opacity:1; transform:translateY(0); }
+.reveal-left { opacity:0; transform:translateX(-20px); transition: opacity .55s ease, transform .55s ease; }
+.reveal-left.visible { opacity:1; transform:translateX(0); }
+
+/* KPI card entrance on page load */
+@keyframes cardIn {
+  from { opacity:0; transform:translateY(16px) scale(.97); }
+  to   { opacity:1; transform:translateY(0) scale(1); }
+}
+.kpi-strip .kc { animation: cardIn .5s ease both; }
+.kpi-strip .kc:nth-child(1){animation-delay:.05s}
+.kpi-strip .kc:nth-child(2){animation-delay:.1s}
+.kpi-strip .kc:nth-child(3){animation-delay:.15s}
+.kpi-strip .kc:nth-child(4){animation-delay:.2s}
+.kpi-strip .kc:nth-child(5){animation-delay:.25s}
+.kpi-strip .kc:nth-child(6){animation-delay:.3s}
+.kpi-strip .kc:nth-child(7){animation-delay:.35s}
+.kpi-strip .kc:nth-child(8){animation-delay:.4s}
+
+/* Gradient shift on top KPI bar */
+@keyframes gradShift {
+  0%,100%{background-position:0% 50%}
+  50%{background-position:200% 50%}
+}
+.kc::before { background-size:200% !important; animation: gradShift 4s ease infinite; }
+
+/* Card glow on hover */
+.kc.acc:hover { box-shadow:0 8px 36px rgba(230,168,0,.22), 0 2px 8px rgba(0,0,0,.1) !important; }
+.kc.grn:hover { box-shadow:0 8px 36px rgba(0,229,160,.18), 0 2px 8px rgba(0,0,0,.1) !important; }
+.kc.blu:hover { box-shadow:0 8px 36px rgba(77,166,255,.18), 0 2px 8px rgba(0,0,0,.1) !important; }
+.kc.red:hover { box-shadow:0 8px 36px rgba(255,69,102,.22), 0 2px 8px rgba(0,0,0,.1) !important; }
+.kc.prp:hover { box-shadow:0 8px 36px rgba(155,109,255,.18), 0 2px 8px rgba(0,0,0,.1) !important; }
+
+/* Pulsing alert badge on red KPI */
+@keyframes pulseAlert {
+  0%,100%{box-shadow:0 0 0 0 rgba(255,69,102,.45)}
+  60%{box-shadow:0 0 0 10px rgba(255,69,102,0)}
+}
+.kc.red { animation: pulseAlert 2.5s ease-in-out infinite, cardIn .5s ease both; }
+
+/* Alert banner pulse */
+@keyframes alertGlow {
+  0%,100%{border-color:rgba(255,69,102,.35);box-shadow:none}
+  50%{border-color:rgba(255,69,102,.65);box-shadow:0 0 20px rgba(255,69,102,.12)}
+}
+.alert-banner.visible { animation: alertGlow 2.8s ease-in-out infinite; }
+
+/* Risk tags */
+@keyframes urgentBlink { 0%,100%{opacity:1} 50%{opacity:.55} }
+.risk-urgent { background:rgba(255,69,102,.16);color:#FF7A8F;padding:2px 9px;border-radius:6px;font:.58rem 'DM Mono',monospace;font-weight:700;white-space:nowrap;animation:urgentBlink 1.8s ease-in-out infinite }
+.risk-watch  { background:rgba(255,184,0,.15);color:var(--yellow);padding:2px 9px;border-radius:6px;font:.58rem 'DM Mono',monospace;font-weight:700;white-space:nowrap }
+.risk-ok     { background:rgba(0,229,160,.13);color:var(--green);padding:2px 9px;border-radius:6px;font:.58rem 'DM Mono',monospace;font-weight:700;white-space:nowrap }
+
+/* Floating orbs animation */
+@keyframes orbDrift {
+  0%,100%{transform:translate(0,0) scale(1)}
+  33%{transform:translate(12px,-14px) scale(1.04)}
+  66%{transform:translate(-6px,10px) scale(.97)}
+}
+.o1 { animation: orbDrift 9s ease-in-out infinite; }
+.o2 { animation: orbDrift 11s ease-in-out infinite reverse; }
+
+/* Card entrance for sections */
+@keyframes sectionIn {
+  from{opacity:0;transform:translateY(18px)}
+  to{opacity:1;transform:translateY(0)}
+}
+.card { animation: sectionIn .45s ease both; }
+
+/* Table row entrance stagger */
+@keyframes rowIn { from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none} }
+.tpro tbody tr { animation: rowIn .2s ease both; }
+.tpro tbody tr:nth-child(1){animation-delay:.02s}
+.tpro tbody tr:nth-child(2){animation-delay:.04s}
+.tpro tbody tr:nth-child(3){animation-delay:.06s}
+.tpro tbody tr:nth-child(4){animation-delay:.08s}
+.tpro tbody tr:nth-child(5){animation-delay:.10s}
+.tpro tbody tr:nth-child(6){animation-delay:.12s}
+
+/* Hero gradient shift */
+.hero-title { background-size:200% !important; animation: gradShift 6s ease infinite !important; }
+
+/* Quiebre cards entrance */
+.qcard { transition: all .2s ease; }
+@keyframes qIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+.quiebres-grid .qcard { animation: qIn .3s ease both; }
+
+/* Sparkline mini charts in KPI cards */
+.kc-spark { height:26px; margin-top:6px; }
+.kc-spark canvas { display:block; width:100% !important; height:26px !important; }
+
+/* Footer totals highlight */
+.tpro .foot-row td { transition: background .3s; }
+.tpro .foot-row:hover td { background:rgba(230,168,0,.14) !important; }
+
+/* Enhanced scrollbar */
+::-webkit-scrollbar { width:6px; height:6px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--s3); border-radius:6px; }
+::-webkit-scrollbar-thumb:hover { background:var(--acc); }
+
+@media print {
   body{background:white!important;color:black!important}
   header nav,.source-tabs,.alert-banner{display:none!important}
-  .card,.kc{background:white!important;border:1px solid #ddd!important;box-shadow:none!important}
+  .card,.kc{background:white!important;border:1px solid #ddd!important;box-shadow:none!important;animation:none!important}
   .card-title{color:#B45309!important}
+  .kc::after,.kc::before{animation:none!important}
 }
 </style>
 <link rel="stylesheet" href="app-ui.css">
@@ -390,7 +528,7 @@ html[data-theme="light"] .q-ok .qcard-dias,html.theme-premium-light .q-ok .qcard
   </div>
 
   <!-- ═══ SECCIÓN 1: TENDENCIA + PARETO ════════════════════════════ -->
-  <div class="sec-head mt">
+  <div class="sec-head mt reveal">
     <div class="sec-title"><span class="sec-icon">📉</span> Tendencia y Distribución</div>
     <div class="sec-note">Línea = consumo diario (30 días). Barras = Pareto 80/20 acumulado por artículo.</div>
   </div>
@@ -423,7 +561,7 @@ html[data-theme="light"] .q-ok .qcard-dias,html.theme-premium-light .q-ok .qcard
   </div>
 
   <!-- ═══ SECCIÓN 2: QUIEBRES Y COBERTURA ══════════════════════════ -->
-  <div id="sec-quiebres" class="sec-head mt">
+  <div id="sec-quiebres" class="sec-head mt reveal">
     <div class="sec-title"><span class="sec-icon">🚨</span> Riesgo de Quiebre — Cobertura de Inventario <span class="sec-badge" id="quiebresCount">—</span></div>
     <div class="sec-note">Días = Existencia ÷ Consumo diario del periodo. Rojo &lt; 7d · Ámbar 7–20d · Verde 21+d</div>
   </div>
@@ -440,7 +578,7 @@ html[data-theme="light"] .q-ok .qcard-dias,html.theme-premium-light .q-ok .qcard
   </div>
 
   <!-- ═══ SECCIÓN 3: PEDIDOS vs CONSUMO ════════════════════════════ -->
-  <div class="sec-head mt">
+  <div class="sec-head mt reveal">
     <div class="sec-title"><span class="sec-icon">🛒</span> Pedidos / OC vs Consumo</div>
     <div class="sec-note">¿Cuánto ya está pedido vs lo que se consume? Brecha = necesidad de reabasto.</div>
   </div>
@@ -482,7 +620,7 @@ html[data-theme="light"] .q-ok .qcard-dias,html.theme-premium-light .q-ok .qcard
   </div>
 
   <!-- ═══ SECCIÓN 4: INSIGHTS ═══════════════════════════════════════ -->
-  <div class="sec-head mt">
+  <div class="sec-head mt reveal">
     <div class="sec-title"><span class="sec-icon">💡</span> Inteligencia de Consumo</div>
     <div class="sec-note">Análisis automático: variación, concentración, ritmo vs periodo anterior.</div>
   </div>
@@ -497,7 +635,7 @@ html[data-theme="light"] .q-ok .qcard-dias,html.theme-premium-light .q-ok .qcard
   </div>
 
   <!-- ═══ SECCIÓN 5: TABLA SEMANAL (colapsable) ═════════════════════ -->
-  <div class="sec-head mt collapsible" id="semColHead" onclick="toggleSemSec()">
+  <div class="sec-head mt collapsible reveal" id="semColHead" onclick="toggleSemSec()">
     <div class="sec-title">
       <span class="sec-icon">📅</span> Consumo Semanal por Artículo (matriz detallada)
       <span class="collapse-arrow" id="semArrow">▼</span>
@@ -519,11 +657,28 @@ html[data-theme="light"] .q-ok .qcard-dias,html.theme-premium-light .q-ok .qcard
         </div>
         <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--brd)">
           <div style="font:.62rem 'DM Mono',monospace;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">Resumen por artículo · promedio y máximo semanal</div>
-          <div class="tbl-wrap" style="max-height:400px;overflow-y:auto">
+          <div class="tbl-wrap" style="max-height:480px;overflow-y:auto">
             <table class="tpro" id="tblSemStats">
-              <thead><tr><th>Artículo</th><th>U.Med</th><th class="num">Total período (u.)</th><th class="num">Prom. u/sem.</th><th class="num">Máx. semana</th></tr></thead>
-              <tbody><tr><td colspan="5" class="empty-state">Cargando…</td></tr></tbody>
+              <thead><tr>
+                <th>Artículo</th>
+                <th>U.Med</th>
+                <th class="num">Total Período (u.)</th>
+                <th class="num">Prom. u/sem.</th>
+                <th class="num">Máx. Sem.</th>
+                <th class="num">Mín. Sem.</th>
+                <th class="num" title="Coeficiente de Variación: desv. estándar / promedio. CV alto = consumo irregular">CV %</th>
+                <th class="num" title="Stock de Seguridad: buffer ante variabilidad. Formula: Prom × factor(CV). CV<0.2→×1.0, CV<0.4→×1.5, CV≥0.4→×2.0">Stock Seg.</th>
+                <th class="num" title="Punto de Restock: cuando activar una orden de compra. Formula: Prom×1sem + StockSeg">P. Restock</th>
+                <th>Riesgo</th>
+              </tr></thead>
+              <tbody><tr><td colspan="10" class="empty-state">Cargando…</td></tr></tbody>
             </table>
+          </div>
+          <div style="margin-top:10px;background:rgba(230,168,0,.06);border:1px solid rgba(230,168,0,.15);border-radius:10px;padding:10px 14px;font:.62rem 'DM Mono',monospace;color:var(--muted);line-height:1.7">
+            📐 <strong style="color:var(--acc)">CV%</strong> = σ/μ×100 — coef. variación: &lt;20% estable · 20–40% moderado · &gt;40% errático<br>
+            🛡 <strong style="color:var(--acc)">Stock Seg.</strong> = Prom.sem × factor (CV&lt;0.2 → ×1 · CV&lt;0.4 → ×1.5 · CV≥0.4 → ×2)<br>
+            🎯 <strong style="color:var(--acc)">P. Restock</strong> = Prom.sem × lead-time(1 sem) + Stock Seg. → emite OC cuando existencia baja a este nivel<br>
+            🚨 <span class="risk-urgent" style="animation:none">URGENTE</span> = tuvo semana en cero · <span class="risk-watch">VIGILAR</span> = CV &gt; 40% · <span class="risk-ok">OK</span> = consumo estable
           </div>
         </div>
         <div style="margin-top:10px;font:.68rem 'DM Mono',monospace;color:var(--muted);line-height:1.6">
@@ -708,19 +863,26 @@ async function loadResumen(run){
   r = r && typeof r==='object' ? r : {};
   lastResumen = r;
 
-  setText('kHoy', fmtN(r.HOY_UNIDADES||0));
+  // Count-up animations for KPI numbers
+  const eHoy  = document.getElementById('kHoy');
+  const ePer  = document.getElementById('kPer');
+  const eProm = document.getElementById('kProm');
+  const eMax  = document.getElementById('kMax');
+  const eArt  = document.getElementById('kArt');
+  countUp(eHoy,  +(r.HOY_UNIDADES||0),  700);
+  countUp(ePer,  +(r.UNIDADES_PERIODO||0), 900);
+  countUp(eProm, +(r.CONSUMO_PROMEDIO_DIARIO||0), 750);
+  countUp(eMax,  +(r.CONSUMO_MAXIMO_DIARIO||0),   700);
+  countUp(eArt,  +(r.ARTICULOS_CONSUMIDOS||0),    600);
+
   const hv = r.HOY_VENTA_IMPORTE!=null ? fmtM(r.HOY_VENTA_IMPORTE) : '$0';
   setHTML('kHoyVenta', hv);
 
-  setText('kPer', fmtN(r.UNIDADES_PERIODO||0));
   const pv = r.VENTA_IMPORTE_PERIODO!=null ? fmtM(r.VENTA_IMPORTE_PERIODO) : '$0';
   setHTML('kPerVenta', pv);
 
-  setText('kProm', fmtF(r.CONSUMO_PROMEDIO_DIARIO||0));
   setText('kPromSub', (r.DIAS_CON_MOVIMIENTO||0)+' días con movimiento');
-  setText('kMax', fmtN(r.CONSUMO_MAXIMO_DIARIO||0));
   setText('kMaxSub', r.DIA_MAXIMO ? 'Pico: '+new Date(r.DIA_MAXIMO).toLocaleDateString('es-MX',{day:'2-digit',month:'short'}) : '—');
-  setText('kArt', fmtN(r.ARTICULOS_CONSUMIDOS||0));
   setText('kMov', fmtN(r.MOVIMIENTOS||0)+' movimientos');
 
   // Hero chip periodo
@@ -746,6 +908,7 @@ async function loadDiario(run){
     chartDiario.data.datasets[0].data = data;
     chartDiario.data.datasets[1].data = ma7;
     chartDiario.update();
+    updateSparklinesFromDailyData(rows);
   }catch(_){}
 }
 
@@ -906,6 +1069,8 @@ async function loadInsights(run){
         Semáforo: &lt;7d 🔴 rojo · 7–20d 🟡 ámbar · 21–60d 🟢 verde · 60+d 🔵 exceso relativo.
       </div>`;
 
+    // Re-trigger scroll-reveal for dynamically added elements
+    setTimeout(initReveal, 50);
   }catch(_){ if(!isStale(run)&&box) box.innerHTML='<div class="empty-state">No se pudieron calcular insights (revisa consola del servidor).</div>'; }
 }
 
@@ -1056,30 +1221,98 @@ function renderSemanalPorArticulo(payload, tbl, stats){
     <td class="num">${fmtF(gU)}</td><td class="num">${fmtM(gI)}</td>
   </tr>`;
 
+  /* ── Stats table: Mín, CV, Stock Seg., Punto Restock ── */
   sb.innerHTML=arts.map(a=>{
-    const perWk=weekKeys.map(k=>(a.weeks[k]?.u||0));
-    const avg=a.totU/(weekKeys.length||1), mx=perWk.length?Math.max(...perWk):0;
+    const perWk  = weekKeys.map(k=>(a.weeks[k]?.u||0));
+    const nWeeks = weekKeys.length||1;
+    const avgW   = a.totU / nWeeks;
+    const maxW   = perWk.length ? Math.max(...perWk) : 0;
+    const minW   = perWk.length ? Math.min(...perWk) : 0;
+
+    // Coeficiente de variación
+    const variance = perWk.reduce((s,v)=>s+Math.pow(v-avgW,2),0)/nWeeks;
+    const stdDev   = Math.sqrt(variance);
+    const cv       = avgW>0 ? (stdDev/avgW) : 0;
+
+    // Safety stock factor: estable(cv<.2)→1× · moderado(.2–.4)→1.5× · errático(≥.4)→2×
+    const ssFactor   = cv<0.20 ? 1.0 : cv<0.40 ? 1.5 : 2.0;
+    const safetyStock= Math.ceil(avgW * ssFactor);
+
+    // Punto de restock: prom×lead_time(1sem) + safetyStock
+    const restockPoint = Math.ceil(avgW * 1 + safetyStock);
+
+    // Risk classification
+    const hasZeroWeek = nWeeks>1 && perWk.some(v=>v===0);
+    const riskClass   = hasZeroWeek ? 'risk-urgent' : cv>=0.40 ? 'risk-watch' : 'risk-ok';
+    const riskLabel   = hasZeroWeek ? '🚨 Urgente' : cv>=0.40 ? '⚠️ Vigilar' : '✅ OK';
+
+    const cvFmt = (cv*100).toFixed(0);
+    const cvColor = cv>=0.40 ? 'var(--red)' : cv>=0.20 ? 'var(--yellow)' : 'var(--green)';
+
     return `<tr>
-      <td title="${esc(a.ARTICULO)}">${esc(String(a.ARTICULO).substring(0,42))}${String(a.ARTICULO).length>42?'…':''}</td>
+      <td title="${esc(a.ARTICULO)}">${esc(String(a.ARTICULO).substring(0,38))}${String(a.ARTICULO).length>38?'…':''}</td>
       <td>${esc(a.UNIDAD)}</td>
-      <td class="num">${fmtF(a.totU)}</td>
-      <td class="num">${fmtF(avg)}</td>
-      <td class="num">${fmtF(mx)}</td>
+      <td class="num"><strong>${fmtF(a.totU)}</strong></td>
+      <td class="num">${fmtF(avgW)}</td>
+      <td class="num" style="color:var(--acc)">${fmtF(maxW)}</td>
+      <td class="num" style="color:${minW===0&&nWeeks>1?'var(--red)':'var(--muted)'}">${fmtF(minW)}${minW===0&&nWeeks>1?' ⚠️':''}</td>
+      <td class="num" style="color:${cvColor};font-weight:700">${cvFmt}%</td>
+      <td class="num" style="color:var(--blue)">${fmtN(safetyStock)}</td>
+      <td class="num" style="color:var(--purple);font-weight:700">${fmtN(restockPoint)}</td>
+      <td><span class="${riskClass}">${riskLabel}</span></td>
     </tr>`;
   }).join('');
 
+  /* ── Stats table thead (overwrite to ensure correct cols) ── */
   const sth=stats.querySelector('thead tr');
-  if(sth) sth.innerHTML='<th>Artículo</th><th>U.Med</th><th class="num">Total período (u.)</th><th class="num">Prom. u/sem.</th><th class="num">Máx. semana</th>';
+  if(sth) sth.innerHTML=
+    '<th>Artículo</th><th>U.Med</th>'+
+    '<th class="num">Total Período (u.)</th>'+
+    '<th class="num">Prom. u/sem.</th>'+
+    '<th class="num">Máx. Sem.</th>'+
+    '<th class="num">Mín. Sem.</th>'+
+    '<th class="num" title="Coef. Variación">CV %</th>'+
+    '<th class="num" title="Stock de Seguridad">Stock Seg.</th>'+
+    '<th class="num" title="Punto de Reorder/Restock">P. Restock</th>'+
+    '<th>Riesgo</th>';
+
+  /* ── Footer: aggregate totals across all articles ── */
   let sfoot=stats.querySelector('tfoot');
   if(!sfoot){ sfoot=document.createElement('tfoot'); stats.appendChild(sfoot); }
   const perLabel=(qs.desde&&qs.hasta)?(qs.desde+'→'+qs.hasta):(qs.anio&&qs.mes?(qs.anio+'-'+String(qs.mes).padStart(2,'0')):'periodo');
-  const promSem=weekKeys.length?(gU/weekKeys.length):0;
-  const maxPico=arts.length?Math.max(...arts.map(a=>weekKeys.length?Math.max(...weekKeys.map(k=>(a.weeks[k]?.u||0))):0)):0;
+  const promSem  = weekKeys.length ? (gU/weekKeys.length) : 0;
+  const maxPico  = arts.length ? Math.max(...arts.map(a=>weekKeys.length?Math.max(...weekKeys.map(k=>(a.weeks[k]?.u||0))):0)) : 0;
+  const minPico  = arts.length ? Math.min(...arts.map(a=>weekKeys.length?Math.min(...weekKeys.map(k=>(a.weeks[k]?.u||0))):0)) : 0;
+  const totSS    = arts.reduce((s,a)=>{
+    const nw=weekKeys.length||1, av=a.totU/nw;
+    const pw=weekKeys.map(k=>(a.weeks[k]?.u||0));
+    const vr=pw.reduce((ss,v)=>ss+Math.pow(v-av,2),0)/nw;
+    const cv2=av>0?Math.sqrt(vr)/av:0;
+    return s+Math.ceil(av*(cv2<.2?1:cv2<.4?1.5:2));
+  },0);
+  const totRop   = arts.reduce((s,a)=>{
+    const nw=weekKeys.length||1, av=a.totU/nw;
+    const pw=weekKeys.map(k=>(a.weeks[k]?.u||0));
+    const vr=pw.reduce((ss,v)=>ss+Math.pow(v-av,2),0)/nw;
+    const cv2=av>0?Math.sqrt(vr)/av:0;
+    const ss=Math.ceil(av*(cv2<.2?1:cv2<.4?1.5:2));
+    return s+Math.ceil(av*1+ss);
+  },0);
+  const urgentCount = arts.filter(a=>{
+    const pw=weekKeys.map(k=>(a.weeks[k]?.u||0));
+    return weekKeys.length>1&&pw.some(v=>v===0);
+  }).length;
+  const riskLabel = urgentCount>0 ? `<span class="risk-urgent">${urgentCount} urgentes</span>` : `<span class="risk-ok">Estables</span>`;
   sfoot.innerHTML=`<tr class="foot-row">
-    <td colspan="2"><strong>${esc(perLabel)}</strong></td>
-    <td class="num">${fmtF(gU)}</td>
-    <td class="num">${fmtF(promSem)}</td>
-    <td class="num">${fmtF(maxPico)}</td>
+    <td colspan="2"><strong>${esc(perLabel)} · ${arts.length} artículos</strong></td>
+    <td class="num"><strong>${fmtF(gU)}</strong></td>
+    <td class="num"><strong>${fmtF(promSem)}</strong></td>
+    <td class="num" style="color:var(--acc)"><strong>${fmtF(maxPico)}</strong></td>
+    <td class="num" style="color:var(--muted)">${fmtF(minPico)}</td>
+    <td class="num">—</td>
+    <td class="num" style="color:var(--blue)"><strong>${fmtN(totSS)}</strong></td>
+    <td class="num" style="color:var(--purple)"><strong>${fmtN(totRop)}</strong></td>
+    <td>${riskLabel}</td>
   </tr>`;
 }
 
@@ -1146,9 +1379,103 @@ async function loadAll(){
   }
 }
 
+/* ─── COUNT-UP ANIMATION ────────────────────────────────────── */
+function countUp(el, target, duration){
+  if(!el) return;
+  const isFloat = String(target).includes('.');
+  const start = 0;
+  const startTime = performance.now();
+  const step = (now) => {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / (duration||700), 1);
+    // ease-out-quart
+    const eased = 1 - Math.pow(1 - progress, 4);
+    const current = start + (target - start) * eased;
+    if(isFloat){
+      el.textContent = current.toLocaleString('es-MX', {minimumFractionDigits:2,maximumFractionDigits:2});
+    } else {
+      el.textContent = Math.round(current).toLocaleString('es-MX');
+    }
+    if(progress < 1) requestAnimationFrame(step);
+    else el.textContent = isFloat
+      ? target.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})
+      : Math.round(target).toLocaleString('es-MX');
+  };
+  requestAnimationFrame(step);
+}
+
+/* ─── SCROLL-REVEAL (IntersectionObserver) ───────────────────── */
+function initReveal(){
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if(e.isIntersecting){
+        e.target.classList.add('visible');
+        io.unobserve(e.target);
+      }
+    });
+  }, { threshold: 0.08 });
+  document.querySelectorAll('.reveal, .reveal-left').forEach(el => io.observe(el));
+}
+
+/* ─── SPARKLINE MINI-CHART IN KPI CARDS ─────────────────────── */
+const sparkRegistry = new Map();
+function renderSparkline(canvasId, data, color){
+  if(!data||!data.length) return;
+  const existing = sparkRegistry.get(canvasId);
+  if(existing){ try{existing.destroy();}catch(_){} }
+  const canvas = document.getElementById(canvasId);
+  if(!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const T = getTheme();
+  const chart = new Chart(ctx, {
+    type:'line',
+    data:{ labels: data.map((_,i)=>i), datasets:[{
+      data, borderColor: color||T.acc, backgroundColor: (color||T.acc).replace(')',',0.12)').replace('rgb','rgba'),
+      fill:true, tension:0.4, borderWidth:1.5, pointRadius:0
+    }]},
+    options:{
+      responsive:false, maintainAspectRatio:false,
+      animation:{duration:600,easing:'easeOutQuart'},
+      plugins:{legend:{display:false},tooltip:{enabled:false}},
+      scales:{x:{display:false},y:{display:false,beginAtZero:true}}
+    }
+  });
+  sparkRegistry.set(canvasId, chart);
+}
+
+/* ─── INJECT SPARKLINE CANVASES INTO KPI CARDS ──────────────── */
+function injectSparkCanvases(){
+  const ids = ['kHoy','kPer','kProm','kMax'];
+  ids.forEach(id=>{
+    const kc = document.getElementById(id)?.closest('.kc');
+    if(!kc || kc.querySelector('.kc-spark')) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'kc-spark';
+    wrap.innerHTML = `<canvas id="spark-${id}" height="26"></canvas>`;
+    kc.appendChild(wrap);
+  });
+}
+
+/* ─── UPDATE SPARKLINES AFTER DATA LOADS ────────────────────── */
+let _dailyDataCache = [];
+async function updateSparklinesFromDailyData(dailyRows){
+  if(!Array.isArray(dailyRows)||!dailyRows.length) return;
+  _dailyDataCache = dailyRows;
+  const T = getTheme();
+  const vals = dailyRows.map(r=>+r.CONSUMO_TOTAL||0);
+  // Same mini-chart for Consumo Hoy, Periodo, Ritmo Diario sparklines (last 14 days)
+  const slice14 = vals.slice(-14);
+  renderSparkline('spark-kHoy', slice14, T.acc);
+  renderSparkline('spark-kPer', slice14, T.green);
+  renderSparkline('spark-kProm', slice14, T.blue);
+  renderSparkline('spark-kMax', slice14, T.blue);
+}
+
 /* ─── INIT ──────────────────────────────────────────────────── */
 (async function init(){
+  injectSparkCanvases();
   initCharts();
+  initReveal();
   if(typeof initFilters==='function'){
     await initFilters({
       containerId:'filter-bar',
