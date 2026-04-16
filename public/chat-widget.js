@@ -11,29 +11,103 @@
   const PAGE    = (() => { try { return document.title.split('—')[0].trim() || location.pathname.split('/').pop(); } catch { return ''; } })();
   const DB_PARAM = (() => { try { return new URLSearchParams(location.search).get('db') || ''; } catch { return ''; } })();
 
-  // Sugerencias contextuales por página
+  // Sugerencias contextuales por página — enriquecidas con análisis profundo
   const SUGGESTIONS_BY_PAGE = {
-    'Dashboard_Ventas':      ['¿Cuánto llevamos de ventas?', '¿Estamos en meta?', 'Proyección fin de mes', 'Top 5 clientes del mes', '¿Qué vendedor va mejor?'],
-    'Dashboard_CC':          ['¿Cuánto está vencido?', 'Top 5 deudores', '¿Quién tiene más de 60 días?', 'Riesgo de cartera', 'DSO actual'],
-    'Dashboard_Scorecard':   ['¿Quién va mejor en cumplimiento?', 'Perfil de Abel Cabrera', 'Perfil de Alejandro Medina', '¿Quién necesita coaching?', 'Ranking vendedores mes'],
-    'resultados':            ['¿Cómo va el margen bruto?', 'Tendencia de gastos vs ventas', '¿Hay desviación en gastos?', 'Proyección utilidad mes', 'Balance general actual'],
-    'inventario':            ['¿Cuántos artículos bajo mínimo?', 'Valor del inventario', 'Días de cobertura', 'Artículos sin movimiento', 'Tendencia inventario MoM'],
-    'Dashboard_Correlacion': ['¿Cuál es el ratio gasto/venta?', 'Eficiencia operativa', '¿Están los gastos bien alineados?', 'Correlación mes actual', 'Recomendación de margen'],
+    'Dashboard_Ventas': [
+      '¿Cuánto llevamos de ventas hoy y este mes?',
+      '¿Estamos en meta? Dame % de cumplimiento',
+      'Proyección de cierre de mes (regresión lineal)',
+      'Top 5 clientes del mes con ticket promedio',
+      '¿Qué vendedor va mejor? Análisis 4D + ventas',
+      'Dame un diagnóstico ejecutivo completo de ventas',
+    ],
+    'Dashboard_CC': [
+      '¿Cuánto está vencido y qué % del total representa?',
+      'Top 5 deudores con días vencidos',
+      '¿Quién supera 60 y 90 días? Acción urgente',
+      'DSO actual vs benchmark de 30 días',
+      'Plan de cobranza para esta semana — prioridades',
+      'Proyección de flujo de cobranza siguiente 30 días',
+    ],
+    'Dashboard_Scorecard': [
+      '¿Quién va mejor en cumplimiento de meta?',
+      'Perfil de Abel Cabrera: ventas + fortalezas 4D',
+      'Perfil de Alejandro Medina: ventas + áreas de mejora',
+      '¿Quién necesita coaching urgente según 4D?',
+      'Análisis cruzado: ventas vs perfil psicométrico',
+      '¿Qué dice Boostrategy sobre el equipo actual?',
+    ],
+    'Dashboard_Rentabilidad': [
+      '¿Cuál es el margen bruto actual?',
+      '¿Qué línea de producto tiene mejor margen?',
+      '¿Qué vendedor vende con más margen?',
+      'Tendencia del margen — ¿se está erosionando?',
+    ],
+    'Dashboard_Correlacion': [
+      '¿Cuál es el ratio gasto/venta este mes?',
+      'Análisis de correlación: R² y qué significa',
+      'Tendencia del ratio en últimos 6 meses',
+      'Recomendación: ¿reducir gastos o impulsar ventas?',
+    ],
+    'Dashboard_Estacionalidad': [
+      '¿Cuáles son los 3 meses más fuertes históricamente?',
+      'Índice estacional: ¿estamos en mes alto o bajo?',
+      'YoY: ¿este mes va mejor o peor que el año pasado?',
+      'Proyección del mes basada en patrón estacional',
+    ],
+    'Dashboard_Clientes': [
+      'Pareto de clientes: ¿cuántos generan el 80% de ventas?',
+      '¿Hay riesgo de concentración? Dame el índice HHI',
+      'Clientes sin compra en los últimos 30 días',
+      'Propón estrategia de cross-sell para top 10',
+    ],
+    'Dashboard_DSO': [
+      '¿Cuál es el DSO actual y cómo se compara vs 30 días?',
+      'Top 5 clientes con peor DSO',
+      'Tendencia histórica del DSO',
+      'Plan de acción para reducir DSO en 15 días',
+    ],
+    'Dashboard_Alertas': [
+      '¿Cuáles son las alertas críticas activas ahora mismo?',
+      '¿Qué artículos están en quiebre hoy?',
+      'Clientes con CXC en estado crítico (> 90 días)',
+      'Dame el resumen ejecutivo de todos los riesgos activos',
+    ],
+    'Dashboard_Rotacion': [
+      '¿Cuál es la rotación de inventario actual?',
+      'Días de inventario — ¿estamos por debajo de 45 días?',
+      'Top 10 artículos con menor rotación',
+      'Fill rate: ¿qué % de pedidos surtimos completos?',
+    ],
+    'Dashboard_Compras': [
+      '¿Cuánto hemos comprado este mes vs el anterior?',
+      'Top 5 proveedores por volumen de compra',
+      '¿Hay compras urgentes por quiebres de inventario?',
+      'Compras vs presupuesto — ¿hay desviación?',
+    ],
+    'consumos': [
+      '¿Cuál es el ritmo de consumo diario este mes?',
+      '¿Hay artículos en quiebre de consumo?',
+      'Pareto: ¿qué 20% de artículos = 80% del consumo?',
+      'Cobertura de inventario: ¿cuántos días de stock quedan?',
+      'Cruza consumo vs OC pendientes — ¿hay brecha?',
+      'Dame el diagnóstico completo de abastecimiento',
+    ],
     'default': [
-      '¿Cuánto llevamos de ventas?',
-      '¿Estamos en meta?',
-      '¿Cuánto se vence de CXC?',
-      '¿Cómo está el margen bruto?',
+      '¿Cuánto llevamos de ventas hoy?',
+      '¿Estamos en meta este mes?',
+      '¿Cuánto está vencido en CXC?',
+      '¿Cómo va el margen bruto?',
       'Top 5 vendedores del mes',
-      'Proyección fin de mes',
-      'Estado del inventario',
-      'Analiza la eficiencia de gastos',
-      '¿Cómo va Boostrategy?',
+      'Proyección de cierre de mes',
+      'Estado del inventario y quiebres',
+      'Resumen ejecutivo completo del grupo',
     ],
   };
 
   function getSuggestions() {
-    const pageKey = Object.keys(SUGGESTIONS_BY_PAGE).find(k => PAGE.includes(k));
+    const path = location.pathname.split('/').pop() || '';
+    const pageKey = Object.keys(SUGGESTIONS_BY_PAGE).find(k => PAGE.includes(k) || path.includes(k));
     return pageKey ? SUGGESTIONS_BY_PAGE[pageKey] : SUGGESTIONS_BY_PAGE['default'];
   }
 
