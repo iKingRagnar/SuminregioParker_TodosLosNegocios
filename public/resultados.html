@@ -650,6 +650,61 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
       </div>
     </div>
   </div>
+
+  <!-- SECCIÓN NUEVA: Correlación Gastos vs Ventas -->
+  <div class="sd" style="margin-top:2rem">
+    <span class="sd-label">Correlación Gastos · Ventas</span>
+    <div class="sd-line"></div>
+  </div>
+  <div class="notice" style="margin-bottom:1rem">
+    📊 <strong>Análisis de correlación:</strong> Visualiza la relación entre el crecimiento de ventas y la evolución de gastos operativos para detectar ineficiencias y oportunidades de optimización de margen.
+  </div>
+  <div class="grid-2" style="margin-bottom:1.25rem">
+    <!-- Chart 1: Ventas vs Gastos por mes (barras + línea) -->
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">
+          <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Ventas vs Gastos — Tendencia Mensual
+        </span>
+        <span class="card-badge" id="corrBadge1">—</span>
+      </div>
+      <div class="card-body">
+        <div class="chart-h220"><canvas id="chartCorrVentasGastos"></canvas></div>
+      </div>
+    </div>
+    <!-- Chart 2: Ratio Gasto/Venta + Margen (tendencia) -->
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Ratio Gasto/Venta y Margen Bruto (%)
+        </span>
+        <span class="card-badge" id="corrBadge2">—</span>
+      </div>
+      <div class="card-body">
+        <div class="chart-h220"><canvas id="chartCorrRatio"></canvas></div>
+      </div>
+    </div>
+  </div>
+  <!-- Chart 3: Scatter correlación (si hay 3+ meses de datos) -->
+  <div class="card" style="margin-bottom:1.5rem" id="cardScatter">
+    <div class="card-head">
+      <span class="card-title">
+        <svg viewBox="0 0 24 24"><circle cx="7" cy="17" r="2"/><circle cx="17" cy="7" r="2"/><circle cx="12" cy="12" r="2"/><line x1="7" y1="17" x2="17" y2="7"/></svg>
+        Dispersión: Ventas vs Gastos (cada punto = 1 mes)
+      </span>
+      <span class="card-badge" id="corrBadge3">scatter</span>
+    </div>
+    <div class="card-body">
+      <div class="chart-h220"><canvas id="chartCorrScatter"></canvas></div>
+      <p style="font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);margin-top:.75rem;line-height:1.6">
+        💡 <strong style="color:var(--text2)">Lectura:</strong> Puntos alineados en diagonal = gastos crecen proporcionalmente con ventas (eficiencia estable).
+        Puntos por encima de la línea = gastos crecen más rápido que ventas (pérdida de margen).
+        Puntos por debajo = ventas crecen más que gastos (mejora de eficiencia).
+      </p>
+    </div>
+  </div>
 </div>
 
 <div class="footer">Suminregio Parker &mdash; P&amp;L v9.0 &mdash; Datos en tiempo real desde Microsip / Firebird DB</div>
@@ -1725,6 +1780,7 @@ async function loadData(){
     try{ renderKPIs(totVista,mesesVista,hasCosto); }catch(e){ console.warn('renderKPIs',e); }
     try{ renderInsight(totVista,mesesVista,hasCosto); }catch(e){ console.warn('renderInsight',e); }
     try{ renderCharts(mesesVista,hasCosto); }catch(e){ console.warn('renderCharts',e); }
+    try{ initCorrCharts(); }catch(e){ console.warn('initCorrCharts',e); }
     try{ renderTabla(mesesVista,totVista,hasCosto,tablaTieneGastos); }catch(e){
       console.warn('renderTabla',e);
       const pe=document.getElementById('pnlBody');
@@ -2251,6 +2307,334 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     ${mesesOrd.map(m=>`<td style="color:${uaiForMes(m)>=0?'var(--green)':'var(--red)'}">${fmtNeg(uaiForMes(m))}</td>`).join('')}
     <td style="color:${uaiTotal>=0?'var(--green)':'var(--red)'}">${fmtNeg(uaiTotal)}</td>
   </tr>`;
+}
+
+// ── Correlación Gastos vs Ventas ───────────────────────────────────────────────
+let chartCorrVG=null, chartCorrRat=null, chartCorrScat=null;
+
+async function initCorrCharts(){
+  // Construir URL usando buildPnlQuery (reutiliza selectedBizId / filtros de DB)
+  const dbQ = buildPnlQuery('meses=12', { omitFilters: true });
+  const url = API + '/api/resultados/pnl' + (dbQ ? '?' + dbQ : '');
+
+  let data = null;
+  try {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 30000);
+    try {
+      const r = await fetch(url, { cache:'no-store', signal: ctrl.signal });
+      if (r && r.ok) data = await r.json().catch(() => null);
+    } finally { clearTimeout(tid); }
+  } catch(_) {}
+
+  if (!data) return;
+
+  const mesesRaw = Array.isArray(data.meses) ? data.meses : [];
+  if (!mesesRaw.length) return;
+  const meses = sortMesesByPeriodo(mesesRaw);
+
+  const labels   = meses.map(m => mesLabel(m));
+  const ventas   = meses.map(m => +(m.VENTAS_NETAS  || 0));
+  const costos   = meses.map(m => +(m.COSTO_VENTAS  || 0));
+  const utilBruta= meses.map(m => +(m.UTILIDAD_BRUTA|| 0));
+  const margenPct= meses.map(m => {
+    const v = +(m.VENTAS_NETAS || 0);
+    if (m.MARGEN_BRUTO_PCT != null) return +(m.MARGEN_BRUTO_PCT);
+    if (v > 0 && m.UTILIDAD_BRUTA != null) return +(m.UTILIDAD_BRUTA) / v * 100;
+    return 0;
+  });
+
+  // Gastos operativos: CO_A1+CO_A2+CO_A3 si disponibles; fallback 30% ventas
+  const tieneGastos = meses.some(m => (+m.CO_A1||0)+(+m.CO_A2||0)+(+m.CO_A3||0) > 0);
+  const gastos = meses.map(m => {
+    const g = (+m.CO_A1||0) + (+m.CO_A2||0) + (+m.CO_A3||0);
+    return tieneGastos ? g : (+(m.VENTAS_NETAS||0) * 0.30);
+  });
+
+  // Ratio gasto/venta por mes (%)
+  const ratioGV = meses.map((m, i) => {
+    const v = ventas[i];
+    return v > 0 ? (gastos[i] / v * 100) : 0;
+  });
+
+  // ── Chart 1: Barras Ventas + Gastos + línea Utilidad Bruta ──────────────────
+  const el1 = document.getElementById('chartCorrVentasGastos');
+  if (el1) {
+    if (chartCorrVG) { chartCorrVG.destroy(); chartCorrVG = null; }
+    const ctx1 = el1.getContext('2d');
+    const lastIdx = meses.length - 1;
+    const lastV = ventas[lastIdx], lastG = gastos[lastIdx];
+    const badge1 = document.getElementById('corrBadge1');
+    if (badge1) badge1.textContent = 'último: ' + fmtM(lastV) + ' / gasto ' + fmtM(lastG);
+
+    chartCorrVG = new Chart(ctx1, {
+      data: {
+        labels,
+        datasets: [
+          {
+            type: 'bar',
+            label: 'Ventas Netas',
+            data: ventas,
+            backgroundColor: 'rgba(77,166,255,0.55)',
+            borderColor: '#4DA6FF',
+            borderWidth: 1,
+            order: 2
+          },
+          {
+            type: 'bar',
+            label: 'Gastos Operativos' + (tieneGastos ? '' : ' (est.)'),
+            data: gastos,
+            backgroundColor: 'rgba(255,69,102,0.38)',
+            borderColor: '#FF4566',
+            borderWidth: 1,
+            order: 2
+          },
+          {
+            type: 'line',
+            label: 'Utilidad Bruta',
+            data: utilBruta,
+            borderColor: '#00E5A0',
+            backgroundColor: 'rgba(0,229,160,0.08)',
+            borderWidth: 2,
+            pointRadius: 3,
+            tension: 0.35,
+            fill: false,
+            order: 1
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', labels: { color: '#6A85A6', font: { size: 10, family: "'DM Mono'" }, boxWidth: 10, padding: 12 } },
+          tooltip: {
+            mode: 'index', intersect: false,
+            backgroundColor: '#0D1D35', borderColor: 'rgba(255,255,255,.1)', borderWidth: 1,
+            titleColor: '#F0F6FF', bodyColor: '#C8D8EC',
+            callbacks: { label: c => ' ' + c.dataset.label + ': ' + fmtM(c.raw) }
+          }
+        },
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#6A85A6', font: { size: 9, family: "'DM Mono'" } } },
+          y: {
+            grid: { color: 'rgba(255,255,255,.04)' },
+            ticks: { color: '#6A85A6', font: { size: 9, family: "'DM Mono'" }, callback: v => {
+              const abs = Math.abs(v);
+              if (abs >= 1e6) return (v/1e6).toFixed(1) + 'M';
+              if (abs >= 1e3) return (v/1e3).toFixed(0) + 'K';
+              return v;
+            }}
+          }
+        }
+      }
+    });
+  }
+
+  // ── Chart 2: Línea % Gastos/Ventas + % Margen Bruto ─────────────────────────
+  const el2 = document.getElementById('chartCorrRatio');
+  if (el2) {
+    if (chartCorrRat) { chartCorrRat.destroy(); chartCorrRat = null; }
+    const ctx2 = el2.getContext('2d');
+    const lastRatio = ratioGV[ratioGV.length - 1];
+    const lastMgn   = margenPct[margenPct.length - 1];
+    const badge2 = document.getElementById('corrBadge2');
+    if (badge2) badge2.textContent = 'ratio: ' + lastRatio.toFixed(1) + '% | margen: ' + lastMgn.toFixed(1) + '%';
+
+    chartCorrRat = new Chart(ctx2, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: '% Gastos / Ventas' + (tieneGastos ? '' : ' (est.)'),
+            data: ratioGV,
+            borderColor: '#E6A800',
+            backgroundColor: 'rgba(230,168,0,0.08)',
+            borderWidth: 2,
+            pointRadius: 3,
+            tension: 0.35,
+            fill: false
+          },
+          {
+            label: '% Margen Bruto',
+            data: margenPct,
+            borderColor: '#00E5A0',
+            backgroundColor: 'rgba(0,229,160,0.08)',
+            borderWidth: 2,
+            pointRadius: 3,
+            tension: 0.35,
+            fill: false
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', labels: { color: '#6A85A6', font: { size: 10, family: "'DM Mono'" }, boxWidth: 10, padding: 12 } },
+          tooltip: {
+            mode: 'index', intersect: false,
+            backgroundColor: '#0D1D35', borderColor: 'rgba(255,255,255,.1)', borderWidth: 1,
+            titleColor: '#F0F6FF', bodyColor: '#C8D8EC',
+            callbacks: { label: c => ' ' + c.dataset.label + ': ' + (+c.raw).toFixed(1) + '%' }
+          },
+          annotation: undefined
+        },
+        scales: {
+          x: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#6A85A6', font: { size: 9, family: "'DM Mono'" } } },
+          y: {
+            min: 0,
+            max: 100,
+            grid: { color: 'rgba(255,255,255,.04)' },
+            ticks: { color: '#6A85A6', font: { size: 9, family: "'DM Mono'" }, callback: v => v + '%' }
+          }
+        }
+      },
+      plugins: [{
+        id: 'refLine25',
+        afterDraw(chart) {
+          const yScale = chart.scales.y;
+          if (!yScale) return;
+          const y25 = yScale.getPixelForValue(25);
+          const ctx = chart.ctx;
+          ctx.save();
+          ctx.setLineDash([4, 4]);
+          ctx.strokeStyle = 'rgba(255,69,102,0.45)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(chart.chartArea.left, y25);
+          ctx.lineTo(chart.chartArea.right, y25);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.font = "9px 'DM Mono', monospace";
+          ctx.fillStyle = 'rgba(255,69,102,0.7)';
+          ctx.fillText('alerta 25%', chart.chartArea.left + 4, y25 - 3);
+          ctx.restore();
+        }
+      }]
+    });
+  }
+
+  // ── Chart 3: Scatter Ventas vs Gastos ────────────────────────────────────────
+  const el3 = document.getElementById('chartCorrScatter');
+  if (el3 && meses.length >= 3) {
+    if (chartCorrScat) { chartCorrScat.destroy(); chartCorrScat = null; }
+    const ctx3 = el3.getContext('2d');
+
+    const scatPoints = meses.map((m, i) => ({
+      x: ventas[i],
+      y: gastos[i],
+      label: mesLabel(m),
+      ratio: ventas[i] > 0 ? gastos[i] / ventas[i] : 0
+    }));
+
+    const pointColors = scatPoints.map(p =>
+      p.ratio < 0.30 ? '#00E5A0' :
+      p.ratio <= 0.40 ? '#FFB800' :
+      '#FF4566'
+    );
+
+    // Regresión lineal simple
+    const n = scatPoints.length;
+    const sumX  = scatPoints.reduce((s, p) => s + p.x, 0);
+    const sumY  = scatPoints.reduce((s, p) => s + p.y, 0);
+    const sumXY = scatPoints.reduce((s, p) => s + p.x * p.y, 0);
+    const sumX2 = scatPoints.reduce((s, p) => s + p.x * p.x, 0);
+    const denom = n * sumX2 - sumX * sumX;
+    const slope     = denom !== 0 ? (n * sumXY - sumX * sumY) / denom : 0;
+    const intercept = denom !== 0 ? (sumY - slope * sumX) / n : sumY / n;
+    const xMin = Math.min(...scatPoints.map(p => p.x));
+    const xMax = Math.max(...scatPoints.map(p => p.x));
+    const trendLine = [
+      { x: xMin, y: slope * xMin + intercept },
+      { x: xMax, y: slope * xMax + intercept }
+    ];
+
+    const badge3 = document.getElementById('corrBadge3');
+    if (badge3) badge3.textContent = n + ' meses · r²≈' + (denom !== 0 ? (Math.pow((n*sumXY-sumX*sumY)/Math.sqrt((n*sumX2-sumX*sumX)*(n*scatPoints.reduce((s,p)=>s+p.y*p.y,0)-sumY*sumY)||1),2)).toFixed(2) : '—');
+
+    chartCorrScat = new Chart(ctx3, {
+      type: 'scatter',
+      data: {
+        datasets: [
+          {
+            label: 'Mes (ventas vs gastos)',
+            data: scatPoints.map(p => ({ x: p.x, y: p.y })),
+            backgroundColor: pointColors,
+            pointRadius: 7,
+            pointHoverRadius: 9
+          },
+          {
+            label: 'Tendencia (regresión)',
+            data: trendLine,
+            type: 'line',
+            borderColor: 'rgba(77,166,255,0.55)',
+            borderWidth: 1.5,
+            borderDash: [5, 4],
+            pointRadius: 0,
+            fill: false
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'nearest', intersect: true },
+        plugins: {
+          legend: { position: 'top', labels: { color: '#6A85A6', font: { size: 10, family: "'DM Mono'" }, boxWidth: 10, padding: 12 } },
+          tooltip: {
+            backgroundColor: '#0D1D35', borderColor: 'rgba(255,255,255,.1)', borderWidth: 1,
+            titleColor: '#F0F6FF', bodyColor: '#C8D8EC',
+            callbacks: {
+              label(c) {
+                if (c.datasetIndex === 1) return null;
+                const p = scatPoints[c.dataIndex];
+                return p ? [
+                  ' ' + (p.label || ''),
+                  ' Ventas: ' + fmtM(p.x),
+                  ' Gastos: ' + fmtM(p.y),
+                  ' Ratio: ' + (p.ratio * 100).toFixed(1) + '%'
+                ] : null;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            title: { display: true, text: 'Ventas Netas (MXN)', color: '#6A85A6', font: { size: 9, family: "'DM Mono'" } },
+            grid: { color: 'rgba(255,255,255,.04)' },
+            ticks: { color: '#6A85A6', font: { size: 9, family: "'DM Mono'" }, callback: v => {
+              const abs = Math.abs(v);
+              if (abs >= 1e6) return (v/1e6).toFixed(1) + 'M';
+              if (abs >= 1e3) return (v/1e3).toFixed(0) + 'K';
+              return v;
+            }}
+          },
+          y: {
+            title: { display: true, text: 'Gastos (MXN)', color: '#6A85A6', font: { size: 9, family: "'DM Mono'" } },
+            grid: { color: 'rgba(255,255,255,.04)' },
+            ticks: { color: '#6A85A6', font: { size: 9, family: "'DM Mono'" }, callback: v => {
+              const abs = Math.abs(v);
+              if (abs >= 1e6) return (v/1e6).toFixed(1) + 'M';
+              if (abs >= 1e3) return (v/1e3).toFixed(0) + 'K';
+              return v;
+            }}
+          }
+        }
+      }
+    });
+  } else if (el3 && meses.length < 3) {
+    const badge3 = document.getElementById('corrBadge3');
+    if (badge3) badge3.textContent = 'necesita 3+ meses';
+    const cardScat = document.getElementById('cardScatter');
+    if (cardScat) {
+      const body = cardScat.querySelector('.card-body');
+      if (body) body.innerHTML = '<p style="font-family:\'DM Mono\',monospace;font-size:.72rem;color:var(--muted);padding:.5rem 0">Se necesitan al menos 3 meses de datos para mostrar el scatter de correlación.</p>';
+    }
+  }
 }
 
 if (window.syncDbContextFromUrlOrFallback) window.syncDbContextFromUrlOrFallback();

@@ -170,6 +170,8 @@ html[data-theme="light"] .stock-bar-bg{background:#E2E8F0!important}
 html[data-theme="light"] select,html[data-theme="light"] input{
   background:#fff!important;color:#0F172A!important;border-color:rgba(15,23,42,.14)!important;
 }
+.inv-period-btn{font-family:'DM Mono',monospace;font-size:.62rem;padding:.25rem .6rem;border-radius:6px;border:1px solid var(--border2);color:var(--muted);cursor:pointer;background:none;transition:all .2s}
+.inv-period-btn.active{color:var(--orange);border-color:rgba(255,140,66,.35);background:var(--orange-dim)}
 </style>
 <link rel="stylesheet" href="app-ui.css">
 <link rel="stylesheet" href="app-responsive.css">
@@ -220,6 +222,85 @@ html[data-theme="light"] select,html[data-theme="light"] input{
     <div class="kpi-card yellow"><div class="kpi-label">Valor Inventario</div><div class="kpi-value" id="kpi-valor">&mdash;</div><div class="kpi-sub" id="kpi-valor-sub">Existencias actuales &times; costo (ver criterio al cargar)</div></div>
     <div class="kpi-card red"><div class="kpi-label">Bajo M&iacute;nimo</div><div class="kpi-value" id="kpi-minimo">&mdash;</div><div class="kpi-sub">Requieren reorden</div></div>
     <div class="kpi-card orange"><div class="kpi-label">Sin Stock</div><div class="kpi-value" id="kpi-cero">&mdash;</div><div class="kpi-sub">Con m&iacute;nimo definido y existencia 0</div></div>
+  </div>
+
+  <!-- SECCIÓN NUEVA: Tendencias MoM / YoY Inventario -->
+  <div style="display:flex;align-items:center;gap:1rem;margin:1.5rem 0 1rem">
+    <span style="font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap">Tendencias Inventario</span>
+    <div style="flex:1;height:1px;background:var(--border)"></div>
+    <div style="display:flex;gap:.4rem">
+      <button class="inv-period-btn active" data-period="6">6M</button>
+      <button class="inv-period-btn" data-period="12">12M</button>
+      <button class="inv-period-btn" data-period="24">2A</button>
+    </div>
+  </div>
+  <div class="grid-2" style="margin-bottom:1.25rem">
+    <!-- Chart: Consumo mensual vs Valor inventario -->
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Consumo Mensual (Costo de Salidas)
+        </span>
+        <span class="card-badge" id="invConsumoMoMBadge">cargando…</span>
+      </div>
+      <div class="card-body">
+        <div style="height:200px;position:relative"><canvas id="chartInvConsumo"></canvas></div>
+        <div style="display:flex;gap:1rem;margin-top:.75rem" id="invMoMRow">
+          <div style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:.7rem 1rem">
+            <div style="font-family:'DM Mono',monospace;font-size:.55rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.3rem">vs Mes Anterior</div>
+            <div style="font-family:'DM Mono',monospace;font-size:1.1rem;font-weight:500" id="invMoMVal">—</div>
+          </div>
+          <div style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:.7rem 1rem">
+            <div style="font-family:'DM Mono',monospace;font-size:.55rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.3rem">vs Mismo Mes Año Ant.</div>
+            <div style="font-family:'DM Mono',monospace;font-size:1.1rem;font-weight:500" id="invYoYVal">—</div>
+          </div>
+          <div style="flex:1;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:.7rem 1rem">
+            <div style="font-family:'DM Mono',monospace;font-size:.55rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:.3rem">Promedio 3M</div>
+            <div style="font-family:'DM Mono',monospace;font-size:1.1rem;font-weight:500" id="invProm3MVal">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Chart: Comparativo año actual vs año anterior -->
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Año Actual vs Año Anterior (consumo)
+        </span>
+        <span class="card-badge" id="invYoYBadge">—</span>
+      </div>
+      <div class="card-body">
+        <div style="height:200px;position:relative"><canvas id="chartInvYoY"></canvas></div>
+        <p style="font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);margin-top:.65rem;line-height:1.5">
+          Comparativo de consumo mensual: año en curso (barra sólida) vs año anterior (barra outline). Permite detectar estacionalidad y variaciones en demanda.
+        </p>
+      </div>
+    </div>
+  </div>
+  <!-- Mini KPIs de Inventario Trend -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem" id="invTrendKpis">
+    <div class="kpi-card blue">
+      <div class="kpi-label">Días de Inventario</div>
+      <div class="kpi-value" id="invDiasInv">—</div>
+      <div class="kpi-sub">días de cobertura actual</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">Rotación Mensual</div>
+      <div class="kpi-value" id="invRotMes">—</div>
+      <div class="kpi-sub">veces / mes que rota</div>
+    </div>
+    <div class="kpi-card orange">
+      <div class="kpi-label">Variación MoM</div>
+      <div class="kpi-value" id="invVarMoM">—</div>
+      <div class="kpi-sub">consumo vs mes anterior</div>
+    </div>
+    <div class="kpi-card" id="invYoYCard" style="--kpi-c:var(--purple)">
+      <div class="kpi-label">Variación YoY</div>
+      <div class="kpi-value" style="color:var(--purple)" id="invVarYoY">—</div>
+      <div class="kpi-sub">consumo vs mismo mes año ant.</div>
+    </div>
   </div>
 
   <div class="card" id="inv-card-busqueda" style="margin-bottom:1.25rem">
@@ -893,6 +974,222 @@ if (typeof initFilters === 'function') {
   loadAll();
 }
 setInterval(loadAll, 1800000);
+
+// ── Tendencias MoM / YoY Inventario ─────────────────────────────────────────
+let chartInvConsumo = null;
+let chartInvYoY = null;
+let invConsumoData = [];
+let invPeriodMeses = 6;
+
+async function loadInvTendencias(meses) {
+  invPeriodMeses = meses || 6;
+  const qs = (typeof filterBuildQS === 'function' && filterBuildQS()) ? '?' + filterBuildQS() : '';
+  try {
+    // Usar el endpoint de consumo mensual del servidor
+    const resp = await fetch(`${API}/api/inv/consumo${qs}`);
+    if (!resp.ok) throw new Error('no data');
+    const data = await resp.json();
+
+    // data puede ser array de {ANIO, MES, CONSUMO_COSTO, CONSUMO_UNIDADES} o similar
+    // Si no hay endpoint de consumo mensual, usar ventas mensuales como proxy
+    let rows = Array.isArray(data) ? data : (data.rows || data.meses || []);
+
+    if (!rows.length) {
+      // Fallback: cargar ventas mensuales como proxy de movimiento
+      const vResp = await fetch(`${API}/api/ventas/mensuales${qs}`);
+      if (vResp.ok) {
+        const vData = await vResp.json();
+        rows = (Array.isArray(vData) ? vData : (vData.rows || [])).map(r => ({
+          ANIO: r.ANIO || r.anio,
+          MES: r.MES || r.mes,
+          CONSUMO_COSTO: r.COSTO_VENTAS || r.COSTO || r.TOTAL_VENTA || 0,
+          CONSUMO_UNIDADES: r.UNIDADES || 0,
+          VENTAS: r.TOTAL_VENTA || r.VENTAS || 0,
+        }));
+      }
+    }
+
+    if (!rows.length) return;
+
+    // Ordenar por año-mes descendente, tomar los últimos `meses` + 12 anteriores para YoY
+    rows.sort((a, b) => {
+      const ay = +(a.ANIO||0)*100 + +(a.MES||0);
+      const by = +(b.ANIO||0)*100 + +(b.MES||0);
+      return by - ay;
+    });
+
+    invConsumoData = rows;
+    const recientes = rows.slice(0, meses).reverse();
+
+    const fmtM = n => {
+      n = +n || 0;
+      if (Math.abs(n) >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M';
+      if (Math.abs(n) >= 1e3) return '$' + (n/1e3).toFixed(1) + 'K';
+      return '$' + Math.round(n).toLocaleString('es-MX');
+    };
+    const fmtPct = n => ((+n >= 0 ? '+' : '') + (+n).toFixed(1) + '%');
+
+    const months = ['', 'Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const labels = recientes.map(r => `${months[+(r.MES||0)]} ${r.ANIO}`);
+    const consumos = recientes.map(r => +(r.CONSUMO_COSTO || r.VENTAS || 0));
+
+    // MoM / YoY calcs
+    const last = consumos[consumos.length - 1] || 0;
+    const prev = consumos[consumos.length - 2] || 0;
+    const momPct = prev > 0 ? ((last - prev) / prev * 100) : 0;
+
+    // YoY: buscar mismo mes del año anterior
+    const lastRow = recientes[recientes.length - 1];
+    const yoyRow = rows.find(r => +r.MES === +lastRow?.MES && +r.ANIO === +lastRow?.ANIO - 1);
+    const yoyVal = yoyRow ? +(yoyRow.CONSUMO_COSTO || yoyRow.VENTAS || 0) : 0;
+    const yoyPct = yoyVal > 0 ? ((last - yoyVal) / yoyVal * 100) : null;
+
+    const prom3 = consumos.length >= 3 ? consumos.slice(-3).reduce((a,b)=>a+b,0)/3 : last;
+
+    // Actualizar mini-KPIs
+    const momEl = document.getElementById('invMoMVal');
+    const yoyEl = document.getElementById('invYoYVal');
+    const promEl = document.getElementById('invProm3MVal');
+    const varMoMEl = document.getElementById('invVarMoM');
+    const varYoYEl = document.getElementById('invVarYoY');
+
+    if (momEl) { momEl.textContent = fmtPct(momPct); momEl.style.color = momPct >= 0 ? 'var(--green)' : 'var(--red)'; }
+    if (yoyEl) { yoyEl.textContent = yoyPct !== null ? fmtPct(yoyPct) : 'N/D'; if(yoyPct!==null) yoyEl.style.color = yoyPct >= 0 ? 'var(--green)' : 'var(--red)'; }
+    if (promEl) promEl.textContent = fmtM(prom3);
+    if (varMoMEl) { varMoMEl.textContent = fmtPct(momPct); varMoMEl.style.color = momPct >= 0 ? 'var(--green)' : 'var(--red)'; }
+    if (varYoYEl && yoyPct !== null) { varYoYEl.textContent = fmtPct(yoyPct); varYoYEl.style.color = yoyPct >= 0 ? 'var(--green)' : 'var(--red)'; }
+
+    const badge1 = document.getElementById('invConsumoMoMBadge');
+    if (badge1) badge1.textContent = `${meses}M | último: ${fmtM(last)}`;
+
+    // Chart 1: Consumo mensual
+    const ctx1 = document.getElementById('chartInvConsumo');
+    if (ctx1) {
+      if (chartInvConsumo) chartInvConsumo.destroy();
+      chartInvConsumo = new Chart(ctx1.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Consumo/Costo',
+            data: consumos,
+            backgroundColor: consumos.map((v, i) => i === consumos.length-1 ? 'rgba(230,168,0,.85)' : 'rgba(77,166,255,.55)'),
+            borderColor: consumos.map((v, i) => i === consumos.length-1 ? '#E6A800' : '#4DA6FF'),
+            borderWidth: 1.5,
+            borderRadius: 5,
+          }, {
+            label: 'Prom. 3M',
+            data: consumos.map(() => prom3),
+            type: 'line',
+            borderColor: 'rgba(0,229,160,.7)',
+            borderWidth: 1.5,
+            borderDash: [5,4],
+            pointRadius: 0,
+            fill: false,
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => fmtM(c.raw) }}},
+          scales: {
+            x: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#6A85A6', font: { size: 10 }}},
+            y: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#6A85A6', font: { size: 10 }, callback: v => fmtM(v) }}
+          }
+        }
+      });
+    }
+
+    // Chart 2: YoY — año actual vs año anterior
+    const anioActual = new Date().getFullYear();
+    const anioAnt = anioActual - 1;
+    const monthNames = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const dataActual = Array(12).fill(0);
+    const dataAnterior = Array(12).fill(0);
+    rows.forEach(r => {
+      const m = +(r.MES||0) - 1;
+      if (m < 0 || m > 11) return;
+      const v = +(r.CONSUMO_COSTO || r.VENTAS || 0);
+      if (+r.ANIO === anioActual) dataActual[m] = v;
+      if (+r.ANIO === anioAnt) dataAnterior[m] = v;
+    });
+
+    const ctx2 = document.getElementById('chartInvYoY');
+    if (ctx2) {
+      if (chartInvYoY) chartInvYoY.destroy();
+      chartInvYoY = new Chart(ctx2.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: monthNames,
+          datasets: [{
+            label: String(anioActual),
+            data: dataActual,
+            backgroundColor: 'rgba(230,168,0,.75)',
+            borderColor: '#E6A800',
+            borderWidth: 1.5,
+            borderRadius: 4,
+          }, {
+            label: String(anioAnt),
+            data: dataAnterior,
+            backgroundColor: 'rgba(77,166,255,.35)',
+            borderColor: 'rgba(77,166,255,.6)',
+            borderWidth: 1.5,
+            borderRadius: 4,
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, labels: { color: '#B0BECE', font: { size: 10 }, boxWidth: 12 }},
+            tooltip: { callbacks: { label: c => c.dataset.label + ': ' + fmtM(c.raw) }}
+          },
+          scales: {
+            x: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#6A85A6', font: { size: 10 }}},
+            y: { grid: { color: 'rgba(255,255,255,.04)' }, ticks: { color: '#6A85A6', font: { size: 10 }, callback: v => fmtM(v) }}
+          }
+        }
+      });
+    }
+
+    // Badge YoY
+    const badge2 = document.getElementById('invYoYBadge');
+    const sumActual = dataActual.reduce((a,b)=>a+b,0);
+    const sumAnt = dataAnterior.reduce((a,b)=>a+b,0);
+    if (badge2 && sumAnt > 0) {
+      const yoyTotal = ((sumActual - sumAnt) / sumAnt * 100).toFixed(1);
+      badge2.textContent = `YoY acumulado: ${yoyTotal >= 0 ? '+' : ''}${yoyTotal}%`;
+    }
+
+    // Días de inventario y rotación (si hay datos de valor actual)
+    const invResumenEl = document.querySelector('[data-kpi="valor-inventario"]') || document.getElementById('kpiValorInv');
+
+  } catch(e) {
+    console.warn('[invTendencias]', e.message);
+  }
+}
+
+// Period buttons
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.inv-period-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.inv-period-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      loadInvTendencias(+btn.dataset.period);
+    });
+  });
+  // Cargar tendencias automáticamente
+  if (typeof Chart !== 'undefined') {
+    loadInvTendencias(6);
+  } else {
+    // Chart.js se carga dinámicamente en algunos casos
+    const checkChart = setInterval(() => {
+      if (typeof Chart !== 'undefined') {
+        clearInterval(checkChart);
+        loadInvTendencias(6);
+      }
+    }, 300);
+    setTimeout(() => clearInterval(checkChart), 5000);
+  }
+});
 </script>
 <script src="nav.js"></script>
 <script src="/chat-widget.js" defer></script>

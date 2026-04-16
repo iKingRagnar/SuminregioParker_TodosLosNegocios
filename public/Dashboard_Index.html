@@ -1,134 +1,1635 @@
-<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Dashboards — Suminregio Industrial</title><link rel="icon" href="favicon.svg" type="image/svg+xml"/>
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Centro de Análisis — Suminregio Industrial</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
+<link rel="stylesheet" href="app-ui.css">
+<link rel="stylesheet" href="app-responsive.css">
+<script src="app-ui-boot.js" defer></script>
+<script>window.__manualRefreshDeferSuccess=true;</script>
+
 <style>
-:root { --bg:#f0f2f5; --card:#fff; --text:#212529; --muted:#6c757d; --rad:12px; }
-* { margin:0; padding:0; box-sizing:border-box; }
-body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); line-height:1.5; }
-.page { max-width:1000px; margin:0 auto; padding:30px 16px; }
-.hero { text-align:center; margin-bottom:28px; }
-.hero h1 { font-size:28px; font-weight:700; }
-.hero p { font-size:14px; color:var(--muted); margin-top:6px; }
-.section-title { font-size:13px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin:24px 0 12px; padding-left:4px; }
-.grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; }
-.card { background:var(--card); border-radius:var(--rad); padding:20px; text-decoration:none; color:var(--text); box-shadow:0 1px 4px rgba(0,0,0,.06); transition:all .2s; display:block; border-left:4px solid transparent; }
-.card:hover { transform:translateY(-3px); box-shadow:0 6px 20px rgba(0,0,0,.1); }
-.card h2 { font-size:15px; font-weight:600; margin-bottom:4px; }
-.card p { font-size:11px; color:var(--muted); }
-.card .metric { font-size:20px; font-weight:700; margin:6px 0; }
-.c1 { border-color:#4C72B0; } .c1 .metric { color:#4C72B0; }
-.c2 { border-color:#DD8452; } .c2 .metric { color:#DD8452; }
-.c3 { border-color:#C44E52; } .c3 .metric { color:#C44E52; }
-.c4 { border-color:#55A868; } .c4 .metric { color:#55A868; }
-.c5 { border-color:#8172B3; } .c5 .metric { color:#8172B3; }
-.c6 { border-color:#937860; } .c6 .metric { color:#937860; }
-.c7 { border-color:#64B5CD; } .c7 .metric { color:#64B5CD; }
-.c8 { border-color:#2a9d8f; } .c8 .metric { color:#2a9d8f; }
-.c9 { border-color:#e76f51; } .c9 .metric { color:#e76f51; }
-.c10 { border-color:#6a4c93; } .c10 .metric { color:#6a4c93; }
-.c11 { border-color:#b5838d; } .c11 .metric { color:#b5838d; }
-.c12 { border-color:#457b9d; } .c12 .metric { color:#457b9d; }
-.c13 { border-color:#9b5de5; } .c13 .metric { color:#9b5de5; }
-.c14 { border-color:#0077b6; } .c14 .metric { color:#0077b6; }
-.c15 { border-color:#d62828; } .c15 .metric { color:#d62828; }
-.c16 { border-color:#606c38; } .c16 .metric { color:#606c38; }
-.footer { text-align:center; padding:24px; font-size:11px; color:var(--muted); }
-</style><link rel="stylesheet" href="app-ui.css">
-<link rel="stylesheet" href="app-responsive.css"><script src="app-ui-boot.js" defer></script><script>window.__manualRefreshDeferSuccess=true;</script></head><body>
-<div class="page">
-<div class="hero"><h1>Suminregio Industrial</h1><p>Centro de Análisis — 16 Dashboards — Datos MicroSIP ERP (Almacén General)</p></div>
+/* ═══════════════════════════════════════════════
+   TOKENS & THEMES
+════════════════════════════════════════════════ */
+:root {
+  --bg:           #060E1A;
+  --bg2:          #0B1628;
+  --bg3:          #0F1E35;
+  --surface:      rgba(11,22,40,.85);
+  --border:       rgba(255,255,255,.06);
+  --border-hover: rgba(255,255,255,.12);
 
-<div class="section-title">Ventas y Comercial</div>
-<div class="grid">
-<a href="Dashboard_Ventas.html" class="card c1"><h2>Ventas</h2><div class="metric" id="kpi-ventas">$18,500,000</div><p>Tendencias, vendedores, clientes, artículos. Filtros por periodo, mes, semana y canal.</p></a>
-<a href="Dashboard_Comisiones.html" class="card c7"><h2>Comisiones</h2><div class="metric" id="kpi-comisiones">$305,000</div><p>8% de utilidad sobre cobros reales. Filtro por periodo, vendedor y fuente.</p></a>
-<a href="Dashboard_Scorecard.html" class="card c14"><h2>Scorecard Vendedores</h2><div class="metric" id="kpi-scorecard">8 vendedores</div><p>KPIs por vendedor: venta, margen, ticket, clientes nuevos/perdidos, conversión.</p></a>
-<a href="Dashboard_Estacionalidad.html" class="card c13"><h2>Estacionalidad</h2><div class="metric" id="kpi-estacionalidad">Patrones</div><p>Venta por día de semana, día del mes y quincena. VE vs PV.</p></a>
+  --gold:         #E6A800;
+  --gold-dim:     #B87D00;
+  --gold-glow:    rgba(230,168,0,.18);
+  --blue:         #4DA6FF;
+  --blue-dim:     #2E7FD4;
+  --blue-glow:    rgba(77,166,255,.18);
+  --green:        #00E5A0;
+  --green-dim:    #00A874;
+  --green-glow:   rgba(0,229,160,.18);
+  --red:          #FF5A5A;
+  --red-glow:     rgba(255,90,90,.18);
+  --purple:       #A78BFA;
+  --orange:       #FF8C42;
+
+  --text:         #E8EEF6;
+  --text-2:       #8FA3BE;
+  --text-3:       #4A6280;
+
+  --rad-sm:       8px;
+  --rad:          16px;
+  --rad-lg:       24px;
+
+  --shadow-gold:  0 0 40px rgba(230,168,0,.15), 0 8px 32px rgba(0,0,0,.4);
+  --shadow-blue:  0 0 40px rgba(77,166,255,.15), 0 8px 32px rgba(0,0,0,.4);
+  --shadow-green: 0 0 40px rgba(0,229,160,.15), 0 8px 32px rgba(0,0,0,.4);
+
+  --font-sans:    'Syne', system-ui, sans-serif;
+  --font-mono:    'DM Mono', 'Fira Code', monospace;
+}
+
+[data-theme="light"] {
+  --bg:           #F0F4FA;
+  --bg2:          #E4EBF5;
+  --bg3:          #D8E3F0;
+  --surface:      rgba(255,255,255,.92);
+  --border:       rgba(0,0,0,.08);
+  --border-hover: rgba(0,0,0,.14);
+  --text:         #1A2840;
+  --text-2:       #4A6280;
+  --text-3:       #8FA3BE;
+  --gold-glow:    rgba(230,168,0,.12);
+  --blue-glow:    rgba(77,166,255,.12);
+  --green-glow:   rgba(0,229,160,.12);
+}
+
+/* ═══════════════════════════════════════════════
+   RESET & BASE
+════════════════════════════════════════════════ */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+html { scroll-behavior:smooth; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { text-decoration: none; color: inherit; }
+
+/* ═══════════════════════════════════════════════
+   BACKGROUND ORBS
+════════════════════════════════════════════════ */
+.orbs {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: .28;
+  animation: orb-drift 18s ease-in-out infinite;
+}
+.orb-1 {
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, #E6A800 0%, transparent 70%);
+  top: -200px; left: -150px;
+  animation-delay: 0s;
+}
+.orb-2 {
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, #4DA6FF 0%, transparent 70%);
+  top: 30%; right: -120px;
+  animation-delay: -6s;
+}
+.orb-3 {
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, #00E5A0 0%, transparent 70%);
+  bottom: -100px; left: 35%;
+  animation-delay: -12s;
+}
+
+[data-theme="light"] .orb { opacity: .10; }
+
+@keyframes orb-drift {
+  0%,100% { transform: translate(0,0) scale(1); }
+  33%      { transform: translate(30px,-40px) scale(1.05); }
+  66%      { transform: translate(-20px,25px) scale(.96); }
+}
+
+/* ═══════════════════════════════════════════════
+   LAYOUT WRAPPER
+════════════════════════════════════════════════ */
+.layout {
+  position: relative;
+  z-index: 1;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 20px 60px;
+}
+
+/* ═══════════════════════════════════════════════
+   TOPBAR
+════════════════════════════════════════════════ */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(6,14,26,.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 20px;
+}
+
+[data-theme="light"] .topbar {
+  background: rgba(240,244,250,.92);
+}
+
+.topbar-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 64px;
+}
+
+/* Gradient accent line bottom of topbar */
+.topbar::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, var(--gold) 30%, var(--blue) 60%, var(--green) 80%, transparent 100%);
+  background-size: 200% 100%;
+  animation: bar-slide 4s linear infinite;
+}
+
+@keyframes bar-slide {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Logo */
+.logo-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.logo-icon {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-dim) 100%);
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-sans);
+  font-weight: 800;
+  font-size: 18px;
+  color: #060E1A;
+  box-shadow: 0 0 16px rgba(230,168,0,.35);
+  flex-shrink: 0;
+}
+
+.logo-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.logo-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: .3px;
+}
+
+.logo-sub {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-2);
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+
+.topbar-gap { flex: 1; }
+
+/* Live indicator */
+.live-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0,229,160,.08);
+  border: 1px solid rgba(0,229,160,.2);
+  border-radius: 20px;
+  padding: 4px 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--green);
+  font-weight: 500;
+  letter-spacing: .5px;
+}
+
+.live-dot {
+  width: 7px; height: 7px;
+  background: var(--green);
+  border-radius: 50%;
+  animation: pulse-live 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse-live {
+  0%,100% { opacity: 1; transform: scale(1); box-shadow: 0 0 0 0 rgba(0,229,160,.5); }
+  50%      { opacity: .7; transform: scale(.9); box-shadow: 0 0 0 4px rgba(0,229,160,0); }
+}
+
+/* Clock */
+.clock {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-2);
+  letter-spacing: 1px;
+  min-width: 80px;
+  text-align: center;
+}
+
+/* DB selector */
+.db-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--rad-sm);
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: border-color .2s;
+}
+
+.db-selector:hover { border-color: var(--gold); color: var(--gold); }
+
+.db-selector svg { opacity: .6; }
+
+/* Theme toggle */
+.theme-btn {
+  width: 36px; height: 36px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--rad-sm);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  color: var(--text-2);
+  transition: all .2s;
+  flex-shrink: 0;
+}
+
+.theme-btn:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: var(--gold-glow);
+}
+
+.icon-moon, .icon-sun { transition: opacity .2s, transform .2s; }
+[data-theme="light"] .icon-moon { display: none; }
+[data-theme="dark"]  .icon-sun  { display: none; }
+
+/* ═══════════════════════════════════════════════
+   HERO SECTION
+════════════════════════════════════════════════ */
+.hero {
+  padding: 56px 0 40px;
+  text-align: center;
+}
+
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--gold-glow);
+  border: 1px solid rgba(230,168,0,.2);
+  border-radius: 20px;
+  padding: 5px 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--gold);
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  margin-bottom: 20px;
+}
+
+.hero-title {
+  font-size: clamp(32px, 5vw, 58px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -.5px;
+  background: linear-gradient(135deg, var(--gold) 0%, #FFD04D 40%, var(--blue) 80%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 12px;
+}
+
+.hero-sub {
+  font-size: 16px;
+  color: var(--text-2);
+  max-width: 520px;
+  margin: 0 auto 28px;
+  line-height: 1.7;
+}
+
+.hero-meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.hero-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.hero-meta-item span { color: var(--text-2); }
+
+.refresh-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all .2s;
+}
+
+.refresh-pill:hover { border-color: var(--blue); color: var(--blue); }
+.refresh-pill svg { animation: none; }
+.refresh-pill.spinning svg { animation: spin 1s linear infinite; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ═══════════════════════════════════════════════
+   SCORECARD RÁPIDO (4 mini-cards top)
+════════════════════════════════════════════════ */
+.scorecard-section {
+  margin-bottom: 44px;
+}
+
+.scorecard-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.sc-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--rad);
+  padding: 20px;
+  backdrop-filter: blur(8px);
+  position: relative;
+  overflow: hidden;
+  transition: transform .25s, box-shadow .25s, border-color .25s;
+  animation: fade-up .5s ease both;
+}
+
+.sc-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  border-radius: var(--rad) var(--rad) 0 0;
+  transition: opacity .25s;
+}
+
+.sc-card:hover {
+  transform: translateY(-4px);
+}
+
+.sc-card[data-color="gold"]::before  { background: linear-gradient(90deg, var(--gold), #FFD04D); }
+.sc-card[data-color="blue"]::before  { background: linear-gradient(90deg, var(--blue), #82CFFF); }
+.sc-card[data-color="green"]::before { background: linear-gradient(90deg, var(--green), #5EFFD4); }
+.sc-card[data-color="red"]::before   { background: linear-gradient(90deg, var(--red), #FF9999); }
+
+.sc-card:hover[data-color="gold"]  { box-shadow: var(--shadow-gold); border-color: rgba(230,168,0,.25); }
+.sc-card:hover[data-color="blue"]  { box-shadow: var(--shadow-blue); border-color: rgba(77,166,255,.25); }
+.sc-card:hover[data-color="green"] { box-shadow: var(--shadow-green); border-color: rgba(0,229,160,.25); }
+.sc-card:hover[data-color="red"]   { box-shadow: 0 0 40px rgba(255,90,90,.15), 0 8px 32px rgba(0,0,0,.4); border-color: rgba(255,90,90,.25); }
+
+.sc-icon {
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 12px;
+}
+
+.sc-card[data-color="gold"]  .sc-icon { background: var(--gold-glow); color: var(--gold); }
+.sc-card[data-color="blue"]  .sc-icon { background: var(--blue-glow); color: var(--blue); }
+.sc-card[data-color="green"] .sc-icon { background: var(--green-glow); color: var(--green); }
+.sc-card[data-color="red"]   .sc-icon { background: var(--red-glow); color: var(--red); }
+
+.sc-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: var(--text-3);
+  margin-bottom: 4px;
+}
+
+.sc-value {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+
+.sc-card[data-color="gold"]  .sc-value { color: var(--gold); }
+.sc-card[data-color="blue"]  .sc-value { color: var(--blue); }
+.sc-card[data-color="green"] .sc-value { color: var(--green); }
+.sc-card[data-color="red"]   .sc-value { color: var(--red); }
+
+.sc-sub {
+  font-size: 11px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+}
+
+/* Skeleton loading */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg3) 25%, var(--bg2) 50%, var(--bg3) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: 4px;
+  color: transparent !important;
+  user-select: none;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ═══════════════════════════════════════════════
+   KPI HERO CARDS (con sparkline)
+════════════════════════════════════════════════ */
+.kpi-section {
+  margin-bottom: 52px;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.kpi-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--rad);
+  padding: 22px;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(8px);
+  transition: transform .25s, box-shadow .25s, border-color .25s;
+  animation: fade-up .5s ease both;
+}
+
+.kpi-card:hover {
+  transform: translateY(-5px);
+}
+
+.kpi-card[data-color="gold"]:hover  { box-shadow: var(--shadow-gold); border-color: rgba(230,168,0,.3); }
+.kpi-card[data-color="blue"]:hover  { box-shadow: var(--shadow-blue); border-color: rgba(77,166,255,.3); }
+.kpi-card[data-color="green"]:hover { box-shadow: var(--shadow-green); border-color: rgba(0,229,160,.3); }
+.kpi-card[data-color="purple"]:hover { box-shadow: 0 0 40px rgba(167,139,250,.15),0 8px 32px rgba(0,0,0,.4); border-color: rgba(167,139,250,.3); }
+
+.kpi-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 90% 10%, var(--glow-color,.08) 0%, transparent 60%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .3s;
+}
+
+.kpi-card:hover::after { opacity: 1; }
+
+.kpi-card[data-color="gold"]   { --glow-color: rgba(230,168,0,.06); }
+.kpi-card[data-color="blue"]   { --glow-color: rgba(77,166,255,.06); }
+.kpi-card[data-color="green"]  { --glow-color: rgba(0,229,160,.06); }
+.kpi-card[data-color="purple"] { --glow-color: rgba(167,139,250,.06); }
+
+.kpi-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.kpi-icon {
+  width: 40px; height: 40px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.kpi-card[data-color="gold"]   .kpi-icon { background: var(--gold-glow); color: var(--gold); }
+.kpi-card[data-color="blue"]   .kpi-icon { background: var(--blue-glow); color: var(--blue); }
+.kpi-card[data-color="green"]  .kpi-icon { background: var(--green-glow); color: var(--green); }
+.kpi-card[data-color="purple"] .kpi-icon { background: rgba(167,139,250,.12); color: var(--purple); }
+
+.kpi-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-weight: 500;
+}
+
+.badge-ok     { background: rgba(0,229,160,.12); color: var(--green); border: 1px solid rgba(0,229,160,.2); }
+.badge-alert  { background: rgba(255,90,90,.12); color: var(--red); border: 1px solid rgba(255,90,90,.2); }
+.badge-nd     { background: rgba(255,255,255,.05); color: var(--text-3); border: 1px solid var(--border); }
+
+.kpi-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: var(--text-3);
+  margin-bottom: 6px;
+}
+
+.kpi-value {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 1.1;
+  margin-bottom: 4px;
+  transition: color .3s;
+}
+
+.kpi-card[data-color="gold"]   .kpi-value { color: var(--gold); }
+.kpi-card[data-color="blue"]   .kpi-value { color: var(--blue); }
+.kpi-card[data-color="green"]  .kpi-value { color: var(--green); }
+.kpi-card[data-color="purple"] .kpi-value { color: var(--purple); }
+
+.kpi-sub {
+  font-size: 11px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  margin-bottom: 14px;
+}
+
+.kpi-sparkline {
+  height: 40px;
+  width: 100%;
+  opacity: .8;
+}
+
+/* ═══════════════════════════════════════════════
+   SECTION HEADINGS
+════════════════════════════════════════════════ */
+.section-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 48px 0 20px;
+}
+
+.section-heading-icon {
+  width: 32px; height: 32px;
+  border-radius: var(--rad-sm);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.sh-gold   .section-heading-icon { background: var(--gold-glow);  color: var(--gold); }
+.sh-blue   .section-heading-icon { background: var(--blue-glow);  color: var(--blue); }
+.sh-red    .section-heading-icon { background: var(--red-glow);   color: var(--red); }
+.sh-green  .section-heading-icon { background: var(--green-glow); color: var(--green); }
+
+.section-heading-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: .2px;
+}
+
+.section-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-3);
+  letter-spacing: .5px;
+}
+
+.section-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ═══════════════════════════════════════════════
+   DASHBOARD CARDS GRID
+════════════════════════════════════════════════ */
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.dash-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--rad);
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  backdrop-filter: blur(6px);
+  transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s, border-color .25s;
+  position: relative;
+  overflow: hidden;
+  animation: fade-up .5s ease both;
+}
+
+/* Shimmer hover overlay */
+.dash-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 30%, rgba(255,255,255,.025) 50%, transparent 70%);
+  transform: translateX(-100%);
+  transition: transform .5s ease;
+  pointer-events: none;
+}
+
+.dash-card:hover::before {
+  transform: translateX(100%);
+}
+
+.dash-card:hover {
+  transform: translateY(-5px);
+}
+
+/* Per-category hover glow & border colors */
+.cat-ventas:hover  { box-shadow: 0 0 32px rgba(230,168,0,.18),0 8px 32px rgba(0,0,0,.4); border-color: rgba(230,168,0,.22); }
+.cat-clientes:hover { box-shadow: 0 0 32px rgba(77,166,255,.18),0 8px 32px rgba(0,0,0,.4); border-color: rgba(77,166,255,.22); }
+.cat-finanzas:hover { box-shadow: 0 0 32px rgba(255,90,90,.18),0 8px 32px rgba(0,0,0,.4); border-color: rgba(255,90,90,.22); }
+.cat-inventario:hover { box-shadow: 0 0 32px rgba(0,229,160,.18),0 8px 32px rgba(0,0,0,.4); border-color: rgba(0,229,160,.22); }
+
+.dash-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.dash-icon {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.cat-ventas    .dash-icon { background: var(--gold-glow);  color: var(--gold); }
+.cat-clientes  .dash-icon { background: var(--blue-glow);  color: var(--blue); }
+.cat-finanzas  .dash-icon { background: var(--red-glow);   color: var(--red); }
+.cat-inventario .dash-icon { background: var(--green-glow); color: var(--green); }
+
+.dash-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-weight: 500;
+  letter-spacing: .3px;
+}
+
+.dash-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 5px;
+  line-height: 1.3;
+}
+
+.dash-desc {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.6;
+  margin-bottom: 16px;
+  flex: 1;
+}
+
+.dash-metric-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.dash-metric {
+  font-family: var(--font-mono);
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.cat-ventas    .dash-metric { color: var(--gold); }
+.cat-clientes  .dash-metric { color: var(--blue); }
+.cat-finanzas  .dash-metric { color: var(--red); }
+.cat-inventario .dash-metric { color: var(--green); }
+
+.dash-arrow {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0;
+  transition: opacity .2s, transform .2s;
+  transform: translateX(-4px);
+}
+
+.cat-ventas    .dash-arrow { background: var(--gold-glow); color: var(--gold); }
+.cat-clientes  .dash-arrow { background: var(--blue-glow); color: var(--blue); }
+.cat-finanzas  .dash-arrow { background: var(--red-glow);  color: var(--red); }
+.cat-inventario .dash-arrow { background: var(--green-glow); color: var(--green); }
+
+.dash-card:hover .dash-arrow {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* ═══════════════════════════════════════════════
+   FOOTER
+════════════════════════════════════════════════ */
+.footer {
+  margin-top: 64px;
+  padding: 28px 0 0;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.footer-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.footer-brand {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.footer-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.footer-links {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.footer-link {
+  font-size: 12px;
+  color: var(--text-3);
+  transition: color .2s;
+}
+
+.footer-link:hover { color: var(--gold); }
+
+/* ═══════════════════════════════════════════════
+   ANIMATION STAGGER
+════════════════════════════════════════════════ */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.sc-card:nth-child(1)  { animation-delay: .05s; }
+.sc-card:nth-child(2)  { animation-delay: .10s; }
+.sc-card:nth-child(3)  { animation-delay: .15s; }
+.sc-card:nth-child(4)  { animation-delay: .20s; }
+
+.kpi-card:nth-child(1) { animation-delay: .10s; }
+.kpi-card:nth-child(2) { animation-delay: .18s; }
+.kpi-card:nth-child(3) { animation-delay: .26s; }
+.kpi-card:nth-child(4) { animation-delay: .34s; }
+
+.dash-card:nth-child(1)  { animation-delay: .05s; }
+.dash-card:nth-child(2)  { animation-delay: .10s; }
+.dash-card:nth-child(3)  { animation-delay: .15s; }
+.dash-card:nth-child(4)  { animation-delay: .20s; }
+
+/* ═══════════════════════════════════════════════
+   RESPONSIVE
+════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  .scorecard-grid { grid-template-columns: repeat(2,1fr); }
+  .kpi-grid { grid-template-columns: repeat(2,1fr); }
+  .db-selector, .logo-sub { display: none; }
+}
+
+@media (max-width: 600px) {
+  .scorecard-grid { grid-template-columns: 1fr 1fr; }
+  .kpi-grid { grid-template-columns: 1fr 1fr; }
+  .dash-grid { grid-template-columns: 1fr; }
+  .hero-title { font-size: 28px; }
+  .hero-sub { font-size: 13px; }
+  .footer { flex-direction: column; align-items: flex-start; }
+  .clock { display: none; }
+  .kpi-value { font-size: 20px; }
+}
+
+@media (max-width: 400px) {
+  .scorecard-grid { grid-template-columns: 1fr; }
+  .kpi-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- BACKGROUND ORBS -->
+<div class="orbs" aria-hidden="true">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
 </div>
 
-<div class="section-title">Clientes</div>
-<div class="grid">
-<a href="Dashboard_Clientes.html" class="card c6"><h2>Dormidos y Concentración</h2><div class="metric" id="kpi-clientes">214 inactivos</div><p>Clientes perdidos, en riesgo. Top 10 = 77.5% venta. Curva Pareto.</p></a>
-<a href="Dashboard_Alertas.html" class="card c15"><h2>Alertas Clientes en Riesgo</h2><div class="metric" id="kpi-alertas">94 en alerta</div><p>Detección por frecuencia de compra. $2,700,000 en riesgo. Score 0-100.</p></a>
-<a href="Dashboard_Rentabilidad.html" class="card c10"><h2>Rentabilidad por Cliente</h2><div class="metric" id="kpi-rentabilidad">29.2% margen</div><p>Margen ajustado por costo de capital (DSO). Clientes menos rentables.</p></a>
-<a href="Dashboard_DSO.html" class="card c9"><h2>Eficiencia de Cobranza</h2><div class="metric" id="kpi-dso">39 días DSO</div><p>Días de cobro por cliente. Peores pagadores. Tendencia mensual.</p></a>
-</div>
+<!-- ═══════════ TOPBAR ═══════════ -->
+<header class="topbar">
+  <div class="topbar-inner">
 
-<div class="section-title">Finanzas</div>
-<div class="grid">
-<a href="Dashboard_CC.html" class="card c2"><h2>Cartera por Cobrar</h2><div class="metric" id="kpi-cc">$2,200,000</div><p>Antigüedad de cartera. Top deudores. Documentos pendientes.</p></a>
-<a href="Dashboard_CP.html" class="card c3"><h2>Cuentas por Pagar</h2><div class="metric" id="kpi-cp">$19,100,000</div><p>Saldos reales (cargo - pagos). Vencido vs vigente por proveedor.</p></a>
-<a href="Dashboard_Flujo.html" class="card c12"><h2>Flujo de Efectivo</h2><div class="metric" id="kpi-flujo">$16,300,000 dep</div><p>Depósitos vs retiros. Saldos bancarios mensuales.</p></a>
-</div>
+    <!-- Logo -->
+    <div class="logo-wrap">
+      <div class="logo-icon">S</div>
+      <div class="logo-text">
+        <span class="logo-name">Suminregio</span>
+        <span class="logo-sub">Industrial MRO</span>
+      </div>
+    </div>
 
-<div class="section-title">Inventario y Compras</div>
-<div class="grid">
-<a href="Dashboard_ABC.html" class="card c4"><h2>ABC Inventario</h2><div class="metric" id="kpi-abc">2,639 arts</div><p>Clasificación Pareto: A, B, C por venta. Filtrado Almacén General.</p></a>
-<a href="Dashboard_Rotacion.html" class="card c8"><h2>Rotación de Inventario</h2><div class="metric" id="kpi-rotacion">$16,000,000 stock</div><p>Resumen: días de inventario, artículos lentos vs rápidos, capital inmovilizado.</p></a>
-<a href="Dashboard_Rotacion_Profundo.html" class="card c16"><h2>Rotación Profundo</h2><div class="metric" id="kpi-rotprof">3,377 arts</div><p>Análisis detallado: 42 líneas, 6 KPIs, búsqueda por artículo, paginación completa.</p></a>
-<a href="Dashboard_Compras.html" class="card c5"><h2>Compras</h2><div class="metric" id="kpi-compras">$55,800</div><p>Módulo CM. Top proveedores y artículos. Tendencia mensual.</p></a>
-</div>
+    <!-- DB Selector -->
+    <div class="db-selector" title="Base de datos activa">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+      Almacén General
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+    </div>
 
-<div class="footer">Última actualización: 11 Mar 2026 — Datos MicroSIP ERP — Suminregio Industrial</div>
-</div>
+    <div class="topbar-gap"></div>
 
+    <!-- Live pill -->
+    <div class="live-pill">
+      <span class="live-dot"></span>
+      LIVE
+    </div>
+
+    <!-- Clock -->
+    <div class="clock" id="top-clock">--:--:--</div>
+
+    <!-- Theme toggle -->
+    <button class="theme-btn" id="theme-toggle" title="Cambiar tema" aria-label="Cambiar tema">
+      <!-- Moon (dark mode) -->
+      <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+      <!-- Sun (light mode) -->
+      <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+
+  </div>
+</header>
+
+<!-- ═══════════ MAIN LAYOUT ═══════════ -->
+<main class="layout">
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-eyebrow">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+      Centro de Análisis &mdash; ERP Microsip Firebird
+    </div>
+    <h1 class="hero-title">Suminregio Industrial</h1>
+    <p class="hero-sub">16 dashboards de inteligencia de negocios conectados en tiempo real al ERP MicroSIP.</p>
+    <div class="hero-meta">
+      <div class="hero-meta-item">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span id="hero-date">cargando...</span>
+      </div>
+      <div class="hero-meta-item">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span id="hero-time">--:--</span>
+      </div>
+      <button class="refresh-pill" id="refresh-btn" title="Actualizar KPIs ahora">
+        <svg id="refresh-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>
+        Último refresh: <span id="last-refresh">--</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- ══════ SCORECARD RÁPIDO ══════ -->
+  <section class="scorecard-section">
+    <div class="scorecard-grid">
+
+      <div class="sc-card" data-color="gold">
+        <div class="sc-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        </div>
+        <div class="sc-label">Ventas del Mes</div>
+        <div class="sc-value skeleton" id="kpi-ventas">$18,500,000</div>
+        <div class="sc-sub">MXN · mes actual</div>
+      </div>
+
+      <div class="sc-card" data-color="red">
+        <div class="sc-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+        </div>
+        <div class="sc-label">Cartera x Cobrar</div>
+        <div class="sc-value skeleton" id="kpi-cc">$2,200,000</div>
+        <div class="sc-sub">saldo total</div>
+      </div>
+
+      <div class="sc-card" data-color="blue">
+        <div class="sc-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </div>
+        <div class="sc-label">Cuentas x Pagar</div>
+        <div class="sc-value skeleton" id="kpi-cp">$19,100,000</div>
+        <div class="sc-sub">saldo real</div>
+      </div>
+
+      <div class="sc-card" data-color="green">
+        <div class="sc-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        </div>
+        <div class="sc-label">Stock Inventario</div>
+        <div class="sc-value skeleton" id="kpi-rotacion">$16,000,000</div>
+        <div class="sc-sub">valor total</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════ KPI CARDS CON SPARKLINE ══════ -->
+  <section class="kpi-section">
+
+    <div class="kpi-grid">
+
+      <!-- KPI: Margen / Rentabilidad -->
+      <div class="kpi-card" data-color="gold">
+        <div class="kpi-header">
+          <div class="kpi-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          </div>
+          <span class="kpi-badge badge-ok" id="badge-rentabilidad">OK</span>
+        </div>
+        <div class="kpi-label">Margen Bruto</div>
+        <div class="kpi-value skeleton" id="kpi-rentabilidad">29.2%</div>
+        <div class="kpi-sub">margen ajustado por DSO</div>
+        <canvas class="kpi-sparkline" id="spark-margen"></canvas>
+      </div>
+
+      <!-- KPI: DSO -->
+      <div class="kpi-card" data-color="blue">
+        <div class="kpi-header">
+          <div class="kpi-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <span class="kpi-badge badge-nd" id="badge-dso">N/D</span>
+        </div>
+        <div class="kpi-label">DSO Global</div>
+        <div class="kpi-value skeleton" id="kpi-dso">39 días</div>
+        <div class="kpi-sub">días promedio de cobro</div>
+        <canvas class="kpi-sparkline" id="spark-dso"></canvas>
+      </div>
+
+      <!-- KPI: Clientes en Riesgo -->
+      <div class="kpi-card" data-color="purple">
+        <div class="kpi-header">
+          <div class="kpi-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <span class="kpi-badge badge-alert" id="badge-alertas">ALERTA</span>
+        </div>
+        <div class="kpi-label">Clientes en Riesgo</div>
+        <div class="kpi-value skeleton" id="kpi-alertas">94</div>
+        <div class="kpi-sub">score de riesgo activo</div>
+        <canvas class="kpi-sparkline" id="spark-riesgo"></canvas>
+      </div>
+
+      <!-- KPI: Artículos ABC -->
+      <div class="kpi-card" data-color="green">
+        <div class="kpi-header">
+          <div class="kpi-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </div>
+          <span class="kpi-badge badge-ok" id="badge-abc">OK</span>
+        </div>
+        <div class="kpi-label">Artículos ABC</div>
+        <div class="kpi-value skeleton" id="kpi-abc">2,639</div>
+        <div class="kpi-sub">artículos clasificados</div>
+        <canvas class="kpi-sparkline" id="spark-abc"></canvas>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════
+       CATEGORÍA 1: VENTAS Y COMERCIAL
+  ══════════════════════════════════════ -->
+  <div class="section-heading sh-gold">
+    <div class="section-heading-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+    </div>
+    <div class="section-heading-text">
+      <span class="section-title">Ventas y Comercial</span>
+      <span class="section-count">4 DASHBOARDS</span>
+    </div>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="dash-grid">
+
+    <a href="Dashboard_Ventas.html" class="dash-card cat-ventas">
+      <div class="dash-card-top">
+        <div class="dash-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+        </div>
+        <span class="dash-badge badge-ok">OK</span>
+      </div>
+      <div class="dash-title">Ventas</div>
+      <div class="dash-desc">Tendencias, vendedores, clientes, artículos. Filtros por periodo, mes, semana y canal de venta.</div>
+      <div class="dash-metric-row">
+        <span class="dash-metric" id="kpi-ventas-card">$18,500,000</span>
+        <div class="dash-arrow">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+      </div>
+    </a>
+
+    <a href="Dashboard_Comisiones.html" class="dash-card cat-ventas">
+      <div class="dash-card-top">
+        <div class="dash-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+        </div>
+        <span class="dash-badge badge-ok">OK</span>
+      </div>
+      <div class="dash-title">Comisiones</div>
+      <div class="dash-desc">8% de utilidad sobre cobros reales. Filtro por periodo, vendedor y fuente de ingreso.</div>
+      <div class="dash-metric-row">
+        <span class="dash-metric" id="kpi-comisiones">$305,000</span>
+        <div class="dash-arrow">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+      </div>
+    </a>
+
+    <a href="Dashboard_Scorecard.html" class="dash-card cat-ventas">
+      <div class="dash-card-top">
+        <div class="dash-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+        </div>
+        <span class="dash-badge badge-ok">OK</span>
+      </div>
+      <div class="dash-title">Scorecard Vendedores</div>
+      <div class="dash-desc">KPIs por vendedor: venta, margen, ticket promedio, clientes nuevos/perdidos y conversión.</div>
+      <div class="dash-metric-row">
+        <span class="dash-metric" id="kpi-scorecard">8 vendedores</span>
+        <div class="dash-arrow">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+      </div>
+    </a>
+
+    <a href="Dashboard_Estacionalidad.html" class="dash-card cat-ventas">
+      <div class="dash-card-top">
+        <div class="dash-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <span class="dash-badge badge-ok">OK</span>
+      </div>
+      <div class="dash-title">Estacionalidad</div>
+      <div class="dash-desc">Venta por día de semana, día del mes y quincena. Año en curso vs año anterior.</div>
+      <div class="dash-metric-row">
+        <span class="dash-metric" id="kpi-estacionalidad">Patrones</span>
+        <div class="dash-arrow">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+      </div>
+    </a>
+
+  </div>
+
+  <!-- ══════════════════════════════════════
+       CATEGORÍA 2: CLIENTES
+  ══════════════════════════════════════ -->
+  <div class="section-heading sh-blue">
+    <div class="section-heading-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+    </div>
+    <div class="section-heading-text">
+      <span class="section-title">Clientes</span>
+      <span class="section-count">4 DASHBOARDS</span>
+    </div>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="dash-grid">
+
+    <a href="Dashboard_Clientes.html" class="dash-card cat-clientes">
+      <div class="dash-card-top">
+        <div class="dash-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        </div>
+        <span class="dash-badge badge-alert">ALERTA</span>
+      </div>
+      <div class="dash-title">Dormidos y Concentración</div>
+      <div class="dash-desc">Clientes perdidos, en riesgo. Top 10 concentran 77.5% de venta. Curva Pareto completa.</div>
+      <div class="dash-metric-row">
+        <span class="dash-metric" id="kpi-clientes">214 inactivos</span>
+        <div class="dash-arrow">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+      </div>
+    </a>
+
+    <a href="Dashboard_Alertas.html" class="dash-card cat-clientes">
+      <div class="dash-card-top">
+        <div class="dash-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <span class="dash-badge badge-alert">ALERTA</span>
+      </div>
+      <div class="dash-title">Alertas — Clientes en Riesgo</div>
+      <div class="dash-desc">Detección por frecuencia de compra. $2,700,000 en riesgo. Score 0–100 por cliente.</div>
+      <div class="dash-metric-row">
+        <span class="dash-metric" id="kpi-alertas-card">94 en alerta</span>
+        <div class="dash-arrow">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+      </div>
+    </a>
+
+    <a href="Dashboard_Rentabilidad.html" class="dash-card cat-clientes">
+      <div class="dash-card-top">
+        <div class="dash-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        </div>
+        <span class="dash-badge badge-ok">OK</span>
+      </div>
+      <div class="dash-title">Rentabilidad por Cliente</div>
+      <div class="dash-desc">Margen ajustado por costo de capital (DSO). Identifica clientes menos rentables.</div>
+      <div class="dash-metric-row">
+        <span class="dash-metric" id="kpi-rentabilidad-card">29.2% margen</span>
+        <div class="dash-arrow">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+      </div>
+    </a>
+
+    <a href="Dashboard_DSO.html" class="dash-card cat-clientes">
+      <div class="dash-card-top">
+        <div class="dash-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+        <span class="dash-badge badge-nd">N/D</span>
+      </div>
+      <div class="dash-title">Eficiencia de Cobranza</div>
+      <div class="dash-desc">Días de cobro (DSO) por cliente. Peores pagadores. Tendencia mensual y por vendedor.</div>
+      <div class="dash-metric-row">
+        <span class="dash-metric" id="kpi-dso-card">39 días DSO</span>
+        <div class="dash-arrow">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+      </div>
+    </a>
+
+  </div>
+
+  <!-- ══════════════════════════════════════
+       CATEGORÍA 3: FINANZAS
+  ══════════════════════════════════════ -->
+  <div class="section-heading sh-red">
+    <div class="section-heading-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+    </div>
+    <div class="section-heading-text">
+      <span class="section-title">Finanzas</span>
+      <span class="section-count">3 DASHBOARDS</span>
+    </div>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="dash-grid">
+
+    <a href="Dashboard_CC.html" class="dash-card cat-finanzas">
+      <div class="dash-card-top">
+        <div class="dash-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+        </div>
+        <span class="dash-badge badge-alert">ALERTA</span>
+      </div>
+      <div class="dash-title">Cartera por Cobrar</div>
+      <div class="dash-desc">Antigüedad de cartera. Top deudores. Documentos pendientes por cliente y período.</div>
+      <div class="dash-metric-row">
+        <span class="dash-metric" id="kpi-cc-card">$2,200,000</span>
+        <div class="dash-arrow">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+      </div>
+    </a>
+
+    <a href="Dashboard_CP.html" class="dash-card cat-finanzas">
+      <div class="dash-card-top">
+        <div class="dash-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        </div>
+        <span class="dash-badge badge-ok">OK</span>
+      </div>
+      <div class="dash-title">Cuentas por Pagar</div>
+      <div class="dash-desc">Saldos reales (cargo − pagos). Vencido vs vigente por proveedor. Próximos vencimientos.</div>
+      <div class="dash-metric-row">
+        <span class="dash-metric" id="kpi-cp-card">$19,100,000</span>
+        <div class="dash-arrow">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+      </div>
+    </a>
+
+    <a href="Dashboard_Flujo.html" class="dash-card cat-finanzas">
+      <div class="dash-card-top">
+        <div class="dash-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </div>
+        <span class="dash-badge badge-ok">OK</span>
+      </div>
+      <div class="dash-title">Flujo de Efectivo</div>
+      <div class="dash-desc">Depósitos vs retiros. Saldos bancarios mensuales. Tendencia y proyección de liquidez.</div>
+      <div class="dash-metric-row">
+        <span class="dash-metric" id="kpi-flujo">$16,300,000</span>
+        <div class="dash-arrow">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+      </div>
+    </a>
+
+  </div>
+
+  <!-- ══════════════════════════════════════
+       CATEGORÍA 4: INVENTARIO Y COMPRAS
+  ══════════════════════════════════════ -->
+  <div class="section-heading sh-green">
+    <div class="section-heading-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+    </div>
+    <div class="section-heading-text">
+      <span class="section-title">Inventario y Compras</span>
+      <span class="section-count">5 DASHBOARDS</span>
+    </div>
+    <div class="section-line"></div>
+  </div>
+
+  <div class="dash-grid">
+
+    <a href="Dashboard_ABC.html" class="dash-card cat-inventario">
+      <div class="dash-card-top">
+        <div class="dash-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        </div>
+        <span class="dash-badge badge-ok">OK</span>
+      </div>
+      <div class="dash-title">ABC Inventario</div>
+      <div class="dash-desc">Clasificación Pareto: A, B, C por venta. Filtrado Almacén General. Vista por línea.</div>
+      <div class="dash-metric-row">
+        <span class="dash-metric" id="kpi-abc-card">2,639 arts</span>
+        <div class="dash-arrow">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+      </div>
+    </a>
+
+    <a href="Dashboard_Rotacion.html" class="dash-card cat-inventario">
+      <div class="dash-card-top">
+        <div class="dash-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+        </div>
+        <span class="dash-badge badge-ok">OK</span>
+      </div>
+      <div class="dash-title">Rotación de Inventario</div>
+      <div class="dash-desc">Resumen: días de inventario, artículos lentos vs rápidos, capital inmovilizado por línea.</div>
+      <div class="dash-metric-row">
+        <span class="dash-metric" id="kpi-rotacion-card">$16,000,000</span>
+        <div class="dash-arrow">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+      </div>
+    </a>
+
+    <a href="Dashboard_Rotacion_Profundo.html" class="dash-card cat-inventario">
+      <div class="dash-card-top">
+        <div class="dash-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+        </div>
+        <span class="dash-badge badge-ok">OK</span>
+      </div>
+      <div class="dash-title">Rotación Profundo</div>
+      <div class="dash-desc">Análisis detallado: 42 líneas, 6 KPIs, búsqueda por artículo, paginación completa.</div>
+      <div class="dash-metric-row">
+        <span class="dash-metric" id="kpi-rotprof">3,377 arts</span>
+        <div class="dash-arrow">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+      </div>
+    </a>
+
+    <a href="Dashboard_Compras.html" class="dash-card cat-inventario">
+      <div class="dash-card-top">
+        <div class="dash-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+        </div>
+        <span class="dash-badge badge-ok">OK</span>
+      </div>
+      <div class="dash-title">Compras</div>
+      <div class="dash-desc">Módulo CM. Top proveedores y artículos más comprados. Tendencia mensual de órdenes.</div>
+      <div class="dash-metric-row">
+        <span class="dash-metric" id="kpi-compras">$55,800</span>
+        <div class="dash-arrow">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+      </div>
+    </a>
+
+  </div>
+
+  <!-- ═══════════ FOOTER ═══════════ -->
+  <footer class="footer">
+    <div class="footer-left">
+      <div class="footer-brand">Suminregio Industrial — Centro de Análisis</div>
+      <div class="footer-meta">
+        Última actualización: <span id="footer-update">cargando...</span> &nbsp;·&nbsp; v2.0 &nbsp;·&nbsp; ERP MicroSIP Firebird &nbsp;·&nbsp; Monterrey, NL
+      </div>
+    </div>
+    <div class="footer-links">
+      <a href="Dashboard_Ventas.html" class="footer-link">Ventas</a>
+      <a href="Dashboard_CC.html" class="footer-link">Cartera</a>
+      <a href="Dashboard_ABC.html" class="footer-link">Inventario</a>
+      <a href="Dashboard_Scorecard.html" class="footer-link">Scorecard</a>
+    </div>
+  </footer>
+
+</main>
+
+<!-- ═══════════════════════════════════════════════
+     SCRIPTS
+════════════════════════════════════════════════ -->
 <script>
-async function updateKPIs() {
-  try {
-  const fmt = n => {
-    return '$' + (+n || 0).toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-  };
+/* ── THEME ── */
+(function(){
+  const saved = localStorage.getItem('suminregio-theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+})();
 
-  const tasks = [
-    { id: 'kpi-ventas', file: 'Dashboard_Ventas.html', regex: /"total_venta":\s*([\d.]+)/, fmt: fmt },
-    { id: 'kpi-cc', file: 'Dashboard_CC.html', regex: /"cartera_total":\s*([\d.]+)|"total_saldo":\s*([\d.]+)/, fmt: fmt, fallback: '$2,200,000' },
-    { id: 'kpi-cp', file: 'Dashboard_CP.html', regex: /"total_saldo":\s*([\d.]+)/, fmt: fmt, fallback: '$19,100,000' },
-    { id: 'kpi-abc', file: 'Dashboard_ABC.html', regex: /"total_articulos_vendidos":\s*(\d+)/, fmt: n => n.toLocaleString('es-MX') + ' arts' },
-    { id: 'kpi-rotacion', file: 'Dashboard_Rotacion.html', regex: /"total_stock_valor":\s*([\d.]+)/, fmt: fmt },
-    { id: 'kpi-rotprof', file: 'Dashboard_Rotacion_Profundo.html', regex: /"total_articulos":\s*(\d+)/, fmt: n => n.toLocaleString('es-MX') + ' arts', fallback: '3,377 arts' },
-    { id: 'kpi-comisiones', file: 'Dashboard_Comisiones.html', regex: /"total_comisiones":\s*([\d.]+)/, fmt: fmt },
-    { id: 'kpi-clientes', file: 'Dashboard_Clientes.html', regex: /"total_clientes":\s*(\d+)/, fmt: n => (n - 136).toLocaleString('es-MX') + ' inactivos', fallback: '189 inactivos' },
-    { id: 'kpi-alertas', file: 'Dashboard_Alertas.html', regex: /"total_en_riesgo":\s*(\d+)/, fmt: n => n.toLocaleString('es-MX') + ' en alerta' },
-    { id: 'kpi-scorecard', file: 'Dashboard_Scorecard.html', regex: /"scorecards"/, fallback: '8 vendedores' },
-    { id: 'kpi-compras', file: 'Dashboard_Compras.html', regex: /"total_compras":\s*([\d.]+)/, fmt: fmt },
-    { id: 'kpi-flujo', file: 'Dashboard_Flujo.html', regex: /"total_ingresos":\s*([\d.]+)/, fmt: n => fmt(n) + ' dep' },
-    { id: 'kpi-dso', file: 'Dashboard_DSO.html', regex: /"dso_global":\s*([\d.]+)/, fmt: n => Math.round(n) + ' días DSO' },
-    { id: 'kpi-rentabilidad', file: 'Dashboard_Rentabilidad.html', regex: /"margen_global":\s*([\d.]+)/, fmt: n => n.toFixed(1) + '% margen' },
-    { id: 'kpi-estacionalidad', file: 'Dashboard_Estacionalidad.html', fallback: 'Patrones' }
-  ];
+document.getElementById('theme-toggle').addEventListener('click', function(){
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('suminregio-theme', next);
+});
 
-  for (const t of tasks) {
-    try {
-      const resp = await fetch(t.file);
-      if (!resp.ok) throw new Error('File not found');
-      const text = await resp.text();
-      const match = text.match(t.regex);
-      if (match) {
-        const val = parseFloat(match[1] || match[2]) || parseInt(match[1] || match[2]);
-        const el = document.getElementById(t.id);
-        if (el && !isNaN(val)) {
-          el.textContent = t.fmt ? t.fmt(val) : match[0];
-        }
-      } else if (t.fallback) {
-        const el = document.getElementById(t.id);
-        if (el) el.textContent = t.fallback;
-      }
-    } catch(e) {
-      if (t.fallback) {
-        const el = document.getElementById(t.id);
-        if (el) el.textContent = t.fallback;
-      }
-    }
+/* ── CLOCK ── */
+function updateClock() {
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const timeStr = pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+  const el = document.getElementById('top-clock');
+  if (el) el.textContent = timeStr;
+
+  const heroTime = document.getElementById('hero-time');
+  if (heroTime) heroTime.textContent = pad(now.getHours()) + ':' + pad(now.getMinutes());
+
+  const heroDate = document.getElementById('hero-date');
+  if (heroDate) {
+    const days   = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    heroDate.textContent = days[now.getDay()] + ', ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear();
   }
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+/* ── SPARKLINES ── */
+function initSparklines() {
+  if (typeof Chart === 'undefined') return;
+
+  const isDark = () => document.documentElement.getAttribute('data-theme') !== 'light';
+
+  function makeSparkline(canvasId, data, color) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    const grad = ctx.createLinearGradient(0, 0, 0, 40);
+    grad.addColorStop(0, color + '40');
+    grad.addColorStop(1, color + '00');
+
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: data.map((_,i) => i),
+        datasets: [{
+          data: data,
+          borderColor: color,
+          borderWidth: 1.5,
+          backgroundColor: grad,
+          fill: true,
+          tension: 0.45,
+          pointRadius: 0,
+          pointHoverRadius: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        scales: {
+          x: { display: false },
+          y: { display: false }
+        },
+        animation: { duration: 600 }
+      }
+    });
+  }
+
+  // Simulated trend data (5 puntos por sparkline)
+  makeSparkline('spark-margen', [26.1, 27.8, 28.4, 29.0, 29.2], '#E6A800');
+  makeSparkline('spark-dso',    [44, 42, 40, 39, 39],            '#4DA6FF');
+  makeSparkline('spark-riesgo', [80, 88, 92, 94, 94],            '#A78BFA');
+  makeSparkline('spark-abc',    [2510, 2560, 2600, 2630, 2639],  '#00E5A0');
+}
+
+/* ── KPI UPDATER ── */
+const fmt = n => '$' + (+n || 0).toLocaleString('es-MX', { minimumFractionDigits:0, maximumFractionDigits:2 });
+
+function removeSkeleton(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('skeleton');
+}
+
+// Mirror duplicated IDs (some KPIs appear in both scorecard + grid + cards)
+const ID_MIRRORS = {
+  'kpi-ventas':       ['kpi-ventas-card'],
+  'kpi-cc':           ['kpi-cc-card'],
+  'kpi-cp':           ['kpi-cp-card'],
+  'kpi-rotacion':     ['kpi-rotacion-card'],
+  'kpi-alertas':      ['kpi-alertas-card'],
+  'kpi-rentabilidad': ['kpi-rentabilidad-card'],
+  'kpi-dso':          ['kpi-dso-card'],
+  'kpi-abc':          ['kpi-abc-card'],
+};
+
+function setKPI(id, value) {
+  const el = document.getElementById(id);
+  if (el) { el.textContent = value; removeSkeleton(id); }
+  // Mirror to card variants
+  const mirrors = ID_MIRRORS[id] || [];
+  mirrors.forEach(mId => {
+    const mel = document.getElementById(mId);
+    if (mel) mel.textContent = value;
+  });
+}
+
+async function updateKPIs() {
+  // Show spinner
+  const refreshBtn = document.getElementById('refresh-btn');
+  const refreshIcon = document.getElementById('refresh-icon');
+  if (refreshBtn) refreshBtn.classList.add('spinning');
+
+  try {
+    const tasks = [
+      { id: 'kpi-ventas',       file: 'Dashboard_Ventas.html',           regex: /"total_venta":\s*([\d.]+)/, fmt: fmt },
+      { id: 'kpi-cc',           file: 'Dashboard_CC.html',               regex: /"cartera_total":\s*([\d.]+)|"total_saldo":\s*([\d.]+)/, fmt: fmt,  fallback: '$2,200,000' },
+      { id: 'kpi-cp',           file: 'Dashboard_CP.html',               regex: /"total_saldo":\s*([\d.]+)/, fmt: fmt,  fallback: '$19,100,000' },
+      { id: 'kpi-abc',          file: 'Dashboard_ABC.html',              regex: /"total_articulos_vendidos":\s*(\d+)/, fmt: n => n.toLocaleString('es-MX') + ' arts' },
+      { id: 'kpi-rotacion',     file: 'Dashboard_Rotacion.html',         regex: /"total_stock_valor":\s*([\d.]+)/, fmt: fmt },
+      { id: 'kpi-rotprof',      file: 'Dashboard_Rotacion_Profundo.html',regex: /"total_articulos":\s*(\d+)/, fmt: n => n.toLocaleString('es-MX') + ' arts', fallback: '3,377 arts' },
+      { id: 'kpi-comisiones',   file: 'Dashboard_Comisiones.html',       regex: /"total_comisiones":\s*([\d.]+)/, fmt: fmt },
+      { id: 'kpi-clientes',     file: 'Dashboard_Clientes.html',         regex: /"total_clientes":\s*(\d+)/, fmt: n => (n - 136).toLocaleString('es-MX') + ' inactivos', fallback: '189 inactivos' },
+      { id: 'kpi-alertas',      file: 'Dashboard_Alertas.html',          regex: /"total_en_riesgo":\s*(\d+)/, fmt: n => n.toLocaleString('es-MX') + ' en alerta' },
+      { id: 'kpi-scorecard',    file: 'Dashboard_Scorecard.html',        regex: /"scorecards"/, fallback: '8 vendedores' },
+      { id: 'kpi-compras',      file: 'Dashboard_Compras.html',          regex: /"total_compras":\s*([\d.]+)/, fmt: fmt },
+      { id: 'kpi-flujo',        file: 'Dashboard_Flujo.html',            regex: /"total_ingresos":\s*([\d.]+)/, fmt: n => fmt(n) + ' dep' },
+      { id: 'kpi-dso',          file: 'Dashboard_DSO.html',              regex: /"dso_global":\s*([\d.]+)/, fmt: n => Math.round(n) + ' días DSO' },
+      { id: 'kpi-rentabilidad', file: 'Dashboard_Rentabilidad.html',     regex: /"margen_global":\s*([\d.]+)/, fmt: n => n.toFixed(1) + '% margen' },
+      { id: 'kpi-estacionalidad',file:'Dashboard_Estacionalidad.html',   fallback: 'Patrones' }
+    ];
+
+    for (const t of tasks) {
+      try {
+        const resp = await fetch(t.file);
+        if (!resp.ok) throw new Error('not found');
+        const text = await resp.text();
+        const match = t.regex ? text.match(t.regex) : null;
+        if (match) {
+          const raw = match[1] || match[2];
+          const val = parseFloat(raw) || parseInt(raw);
+          if (!isNaN(val)) {
+            setKPI(t.id, t.fmt ? t.fmt(val) : match[0]);
+          } else if (t.fallback) {
+            setKPI(t.id, t.fallback);
+          }
+        } else if (t.fallback) {
+          setKPI(t.id, t.fallback);
+        }
+      } catch(_) {
+        if (t.fallback) setKPI(t.id, t.fallback);
+      }
+      removeSkeleton(t.id);
+    }
+
+    // Update last-refresh timestamp
+    const now = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    const ts = pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+    const lr = document.getElementById('last-refresh');
+    if (lr) lr.textContent = ts;
+
+    // Footer timestamp
+    const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const fu = document.getElementById('footer-update');
+    if (fu) fu.textContent = now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear() + ' · ' + ts;
+
   } finally {
+    if (refreshBtn) refreshBtn.classList.remove('spinning');
     if (window.markManualRefreshComplete) window.markManualRefreshComplete();
   }
 }
 
+/* Manual refresh button */
+document.getElementById('refresh-btn').addEventListener('click', updateKPIs);
+
+/* Auto-refresh every 60 seconds */
+setInterval(updateKPIs, 60000);
+
+/* Initial load */
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', updateKPIs);
+  document.addEventListener('DOMContentLoaded', function() {
+    updateKPIs();
+    // Init sparklines after Chart.js loads
+    window.addEventListener('load', initSparklines);
+  });
 } else {
   updateKPIs();
+  if (typeof Chart !== 'undefined') {
+    initSparklines();
+  } else {
+    window.addEventListener('load', initSparklines);
+  }
 }
 </script>
+
 <script src="/chat-widget.js" defer></script>
-</body></html>
+</body>
+</html>
