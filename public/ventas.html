@@ -1495,76 +1495,93 @@ function applyCotiData(resObj, diarias, vends, ventasVE) {
 async function loadCotizaciones() {
   const btnReintentar = document.getElementById('coti-reintentar');
   const cotiVendList = document.getElementById('coti-vendedores-list');
-  if (cotiVendList) cotiVendList.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)">Cargando...</div>';
-  if (lastCotiData) applyCotiData(lastCotiData.resObj, lastCotiData.diarias, lastCotiData.vends, lastCotiData.ventasVE);
+  // Mostrar last data inmediatamente mientras recargamos
+  if (lastCotiData) {
+    applyCotiData(lastCotiData.resObj, lastCotiData.diarias, lastCotiData.vends, lastCotiData.ventasVE);
+  } else {
+    if (cotiVendList) cotiVendList.innerHTML = '<div style="text-align:center;padding:2rem;color:var(--muted)">Cargando...</div>';
+  }
   try {
-    // Misma estructura que ventas: llamar endpoints dedicados de resumen/diarias/por-vendedor
-    // en lugar de derivar desde docs crudos (TIPO_DOCTO='C', igual que ventas usa 'F'/'V')
-    const tCoti = 300000;
+    // Timeouts reducidos: el servidor ahora tiene JOIN optimizado (max ~45s)
+    const tCoti = 60000;
+    const tVend = 60000;
+    const tVentasVE = 40000;
+
     async function fetchCotiPack(extra) {
       const ex = extra ? String(extra) : '';
       const u0 = buildCotiApiUrl('/api/ventas/cotizaciones/resumen', ex);
       const u1 = buildCotiApiUrl('/api/ventas/cotizaciones/diarias', 'dias=35' + ex);
       const u2 = buildCotiApiUrl('/api/ventas/por-vendedor/cotizaciones', ex);
       ventasDbgSet({ note: 'coti:fetch', coti: [u0,u1,u2].join('\\n') });
-      const settled = await Promise.allSettled([
-        fetchJsonAbort(u0, {}, tCoti),
-        fetchJsonAbort(u1, [], tCoti),
-        fetchJsonAbort(u2, [], tCoti),
-        fetchJsonAbort(buildCotiApiUrl('/api/ventas/resumen', 'tipo=VE'), {}, 45000),
-      ]);
+
+      // Lanzar todas en paralelo sin bloquear entre sí
+      const p0 = fetchJsonAbort(u0, {}, tCoti);
+      const p1 = fetchJsonAbort(u1, [], tCoti);
+      const p2 = fetchJsonAbort(u2, [], tVend);
+      const p3 = fetchJsonAbort(buildCotiApiUrl('/api/ventas/resumen', 'tipo=VE'), {}, tVentasVE);
+
+      // Rendering progresivo: cuando resumen+diarias lleguen, actualizar KPIs y gráfica ya
+      Promise.allSettled([p0, p1, p3]).then(function(earlyR) {
+        const earlyRes   = earlyR[0].status === 'fulfilled' ? earlyR[0].value : {};
+        const earlyDiar  = earlyR[1].status === 'fulfilled' ? earlyR[1].value : [];
+        const earlyVE    = earlyR[2].status === 'fulfilled' ? earlyR[2].value : {};
+        const rO = canonCotiResumen(earlyRes || {});
+        // Solo actualizar si trae datos (no sobreescribir con ceros si hay lastCotiData)
+        if ((+rO.MES_ACTUAL || 0) > 0 || (Array.isArray(earlyDiar) && earlyDiar.length)) {
+          const v2 = (v => { const u = unwrapApiRow(v); return u && typeof u === 'object' && !Array.isArray(u) ? u : {}; })(earlyVE || {});
+          applyCotiData(rO, Array.isArray(earlyDiar) ? earlyDiar : [], lastCotiData ? lastCotiData.vends : [], v2);
+        }
+      }).catch(function(){});
+
+      const settled = await Promise.allSettled([p0, p1, p2, p3]);
       const safe = (idx, fb) => (settled[idx] && settled[idx].status === 'fulfilled') ? settled[idx].value : fb;
       return {
-        resRaw: safe(0, {}),
-        diarias: safe(1, []),
-        vends: safe(2, []),
+        resRaw:     safe(0, {}),
+        diarias:    safe(1, []),
+        vends:      safe(2, []),
         ventasVEraw: safe(3, {}),
       };
     }
-    let pack = await fetchCotiPack('');
-    let resObj = canonCotiResumen(pack.resRaw || {});
-    let diarias = Array.isArray(pack.diarias) ? pack.diarias : [];
-    let vends   = Array.isArray(pack.vends) ? pack.vends : [];
-    let ventasVE = (v => { const u = unwrapApiRow(v); return u && typeof u === 'object' && !Array.isArray(u) ? u : {}; })(pack.ventasVEraw || {});
-    ventasDbgSet({ note: 'coti:first', coti: (window.__DBG_VENTAS && window.__DBG_VENTAS.coti ? window.__DBG_VENTAS.coti + '\n' : '') + `res(MES_ACTUAL=${+resObj.MES_ACTUAL||0}, HOY=${+resObj.HOY||0}, N_MES=${+resObj.COTIZACIONES_MES||0}) diarias=${diarias.length} vends=${vends.length}` });
 
-    // Si viene vacío, reintentar con tipo (servidores que respetan tipo del panel).
+    let pack = await fetchCotiPack('');
+    let resObj   = canonCotiResumen(pack.resRaw || {});
+    let diarias  = Array.isArray(pack.diarias) ? pack.diarias : [];
+    let vends    = Array.isArray(pack.vends) ? pack.vends : [];
+    let ventasVE = (v => { const u = unwrapApiRow(v); return u && typeof u === 'object' && !Array.isArray(u) ? u : {}; })(pack.ventasVEraw || {});
+    ventasDbgSet({ note: 'coti:first', coti: `res(MES=${+resObj.MES_ACTUAL||0}, HOY=${+resObj.HOY||0}, N_MES=${+resObj.COTIZACIONES_MES||0}) diarias=${diarias.length} vends=${vends.length}` });
+
+    // Si viene todo vacío, reintentar con tipo explícito
     const emptyAll = ((+resObj.MES_ACTUAL || 0) <= 0 && (+resObj.HOY || 0) <= 0 && (+resObj.COTIZACIONES_MES || 0) <= 0 && !diarias.length && !vends.length);
     if (emptyAll) {
-      // Nota: en tab "Todos" tipoQ() es '', así que probamos VE/PV explícitos.
       const tryTipo = (t) => `&tipo=${t}`;
       const first = currentTipo ? tipoQ() : tryTipo('VE');
       pack = await fetchCotiPack(first);
-      resObj = canonCotiResumen(pack.resRaw || {});
+      resObj  = canonCotiResumen(pack.resRaw || {});
       diarias = Array.isArray(pack.diarias) ? pack.diarias : [];
       vends   = Array.isArray(pack.vends) ? pack.vends : [];
       ventasVE = (v => { const u = unwrapApiRow(v); return u && typeof u === 'object' && !Array.isArray(u) ? u : {}; })(pack.ventasVEraw || {});
-      ventasDbgSet({ note: 'coti:retry1', coti: (window.__DBG_VENTAS && window.__DBG_VENTAS.coti ? window.__DBG_VENTAS.coti + '\n' : '') + `res(MES_ACTUAL=${+resObj.MES_ACTUAL||0}, HOY=${+resObj.HOY||0}, N_MES=${+resObj.COTIZACIONES_MES||0}) diarias=${diarias.length} vends=${vends.length}` });
+      ventasDbgSet({ note: 'coti:retry1', coti: `res(MES=${+resObj.MES_ACTUAL||0}) vends=${vends.length}` });
       const stillEmpty = ((+resObj.MES_ACTUAL || 0) <= 0 && (+resObj.HOY || 0) <= 0 && (+resObj.COTIZACIONES_MES || 0) <= 0 && !diarias.length && !vends.length);
       if (stillEmpty && !currentTipo) {
         pack = await fetchCotiPack(tryTipo('PV'));
-        resObj = canonCotiResumen(pack.resRaw || {});
+        resObj  = canonCotiResumen(pack.resRaw || {});
         diarias = Array.isArray(pack.diarias) ? pack.diarias : [];
         vends   = Array.isArray(pack.vends) ? pack.vends : [];
         ventasVE = (v => { const u = unwrapApiRow(v); return u && typeof u === 'object' && !Array.isArray(u) ? u : {}; })(pack.ventasVEraw || {});
-        ventasDbgSet({ note: 'coti:retry2', coti: (window.__DBG_VENTAS && window.__DBG_VENTAS.coti ? window.__DBG_VENTAS.coti + '\n' : '') + `res(MES_ACTUAL=${+resObj.MES_ACTUAL||0}, HOY=${+resObj.HOY||0}, N_MES=${+resObj.COTIZACIONES_MES||0}) diarias=${diarias.length} vends=${vends.length}` });
+        ventasDbgSet({ note: 'coti:retry2', coti: `res(MES=${+resObj.MES_ACTUAL||0}) vends=${vends.length}` });
       }
     }
-    // Si resumen va en 0 (timeout/SQL) pero por-vendedor sí trae filas, reconstruir KPIs desde pv
+
+    // Si resumen devuelve 0 pero por-vendedor tiene filas, reconstruir KPIs
     if (vends.length && (+resObj.MES_ACTUAL || 0) === 0 && (+resObj.COTIZACIONES_MES || 0) === 0) {
       const totMes = vends.reduce((s, r) => s + fnumKeys(r, 'COTIZACIONES_MES'), 0);
       const cntMes = vends.reduce((s, r) => s + fnumKeys(r, 'NUM_COTI_MES'), 0);
       const totHoy = vends.reduce((s, r) => s + fnumKeys(r, 'COTIZACIONES_HOY'), 0);
       if (totMes > 0 || cntMes > 0) {
-        resObj = {
-          ...resObj,
-          HOY: totHoy,
-          MES_ACTUAL: totMes,
-          COTIZACIONES_MES: cntMes,
-          COTIZACIONES_HOY: +resObj.COTIZACIONES_HOY || 0,
-        };
+        resObj = { ...resObj, HOY: totHoy, MES_ACTUAL: totMes, COTIZACIONES_MES: cntMes, COTIZACIONES_HOY: +resObj.COTIZACIONES_HOY || 0 };
       }
     }
+
     lastCotiData = { resObj, diarias, vends, ventasVE };
     applyCotiData(resObj, diarias, vends, ventasVE);
     if (btnReintentar) btnReintentar.style.display = 'none';

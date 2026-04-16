@@ -1654,18 +1654,43 @@ function sqlCotizInnerFechaBounds(feExpr, bounds) {
  * @param {{ desde?: string, hasta?: string } | null} innerBounds - filtro de fecha en el subquery.
  */
 function cotizacionesSub(tipo = '', opts = {}) {
-  // Cotizaciones: SOLO DOCTOS_VE (usuario explícito: no usar PV)
-  // Filtro: por env MICROSIP_COTIZACION_TIPOS (default amplio) con fallback "no es venta cerrada".
-  // Importe: SUM(líneas.PRECIO_TOTAL) - descuento_encabezado (resta una sola vez por documento)
-  const feExprVe = (opts && opts.sqlFeVe) ? String(opts.sqlFeVe).replace(/\bd\./g, 'h.') : 'h.FECHA';
-  const vigVe = (opts && opts.vigenciaVeSuffix) ? String(opts.vigenciaVeSuffix).replace(/\bd\./g, 'h.') : '';
-  const detSumExpr = (opts && opts.cotiDetSumExpr) ? String(opts.cotiDetSumExpr) : 'COALESCE(SUM(det2.PRECIO_TOTAL), 0)';
-  const dsctoExpr = (opts && opts.cotiDsctoExpr) ? String(opts.cotiDsctoExpr) : 'COALESCE(h.DSCTO_IMPORTE, 0)';
-  const whereFast = sqlWhereCotizacionFast('h', 'VE');
+  // Cotizaciones: SOLO DOCTOS_VE.
+  // Estrategia de importe (orden de prioridad):
+  //   1. JOIN con DOCTOS_VE_DET agrupado (detSumExpr válido con SUM) → evita correlated subquery N+1.
+  //   2. Fallback: COALESCE(h.IMPORTE_NETO, 0) del encabezado (evita "multiple rows in singleton select"
+  //      cuando no se detectaron columnas de detalle y detSumExpr sería la constante '0').
+  const feExprVe    = (opts && opts.sqlFeVe) ? String(opts.sqlFeVe).replace(/\bd\./g, 'h.') : 'h.FECHA';
+  const vigVe       = (opts && opts.vigenciaVeSuffix) ? String(opts.vigenciaVeSuffix).replace(/\bd\./g, 'h.') : '';
+  const rawDetExpr  = (opts && opts.cotiDetSumExpr) ? String(opts.cotiDetSumExpr) : null;
+  const dsctoExpr   = (opts && opts.cotiDsctoExpr) ? String(opts.cotiDsctoExpr) : 'COALESCE(h.DSCTO_IMPORTE, 0)';
+  const whereFast   = sqlWhereCotizacionFast('h', 'VE');
+
+  // Determinar si tenemos una expresión SUM real o solo '0' (columnas no detectadas)
+  const hasValidDet = rawDetExpr && rawDetExpr.includes('SUM(');
+  const detSumExpr  = hasValidDet ? rawDetExpr : 'COALESCE(SUM(det2.PRECIO_TOTAL), 0)';
+
+  let importeNetoExpr;
+  let joinClause = '';
+
+  if (hasValidDet) {
+    // JOIN agrupado: una sola pasada sobre DOCTOS_VE_DET (mucho más eficiente que correlated subquery).
+    joinClause = `
+      LEFT JOIN (
+        SELECT det2.DOCTO_VE_ID, ${detSumExpr} AS IMPORTE_DET
+        FROM DOCTOS_VE_DET det2
+        GROUP BY det2.DOCTO_VE_ID
+      ) det_agg ON det_agg.DOCTO_VE_ID = h.DOCTO_VE_ID`;
+    importeNetoExpr = `COALESCE(det_agg.IMPORTE_DET, 0) - ${dsctoExpr}`;
+  } else {
+    // Fallback seguro: IMPORTE_NETO del encabezado.
+    // En cotizaciones no aplicadas suele ser 0, pero es mejor que SQL roto.
+    importeNetoExpr = `COALESCE(h.IMPORTE_NETO, 0)`;
+  }
+
   const ve = `
     SELECT
       ${feExprVe} AS FECHA,
-      (SELECT ${detSumExpr} FROM DOCTOS_VE_DET det2 WHERE det2.DOCTO_VE_ID = h.DOCTO_VE_ID) - ${dsctoExpr} AS IMPORTE_NETO,
+      ${importeNetoExpr} AS IMPORTE_NETO,
       COALESCE(h.VENDEDOR_ID, 0) AS VENDEDOR_ID,
       COALESCE(h.CLIENTE_ID,  0) AS CLIENTE_ID,
       h.FOLIO,
@@ -1674,7 +1699,7 @@ function cotizacionesSub(tipo = '', opts = {}) {
       h.DOCTO_VE_ID,
       CAST(NULL AS INTEGER) AS DOCTO_PV_ID,
       'VE' AS TIPO_SRC
-    FROM DOCTOS_VE h
+    FROM DOCTOS_VE h${joinClause}
     WHERE ${whereFast} ${vigVe}
   `;
   if (tipo === 'VE') return `(${ve})`;
@@ -2410,7 +2435,7 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
         COUNT(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 END)                   AS COTIZACIONES_HOY
       FROM ${cotiSub} d
       WHERE 1=1 ${f.sql}
-    `, f.params, 90000, dbo).catch((err) => {
+    `, f.params, 45000, dbo).catch((err) => {
       console.error('[cotizaciones/resumen]', err && (err.message || err));
       return [];
     });
@@ -2710,7 +2735,7 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
   }
   const f = buildFiltros(req, 'd');
   const run = async (dbo) => {
-    const t = 240000;
+    const t = 50000;
     const tipoPanel = getCotizacionesTipo(req);
     const cotiOpts = await cotizacionSqlOpts(dbo);
     const qSub = (sub) =>
