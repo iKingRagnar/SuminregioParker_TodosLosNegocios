@@ -8431,7 +8431,8 @@ function aiSelectTools({ text = '', lowerPool = '', page = '', requested = [] })
 function aiAnthropicModelCandidates() {
   const envModel = String(process.env.ANTHROPIC_MODEL || '').trim();
   const defaults = [
-    'claude-3-7-sonnet-latest',
+    'claude-sonnet-4-6',
+    'claude-haiku-4-5-20251001',
     'claude-3-5-sonnet-latest',
     'claude-3-5-haiku-latest',
   ];

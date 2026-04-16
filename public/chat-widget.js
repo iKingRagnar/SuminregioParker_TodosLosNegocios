@@ -196,17 +196,36 @@
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
-  /** Convierte markdown básico a HTML */
+  /** Convierte markdown básico a HTML — con soporte para tablas y listas */
   function mdToHtml(text) {
-    return text
+    let s = text
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      // Encabezados
+      .replace(/^### (.+)$/gm,'<strong style="color:#E6A800;display:block;margin:6px 0 2px">$1</strong>')
+      .replace(/^## (.+)$/gm,'<strong style="display:block;margin:8px 0 3px;font-size:1.05em">$1</strong>')
+      // Negrita + itálica
+      .replace(/\*\*\*(.*?)\*\*\*/g,'<strong><em>$1</em></strong>')
       .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
       .replace(/\*(.*?)\*/g,'<em>$1</em>')
-      .replace(/`([^`]+)`/g,'<code style="background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;font-family:monospace">$1</code>')
+      .replace(/_(.*?)_/g,'<em>$1</em>')
+      // Código inline
+      .replace(/`([^`]+)`/g,'<code style="background:rgba(255,255,255,.08);padding:1px 6px;border-radius:3px;font-family:monospace;font-size:.88em">$1</code>')
+      // Listas con guión / bullet
+      .replace(/^[\-\*] (.+)$/gm,'<div style="padding-left:12px;margin:2px 0">• $1</div>')
+      // Listas numeradas
+      .replace(/^\d+\. (.+)$/gm,'<div style="padding-left:12px;margin:2px 0">$1</div>')
+      // Semáforos visuales
+      .replace(/🔴/g,'<span style="color:#ef4444">🔴</span>')
+      .replace(/🟡/g,'<span style="color:#f59e0b">🟡</span>')
+      .replace(/🟢/g,'<span style="color:#22c55e">🟢</span>')
       .replace(/⚠️/g,'<span style="color:#f59e0b">⚠️</span>')
       .replace(/✅/g,'<span style="color:#22c55e">✅</span>')
-      .replace(/📊|💰|📈|👥|📦|🔔/g, s => `<span>${s}</span>`)
+      .replace(/🚨/g,'<span style="color:#ef4444">🚨</span>')
+      // Línea separadora
+      .replace(/^---$/gm,'<hr style="border:none;border-top:1px solid rgba(255,255,255,.1);margin:6px 0">')
+      // Saltos de línea
       .replace(/\n/g,'<br>');
+    return s;
   }
 
   function addMessage(role, text, imgDataUrl) {
@@ -333,25 +352,45 @@
 
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({}));
-        addMessage('ai', `⚠️ Error del servidor: ${err.error || resp.status}. Verifica que ANTHROPIC_API_KEY esté configurado en .env`);
+        const errCode = resp.status;
+        let errMsg;
+        if (errCode === 401 || errCode === 403) {
+          errMsg = '🔑 Error de autenticación con el servidor IA. Contacta al administrador.';
+        } else if (errCode === 429) {
+          errMsg = '⏳ Demasiadas solicitudes. Espera unos segundos e intenta de nuevo.';
+        } else if (errCode >= 500) {
+          errMsg = `⚠️ El servidor IA encontró un problema interno (${errCode}). Intenta de nuevo en unos segundos.`;
+          if (err.error) errMsg += `\n\nDetalle técnico: ${String(err.error).slice(0, 120)}`;
+        } else {
+          errMsg = `⚠️ Error ${errCode}: ${err.error || err.message || 'Error desconocido'}`;
+        }
+        addMessage('ai', errMsg);
+        setStatus('Error temporal', false);
+        setTimeout(() => setStatus('Conectado', true), 5000);
       } else {
         const data = await resp.json();
         // El servidor puede devolver { reply } (formato actual) o { response } (nuevo)
-        addMessage('ai', data.reply || data.response || '(Respuesta vacía)');
+        const reply = data.reply || data.response || '(Sin respuesta)';
+        addMessage('ai', reply);
+        setStatus('Conectado', true);
       }
     } catch (e) {
       removeTyping();
       if (e.name === 'TimeoutError' || e.name === 'AbortError') {
         const fallback = await quickFallbackReply(text);
         if (fallback) {
-          addMessage('ai', fallback + '\n\nNota: la capa conversacional tardó más de lo esperado; te mostré datos directos del sistema.');
+          addMessage('ai', fallback + '\n\n_Nota: la capa IA tardó más de lo esperado; te mostré datos directos del sistema._');
         } else {
-          addMessage('ai', '⏱ La capa conversacional tardó más de lo esperado. Intenta nuevamente; si quieres, te puedo responder directo con un módulo específico (ventas, CxC o resultados).');
+          addMessage('ai', '⏱ La consulta tardó demasiado. Intenta de nuevo o haz una pregunta más específica.\n\nSugerencia: _"ventas hoy"_, _"CXC vencida"_, _"resumen del mes"_.');
         }
+      } else if (e.message && (e.message.includes('Failed to fetch') || e.message.includes('NetworkError'))) {
+        addMessage('ai', '📶 Sin conexión al servidor IA. Verifica que el servicio esté corriendo.');
+        setStatus('Sin conexión', false);
       } else {
-        addMessage('ai', `⚠️ No se pudo conectar al servidor: ${e.message}`);
+        addMessage('ai', `⚠️ Error de conexión: ${e.message || 'Error desconocido'}`);
         setStatus('Sin conexión', false);
       }
+      setTimeout(() => setStatus('Reconectando…', null), 3000);
     } finally {
       isTyping = false;
     }

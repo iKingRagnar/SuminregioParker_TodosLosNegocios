@@ -2493,15 +2493,15 @@ def stream_chat(
                 messages=api_messages,
                 tools=active_tools,
             )
-            # Extended thinking: habilitado solo en Sonnet, incompatible con streaming en tool loop
-            # Se deshabilita durante el tool loop para compatibilidad; se reactiva en el streaming final
-            if use_extended_thinking:
-                tool_call_kwargs["thinking"] = {
-                    "type": "enabled",
-                    "budget_tokens": EXTENDED_THINKING_BUDGET,
-                }
+            # Extended thinking: NO se habilita en el tool loop.
+            # Razón: el tool loop usa messages.create() no-streaming, y la API de
+            # extended thinking con interleaved-thinking requiere betas header +
+            # puede retornar bloques thinking que complican el message history.
+            # El thinking se reserva SOLO para la respuesta final (streaming).
+            # → use_extended_thinking permanece True para la fase final.
             response = client.messages.create(**tool_call_kwargs)
         except Exception as e:
+            err_str = str(e).lower()
             if _is_rate_limit_error(e):
                 yield f"data: {json.dumps({'type': 'text', 'content': '⚠️ Se alcanzó límite temporal de tokens. Continúo en modo optimizado para responderte de inmediato.'})}\n\n"
                 active_tools = _light_tools() if is_business else []
@@ -2513,7 +2513,15 @@ def stream_chat(
                 system_blocks = _build_system_blocks(system_prompt, use_cache=False)
                 api_messages = _fit_messages_to_budget(api_messages, system_prompt, max_input_tokens=50_000)
                 break
-            raise
+            # Graceful fallback for tool-related API errors: retry without tools
+            if any(k in err_str for k in ("overloaded", "529", "503", "502", "timeout", "connection")):
+                yield f"data: {json.dumps({'type': 'text', 'content': '⏳ Servicio temporalmente ocupado, reintentando sin herramientas avanzadas...'})}\n\n"
+                active_tools = []
+                break
+            # Unknown error — exit tool loop cleanly and attempt plain response
+            print(f"[stream_chat] tool loop error ({type(e).__name__}): {e}")
+            active_tools = []
+            break
 
         if response.stop_reason != "tool_use":
             break
