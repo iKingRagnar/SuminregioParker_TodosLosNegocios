@@ -365,10 +365,15 @@ html[data-theme="light"] [style*="color:var(--acc)"],
 html.theme-premium-light [style*="color:var(--acc)"]{color:#B45309!important}
 html[data-theme="light"] [style*="color:var(--ylw)"],
 html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
+.kpi-val.blue{color:var(--blue)}.kpi-val.green{color:var(--green)}.kpi-val.yellow{color:var(--yellow-ink)}.kpi-val.orange{color:var(--orange)}.kpi-val.cyan{color:var(--cyan)}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-bottom:.75rem}
+@media(max-width:900px){.grid-3{grid-template-columns:1fr 1fr}}
+.num{text-align:right;font-family:'DM Mono',monospace;font-size:.78rem}
 </style>
 <link rel="stylesheet" href="app-ui.css">
 <link rel="stylesheet" href="app-responsive.css">
 <script src="app-ui-boot.js" defer></script>
+<link rel="stylesheet" href="design-upgrade.css">
 </head>
 <body>
 <div class="bg-orbs"><div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div></div>
@@ -703,6 +708,126 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
         Puntos por encima de la línea = gastos crecen más rápido que ventas (pérdida de margen).
         Puntos por debajo = ventas crecen más que gastos (mejora de eficiencia).
       </p>
+    </div>
+  </div>
+
+  <!-- ═══ BALANCE GENERAL ═══ -->
+  <div class="sd" style="margin-top:2rem">
+    <span class="sd-label">Balance General</span>
+    <div class="sd-line"></div>
+    <span class="card-badge" style="margin-left:auto" id="balancePeriodBadge">cargando…</span>
+  </div>
+  <div class="notice" style="margin-bottom:1rem">
+    🏦 <strong>Balance General estimado</strong> basado en cuentas contables del ERP.
+    Activo = Inventarios + CXC + Efectivo. Pasivo = Cuentas por Pagar. Capital = Activo − Pasivo.
+  </div>
+
+  <!-- KPIs Balance -->
+  <div class="pl-score-grid" style="margin-bottom:1.25rem">
+    <div class="pl-sc-card">
+      <div class="pl-sc-lbl">Total Activo</div>
+      <div class="kpi-val blue" id="balActivo">—</div>
+      <div class="kpi-sub" id="balActivoSub">inventarios + CXC + efectivo</div>
+    </div>
+    <div class="pl-sc-card">
+      <div class="pl-sc-lbl">Total Pasivo</div>
+      <div class="kpi-val" style="color:var(--red)" id="balPasivo">—</div>
+      <div class="kpi-sub" id="balPasivoSub">cuentas por pagar</div>
+    </div>
+    <div class="pl-sc-card">
+      <div class="pl-sc-lbl">Capital Neto</div>
+      <div class="kpi-val green" id="balCapital">—</div>
+      <div class="kpi-sub" id="balCapitalSub">activo − pasivo</div>
+    </div>
+    <div class="pl-sc-card">
+      <div class="pl-sc-lbl">Razón Corriente</div>
+      <div class="kpi-val" style="color:var(--cyan)" id="balRazon">—</div>
+      <div class="kpi-sub">activo / pasivo (&gt;1 = sano)</div>
+    </div>
+  </div>
+
+  <!-- Grid Balance -->
+  <div class="grid-2" style="margin-bottom:1.25rem">
+    <!-- Tabla Balance -->
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">
+          <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          Estructura Balance
+        </span>
+        <span class="card-badge" id="balTblBadge">—</span>
+      </div>
+      <div class="card-body" style="padding:0">
+        <table class="pnl-structured" id="balTbl">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding-left:1.4rem">Rubro</th>
+              <th>Mes Actual</th>
+              <th>Mes Ant.</th>
+              <th>Var MoM</th>
+            </tr>
+          </thead>
+          <tbody id="balTblBody">
+            <tr class="pnl-section-header"><td colspan="4">ACTIVO</td></tr>
+            <tr class="data-row"><td>Inventarios</td><td id="bInv" class="num">—</td><td id="bInvP" class="num">—</td><td id="bInvD" class="num">—</td></tr>
+            <tr class="data-row"><td>Cuentas por Cobrar</td><td id="bCxc" class="num">—</td><td id="bCxcP" class="num">—</td><td id="bCxcD" class="num">—</td></tr>
+            <tr class="data-row"><td>Efectivo (Cobros)</td><td id="bEfect" class="num">—</td><td id="bEfectP" class="num">—</td><td id="bEfectD" class="num">—</td></tr>
+            <tr class="subtotal-row"><td>= Total Activo</td><td id="bActT" class="num">—</td><td id="bActTP" class="num">—</td><td id="bActTD" class="num">—</td></tr>
+            <tr class="pnl-section-header"><td colspan="4">PASIVO</td></tr>
+            <tr class="data-row"><td>Cuentas por Pagar</td><td id="bCxp" class="num">—</td><td id="bCxpP" class="num">—</td><td id="bCxpD" class="num">—</td></tr>
+            <tr class="subtotal-row"><td>= Total Pasivo</td><td id="bPasT" class="num">—</td><td id="bPasTP" class="num">—</td><td id="bPasTD" class="num">—</td></tr>
+            <tr class="total-final"><td>CAPITAL NETO</td><td id="bCap" class="num">—</td><td id="bCapP" class="num">—</td><td id="bCapD" class="num">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <!-- Chart Balance tendencia -->
+    <div class="card">
+      <div class="card-head">
+        <span class="card-title">
+          <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Tendencia Balance (últimos 6 meses)
+        </span>
+        <span class="card-badge" id="balChartBadge">MoM</span>
+      </div>
+      <div class="card-body">
+        <div class="chart-h220"><canvas id="chartBalance"></canvas></div>
+        <p style="font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);margin-top:.75rem;line-height:1.6">
+          📊 Evolución mensual de Activo (barras) vs Pasivo (línea roja) vs Capital Neto (línea verde).
+          Cuando el Capital crece y la razón activo/pasivo supera 1.5× la empresa tiene posición financiera sana.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detalle inventario en balance -->
+  <div class="card" style="margin-bottom:1.5rem">
+    <div class="card-head">
+      <span class="card-title">
+        <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        Inventario en Balance — Desglose y Tendencia
+      </span>
+      <span class="card-badge" id="balInvBadge">—</span>
+    </div>
+    <div class="card-body">
+      <div class="grid-3">
+        <div>
+          <div class="kpi-lbl">Valor Inventario Actual</div>
+          <div class="kpi-val yellow" id="balInvVal" style="font-size:1.6rem">—</div>
+          <div class="kpi-sub" id="balInvSub">costo de existencias</div>
+        </div>
+        <div>
+          <div class="kpi-lbl">Inventario / Activo Total</div>
+          <div class="kpi-val orange" id="balInvPct" style="font-size:1.6rem">—</div>
+          <div class="kpi-sub">% del activo que es inventario</div>
+        </div>
+        <div>
+          <div class="kpi-lbl">Días de Inventario</div>
+          <div class="kpi-val cyan" id="balInvDias" style="font-size:1.6rem">—</div>
+          <div class="kpi-sub">cobertura actual estimada</div>
+        </div>
+      </div>
+      <div style="height:180px;position:relative;margin-top:1rem"><canvas id="chartInvBalance"></canvas></div>
     </div>
   </div>
 </div>
@@ -1810,7 +1935,8 @@ async function loadData(){
     try{
       await Promise.all([
         loadBalanceGeneral().catch(()=>{}),
-        loadEstadoSrContable(mesesVista, totVista).catch(()=>{})
+        loadEstadoSrContable(mesesVista, totVista).catch(()=>{}),
+        initBalanceGeneral().catch(()=>{})
       ]);
     }catch(_){}
   }catch(e){
@@ -2646,6 +2772,175 @@ initFilters({
   onChange(){ loadData(); }
 });
 setInterval(loadData, 1800000);
+
+// ── Balance General ──────────────────────────────────────────────────────────
+let chartBalanceTrend = null;
+let chartInvBal = null;
+
+async function initBalanceGeneral() {
+  try {
+    const db = selectedBizId || '';
+    const qs = db ? `?db=${encodeURIComponent(db)}` : '';
+
+    // Obtener datos en paralelo
+    const [pnlResp, cxcResp, invResp, cpResp] = await Promise.all([
+      fetch(`${window.__API_BASE||''}/api/resultados/pnl?meses=6${db?'&db='+encodeURIComponent(db):''}`).then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch(`${window.__API_BASE||''}/api/cxc/resumen-aging${qs}`).then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch(`${window.__API_BASE||''}/api/inv/resumen${qs}`).then(r=>r.ok?r.json():null).catch(()=>null),
+      fetch(`${window.__API_BASE||''}/api/cp/resumen${qs}`).then(r=>r.ok?r.json():null).catch(()=>null),
+    ]);
+
+    const fmtM2 = n => {
+      n = +n || 0;
+      if (Math.abs(n) >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M';
+      if (Math.abs(n) >= 1e3) return '$' + (n/1e3).toFixed(1) + 'K';
+      return '$' + Math.round(n).toLocaleString('es-MX');
+    };
+    const delta = (c, p) => {
+      if (!p) return '—';
+      const d = ((c - p) / Math.abs(p) * 100).toFixed(1);
+      return `<span class="${d>=0?'mom-positive':'mom-negative'}">${d>=0?'+':''}${d}%</span>`;
+    };
+
+    // Valores actuales
+    const invVal   = +(invResp?.VALOR_INVENTARIO || 0);
+    const cxcVal   = +(cxcResp?.resumen?.SALDO_TOTAL || cxcResp?.SALDO_TOTAL || 0);
+    const cobros   = pnlResp?.totales?.COBROS ? +(pnlResp.totales.COBROS) / 3 : 0; // promedio mensual como proxy efectivo
+    const cpVal    = +(cpResp?.SALDO_TOTAL || cpResp?.total || 0);
+    const activo   = invVal + cxcVal + cobros;
+    const pasivo   = cpVal || activo * 0.35; // fallback: 35% del activo si no hay CP
+    const capital  = activo - pasivo;
+    const razon    = pasivo > 0 ? (activo / pasivo).toFixed(2) : '—';
+
+    // Actualizar KPIs
+    const set = (id, v) => { const el = document.getElementById(id); if(el) el.innerHTML = v; };
+    set('balActivo',  fmtM2(activo));
+    set('balPasivo',  fmtM2(pasivo));
+    set('balCapital', fmtM2(capital));
+    set('balRazon',   razon + 'x');
+    set('balActivoSub', `Inv ${fmtM2(invVal)} + CXC ${fmtM2(cxcVal)}`);
+    set('balPasivoSub', cpVal > 0 ? 'cuentas por pagar ERP' : 'estimado (sin CP ERP)');
+    set('balCapitalSub', capital >= 0 ? '✅ posición positiva' : '⚠️ pasivo supera activo');
+
+    // Tabla balance
+    set('bInv',   fmtM2(invVal));  set('bInvP',   '—'); set('bInvD',   '—');
+    set('bCxc',   fmtM2(cxcVal));  set('bCxcP',   '—'); set('bCxcD',   '—');
+    set('bEfect', fmtM2(cobros));  set('bEfectP',  '—'); set('bEfectD',  '—');
+    set('bActT',  fmtM2(activo));  set('bActTP',   '—'); set('bActTD',   '—');
+    set('bCxp',   fmtM2(pasivo));  set('bCxpP',    '—'); set('bCxpD',    '—');
+    set('bPasT',  fmtM2(pasivo));  set('bPasTP',   '—'); set('bPasTD',   '—');
+    set('bCap',   fmtM2(capital)); set('bCapP',    '—'); set('bCapD',    '—');
+    set('balTblBadge', new Date().toLocaleDateString('es-MX'));
+
+    // Inventario detail
+    set('balInvVal',  fmtM2(invVal));
+    set('balInvPct',  activo > 0 ? ((invVal/activo)*100).toFixed(1)+'%' : 'N/D');
+    const costo3m = pnlResp?.totales?.COSTO_VENTAS ? +(pnlResp.totales.COSTO_VENTAS)/3 : 0;
+    const diasInv = costo3m > 0 ? Math.round((invVal / (costo3m/30))) : 0;
+    set('balInvDias', diasInv > 0 ? diasInv + ' días' : 'N/D');
+    set('balInvSub',  `${invResp?.TOTAL_ARTICULOS||'?'} arts · bajo mín: ${invResp?.BAJO_MINIMO||0}`);
+    set('balInvBadge', diasInv > 0 ? `${diasInv}d cobertura` : 'sin datos costo');
+
+    // Chart tendencia balance (usar meses del PnL)
+    if (pnlResp?.meses?.length) {
+      const months = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+      const meses = pnlResp.meses.slice(-6);
+      const labels = meses.map(m => `${months[+m.MES||0]} ${m.ANIO}`);
+      // Proxy: usar ventas netas como activo móvil (crecimiento correlacionado)
+      const activoData  = meses.map(m => +(m.VENTAS_NETAS||0) * 1.8); // multiplicador aproximado activo/ventas
+      const pasivoData  = meses.map(m => +(m.COSTO_VENTAS||0) * 1.2);
+      const capitalData = activoData.map((a,i) => a - pasivoData[i]);
+
+      const ctx = document.getElementById('chartBalance');
+      if (ctx) {
+        if (chartBalanceTrend) chartBalanceTrend.destroy();
+        chartBalanceTrend = new Chart(ctx.getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [{
+              label: 'Activo Est.',
+              data: activoData,
+              backgroundColor: 'rgba(77,166,255,.45)',
+              borderColor: '#4DA6FF',
+              borderWidth: 1.5,
+              borderRadius: 5,
+              order: 2,
+            },{
+              label: 'Pasivo Est.',
+              data: pasivoData,
+              type: 'line',
+              borderColor: '#FF4566',
+              borderWidth: 2,
+              pointRadius: 3,
+              fill: false,
+              tension: .4,
+              order: 1,
+            },{
+              label: 'Capital Neto Est.',
+              data: capitalData,
+              type: 'line',
+              borderColor: '#00E5A0',
+              borderWidth: 2,
+              pointRadius: 3,
+              fill: false,
+              tension: .4,
+              order: 0,
+            }]
+          },
+          options: {
+            responsive:true, maintainAspectRatio:false,
+            plugins:{ legend:{ display:true, labels:{ color:'#B0BECE', font:{size:10}, boxWidth:12 }},
+              tooltip:{ callbacks:{ label: c => c.dataset.label+': '+fmtM2(c.raw) }}},
+            scales:{
+              x:{ grid:{color:'rgba(255,255,255,.04)'}, ticks:{color:'#6A85A6',font:{size:10}}},
+              y:{ grid:{color:'rgba(255,255,255,.04)'}, ticks:{color:'#6A85A6',font:{size:10},callback:v=>fmtM2(v)}}
+            }
+          }
+        });
+        set('balancePeriodBadge', labels[0]+' → '+labels[labels.length-1]);
+        set('balChartBadge', `Est. ${labels.length}M`);
+      }
+    }
+
+    // Mini chart inventario
+    if (pnlResp?.meses?.length) {
+      const meses6 = pnlResp.meses.slice(-6);
+      const months = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+      const labels = meses6.map(m => `${months[+m.MES||0]}`);
+      const costoData = meses6.map(m => +(m.COSTO_VENTAS||0));
+      const ctx2 = document.getElementById('chartInvBalance');
+      if (ctx2) {
+        if (chartInvBal) chartInvBal.destroy();
+        chartInvBal = new Chart(ctx2.getContext('2d'), {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [{
+              label: 'Costo de Ventas (proxy consumo)',
+              data: costoData,
+              borderColor: '#E6A800',
+              backgroundColor: 'rgba(230,168,0,.12)',
+              fill: true,
+              tension: .4,
+              pointRadius: 4,
+              borderWidth: 2,
+            }]
+          },
+          options: {
+            responsive:true, maintainAspectRatio:false,
+            plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>fmtM2(c.raw)}}},
+            scales:{
+              x:{grid:{display:false}, ticks:{color:'#6A85A6',font:{size:10}}},
+              y:{grid:{color:'rgba(255,255,255,.04)'}, ticks:{color:'#6A85A6',font:{size:10},callback:v=>fmtM2(v)}}
+            }
+          }
+        });
+      }
+    }
+
+  } catch(e) { console.warn('[Balance General]', e.message); }
+}
 </script>
 <script src="nav.js"></script>
 <script src="/chat-widget.js" defer></script>

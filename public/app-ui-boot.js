@@ -1094,7 +1094,77 @@
   // ════════════════════════════════════════════════════════
   //  BOOT ALL
   // ════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════
+  //  DESIGN UPGRADE — inyectar CSS global + reveal observer
+  // ════════════════════════════════════════════════════════
+  function bootDesignUpgrade() {
+    // 1. Inject design-upgrade.css into every page automatically
+    if (!document.getElementById('du-global-css')) {
+      var base = (typeof window.__API_BASE === 'string' && window.__API_BASE) ? window.__API_BASE : '';
+      var link = document.createElement('link');
+      link.id = 'du-global-css';
+      link.rel = 'stylesheet';
+      link.href = base + '/design-upgrade.css';
+      document.head.appendChild(link);
+    }
+
+    // 2. IntersectionObserver for .ms-reveal → .is-visible (stagger entrance)
+    if ('IntersectionObserver' in window) {
+      var revealIO = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) {
+            en.target.classList.add('is-visible');
+            revealIO.unobserve(en.target);
+          }
+        });
+      }, { threshold: 0.08 });
+
+      // Observe all current + future .ms-reveal elements
+      function observeReveal() {
+        document.querySelectorAll('.ms-reveal:not(.is-visible)').forEach(function (el) {
+          revealIO.observe(el);
+        });
+      }
+      observeReveal();
+
+      // MutationObserver to catch dynamically added elements
+      var mo = new MutationObserver(function () { observeReveal(); });
+      mo.observe(document.body, { childList: true, subtree: true });
+    }
+
+    // 3. KPI value pop animation when content changes
+    var popObserver = new MutationObserver(function (mutations) {
+      mutations.forEach(function (m) {
+        var el = m.target;
+        if (el && el.classList && el.classList.contains('kpi-value')) {
+          el.classList.remove('counting');
+          void el.offsetWidth; // reflow
+          el.classList.add('counting');
+          setTimeout(function () { el.classList.remove('counting'); }, 500);
+        }
+      });
+    });
+    document.querySelectorAll('.kpi-value').forEach(function (el) {
+      popObserver.observe(el, { childList: true, characterData: true, subtree: true });
+    });
+
+    // 4. Add ms-reveal to KPI cards and module cards that don't have it yet
+    var autoReveal = [
+      '.kpi-card', '.kpi-grid .kpi-card', '.kpi-mega-grid .kpi-card',
+      '.module-card', '.uni-entity-card', '.card.ms-reveal-auto'
+    ];
+    autoReveal.forEach(function (sel) {
+      document.querySelectorAll(sel).forEach(function (el) {
+        if (!el.classList.contains('ms-reveal')) {
+          el.classList.add('ms-reveal');
+          if ('IntersectionObserver' in window) revealIO && revealIO.observe(el);
+        }
+      });
+    });
+  }
+
   function bootAll() {
+    bootDesignUpgrade();
     bootAiMotion();
     bootManualRefreshBar();
     bootCursorGlow();

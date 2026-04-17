@@ -1,0 +1,802 @@
+/* ============================================================
+   design-upgrade.css — Global Visual Enhancement Layer
+   MicroSIP Dashboard · Loaded AFTER all other stylesheets
+   Only ADDS visual improvements — never breaks existing layout
+   ============================================================ */
+
+
+/* ============================================================
+   §1  CSS CUSTOM PROPERTIES
+   ============================================================ */
+:root {
+  /* Animation timing curves */
+  --du-ease:   cubic-bezier(0.22, 1, 0.36, 1);
+  --du-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* Glow shadows keyed to brand palette */
+  --du-glow-gold:   0 0 28px rgba(230,168,0,.22),  0 0 60px rgba(230,168,0,.08);
+  --du-glow-green:  0 0 28px rgba(0,229,160,.18),  0 0 60px rgba(0,229,160,.06);
+  --du-glow-blue:   0 0 28px rgba(77,166,255,.18),  0 0 60px rgba(77,166,255,.06);
+  --du-glow-red:    0 0 28px rgba(255,69,102,.18),  0 0 60px rgba(255,69,102,.06);
+  --du-glow-orange: 0 0 28px rgba(255,140,66,.18),  0 0 60px rgba(255,140,66,.06);
+  --du-glow-purple: 0 0 28px rgba(155,109,255,.18), 0 0 60px rgba(155,109,255,.06);
+  --du-glow-cyan:   0 0 28px rgba(0,217,245,.18),   0 0 60px rgba(0,217,245,.06);
+}
+
+
+/* ============================================================
+   §2  KPI CARD ENHANCEMENTS
+   ============================================================ */
+
+/* Base transition on all kpi-cards */
+.kpi-card {
+  transition:
+    transform  .3s var(--du-ease),
+    box-shadow .3s var(--du-ease),
+    border-color .3s var(--du-ease);
+  will-change: transform;
+}
+
+/* Stronger lift on hover */
+.kpi-card:hover {
+  transform: translateY(-3px) scale(1.005);
+}
+
+/* Top-bar sweep: thin highlight that slides in on hover */
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, currentColor, transparent);
+  opacity: 0;
+  transition: opacity .3s var(--du-ease);
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+}
+.kpi-card:hover::before {
+  opacity: .55;
+}
+
+/* Color-variant glow on hover */
+.kpi-card.green:hover  { box-shadow: var(--du-glow-green),  0 16px 40px rgba(0,0,0,.30); }
+.kpi-card.blue:hover   { box-shadow: var(--du-glow-blue),   0 16px 40px rgba(0,0,0,.30); }
+.kpi-card.yellow:hover { box-shadow: var(--du-glow-gold),   0 16px 40px rgba(0,0,0,.30); }
+.kpi-card.gold:hover   { box-shadow: var(--du-glow-gold),   0 16px 40px rgba(0,0,0,.30); }
+.kpi-card.orange:hover { box-shadow: var(--du-glow-orange), 0 16px 40px rgba(0,0,0,.30); }
+.kpi-card.red:hover    { box-shadow: var(--du-glow-red),    0 16px 40px rgba(0,0,0,.30); }
+.kpi-card.purple:hover { box-shadow: var(--du-glow-purple), 0 16px 40px rgba(0,0,0,.30); }
+.kpi-card.cyan:hover   { box-shadow: var(--du-glow-cyan),   0 16px 40px rgba(0,0,0,.30); }
+
+
+/* ============================================================
+   §3  SKELETON SHIMMER  (.skel)
+   ============================================================ */
+.skel {
+  background: linear-gradient(
+    90deg,
+    var(--s2, #112233) 25%,
+    var(--s3, #172D42) 50%,
+    var(--s2, #112233) 75%
+  );
+  background-size: 200% 100%;
+  animation: skel-shimmer 1.6s ease-in-out infinite;
+  border-radius: 8px;
+  min-height: 14px;
+  min-width: 60px;
+  display: block;
+}
+
+@keyframes skel-shimmer {
+  0%   { background-position:  200% center; }
+  100% { background-position: -200% center; }
+}
+
+
+/* ============================================================
+   §4  KPI VALUE COUNTER POP  (.kpi-value.counting)
+   ============================================================ */
+.kpi-value.counting {
+  animation: kpi-pop .4s var(--du-spring) forwards;
+}
+
+@keyframes kpi-pop {
+  0%   { transform: scale(1);    opacity: 1;   }
+  50%  { transform: scale(1.06); opacity: .85; }
+  100% { transform: scale(1);    opacity: 1;   }
+}
+
+
+/* ============================================================
+   §5  CARD ENTRANCE ANIMATION  (.ms-reveal)
+   ============================================================ */
+.ms-reveal {
+  opacity: 0;
+  transform: translateY(18px) scale(.992);
+  filter: blur(2px);
+  transition:
+    opacity   .55s var(--du-ease),
+    transform .55s var(--du-ease),
+    filter    .40s var(--du-ease);
+}
+
+.ms-reveal.is-visible {
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+
+/* Stagger delays — KPI mega grid */
+.kpi-mega-grid .kpi-card:nth-child(1)  { transition-delay: .04s; }
+.kpi-mega-grid .kpi-card:nth-child(2)  { transition-delay: .08s; }
+.kpi-mega-grid .kpi-card:nth-child(3)  { transition-delay: .12s; }
+.kpi-mega-grid .kpi-card:nth-child(4)  { transition-delay: .16s; }
+.kpi-mega-grid .kpi-card:nth-child(5)  { transition-delay: .20s; }
+.kpi-mega-grid .kpi-card:nth-child(6)  { transition-delay: .24s; }
+.kpi-mega-grid .kpi-card:nth-child(7)  { transition-delay: .28s; }
+.kpi-mega-grid .kpi-card:nth-child(8)  { transition-delay: .32s; }
+.kpi-mega-grid .kpi-card:nth-child(9)  { transition-delay: .36s; }
+.kpi-mega-grid .kpi-card:nth-child(10) { transition-delay: .40s; }
+.kpi-mega-grid .kpi-card:nth-child(11) { transition-delay: .44s; }
+.kpi-mega-grid .kpi-card:nth-child(12) { transition-delay: .48s; }
+
+/* Stagger delays — modules grid */
+.modules-grid .module-card:nth-child(1) { transition-delay: .06s; }
+.modules-grid .module-card:nth-child(2) { transition-delay: .12s; }
+.modules-grid .module-card:nth-child(3) { transition-delay: .18s; }
+.modules-grid .module-card:nth-child(4) { transition-delay: .24s; }
+.modules-grid .module-card:nth-child(5) { transition-delay: .30s; }
+.modules-grid .module-card:nth-child(6) { transition-delay: .36s; }
+.modules-grid .module-card:nth-child(7) { transition-delay: .42s; }
+.modules-grid .module-card:nth-child(8) { transition-delay: .48s; }
+.modules-grid .module-card:nth-child(9) { transition-delay: .54s; }
+
+
+/* ============================================================
+   §6  MODULE CARD ENHANCEMENTS
+   ============================================================ */
+.module-card {
+  transition:
+    transform  .35s var(--du-ease),
+    box-shadow .35s var(--du-ease),
+    border-color .3s var(--du-ease);
+  will-change: transform;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Subtle dot-grid texture overlay */
+.module-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(255,255,255,.035) 1px, transparent 1px);
+  background-size: 20px 20px;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 1;
+}
+
+/* Bottom shine that reveals on hover */
+.module-card::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 60px;
+  background: linear-gradient(to top, rgba(255,255,255,.04), transparent);
+  opacity: 0;
+  transition: opacity .35s var(--du-ease);
+  pointer-events: none;
+  z-index: 0;
+}
+.module-card:hover::after {
+  opacity: 1;
+}
+
+/* Hover lift */
+.module-card:hover {
+  transform: translateY(-6px);
+}
+
+/* Color-variant glows on hover */
+.module-card.green:hover  { box-shadow: var(--du-glow-green),  0 20px 50px rgba(0,0,0,.35); }
+.module-card.blue:hover   { box-shadow: var(--du-glow-blue),   0 20px 50px rgba(0,0,0,.35); }
+.module-card.cyan:hover   { box-shadow: var(--du-glow-cyan),   0 20px 50px rgba(0,0,0,.35); }
+.module-card.purple:hover { box-shadow: var(--du-glow-purple), 0 20px 50px rgba(0,0,0,.35); }
+.module-card.orange:hover { box-shadow: var(--du-glow-orange), 0 20px 50px rgba(0,0,0,.35); }
+.module-card.red:hover    { box-shadow: var(--du-glow-red),    0 20px 50px rgba(0,0,0,.35); }
+.module-card.yellow:hover { box-shadow: var(--du-glow-gold),   0 20px 50px rgba(0,0,0,.35); }
+.module-card.gold:hover   { box-shadow: var(--du-glow-gold),   0 20px 50px rgba(0,0,0,.35); }
+
+/* Module icon spring bounce */
+.mod-icon {
+  transition: transform .3s var(--du-spring);
+  position: relative;
+  z-index: 1;
+}
+.module-card:hover .mod-icon {
+  transform: scale(1.12) rotate(-4deg);
+}
+
+/* Arrow nudge on hover */
+.mod-open svg {
+  transition: transform .25s var(--du-ease);
+}
+.module-card:hover .mod-open svg {
+  transform: translateX(3px);
+}
+
+/* Ensure card content sits above pseudo-elements */
+.module-card > *:not(.module-card::before):not(.module-card::after) {
+  position: relative;
+  z-index: 1;
+}
+
+
+/* ============================================================
+   §7  TABLE IMPROVEMENTS
+   ============================================================ */
+
+/* Shared header style for all table variants */
+.sc-table th,
+.tbl th,
+.uni-table th {
+  text-transform: uppercase;
+  letter-spacing: .10em;
+  font-size: .72rem;
+  background: linear-gradient(180deg, rgba(255,255,255,.04) 0%, transparent 100%);
+}
+
+/* Row hover transitions */
+.sc-table tbody tr,
+.tbl tbody tr,
+.uni-table tbody tr {
+  transition: background .15s ease;
+}
+
+/* Left-border indicator on row hover — first cell inset shadow */
+.sc-table tbody tr:hover td:first-child {
+  box-shadow: inset 3px 0 0 var(--suminregio, #E6A800);
+}
+.tbl tbody tr:hover td:first-child {
+  box-shadow: inset 3px 0 0 var(--kpi-c, var(--suminregio, #E6A800));
+}
+.uni-table tbody tr:hover td:first-child {
+  box-shadow: inset 3px 0 0 var(--kpi-c, var(--suminregio, #E6A800));
+}
+
+/* Tabular numerics for value columns */
+.t-val,
+.sc-val,
+.num,
+td[class*="val"],
+td[class*="num"],
+td[class*="monto"],
+td[class*="amount"] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+
+/* ============================================================
+   §8  PROGRESS BAR ANIMATION
+   ============================================================ */
+.meta-bar-fill,
+.sc-bar-fill,
+.uni-risk-fill {
+  transition: width 1.4s cubic-bezier(.4, 0, .2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Shimmer sweep across fill bars */
+.meta-bar-fill::after,
+.sc-bar-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 40%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255,255,255,.25),
+    transparent
+  );
+  animation: bar-sweep 2.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes bar-sweep {
+  0%   { transform: translateX(-150%); }
+  100% { transform: translateX(400%);  }
+}
+
+
+/* ============================================================
+   §9  BADGE / CHIP ENHANCEMENTS
+   ============================================================ */
+
+/* Animated dot pulse for ok/active semantic badges */
+.sem.ok::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  margin-right: .35rem;
+  vertical-align: middle;
+  animation: dot-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%       { opacity: .45; transform: scale(.75); }
+}
+
+/* Tag directional glows */
+.tag.up   { box-shadow: 0 0 8px rgba(0,229,160,.18); }
+.tag.down { box-shadow: 0 0 8px rgba(255,69,102,.18); }
+
+/* Active biz-chip emphasis */
+.biz-chip.active {
+  box-shadow:
+    0 0 12px rgba(230,168,0,.20),
+    inset 0 1px 0 rgba(255,255,255,.08);
+}
+
+/* Card badge transitions */
+.card-badge,
+.scorecard-badge,
+.mod-status {
+  transition: box-shadow .25s var(--du-ease), transform .2s var(--du-ease);
+}
+.card-badge:hover,
+.scorecard-badge:hover {
+  transform: scale(1.04);
+}
+
+
+/* ============================================================
+   §10  SECTION DIVIDER ENHANCEMENT
+   ============================================================ */
+
+/* Gradient line instead of solid */
+.section-divider-line {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--border2, rgba(255,255,255,.12)),
+    transparent
+  ) !important;
+  border: none !important;
+  height: 1px;
+}
+
+/* Diamond icon prefix on label */
+.section-divider-label::before {
+  content: '\25C6'; /* ◆ */
+  margin-right: .4rem;
+  color: var(--suminregio, #E6A800);
+  font-size: .5rem;
+  vertical-align: middle;
+  display: inline-block;
+  line-height: 1;
+}
+
+
+/* ============================================================
+   §11  HERO TITLE GRADIENT ANIMATION
+   ============================================================ */
+.hero-title {
+  background-size: 200% auto !important;
+  animation: hero-gradient 6s linear infinite;
+}
+
+@keyframes hero-gradient {
+  0%   { background-position:   0% center; }
+  100% { background-position: -200% center; }
+}
+
+
+/* ============================================================
+   §12  SCROLLBAR POLISH
+   ============================================================ */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--s3, #172D42) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--s3, #172D42);
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--s4, #1D3654);
+}
+
+
+/* ============================================================
+   §13  FORM INPUT GLOW
+   ============================================================ */
+.search-input,
+input[type="text"],
+input[type="number"],
+input[type="search"],
+input[type="email"],
+input[type="password"],
+input[type="tel"],
+input[type="url"],
+input[type="date"],
+select,
+textarea {
+  transition:
+    border-color .2s var(--du-ease),
+    box-shadow   .2s var(--du-ease);
+}
+
+.search-input:focus,
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="search"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="tel"]:focus,
+input[type="url"]:focus,
+input[type="date"]:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--suminregio, #E6A800) !important;
+  box-shadow:
+    0 0 0 3px rgba(230,168,0,.15),
+    0 0 0 1px rgba(230,168,0,.30) !important;
+}
+
+
+/* ============================================================
+   §14  GLASSMORPHISM PANELS
+   ============================================================ */
+
+/* Scorecard wrap: inset top highlight */
+.scorecard-wrap {
+  box-shadow: 0 1px 0 rgba(255,255,255,.05) inset;
+  transition:
+    backdrop-filter .3s var(--du-ease),
+    box-shadow      .3s var(--du-ease);
+}
+.scorecard-wrap:hover {
+  backdrop-filter: blur(24px);
+}
+
+/* Uni portfolio hover glass */
+.uni-portfolio {
+  transition: backdrop-filter .3s var(--du-ease);
+}
+.uni-portfolio:hover {
+  backdrop-filter: blur(24px);
+}
+
+/* Entity card — left accent bar expands on hover */
+.uni-entity-card {
+  transition:
+    transform  .3s var(--du-ease),
+    box-shadow .3s var(--du-ease);
+}
+.uni-entity-card:hover {
+  backdrop-filter: blur(24px);
+  transform: translateY(-2px);
+}
+.uni-entity-card::before {
+  transition: width .3s var(--du-ease), opacity .3s var(--du-ease);
+}
+.uni-entity-card:hover::before {
+  width: 6px !important;
+  opacity: 1;
+}
+
+
+/* ============================================================
+   §15  LIVE DOT ANIMATION
+   ============================================================ */
+.live-dot,
+.nav-live-dot {
+  animation: live-pulse 2s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+  0%, 100% {
+    box-shadow: 0 0 6px currentColor;
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 12px currentColor, 0 0 20px currentColor;
+    opacity: .7;
+  }
+}
+
+/* Semantic dot variant */
+.sem-dot {
+  animation: live-pulse 2.4s ease-in-out infinite;
+}
+
+
+/* ============================================================
+   §16  LIGHT THEME OVERRIDES
+   ============================================================ */
+html[data-theme="light"] .skel {
+  background: linear-gradient(
+    90deg,
+    #e2e8f0 25%,
+    #f1f5f9 50%,
+    #e2e8f0 75%
+  );
+  background-size: 200% 100%;
+  animation: skel-shimmer 1.6s ease-in-out infinite;
+}
+
+/* KPI card glows — lightened for white backgrounds */
+html[data-theme="light"] .kpi-card.green:hover {
+  box-shadow: 0 0 20px rgba(22,163,74,.15),  0 12px 30px rgba(0,0,0,.10);
+}
+html[data-theme="light"] .kpi-card.blue:hover {
+  box-shadow: 0 0 20px rgba(37,99,235,.15),  0 12px 30px rgba(0,0,0,.10);
+}
+html[data-theme="light"] .kpi-card.yellow:hover,
+html[data-theme="light"] .kpi-card.gold:hover {
+  box-shadow: 0 0 20px rgba(202,138,4,.15),  0 12px 30px rgba(0,0,0,.10);
+}
+html[data-theme="light"] .kpi-card.orange:hover {
+  box-shadow: 0 0 20px rgba(234,88,12,.15),  0 12px 30px rgba(0,0,0,.10);
+}
+html[data-theme="light"] .kpi-card.red:hover {
+  box-shadow: 0 0 20px rgba(220,38,38,.15),  0 12px 30px rgba(0,0,0,.10);
+}
+html[data-theme="light"] .kpi-card.purple:hover {
+  box-shadow: 0 0 20px rgba(124,58,237,.15), 0 12px 30px rgba(0,0,0,.10);
+}
+html[data-theme="light"] .kpi-card.cyan:hover {
+  box-shadow: 0 0 20px rgba(6,182,212,.15),  0 12px 30px rgba(0,0,0,.10);
+}
+
+/* Module card glows — light theme */
+html[data-theme="light"] .module-card.green:hover {
+  box-shadow: 0 0 16px rgba(22,163,74,.12),  0 16px 36px rgba(0,0,0,.10);
+}
+html[data-theme="light"] .module-card.blue:hover {
+  box-shadow: 0 0 16px rgba(37,99,235,.12),  0 16px 36px rgba(0,0,0,.10);
+}
+html[data-theme="light"] .module-card.cyan:hover {
+  box-shadow: 0 0 16px rgba(6,182,212,.12),  0 16px 36px rgba(0,0,0,.10);
+}
+html[data-theme="light"] .module-card.purple:hover {
+  box-shadow: 0 0 16px rgba(124,58,237,.12), 0 16px 36px rgba(0,0,0,.10);
+}
+html[data-theme="light"] .module-card.orange:hover {
+  box-shadow: 0 0 16px rgba(234,88,12,.12),  0 16px 36px rgba(0,0,0,.10);
+}
+html[data-theme="light"] .module-card.red:hover {
+  box-shadow: 0 0 16px rgba(220,38,38,.12),  0 16px 36px rgba(0,0,0,.10);
+}
+html[data-theme="light"] .module-card.yellow:hover,
+html[data-theme="light"] .module-card.gold:hover {
+  box-shadow: 0 0 16px rgba(202,138,4,.12),  0 16px 36px rgba(0,0,0,.10);
+}
+
+/* Light theme scrollbar */
+html[data-theme="light"] * {
+  scrollbar-color: #cbd5e1 transparent;
+}
+html[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+html[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Light theme — muted section divider label icon */
+html[data-theme="light"] .section-divider-label::before {
+  color: var(--suminregio, #b45309);
+}
+
+
+/* ============================================================
+   §17  PAGE LOAD FADE-IN
+   ============================================================ */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.page {
+  animation: page-enter .5s var(--du-ease) both;
+}
+
+
+/* ============================================================
+   §18  GENERIC .card ENHANCEMENTS (non-breaking)
+   ============================================================ */
+.card {
+  transition:
+    transform  .28s var(--du-ease),
+    box-shadow .28s var(--du-ease);
+}
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(0,0,0,.22);
+}
+
+
+/* ============================================================
+   §19  NAV LINK HOVER REFINEMENT
+   ============================================================ */
+.nav-link {
+  transition:
+    color      .2s var(--du-ease),
+    background .2s var(--du-ease),
+    box-shadow .2s var(--du-ease),
+    transform  .2s var(--du-ease);
+}
+.nav-link:hover {
+  transform: translateX(2px);
+}
+.nav-link.active {
+  box-shadow: inset 3px 0 0 var(--suminregio, #E6A800);
+}
+
+
+/* ============================================================
+   §20  SCORECARD ADDITIONAL POLISH
+   ============================================================ */
+
+/* Scorecard row hover */
+.scorecard-row {
+  transition: background .15s ease;
+}
+.scorecard-row:hover {
+  background: rgba(255,255,255,.025);
+}
+
+/* Scorecard badge glow by color */
+.scorecard-badge.green  { box-shadow: 0 0 6px rgba(0,229,160,.25); }
+.scorecard-badge.red    { box-shadow: 0 0 6px rgba(255,69,102,.25); }
+.scorecard-badge.yellow { box-shadow: 0 0 6px rgba(230,168,0,.25);  }
+.scorecard-badge.orange { box-shadow: 0 0 6px rgba(255,140,66,.25); }
+.scorecard-badge.blue   { box-shadow: 0 0 6px rgba(77,166,255,.25); }
+
+/* Score ring pulse for top performers */
+.scorecard-ring.top {
+  animation: ring-pulse 3s ease-in-out infinite;
+}
+@keyframes ring-pulse {
+  0%, 100% { filter: drop-shadow(0 0 4px var(--suminregio, #E6A800)); }
+  50%       { filter: drop-shadow(0 0 10px var(--suminregio, #E6A800)); }
+}
+
+
+/* ============================================================
+   §21  UNI-TABLE ROW REVEAL  (additional)
+   ============================================================ */
+.uni-table tbody tr {
+  transition:
+    background  .15s ease,
+    box-shadow  .15s ease;
+}
+.uni-table tbody tr:hover {
+  background: rgba(255,255,255,.03);
+}
+
+/* Risk fill shimmer (reuse bar-sweep) */
+.uni-risk-fill::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.20), transparent);
+  animation: bar-sweep 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+
+/* ============================================================
+   §22  TAG MICRO-INTERACTIONS
+   ============================================================ */
+.tag {
+  transition:
+    box-shadow .2s var(--du-ease),
+    transform  .2s var(--du-spring),
+    background .2s var(--du-ease);
+}
+.tag:hover {
+  transform: scale(1.05);
+}
+
+
+/* ============================================================
+   §23  BIZ-CHIP TRANSITION
+   ============================================================ */
+.biz-chip {
+  transition:
+    background   .2s var(--du-ease),
+    box-shadow   .2s var(--du-ease),
+    border-color .2s var(--du-ease),
+    color        .2s var(--du-ease);
+}
+.biz-chip:hover {
+  box-shadow: 0 0 8px rgba(230,168,0,.12);
+}
+
+
+/* ============================================================
+   §24  FOCUS-VISIBLE ACCESSIBILITY RING
+   ============================================================ */
+:focus-visible {
+  outline: 2px solid var(--suminregio, #E6A800);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* Remove it for mouse interactions that already style focus */
+.kpi-card:focus:not(:focus-visible),
+.module-card:focus:not(:focus-visible),
+.nav-link:focus:not(:focus-visible),
+.biz-chip:focus:not(:focus-visible) {
+  outline: none;
+}
+
+
+/* ============================================================
+   §25  REDUCED MOTION SAFETY
+   All animations + transitions respect prefers-reduced-motion
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration:       .01ms !important;
+    animation-iteration-count: 1   !important;
+    transition-duration:       .01ms !important;
+  }
+
+  .skel {
+    animation: none;
+    background: var(--s2, #112233);
+  }
+
+  .hero-title {
+    animation: none;
+    background-size: 100% auto !important;
+  }
+
+  .meta-bar-fill::after,
+  .sc-bar-fill::after,
+  .uni-risk-fill::after {
+    animation: none;
+    display: none;
+  }
+
+  .live-dot,
+  .nav-live-dot,
+  .sem-dot {
+    animation: none;
+  }
+}
