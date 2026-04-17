@@ -11454,9 +11454,13 @@ app.get('/api/debug/cotizaciones', async (req, res) => {
     Z2: [`SELECT FIRST 1 h.DOCTO_VE_ID, h.FECHA, h.IMPORTE_NETO FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'C' AND CAST(h.FECHA AS DATE) >= CAST('2026-04-01' AS DATE)`, []],
     // Z3: RDB$INDICES verify new server version
     Z3: [`SELECT FIRST 1 RDB$INDEX_NAME FROM RDB$INDICES WHERE RDB$RELATION_NAME = 'DOCTOS_VE'`, []],
+    // Z4: FIRST 500 cotizaciones de abril — agrega en JS en vez de SQL (evita full scan)
+    Z4: [`SELECT FIRST 500 h.DOCTO_VE_ID, h.IMPORTE_NETO, h.VENDEDOR_ID, CAST(h.FECHA AS DATE) AS FECHA FROM DOCTOS_VE h WHERE h.TIPO_DOCTO IN ('C','O','Q','P','CT','CU') AND (h.ESTATUS IS NULL OR h.ESTATUS NOT IN ('C','D')) AND CAST(h.FECHA AS DATE) >= CAST('2026-04-01' AS DATE) AND CAST(h.FECHA AS DATE) < CAST('2026-05-01' AS DATE) ORDER BY h.DOCTO_VE_ID DESC`, []],
+    // Z5: FIRST 500 sin ESTATUS filter + sin ORDER (más simple, ver si esto es rápido)
+    Z5: [`SELECT FIRST 500 h.DOCTO_VE_ID, h.IMPORTE_NETO FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'C' AND CAST(h.FECHA AS DATE) >= CAST('2026-04-01' AS DATE) AND CAST(h.FECHA AS DATE) < CAST('2026-05-01' AS DATE)`, []],
   };
   const entry = queries[q];
-  if (!entry) return res.json({ ok: false, error: `q debe ser A-Z3, Q2, recibido: ${q}` });
+  if (!entry) return res.json({ ok: false, error: `q debe ser A-Z5, Q2, recibido: ${q}` });
   try {
     const rows = await query(entry[0], entry[1], 30000, dbo);
     res.json({ ok: true, q, ms: Date.now() - t, data: rows });
