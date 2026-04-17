@@ -1428,6 +1428,167 @@
     setTimeout(attachScramble, 3500);
   }
 
+  // ════════════════════════════════════════════════════════
+  //  CUSTOM CURSOR — punto dorado + anillo magnético
+  // ════════════════════════════════════════════════════════
+  function bootCustomCursor() {
+    if ('ontouchstart' in window) return;
+    if (typeof document === 'undefined') return;
+    if (document.getElementById('sumi-cursor-dot')) return;
+
+    var dot  = document.createElement('div'); dot.id  = 'sumi-cursor-dot';
+    var ring = document.createElement('div'); ring.id = 'sumi-cursor-ring';
+    document.body.appendChild(dot);
+    document.body.appendChild(ring);
+
+    var cx = -200, cy = -200, rx = -200, ry = -200;
+
+    document.addEventListener('mousemove', function (e) {
+      cx = e.clientX; cy = e.clientY;
+      dot.style.left = cx + 'px';
+      dot.style.top  = cy + 'px';
+    });
+
+    // Hover states
+    var INTERACTIVE = 'a, button, .kpi-card, .module-card, .tab-btn, .nav-link, .biz-chip, .card-badge, .ms-refresh-btn, .top-cli-btn, [role="button"], .bn-item';
+    document.addEventListener('mouseover', function (e) {
+      if (e.target.closest(INTERACTIVE)) {
+        dot.classList.add('cu-hover');
+        ring.classList.add('cu-hover');
+      }
+    });
+    document.addEventListener('mouseout', function (e) {
+      if (e.target.closest(INTERACTIVE)) {
+        dot.classList.remove('cu-hover');
+        ring.classList.remove('cu-hover');
+      }
+    });
+
+    // Click flash
+    document.addEventListener('mousedown', function () {
+      dot.classList.add('cu-click');
+      ring.classList.add('cu-click');
+    });
+    document.addEventListener('mouseup', function () {
+      dot.classList.remove('cu-click');
+      ring.classList.remove('cu-click');
+    });
+
+    // Smooth lag for ring
+    function followRing() {
+      rx += (cx - rx) * 0.11;
+      ry += (cy - ry) * 0.11;
+      ring.style.left = rx + 'px';
+      ring.style.top  = ry + 'px';
+      requestAnimationFrame(followRing);
+    }
+    followRing();
+  }
+
+  // ════════════════════════════════════════════════════════
+  //  MAGNETIC EFFECT — nav links / tabs atraen al cursor
+  // ════════════════════════════════════════════════════════
+  function bootMagneticEffect() {
+    if ('ontouchstart' in window) return;
+    if (typeof window.matchMedia === 'function' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    function attachMag(el, strength) {
+      if (el._magBound) return;
+      el._magBound = true;
+      el.addEventListener('mousemove', function (e) {
+        var rect = el.getBoundingClientRect();
+        var dx = (e.clientX - (rect.left + rect.width  / 2)) * strength;
+        var dy = (e.clientY - (rect.top  + rect.height / 2)) * strength;
+        el.style.transform = 'translate(' + dx.toFixed(2) + 'px, ' + dy.toFixed(2) + 'px)';
+      });
+      el.addEventListener('mouseleave', function () { el.style.transform = ''; });
+    }
+
+    function scanMagnetic() {
+      document.querySelectorAll('#app-header .nav-link').forEach(function (el) {
+        attachMag(el, 0.22);
+      });
+      document.querySelectorAll('.tab-btn').forEach(function (el) {
+        attachMag(el, 0.28);
+      });
+      document.querySelectorAll('.ms-refresh-btn').forEach(function (el) {
+        attachMag(el, 0.3);
+      });
+    }
+    scanMagnetic();
+    setTimeout(scanMagnetic, 800);
+  }
+
+  // ════════════════════════════════════════════════════════
+  //  PAGE TRANSITIONS — fade cinemático entre páginas
+  // ════════════════════════════════════════════════════════
+  function bootPageTransitions() {
+    // Fade IN al cargar
+    document.body.style.cssText += ';opacity:0;filter:blur(3px);transform:translateY(6px)';
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        document.body.style.transition = 'opacity .5s ease, transform .5s ease, filter .45s ease';
+        document.body.style.opacity = '';
+        document.body.style.transform = '';
+        document.body.style.filter = '';
+        setTimeout(function () { document.body.style.transition = ''; }, 600);
+      });
+    });
+
+    // Fade OUT al navegar
+    document.addEventListener('click', function (e) {
+      var link = e.target.closest('a[href]');
+      if (!link) return;
+      var href = link.getAttribute('href');
+      if (!href || href.startsWith('#') || href.startsWith('javascript') ||
+          href.startsWith('mailto') || href.startsWith('tel')) return;
+      if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
+      try {
+        var url = new URL(href, location.href);
+        if (url.origin !== location.origin) return;
+      } catch (_) { return; }
+      e.preventDefault();
+      document.body.classList.add('sumi-page-leaving');
+      setTimeout(function () { location.href = href; }, 330);
+    });
+  }
+
+  // ════════════════════════════════════════════════════════
+  //  TOP LOADING BAR — barra de progreso dorada
+  // ════════════════════════════════════════════════════════
+  function bootTopLoadingBar() {
+    if (document.getElementById('sumi-top-bar')) return;
+    var bar = document.createElement('div');
+    bar.id = 'sumi-top-bar';
+    bar.style.width = '0%';
+    document.body.insertBefore(bar, document.body.firstChild);
+
+    var pct = 0;
+    var iv = setInterval(function () {
+      var jump = Math.random() * 12 + 3;
+      pct = Math.min(pct + jump, 88);
+      bar.style.width = pct + '%';
+    }, 220);
+
+    function finish() {
+      clearInterval(iv);
+      bar.style.width = '100%';
+      setTimeout(function () {
+        bar.style.opacity = '0';
+        setTimeout(function () { bar.remove(); }, 450);
+      }, 280);
+    }
+
+    if (document.readyState === 'complete') {
+      finish();
+    } else {
+      window.addEventListener('load', finish, { once: true });
+      // Safety: finish if load doesn't fire in 4s
+      setTimeout(finish, 4000);
+    }
+  }
+
   function bootAll() {
     bootDesignUpgrade();
     bootTiltEffect();
@@ -1443,10 +1604,15 @@
     bootOfflineBanner();
     bootPullToRefresh();
     bootBottomNav();
-    // ── Nuevas funciones premium ──
+    // ── Premium v4 ──
     bootParticleNetwork();
     bootClickRipple();
     bootNumberScramble();
+    // ── Premium v5 ──
+    bootCustomCursor();
+    bootMagneticEffect();
+    bootPageTransitions();
+    bootTopLoadingBar();
   }
 
   if (document.readyState === 'loading') {
