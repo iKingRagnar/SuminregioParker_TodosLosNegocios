@@ -11349,57 +11349,34 @@ setImmediate(() => {
   });
 })();
 
-// ── DEBUG v2: diagnóstico cotizaciones ──────────────────────────────────────
+// ── DEBUG v3: diagnóstico cotizaciones — secuencial con queries simples ────
 app.get('/api/debug/cotizaciones', async (req, res) => {
   const dbo = getReqDbOpts(req);
+  const results = {};
   const t0 = Date.now();
+  const run = async (label, sql, params, tms) => {
+    const t = Date.now();
+    try {
+      const rows = await query(sql, params || [], tms || 15000, dbo);
+      results[label] = { ok: true, ms: Date.now() - t, data: rows };
+    } catch (e) {
+      results[label] = { ok: false, ms: Date.now() - t, err: e.message };
+    }
+  };
   try {
-    const cotiOpts = await cotizacionSqlOpts(dbo);
-    const t1 = Date.now();
-    const feExpr = cotiOpts.sqlFeVe ? String(cotiOpts.sqlFeVe).replace(/\bd\./g, 'h.') : 'h.FECHA';
-    const tipos = (parseCotizacionTipos() || []).filter(Boolean);
-    const esc = (t) => `'${String(t).replace(/'/g, "''")}'`;
-    const tiposIn = tipos.length ? `h.TIPO_DOCTO IN (${tipos.map(esc).join(', ')})` : '1=1';
-
-    const [r1, r2, r3, r4] = await Promise.all([
-      // Test A: distribución TIPO_DOCTO sin WHERE (solo fecha) — rápido, no filtra por tipo
-      query(`SELECT FIRST 15 h.TIPO_DOCTO, COUNT(*) AS N, COALESCE(SUM(h.IMPORTE_NETO),0) AS TOTAL
-             FROM DOCTOS_VE h
-             WHERE h.FECHA >= '2026-04-01' AND h.FECHA < '2026-05-01'
-             GROUP BY h.TIPO_DOCTO ORDER BY N DESC`, [], 20000, dbo)
-        .catch(e => [{err: e.message}]),
-      // Test B: count solo TIPO_DOCTO=C (el más común para cotizaciones en Microsip)
-      query(`SELECT COUNT(*) AS N, COALESCE(SUM(h.IMPORTE_NETO),0) AS TOTAL
-             FROM DOCTOS_VE h
-             WHERE h.TIPO_DOCTO = 'C'
-               AND h.FECHA >= '2026-04-01' AND h.FECHA < '2026-05-01'`, [], 20000, dbo)
-        .catch(e => [{N:0, TOTAL:0, err: e.message}]),
-      // Test C: con los tipos configurados (sin ESTATUS/APLICADO filter)
-      query(`SELECT COUNT(*) AS N, COALESCE(SUM(h.IMPORTE_NETO),0) AS TOTAL
-             FROM DOCTOS_VE h
-             WHERE ${tiposIn}
-               AND h.FECHA >= '2026-04-01' AND h.FECHA < '2026-05-01'`, [], 20000, dbo)
-        .catch(e => [{N:0, TOTAL:0, err: e.message}]),
-      // Test D: count TODAS las filas de DOCTOS_VE en abril (sin ningún WHERE extra)
-      query(`SELECT COUNT(*) AS N_TOTAL
-             FROM DOCTOS_VE h
-             WHERE h.FECHA >= '2026-04-01' AND h.FECHA < '2026-05-01'`, [], 20000, dbo)
-        .catch(e => [{N_TOTAL:0, err: e.message}]),
-    ]);
-    const t2 = Date.now();
-
-    res.json({
-      ok: true,
-      timings_ms: { cotiOpts: t1 - t0, queries: t2 - t1 },
-      tipos_configurados: tipos,
-      feExpr,
-      test_A_tipo_docto_dist_abril: r1,
-      test_B_solo_tipo_C: r2[0],
-      test_C_tipos_config: r3[0],
-      test_D_total_docs_abril: r4[0],
-    });
+    // 1. Tipos más usados en DOCTOS_VE con TIPO_DOCTO='F' AND APLICADO='S' (igual que ventas)
+    await run('A_ventas_like', `SELECT COUNT(*) AS N FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'F' AND h.APLICADO = 'S'`, [], 15000);
+    // 2. Solo TIPO_DOCTO='C' sin filtro de fecha
+    await run('B_tipo_C_sin_fecha', `SELECT COUNT(*) AS N, COALESCE(SUM(h.IMPORTE_NETO),0) AS TOTAL FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'C'`, [], 15000);
+    // 3. TIPO_DOCTO='C' con fecha (si B fue rápido, C debería también)
+    await run('C_tipo_C_con_fecha', `SELECT COUNT(*) AS N, COALESCE(SUM(h.IMPORTE_NETO),0) AS TOTAL FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'C' AND h.FECHA >= '2026-04-01' AND h.FECHA < '2026-05-01'`, [], 15000);
+    // 4. Distribución top TIPO_DOCTO usando APLICADO='N' como filtro (coti no aplicadas)
+    await run('D_aplicado_N', `SELECT FIRST 10 h.TIPO_DOCTO, COUNT(*) AS N FROM DOCTOS_VE h WHERE h.APLICADO = 'N' GROUP BY h.TIPO_DOCTO ORDER BY N DESC`, [], 15000);
+    // 5. Si D fue rápido: ver tipos con APLICADO='N' en abril
+    await run('E_aplicado_N_abril', `SELECT FIRST 10 h.TIPO_DOCTO, COUNT(*) AS N, COALESCE(SUM(h.IMPORTE_NETO),0) AS TOTAL FROM DOCTOS_VE h WHERE h.APLICADO = 'N' AND h.FECHA >= '2026-04-01' AND h.FECHA < '2026-05-01' GROUP BY h.TIPO_DOCTO ORDER BY N DESC`, [], 15000);
+    res.json({ ok: true, total_ms: Date.now() - t0, results });
   } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
+    res.status(500).json({ ok: false, error: e.message, results });
   }
 });
 
