@@ -11464,9 +11464,13 @@ app.get('/api/debug/cotizaciones', async (req, res) => {
     Z7: [`SELECT FIRST 500 h.DOCTO_VE_ID, h.TIPO_DOCTO, h.IMPORTE_NETO, h.FECHA FROM DOCTOS_VE h WHERE h.TIPO_DOCTO IN ('C','O','Q','P','CT','CU') AND h.FECHA >= '2026-04-01' AND h.FECHA < '2026-05-01'`, []],
     // Z8: FIRST 1 SIN CAST (referencia para comparar con Z2)
     Z8: [`SELECT FIRST 1 h.DOCTO_VE_ID, h.FECHA, h.IMPORTE_NETO FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'C' AND h.FECHA >= '2026-04-01'`, []],
+    // Z9: FIRST 500 con ORDER BY FECHA,TIPO_DOCTO,FOLIO — fuerza IE1 index usage
+    Z9: [`SELECT FIRST 500 h.DOCTO_VE_ID, h.IMPORTE_NETO, h.FECHA, h.VENDEDOR_ID FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'C' AND h.FECHA >= '2026-04-01' AND h.FECHA < '2026-05-01' ORDER BY h.FECHA, h.TIPO_DOCTO, h.FOLIO`, []],
+    // Z10: todos tipos cotizacion con ORDER BY IE1 — el query definitivo si Z9 es rápido
+    Z10: [`SELECT FIRST 500 h.DOCTO_VE_ID, h.TIPO_DOCTO, h.IMPORTE_NETO, h.FECHA, h.VENDEDOR_ID FROM DOCTOS_VE h WHERE h.TIPO_DOCTO IN ('C','O','Q','P','CT','CU') AND h.FECHA >= '2026-04-01' AND h.FECHA < '2026-05-01' ORDER BY h.FECHA, h.TIPO_DOCTO, h.FOLIO`, []],
   };
   const entry = queries[q];
-  if (!entry) return res.json({ ok: false, error: `q debe ser A-Z8, Q2, recibido: ${q}` });
+  if (!entry) return res.json({ ok: false, error: `q debe ser A-Z10, Q2, recibido: ${q}` });
   try {
     const rows = await query(entry[0], entry[1], 30000, dbo);
     res.json({ ok: true, q, ms: Date.now() - t, data: rows });
