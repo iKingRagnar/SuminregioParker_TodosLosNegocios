@@ -1346,6 +1346,8 @@ const ROUTE_TTL_MAP = {
 function get(routePath, handler, opts = {}) {
   const mapTtl  = ROUTE_TTL_MAP[routePath] || 0;
   const ttl     = opts.noCache ? 0 : (opts.ttl > 0 ? opts.ttl : mapTtl);
+  // opts.cacheIf: función(data) => bool — si retorna false, no se cachea (evita cachear resultados vacíos/timeout).
+  const cacheIf = typeof opts.cacheIf === 'function' ? opts.cacheIf : null;
   app.get(routePath, async (req, res) => {
     const cacheKey = req.originalUrl; // incluye query string completo
     if (ttl > 0) {
@@ -1358,7 +1360,7 @@ function get(routePath, handler, opts = {}) {
     }
     try {
       const data = await handler(req);
-      if (ttl > 0) {
+      if (ttl > 0 && (!cacheIf || cacheIf(data))) {
         _cacheSet(cacheKey, data);
         res.setHeader('X-Cache', 'MISS');
         res.setHeader('X-Cache-TTL', ttl);
@@ -2581,7 +2583,7 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
     return mergeCotizacionResumenRows(rows);
   }
   return run(getReqDbOpts(req));
-});
+}, { cacheIf: (d) => (+d.MES_ACTUAL || 0) > 0 || (+d.COTIZACIONES_MES || 0) > 0 });
 
 get('/api/ventas/diarias', async (req) => {
   const tipo = getTipo(req);
@@ -2911,7 +2913,7 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
     return mergePorVendedorCotiz(lists);
   }
   return run(getReqDbOpts(req));
-});
+}, { cacheIf: (d) => Array.isArray(d) && d.length > 0 });
 
 get('/api/ventas/recientes', async (req) => {
   const f = buildFiltros(req, 'd');

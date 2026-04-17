@@ -1629,8 +1629,10 @@ async function loadCotizaciones() {
     let ventasVE = (v => { const u = unwrapApiRow(v); return u && typeof u === 'object' && !Array.isArray(u) ? u : {}; })(pack.ventasVEraw || {});
     ventasDbgSet({ note: 'coti:first', coti: `res(MES=${+resObj.MES_ACTUAL||0}, HOY=${+resObj.HOY||0}, N_MES=${+resObj.COTIZACIONES_MES||0}) diarias=${diarias.length} vends=${vends.length}` });
 
-    // Si viene todo vacío, reintentar con tipo explícito
-    const emptyAll = ((+resObj.MES_ACTUAL || 0) <= 0 && (+resObj.HOY || 0) <= 0 && (+resObj.COTIZACIONES_MES || 0) <= 0 && !diarias.length && !vends.length);
+    // Si resumen + vendedores vacíos, reintentar con tipo explícito (no requerir que diarias sea vacío:
+    // el endpoint diarias devuelve datos aunque resumen falle o esté cacheado con ceros).
+    const resumEmpty = (+resObj.MES_ACTUAL || 0) <= 0 && (+resObj.HOY || 0) <= 0 && (+resObj.COTIZACIONES_MES || 0) <= 0;
+    const emptyAll = resumEmpty && !vends.length;
     if (emptyAll) {
       const tryTipo = (t) => `&tipo=${t}`;
       const first = currentTipo ? tipoQ() : tryTipo('VE');
@@ -1640,7 +1642,7 @@ async function loadCotizaciones() {
       vends   = Array.isArray(pack.vends) ? pack.vends : [];
       ventasVE = (v => { const u = unwrapApiRow(v); return u && typeof u === 'object' && !Array.isArray(u) ? u : {}; })(pack.ventasVEraw || {});
       ventasDbgSet({ note: 'coti:retry1', coti: `res(MES=${+resObj.MES_ACTUAL||0}) vends=${vends.length}` });
-      const stillEmpty = ((+resObj.MES_ACTUAL || 0) <= 0 && (+resObj.HOY || 0) <= 0 && (+resObj.COTIZACIONES_MES || 0) <= 0 && !diarias.length && !vends.length);
+      const stillEmpty = ((+resObj.MES_ACTUAL || 0) <= 0 && (+resObj.HOY || 0) <= 0 && (+resObj.COTIZACIONES_MES || 0) <= 0 && !vends.length);
       if (stillEmpty && !currentTipo) {
         pack = await fetchCotiPack(tryTipo('PV'));
         resObj  = canonCotiResumen(pack.resRaw || {});
