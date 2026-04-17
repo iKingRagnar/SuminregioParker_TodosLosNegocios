@@ -11349,34 +11349,35 @@ setImmediate(() => {
   });
 })();
 
-// ── DEBUG v3: diagnóstico cotizaciones — secuencial con queries simples ────
+// ── DEBUG v4: micro-queries individuales — cada una en su propio endpoint ────
+// Usar ?q=A|B|C|D|E|F|G para correr solo UNA query (WebFetch friendly, <10s)
 app.get('/api/debug/cotizaciones', async (req, res) => {
   const dbo = getReqDbOpts(req);
-  const results = {};
-  const t0 = Date.now();
-  const run = async (label, sql, params, tms) => {
-    const t = Date.now();
-    try {
-      const rows = await query(sql, params || [], tms || 15000, dbo);
-      results[label] = { ok: true, ms: Date.now() - t, data: rows };
-    } catch (e) {
-      results[label] = { ok: false, ms: Date.now() - t, err: e.message };
-    }
+  const q = (req.query.q || 'A').toUpperCase();
+  const t = Date.now();
+  const queries = {
+    // A: ventas-like — debería ser <8s (referencia)
+    A: [`SELECT COUNT(*) AS N FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'F' AND h.APLICADO = 'S'`, []],
+    // B: cotizacion-like TIPO='C' + APLICADO='N' — hipótesis: usa mismo índice que A
+    B: [`SELECT COUNT(*) AS N, COALESCE(SUM(h.IMPORTE_NETO),0) AS TOTAL FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'C' AND h.APLICADO = 'N'`, []],
+    // C: TIPO='C' + APLICADO='N' + fecha abril
+    C: [`SELECT COUNT(*) AS N, COALESCE(SUM(h.IMPORTE_NETO),0) AS TOTAL FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'C' AND h.APLICADO = 'N' AND h.FECHA >= '2026-04-01' AND h.FECHA < '2026-05-01'`, []],
+    // D: TIPO='C' sin filtro adicional
+    D: [`SELECT COUNT(*) AS N FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'C'`, []],
+    // E: TIPO IN lista cotizaciones + APLICADO='N'
+    E: [`SELECT h.TIPO_DOCTO, COUNT(*) AS N, COALESCE(SUM(h.IMPORTE_NETO),0) AS TOTAL FROM DOCTOS_VE h WHERE h.TIPO_DOCTO IN ('C','O','Q','P') AND h.APLICADO = 'N' AND h.FECHA >= '2026-04-01' AND h.FECHA < '2026-05-01' GROUP BY h.TIPO_DOCTO ORDER BY N DESC`, []],
+    // F: RDB$INDICES — ver índices de DOCTOS_VE
+    F: [`SELECT RDB$INDEX_NAME, RDB$FIELD_NAME FROM RDB$INDEX_SEGMENTS WHERE RDB$INDEX_NAME IN (SELECT RDB$INDEX_NAME FROM RDB$INDICES WHERE RDB$RELATION_NAME = 'DOCTOS_VE') ORDER BY RDB$INDEX_NAME, RDB$FIELD_POSITION`, []],
+    // G: APLICADO='N' solo — test selectividad
+    G: [`SELECT FIRST 5 h.TIPO_DOCTO, h.APLICADO FROM DOCTOS_VE h WHERE h.APLICADO = 'N'`, []],
   };
+  const entry = queries[q];
+  if (!entry) return res.json({ ok: false, error: `q debe ser A-G, recibido: ${q}` });
   try {
-    // 1. Tipos más usados en DOCTOS_VE con TIPO_DOCTO='F' AND APLICADO='S' (igual que ventas)
-    await run('A_ventas_like', `SELECT COUNT(*) AS N FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'F' AND h.APLICADO = 'S'`, [], 15000);
-    // 2. Solo TIPO_DOCTO='C' sin filtro de fecha
-    await run('B_tipo_C_sin_fecha', `SELECT COUNT(*) AS N, COALESCE(SUM(h.IMPORTE_NETO),0) AS TOTAL FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'C'`, [], 15000);
-    // 3. TIPO_DOCTO='C' con fecha (si B fue rápido, C debería también)
-    await run('C_tipo_C_con_fecha', `SELECT COUNT(*) AS N, COALESCE(SUM(h.IMPORTE_NETO),0) AS TOTAL FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'C' AND h.FECHA >= '2026-04-01' AND h.FECHA < '2026-05-01'`, [], 15000);
-    // 4. Distribución top TIPO_DOCTO usando APLICADO='N' como filtro (coti no aplicadas)
-    await run('D_aplicado_N', `SELECT FIRST 10 h.TIPO_DOCTO, COUNT(*) AS N FROM DOCTOS_VE h WHERE h.APLICADO = 'N' GROUP BY h.TIPO_DOCTO ORDER BY N DESC`, [], 15000);
-    // 5. Si D fue rápido: ver tipos con APLICADO='N' en abril
-    await run('E_aplicado_N_abril', `SELECT FIRST 10 h.TIPO_DOCTO, COUNT(*) AS N, COALESCE(SUM(h.IMPORTE_NETO),0) AS TOTAL FROM DOCTOS_VE h WHERE h.APLICADO = 'N' AND h.FECHA >= '2026-04-01' AND h.FECHA < '2026-05-01' GROUP BY h.TIPO_DOCTO ORDER BY N DESC`, [], 15000);
-    res.json({ ok: true, total_ms: Date.now() - t0, results });
+    const rows = await query(entry[0], entry[1], 12000, dbo);
+    res.json({ ok: true, q, ms: Date.now() - t, data: rows });
   } catch (e) {
-    res.status(500).json({ ok: false, error: e.message, results });
+    res.json({ ok: false, q, ms: Date.now() - t, err: e.message });
   }
 });
 
