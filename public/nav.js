@@ -1,0 +1,165 @@
+/**
+ * nav.js — Navegación unificada con hamburger móvil
+ * Inyecta header completo en <header> (vacío) o #app-header.
+ * Auto-detecta página activa · compatible con app-ui-boot.js mobile system
+ */
+(function () {
+  'use strict';
+
+  var NAV_LINKS = [
+    { href: 'index.html',      label: 'Inicio',      icon: 'M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z' },
+    { href: 'ventas.html',     label: 'Ventas',       icon: 'M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z' },
+    { href: 'cobradas.html',   label: 'Cobradas',     icon: 'M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z' },
+    { href: 'vendedores.html', label: 'Vendedores',   icon: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z' },
+    { href: 'cxc.html',        label: 'CxC',          icon: 'M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z' },
+    { href: 'clientes.html',   label: 'Clientes',     icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z' },
+    { href: 'director.html',   label: 'Director',     icon: 'M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z' },
+    { href: 'inventario.html', label: 'Inventario',   icon: 'M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z' },
+    { href: 'resultados.html', label: 'Resultados',   icon: 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z' },
+  ];
+
+  function currentPage() {
+    try {
+      var p = location.pathname.split('/').pop() || 'index.html';
+      return p || 'index.html';
+    } catch (_) { return ''; }
+  }
+
+  function fmtTime(d) {
+    return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  }
+
+  function buildNav() {
+    var cur = currentPage();
+    var links = NAV_LINKS.map(function (nl) {
+      var active = (nl.href === cur || (cur === '' && nl.href === 'index.html')) ? ' active' : '';
+      return '<a class="nav-link' + active + '" href="' + nl.href + '">' +
+        '<svg viewBox="0 0 24 24"><path d="' + nl.icon + '"/></svg>' +
+        nl.label +
+      '</a>';
+    }).join('');
+    return links;
+  }
+
+  function injectStyles() {
+    if (document.getElementById('nav-js-style')) return;
+    var s = document.createElement('style');
+    s.id = 'nav-js-style';
+    s.textContent = [
+      '#app-header{position:sticky;top:0;z-index:100;',
+      'background:rgba(5,11,20,.92);backdrop-filter:blur(20px);',
+      '-webkit-backdrop-filter:blur(20px);',
+      'border-bottom:1px solid rgba(255,255,255,.07);}',
+
+      '.nav-hi{max-width:1900px;margin:0 auto;height:62px;',
+      'display:flex;align-items:center;justify-content:space-between;',
+      'gap:1rem;padding:0 1.5rem;}',
+
+      '.nav-logo{display:flex;align-items:center;gap:.7rem;text-decoration:none;flex-shrink:0}',
+      '.nav-logo-icon{width:36px;height:36px;background:linear-gradient(135deg,#E6A800,#FF8C42);',
+      'border-radius:9px;display:grid;place-items:center;flex-shrink:0;',
+      'box-shadow:0 0 18px rgba(230,168,0,.28);}',
+      '.nav-logo-icon svg{width:20px;height:20px;fill:white;}',
+      '.nav-logo-txt{font-size:.9rem;font-weight:800;color:#F0F6FF;}',
+      '.nav-logo-sub{font-size:.57rem;font-family:"DM Mono",monospace;',
+      'color:#6A85A6;letter-spacing:.12em;text-transform:uppercase;}',
+
+      '#app-header nav{display:flex;align-items:center;gap:.12rem;flex-wrap:wrap;}',
+
+      '#app-header .nav-link{display:flex;align-items:center;gap:.38rem;',
+      'padding:.35rem .72rem;border-radius:7px;font-size:.73rem;font-weight:600;',
+      'color:#6A85A6;text-decoration:none;transition:all .2s;',
+      'white-space:nowrap;border:1px solid transparent;',
+      '-webkit-tap-highlight-color:transparent;}',
+      '#app-header .nav-link:hover{color:#C8D8EC;background:#112233;}',
+      '#app-header .nav-link.active{color:#E6A800;background:rgba(230,168,0,.12);',
+      'border-color:rgba(230,168,0,.4);}',
+      '#app-header .nav-link svg{width:13px;height:13px;fill:currentColor;flex-shrink:0;}',
+
+      '.nav-right{display:flex;align-items:center;gap:10px;flex-shrink:0;}',
+      '.nav-live{display:flex;align-items:center;gap:.4rem;',
+      'background:rgba(0,229,160,.1);border:1px solid rgba(0,229,160,.2);',
+      'border-radius:99px;padding:.25rem .65rem;',
+      'font-family:"DM Mono",monospace;font-size:.6rem;',
+      'color:#00E5A0;letter-spacing:.08em;text-transform:uppercase;}',
+      '.nav-live-dot{width:5px;height:5px;border-radius:50%;',
+      'background:#00E5A0;box-shadow:0 0 7px #00E5A0;',
+      'animation:navPulse 2s ease-in-out infinite;}',
+      '@keyframes navPulse{0%,100%{opacity:1}50%{opacity:.35}}',
+      '.nav-clock{font-family:"DM Mono",monospace;font-size:.72rem;',
+      'color:#6A85A6;letter-spacing:.04em;min-width:6.5rem;}',
+
+      /* ── Mobile: nav becomes a horizontal scroll strip ── */
+      '@media(max-width:1180px){',
+      '#app-header nav{max-width:calc(100vw - 5rem);overflow-x:auto;',
+      'overflow-y:hidden;-webkit-overflow-scrolling:touch;',
+      'overscroll-behavior-x:contain;scrollbar-width:none;flex-wrap:nowrap;',
+      'padding-bottom:2px;scroll-padding-inline:6px;}',
+      '#app-header nav::-webkit-scrollbar{display:none;}',
+      '#app-header .nav-link{flex-shrink:0;}',
+      '}',
+
+      '@media(max-width:680px){',
+      '.nav-hi{height:auto!important;min-height:54px;',
+      'padding:.4rem .9rem!important;flex-wrap:nowrap;}',
+      '.nav-logo-sub{display:none;}',
+      '.nav-live,.nav-clock{display:none!important;}',
+      '}',
+    ].join('');
+    document.head.appendChild(s);
+  }
+
+  function init() {
+    injectStyles();
+
+    // Find or create the header element
+    var hdr = document.querySelector('header') || document.getElementById('app-header');
+    if (!hdr) {
+      hdr = document.createElement('header');
+      document.body.insertBefore(hdr, document.body.firstChild);
+    }
+    // Rename to #app-header if not already set
+    if (!hdr.id) hdr.id = 'app-header';
+    // Remove display:none if template was hidden
+    hdr.style.display = '';
+    hdr.removeAttribute('aria-hidden');
+
+    // Build the header HTML
+    var clockId = 'nav-clock-' + Date.now();
+    hdr.innerHTML =
+      '<div class="nav-hi">' +
+        '<a class="nav-logo" href="index.html">' +
+          '<div class="nav-logo-icon">' +
+            '<svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>' +
+          '</div>' +
+          '<div>' +
+            '<div class="nav-logo-txt">Suminregio Parker</div>' +
+            '<div class="nav-logo-sub">ERP SCORECARD</div>' +
+          '</div>' +
+        '</a>' +
+        '<nav id="main-nav">' + buildNav() + '</nav>' +
+        '<div class="nav-right">' +
+          '<div class="nav-live">' +
+            '<div class="nav-live-dot"></div>LIVE' +
+          '</div>' +
+          '<div class="nav-clock" id="' + clockId + '">—</div>' +
+        '</div>' +
+      '</div>';
+
+    // Live clock
+    var clockEl = document.getElementById(clockId);
+    if (clockEl) {
+      clockEl.textContent = fmtTime(new Date());
+      setInterval(function () {
+        clockEl.textContent = fmtTime(new Date());
+      }, 1000);
+    }
+  }
+
+  // Run immediately (script is synchronous, DOM may not have <header> yet)
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();

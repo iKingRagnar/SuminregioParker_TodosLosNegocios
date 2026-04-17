@@ -548,6 +548,142 @@
   }
 
   // ════════════════════════════════════════════════════════
+  //  MOBILE RESPONSIVE SYSTEM
+  //  Inyecta mobile.css + hamburger nav drawer + swipe
+  // ════════════════════════════════════════════════════════
+  function bootMobile() {
+    if (typeof document === 'undefined') return;
+
+    // 1. Inject mobile.css stylesheet
+    if (!document.getElementById('sumi-mobile-css')) {
+      var base = (typeof window.__API_BASE === 'string' && window.__API_BASE) ? window.__API_BASE : '';
+      var lnk = document.createElement('link');
+      lnk.id   = 'sumi-mobile-css';
+      lnk.rel  = 'stylesheet';
+      lnk.href = base + '/mobile.css';
+      document.head.appendChild(lnk);
+    }
+
+    // Only wire the hamburger on mobile widths
+    var mq = typeof window.matchMedia === 'function' && window.matchMedia('(max-width:768px)');
+    if (!mq || !mq.matches) {
+      // Still add listener so resizing into mobile works
+      if (mq && mq.addEventListener) mq.addEventListener('change', function (e) { if (e.matches) _buildHamburger(); });
+      return;
+    }
+    _buildHamburger();
+    if (mq && mq.addEventListener) mq.addEventListener('change', function (e) { if (e.matches) _buildHamburger(); });
+  }
+
+  function _buildHamburger() {
+    if (document.getElementById('sumi-hamburger')) return; // already built
+
+    var header = document.querySelector('header');
+    if (!header) return;
+
+    // ── Find the nav element ─────────────────────────────────────────
+    var nav = header.querySelector('nav.hdr-nav, .hdr-nav, nav#main-nav')
+           || header.querySelector('nav')
+           || document.querySelector('nav#main-nav');
+    if (!nav) return;
+
+    // ── Create overlay backdrop ──────────────────────────────────────
+    var overlay = document.createElement('div');
+    overlay.id = 'sumi-nav-overlay';
+    document.body.appendChild(overlay);
+
+    // ── Create hamburger button ──────────────────────────────────────
+    var btn = document.createElement('button');
+    btn.id   = 'sumi-hamburger';
+    btn.type = 'button';
+    btn.setAttribute('aria-label', 'Menú');
+    btn.setAttribute('aria-expanded', 'false');
+    btn.innerHTML =
+      '<div class="hbg-icon">' +
+        '<span></span><span></span><span></span>' +
+      '</div>';
+
+    // Insert into header (before or after existing header-right)
+    var headerInner = header.querySelector('.header-inner') || header;
+    var headerRight = headerInner.querySelector('.header-right');
+    if (headerRight) {
+      headerInner.insertBefore(btn, headerRight);
+    } else {
+      headerInner.appendChild(btn);
+    }
+
+    // ── Toggle function ──────────────────────────────────────────────
+    var isNavOpen = false;
+    function openNav() {
+      isNavOpen = true;
+      nav.classList.add('nav-open');
+      overlay.classList.add('active');
+      btn.classList.add('open');
+      btn.setAttribute('aria-expanded', 'true');
+      document.body.style.overflow = 'hidden'; // prevent scroll behind
+    }
+    function closeNav() {
+      isNavOpen = false;
+      nav.classList.remove('nav-open');
+      overlay.classList.remove('active');
+      btn.classList.remove('open');
+      btn.setAttribute('aria-expanded', 'false');
+      document.body.style.overflow = '';
+    }
+    function toggleNav() { isNavOpen ? closeNav() : openNav(); }
+
+    btn.addEventListener('click', function (e) { e.stopPropagation(); toggleNav(); });
+    overlay.addEventListener('click', closeNav);
+
+    // Close nav when any nav-link is clicked
+    nav.querySelectorAll('.nav-link, a').forEach(function (a) {
+      a.addEventListener('click', function () { setTimeout(closeNav, 80); });
+    });
+    // Close on Escape key
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && isNavOpen) closeNav();
+    });
+
+    // ── Swipe-to-close (right-edge swipe left) ───────────────────────
+    var swipeStartX = 0;
+    var swipeStartY = 0;
+    nav.addEventListener('touchstart', function (e) {
+      swipeStartX = e.touches[0].clientX;
+      swipeStartY = e.touches[0].clientY;
+    }, { passive: true });
+    nav.addEventListener('touchend', function (e) {
+      var dx = e.changedTouches[0].clientX - swipeStartX;
+      var dy = Math.abs(e.changedTouches[0].clientY - swipeStartY);
+      if (dx > 60 && dy < 60) closeNav();   // swipe right → close (RTL-friendly)
+      if (dx < -60 && dy < 60) closeNav();  // swipe left → close (for left drawer)
+    }, { passive: true });
+
+    // ── Swipe-to-close on chat widget (bottom sheet) ─────────────────
+    var cwPanel = document.getElementById('cw-panel');
+    if (cwPanel) {
+      var cwSwipeY = 0;
+      cwPanel.addEventListener('touchstart', function (e) {
+        cwSwipeY = e.touches[0].clientY;
+      }, { passive: true });
+      cwPanel.addEventListener('touchend', function (e) {
+        var dy = e.changedTouches[0].clientY - cwSwipeY;
+        // Swipe down ≥ 80px on top 60px of panel → close
+        if (dy > 80 && e.changedTouches[0].clientY - cwPanel.getBoundingClientRect().top < 60) {
+          var fab = document.getElementById('cw-fab');
+          if (fab) fab.click();
+        }
+      }, { passive: true });
+    }
+
+    // ── Active nav-link current page ─────────────────────────────────
+    var curPage = location.pathname.split('/').pop() || 'index.html';
+    nav.querySelectorAll('a.nav-link').forEach(function (a) {
+      var href = (a.getAttribute('href') || '').split('?')[0].split('/').pop();
+      if (href === curPage) a.classList.add('active');
+    });
+  }
+
+  // ════════════════════════════════════════════════════════
   //  BOOT ALL
   // ════════════════════════════════════════════════════════
   function bootAll() {
@@ -557,6 +693,7 @@
     bootKpiCountUp();
     setTimeout(bootAiProLauncher, 120);
     bootKeyboardShortcuts();
+    bootMobile();
   }
 
   if (document.readyState === 'loading') {
