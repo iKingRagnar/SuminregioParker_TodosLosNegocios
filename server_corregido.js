@@ -9804,19 +9804,33 @@ Tu objetivo: dar insights accionables, detectar anomalías y guiar decisiones co
 
 const AI_WELCOME_MICROSIP = `¡Hola! 👋 Soy tu **Agente de Soporte** (Suminregio Parker · Microsip).
 
-Puedo ayudarte a **interpretar** ventas, cotizaciones, cuentas por cobrar, inventario y resultados. Todo es **solo lectura** frente a la base.
+Puedo ayudarte a **interpretar** ventas, cotizaciones, cuentas por cobrar, inventario, metas, comisiones y resultados. Todo es **solo lectura** frente a la base.
 
-Ejemplos: "¿Cuántas cotizaciones van hoy?" · "¿Qué es el saldo de CxC?" · "¿Cuál es el ticket promedio cobrado este mes?" · "Explícame el margen bruto en Resultados."`;
+**¿Qué puedo hacer?**
+• 💰 Ventas — importe hoy, del mes, por tipo VE/PV
+• 📋 Cotizaciones — cuántas van hoy, importe, muestra reciente
+• 🏦 CxC — saldo total, top deudores, por condición de pago
+• 🎯 Metas — cumplimiento por vendedor hoy y en el mes
+• 👥 Vendedores — ranking, % vs meta, quién va arriba o abajo
+• 📦 Inventario — alertas de quiebre, artículos sin existencia
+• 📊 Resultados P&L — márgenes, gastos, comparativo meses
+• 🔔 Alertas — resumen ejecutivo de todo lo que necesita atención
+
+Ejemplos: "¿Quién va por debajo de la meta hoy?" · "¿Cuántas cotizaciones van este mes?" · "¿Qué artículos están en quiebre?" · "Dame el resumen ejecutivo del día" · "¿Cuál es el margen bruto este mes?"`;
 
 const AI_TOOL_CATALOG = [
-  { id: 'cotizaciones', label: 'Cotizaciones activas', area: 'ventas' },
-  { id: 'cxc', label: 'Cuentas por cobrar', area: 'cartera' },
-  { id: 'ventas', label: 'Ventas facturadas VE/PV', area: 'ventas' },
-  { id: 'cobradas', label: 'Cobros registrados', area: 'cobranza' },
-  { id: 'resultados', label: 'Estado de resultados / P&L', area: 'finanzas' },
-  { id: 'pronostico_ventas', label: 'Pronóstico ventas 3 meses', area: 'analitica' },
-  { id: 'escenario_visual', label: 'Dashboard visual generado', area: 'visual' },
-  { id: 'dashboard_screenshot', label: 'Screenshot dashboard real', area: 'visual' },
+  { id: 'cotizaciones',        label: 'Cotizaciones activas',             area: 'ventas'     },
+  { id: 'cxc',                 label: 'Cuentas por cobrar',               area: 'cartera'    },
+  { id: 'ventas',              label: 'Ventas facturadas VE/PV',          area: 'ventas'     },
+  { id: 'cobradas',            label: 'Cobros registrados',               area: 'cobranza'   },
+  { id: 'resultados',          label: 'Estado de resultados / P&L',       area: 'finanzas'   },
+  { id: 'metas_ventas',        label: 'Cumplimiento de metas por vendedor',area: 'metas'     },
+  { id: 'vendedores',          label: 'Ranking y performance vendedores', area: 'ventas'     },
+  { id: 'inventario_alertas',  label: 'Alertas de inventario y quiebres', area: 'inventario' },
+  { id: 'director',            label: 'Resumen ejecutivo multimódulo',    area: 'director'   },
+  { id: 'pronostico_ventas',   label: 'Pronóstico ventas 3 meses',        area: 'analitica'  },
+  { id: 'escenario_visual',    label: 'Dashboard visual generado',        area: 'visual'     },
+  { id: 'dashboard_screenshot',label: 'Screenshot dashboard real',        area: 'visual'     },
 ];
 
 const AI_CONTEXT_CACHE = new Map();
@@ -9846,12 +9860,21 @@ function aiSelectTools({ text = '', lowerPool = '', page = '', requested = [] })
   const wantsForecast = /\b(pron[oó]stico|proyecci[oó]n|forecast|estimar|estimaci[oó]n|siguientes?\s+\d+\s+mes(es)?|pr[oó]ximos?\s+\d+\s+mes(es)?)\b/i.test(lowerPool) && /\b(ventas?|facturaci[oó]n|vendid[oa]s?)\b/i.test(lowerPool);
   const wantsVisualScenario = /\b(visual(?:es)?\s+ai|escenario|simulaci[oó]n)\b/i.test(lowerPool);
   const wantsDashboardShot = /\b(screenshot|captura|pantalla|dashboard real|vista actual)\b/i.test(lowerPool);
+  // ── NUEVOS: metas, vendedores, inventario, director ─────────────────────
+  const wantsMetas = /\b(meta(?:s)?|cumplimiento|objetivo(?:s)?|vs\s+meta|bajo\s+meta|sobre\s+meta|alcanz[oó]\s+la\s+meta|cuota|% ?cumpl)\b/i.test(lowerPool);
+  const wantsVendedores = /\b(vendedor(?:es)?|equipo\s+de\s+ventas|ranking\s+vend|qui[eé]n\s+vende|top\s+vend|mejor\s+vend|peor\s+vend|performance\s+vend|por\s+vendedor)\b/i.test(lowerPool);
+  const wantsInventario = /\b(inventario|existencia(?:s)?|stock|quiebre(?:s)?|sin\s+existencia|artículo(?:s)?\s+(crítico|sin\s+stock|agotado)|días\s+de\s+cobertura|mínimo\s+de\s+inventario|ruptura)\b/i.test(lowerPool);
+  const wantsDirector = /\b(resumen\s+(ejecutivo|del\s+día|general|director)|qué\s+pasa\s+(hoy|con\s+el\s+negocio)|cómo\s+(vamos|está\s+el\s+negocio)|estado\s+general|alertas?\s+(del\s+día|hoy|del\s+sistema|generales?)|panorama|visión\s+general|brief\s+(ejecutivo|del\s+día)|kpis?\s+ejecutivos?)\b/i.test(lowerPool);
 
   if (wantsCotizaciones) picks.push('cotizaciones');
   if (wantsCxc) picks.push('cxc');
   if (wantsVentas) picks.push('ventas');
   if (wantsCobradas) picks.push('cobradas');
   if (wantsResultados) picks.push('resultados');
+  if (wantsMetas) picks.push('metas_ventas');
+  if (wantsVendedores) picks.push('vendedores');
+  if (wantsInventario) picks.push('inventario_alertas');
+  if (wantsDirector) picks.push('director');
   if (wantsForecast) picks.push('pronostico_ventas');
   const wantsExplicitScenario = /\b(escenario|simulaci[oó]n)\b/i.test(lowerPool);
   if (wantsVisualScenario && (!wantsDashboardShot || wantsExplicitScenario)) picks.push('escenario_visual');
@@ -9861,6 +9884,9 @@ function aiSelectTools({ text = '', lowerPool = '', page = '', requested = [] })
     else if (/cxc\.html/i.test(page)) picks.push('cxc');
     else if (/cobradas\.html/i.test(page)) picks.push('cobradas');
     else if (/ventas\.html/i.test(page)) picks.push('ventas');
+    else if (/vendedores\.html/i.test(page)) picks.push('vendedores');
+    else if (/inventario\.html/i.test(page)) picks.push('inventario_alertas');
+    else if (/director\.html|index\.html/i.test(page)) picks.push('director');
   }
   return [...new Set(picks)];
 }
@@ -10424,6 +10450,194 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
         visuals: [{ type: 'image', title: 'Escenario AI generado', url: aiSvgDataUrl(svg) }],
       };
     }
+    // ── METAS DE VENTAS ─────────────────────────────────────────────────────
+    if (toolId === 'metas_ventas') {
+      const cumpl = await query(
+        `SELECT COALESCE(MAX(META_DIARIA_POR_VENDEDOR),0) AS META_DIA, COALESCE(MAX(META_IDEAL_POR_VENDEDOR),0) AS META_IDEAL FROM CONFIGURACIONES_GEN`,
+        [], 8000, dbOpts
+      ).catch(() => [{ META_DIA: 0, META_IDEAL: 0 }]);
+      const metaDia   = +(cumpl[0] && cumpl[0].META_DIA) || 0;
+      const metaIdeal = +(cumpl[0] && cumpl[0].META_IDEAL) || 0;
+      const tipo = getTipo(aiReq);
+      const vendRowsToday = await query(`
+        SELECT
+          COALESCE(v.NOMBRE, 'Vendedor ' || CAST(d.VENDEDOR_ID AS VARCHAR(8))) AS NOMBRE,
+          COALESCE(d.VENDEDOR_ID, 0) AS VENDEDOR_ID,
+          COALESCE(SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END), 0) AS VENTA_HOY,
+          COALESCE(SUM(CASE WHEN EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE) AND EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE) THEN d.IMPORTE_NETO ELSE 0 END), 0) AS VENTA_MES
+        FROM ${ventasSub(tipo)} d
+        LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
+        WHERE EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE)
+          AND EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE)
+          AND COALESCE(d.VENDEDOR_ID, 0) > 0
+        GROUP BY d.VENDEDOR_ID, v.NOMBRE
+        ORDER BY 4 DESC
+      `, [], 12000, dbOpts).catch(() => []);
+      const today = new Date();
+      const diasTranscurridos = Math.max(today.getDate(), 1);
+      const metaMes = metaDia * diasTranscurridos;
+      const bajosHoy = (vendRowsToday || []).filter(r => metaDia > 0 && +r.VENTA_HOY < metaDia * 0.7);
+      const sobresalenHoy = (vendRowsToday || []).filter(r => metaDia > 0 && +r.VENTA_HOY >= metaDia);
+      const totalHoy = (vendRowsToday || []).reduce((s, r) => s + (+r.VENTA_HOY || 0), 0);
+      const totalMes = (vendRowsToday || []).reduce((s, r) => s + (+r.VENTA_MES || 0), 0);
+      const nVend = (vendRowsToday || []).length;
+      const pctMes = metaMes > 0 && nVend > 0 ? Math.round(totalMes / (metaMes * nVend) * 100) : 0;
+      const linesVend = (vendRowsToday || []).slice(0, 8).map(r => {
+        const pctH = metaDia > 0 ? Math.round(+r.VENTA_HOY / metaDia * 100) : 0;
+        const pctM = metaMes > 0 ? Math.round(+r.VENTA_MES / metaMes * 100) : 0;
+        const semH = pctH >= 100 ? '✅' : pctH >= 70 ? '⚡' : '🔴';
+        return `${semH} ${r.NOMBRE}: hoy $${Number(r.VENTA_HOY||0).toLocaleString('es-MX')} (${pctH}%) · mes $${Number(r.VENTA_MES||0).toLocaleString('es-MX')} (${pctM}%)`;
+      });
+      return {
+        toolId,
+        block: `\n\n**Metas de Ventas (herramienta):**
+- Meta diaria por vendedor: $${metaDia.toLocaleString('es-MX')} · ideal: $${metaIdeal.toLocaleString('es-MX')}.
+- Vendedores activos este mes: ${nVend}.
+- Total hoy (equipo): $${totalHoy.toLocaleString('es-MX')}.
+- Total mes vs meta acum.: $${totalMes.toLocaleString('es-MX')} / $${(metaMes*nVend).toLocaleString('es-MX')} = **${pctMes}%**.
+- Días transcurridos: ${diasTranscurridos} de ~${new Date(today.getFullYear(), today.getMonth()+1, 0).getDate()}.
+- ✅ Sobre meta hoy: ${sobresalenHoy.map(r=>r.NOMBRE).join(', ') || 'Ninguno aún'}.
+- 🔴 Bajo meta hoy (<70%): ${bajosHoy.map(r=>r.NOMBRE).join(', ') || 'Todos en rango'}.
+${linesVend.join('\n')}`,
+        source: '/api/ventas/cumplimiento',
+      };
+    }
+
+    // ── VENDEDORES — RANKING Y PERFORMANCE ──────────────────────────────────
+    if (toolId === 'vendedores') {
+      const tipo = getTipo(aiReq);
+      const fV = buildFiltros(aiReq, 'd');
+      const rows = await query(`
+        SELECT FIRST 12
+          COALESCE(v.NOMBRE, 'Vendedor ' || CAST(d.VENDEDOR_ID AS VARCHAR(8))) AS NOMBRE,
+          COALESCE(d.VENDEDOR_ID, 0) AS VENDEDOR_ID,
+          COALESCE(SUM(d.IMPORTE_NETO), 0) AS VENTA_TOTAL,
+          COALESCE(SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END), 0) AS VENTA_HOY,
+          COALESCE(SUM(CASE WHEN EXTRACT(MONTH FROM d.FECHA)=EXTRACT(MONTH FROM CURRENT_DATE) AND EXTRACT(YEAR FROM d.FECHA)=EXTRACT(YEAR FROM CURRENT_DATE) THEN d.IMPORTE_NETO ELSE 0 END), 0) AS VENTA_MES,
+          COUNT(*) AS NUM_FACTURAS
+        FROM ${ventasSub(tipo)} d
+        LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
+        WHERE 1=1 ${fV.sql} AND COALESCE(d.VENDEDOR_ID, 0) > 0
+        GROUP BY d.VENDEDOR_ID, v.NOMBRE
+        ORDER BY 3 DESC
+      `, fV.params, 12000, dbOpts).catch(() => []);
+      const total = (rows || []).reduce((s, r) => s + (+r.VENTA_TOTAL || 0), 0);
+      const lines = (rows || []).map((r, i) => {
+        const pct = total > 0 ? ((+r.VENTA_TOTAL/total)*100).toFixed(1) : '0';
+        return `${i+1}. ${r.NOMBRE}: $${Number(r.VENTA_TOTAL||0).toLocaleString('es-MX')} (${pct}% del equipo · ${r.NUM_FACTURAS} facturas)`;
+      });
+      return {
+        toolId,
+        block: `\n\n**Vendedores — Ranking (herramienta):**
+- Total equipo en periodo: $${total.toLocaleString('es-MX')}.
+${lines.join('\n') || '- Sin datos para el periodo.'}`,
+        source: '/api/ventas/por-vendedor',
+      };
+    }
+
+    // ── INVENTARIO — ALERTAS Y QUIEBRES ─────────────────────────────────────
+    if (toolId === 'inventario_alertas') {
+      const qCtxInv = (aiReq && aiReq.query) || {};
+      const dbId = dbOpts && dbOpts.database ? dbOpts.database : 'default';
+      // Intentar endpoint de consumos/alertas (artículos con cobertura < 14 días)
+      const artRows = await query(`
+        SELECT FIRST 20
+          TRIM(a.ARTICULO) AS ARTICULO,
+          COALESCE(a.EXISTENCIA_ACTUAL, 0) AS EXISTENCIA,
+          COALESCE(a.MINIMO, 0) AS INVENTARIO_MINIMO,
+          COALESCE(a.DIAS_COBERTURA, 0) AS DIAS_COBERTURA,
+          CASE
+            WHEN COALESCE(a.EXISTENCIA_ACTUAL, 0) <= 0 THEN 'SIN_EXISTENCIA'
+            WHEN COALESCE(a.MINIMO, 0) > 0 AND COALESCE(a.EXISTENCIA_ACTUAL, 0) <= COALESCE(a.MINIMO, 0) THEN 'BAJO_MINIMO'
+            WHEN COALESCE(a.DIAS_COBERTURA, 99) < 14 THEN 'COBERTURA_BAJA'
+            ELSE 'OK'
+          END AS ALERTA
+        FROM ARTICULOS a
+        WHERE (
+          (COALESCE(a.EXISTENCIA_ACTUAL, 0) <= 0 AND COALESCE(a.MINIMO, 0) > 0)
+          OR (COALESCE(a.MINIMO, 0) > 0 AND COALESCE(a.EXISTENCIA_ACTUAL, 0) <= COALESCE(a.MINIMO, 0))
+        )
+        AND COALESCE(a.BAJA, 'N') <> 'S'
+        ORDER BY COALESCE(a.DIAS_COBERTURA, 0) ASC, COALESCE(a.EXISTENCIA_ACTUAL, 0) ASC
+      `, [], 15000, dbOpts).catch(() => []);
+      const sinExistencia = (artRows||[]).filter(r => r.ALERTA === 'SIN_EXISTENCIA');
+      const bajoMinimo   = (artRows||[]).filter(r => r.ALERTA === 'BAJO_MINIMO');
+      const cobertBaja   = (artRows||[]).filter(r => r.ALERTA === 'COBERTURA_BAJA');
+      const lines = [
+        sinExistencia.length > 0 ? `❌ Sin existencia (mín. definido): ${sinExistencia.slice(0,5).map(r=>r.ARTICULO).join(', ')}` : null,
+        bajoMinimo.length > 0   ? `⚠️ Bajo mínimo: ${bajoMinimo.slice(0,5).map(r=>`${r.ARTICULO} (exist:${r.EXISTENCIA} mín:${r.INVENTARIO_MINIMO})`).join(', ')}` : null,
+        cobertBaja.length > 0  ? `📉 Cobertura <14d: ${cobertBaja.slice(0,5).map(r=>`${r.ARTICULO} (${r.DIAS_COBERTURA}d)`).join(', ')}` : null,
+      ].filter(Boolean);
+      const totalAlertas = sinExistencia.length + bajoMinimo.length + cobertBaja.length;
+      return {
+        toolId,
+        block: `\n\n**Inventario — Alertas (herramienta):**
+- Total artículos con alerta: **${totalAlertas}** (sin existencia: ${sinExistencia.length}, bajo mínimo: ${bajoMinimo.length}, cobertura <14d: ${cobertBaja.length}).
+${lines.length ? lines.join('\n') : '- ✅ Sin artículos críticos detectados.'}`,
+        source: '/api/inventario (ARTICULOS tabla directa)',
+      };
+    }
+
+    // ── DIRECTOR — RESUMEN EJECUTIVO MULTIMÓDULO ────────────────────────────
+    if (toolId === 'director') {
+      const tipo = getTipo(aiReq);
+      // 1. Ventas hoy y mes
+      const [vr] = await query(`
+        SELECT
+          COALESCE(SUM(CASE WHEN CAST(d.FECHA AS DATE)=CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END),0) AS HOY,
+          COALESCE(SUM(CASE WHEN EXTRACT(MONTH FROM d.FECHA)=EXTRACT(MONTH FROM CURRENT_DATE) AND EXTRACT(YEAR FROM d.FECHA)=EXTRACT(YEAR FROM CURRENT_DATE) THEN d.IMPORTE_NETO ELSE 0 END),0) AS MES
+        FROM ${ventasSub(tipo)} d
+        WHERE EXTRACT(MONTH FROM d.FECHA)=EXTRACT(MONTH FROM CURRENT_DATE) AND EXTRACT(YEAR FROM d.FECHA)=EXTRACT(YEAR FROM CURRENT_DATE)
+      `, [], 12000, dbOpts).catch(() => [{ HOY: 0, MES: 0 }]);
+      // 2. Cotizaciones hoy
+      const cotiOpts = await cotizacionSqlOpts(dbOpts);
+      const cotiSub  = cotizacionesSub('', cotiOpts);
+      const [cr] = await query(`
+        SELECT
+          COUNT(CASE WHEN CAST(d.FECHA AS DATE)=CURRENT_DATE THEN 1 END) AS COT_HOY,
+          COALESCE(SUM(CASE WHEN EXTRACT(MONTH FROM d.FECHA)=EXTRACT(MONTH FROM CURRENT_DATE) THEN ${sqlCotiImporteExpr('d')} ELSE 0 END),0) AS COT_MES
+        FROM ${cotiSub} d
+        WHERE EXTRACT(MONTH FROM d.FECHA)=EXTRACT(MONTH FROM CURRENT_DATE) AND EXTRACT(YEAR FROM d.FECHA)=EXTRACT(YEAR FROM CURRENT_DATE)
+      `, [], 12000, dbOpts).catch(() => [{ COT_HOY: 0, COT_MES: 0 }]);
+      // 3. CxC saldo
+      const [cx] = await query(`SELECT COALESCE(SUM(s.SALDO),0) AS T FROM ${cxcClienteSQL()} s`, [], 12000, dbOpts).catch(() => [{ T: 0 }]);
+      // 4. Metas equipo hoy
+      const [metaConf] = await query(`SELECT COALESCE(MAX(META_DIARIA_POR_VENDEDOR),0) AS META_DIA FROM CONFIGURACIONES_GEN`, [], 8000, dbOpts).catch(() => [{ META_DIA: 0 }]);
+      const metaDia = +(metaConf && metaConf.META_DIA) || 0;
+      const vendToday = await query(`
+        SELECT COUNT(*) AS N_VEND,
+          COALESCE(SUM(CASE WHEN CAST(d.FECHA AS DATE)=CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END),0) AS TOTAL_HOY,
+          COUNT(DISTINCT CASE WHEN CAST(d.FECHA AS DATE)=CURRENT_DATE AND d.VENDEDOR_ID > 0 THEN d.VENDEDOR_ID END) AS VEND_CON_VENTA_HOY
+        FROM ${ventasSub(tipo)} d
+        WHERE EXTRACT(MONTH FROM d.FECHA)=EXTRACT(MONTH FROM CURRENT_DATE) AND EXTRACT(YEAR FROM d.FECHA)=EXTRACT(YEAR FROM CURRENT_DATE)
+          AND COALESCE(d.VENDEDOR_ID,0) > 0
+      `, [], 12000, dbOpts).catch(() => [{ N_VEND: 0, TOTAL_HOY: 0, VEND_CON_VENTA_HOY: 0 }]);
+      const vhRow = vendToday[0] || {};
+      const nVend = +vhRow.N_VEND || 0;
+      const metaEquipoHoy = metaDia * nVend;
+      const pctEquipoHoy  = metaEquipoHoy > 0 ? Math.round(+vhRow.TOTAL_HOY / metaEquipoHoy * 100) : 0;
+      // 5. Alertas inventario rápido
+      const artAlerts = await query(`
+        SELECT COUNT(*) AS N FROM ARTICULOS
+        WHERE COALESCE(MINIMO,0) > 0 AND COALESCE(EXISTENCIA_ACTUAL,0) <= COALESCE(MINIMO,0)
+          AND COALESCE(BAJA,'N') <> 'S'
+      `, [], 10000, dbOpts).catch(() => [{ N: 0 }]);
+      const nArtAlertas = +((artAlerts[0] && artAlerts[0].N) || 0);
+      const semVentas = pctEquipoHoy >= 100 ? '✅' : pctEquipoHoy >= 70 ? '⚡' : '🔴';
+      const semCxC    = +(cx && cx.T) > 500000 ? '⚠️' : '✅';
+      const semInv    = nArtAlertas > 5 ? '🔴' : nArtAlertas > 0 ? '⚠️' : '✅';
+      return {
+        toolId,
+        block: `\n\n**📊 Resumen Ejecutivo del Día (herramienta):**
+${semVentas} **Ventas hoy:** $${Number(+vhRow.TOTAL_HOY||0).toLocaleString('es-MX')} / meta $${metaEquipoHoy.toLocaleString('es-MX')} = ${pctEquipoHoy}% · ${+vhRow.VEND_CON_VENTA_HOY||0}/${nVend} vendedores con venta.
+💰 **Ventas del mes:** $${Number(+(vr&&vr.MES)||0).toLocaleString('es-MX')}.
+📋 **Cotizaciones hoy:** ${+(cr&&cr.COT_HOY)||0} docs · mes: $${Number(+(cr&&cr.COT_MES)||0).toLocaleString('es-MX')}.
+${semCxC} **CxC (cartera):** $${Number(+(cx&&cx.T)||0).toLocaleString('es-MX')}.
+${semInv} **Alertas inventario:** ${nArtAlertas} artículos en o bajo mínimo.`,
+        source: 'ventas+cotizaciones+cxc+configuraciones+articulos',
+      };
+    }
+
     if (toolId === 'dashboard_screenshot') {
       const pageFile = aiDetectDashboardPage(ctx.text || '', ctx.pageCtx || '');
       const baseUrl = process.env.AI_SCREENSHOT_BASE_URL || `http://127.0.0.1:${PORT}`;
