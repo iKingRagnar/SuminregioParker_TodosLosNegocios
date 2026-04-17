@@ -11370,9 +11370,17 @@ app.get('/api/debug/cotizaciones', async (req, res) => {
     F: [`SELECT RDB$INDEX_NAME, RDB$FIELD_NAME FROM RDB$INDEX_SEGMENTS WHERE RDB$INDEX_NAME IN (SELECT RDB$INDEX_NAME FROM RDB$INDICES WHERE RDB$RELATION_NAME = 'DOCTOS_VE') ORDER BY RDB$INDEX_NAME, RDB$FIELD_POSITION`, []],
     // G: APLICADO='N' solo — test selectividad
     G: [`SELECT FIRST 5 h.TIPO_DOCTO, h.APLICADO FROM DOCTOS_VE h WHERE h.APLICADO = 'N'`, []],
+    // H: IE1 index test — FECHA range sin TIPO_DOCTO (IE1 = FECHA,TIPO_DOCTO,FOLIO)
+    H: [`SELECT COUNT(*) AS N FROM DOCTOS_VE h WHERE h.FECHA >= '2026-04-01' AND h.FECHA < '2026-05-01'`, []],
+    // I: IE1 + TIPO_DOCTO cotizaciones — el query ideal si IE1 es rápido
+    I: [`SELECT h.TIPO_DOCTO, COUNT(*) AS N, COALESCE(SUM(h.IMPORTE_NETO),0) AS TOTAL FROM DOCTOS_VE h WHERE h.FECHA >= '2026-04-01' AND h.FECHA < '2026-05-01' GROUP BY h.TIPO_DOCTO ORDER BY N DESC`, []],
+    // J: FIRST 10 DOCTOS_VE — ver qué TIPO_DOCTO existen (sin WHERE, usa PK)
+    J: [`SELECT FIRST 10 h.TIPO_DOCTO, h.APLICADO, h.FECHA FROM DOCTOS_VE h ORDER BY h.DOCTO_VE_ID DESC`, []],
+    // K: forzar índice IE1 explícitamente + cotizaciones tipos
+    K: [`SELECT FIRST 1 h.DOCTO_VE_ID FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'F'`, []],
   };
   const entry = queries[q];
-  if (!entry) return res.json({ ok: false, error: `q debe ser A-G, recibido: ${q}` });
+  if (!entry) return res.json({ ok: false, error: `q debe ser A-K, recibido: ${q}` });
   try {
     const rows = await query(entry[0], entry[1], 12000, dbo);
     res.json({ ok: true, q, ms: Date.now() - t, data: rows });
