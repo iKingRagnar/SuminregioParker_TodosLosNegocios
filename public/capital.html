@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="es" class="theme-premium-light" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Suminregio Parker &mdash; Capital de Trabajo</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<script>window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');</script>
+<script src="filters.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060E1A;--s1:#0C1B29;--s2:#112233;--s3:#172D42;--s4:#1D3654;
+  --border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.11);
+  --suminregio:#E6A800;--suminregio-dim:rgba(230,168,0,.15);
+  --green:#00E5A0;--green-dim:rgba(0,229,160,.1);
+  --yellow:#FFB800;--yellow-dim:rgba(255,184,0,.12);
+  --orange:#FF8C42;--orange-dim:rgba(255,140,66,.1);
+  --red:#FF4566;--red-dim:rgba(255,69,102,.12);
+  --blue:#4DA6FF;--blue-dim:rgba(77,166,255,.1);
+  --purple:#9B6DFF;--purple-dim:rgba(155,109,255,.1);
+  --text:#E8EFF8;--text2:#B0BECE;--muted:#5A7090;--dim:#243348;
+}
+html{font-size:16px;-webkit-font-smoothing:antialiased}
+body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh}
+.bg-orbs{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.orb{position:absolute;border-radius:50%;filter:blur(130px);opacity:.12;animation:drift 20s ease-in-out infinite alternate}
+.orb-1{width:600px;height:600px;background:radial-gradient(circle,#1E7FD9,transparent 70%);bottom:-100px;right:-100px}
+.orb-2{width:500px;height:500px;background:radial-gradient(circle,#FFB800,transparent 70%);top:-100px;left:-100px;animation-delay:-5s}
+.orb-3{width:400px;height:400px;background:radial-gradient(circle,rgba(230,168,0,.5),transparent 72%);top:42%;right:15%;opacity:.07;animation-delay:-11s}
+@keyframes drift{0%{transform:translate(0,0)}100%{transform:translate(15px,15px)}}
+header{position:sticky;top:0;z-index:100;background:rgba(5,11,20,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
+.page{position:relative;z-index:1;max-width:1600px;margin:0 auto;padding:2rem}
+.page-header{margin-bottom:2rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.page-title{font-size:1.75rem;font-weight:800;background:linear-gradient(135deg,var(--text),var(--suminregio));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.page-sub{font-size:.85rem;color:var(--muted);margin-top:.35rem}
+
+/* KPI Grid */
+.kpi-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:1rem;margin-bottom:1.5rem}
+@media(max-width:1200px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:700px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+.kpi-card{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:1.25rem 1.5rem;position:relative;overflow:hidden;transition:all .3s}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--kpi-c),transparent);opacity:.8}
+.kpi-card:hover{border-color:var(--border2);transform:translateY(-2px);box-shadow:0 12px 40px rgba(0,0,0,.3)}
+.kpi-card.blue{--kpi-c:var(--blue)}.kpi-card.green{--kpi-c:var(--green)}.kpi-card.yellow{--kpi-c:var(--yellow)}.kpi-card.orange{--kpi-c:var(--orange)}.kpi-card.red{--kpi-c:var(--red)}.kpi-card.gold{--kpi-c:var(--suminregio)}
+.kpi-label{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem}
+.kpi-value{font-family:'DM Mono',monospace;font-size:1.35rem;font-weight:500;letter-spacing:-.02em;line-height:1}
+.kpi-card.blue .kpi-value{color:var(--blue)}.kpi-card.green .kpi-value{color:var(--green)}
+.kpi-card.yellow .kpi-value{color:var(--yellow)}.kpi-card.orange .kpi-value{color:var(--orange)}
+.kpi-card.red .kpi-value{color:var(--red)}.kpi-card.gold .kpi-value{color:var(--suminregio);font-size:1.6rem}
+.kpi-sub{margin-top:.4rem;font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted)}
+
+/* Cards */
+.card{background:var(--s1);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:1.25rem}
+.card-head{padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem}
+.card-title{font-size:.88rem;font-weight:600;color:var(--text);display:flex;align-items:center;gap:.6rem;flex:1;min-width:0}
+.card-title svg{width:16px;height:16px;fill:var(--muted)}
+.card-badge{font-family:'DM Mono',monospace;font-size:.63rem;padding:.2rem .6rem;border-radius:99px;border:1px solid var(--border2);color:var(--muted)}
+.card-body{padding:1.5rem}
+
+/* Form */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+@media(max-width:700px){.form-grid{grid-template-columns:1fr}}
+.form-col-label{font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:.75rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+.form-group{margin-bottom:.85rem}
+.form-group label{display:block;font-size:.72rem;color:var(--text2);margin-bottom:.3rem;font-weight:500}
+.form-row{display:flex;gap:.5rem;align-items:center}
+.form-input{flex:1;background:var(--s2);border:1px solid var(--border2);color:var(--text);padding:.5rem .85rem;border-radius:10px;font-size:.82rem;font-family:'DM Mono',monospace;outline:none;transition:border-color .2s,box-shadow .2s;width:100%}
+.form-input:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(77,166,255,.15)}
+.form-input::placeholder{color:var(--muted)}
+.btn{cursor:pointer;border:none;border-radius:10px;font-family:'Syne',sans-serif;font-size:.78rem;font-weight:600;transition:all .2s;display:inline-flex;align-items:center;gap:.4rem;padding:.45rem .85rem}
+.btn-reload{background:rgba(0,229,160,.12);color:var(--green);border:1px solid rgba(0,229,160,.25);flex-shrink:0}
+.btn-reload:hover{background:rgba(0,229,160,.2)}
+.btn-save{background:linear-gradient(135deg,var(--suminregio),var(--orange));color:#000;padding:.7rem 1.5rem;border-radius:12px;font-size:.88rem;width:100%;justify-content:center;margin-top:1rem}
+.btn-save:hover{opacity:.9;transform:translateY(-1px)}
+.badge-auto{display:inline-flex;align-items:center;gap:.35rem;background:rgba(0,229,160,.1);border:1px solid rgba(0,229,160,.25);color:var(--green);border-radius:99px;padding:.15rem .55rem;font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.05em}
+.badge-auto-dot{width:5px;height:5px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* Live preview */
+.live-preview{background:var(--s2);border:1px solid var(--border2);border-radius:12px;padding:.85rem 1.1rem;margin-top:1rem;font-family:'DM Mono',monospace;font-size:.72rem;color:var(--text2);display:flex;flex-wrap:wrap;gap:.5rem .75rem;align-items:center}
+.lp-item{display:inline-flex;align-items:center;gap:.3rem}
+.lp-label{color:var(--muted)}
+.lp-val{color:var(--text)}
+.lp-sep{color:var(--dim);user-select:none}
+.lp-capital{color:var(--suminregio);font-weight:500}
+.lp-pos{color:var(--green)}.lp-neg{color:var(--red)}
+
+/* Tabla 52 semanas */
+.tbl-52-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-top:1px solid var(--border)}
+.tbl-52{border-collapse:collapse;font-size:.73rem;white-space:nowrap}
+.tbl-52 th{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;padding:.55rem .8rem;text-align:right;border-bottom:1px solid var(--border);background:var(--s1);position:sticky;top:0;z-index:2}
+.tbl-52 th.col-concepto{text-align:left;left:0;z-index:3;min-width:180px}
+.tbl-52 td{padding:.55rem .8rem;border-bottom:1px solid var(--border);text-align:right;color:var(--text2);font-family:'DM Mono',monospace;font-size:.72rem}
+.tbl-52 td.col-concepto{text-align:left;position:sticky;left:0;background:var(--s1);z-index:1;color:var(--text2);border-right:1px solid var(--border2)}
+.tbl-52 tr:hover td{background:var(--s2)}
+.tbl-52 tr:hover td.col-concepto{background:var(--s2)}
+.tbl-52 td.cur-week{background:var(--yellow-dim)!important;border-top:2px solid var(--yellow)}
+.tbl-52 td.cur-week.col-concepto{background:var(--yellow-dim)!important}
+.tbl-52 td.empty-week{color:var(--muted)}
+.tbl-52 tr.section-hdr td{background:var(--s3);color:var(--muted);font-size:.6rem;letter-spacing:.09em;text-transform:uppercase;font-weight:600;padding:.35rem .8rem}
+.tbl-52 tr.section-hdr td.col-concepto{background:var(--s3)}
+.tbl-52 tr.capital-row td{background:rgba(255,184,0,.06);color:var(--yellow);font-size:.82rem;font-weight:600;border-top:2px solid var(--yellow);border-bottom:2px solid rgba(255,184,0,.2)}
+.tbl-52 tr.capital-row td.col-concepto{background:rgba(255,184,0,.06);color:var(--yellow)}
+.tbl-52 tr.capital-row td.cur-week{background:rgba(255,184,0,.18)!important}
+.tbl-52 tr.var-row td{font-size:.7rem}
+.tbl-52 .pos{color:var(--green)}.tbl-52 .neg{color:var(--red)}
+.chip-auto{display:inline-block;background:rgba(0,229,160,.12);color:var(--green);border-radius:4px;padding:.05rem .3rem;font-size:.55rem;margin-left:.3rem;vertical-align:middle;letter-spacing:.04em}
+
+/* Chart */
+.chart-wrap{padding:1.5rem;height:340px;position:relative}
+canvas{width:100%!important}
+
+/* Decomp bars */
+.decomp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem}
+@media(max-width:700px){.decomp-grid{grid-template-columns:1fr}}
+.decomp-bar-row{margin-bottom:1rem}
+.decomp-bar-label{display:flex;justify-content:space-between;align-items:center;margin-bottom:.35rem;font-size:.75rem}
+.decomp-bar-name{color:var(--text2);font-weight:500}
+.decomp-bar-amt{font-family:'DM Mono',monospace;font-size:.72rem}
+.decomp-bar-bg{height:10px;background:var(--s3);border-radius:99px;overflow:hidden}
+.decomp-bar-fill{height:100%;border-radius:99px;transition:width .6s ease}
+
+/* Toast */
+.toast{position:fixed;bottom:2rem;right:2rem;background:var(--s2);border:1px solid var(--border2);border-radius:12px;padding:.85rem 1.25rem;font-family:'DM Mono',monospace;font-size:.78rem;color:var(--text);z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.4);transform:translateY(120%);opacity:0;transition:all .35s cubic-bezier(.34,1.56,.64,1)}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success{border-color:rgba(0,229,160,.3);color:var(--green)}
+.toast.error{border-color:rgba(255,69,102,.3);color:var(--red)}
+
+/* Light theme */
+html.theme-premium-light,html[data-theme="light"]{
+  --bg:#F9FAFB;--s1:#FFFFFF;--s2:#F1F5F9;--s3:#E2E8F0;--s4:#CBD5E1;
+  --border:rgba(15,23,42,.08);--border2:rgba(15,23,42,.14);
+  --suminregio:#B45309;--suminregio-dim:rgba(180,83,9,.10);
+  --green:#16A34A;--green-dim:rgba(22,163,74,.10);
+  --yellow:#D97706;--yellow-dim:rgba(217,119,6,.10);
+  --orange:#EA580C;--orange-dim:rgba(234,88,12,.10);
+  --red:#DC2626;--red-dim:rgba(220,38,38,.10);
+  --blue:#2563EB;--blue-dim:rgba(37,99,235,.10);
+  --purple:#7C3AED;--purple-dim:rgba(124,58,237,.10);
+  --text:#0F172A;--text2:#1E293B;--muted:#475569;--dim:#F1F5F9;
+}
+html[data-theme="light"] body{background:var(--bg)!important;color:var(--text)!important;background-image:radial-gradient(ellipse 100% 50% at 100% 0%,rgba(180,83,9,.06),transparent 55%),radial-gradient(ellipse 70% 40% at 0% 60%,rgba(37,99,235,.05),transparent 55%)}
+html[data-theme="light"] .orb{opacity:.04!important}
+html[data-theme="light"] header{background:rgba(249,250,251,.97)!important;border-bottom-color:rgba(15,23,42,.08)!important}
+html[data-theme="light"] .page-title{background:linear-gradient(135deg,#0F172A,#B45309)!important;-webkit-background-clip:text!important;-webkit-text-fill-color:transparent!important;background-clip:text!important}
+html[data-theme="light"] .page-sub{color:#64748B!important}
+html[data-theme="light"] .kpi-card{background:#fff!important;border-color:rgba(15,23,42,.08)!important;box-shadow:0 4px 20px rgba(15,23,42,.07),0 1px 4px rgba(15,23,42,.04)!important}
+html[data-theme="light"] .kpi-label{color:#475569!important}
+html[data-theme="light"] .kpi-sub{color:#64748B!important}
+html[data-theme="light"] .card{background:#fff!important;border-color:rgba(15,23,42,.08)!important;box-shadow:0 4px 20px rgba(15,23,42,.06)!important}
+html[data-theme="light"] .card-head{border-bottom-color:rgba(15,23,42,.07)!important}
+html[data-theme="light"] .card-title{color:#0F172A!important}
+html[data-theme="light"] .card-badge{color:#64748B!important;border-color:rgba(15,23,42,.12)!important}
+html[data-theme="light"] .form-input{background:#F8FAFC!important;color:#0F172A!important;border-color:rgba(15,23,42,.14)!important}
+html[data-theme="light"] .form-input::placeholder{color:#94A3B8!important}
+html[data-theme="light"] .tbl-52 th{color:#475569!important;border-bottom-color:rgba(15,23,42,.08)!important;background:#F8FAFC!important}
+html[data-theme="light"] .tbl-52 td{color:#334155!important;border-bottom-color:rgba(15,23,42,.05)!important}
+html[data-theme="light"] .tbl-52 td.col-concepto{background:#fff!important;border-right-color:rgba(15,23,42,.08)!important}
+html[data-theme="light"] .tbl-52 th.col-concepto{background:#F8FAFC!important}
+html[data-theme="light"] .tbl-52 tr:hover td{background:rgba(180,83,9,.04)!important}
+html[data-theme="light"] .tbl-52 tr:hover td.col-concepto{background:rgba(180,83,9,.04)!important}
+html[data-theme="light"] .tbl-52 tr.section-hdr td{background:#E2E8F0!important;color:#64748B!important}
+html[data-theme="light"] .tbl-52 tr.capital-row td{background:rgba(217,119,6,.06)!important;color:#92400E!important}
+html[data-theme="light"] .tbl-52 tr.capital-row td.col-concepto{background:rgba(217,119,6,.06)!important;color:#92400E!important}
+html[data-theme="light"] .tbl-52 td.cur-week{background:rgba(217,119,6,.10)!important}
+html[data-theme="light"] .live-preview{background:#F8FAFC!important;border-color:rgba(15,23,42,.12)!important}
+html[data-theme="light"] .toast{background:#fff!important;color:#0F172A!important}
+html[data-theme="light"] .decomp-bar-bg{background:#E2E8F0!important}
+html[data-theme="light"] .kpi-card.gold .kpi-value{color:#92400E!important}
+html[data-theme="light"] .lp-capital{color:#92400E!important}
+</style>
+<link rel="stylesheet" href="app-ui.css">
+<link rel="stylesheet" href="app-responsive.css">
+</head>
+<body>
+<div class="bg-orbs" aria-hidden="true"><div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div></div>
+
+<header></header>
+
+<main class="page">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">Capital de Trabajo</h1>
+      <p class="page-sub" id="page-sub">Seguimiento semanal &mdash; Suminregio Parker ERP Scorecard</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:.75rem">
+      <span class="card-badge" id="last-update-badge">Cargando…</span>
+    </div>
+  </div>
+
+  <!-- 1. KPI Strip -->
+  <div class="kpi-grid">
+    <div class="kpi-card gold" style="grid-column:span 2">
+      <div class="kpi-label">Capital de Trabajo</div>
+      <div class="kpi-value" id="kpi-capital" data-val="">—</div>
+      <div class="kpi-sub" id="kpi-capital-sub">CxC + Inv + Efectivo − CxP</div>
+    </div>
+    <div class="kpi-card" id="kpi-var-card">
+      <div class="kpi-label">Variación</div>
+      <div class="kpi-value" id="kpi-variacion" data-val="">—</div>
+      <div class="kpi-sub">vs semana anterior</div>
+    </div>
+    <div class="kpi-card blue">
+      <div class="kpi-label">CxC Neta</div>
+      <div class="kpi-value" id="kpi-cxc" data-val="">—</div>
+      <div class="kpi-sub">Clientes − Incobrables</div>
+    </div>
+    <div class="kpi-card orange">
+      <div class="kpi-label">Inventario</div>
+      <div class="kpi-value" id="kpi-inv" data-val="">—</div>
+      <div class="kpi-sub">Almacén total</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">Efectivo Total</div>
+      <div class="kpi-value" id="kpi-efectivo" data-val="">—</div>
+      <div class="kpi-sub">Banco MXN + Efectivo</div>
+    </div>
+    <div class="kpi-card red">
+      <div class="kpi-label">CxP Total</div>
+      <div class="kpi-value" id="kpi-cxp" data-val="">—</div>
+      <div class="kpi-sub">Proveedores + Anticipos</div>
+    </div>
+  </div>
+
+  <!-- 2. Captura Semana Actual -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24"><path d="M11 17h2v-6h-2v6zm1-15C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-11h2V7h-2v2z"/></svg>
+        Captura Semana Actual
+      </div>
+      <div style="display:flex;align-items:center;gap:.6rem">
+        <span class="card-badge" id="form-week-label">Sem — · —</span>
+        <span class="badge-auto" id="auto-badge" style="display:none"><span class="badge-auto-dot"></span>AUTO · Sistema</span>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="form-grid">
+        <!-- LEFT: AUTO -->
+        <div>
+          <div class="form-col-label" style="color:var(--green)">AUTO &mdash; Pre-llenado del Sistema</div>
+          <div class="form-group">
+            <label for="inp-clientes">Clientes (CxC)</label>
+            <div class="form-row">
+              <input class="form-input" type="number" id="inp-clientes" placeholder="0.00" min="0" step="0.01">
+              <button class="btn btn-reload" onclick="loadSnapshot('clientes')" title="Cargar desde sistema">&#x1F504; Cargar</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="inp-almacen">Almacén (Inventario)</label>
+            <div class="form-row">
+              <input class="form-input" type="number" id="inp-almacen" placeholder="0.00" min="0" step="0.01">
+              <button class="btn btn-reload" onclick="loadSnapshot('almacen')" title="Cargar desde sistema">&#x1F504; Cargar</button>
+            </div>
+          </div>
+        </div>
+        <!-- RIGHT: MANUAL -->
+        <div>
+          <div class="form-col-label" style="color:var(--blue)">MANUAL &mdash; Ximena captura</div>
+          <div class="form-group">
+            <label for="inp-proveedores">Proveedores</label>
+            <input class="form-input" type="number" id="inp-proveedores" placeholder="0.00" min="0" step="0.01">
+          </div>
+          <div class="form-group">
+            <label for="inp-anticipos">Anticipo de Clientes</label>
+            <input class="form-input" type="number" id="inp-anticipos" placeholder="0.00" min="0" step="0.01">
+          </div>
+          <div class="form-group">
+            <label for="inp-incobrables">Incobrables</label>
+            <input class="form-input" type="number" id="inp-incobrables" placeholder="0.00" min="0" step="0.01">
+          </div>
+          <div class="form-group">
+            <label for="inp-banco">Banco MXN</label>
+            <input class="form-input" type="number" id="inp-banco" placeholder="0.00" min="0" step="0.01">
+          </div>
+          <div class="form-group">
+            <label for="inp-efectivo">Dinero en Efectivo</label>
+            <input class="form-input" type="number" id="inp-efectivo" placeholder="0.00" min="0" step="0.01">
+          </div>
+        </div>
+      </div>
+
+      <!-- Live preview -->
+      <div class="live-preview" id="live-preview">
+        <span class="lp-item"><span class="lp-label">Total CxP:</span>&nbsp;<span class="lp-val" id="lp-cxp">—</span></span>
+        <span class="lp-sep">|</span>
+        <span class="lp-item"><span class="lp-label">CxC Neta:</span>&nbsp;<span class="lp-val" id="lp-cxc">—</span></span>
+        <span class="lp-sep">|</span>
+        <span class="lp-item"><span class="lp-label">Inventario:</span>&nbsp;<span class="lp-val" id="lp-inv">—</span></span>
+        <span class="lp-sep">|</span>
+        <span class="lp-item"><span class="lp-label">Efectivo:</span>&nbsp;<span class="lp-val" id="lp-ef">—</span></span>
+        <span class="lp-sep">|</span>
+        <span class="lp-item"><span class="lp-label">Capital:</span>&nbsp;<span class="lp-capital" id="lp-cap">—</span></span>
+        <span class="lp-sep">&nbsp;</span>
+        <span class="lp-item"><span class="lp-label">Δ&nbsp;vs&nbsp;ant:</span>&nbsp;<span id="lp-delta">—</span></span>
+      </div>
+
+      <button class="btn btn-save" onclick="saveWeek()">&#x1F4BE; Guardar Semana</button>
+    </div>
+  </div>
+
+  <!-- 3. Tabla 52 semanas -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24"><path d="M3 3h18v2H3V3zm0 4h18v2H3V7zm0 4h18v2H3v-2zm0 4h18v2H3v-2zm0 4h18v2H3v-2z"/></svg>
+        Tabla 52 Semanas
+      </div>
+      <span class="card-badge" id="tbl-badge">—</span>
+    </div>
+    <div class="tbl-52-wrap" id="tbl-52-wrap">
+      <p style="padding:2rem;color:var(--muted);font-size:.8rem">Cargando datos…</p>
+    </div>
+  </div>
+
+  <!-- 4. Trend Chart -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Tendencia Capital de Trabajo
+      </div>
+      <span class="card-badge">Últimas 52 semanas</span>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="trend-chart"></canvas>
+    </div>
+  </div>
+
+  <!-- 5. Descomposición -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        ¿Por qué cambió esta semana?
+      </div>
+      <span class="card-badge" id="decomp-week-label">—</span>
+    </div>
+    <div class="card-body">
+      <div class="decomp-grid" id="decomp-grid">
+        <p style="color:var(--muted);font-size:.8rem">Sin datos suficientes.</p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="nav.js" defer></script>
+<script src="app-ui-boot.js" defer></script>
+
+<script>
+/* ── Helpers ───────────────────────────────────────────────── */
+const fmt = n => n == null ? '—' : '$' + Math.round(n).toLocaleString('es-MX');
+const fmtDelta = n => n == null ? '—' : (n >= 0 ? '+' : '') + '$' + Math.round(n).toLocaleString('es-MX');
+const v = id => parseFloat(document.getElementById(id).value) || 0;
+
+/* ── ISO week helpers ──────────────────────────────────────── */
+function getISOWeek(d) {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+}
+
+function getISOYear(d) {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - day);
+  return date.getUTCFullYear();
+}
+
+function getMondayOfISOWeek(week, year) {
+  const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
+  const dow = simple.getUTCDay();
+  const ISOWeekStart = simple;
+  if (dow <= 4) ISOWeekStart.setUTCDate(simple.getUTCDate() - simple.getUTCDay() + 1);
+  else ISOWeekStart.setUTCDate(simple.getUTCDate() + 8 - simple.getUTCDay());
+  return ISOWeekStart;
+}
+
+function getCurrentWeekInfo() {
+  const now = new Date();
+  const weekNum = getISOWeek(now);
+  const year = getISOYear(now);
+  const monday = getMondayOfISOWeek(weekNum, year);
+  return { monday, weekNum, year };
+}
+
+function mondayStr(monday) {
+  return monday.toISOString().slice(0, 10);
+}
+
+function fmtDate(isoStr) {
+  if (!isoStr) return '—';
+  const [y, m, d] = isoStr.slice(0, 10).split('-');
+  return `${d}/${m}/${y}`;
+}
+
+/* ── Compute fields ────────────────────────────────────────── */
+function computeWeek(row, prevRow) {
+  const r = { ...row };
+  r.total_cxp = (r.proveedores || 0) + (r.anticipo_clientes || 0);
+  r.cxc_neta = (r.clientes || 0) - (r.incobrables || 0);
+  r.total_inventario = r.almacen || 0;
+  r.total_efectivo = (r.banco_mxn || 0) + (r.efectivo || 0);
+  r.capital_trabajo = r.cxc_neta + r.total_inventario + r.total_efectivo - r.total_cxp;
+  if (prevRow) {
+    const p = computeWeek(prevRow, null);
+    r.variacion = r.capital_trabajo - p.capital_trabajo;
+    r.delta_cxc = r.cxc_neta - p.cxc_neta;
+    r.delta_inv = r.total_inventario - p.total_inventario;
+    r.delta_ef = r.total_efectivo - p.total_efectivo;
+    r.delta_cxp = r.total_cxp - p.total_cxp;
+  } else {
+    r.variacion = null;
+    r.delta_cxc = null;
+    r.delta_inv = null;
+    r.delta_ef = null;
+    r.delta_cxp = null;
+  }
+  return r;
+}
+
+/* ── State ─────────────────────────────────────────────────── */
+let _weeks = [];
+let _computed = [];
+let _trendChart = null;
+let _prevCapital = null;
+
+/* ── Toast ─────────────────────────────────────────────────── */
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type;
+  void t.offsetWidth;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+/* ── Load all data ─────────────────────────────────────────── */
+async function loadData() {
+  try {
+    const res = await fetch(window.__API_BASE + '/api/capital/data');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    _weeks = (json.semanas || []).sort((a, b) => (a.sem > b.sem ? 1 : -1));
+    _computed = _weeks.map((w, i) => computeWeek(w, i > 0 ? _weeks[i - 1] : null));
+    renderKpis(_computed);
+    renderTable(_computed);
+    renderChart(_computed);
+    const last = _computed.filter(w => w.capital_trabajo != null).slice(-1)[0];
+    if (last) renderDecomp(last);
+    _prevCapital = last ? last.capital_trabajo : null;
+    updatePreview();
+    const n = _weeks.filter(w => w.clientes != null || w.almacen != null).length;
+    document.getElementById('tbl-badge').textContent = n + ' semanas con datos';
+    const ts = _weeks.slice(-1)[0]?.ts;
+    document.getElementById('last-update-badge').textContent = ts ? 'Actualizado ' + fmtDate(ts.slice(0, 10)) : 'Sin datos';
+  } catch (e) {
+    console.error('loadData error:', e);
+    document.getElementById('last-update-badge').textContent = 'Error cargando';
+  }
+}
+
+/* ── Snapshot (auto-fill) ──────────────────────────────────── */
+async function loadSnapshot(field) {
+  try {
+    const res = await fetch(window.__API_BASE + '/api/capital/snapshot');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const snap = await res.json();
+    if (field === 'clientes' && snap.cxc != null) {
+      document.getElementById('inp-clientes').value = snap.cxc;
+    } else if (field === 'almacen' && snap.inventario != null) {
+      document.getElementById('inp-almacen').value = snap.inventario;
+    } else {
+      if (snap.cxc != null) document.getElementById('inp-clientes').value = snap.cxc;
+      if (snap.inventario != null) document.getElementById('inp-almacen').value = snap.inventario;
+    }
+    document.getElementById('auto-badge').style.display = 'inline-flex';
+    updatePreview();
+    showToast('Datos del sistema cargados');
+  } catch (e) {
+    showToast('Error al cargar snapshot: ' + e.message, 'error');
+  }
+}
+
+/* ── Render KPIs ───────────────────────────────────────────── */
+function renderKpis(computed) {
+  const last = computed.filter(w => w.clientes != null || w.proveedores != null || w.almacen != null).slice(-1)[0];
+  if (!last) return;
+  document.getElementById('kpi-capital').textContent = fmt(last.capital_trabajo);
+  document.getElementById('kpi-capital').dataset.val = Math.round(last.capital_trabajo || 0);
+  document.getElementById('kpi-cxc').textContent = fmt(last.cxc_neta);
+  document.getElementById('kpi-cxc').dataset.val = Math.round(last.cxc_neta || 0);
+  document.getElementById('kpi-inv').textContent = fmt(last.total_inventario);
+  document.getElementById('kpi-inv').dataset.val = Math.round(last.total_inventario || 0);
+  document.getElementById('kpi-efectivo').textContent = fmt(last.total_efectivo);
+  document.getElementById('kpi-efectivo').dataset.val = Math.round(last.total_efectivo || 0);
+  document.getElementById('kpi-cxp').textContent = fmt(last.total_cxp);
+  document.getElementById('kpi-cxp').dataset.val = Math.round(last.total_cxp || 0);
+  const varEl = document.getElementById('kpi-variacion');
+  const varCard = document.getElementById('kpi-var-card');
+  varEl.textContent = last.variacion != null ? fmtDelta(last.variacion) : '—';
+  varEl.dataset.val = last.variacion != null ? Math.round(last.variacion) : '';
+  if (last.variacion != null) {
+    varCard.classList.remove('green', 'red');
+    varCard.classList.add(last.variacion >= 0 ? 'green' : 'red');
+    varEl.style.color = last.variacion >= 0 ? 'var(--green)' : 'var(--red)';
+  }
+  document.getElementById('kpi-capital-sub').textContent = `Sem ${last.sem} · Lunes ${fmtDate(last.fecha_lunes)}`;
+}
+
+/* ── Render Table ──────────────────────────────────────────── */
+function renderTable(computed) {
+  const wrap = document.getElementById('tbl-52-wrap');
+  if (!computed.length) { wrap.innerHTML = '<p style="padding:2rem;color:var(--muted);font-size:.8rem">Sin datos disponibles.</p>'; return; }
+
+  const { weekNum, year } = getCurrentWeekInfo();
+  const curSem = year + 'W' + String(weekNum).padStart(2, '0');
+
+  // Build column headers
+  let thead = '<thead><tr><th class="col-concepto">Concepto</th>';
+  computed.forEach(w => {
+    const isCur = w.sem === curSem;
+    thead += `<th${isCur ? ' style="color:var(--yellow);border-top:2px solid var(--yellow)"' : ''}>${w.sem}<br><span style="font-size:.52rem;color:var(--muted)">${fmtDate(w.fecha_lunes)}</span></th>`;
+  });
+  thead += '</tr></thead>';
+
+  const cell = (w, val, cls = '') => {
+    const { weekNum, year } = getCurrentWeekInfo();
+    const curSem = year + 'W' + String(weekNum).padStart(2, '0');
+    const isCur = w.sem === curSem;
+    const isEmpty = val == null;
+    const curClass = isCur ? ' cur-week' : '';
+    const emptyClass = isEmpty ? ' empty-week' : '';
+    return `<td class="${curClass}${emptyClass}${cls ? ' ' + cls : ''}">${isEmpty ? '<span style="color:var(--muted)">—</span>' : val}</td>`;
+  };
+
+  const moneyCell = (w, n, colorClass = '') => {
+    const { weekNum, year } = getCurrentWeekInfo();
+    const curSem = year + 'W' + String(weekNum).padStart(2, '0');
+    const isCur = w.sem === curSem;
+    const curClass = isCur ? ' cur-week' : '';
+    if (n == null) return `<td class="${curClass} empty-week"><span style="color:var(--muted)">—</span></td>`;
+    const style = colorClass ? ` style="color:var(--${colorClass})"` : '';
+    return `<td class="${curClass}"${style}>${fmt(n)}</td>`;
+  };
+
+  const deltaCell = (w, n) => {
+    const { weekNum, year } = getCurrentWeekInfo();
+    const curSem = year + 'W' + String(weekNum).padStart(2, '0');
+    const isCur = w.sem === curSem;
+    const curClass = isCur ? ' cur-week' : '';
+    if (n == null) return `<td class="${curClass} empty-week"><span style="color:var(--muted)">—</span></td>`;
+    const c = n >= 0 ? 'var(--green)' : 'var(--red)';
+    const arrow = n >= 0 ? '▲' : '▼';
+    return `<td class="${curClass}" style="color:${c}">${arrow} ${fmtDelta(n)}</td>`;
+  };
+
+  const sectionHdr = (label) => {
+    let row = `<tr class="section-hdr"><td class="col-concepto">${label}</td>`;
+    computed.forEach(() => { row += '<td></td>'; });
+    return row + '</tr>';
+  };
+
+  const dataRow = (label, getter, colorClass = '', showAutoFuente = false) => {
+    let row = `<tr><td class="col-concepto">${label}</td>`;
+    computed.forEach(w => {
+      const n = getter(w);
+      const { weekNum, year } = getCurrentWeekInfo();
+      const curSem = year + 'W' + String(weekNum).padStart(2, '0');
+      const isCur = w.sem === curSem;
+      const curClass = isCur ? ' cur-week' : '';
+      if (n == null) { row += `<td class="${curClass} empty-week"><span style="color:var(--muted)">—</span></td>`; return; }
+      const style = colorClass ? ` style="color:var(--${colorClass})"` : '';
+      const autoChip = (showAutoFuente && w.fuente_clientes === 'auto') ? '<span class="chip-auto">AUTO</span>' : '';
+      const autoChipAlm = (showAutoFuente && w.fuente_almacen === 'auto') ? '<span class="chip-auto">AUTO</span>' : '';
+      row += `<td class="${curClass}"${style}>${fmt(n)}${autoChip}${autoChipAlm}</td>`;
+    });
+    return row + '</tr>';
+  };
+
+  const totalRow = (label, getter, colorClass) => {
+    let row = `<tr style="font-weight:600"><td class="col-concepto" style="color:var(--${colorClass})">${label}</td>`;
+    computed.forEach(w => {
+      const n = getter(w);
+      const { weekNum, year } = getCurrentWeekInfo();
+      const curSem = year + 'W' + String(weekNum).padStart(2, '0');
+      const isCur = w.sem === curSem;
+      const curClass = isCur ? ' cur-week' : '';
+      if (n == null) { row += `<td class="${curClass} empty-week">—</td>`; return; }
+      row += `<td class="${curClass}" style="color:var(--${colorClass})">${fmt(n)}</td>`;
+    });
+    return row + '</tr>';
+  };
+
+  // Capital row
+  let capitalRow = '<tr class="capital-row"><td class="col-concepto">&#x2550;&#x2550; CAPITAL DE TRABAJO &#x2550;&#x2550;</td>';
+  computed.forEach(w => {
+    const { weekNum, year } = getCurrentWeekInfo();
+    const curSem = year + 'W' + String(weekNum).padStart(2, '0');
+    const isCur = w.sem === curSem;
+    const curClass = isCur ? ' cur-week' : '';
+    if (w.capital_trabajo == null) { capitalRow += `<td class="${curClass} empty-week">—</td>`; return; }
+    capitalRow += `<td class="${curClass}">${fmt(w.capital_trabajo)}</td>`;
+  });
+  capitalRow += '</tr>';
+
+  // Variacion row
+  let varRow = '<tr class="var-row"><td class="col-concepto" style="color:var(--muted)">Variación (+/−)</td>';
+  computed.forEach(w => {
+    const { weekNum, year } = getCurrentWeekInfo();
+    const curSem = year + 'W' + String(weekNum).padStart(2, '0');
+    const isCur = w.sem === curSem;
+    const curClass = isCur ? ' cur-week' : '';
+    if (w.variacion == null) { varRow += `<td class="${curClass} empty-week">—</td>`; return; }
+    const c = w.variacion >= 0 ? 'var(--green)' : 'var(--red)';
+    const arrow = w.variacion >= 0 ? '▲' : '▼';
+    varRow += `<td class="${curClass}" style="color:${c}">${arrow} ${fmtDelta(w.variacion)}</td>`;
+  });
+  varRow += '</tr>';
+
+  const deltaSub = (label, getter) => {
+    let row = `<tr class="var-row"><td class="col-concepto" style="padding-left:1.5rem;color:var(--muted);font-size:.65rem">${label}</td>`;
+    computed.forEach(w => {
+      const { weekNum, year } = getCurrentWeekInfo();
+      const curSem = year + 'W' + String(weekNum).padStart(2, '0');
+      const isCur = w.sem === curSem;
+      const curClass = isCur ? ' cur-week' : '';
+      const n = getter(w);
+      if (n == null) { row += `<td class="${curClass} empty-week">—</td>`; return; }
+      const c = n >= 0 ? 'var(--green)' : 'var(--red)';
+      row += `<td class="${curClass}" style="color:${c};font-size:.65rem">${fmtDelta(n)}</td>`;
+    });
+    return row + '</tr>';
+  };
+
+  const tbody = `<tbody>
+    ${sectionHdr('CUENTAS POR PAGAR')}
+    ${dataRow('Proveedores', w => w.proveedores, 'red')}
+    ${dataRow('Anticipo de Clientes', w => w.anticipo_clientes, 'red')}
+    ${totalRow('Total CxP', w => w.total_cxp, 'red')}
+    ${sectionHdr('CUENTAS POR COBRAR')}
+    ${dataRow('Clientes', w => w.clientes, 'blue', true)}
+    ${dataRow('Incobrables', w => w.incobrables, 'muted')}
+    ${totalRow('CxC Neta', w => w.cxc_neta, 'blue')}
+    ${sectionHdr('INVENTARIO')}
+    ${dataRow('Almacén', w => w.almacen, 'orange', true)}
+    ${sectionHdr('EFECTIVO Y BANCOS')}
+    ${dataRow('Banco MXN', w => w.banco_mxn, 'green')}
+    ${dataRow('Efectivo', w => w.efectivo, 'green')}
+    ${totalRow('Total Efectivo', w => w.total_efectivo, 'green')}
+    ${capitalRow}
+    ${varRow}
+    ${deltaSub('Δ CxC Neta', w => w.delta_cxc)}
+    ${deltaSub('Δ Inventario', w => w.delta_inv)}
+    ${deltaSub('Δ Efectivo', w => w.delta_ef)}
+    ${deltaSub('Δ CxP', w => w.delta_cxp)}
+  </tbody>`;
+
+  wrap.innerHTML = `<table class="tbl-52">${thead}${tbody}</table>`;
+}
+
+/* ── Render Chart ──────────────────────────────────────────── */
+function renderChart(computed) {
+  const ctx = document.getElementById('trend-chart').getContext('2d');
+  const withData = computed.filter(w => w.capital_trabajo != null);
+  const labels = withData.map(w => w.sem);
+  const capData = withData.map(w => w.capital_trabajo);
+  const cxcData = withData.map(w => w.cxc_neta);
+  const invData = withData.map(w => w.total_inventario);
+  const efData = withData.map(w => w.total_efectivo);
+  const cxpData = withData.map(w => -(w.total_cxp || 0));
+
+  if (_trendChart) { _trendChart.destroy(); _trendChart = null; }
+
+  const isDark = !document.documentElement.classList.contains('theme-premium-light') && document.documentElement.dataset.theme !== 'light';
+
+  _trendChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'CxC Neta',
+          data: cxcData,
+          borderColor: 'rgba(77,166,255,.6)',
+          backgroundColor: 'rgba(77,166,255,.08)',
+          fill: true,
+          tension: .35,
+          borderWidth: 1.5,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+        },
+        {
+          label: 'Inventario',
+          data: invData,
+          borderColor: 'rgba(255,140,66,.6)',
+          backgroundColor: 'rgba(255,140,66,.08)',
+          fill: true,
+          tension: .35,
+          borderWidth: 1.5,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+        },
+        {
+          label: 'Efectivo',
+          data: efData,
+          borderColor: 'rgba(0,229,160,.6)',
+          backgroundColor: 'rgba(0,229,160,.08)',
+          fill: true,
+          tension: .35,
+          borderWidth: 1.5,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+        },
+        {
+          label: 'CxP (arrastre)',
+          data: cxpData,
+          borderColor: 'rgba(255,69,102,.55)',
+          backgroundColor: 'rgba(255,69,102,.04)',
+          borderDash: [6, 3],
+          fill: false,
+          tension: .35,
+          borderWidth: 1.5,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+        },
+        {
+          label: 'Capital Total',
+          data: capData,
+          borderColor: '#FFB800',
+          backgroundColor: 'rgba(255,184,0,.05)',
+          fill: false,
+          tension: .35,
+          borderWidth: 3,
+          pointRadius: 2,
+          pointHoverRadius: 6,
+          pointBackgroundColor: '#FFB800',
+        },
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: {
+          labels: {
+            color: isDark ? '#B0BECE' : '#475569',
+            font: { family: 'DM Mono', size: 11 },
+            boxWidth: 12,
+            padding: 16,
+          }
+        },
+        tooltip: {
+          backgroundColor: isDark ? '#0C1B29' : '#fff',
+          titleColor: isDark ? '#E8EFF8' : '#0F172A',
+          bodyColor: isDark ? '#B0BECE' : '#475569',
+          borderColor: isDark ? 'rgba(255,255,255,.08)' : 'rgba(15,23,42,.1)',
+          borderWidth: 1,
+          padding: 12,
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: ${fmt(ctx.raw)}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: isDark ? '#5A7090' : '#94A3B8', font: { family: 'DM Mono', size: 10 }, maxTicksLimit: 12 },
+          grid: { color: isDark ? 'rgba(255,255,255,.04)' : 'rgba(15,23,42,.05)' }
+        },
+        y: {
+          ticks: {
+            color: isDark ? '#5A7090' : '#94A3B8',
+            font: { family: 'DM Mono', size: 10 },
+            callback: v => '$' + Math.round(v / 1e6 * 10) / 10 + 'M'
+          },
+          grid: { color: isDark ? 'rgba(255,255,255,.04)' : 'rgba(15,23,42,.05)' }
+        }
+      }
+    }
+  });
+}
+
+/* ── Render Decomp ─────────────────────────────────────────── */
+function renderDecomp(last) {
+  const grid = document.getElementById('decomp-grid');
+  document.getElementById('decomp-week-label').textContent = last.sem || '';
+
+  const bars = [
+    { label: 'Δ CxC Neta', val: last.delta_cxc, color: 'var(--blue)', invert: false },
+    { label: 'Δ Inventario', val: last.delta_inv, color: 'var(--orange)', invert: false },
+    { label: 'Δ Efectivo', val: last.delta_ef, color: 'var(--green)', invert: false },
+    { label: 'Δ CxP (↑CxP = malo)', val: last.delta_cxp != null ? -last.delta_cxp : null, color: 'var(--red)', invert: true },
+  ];
+
+  const maxAbs = Math.max(...bars.map(b => Math.abs(b.val || 0)), 1);
+
+  grid.innerHTML = bars.map(b => {
+    if (b.val == null) return `<div class="decomp-bar-row"><div class="decomp-bar-label"><span class="decomp-bar-name">${b.label}</span><span class="decomp-bar-amt" style="color:var(--muted)">—</span></div><div class="decomp-bar-bg"><div class="decomp-bar-fill" style="width:0%;background:${b.color}"></div></div></div>`;
+    const pct = Math.min(100, Math.abs(b.val) / maxAbs * 100);
+    const arrow = b.val >= 0 ? '▲' : '▼';
+    const amtColor = b.val >= 0 ? 'var(--green)' : 'var(--red)';
+    return `
+      <div class="decomp-bar-row">
+        <div class="decomp-bar-label">
+          <span class="decomp-bar-name">${b.label}</span>
+          <span class="decomp-bar-amt" style="color:${amtColor}">${arrow} ${fmtDelta(b.val)}</span>
+        </div>
+        <div class="decomp-bar-bg">
+          <div class="decomp-bar-fill" style="width:${pct}%;background:${b.color}"></div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+/* ── Form init ─────────────────────────────────────────────── */
+function initForm() {
+  const { monday, weekNum, year } = getCurrentWeekInfo();
+  document.getElementById('form-week-label').textContent = `Sem ${year}W${String(weekNum).padStart(2,'0')} · Lunes ${fmtDate(monday.toISOString().slice(0,10))}`;
+  const inputs = ['inp-clientes','inp-almacen','inp-proveedores','inp-anticipos','inp-incobrables','inp-banco','inp-efectivo'];
+  inputs.forEach(id => document.getElementById(id).addEventListener('input', updatePreview));
+}
+
+/* ── Live Preview ──────────────────────────────────────────── */
+function updatePreview() {
+  const clientes = v('inp-clientes');
+  const almacen = v('inp-almacen');
+  const proveedores = v('inp-proveedores');
+  const anticipos = v('inp-anticipos');
+  const incobrables = v('inp-incobrables');
+  const banco = v('inp-banco');
+  const efectivo = v('inp-efectivo');
+
+  const total_cxp = proveedores + anticipos;
+  const cxc_neta = clientes - incobrables;
+  const total_inv = almacen;
+  const total_ef = banco + efectivo;
+  const capital = cxc_neta + total_inv + total_ef - total_cxp;
+  const delta = _prevCapital != null ? capital - _prevCapital : null;
+
+  document.getElementById('lp-cxp').textContent = fmt(total_cxp);
+  document.getElementById('lp-cxc').textContent = fmt(cxc_neta);
+  document.getElementById('lp-inv').textContent = fmt(total_inv);
+  document.getElementById('lp-ef').textContent = fmt(total_ef);
+  document.getElementById('lp-cap').textContent = fmt(capital);
+  const deltaEl = document.getElementById('lp-delta');
+  if (delta != null) {
+    deltaEl.textContent = fmtDelta(delta);
+    deltaEl.className = delta >= 0 ? 'lp-pos' : 'lp-neg';
+  } else {
+    deltaEl.textContent = '—';
+    deltaEl.className = '';
+  }
+}
+
+/* ── Save week ─────────────────────────────────────────────── */
+async function saveWeek() {
+  const { monday, weekNum, year } = getCurrentWeekInfo();
+  const sem = year + 'W' + String(weekNum).padStart(2, '0');
+  const body = {
+    sem,
+    fecha_lunes: monday.toISOString().slice(0, 10),
+    clientes: v('inp-clientes') || null,
+    almacen: v('inp-almacen') || null,
+    proveedores: v('inp-proveedores') || null,
+    anticipo_clientes: v('inp-anticipos') || null,
+    incobrables: v('inp-incobrables') || null,
+    banco_mxn: v('inp-banco') || null,
+    efectivo: v('inp-efectivo') || null,
+  };
+  try {
+    const res = await fetch(window.__API_BASE + '/api/capital/semana', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    showToast('Semana guardada correctamente ✓');
+    await loadData();
+  } catch (e) {
+    showToast('Error al guardar: ' + e.message, 'error');
+  }
+}
+
+/* ── Bootstrap ─────────────────────────────────────────────── */
+(async function init() {
+  initForm();
+  await loadData();
+  // Auto-load snapshot on open
+  try {
+    const res = await fetch(window.__API_BASE + '/api/capital/snapshot');
+    if (res.ok) {
+      const snap = await res.json();
+      if (snap.cxc != null) document.getElementById('inp-clientes').value = snap.cxc;
+      if (snap.inventario != null) document.getElementById('inp-almacen').value = snap.inventario;
+      if (snap.cxc != null || snap.inventario != null) {
+        document.getElementById('auto-badge').style.display = 'inline-flex';
+        updatePreview();
+      }
+    }
+  } catch (_) { /* silent */ }
+})();
+</script>
+</body>
+</html>

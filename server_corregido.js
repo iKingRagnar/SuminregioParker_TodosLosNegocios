@@ -11043,6 +11043,83 @@ setImmediate(() => {
   resolveConsumosSchema(null).catch(() => {});
 });
 
+// ══════════════════════════════════════════════════════════
+//  CAPITAL DE TRABAJO — Seguimiento semanal 2026
+// ══════════════════════════════════════════════════════════
+(function setupCapitalTrabajo() {
+  const fs = require('fs');
+  const CAPITAL_FILE = path.join(__dirname, 'data', 'capital_trabajo.json');
+
+  function readCapital() {
+    try {
+      if (!fs.existsSync(path.dirname(CAPITAL_FILE))) {
+        fs.mkdirSync(path.dirname(CAPITAL_FILE), { recursive: true });
+      }
+      if (!fs.existsSync(CAPITAL_FILE)) return { version: 1, semanas: [] };
+      return JSON.parse(fs.readFileSync(CAPITAL_FILE, 'utf8'));
+    } catch (_) { return { version: 1, semanas: [] }; }
+  }
+
+  function writeCapital(data) {
+    if (!fs.existsSync(path.dirname(CAPITAL_FILE))) {
+      fs.mkdirSync(path.dirname(CAPITAL_FILE), { recursive: true });
+    }
+    fs.writeFileSync(CAPITAL_FILE, JSON.stringify(data, null, 2), 'utf8');
+  }
+
+  // GET /api/capital/data — all weekly records
+  app.get('/api/capital/data', (_req, res) => {
+    res.json(readCapital());
+  });
+
+  // POST /api/capital/semana — upsert one week record
+  app.post('/api/capital/semana', (req, res) => {
+    try {
+      const body = req.body;
+      if (!body || !body.fecha_lunes) return res.status(400).json({ error: 'fecha_lunes requerida' });
+      const data = readCapital();
+      const idx = data.semanas.findIndex(s => s.fecha_lunes === body.fecha_lunes);
+      const record = { ...body, ts: new Date().toISOString() };
+      if (idx >= 0) {
+        data.semanas[idx] = record;
+      } else {
+        data.semanas.push(record);
+        data.semanas.sort((a, b) => a.fecha_lunes.localeCompare(b.fecha_lunes));
+      }
+      writeCapital(data);
+      res.json({ ok: true, record });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // GET /api/capital/snapshot — live values from Firebird (CxC total + Inventory value)
+  app.get('/api/capital/snapshot', async (req, res) => {
+    try {
+      const dbo = getReqDbOpts(req);
+      // CxC: sum of client balances
+      const snap = await cxcResumenAgingUnificado(req, dbo).catch(() => ({ resumen: { SALDO_TOTAL: null } }));
+      const cxcTotal = snap && snap.resumen ? (+(snap.resumen.SALDO_TOTAL || 0)) : null;
+
+      // Inventory: valor total
+      let invTotal = null;
+      try {
+        const colsArt = await getTableColumns('ARTICULOS', dbo);
+        const artTipoInv = invArticulosTipoInventarioWhereSql(colsArt);
+        const costoSub = await invCostoSubSql(dbo);
+        const existSub = getSqlExistSub();
+        const qValor = `SELECT COALESCE(SUM(COALESCE(s.EXISTENCIA,0)*COALESCE(cs.COSTO1,0)),0) AS V FROM ARTICULOS a LEFT JOIN ${existSub} s ON s.ARTICULO_ID=a.ARTICULO_ID LEFT JOIN ${costoSub} cs ON cs.ARTICULO_ID=a.ARTICULO_ID WHERE COALESCE(a.ESTATUS,'A')='A' ${artTipoInv}`;
+        const vRows = await query(qValor, [], 60000, dbo).catch(() => [{ V: null }]);
+        invTotal = +(vRows[0]?.V || 0);
+      } catch (_) {}
+
+      res.json({ cxc: cxcTotal, inventario: invTotal, ts: new Date().toISOString() });
+    } catch (e) {
+      res.status(500).json({ error: e.message, cxc: null, inventario: null });
+    }
+  });
+})();
+
 app.listen(PORT, () => {
   console.log(`Suminregio API escuchando en http://localhost:${PORT} · build=${BUILD_FINGERPRINT}`);
 });
