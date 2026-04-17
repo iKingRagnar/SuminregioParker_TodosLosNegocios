@@ -11376,11 +11376,21 @@ app.get('/api/debug/cotizaciones', async (req, res) => {
     I: [`SELECT h.TIPO_DOCTO, COUNT(*) AS N, COALESCE(SUM(h.IMPORTE_NETO),0) AS TOTAL FROM DOCTOS_VE h WHERE h.FECHA >= '2026-04-01' AND h.FECHA < '2026-05-01' GROUP BY h.TIPO_DOCTO ORDER BY N DESC`, []],
     // J: FIRST 10 DOCTOS_VE — ver qué TIPO_DOCTO existen (sin WHERE, usa PK)
     J: [`SELECT FIRST 10 h.TIPO_DOCTO, h.APLICADO, h.FECHA FROM DOCTOS_VE h ORDER BY h.DOCTO_VE_ID DESC`, []],
-    // K: forzar índice IE1 explícitamente + cotizaciones tipos
+    // K: FIRST 1 WHERE TIPO_DOCTO='F' (referencia fast via AK1)
     K: [`SELECT FIRST 1 h.DOCTO_VE_ID FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'F'`, []],
+    // L: forzar AK1 con PLAN para TIPO_DOCTO='C' — si existe en DB
+    L: [`SELECT FIRST 1 h.DOCTO_VE_ID FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'C'`, []],
+    // M: TIPO_DOCTO='P' (pedido)
+    M: [`SELECT FIRST 1 h.DOCTO_VE_ID FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'P'`, []],
+    // N: distintos TIPO_DOCTO usando AK1 range scan: TIPO_DOCTO >= 'A' (leer desde inicio AK1)
+    N: [`SELECT FIRST 1 h.DOCTO_VE_ID, h.TIPO_DOCTO, h.APLICADO FROM DOCTOS_VE h WHERE h.TIPO_DOCTO <> 'F'`, []],
+    // O: RDB$RELATION_STATISTICS — estadísticas de selectividad de AK1 para ver distribución
+    O: [`SELECT i.RDB$INDEX_NAME, s.RDB$FIELD_NAME, s.RDB$STATISTICS FROM RDB$INDEX_SEGMENTS s JOIN RDB$INDICES i ON i.RDB$INDEX_NAME = s.RDB$INDEX_NAME WHERE i.RDB$RELATION_NAME = 'DOCTOS_VE' ORDER BY i.RDB$INDEX_NAME, s.RDB$FIELD_POSITION`, []],
+    // P: COUNT(*) WHERE TIPO_DOCTO='V' (venta contado)
+    P: [`SELECT COUNT(*) AS N FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'V' AND h.APLICADO = 'S'`, []],
   };
   const entry = queries[q];
-  if (!entry) return res.json({ ok: false, error: `q debe ser A-K, recibido: ${q}` });
+  if (!entry) return res.json({ ok: false, error: `q debe ser A-P, recibido: ${q}` });
   try {
     const rows = await query(entry[0], entry[1], 12000, dbo);
     res.json({ ok: true, q, ms: Date.now() - t, data: rows });
