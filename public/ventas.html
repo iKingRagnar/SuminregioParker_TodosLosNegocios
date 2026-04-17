@@ -1548,6 +1548,29 @@ function applyCotiData(resObj, diarias, vends, ventasVE) {
   } catch(e) { console.error('applyCotiData chart', e); }
 }
 
+// ╔══════════════════════════════════════════════════════════════════════╗
+// ║  CANDADO — loadCotizaciones()  · REGLA DE ORO                       ║
+// ║                                                                      ║
+// ║  Esta función renderiza tarjetas dinámicamente dentro de             ║
+// ║  #coti-section via applyCotiData(). Las tarjetas DEBEN ser          ║
+// ║  visibles inmediatamente (opacity:1, no ms-reveal).                  ║
+// ║                                                                      ║
+// ║  ✅ Estado CORRECTO al cargar:                                       ║
+// ║    · #coti-section .kpi-card → opacity:1, visible                   ║
+// ║    · #coti-total-val muestra número > 0                              ║
+// ║    · #coti-mes-val muestra número > 0                                ║
+// ║    · #coti-vendedores-list tiene filas de vendedores                 ║
+// ║    · #coti-chart-canvas tiene una gráfica de barras                  ║
+// ║                                                                      ║
+// ║  ❌ Lo que NUNCA debes hacer:                                        ║
+// ║    · Aplicar .ms-reveal a .kpi-card de forma genérica en            ║
+// ║      app-ui-boot.js (bootDesignUpgrade). El autoReveal usa           ║
+// ║      selectores de contenedor padre para evitar esto.                ║
+// ║    · Agregar 'design-upgrade.css' estilos que pongan opacity:0 en   ║
+// ║      .kpi-card sin la clase .ms-reveal como requisito.              ║
+// ║    · Modificar applyCotiData() sin verificar que las tarjetas        ║
+// ║      resultantes sean visibles en el DOM después del render.         ║
+// ╚══════════════════════════════════════════════════════════════════════╝
 async function loadCotizaciones() {
   const btnReintentar = document.getElementById('coti-reintentar');
   const cotiVendList = document.getElementById('coti-vendedores-list');

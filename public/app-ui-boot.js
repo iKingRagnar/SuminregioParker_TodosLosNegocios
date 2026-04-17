@@ -1128,6 +1128,9 @@
       observeReveal();
 
       // MutationObserver to catch dynamically added elements
+      // ⚠️ GUARD: observeReveal() solo observa elementos con .ms-reveal explícito.
+      //    El autoReveal de abajo NUNCA aplica .ms-reveal a secciones dinámicas,
+      //    por lo que este observer es seguro — solo actúa sobre lo que ya tiene la clase.
       var mo = new MutationObserver(function () { observeReveal(); });
       mo.observe(document.body, { childList: true, subtree: true });
     }
@@ -1149,9 +1152,18 @@
     });
 
     // 4. Add ms-reveal to KPI cards and module cards that don't have it yet
+    // ⚠️  GUARD — REGLA DE ORO:
+    //     Solo aplicar ms-reveal a contenedores ESTÁTICOS de index.html.
+    //     NUNCA usar selector genérico '.kpi-card' — rompe #coti-section,
+    //     capital.html, cxc.html y cualquier sección con tarjetas dinámicas.
+    //     Si necesitas agregar una nueva sección al efecto de reveal, usa el
+    //     patrón '.mi-grid-estatica > .kpi-card' con el contenedor padre exacto.
     var autoReveal = [
-      '.kpi-card', '.kpi-grid .kpi-card', '.kpi-mega-grid .kpi-card',
-      '.module-card', '.uni-entity-card', '.card.ms-reveal-auto'
+      '.kpi-mega-grid > .kpi-card',    // index.html — grid principal de KPIs
+      '.modules-grid > .module-card',  // index.html — grid de módulos
+      '.uni-entity-card',              // vendedores/clientes — tarjetas de entidad
+      '.card.ms-reveal-auto'           // opt-in explícito con clase ms-reveal-auto
+      // ❌ NO AGREGAR: '.kpi-card', '.kpi-grid .kpi-card'  → rompe cotizaciones y dinámicos
     ];
     autoReveal.forEach(function (sel) {
       document.querySelectorAll(sel).forEach(function (el) {
@@ -1161,6 +1173,35 @@
         }
       });
     });
+
+    // ════ CANDADO: asegurar visibilidad en secciones dinámicas ════
+    // Estas secciones renderizan tarjetas vía JS asíncrono.
+    // Forzar is-visible para que nunca queden ocultas por ms-reveal.
+    var dynamicSections = [
+      '#coti-section',       // ventas.html — cotizaciones cargadas por loadCotizaciones()
+      '#capital-kpis',       // capital.html — KPIs del capital de trabajo
+      '#cxc-kpis',           // cxc.html — KPIs de CxC
+      '#inv-kpis',           // inventario.html
+      '#resumen-kpis'        // resultados.html
+    ];
+    function unlockDynamicCards() {
+      dynamicSections.forEach(function (sec) {
+        var container = document.querySelector(sec);
+        if (!container) return;
+        container.querySelectorAll('.kpi-card, .kpi-value, .kpi-label').forEach(function (el) {
+          el.classList.remove('ms-reveal');
+          el.classList.add('is-visible');
+          el.style.opacity = '';
+          el.style.transform = '';
+          el.style.filter = '';
+        });
+      });
+    }
+    unlockDynamicCards();
+    // Re-ejecutar después de que cargue contenido dinámico
+    setTimeout(unlockDynamicCards, 600);
+    setTimeout(unlockDynamicCards, 1500);
+    setTimeout(unlockDynamicCards, 3500);
   }
 
   // ════════════════════════════════════════════════════════
