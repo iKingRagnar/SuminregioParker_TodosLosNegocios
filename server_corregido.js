@@ -11388,17 +11388,21 @@ app.get('/api/debug/cotizaciones', async (req, res) => {
     O: [`SELECT i.RDB$INDEX_NAME, s.RDB$FIELD_NAME, s.RDB$STATISTICS FROM RDB$INDEX_SEGMENTS s JOIN RDB$INDICES i ON i.RDB$INDEX_NAME = s.RDB$INDEX_NAME WHERE i.RDB$RELATION_NAME = 'DOCTOS_VE' ORDER BY i.RDB$INDEX_NAME, s.RDB$FIELD_POSITION`, []],
     // P: COUNT(*) WHERE TIPO_DOCTO='V' (venta contado)
     P: [`SELECT COUNT(*) AS N FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'V' AND h.APLICADO = 'S'`, []],
-    // Q: Actualizar estadísticas AK1 — luego ver si COUNT('C') es rápido
+    // Q: Actualizar estadísticas AK1
     Q: [`SET STATISTICS INDEX DOCTOS_VE_AK1`, []],
-    // R: COUNT TIPO='C' con PLAN hint explícito (fuerza AK1 sin depender de stats)
-    R: [`SELECT COUNT(*) AS N FROM DOCTOS_VE h PLAN (h INDEX (DOCTOS_VE_AK1)) WHERE h.TIPO_DOCTO = 'C'`, []],
-    // S: COUNT TIPO='C' + APLICADO='N' con PLAN hint (cotizaciones no aplicadas)
-    S: [`SELECT COUNT(*) AS N, COALESCE(SUM(h.IMPORTE_NETO),0) AS TOTAL FROM DOCTOS_VE h PLAN (h INDEX (DOCTOS_VE_AK1)) WHERE h.TIPO_DOCTO = 'C' AND h.APLICADO = 'N'`, []],
-    // T: Total de filas en DOCTOS_VE (para saber tamaño real de la tabla)
-    T: [`SELECT COUNT(*) AS N FROM DOCTOS_VE h PLAN (h INDEX (DOCTOS_VE_PK))`, []],
+    // Q2: Actualizar estadísticas IE1 también
+    Q2: [`SET STATISTICS INDEX DOCTOS_VE_IE1`, []],
+    // R: COUNT TIPO='C' con PLAN hint al final (Firebird: PLAN después de WHERE)
+    R: [`SELECT COUNT(*) AS N FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'C' PLAN (h INDEX (DOCTOS_VE_AK1))`, []],
+    // S: COUNT TIPO='C' + APLICADO='N' con PLAN hint al final
+    S: [`SELECT COUNT(*) AS N, COALESCE(SUM(h.IMPORTE_NETO),0) AS TOTAL FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'C' AND h.APLICADO = 'N' PLAN (h INDEX (DOCTOS_VE_AK1))`, []],
+    // T: Total de filas DOCTOS_VE forzando PK scan
+    T: [`SELECT COUNT(*) AS N FROM DOCTOS_VE h WHERE h.DOCTO_VE_ID > 0 PLAN (h INDEX (DOCTOS_VE_PK))`, []],
+    // U: Distribución TIPO_DOCTO en AK1 — FIRST 50 desde inicio del índice
+    U: [`SELECT FIRST 50 h.TIPO_DOCTO, h.APLICADO FROM DOCTOS_VE h WHERE h.TIPO_DOCTO >= 'A' PLAN (h INDEX (DOCTOS_VE_AK1)) ORDER BY h.TIPO_DOCTO, h.APLICADO`, []],
   };
   const entry = queries[q];
-  if (!entry) return res.json({ ok: false, error: `q debe ser A-T, recibido: ${q}` });
+  if (!entry) return res.json({ ok: false, error: `q debe ser A-U, Q2, recibido: ${q}` });
   try {
     const rows = await query(entry[0], entry[1], 12000, dbo);
     res.json({ ok: true, q, ms: Date.now() - t, data: rows });
