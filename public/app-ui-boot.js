@@ -471,10 +471,12 @@
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduce) return;
 
-    // Targets: ventas/cxc/capital usan .kpi-val; resultados usa .kpi-val también
-    // Añadimos soporte para .kpi-value[data-val] (alias en algunas páginas)
+    // IMPORTANTE: ventas.html usa setText() que guarda el valor formateado
+    // ("$795,069.93") en data-val de .kpi-value — NO targeteamos .kpi-value
+    // para evitar parseFloat("$795,069.93") = NaN que sobreescribe el valor.
+    // Solo targetear .kpi-val y .kpi-num que usan data-val numérico limpio.
     var targets = document.querySelectorAll(
-      '.kpi-val[data-val], .kpi-num[data-val], .kpi-value[data-val], .kpi-v[data-val]'
+      '.kpi-val[data-val], .kpi-num[data-val]'
     );
     if (!targets.length) return;
 
@@ -501,13 +503,20 @@
 
     function animateNum(el) {
       if (el._ms_counted) return;
+
+      // Limpiar cualquier símbolo de formato antes de parsear
+      var rawStr   = (el.dataset.val || '').replace(/[^0-9.-]/g, '');
+      var raw      = parseFloat(rawStr);
+
+      // Guard: si no es número limpio, no animar (evita NaN en pantalla)
+      if (isNaN(raw)) return;
+
       el._ms_counted = true;
 
-      var raw      = parseFloat(el.dataset.val);
       var prefix   = el.dataset.prefix || '';
       var suffix   = el.dataset.suffix || '';
-      var decimals = (el.dataset.val.split('.')[1] || '').length;
-      var dur      = 1400; // ms — ligeramente más largo para más drama
+      var decimals = (el.dataset.val.split('.')[1] || '').replace(/[^0-9]/g,'').length;
+      var dur      = 1400;
       var t0       = performance.now();
 
       function step(now) {
