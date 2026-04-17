@@ -1373,60 +1373,13 @@
   }
 
   // ════════════════════════════════════════════════════════
-  //  NUMBER SCRAMBLE — efecto Matrix al mostrar KPI values
+  //  NUMBER SCRAMBLE — DESACTIVADO
+  //  Razón: el MutationObserver disparaba en CADA frame del
+  //  count-up (bootKpiCountUp cambia textContent ~60fps),
+  //  causando que los números "bailaran" constantemente.
+  //  El efecto visual resultaba muy molesto en producción.
   // ════════════════════════════════════════════════════════
-  function bootNumberScramble() {
-    var CHARS = '0123456789';
-    var DURATION = 480; // ms total del scramble
-    var STEPS = 8;
-
-    function scrambleEl(el) {
-      var finalText = el.textContent;
-      if (!finalText || finalText === '—' || finalText === '?' || finalText.length < 2) return;
-      if (el._scrambling) return;
-      el._scrambling = true;
-      el.classList.add('scrambling');
-
-      var step = 0;
-      var interval = setInterval(function () {
-        step++;
-        if (step >= STEPS) {
-          clearInterval(interval);
-          el.textContent = finalText;
-          el.classList.remove('scrambling');
-          el._scrambling = false;
-          return;
-        }
-        // Replace numeric chars with random digits
-        el.textContent = finalText.split('').map(function (c) {
-          if (/\d/.test(c) && step < STEPS - 2) {
-            return CHARS[Math.floor(Math.random() * CHARS.length)];
-          }
-          return c;
-        }).join('');
-      }, DURATION / STEPS);
-    }
-
-    // Watch for KPI value changes via MutationObserver
-    var mo = new MutationObserver(function (mutations) {
-      mutations.forEach(function (m) {
-        var el = m.target;
-        if (el && el.classList && el.classList.contains('kpi-value') && !el._scrambling) {
-          scrambleEl(el);
-        }
-      });
-    });
-
-    function attachScramble() {
-      document.querySelectorAll('.kpi-value').forEach(function (el) {
-        mo.observe(el, { childList: true, characterData: true, subtree: true });
-      });
-    }
-
-    attachScramble();
-    setTimeout(attachScramble, 1500);
-    setTimeout(attachScramble, 3500);
-  }
+  function bootNumberScramble() { /* no-op */ }
 
   // ════════════════════════════════════════════════════════
   //  CUSTOM CURSOR — punto dorado + anillo magnético
@@ -1589,7 +1542,146 @@
     }
   }
 
+  // ════════════════════════════════════════════════════════
+  //  API CACHE — respuestas en localStorage por 30 minutos
+  // ════════════════════════════════════════════════════════
+  // REGLA: los datos cargados UNA VEZ no se recargan hasta
+  // que pasen 30 min o el usuario presione "Actualizar".
+  // ════════════════════════════════════════════════════════
+  var SUMI_CACHE = (function () {
+    var PREFIX  = 'sc_api_';
+    var TTL_MS  = 30 * 60 * 1000; // 30 minutos
+    var _bypass = false;           // true solo durante refresh manual
+
+    function _key(url) { return PREFIX + url; }
+
+    function get(url) {
+      if (_bypass) return null;
+      try {
+        var raw = localStorage.getItem(_key(url));
+        if (!raw) return null;
+        var entry = JSON.parse(raw);
+        if (!entry || !entry.ts || !entry.data) return null;
+        if (Date.now() - entry.ts > TTL_MS) return null; // expirado
+        return entry.data;
+      } catch (_) { return null; }
+    }
+
+    function set(url, data) {
+      try {
+        localStorage.setItem(_key(url), JSON.stringify({ ts: Date.now(), data: data }));
+      } catch (_) {}
+    }
+
+    function getTs(url) {
+      try {
+        var raw = localStorage.getItem(_key(url));
+        if (!raw) return null;
+        var entry = JSON.parse(raw);
+        return entry && entry.ts ? entry.ts : null;
+      } catch (_) { return null; }
+    }
+
+    function clearAll() {
+      try {
+        Object.keys(localStorage).forEach(function (k) {
+          if (k.startsWith(PREFIX)) localStorage.removeItem(k);
+        });
+      } catch (_) {}
+    }
+
+    function setBypass(v) { _bypass = v; }
+    function getTTL()     { return TTL_MS; }
+
+    return { get: get, set: set, getTs: getTs, clearAll: clearAll, setBypass: setBypass, getTTL: getTTL };
+  })();
+
+  window.SUMI_CACHE = SUMI_CACHE; // exponer globalmente
+
+  function bootApiCache() {
+    if (window._sumiCacheInstalled) return;
+    window._sumiCacheInstalled = true;
+
+    var _origFetch = window.fetch;
+
+    window.fetch = function (input, opts) {
+      var url    = typeof input === 'string' ? input : (input && input.url ? input.url : String(input));
+      var method = (opts && opts.method ? opts.method : 'GET').toUpperCase();
+
+      // Solo cachear GET a /api/
+      if (method !== 'GET' || url.indexOf('/api/') === -1) {
+        return _origFetch.apply(this, arguments);
+      }
+
+      // ¿Hay datos frescos en caché?
+      var cached = SUMI_CACHE.get(url);
+      if (cached !== null) {
+        // Devolver respuesta inmediata desde caché
+        var fakeResp = {
+          ok: true,
+          status: 200,
+          statusText: 'OK (cached)',
+          _fromCache: true,
+          _cachedAt: SUMI_CACHE.getTs(url),
+          json: function () { return Promise.resolve(cached); },
+          text: function () { return Promise.resolve(JSON.stringify(cached)); },
+          clone: function () { return this; }
+        };
+        return Promise.resolve(fakeResp);
+      }
+
+      // No hay caché — fetch real y guardar resultado
+      return _origFetch.apply(this, arguments).then(function (resp) {
+        if (!resp.ok) return resp;
+        // Clonar para poder leer .json() y aún devolver el response original
+        return resp.clone().json().then(function (data) {
+          SUMI_CACHE.set(url, data);
+          return resp;
+        }).catch(function () { return resp; });
+      });
+    };
+
+    // Botón "Actualizar" → limpiar caché + recargar datos
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('#ms-ref-btn, .ms-refresh-btn, [data-action="refresh"]');
+      if (!btn) return;
+      SUMI_CACHE.clearAll();
+      SUMI_CACHE.setBypass(true);
+      // Después del fetch manual, reactivar caché
+      setTimeout(function () { SUMI_CACHE.setBypass(false); }, 8000);
+    });
+
+    // Mostrar en la barra de estado cuándo fue la última actualización real
+    function patchRefreshStatus() {
+      var statusEl = document.getElementById('ms-ref-status');
+      if (!statusEl) return;
+
+      // Buscar la entrada de caché más reciente entre las APIs comunes
+      var commonApis = [
+        '/api/ventas/resumen', '/api/cxc/resumen', '/api/inv/resumen',
+        '/api/ventas/dia', '/api/cobradas/resumen', '/api/alertas/check'
+      ];
+      var base = (typeof window.__API_BASE === 'string') ? window.__API_BASE : '';
+      var latestTs = null;
+      commonApis.forEach(function (path) {
+        var ts = SUMI_CACHE.getTs(base + path);
+        if (ts && (!latestTs || ts > latestTs)) latestTs = ts;
+      });
+
+      if (latestTs) {
+        var dt = new Date(latestTs);
+        var fmt = dt.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        statusEl.textContent = '✓ Actualizado: ' + fmt + ' (caché)';
+        statusEl.className = 'ms-refresh-status ok';
+      }
+    }
+
+    setTimeout(patchRefreshStatus, 400);
+    setTimeout(patchRefreshStatus, 1500);
+  }
+
   function bootAll() {
+    bootApiCache();       // ← PRIMERO: intercepta fetch antes de que las páginas carguen datos
     bootDesignUpgrade();
     bootTiltEffect();
     bootAiMotion();
