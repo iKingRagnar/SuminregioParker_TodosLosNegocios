@@ -1255,6 +1255,179 @@
     setTimeout(scanTilt, 2500);
   }
 
+  // ════════════════════════════════════════════════════════
+  //  CANVAS PARTICLE NETWORK — red ambiental de partículas
+  // ════════════════════════════════════════════════════════
+  function bootParticleNetwork() {
+    if ('ontouchstart' in window) return; // solo desktop
+    if (typeof window.matchMedia === 'function' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (document.getElementById('sumi-particles')) return;
+
+    var canvas = document.createElement('canvas');
+    canvas.id = 'sumi-particles';
+    canvas.style.cssText = [
+      'position:fixed;inset:0;width:100%;height:100%;',
+      'pointer-events:none;z-index:0;',
+      'opacity:.55;mix-blend-mode:screen;'
+    ].join('');
+    document.body.insertBefore(canvas, document.body.firstChild);
+
+    var ctx = canvas.getContext('2d');
+    var W, H, particles;
+    var PARTICLE_COUNT = 48;
+    var MAX_DIST = 110;
+    var raf;
+
+    function resize() {
+      W = canvas.width  = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+
+    function mkParticle() {
+      return {
+        x: Math.random() * W,
+        y: Math.random() * H,
+        vx: (Math.random() - .5) * .28,
+        vy: (Math.random() - .5) * .28,
+        r: Math.random() * 1.6 + .5,
+        alpha: Math.random() * .35 + .1
+      };
+    }
+
+    function init() {
+      resize();
+      particles = Array.from({ length: PARTICLE_COUNT }, mkParticle);
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+
+      // Update positions
+      particles.forEach(function (p) {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x < 0)  p.x = W;
+        if (p.x > W)  p.x = 0;
+        if (p.y < 0)  p.y = H;
+        if (p.y > H)  p.y = 0;
+      });
+
+      // Draw connections
+      for (var i = 0; i < particles.length; i++) {
+        for (var j = i + 1; j < particles.length; j++) {
+          var dx = particles[i].x - particles[j].x;
+          var dy = particles[i].y - particles[j].y;
+          var dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < MAX_DIST) {
+            var lineAlpha = (1 - dist / MAX_DIST) * .12;
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.strokeStyle = 'rgba(77,140,230,' + lineAlpha + ')';
+            ctx.lineWidth = .5;
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Draw particles
+      particles.forEach(function (p) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(100,160,255,' + p.alpha + ')';
+        ctx.fill();
+      });
+
+      raf = requestAnimationFrame(draw);
+    }
+
+    window.addEventListener('resize', function () {
+      cancelAnimationFrame(raf);
+      init();
+      draw();
+    });
+
+    init();
+    draw();
+  }
+
+  // ════════════════════════════════════════════════════════
+  //  CLICK RIPPLE — onda dorada al hacer clic
+  // ════════════════════════════════════════════════════════
+  function bootClickRipple() {
+    if ('ontouchstart' in window) return;
+    document.addEventListener('click', function (e) {
+      // Solo en elementos interactivos o cards
+      var target = e.target;
+      var isInteractive = target.closest('button, a, .kpi-card, .module-card, .tab-btn, .card-badge, .biz-chip, .nav-link');
+      if (!isInteractive) return;
+
+      var ripple = document.createElement('span');
+      ripple.className = 'click-ripple';
+      ripple.style.left = e.clientX + 'px';
+      ripple.style.top  = e.clientY + 'px';
+      document.body.appendChild(ripple);
+      setTimeout(function () { ripple.remove(); }, 700);
+    });
+  }
+
+  // ════════════════════════════════════════════════════════
+  //  NUMBER SCRAMBLE — efecto Matrix al mostrar KPI values
+  // ════════════════════════════════════════════════════════
+  function bootNumberScramble() {
+    var CHARS = '0123456789';
+    var DURATION = 480; // ms total del scramble
+    var STEPS = 8;
+
+    function scrambleEl(el) {
+      var finalText = el.textContent;
+      if (!finalText || finalText === '—' || finalText === '?' || finalText.length < 2) return;
+      if (el._scrambling) return;
+      el._scrambling = true;
+      el.classList.add('scrambling');
+
+      var step = 0;
+      var interval = setInterval(function () {
+        step++;
+        if (step >= STEPS) {
+          clearInterval(interval);
+          el.textContent = finalText;
+          el.classList.remove('scrambling');
+          el._scrambling = false;
+          return;
+        }
+        // Replace numeric chars with random digits
+        el.textContent = finalText.split('').map(function (c) {
+          if (/\d/.test(c) && step < STEPS - 2) {
+            return CHARS[Math.floor(Math.random() * CHARS.length)];
+          }
+          return c;
+        }).join('');
+      }, DURATION / STEPS);
+    }
+
+    // Watch for KPI value changes via MutationObserver
+    var mo = new MutationObserver(function (mutations) {
+      mutations.forEach(function (m) {
+        var el = m.target;
+        if (el && el.classList && el.classList.contains('kpi-value') && !el._scrambling) {
+          scrambleEl(el);
+        }
+      });
+    });
+
+    function attachScramble() {
+      document.querySelectorAll('.kpi-value').forEach(function (el) {
+        mo.observe(el, { childList: true, characterData: true, subtree: true });
+      });
+    }
+
+    attachScramble();
+    setTimeout(attachScramble, 1500);
+    setTimeout(attachScramble, 3500);
+  }
+
   function bootAll() {
     bootDesignUpgrade();
     bootTiltEffect();
@@ -1270,6 +1443,10 @@
     bootOfflineBanner();
     bootPullToRefresh();
     bootBottomNav();
+    // ── Nuevas funciones premium ──
+    bootParticleNetwork();
+    bootClickRipple();
+    bootNumberScramble();
   }
 
   if (document.readyState === 'loading') {

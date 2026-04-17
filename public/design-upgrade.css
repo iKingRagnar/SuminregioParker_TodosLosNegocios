@@ -323,6 +323,9 @@ html:not([data-theme="light"]) body::after {
 }
 .ms-reveal.is-visible { opacity: 1; transform: none; filter: none; }
 
+/* Canvas de partículas */
+#sumi-particles { position: fixed !important; inset: 0 !important; z-index: 0 !important; pointer-events: none !important; }
+
 /* ── CANDADO: secciones dinámicas siempre visibles ─────────────────────────
    Estas secciones renderizan contenido vía JS asíncrono.
    Nunca deben verse afectadas por ms-reveal.
@@ -682,6 +685,464 @@ html[data-theme="light"] header {
   background: rgba(255,255,255,.9) !important;
   box-shadow: 0 1px 0 rgba(0,0,0,.06), 0 4px 20px rgba(0,0,0,.06) !important;
   backdrop-filter: blur(20px) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §25  HOLOGRAPHIC CARD SURFACES — luz reactiva al mouse
+   ─────────────────────────────────────────────────────────────────────────
+   Usa --tilt-shine-x/y seteados por bootTiltEffect() para crear un efecto
+   de refracción iridiscente que sigue al cursor sobre cada tarjeta.
+   @property --bdr-angle ya declarado en §1 (top del archivo)
+   ═══════════════════════════════════════════════════════════════════════════ */
+@keyframes conic-spin { to { --bdr-angle: 360deg; } }
+
+/* Base holographic shimmer para todos los KPI cards */
+html:not([data-theme="light"]) .kpi-card {
+  background:
+    radial-gradient(
+      ellipse 90% 80% at var(--tilt-shine-x, 30%) var(--tilt-shine-y, 20%),
+      rgba(255,255,255,.055) 0%,
+      transparent 65%
+    ),
+    linear-gradient(135deg, rgba(255,255,255,.02) 0%, transparent 55%),
+    var(--s1, #0C1B29) !important;
+}
+
+/* Tinte de color por variante */
+html:not([data-theme="light"]) .kpi-card.yellow {
+  background:
+    radial-gradient(ellipse 90% 80% at var(--tilt-shine-x, 30%) var(--tilt-shine-y, 20%), rgba(230,168,0,.09) 0%, transparent 65%),
+    linear-gradient(155deg, rgba(230,168,0,.03) 0%, transparent 50%),
+    var(--s1, #0C1B29) !important;
+}
+html:not([data-theme="light"]) .kpi-card.green {
+  background:
+    radial-gradient(ellipse 90% 80% at var(--tilt-shine-x, 30%) var(--tilt-shine-y, 20%), rgba(0,229,160,.08) 0%, transparent 65%),
+    linear-gradient(155deg, rgba(0,229,160,.025) 0%, transparent 50%),
+    var(--s1, #0C1B29) !important;
+}
+html:not([data-theme="light"]) .kpi-card.blue {
+  background:
+    radial-gradient(ellipse 90% 80% at var(--tilt-shine-x, 30%) var(--tilt-shine-y, 20%), rgba(77,166,255,.08) 0%, transparent 65%),
+    linear-gradient(155deg, rgba(77,166,255,.025) 0%, transparent 50%),
+    var(--s1, #0C1B29) !important;
+}
+html:not([data-theme="light"]) .kpi-card.orange {
+  background:
+    radial-gradient(ellipse 90% 80% at var(--tilt-shine-x, 30%) var(--tilt-shine-y, 20%), rgba(255,140,66,.08) 0%, transparent 65%),
+    linear-gradient(155deg, rgba(255,140,66,.025) 0%, transparent 50%),
+    var(--s1, #0C1B29) !important;
+}
+html:not([data-theme="light"]) .kpi-card.red {
+  background:
+    radial-gradient(ellipse 90% 80% at var(--tilt-shine-x, 30%) var(--tilt-shine-y, 20%), rgba(255,69,102,.08) 0%, transparent 65%),
+    linear-gradient(155deg, rgba(255,69,102,.025) 0%, transparent 50%),
+    var(--s1, #0C1B29) !important;
+}
+html:not([data-theme="light"]) .kpi-card.purple {
+  background:
+    radial-gradient(ellipse 90% 80% at var(--tilt-shine-x, 30%) var(--tilt-shine-y, 20%), rgba(155,109,255,.08) 0%, transparent 65%),
+    linear-gradient(155deg, rgba(155,109,255,.025) 0%, transparent 50%),
+    var(--s1, #0C1B29) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §26  CONIC GRADIENT ROTATING BORDERS en hover
+   ─────────────────────────────────────────────────────────────────────────
+   Borde iridiscente giratorio por color. Usa background-clip: border-box.
+   ═══════════════════════════════════════════════════════════════════════════ */
+html:not([data-theme="light"]) .kpi-card:hover {
+  border-color: transparent !important;
+  background-image:
+    radial-gradient(ellipse 90% 80% at var(--tilt-shine-x,50%) var(--tilt-shine-y,50%), rgba(255,255,255,.09) 0%, transparent 65%),
+    linear-gradient(135deg, rgba(255,255,255,.03) 0%, transparent 50%),
+    linear-gradient(var(--s1,#0C1B29), var(--s1,#0C1B29)),
+    conic-gradient(from var(--bdr-angle), rgba(255,255,255,.04) 0deg, var(--kpi-c,#E6A800) 90deg, rgba(255,255,255,.5) 180deg, var(--kpi-c,#E6A800) 270deg, rgba(255,255,255,.04) 360deg) !important;
+  background-origin: padding-box, padding-box, padding-box, border-box !important;
+  background-clip: padding-box, padding-box, padding-box, border-box !important;
+  animation: conic-spin 4s linear infinite !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §27  AMBIENT GLOW FOOTPRINT — color pools bajo tarjetas
+   ═══════════════════════════════════════════════════════════════════════════ */
+html:not([data-theme="light"]) .kpi-card.yellow:hover {
+  box-shadow:
+    var(--neon-gold),
+    0 28px 70px -12px rgba(230,168,0,.4),
+    0 0 0 0.5px rgba(230,168,0,.3) !important;
+}
+html:not([data-theme="light"]) .kpi-card.green:hover {
+  box-shadow:
+    var(--neon-green),
+    0 28px 70px -12px rgba(0,229,160,.35),
+    0 0 0 0.5px rgba(0,229,160,.25) !important;
+}
+html:not([data-theme="light"]) .kpi-card.blue:hover {
+  box-shadow:
+    var(--neon-blue),
+    0 28px 70px -12px rgba(77,166,255,.35),
+    0 0 0 0.5px rgba(77,166,255,.25) !important;
+}
+html:not([data-theme="light"]) .kpi-card.orange:hover {
+  box-shadow:
+    var(--neon-orange),
+    0 28px 70px -12px rgba(255,140,66,.35),
+    0 0 0 0.5px rgba(255,140,66,.25) !important;
+}
+html:not([data-theme="light"]) .kpi-card.red:hover {
+  box-shadow:
+    var(--neon-red),
+    0 28px 70px -12px rgba(255,69,102,.35),
+    0 0 0 0.5px rgba(255,69,102,.25) !important;
+}
+html:not([data-theme="light"]) .kpi-card.purple:hover {
+  box-shadow:
+    var(--neon-purple),
+    0 28px 70px -12px rgba(155,109,255,.35),
+    0 0 0 0.5px rgba(155,109,255,.25) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §28  DOT GRID BACKGROUND — profundidad atmosférica
+   ═══════════════════════════════════════════════════════════════════════════ */
+html:not([data-theme="light"]) body::before {
+  background:
+    radial-gradient(ellipse 60% 40% at 30% 20%, rgba(77,166,255,.04), transparent 65%),
+    radial-gradient(circle, rgba(255,255,255,.028) 1px, transparent 1px) !important;
+  background-size: 100% 100%, 28px 28px !important;
+  animation: aurora-drift 18s ease-in-out infinite alternate;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §29  GRAIN NOISE OVERLAY — textura táctil premium
+   ═══════════════════════════════════════════════════════════════════════════ */
+html:not([data-theme="light"]) body {
+  position: relative;
+}
+html:not([data-theme="light"]) body > *:not(canvas):not(script) {
+  position: relative;
+  z-index: 1;
+}
+/* Capa de grain via SVG data URI */
+html:not([data-theme="light"]) body::after {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse 50% 35% at 70% 75%, rgba(0,229,160,.03), transparent 60%) !important;
+  background-size: 256px 256px, 100% 100% !important;
+  animation: aurora-drift2 22s ease-in-out infinite alternate;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §30  TYPOGRAPHY SYSTEM v2 — rendering, kerning, escala
+   ═══════════════════════════════════════════════════════════════════════════ */
+html:not([data-theme="light"]) body {
+  text-rendering: optimizeLegibility !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+}
+html:not([data-theme="light"]) .kpi-value {
+  font-feature-settings: "tnum" 1, "ss01" 1 !important;
+  letter-spacing: -0.03em !important;
+  line-height: 1 !important;
+}
+html:not([data-theme="light"]) .kpi-label {
+  letter-spacing: .14em !important;
+  font-size: .6rem !important;
+  font-weight: 600 !important;
+}
+html:not([data-theme="light"]) h1, html:not([data-theme="light"]) .page-title {
+  letter-spacing: -.025em !important;
+  line-height: 1.15 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §31  TABLE PREMIUM v2 — zebra glass + sticky blur
+   ═══════════════════════════════════════════════════════════════════════════ */
+html:not([data-theme="light"]) .sc-table thead th,
+html:not([data-theme="light"]) .tbl th,
+html:not([data-theme="light"]) .uni-table th {
+  background: rgba(9,20,38,.98) !important;
+  backdrop-filter: blur(16px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(150%) !important;
+  border-bottom: 1px solid rgba(230,168,0,.15) !important;
+  font-size: .59rem !important;
+  letter-spacing: .12em !important;
+  padding: .7rem 1rem !important;
+  color: #8CAAC8 !important;
+}
+/* Zebra rows */
+html:not([data-theme="light"]) .sc-table tbody tr:nth-child(even) td,
+html:not([data-theme="light"]) .tbl tbody tr:nth-child(even) td,
+html:not([data-theme="light"]) .uni-table tbody tr:nth-child(even) td {
+  background: rgba(255,255,255,.018) !important;
+}
+html:not([data-theme="light"]) .sc-table tbody tr:hover td,
+html:not([data-theme="light"]) .tbl tbody tr:hover td,
+html:not([data-theme="light"]) .uni-table tbody tr:hover td {
+  background: rgba(230,168,0,.055) !important;
+}
+/* Left gold accent on row hover */
+html:not([data-theme="light"]) .sc-table tbody tr:hover td:first-child,
+html:not([data-theme="light"]) .tbl tbody tr:hover td:first-child {
+  box-shadow: inset 3px 0 0 rgba(230,168,0,.7) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §32  PROGRESS BARS — glow + gradiente premium
+   ═══════════════════════════════════════════════════════════════════════════ */
+html:not([data-theme="light"]) .meta-bar-fill {
+  background: linear-gradient(90deg, var(--kpi-c, #E6A800), color-mix(in srgb, var(--kpi-c, #E6A800) 60%, white)) !important;
+  box-shadow: 0 0 8px var(--kpi-c, #E6A800) !important;
+  height: 4px !important;
+  border-radius: 99px !important;
+}
+html:not([data-theme="light"]) .meta-bar-bg {
+  height: 4px !important;
+  background: rgba(255,255,255,.06) !important;
+  border-radius: 99px !important;
+}
+html:not([data-theme="light"]) .sc-bar-fill,
+html:not([data-theme="light"]) .uni-risk-fill {
+  box-shadow: 0 0 8px currentColor !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §33  SECTION HEADERS — accent bar + label upgrade
+   ═══════════════════════════════════════════════════════════════════════════ */
+html:not([data-theme="light"]) .page-title,
+html:not([data-theme="light"]) h1.title,
+html:not([data-theme="light"]) .section-title {
+  display: flex !important;
+  align-items: center !important;
+  gap: .65rem !important;
+}
+html:not([data-theme="light"]) .page-title::before,
+html:not([data-theme="light"]) h1.title::before,
+html:not([data-theme="light"]) .section-title::before {
+  content: '' !important;
+  display: inline-block !important;
+  width: 3px !important;
+  height: 1.1em !important;
+  border-radius: 99px !important;
+  background: linear-gradient(180deg, #E6A800, #FF8C42) !important;
+  box-shadow: 0 0 10px rgba(230,168,0,.5) !important;
+  flex-shrink: 0 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §34  MODULE CARDS PREMIUM v2 — icon aura + KPI meta
+   ═══════════════════════════════════════════════════════════════════════════ */
+html:not([data-theme="light"]) .mod-icon {
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.1),
+    0 0 20px rgba(0,0,0,.5),
+    0 0 30px var(--mod-c, rgba(255,255,255,.1)) !important;
+  border-radius: 13px !important;
+}
+html:not([data-theme="light"]) .module-card:hover .mod-icon {
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.2),
+    0 0 30px rgba(0,0,0,.5),
+    0 0 50px var(--mod-c, rgba(255,255,255,.15)),
+    0 0 80px var(--mod-c, rgba(255,255,255,.06)) !important;
+}
+/* Holographic surface en module cards */
+html:not([data-theme="light"]) .module-card {
+  background:
+    radial-gradient(ellipse 80% 60% at var(--tilt-shine-x, 25%) var(--tilt-shine-y, 25%), rgba(255,255,255,.04) 0%, transparent 60%),
+    linear-gradient(135deg, rgba(255,255,255,.015) 0%, transparent 50%),
+    var(--s1, #0C1B29) !important;
+}
+html:not([data-theme="light"]) .module-card:hover {
+  border-color: transparent !important;
+  background-image:
+    radial-gradient(ellipse at var(--tilt-shine-x,50%) var(--tilt-shine-y,50%), rgba(255,255,255,.065) 0%, transparent 60%),
+    linear-gradient(135deg, rgba(255,255,255,.025) 0%, transparent 50%),
+    linear-gradient(var(--s1,#0C1B29), var(--s1,#0C1B29)),
+    conic-gradient(from var(--bdr-angle), rgba(255,255,255,.03) 0deg, var(--mod-c,#E6A800) 120deg, rgba(255,255,255,.4) 180deg, var(--mod-c,#E6A800) 240deg, rgba(255,255,255,.03) 360deg) !important;
+  background-origin: padding-box, padding-box, padding-box, border-box !important;
+  background-clip: padding-box, padding-box, padding-box, border-box !important;
+  animation: conic-spin 5s linear infinite !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §35  CHIPS / BADGES PREMIUM v2 — glassmorphism
+   ═══════════════════════════════════════════════════════════════════════════ */
+html:not([data-theme="light"]) .card-badge {
+  background: rgba(255,255,255,.04) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(255,255,255,.1) !important;
+  transition: all .2s !important;
+}
+html:not([data-theme="light"]) .card-badge:hover {
+  background: rgba(230,168,0,.1) !important;
+  border-color: rgba(230,168,0,.3) !important;
+  color: #E6A800 !important;
+}
+html:not([data-theme="light"]) .tag.up,
+html:not([data-theme="light"]) .tag.down,
+html:not([data-theme="light"]) .tag.warn,
+html:not([data-theme="light"]) .tag.ok {
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+  font-weight: 600 !important;
+}
+html:not([data-theme="light"]) .biz-chip {
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  transition: all .2s !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §36  FORM INPUTS / SELECTS PREMIUM v2 — glass + glow
+   ═══════════════════════════════════════════════════════════════════════════ */
+html:not([data-theme="light"]) input:not([type="checkbox"]):not([type="radio"]),
+html:not([data-theme="light"]) select,
+html:not([data-theme="light"]) textarea {
+  background: rgba(10,22,42,.75) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(255,255,255,.1) !important;
+  color: #E0EAF6 !important;
+  transition: border-color .2s, box-shadow .2s, background .2s !important;
+}
+html:not([data-theme="light"]) input:not([type="checkbox"]):not([type="radio"]):hover,
+html:not([data-theme="light"]) select:hover,
+html:not([data-theme="light"]) textarea:hover {
+  border-color: rgba(255,255,255,.18) !important;
+  background: rgba(12,26,48,.85) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §37  CLICK RIPPLE — efecto de onda al hacer clic
+   ═══════════════════════════════════════════════════════════════════════════ */
+.click-ripple {
+  position: fixed !important;
+  border-radius: 50% !important;
+  background: radial-gradient(circle, rgba(230,168,0,.35) 0%, rgba(230,168,0,.1) 50%, transparent 70%) !important;
+  pointer-events: none !important;
+  z-index: 99999 !important;
+  transform: translate(-50%,-50%) scale(0) !important;
+  animation: ripple-expand .65s cubic-bezier(0,.5,.5,1) forwards !important;
+}
+@keyframes ripple-expand {
+  0%   { width: 0;     height: 0;     opacity: 1; transform: translate(-50%,-50%) scale(0); }
+  60%  { opacity: .7; }
+  100% { width: 220px; height: 220px; opacity: 0; transform: translate(-50%,-50%) scale(1); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §38  BOTTOM NAV PREMIUM v2 — indicadores mejorados
+   ═══════════════════════════════════════════════════════════════════════════ */
+html:not([data-theme="light"]) #sumi-bottom-nav .bn-item.active {
+  color: #E6A800 !important;
+}
+html:not([data-theme="light"]) #sumi-bottom-nav .bn-item.active svg {
+  filter: drop-shadow(0 0 6px rgba(230,168,0,.6)) !important;
+}
+html:not([data-theme="light"]) #sumi-bottom-nav .bn-item::after {
+  content: '' !important;
+  position: absolute !important;
+  bottom: 2px !important;
+  left: 50% !important;
+  width: 0 !important;
+  height: 2px !important;
+  border-radius: 99px !important;
+  background: #E6A800 !important;
+  box-shadow: 0 0 8px rgba(230,168,0,.7) !important;
+  transform: translateX(-50%) !important;
+  transition: width .25s var(--du-ease) !important;
+}
+html:not([data-theme="light"]) #sumi-bottom-nav .bn-item.active::after {
+  width: 20px !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §39  COMMAND PALETTE PREMIUM v2
+   ═══════════════════════════════════════════════════════════════════════════ */
+html:not([data-theme="light"]) #sumi-cmdpal {
+  background: rgba(4,9,20,.97) !important;
+  border: 1px solid rgba(230,168,0,.15) !important;
+  box-shadow:
+    0 0 0 1px rgba(230,168,0,.06),
+    0 0 80px rgba(77,166,255,.08),
+    0 50px 120px rgba(0,0,0,.8) !important;
+}
+html:not([data-theme="light"]) #cmd-input {
+  background: rgba(255,255,255,.04) !important;
+  border-bottom: 1px solid rgba(255,255,255,.08) !important;
+  caret-color: #E6A800 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §40  CHART CONTAINERS — gradient mesh + glass card
+   ═══════════════════════════════════════════════════════════════════════════ */
+html:not([data-theme="light"]) .card {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.018) 0%, transparent 55%),
+    var(--s1, #0C1B29) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,.05) inset, 0 0 0 1px rgba(255,255,255,.04) !important;
+}
+html:not([data-theme="light"]) .card:hover {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.03) 0%, transparent 55%),
+    var(--s1, #0C1B29) !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.07) inset,
+    0 0 0 1px rgba(255,255,255,.07),
+    0 24px 64px rgba(0,0,0,.45),
+    0 0 32px rgba(230,168,0,.04) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §41  NÚMERO SCRAMBLE CSS — preparación visual
+   ═══════════════════════════════════════════════════════════════════════════ */
+.kpi-value.scrambling {
+  animation: scramble-flash .08s steps(1) infinite !important;
+  color: rgba(230,168,0,.7) !important;
+}
+@keyframes scramble-flash {
+  0%   { opacity: 1; }
+  50%  { opacity: .6; }
+  100% { opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §42  SCORECARD PREMIUM — header + rows
+   ═══════════════════════════════════════════════════════════════════════════ */
+html:not([data-theme="light"]) .scorecard-wrap {
+  background: linear-gradient(170deg, rgba(12,26,46,.99) 0%, rgba(7,14,30,.98) 100%) !important;
+  border: 1px solid rgba(255,255,255,.07) !important;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.04) inset,
+    0 32px 80px rgba(0,0,0,.55),
+    0 0 80px rgba(77,166,255,.04) !important;
+}
+html:not([data-theme="light"]) .sc-row:hover {
+  background: rgba(230,168,0,.04) !important;
+}
+html:not([data-theme="light"]) .sc-row:hover .sc-label {
+  color: #C4D2E2 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §43  UNI-ENTITY CARDS (vendedores / clientes) PREMIUM
+   ═══════════════════════════════════════════════════════════════════════════ */
+html:not([data-theme="light"]) .uni-entity-card {
+  background:
+    radial-gradient(ellipse 80% 60% at var(--tilt-shine-x, 25%) var(--tilt-shine-y, 25%), rgba(255,255,255,.03) 0%, transparent 60%),
+    var(--s1, #0C1B29) !important;
+}
+html:not([data-theme="light"]) .uni-entity-card:hover {
+  background:
+    radial-gradient(ellipse at var(--tilt-shine-x,50%) var(--tilt-shine-y,50%), rgba(255,255,255,.055) 0%, transparent 60%),
+    var(--s1, #0C1B29) !important;
+  box-shadow:
+    0 0 0 1px rgba(230,168,0,.12),
+    0 24px 64px rgba(0,0,0,.45),
+    0 0 40px rgba(230,168,0,.06) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
