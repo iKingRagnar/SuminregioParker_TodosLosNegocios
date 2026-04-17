@@ -1163,8 +1163,60 @@
     });
   }
 
+  // ════════════════════════════════════════════════════════
+  //  3D TILT + MAGNETIC HOVER — cards reaccionan al mouse
+  // ════════════════════════════════════════════════════════
+  function bootTiltEffect() {
+    if (typeof document === 'undefined') return;
+    if (typeof window.matchMedia === 'function' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    // Only desktop (no touch)
+    if ('ontouchstart' in window) return;
+
+    var TILT_MAX   = 8;  // max degrees
+    var TILT_SCALE = 1.015;
+
+    function attachTilt(el) {
+      if (el._tiltBound) return;
+      el._tiltBound = true;
+
+      el.addEventListener('mousemove', function (e) {
+        var rect = el.getBoundingClientRect();
+        var cx   = rect.left + rect.width  / 2;
+        var cy   = rect.top  + rect.height / 2;
+        var dx   = (e.clientX - cx) / (rect.width  / 2);
+        var dy   = (e.clientY - cy) / (rect.height / 2);
+        var rx   = -dy * TILT_MAX;
+        var ry   =  dx * TILT_MAX;
+        el.style.transform =
+          'perspective(900px) rotateX(' + rx + 'deg) rotateY(' + ry + 'deg) scale(' + TILT_SCALE + ')';
+        // Shine position for holographic effect
+        var sx = ((e.clientX - rect.left) / rect.width  * 100).toFixed(1) + '%';
+        var sy = ((e.clientY - rect.top)  / rect.height * 100).toFixed(1) + '%';
+        el.style.setProperty('--tilt-shine-x', sx);
+        el.style.setProperty('--tilt-shine-y', sy);
+      });
+
+      el.addEventListener('mouseleave', function () {
+        el.style.transform = '';
+        el.style.removeProperty('--tilt-shine-x');
+        el.style.removeProperty('--tilt-shine-y');
+      });
+    }
+
+    function scanTilt() {
+      document.querySelectorAll('.kpi-card, .module-card, .uni-entity-card').forEach(attachTilt);
+    }
+
+    scanTilt();
+    // Re-scan after dynamic content loads
+    setTimeout(scanTilt, 800);
+    setTimeout(scanTilt, 2500);
+  }
+
   function bootAll() {
     bootDesignUpgrade();
+    bootTiltEffect();
     bootAiMotion();
     bootManualRefreshBar();
     bootCursorGlow();
