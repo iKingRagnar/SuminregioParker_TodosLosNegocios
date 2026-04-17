@@ -90,11 +90,50 @@
     function startCountdown() {
       if (_cntTimer) clearInterval(_cntTimer);
       if (!_lastOkTs || !cntEl) return;
-      _cntTimer = setInterval(function() {
+      var _autoFired = false; // evitar doble disparo
+
+      _cntTimer = setInterval(function () {
         var elapsed = Math.floor((Date.now() - _lastOkTs) / 1000);
         var total   = AUTO_MINS * 60;
         var remain  = Math.max(0, total - elapsed);
-        if (remain <= 0) { cntEl.textContent = '↻ auto-refresco ahora'; return; }
+
+        if (remain <= 0) {
+          // ── Disparo único del auto-refresh ─────────────────────────────
+          if (!_autoFired) {
+            _autoFired = true;
+            clearInterval(_cntTimer);
+            _cntTimer = null;
+            if (cntEl) cntEl.textContent = '↻ actualizando…';
+
+            // 1. Limpiar AMBAS capas de caché
+            try {
+              if (typeof window.clearApiCache === 'function') window.clearApiCache();
+            } catch (_) {}
+            try {
+              if (typeof SUMI_CACHE !== 'undefined') {
+                SUMI_CACHE.clearAll();
+                SUMI_CACHE.setBypass(true);
+                setTimeout(function () { SUMI_CACHE.setBypass(false); }, 14000);
+              }
+            } catch (_) {}
+
+            // 2. Recargar datos de la página (sin full reload si es posible)
+            setLoading();
+            var reloaded = false;
+            if (typeof window.loadAll === 'function') {
+              try { window.loadAll(); reloaded = true; } catch (_) {}
+            }
+            if (!reloaded && typeof window.__reloadPageData === 'function') {
+              try { window.__reloadPageData(); reloaded = true; } catch (_) {}
+            }
+            if (!reloaded) {
+              // Fallback: full reload con caché ya limpia
+              setTimeout(function () { window.location.reload(); }, 300);
+            }
+          }
+          return;
+        }
+
         var m = Math.floor(remain / 60);
         var s = remain % 60;
         cntEl.textContent = '⏱ próx. auto ' + m + ':' + String(s).padStart(2, '0');
