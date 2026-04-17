@@ -2111,3 +2111,353 @@ html.theme-premium-light .skel {
   background-size: 200% 100% !important;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   §60  TEXT SELECTION — resaltado con marca dorada
+   ═══════════════════════════════════════════════════════════════════════════ */
+html:not([data-theme="light"]) ::selection {
+  background: rgba(230,168,0,.28) !important;
+  color: #FFE585 !important;
+  text-shadow: 0 0 12px rgba(230,168,0,.4) !important;
+}
+html:not([data-theme="light"]) ::-moz-selection {
+  background: rgba(230,168,0,.28) !important;
+  color: #FFE585 !important;
+}
+html[data-theme="light"] ::selection,
+html.theme-premium-light ::selection {
+  background: rgba(180,83,9,.18) !important;
+  color: #78350F !important;
+}
+html[data-theme="light"] ::-moz-selection,
+html.theme-premium-light ::-moz-selection {
+  background: rgba(180,83,9,.18) !important;
+  color: #78350F !important;
+}
+
+/* ── Focus-visible ring gold (keyboard nav accesible) ── */
+html:not([data-theme="light"]) :focus-visible {
+  outline: 2px solid rgba(230,168,0,.75) !important;
+  outline-offset: 3px !important;
+  border-radius: 4px !important;
+}
+html[data-theme="light"] :focus-visible,
+html.theme-premium-light :focus-visible {
+  outline: 2px solid rgba(180,83,9,.65) !important;
+  outline-offset: 3px !important;
+  border-radius: 4px !important;
+}
+/* Quitar outline en click (solo teclado lo ve) */
+html:not([data-theme="light"]) :focus:not(:focus-visible),
+html[data-theme="light"] :focus:not(:focus-visible),
+html.theme-premium-light :focus:not(:focus-visible) {
+  outline: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §61  TAB BUTTONS — glow activo por color + hover premium
+   ═══════════════════════════════════════════════════════════════════════════ */
+html:not([data-theme="light"]) .tab-btn {
+  position: relative;
+  overflow: hidden;
+}
+/* Shimmer sweep al hover */
+html:not([data-theme="light"]) .tab-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    rgba(255,255,255,.07) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  opacity: 0;
+  transition: opacity .2s;
+  pointer-events: none;
+}
+html:not([data-theme="light"]) .tab-btn:hover::before { opacity: 1; }
+
+/* Active state — gold por defecto */
+html:not([data-theme="light"]) .tab-btn.active {
+  background: rgba(230,168,0,.1) !important;
+  border-color: rgba(230,168,0,.4) !important;
+  color: #E6A800 !important;
+  box-shadow:
+    0 0 12px rgba(230,168,0,.18),
+    inset 0 0 10px rgba(230,168,0,.05) !important;
+}
+/* Active por color semántico */
+html:not([data-theme="light"]) .tab-btn.active.green {
+  background: rgba(0,229,160,.1) !important;
+  border-color: rgba(0,229,160,.4) !important;
+  color: #00E5A0 !important;
+  box-shadow: 0 0 12px rgba(0,229,160,.18), inset 0 0 10px rgba(0,229,160,.05) !important;
+}
+html:not([data-theme="light"]) .tab-btn.active.blue {
+  background: rgba(77,166,255,.1) !important;
+  border-color: rgba(77,166,255,.4) !important;
+  color: #4DA6FF !important;
+  box-shadow: 0 0 12px rgba(77,166,255,.18), inset 0 0 10px rgba(77,166,255,.05) !important;
+}
+html:not([data-theme="light"]) .tab-btn.active.red {
+  background: rgba(255,69,102,.1) !important;
+  border-color: rgba(255,69,102,.4) !important;
+  color: #FF4566 !important;
+  box-shadow: 0 0 12px rgba(255,69,102,.18), inset 0 0 10px rgba(255,69,102,.05) !important;
+}
+
+/* Light mode tab active */
+html[data-theme="light"] .tab-btn.active,
+html.theme-premium-light .tab-btn.active {
+  background: rgba(180,83,9,.08) !important;
+  border-color: rgba(180,83,9,.35) !important;
+  color: #B45309 !important;
+  box-shadow: 0 0 10px rgba(180,83,9,.12) !important;
+}
+html[data-theme="light"] .tab-btn:not(.active),
+html.theme-premium-light .tab-btn:not(.active) {
+  color: #475569 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §62  .sd SECTION DIVIDERS — animated aurora line + glow label (dark)
+   ═══════════════════════════════════════════════════════════════════════════ */
+html:not([data-theme="light"]) .sd {
+  margin: 1.8rem 0 1.2rem !important;
+}
+html:not([data-theme="light"]) .sd-line {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(77,166,255,.08) 10%,
+    rgba(230,168,0,.28) 40%,
+    rgba(77,166,255,.18) 60%,
+    rgba(0,229,160,.1) 85%,
+    transparent 100%
+  ) !important;
+  background-size: 200% 100% !important;
+  animation: sd-flow 8s linear infinite !important;
+  height: 1px !important;
+}
+@keyframes sd-flow {
+  0%   { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+html:not([data-theme="light"]) .sd-label {
+  color: #7A98B8 !important;
+  letter-spacing: .16em !important;
+  white-space: nowrap !important;
+  font-size: .6rem !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §63  .kpi (resultados) — hover lift + neon + conic border (dark)
+   Iguala la experiencia de .kpi-card en ventas/cxc/etc.
+   ═══════════════════════════════════════════════════════════════════════════ */
+html:not([data-theme="light"]) .kpi {
+  transition:
+    transform .35s var(--du-ease),
+    box-shadow .35s var(--du-ease),
+    border-color .35s !important;
+  will-change: transform, box-shadow;
+}
+html:not([data-theme="light"]) .kpi:hover {
+  transform: translateY(-5px) scale(1.012) !important;
+}
+html:not([data-theme="light"]) .kpi.blue:hover  { box-shadow: var(--neon-blue),  0 22px 55px rgba(0,0,0,.42) !important; border-color: rgba(77,166,255,.45) !important; }
+html:not([data-theme="light"]) .kpi.green:hover { box-shadow: var(--neon-green), 0 22px 55px rgba(0,0,0,.42) !important; border-color: rgba(0,229,160,.45) !important; }
+html:not([data-theme="light"]) .kpi.yellow:hover{ box-shadow: var(--neon-gold),  0 22px 55px rgba(0,0,0,.42) !important; border-color: rgba(230,168,0,.45) !important; }
+html:not([data-theme="light"]) .kpi.orange:hover{ box-shadow: var(--neon-orange),0 22px 55px rgba(0,0,0,.42) !important; border-color: rgba(255,140,66,.45) !important; }
+html:not([data-theme="light"]) .kpi.purple:hover{ box-shadow: var(--neon-purple),0 22px 55px rgba(0,0,0,.42) !important; border-color: rgba(155,109,255,.45) !important; }
+html:not([data-theme="light"]) .kpi.cyan:hover  { box-shadow: var(--neon-cyan),  0 22px 55px rgba(0,0,0,.42) !important; border-color: rgba(0,212,255,.45) !important; }
+
+/* Conic border rotating en hover */
+html:not([data-theme="light"]) .kpi:hover {
+  border-color: transparent !important;
+  background-image:
+    radial-gradient(ellipse 90% 80% at var(--tilt-shine-x,50%) var(--tilt-shine-y,50%), rgba(255,255,255,.07) 0%, transparent 65%),
+    linear-gradient(var(--s1,#0C1B29), var(--s1,#0C1B29)),
+    conic-gradient(from var(--bdr-angle), rgba(255,255,255,.04) 0deg, var(--kc,#E6A800) 90deg, rgba(255,255,255,.5) 180deg, var(--kc,#E6A800) 270deg, rgba(255,255,255,.04) 360deg) !important;
+  background-origin: padding-box, padding-box, border-box !important;
+  background-clip: padding-box, padding-box, border-box !important;
+  animation: conic-spin 4s linear infinite !important;
+}
+
+/* KPI values neon text shadow */
+html:not([data-theme="light"]) .kpi.blue   .kpi-val { text-shadow: 0 0 18px rgba(77,166,255,.45); }
+html:not([data-theme="light"]) .kpi.green  .kpi-val { text-shadow: 0 0 18px rgba(0,229,160,.45); }
+html:not([data-theme="light"]) .kpi.yellow .kpi-val { text-shadow: 0 0 18px rgba(230,168,0,.45); }
+html:not([data-theme="light"]) .kpi.orange .kpi-val { text-shadow: 0 0 18px rgba(255,140,66,.45); }
+html:not([data-theme="light"]) .kpi.purple .kpi-val { text-shadow: 0 0 18px rgba(155,109,255,.45); }
+html:not([data-theme="light"]) .kpi.cyan   .kpi-val { text-shadow: 0 0 18px rgba(0,212,255,.45); }
+
+/* Light mode: hover depth para .kpi */
+html[data-theme="light"] .kpi:hover,
+html.theme-premium-light .kpi:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 12px 32px rgba(15,23,42,.10), 0 4px 8px rgba(15,23,42,.06) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §64  LIGHT MODE — card hover depth + table row hover
+   ═══════════════════════════════════════════════════════════════════════════ */
+html[data-theme="light"] .pl-sc-card:hover,
+html.theme-premium-light .pl-sc-card:hover {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 12px 32px rgba(15,23,42,.10), 0 4px 8px rgba(15,23,42,.06) !important;
+  border-color: rgba(180,83,9,.15) !important;
+}
+html[data-theme="light"] .bg-kpi:hover,
+html.theme-premium-light .bg-kpi:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 24px rgba(15,23,42,.08) !important;
+}
+html[data-theme="light"] .card:hover,
+html.theme-premium-light .card:hover {
+  box-shadow: 0 16px 48px rgba(15,23,42,.11), 0 4px 12px rgba(15,23,42,.07) !important;
+  transform: translateY(-2px) !important;
+  border-color: rgba(15,23,42,.12) !important;
+}
+/* Row hover en light mode para tablas sc/tbl */
+html[data-theme="light"] .sc-table tbody tr:hover td,
+html[data-theme="light"] .tbl tbody tr:hover td,
+html.theme-premium-light .sc-table tbody tr:hover td,
+html.theme-premium-light .tbl tbody tr:hover td {
+  background: rgba(180,83,9,.04) !important;
+}
+html[data-theme="light"] .sc-table tbody tr:hover td:first-child,
+html[data-theme="light"] .tbl tbody tr:hover td:first-child,
+html.theme-premium-light .sc-table tbody tr:hover td:first-child,
+html.theme-premium-light .tbl tbody tr:hover td:first-child {
+  box-shadow: inset 3px 0 0 rgba(180,83,9,.55) !important;
+}
+/* Zebra light */
+html[data-theme="light"] .sc-table tbody tr:nth-child(even) td,
+html[data-theme="light"] .tbl tbody tr:nth-child(even) td,
+html.theme-premium-light .sc-table tbody tr:nth-child(even) td,
+html.theme-premium-light .tbl tbody tr:nth-child(even) td {
+  background: rgba(15,23,42,.022) !important;
+}
+/* Filter bar glass (light) */
+html[data-theme="light"] .filter-bar,
+html.theme-premium-light .filter-bar {
+  background: rgba(255,255,255,.92) !important;
+  backdrop-filter: blur(20px) !important;
+  border-color: rgba(15,23,42,.08) !important;
+  box-shadow: 0 2px 12px rgba(15,23,42,.06) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §65  TOOLTIP SYSTEM — data-tooltip nativo premium
+   ═══════════════════════════════════════════════════════════════════════════ */
+#sumi-tooltip {
+  position: fixed;
+  z-index: 9999990;
+  pointer-events: none;
+  max-width: 220px;
+  padding: .42rem .72rem;
+  border-radius: 8px;
+  font-family: 'DM Mono', monospace;
+  font-size: .65rem;
+  line-height: 1.5;
+  letter-spacing: .02em;
+  white-space: normal;
+  word-break: break-word;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity .18s var(--du-ease), transform .18s var(--du-ease);
+}
+html:not([data-theme="light"]) #sumi-tooltip {
+  background: rgba(4,10,22,.96);
+  border: 1px solid rgba(230,168,0,.22);
+  color: #C4D2E2;
+  box-shadow: 0 8px 28px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.04);
+  backdrop-filter: blur(16px);
+}
+html[data-theme="light"] #sumi-tooltip,
+html.theme-premium-light #sumi-tooltip {
+  background: rgba(15,23,42,.95);
+  border: 1px solid rgba(15,23,42,.15);
+  color: #E2E8F0;
+  box-shadow: 0 8px 28px rgba(15,23,42,.28);
+}
+#sumi-tooltip.visible {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+}
+#sumi-tooltip::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  transform: translateX(-50%);
+  width: 8px;
+  height: 8px;
+  background: inherit;
+  border-right: 1px solid rgba(230,168,0,.22);
+  border-bottom: 1px solid rgba(230,168,0,.22);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §66  SCROLL PROGRESS BAR — línea de progreso de página
+   ═══════════════════════════════════════════════════════════════════════════ */
+#sumi-scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 2px;
+  width: 0%;
+  z-index: 999997;
+  pointer-events: none;
+  border-radius: 0 99px 99px 0;
+  transition: width .08s linear;
+}
+html:not([data-theme="light"]) #sumi-scroll-progress {
+  background: linear-gradient(90deg, #E6A800, #FF8C42, #4DA6FF, #00E5A0);
+}
+html[data-theme="light"] #sumi-scroll-progress,
+html.theme-premium-light #sumi-scroll-progress {
+  background: linear-gradient(90deg, #B45309, #D97706, #0891B2);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §67  PRINT — versión limpia, sin decoración
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media print {
+  #sumi-particles,
+  #sumi-cursor-dot,
+  #sumi-cursor-ring,
+  #sumi-top-bar,
+  #sumi-bottom-nav,
+  #sumi-scroll-progress,
+  .ms-refresh-bar,
+  .click-ripple,
+  .ms-ai-sparkle,
+  .ms-ai-sparkle2,
+  .ms-ai-sparkle3,
+  .ms-ai-aurora2,
+  .orb,
+  .bg-orbs,
+  #cw-fab,
+  #sumi-ai-pro-btn { display: none !important; }
+
+  body {
+    background: #fff !important;
+    color: #0F172A !important;
+  }
+  .card, .kpi, .kpi-card, .pl-sc-card {
+    border: 1px solid #CBD5E1 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    background: #fff !important;
+    break-inside: avoid;
+  }
+  .hero-title, .hero-title-v2 {
+    -webkit-text-fill-color: #0F172A !important;
+    background: none !important;
+    animation: none !important;
+  }
+}
+

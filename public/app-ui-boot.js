@@ -471,34 +471,67 @@
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduce) return;
 
-    var targets = document.querySelectorAll('.kpi-val[data-val], .kpi-num[data-val]');
+    // Targets: ventas/cxc/capital usan .kpi-val; resultados usa .kpi-val también
+    // Añadimos soporte para .kpi-value[data-val] (alias en algunas páginas)
+    var targets = document.querySelectorAll(
+      '.kpi-val[data-val], .kpi-num[data-val], .kpi-value[data-val], .kpi-v[data-val]'
+    );
     if (!targets.length) return;
 
-    function easeOut(t) { return 1 - Math.pow(1 - t, 4); }
+    // Easing: exponential out — arranque rápido, frenada suave
+    function easeOutExpo(t) {
+      return t >= 1 ? 1 : 1 - Math.pow(2, -10 * t);
+    }
+
+    // Formatea número con separadores de miles según locale es-MX
+    function fmtNum(v, decimals, prefix, suffix) {
+      var abs = Math.abs(v);
+      var sign = v < 0 ? '-' : '';
+      var formatted;
+      try {
+        formatted = abs.toLocaleString('es-MX', {
+          minimumFractionDigits: decimals,
+          maximumFractionDigits: decimals
+        });
+      } catch (e) {
+        formatted = abs.toFixed(decimals);
+      }
+      return prefix + sign + formatted + suffix;
+    }
 
     function animateNum(el) {
       if (el._ms_counted) return;
       el._ms_counted = true;
 
-      var raw    = parseFloat(el.dataset.val);
-      var prefix = el.dataset.prefix || '';
-      var suffix = el.dataset.suffix || '';
+      var raw      = parseFloat(el.dataset.val);
+      var prefix   = el.dataset.prefix || '';
+      var suffix   = el.dataset.suffix || '';
       var decimals = (el.dataset.val.split('.')[1] || '').length;
-
-      var start = 0;
-      var end   = raw;
-      var dur   = 1200;
-      var t0    = performance.now();
+      var dur      = 1400; // ms — ligeramente más largo para más drama
+      var t0       = performance.now();
 
       function step(now) {
         var p = Math.min((now - t0) / dur, 1);
-        var v = easeOut(p) * end;
-        el.textContent = prefix + v.toFixed(decimals) + suffix;
-        if (p < 1) requestAnimationFrame(step);
-        else el.textContent = prefix + end.toFixed(decimals) + suffix;
+        var e = easeOutExpo(p);
+        var v = e * raw;
+        el.textContent = fmtNum(v, decimals, prefix, suffix);
+        if (p < 1) {
+          requestAnimationFrame(step);
+        } else {
+          el.textContent = fmtNum(raw, decimals, prefix, suffix);
+          // Micro-pop CSS al terminar
+          el.classList.add('counting');
+          setTimeout(function () { el.classList.remove('counting'); }, 450);
+        }
       }
 
       requestAnimationFrame(step);
+    }
+
+    if (!('IntersectionObserver' in window)) {
+      // Fallback sin IO: animar directamente
+      targets.forEach(animateNum);
+      return;
     }
 
     var io = new IntersectionObserver(function (entries) {
@@ -508,9 +541,133 @@
           io.unobserve(en.target);
         }
       });
-    }, { threshold: 0.5 });
+    }, { threshold: 0.4, rootMargin: '0px 0px -30px 0px' });
 
     targets.forEach(function (el) { io.observe(el); });
+  }
+
+  // ════════════════════════════════════════════════════════
+  //  TOOLTIP — sistema premium data-tooltip
+  //  Uso: <span data-tooltip="Texto descriptivo">…</span>
+  // ════════════════════════════════════════════════════════
+  function bootTooltip() {
+    if (typeof document === 'undefined') return;
+
+    // Crear elemento tooltip único reutilizable
+    var tip = document.createElement('div');
+    tip.id = 'sumi-tooltip';
+    tip.setAttribute('role', 'tooltip');
+    tip.setAttribute('aria-live', 'polite');
+    document.body.appendChild(tip);
+
+    var _showTimer = null;
+    var _hideTimer = null;
+    var _currentTarget = null;
+
+    function positionTip(el) {
+      var rect = el.getBoundingClientRect();
+      var tipRect = tip.getBoundingClientRect();
+      var MARGIN = 10;
+      var ARROW_H = 6;
+
+      // Preferir arriba
+      var top = rect.top - tipRect.height - ARROW_H - MARGIN;
+      var left = rect.left + rect.width / 2 - tipRect.width / 2;
+
+      // Si no cabe arriba, poner abajo
+      if (top < MARGIN) {
+        top = rect.bottom + ARROW_H + MARGIN;
+        tip.style.setProperty('--arrow-dir', 'top');
+      } else {
+        tip.style.setProperty('--arrow-dir', 'bottom');
+      }
+
+      // Clamp horizontal
+      left = Math.max(MARGIN, Math.min(left, window.innerWidth - tipRect.width - MARGIN));
+
+      tip.style.top  = Math.round(top)  + 'px';
+      tip.style.left = Math.round(left) + 'px';
+    }
+
+    function showTip(el) {
+      clearTimeout(_hideTimer);
+      _currentTarget = el;
+      tip.textContent = el.dataset.tooltip;
+      tip.style.opacity = '0';
+      tip.style.display = 'block';
+      tip.classList.remove('visible');
+
+      // Necesitamos un frame para obtener tipRect correcto
+      requestAnimationFrame(function () {
+        positionTip(el);
+        _showTimer = setTimeout(function () {
+          tip.classList.add('visible');
+        }, 30);
+      });
+    }
+
+    function hideTip() {
+      clearTimeout(_showTimer);
+      tip.classList.remove('visible');
+      _hideTimer = setTimeout(function () {
+        tip.style.display = 'none';
+        _currentTarget = null;
+      }, 200);
+    }
+
+    // Evento delegado — funciona con elementos dinámicos
+    document.addEventListener('mouseover', function (e) {
+      var el = e.target.closest('[data-tooltip]');
+      if (!el || el === _currentTarget) return;
+      showTip(el);
+    }, { passive: true });
+
+    document.addEventListener('mouseout', function (e) {
+      var el = e.target.closest('[data-tooltip]');
+      if (!el) return;
+      if (e.relatedTarget && e.relatedTarget !== tip && el.contains(e.relatedTarget)) return;
+      hideTip();
+    }, { passive: true });
+
+    // Cerrar en scroll/resize
+    window.addEventListener('scroll', hideTip, { passive: true });
+    window.addEventListener('resize', hideTip, { passive: true });
+
+    // Cerrar en foco (teclado)
+    document.addEventListener('focusout', function (e) {
+      if (e.target.closest('[data-tooltip]')) hideTip();
+    }, { passive: true });
+  }
+
+  // ════════════════════════════════════════════════════════
+  //  SCROLL PROGRESS BAR — indicador de posición en página
+  // ════════════════════════════════════════════════════════
+  function bootScrollProgress() {
+    if (typeof document === 'undefined') return;
+
+    var bar = document.createElement('div');
+    bar.id = 'sumi-scroll-progress';
+    bar.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(bar);
+
+    var ticking = false;
+    function update() {
+      var scrolled = window.scrollY || window.pageYOffset || 0;
+      var total    = Math.max(
+        document.documentElement.scrollHeight - window.innerHeight,
+        1
+      );
+      var pct = Math.min(100, (scrolled / total) * 100);
+      bar.style.width = pct + '%';
+      ticking = false;
+    }
+
+    window.addEventListener('scroll', function () {
+      if (!ticking) { requestAnimationFrame(update); ticking = true; }
+    }, { passive: true });
+
+    // Estado inicial
+    update();
   }
 
   // ════════════════════════════════════════════════════════
@@ -1705,6 +1862,9 @@
     bootMagneticEffect();
     bootPageTransitions();
     bootTopLoadingBar();
+    // ── Premium v6 ──
+    bootTooltip();
+    bootScrollProgress();
   }
 
   if (document.readyState === 'loading') {
