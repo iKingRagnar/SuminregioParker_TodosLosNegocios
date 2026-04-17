@@ -1671,3 +1671,443 @@ html:not([data-theme="light"]) .tab-btn {
     transform .35s var(--du-spring), box-shadow .2s !important;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   §59  LEGIBILIDAD TOTAL — contraste WCAG AA en ambos temas + clases resultados
+   Todos los textos deben ser ≥4.5:1 sobre su fondo. Sin excepciones.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 59.1  Light-mode: fijar --muted a #475569 (7.4:1 sobre blanco) ── */
+html[data-theme="light"],
+html.theme-premium-light {
+  --muted:  #475569 !important;
+  --text2:  #334155 !important;
+  --dim:    #E2E8F0 !important;
+}
+
+/* ── 59.2  Elementos genéricos que heredan --muted (ya cubre todas las páginas) ── */
+html[data-theme="light"] .kpi-label,
+html.theme-premium-light .kpi-label,
+html[data-theme="light"] .kpi-lbl,
+html.theme-premium-light .kpi-lbl,
+html[data-theme="light"] .kpi-sub,
+html.theme-premium-light .kpi-sub,
+html[data-theme="light"] .kpi-narrative,
+html.theme-premium-light .kpi-narrative {
+  color: #475569 !important;
+}
+
+html[data-theme="light"] .sd-label,
+html.theme-premium-light .sd-label {
+  color: #475569 !important;
+}
+html[data-theme="light"] .sd-line,
+html.theme-premium-light .sd-line {
+  background: rgba(15,23,42,.15) !important;
+}
+
+html[data-theme="light"] .period-btn,
+html.theme-premium-light .period-btn {
+  color: #475569 !important;
+  border-color: rgba(15,23,42,.18) !important;
+  background: rgba(255,255,255,.7) !important;
+}
+html[data-theme="light"] .period-btn:hover,
+html.theme-premium-light .period-btn:hover {
+  color: #1E293B !important;
+  border-color: rgba(15,23,42,.35) !important;
+  background: #fff !important;
+}
+html[data-theme="light"] .period-btn.active,
+html.theme-premium-light .period-btn.active {
+  color: #B45309 !important;
+  border-color: rgba(180,83,9,.4) !important;
+  background: rgba(180,83,9,.08) !important;
+}
+
+/* ── 59.3  biz-context bar (resultados) ── */
+html[data-theme="light"] #bizContextBar.biz-context-bar--compact,
+html.theme-premium-light #bizContextBar.biz-context-bar--compact {
+  background: rgba(249,250,251,.97) !important;
+  border: 1px solid rgba(15,23,42,.10) !important;
+  box-shadow: 0 4px 20px rgba(15,23,42,.06) !important;
+}
+html[data-theme="light"] .biz-context-label,
+html.theme-premium-light .biz-context-label {
+  color: #475569 !important;
+}
+html[data-theme="light"] .biz-context-hint--compact,
+html.theme-premium-light .biz-context-hint--compact {
+  color: #475569 !important;
+  opacity: 1 !important;
+}
+html[data-theme="light"] .biz-select,
+html.theme-premium-light .biz-select {
+  background-color: #fff !important;
+  color: #0F172A !important;
+  border-color: rgba(15,23,42,.20) !important;
+}
+
+/* ── 59.4  card-badge ── */
+html[data-theme="light"] .card-badge,
+html.theme-premium-light .card-badge {
+  color: #475569 !important;
+  background: #F1F5F9 !important;
+  border-color: rgba(15,23,42,.12) !important;
+}
+
+/* ── 59.5  insight-box (resultados) ── */
+html[data-theme="light"] .insight-box,
+html.theme-premium-light .insight-box {
+  background: #fff !important;
+  border-color: rgba(15,23,42,.08) !important;
+  border-left-color: #0891B2 !important;
+  box-shadow: 0 4px 20px rgba(15,23,42,.06) !important;
+}
+html[data-theme="light"] .insight-title,
+html.theme-premium-light .insight-title {
+  color: #0F172A !important;
+}
+html[data-theme="light"] .insight-text,
+html.theme-premium-light .insight-text {
+  color: #334155 !important;
+}
+html[data-theme="light"] .insight-text strong,
+html.theme-premium-light .insight-text strong {
+  color: #0F172A !important;
+}
+
+/* ── 59.6  P&L table (pnl-structured) ── */
+html[data-theme="light"] .pnl-structured th,
+html.theme-premium-light .pnl-structured th {
+  background: #F1F5F9 !important;
+  color: #475569 !important;
+  border-bottom-color: rgba(15,23,42,.15) !important;
+}
+html[data-theme="light"] .pnl-structured .pnl-section-header td,
+html.theme-premium-light .pnl-structured .pnl-section-header td {
+  background: #E2E8F0 !important;
+  color: #334155 !important;
+  border-bottom-color: rgba(15,23,42,.12) !important;
+}
+html[data-theme="light"] .pnl-structured tr.data-row td,
+html.theme-premium-light .pnl-structured tr.data-row td {
+  border-bottom-color: rgba(15,23,42,.06) !important;
+}
+html[data-theme="light"] .pnl-structured tr.data-row td:first-child,
+html.theme-premium-light .pnl-structured tr.data-row td:first-child {
+  color: #0F172A !important;
+}
+html[data-theme="light"] .pnl-structured tr.data-row td:not(:first-child),
+html.theme-premium-light .pnl-structured tr.data-row td:not(:first-child) {
+  color: #334155 !important;
+}
+html[data-theme="light"] .pnl-structured tr.data-row:hover td,
+html.theme-premium-light .pnl-structured tr.data-row:hover td {
+  background: rgba(180,83,9,.04) !important;
+}
+html[data-theme="light"] .pnl-structured tbody tr.data-row:nth-child(even) td,
+html.theme-premium-light .pnl-structured tbody tr.data-row:nth-child(even) td {
+  background: rgba(15,23,42,.025) !important;
+}
+html[data-theme="light"] .pnl-structured tr.subtotal-row td,
+html.theme-premium-light .pnl-structured tr.subtotal-row td {
+  background: #F1F5F9 !important;
+  border-color: rgba(15,23,42,.12) !important;
+}
+html[data-theme="light"] .pnl-structured tr.subtotal-row td:first-child,
+html.theme-premium-light .pnl-structured tr.subtotal-row td:first-child {
+  color: #0F172A !important;
+}
+html[data-theme="light"] .pnl-structured tr.subtotal-row td:not(:first-child),
+html.theme-premium-light .pnl-structured tr.subtotal-row td:not(:first-child) {
+  color: #0F172A !important;
+}
+html[data-theme="light"] .pnl-structured tr.total-final td,
+html.theme-premium-light .pnl-structured tr.total-final td {
+  background: linear-gradient(135deg,rgba(22,163,74,.06),rgba(8,145,178,.05)) !important;
+  border-top-color: rgba(15,23,42,.18) !important;
+}
+html[data-theme="light"] .pnl-structured td,
+html.theme-premium-light .pnl-structured td {
+  border-right-color: rgba(15,23,42,.06) !important;
+}
+
+/* ── 59.7  Gasto sub-rows ── */
+html[data-theme="light"] .gasto-sub td,
+html.theme-premium-light .gasto-sub td {
+  background: rgba(15,23,42,.025) !important;
+  border-bottom-color: rgba(15,23,42,.06) !important;
+}
+html[data-theme="light"] .gasto-sub td:first-child,
+html.theme-premium-light .gasto-sub td:first-child {
+  color: #475569 !important;
+}
+html[data-theme="light"] .gasto-sub td:not(:first-child),
+html.theme-premium-light .gasto-sub td:not(:first-child) {
+  color: #475569 !important;
+}
+html[data-theme="light"] .gasto-bucket-hdr:hover td,
+html.theme-premium-light .gasto-bucket-hdr:hover td {
+  background: rgba(15,23,42,.04) !important;
+}
+
+/* ── 59.8  pl-sc-card (scorecard) ── */
+html[data-theme="light"] .pl-sc-card,
+html.theme-premium-light .pl-sc-card {
+  background: #fff !important;
+  border-color: rgba(15,23,42,.08) !important;
+  box-shadow: 0 4px 16px rgba(15,23,42,.06) !important;
+}
+html[data-theme="light"] .pl-sc-lbl,
+html.theme-premium-light .pl-sc-lbl {
+  color: #475569 !important;
+}
+html[data-theme="light"] .pl-sc-val,
+html.theme-premium-light .pl-sc-val {
+  color: #0F172A !important;
+}
+
+/* ── 59.9  pl-mini-wrap ── */
+html[data-theme="light"] .pl-mini-wrap,
+html.theme-premium-light .pl-mini-wrap {
+  background: #fff !important;
+  border-color: rgba(15,23,42,.08) !important;
+}
+html[data-theme="light"] .pl-mini-head,
+html.theme-premium-light .pl-mini-head {
+  color: #0F172A !important;
+  border-bottom-color: rgba(15,23,42,.08) !important;
+}
+html[data-theme="light"] .pl-mini-head span,
+html.theme-premium-light .pl-mini-head span {
+  color: #475569 !important;
+}
+html[data-theme="light"] .pl-mini-table th,
+html.theme-premium-light .pl-mini-table th {
+  background: #F1F5F9 !important;
+  color: #475569 !important;
+  border-bottom-color: rgba(15,23,42,.10) !important;
+}
+html[data-theme="light"] .pl-mini-table td,
+html.theme-premium-light .pl-mini-table td {
+  color: #0F172A !important;
+  border-bottom-color: rgba(15,23,42,.06) !important;
+}
+
+/* ── 59.10  Balance General KPI tiles (bg-kpi) ── */
+html[data-theme="light"] .bg-kpi,
+html.theme-premium-light .bg-kpi {
+  background: #fff !important;
+  border-color: rgba(15,23,42,.08) !important;
+}
+html[data-theme="light"] .bg-kpi .lbl,
+html.theme-premium-light .bg-kpi .lbl {
+  color: #475569 !important;
+}
+html[data-theme="light"] .bg-kpi .val,
+html.theme-premium-light .bg-kpi .val {
+  color: #0F172A !important;
+}
+
+/* ── 59.11  bg-box / bg-viz-card / bg-classic / bg-ratio ── */
+html[data-theme="light"] .bg-box,
+html[data-theme="light"] .bg-viz-card,
+html[data-theme="light"] .bg-classic,
+html[data-theme="light"] .bg-ratio,
+html.theme-premium-light .bg-box,
+html.theme-premium-light .bg-viz-card,
+html.theme-premium-light .bg-classic,
+html.theme-premium-light .bg-ratio {
+  background: #fff !important;
+  border-color: rgba(15,23,42,.08) !important;
+}
+html[data-theme="light"] .bg-box h4,
+html[data-theme="light"] .bg-viz-card h4,
+html[data-theme="light"] .bg-classic h4,
+html.theme-premium-light .bg-box h4,
+html.theme-premium-light .bg-viz-card h4,
+html.theme-premium-light .bg-classic h4 {
+  color: #475569 !important;
+}
+html[data-theme="light"] .bg-ratio .k,
+html.theme-premium-light .bg-ratio .k {
+  color: #475569 !important;
+}
+html[data-theme="light"] .bg-ratio .v,
+html.theme-premium-light .bg-ratio .v {
+  color: #0F172A !important;
+}
+html[data-theme="light"] .bg-row,
+html.theme-premium-light .bg-row {
+  color: #334155 !important;
+}
+html[data-theme="light"] .bg-row .v,
+html.theme-premium-light .bg-row .v {
+  color: #0F172A !important;
+}
+html[data-theme="light"] .bg-classic td,
+html.theme-premium-light .bg-classic td {
+  color: #334155 !important;
+  border-bottom-color: rgba(15,23,42,.08) !important;
+}
+html[data-theme="light"] .bg-classic td.num,
+html.theme-premium-light .bg-classic td.num {
+  color: #0F172A !important;
+}
+html[data-theme="light"] .bg-classic td.pct,
+html.theme-premium-light .bg-classic td.pct {
+  color: #475569 !important;
+}
+html[data-theme="light"] .bg-classic tr.sec td,
+html.theme-premium-light .bg-classic tr.sec td {
+  color: #475569 !important;
+  border-bottom-color: rgba(15,23,42,.12) !important;
+}
+html[data-theme="light"] .bg-classic tr.total td,
+html.theme-premium-light .bg-classic tr.total td {
+  color: #0F172A !important;
+  background: rgba(15,23,42,.04) !important;
+  border-top-color: rgba(15,23,42,.15) !important;
+}
+html[data-theme="light"] .bg-classic tbody tr:nth-child(even):not(.total):not(.sec) td,
+html.theme-premium-light .bg-classic tbody tr:nth-child(even):not(.total):not(.sec) td {
+  background: rgba(15,23,42,.025) !important;
+}
+html[data-theme="light"] .bg-viz-sub,
+html.theme-premium-light .bg-viz-sub {
+  color: #475569 !important;
+}
+html[data-theme="light"] .bg-classic-grid table,
+html.theme-premium-light .bg-classic-grid table {
+  background: transparent !important;
+}
+html[data-theme="light"] details.sr-gastos-blk > summary,
+html.theme-premium-light details.sr-gastos-blk > summary {
+  color: #475569 !important;
+}
+
+/* ── 59.12  KPI cards de resultados (.kpi, no .kpi-card) light mode ── */
+html[data-theme="light"] .kpi,
+html.theme-premium-light .kpi {
+  background: #fff !important;
+  border-color: rgba(15,23,42,.08) !important;
+  box-shadow: 0 4px 20px rgba(15,23,42,.05) !important;
+}
+html[data-theme="light"] .kpi-lbl,
+html.theme-premium-light .kpi-lbl {
+  color: #475569 !important;
+}
+html[data-theme="light"] .kpi-sub,
+html.theme-premium-light .kpi-sub {
+  color: #475569 !important;
+}
+
+/* ── 59.13  Dark-mode glass para clases específicas de resultados ── */
+html:not([data-theme="light"]) .kpi {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(255,255,255,.035) 0%, transparent 60%),
+    rgba(9,20,40,.55) !important;
+  backdrop-filter: blur(22px) saturate(160%) brightness(1.04) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(160%) brightness(1.04) !important;
+  border: 1px solid rgba(255,255,255,.09) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.09),
+    0 8px 32px rgba(0,0,0,.4) !important;
+}
+html:not([data-theme="light"]) .pl-sc-card {
+  background: rgba(9,20,40,.55) !important;
+  backdrop-filter: blur(18px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(150%) !important;
+  border: 1px solid rgba(255,255,255,.09) !important;
+  box-shadow: 0 6px 24px rgba(0,0,0,.38) !important;
+}
+html:not([data-theme="light"]) .insight-box {
+  background: rgba(9,20,40,.55) !important;
+  backdrop-filter: blur(18px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(150%) !important;
+  border: 1px solid rgba(255,255,255,.09) !important;
+  border-left: 3px solid rgba(77,166,255,.7) !important;
+  box-shadow: 0 6px 24px rgba(0,0,0,.38) !important;
+}
+html:not([data-theme="light"]) .pl-mini-wrap,
+html:not([data-theme="light"]) .bg-kpi,
+html:not([data-theme="light"]) .bg-box,
+html:not([data-theme="light"]) .bg-viz-card,
+html:not([data-theme="light"]) .bg-classic,
+html:not([data-theme="light"]) .bg-ratio {
+  background: rgba(7,16,32,.58) !important;
+  backdrop-filter: blur(14px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(140%) !important;
+  border-color: rgba(255,255,255,.08) !important;
+}
+
+/* ── 59.14  Dark-mode: clases de resultados que usan --muted ── */
+html:not([data-theme="light"]) .kpi-lbl { color: #8CAAC8 !important; }
+html:not([data-theme="light"]) .pl-sc-lbl { color: #8CAAC8 !important; }
+html:not([data-theme="light"]) .sd-label { color: #8CAAC8 !important; }
+html:not([data-theme="light"]) .biz-context-label { color: #8CAAC8 !important; }
+html:not([data-theme="light"]) .biz-context-hint--compact { color: #8CAAC8 !important; }
+html:not([data-theme="light"]) .bg-kpi .lbl { color: #8CAAC8 !important; }
+html:not([data-theme="light"]) .bg-box h4,
+html:not([data-theme="light"]) .bg-viz-card h4,
+html:not([data-theme="light"]) .bg-classic h4 { color: #8CAAC8 !important; }
+html:not([data-theme="light"]) .bg-ratio .k { color: #8CAAC8 !important; }
+html:not([data-theme="light"]) .card-badge { color: #8CAAC8 !important; }
+html:not([data-theme="light"]) .period-btn { color: #8CAAC8 !important; }
+html:not([data-theme="light"]) .pnl-structured th { color: #8CAAC8 !important; }
+html:not([data-theme="light"]) .pnl-structured .pnl-section-header td { color: #8CAAC8 !important; }
+html:not([data-theme="light"]) .gasto-sub td:first-child { color: #8CAAC8 !important; }
+html:not([data-theme="light"]) .gasto-sub td:not(:first-child) { color: #8CAAC8 !important; }
+html:not([data-theme="light"]) .pl-mini-table th { color: #8CAAC8 !important; }
+html:not([data-theme="light"]) .pl-mini-head span { color: #8CAAC8 !important; }
+html:not([data-theme="light"]) .bg-classic td.pct { color: #8CAAC8 !important; }
+html:not([data-theme="light"]) .bg-classic tr.sec td { color: #8CAAC8 !important; }
+html:not([data-theme="light"]) details.sr-gastos-blk > summary { color: #8CAAC8 !important; }
+html:not([data-theme="light"]) .bg-viz-sub { color: #8CAAC8 !important; }
+html:not([data-theme="light"]) .pl-sc-card::before {
+  background: linear-gradient(90deg, transparent, rgba(230,168,0,.7), transparent) !important;
+}
+
+/* ── 59.15  Footer global light ── */
+html[data-theme="light"] .footer,
+html.theme-premium-light .footer {
+  color: #475569 !important;
+  border-top-color: rgba(15,23,42,.10) !important;
+}
+
+/* ── 59.16  Gastos notice light ── */
+html[data-theme="light"] .gastos-notice,
+html.theme-premium-light .gastos-notice {
+  background: rgba(217,119,6,.07) !important;
+  border-color: rgba(217,119,6,.22) !important;
+  color: #92400E !important;
+}
+
+/* ── 59.17  chart-overlay-empty dark ── */
+html:not([data-theme="light"]) .chart-overlay-empty { color: #8CAAC8 !important; }
+
+/* ── 59.18  Notice / info bar light ── */
+html[data-theme="light"] .notice,
+html.theme-premium-light .notice {
+  background: rgba(8,145,178,.06) !important;
+  border-color: rgba(8,145,178,.22) !important;
+  color: #0369A1 !important;
+}
+
+/* ── 59.19  delta-tag / mom colors ── */
+html[data-theme="light"] .delta-tag.flat,
+html.theme-premium-light .delta-tag.flat,
+html[data-theme="light"] .mom-neutral,
+html.theme-premium-light .mom-neutral,
+html[data-theme="light"] .trend-flat,
+html.theme-premium-light .trend-flat {
+  color: #64748B !important;
+}
+
+/* ── 59.20  Cursor y skeleton light ── */
+html[data-theme="light"] .skel,
+html.theme-premium-light .skel {
+  background: linear-gradient(90deg, #E2E8F0 25%, #CBD5E1 50%, #E2E8F0 75%) !important;
+  background-size: 200% 100% !important;
+}
+
