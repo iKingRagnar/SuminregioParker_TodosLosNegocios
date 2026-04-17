@@ -699,3 +699,131 @@ html[data-theme="light"] header {
   }
   .skel { animation: none !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   §24  TEXT CONTRAST — WCAG AA compliance en fondos oscuros
+   ──────────────────────────────────────────────────────────────────────────
+   PROBLEMA: --muted: #5A7090 da solo ≈3.3:1 sobre --s1 (#0C1B29).
+   WCAG AA exige 4.5:1 para texto normal, y todo el UI usa .58–.65rem.
+   SOLUCIÓN: elevar --muted a #8CAAC8 (6.8:1 sobre --s1) y reforzar
+   cada elemento de texto secundario explícitamente.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Override --muted en modo oscuro (cubren todos los var(--muted)) ── */
+html:not([data-theme="light"]) {
+  --muted: #8CAAC8 !important;   /* #8CAAC8 on #0C1B29 → 6.8:1 ✅ */
+  --text2: #C4D2E2 !important;   /* bump text2: was #B0BECE (8.7:1 OK, but bumped for comfort) */
+}
+
+/* ── 2. Refuerzo explícito en KPI cards ─────────────────────────────────── */
+html:not([data-theme="light"]) .kpi-label {
+  color: #8CAAC8 !important;
+  opacity: 1 !important;
+}
+html:not([data-theme="light"]) .kpi-sub,
+html:not([data-theme="light"]) .meta-pct,
+html:not([data-theme="light"]) .kpi-trend-v.tv-flat {
+  color: #8CAAC8 !important;
+}
+
+/* ── 3. Tablas — headers y celdas secundarias ────────────────────────────── */
+html:not([data-theme="light"]) .tbl th,
+html:not([data-theme="light"]) .sc-table thead th,
+html:not([data-theme="light"]) .uni-table th {
+  color: #8CAAC8 !important;
+}
+html:not([data-theme="light"]) .tbl td,
+html:not([data-theme="light"]) .sc-table tbody td,
+html:not([data-theme="light"]) .uni-table tbody td {
+  color: #C4D2E2 !important;
+}
+
+/* ── 4. Cards — badges, títulos SVG, subtítulos ──────────────────────────── */
+html:not([data-theme="light"]) .card-badge {
+  color: #8CAAC8 !important;
+}
+html:not([data-theme="light"]) .card-title svg,
+html:not([data-theme="light"]) .mod-kpi-label,
+html:not([data-theme="light"]) .mod-kpi-sub {
+  color: #8CAAC8 !important;
+  fill: #8CAAC8 !important;
+}
+html:not([data-theme="light"]) .page-sub,
+html:not([data-theme="light"]) .page-title + *,
+html:not([data-theme="light"]) .hero-sub {
+  color: #A8BED4 !important;
+}
+
+/* ── 5. Navegación secundaria ────────────────────────────────────────────── */
+html:not([data-theme="light"]) .nav-link:not(.active),
+html:not([data-theme="light"]) #app-header .nav-link:not(.active) {
+  color: #8CAAC8 !important;
+}
+html:not([data-theme="light"]) .nav-logo-sub,
+html:not([data-theme="light"]) .logo-sub {
+  color: #7A98B8 !important;   /* menor jerarquía: 5.6:1 — aceptable */
+}
+html:not([data-theme="light"]) .nav-clock,
+html:not([data-theme="light"]) .clock {
+  color: #8CAAC8 !important;
+}
+
+/* ── 6. Controles: tabs, chips, date pickers ─────────────────────────────── */
+html:not([data-theme="light"]) .tab-btn:not(.active) {
+  color: #8CAAC8 !important;
+}
+html:not([data-theme="light"]) .ms-month-chip,
+html:not([data-theme="light"]) .ms-month-picker-btn,
+html:not([data-theme="light"]) .ms-month-picker-title,
+html:not([data-theme="light"]) .ms-month-dd-btn {
+  color: #C4D2E2 !important;
+}
+html:not([data-theme="light"]) .top-cli-btn:not(.active) {
+  color: #8CAAC8 !important;
+}
+
+/* ── 7. Divisores de sección y labels pequeños ───────────────────────────── */
+html:not([data-theme="light"]) .section-divider-label,
+html:not([data-theme="light"]) .section-divider-v2 .section-label {
+  color: #8CAAC8 !important;
+}
+
+/* ── 8. Inputs — placeholder y texto secundario en forms ─────────────────── */
+html:not([data-theme="light"]) input::placeholder,
+html:not([data-theme="light"]) textarea::placeholder,
+html:not([data-theme="light"]) select::placeholder {
+  color: #6A85A8 !important;   /* placeholder puede ser más tenue: 4.5:1 */
+  opacity: 1;
+}
+html:not([data-theme="light"]) input,
+html:not([data-theme="light"]) select,
+html:not([data-theme="light"]) textarea {
+  color: #E0EAF6 !important;
+}
+
+/* ── 9. Vendor list / seller rows ────────────────────────────────────────── */
+html:not([data-theme="light"]) .vendor-name,
+html:not([data-theme="light"]) .vendor-meta,
+html:not([data-theme="light"]) .uni-name,
+html:not([data-theme="light"]) .uni-meta,
+html:not([data-theme="light"]) .sc-label,
+html:not([data-theme="light"]) .sc-val-label {
+  color: #C4D2E2 !important;
+}
+
+/* ── 10. Capital/CxC/Inventario: etiquetas de form y tabla semanal ───────── */
+html:not([data-theme="light"]) label,
+html:not([data-theme="light"]) .form-label,
+html:not([data-theme="light"]) .cap-label,
+html:not([data-theme="light"]) .tbl-header-label {
+  color: #A8BED4 !important;
+}
+
+/* ── Excepción: texto que SÍ debe ser brillante (main text) ──────────────── */
+html:not([data-theme="light"]) .kpi-value,
+html:not([data-theme="light"]) .mod-kpi-val,
+html:not([data-theme="light"]) .t-val,
+html:not([data-theme="light"]) .sc-val {
+  /* Estos usan var(--kpi-c) o colores de acento — no tocar */
+  opacity: 1 !important;
+}
