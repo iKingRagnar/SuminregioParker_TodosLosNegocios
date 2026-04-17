@@ -201,6 +201,51 @@ function firstExistingColumn(colsSet, candidates) {
   return null;
 }
 
+// ── In-memory response cache (TTL-based, LRU-like) ───────────────────────────
+const _resCache = new Map(); // url → { data, ts }
+const RES_CACHE_MAX = 300;   // max entries before eviction
+
+function _cacheGet(key, ttlMs) {
+  const entry = _resCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > ttlMs) { _resCache.delete(key); return null; }
+  return entry.data;
+}
+
+function _cacheSet(key, data) {
+  if (_resCache.size >= RES_CACHE_MAX) {
+    // Evict oldest
+    let oldest = null, oldestTs = Infinity;
+    for (const [k, v] of _resCache) {
+      if (v.ts < oldestTs) { oldestTs = v.ts; oldest = k; }
+    }
+    if (oldest) _resCache.delete(oldest);
+  }
+  _resCache.set(key, { data, ts: Date.now() });
+}
+
+/** Invalida todas las entradas cuyo key empiece con prefix */
+function _cacheInvalidate(prefix) {
+  for (const k of _resCache.keys()) {
+    if (k.startsWith(prefix)) _resCache.delete(k);
+  }
+}
+
+// Expose para que endpoints de escritura puedan invalidar el cache
+app.delete('/api/cache/flush', (_req, res) => {
+  _resCache.clear();
+  res.json({ ok: true, msg: 'Cache flushed' });
+});
+
+app.get('/api/cache/stats', (_req, res) => {
+  const entries = [];
+  const now = Date.now();
+  for (const [k, v] of _resCache) {
+    entries.push({ key: k, ageMs: now - v.ts, size: JSON.stringify(v.data).length });
+  }
+  res.json({ count: _resCache.size, max: RES_CACHE_MAX, entries: entries.slice(0, 50) });
+});
+
 // ── Multi-FDB: FB_DATABASES_JSON + FB_DATABASE_DIR (escaneo *.fdb) ────────────
 function normalizeDatabasePathKey(dbPath) {
   const s = String(dbPath || '').trim();
@@ -1229,11 +1274,47 @@ async function mapPoolLimit(items, limit, mapper) {
   return results;
 }
 
-// ── Helper: ruta GET con manejo de errores ────────────────────────────────────
-function get(routePath, handler) {
+// ── Route-level TTL cache configuration (ms) ────────────────────────────────
+const ROUTE_TTL_MAP = {
+  "/api/ventas/resumen": 90000,
+  "/api/ventas/cotizaciones/resumen": 90000,
+  "/api/ventas/cotizaciones/diarias": 60000,
+  "/api/ventas/cotizaciones/semanales": 120000,
+  "/api/ventas/cotizaciones/mensuales": 180000,
+  "/api/ventas/por-vendedor/cotizaciones": 90000,
+  "/api/ventas/vs-cotizaciones": 90000,
+  "/api/ventas/cotizaciones": 60000,
+  "/api/ventas/diario": 60000,
+  "/api/director/resumen": 120000,
+  "/api/cxc/resumen": 120000,
+  "/api/cxc/resumen-aging": 120000,
+  "/api/resultados/pnl": 180000,
+  "/api/resultados/pnl-universe": 180000
+};
+
+// ── Helper: ruta GET con manejo de errores + cache automático por ROUTE_TTL_MAP ─
+// Si la ruta aparece en ROUTE_TTL_MAP, la respuesta se cachea en memoria por ese TTL.
+// Pasa opts.ttl para sobreescribir, opts.noCache=true para deshabilitar.
+function get(routePath, handler, opts = {}) {
+  const mapTtl  = ROUTE_TTL_MAP[routePath] || 0;
+  const ttl     = opts.noCache ? 0 : (opts.ttl > 0 ? opts.ttl : mapTtl);
   app.get(routePath, async (req, res) => {
+    const cacheKey = req.originalUrl; // incluye query string completo
+    if (ttl > 0) {
+      const cached = _cacheGet(cacheKey, ttl);
+      if (cached) {
+        res.setHeader('X-Cache', 'HIT');
+        res.setHeader('X-Cache-TTL', ttl);
+        return res.json(cached);
+      }
+    }
     try {
       const data = await handler(req);
+      if (ttl > 0) {
+        _cacheSet(cacheKey, data);
+        res.setHeader('X-Cache', 'MISS');
+        res.setHeader('X-Cache-TTL', ttl);
+      }
       res.json(data);
     } catch (e) {
       console.error(`[ERROR] ${routePath} →`, e.message);

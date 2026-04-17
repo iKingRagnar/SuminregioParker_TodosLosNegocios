@@ -90,6 +90,15 @@ nav{display:flex;align-items:center;gap:.25rem}
 .intel-text .hi-green{color:var(--green)}.intel-text .hi-red{color:var(--red)}.intel-text .hi-yellow{color:var(--yellow)}.intel-text .hi-blue{color:var(--blue)}
 .tag{display:inline-block;padding:.1rem .4rem;border-radius:4px;font-size:.6rem;font-weight:500}
 .tag.up{background:var(--green-dim);color:var(--green)}.tag.down{background:var(--red-dim);color:var(--red)}.tag.warn{background:var(--yellow-dim);color:var(--yellow)}.tag.ok{background:var(--blue-dim);color:var(--blue)}
+/* ── Trend badge YoY ── */
+.kpi-trend{display:inline-flex;align-items:center;gap:2px;font-size:.55rem;font-weight:700;padding:1px 5px;border-radius:9px;letter-spacing:.03em;vertical-align:middle;transition:all .3s}
+.kpi-trend.trend-up{background:rgba(0,229,160,.12);color:var(--green);border:1px solid rgba(0,229,160,.25)}
+.kpi-trend.trend-down{background:rgba(255,69,102,.12);color:var(--red);border:1px solid rgba(255,69,102,.25)}
+.kpi-trend.trend-flat{background:rgba(255,255,255,.05);color:var(--muted);border:1px solid var(--border)}
+/* ── Skeleton loader ── */
+.kpi-skel{border-radius:6px;background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 50%,var(--s2) 75%);background-size:200% 100%;animation:skel-wave 1.6s infinite}
+@keyframes skel-wave{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.kpi-value.loading::after{content:'';display:inline-block;width:80px;height:1.2em;border-radius:5px;background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 50%,var(--s2) 75%);background-size:200% 100%;animation:skel-wave 1.6s infinite;vertical-align:middle}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem}
 .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1.25rem;margin-bottom:1.25rem}
 @media(max-width:1100px){.grid-2,.grid-3{grid-template-columns:1fr}}
@@ -317,27 +326,27 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
   <div style="font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.55rem">Ventas (Industrial VE + Mostrador PV)</div>
   <div class="kpi-grid kpi-grid-6">
     <div class="kpi-card blue">
-      <div class="kpi-label">Ventas Hoy</div>
+      <div class="kpi-label">Ventas Hoy <span class="kpi-trend" id="trend-hoy"></span></div>
       <div class="kpi-value" id="v-hoy">&mdash;</div>
       <div class="kpi-sub" id="v-hoy-sub">&nbsp;</div>
       <div class="meta-bar-wrap"><div class="meta-bar-bg"><div class="meta-bar-fill" id="bar-hoy" style="width:0%"></div></div><div class="meta-pct" id="pct-hoy">&nbsp;</div></div>
       <div id="sem-hoy" class="sem info"><div class="sem-dot"></div>&#8212;</div>
     </div>
     <div class="kpi-card green">
-      <div class="kpi-label">Ventas Mes</div>
+      <div class="kpi-label">Ventas Mes <span class="kpi-trend" id="trend-mes"></span></div>
       <div class="kpi-value" id="v-mes">&mdash;</div>
       <div class="kpi-sub" id="v-mes-sub">&nbsp;</div>
       <div class="meta-bar-wrap"><div class="meta-bar-bg"><div class="meta-bar-fill" id="bar-mes" style="width:0%"></div></div><div class="meta-pct" id="pct-mes">&nbsp;</div></div>
       <div id="sem-mes" class="sem info"><div class="sem-dot"></div>&#8212;</div>
     </div>
     <div class="kpi-card blue" style="--kpi-c:var(--blue)">
-      <div class="kpi-label">Industrial (VE)</div>
+      <div class="kpi-label">Industrial (VE) <span class="kpi-trend" id="trend-ve"></span></div>
       <div class="kpi-value" id="v-mes-ve">&mdash;</div>
       <div class="kpi-sub">Canal industrial del mes</div>
       <div id="sem-ve" class="sem info"><div class="sem-dot"></div>Canal principal</div>
     </div>
     <div class="kpi-card purple">
-      <div class="kpi-label">Mostrador (PV)</div>
+      <div class="kpi-label">Mostrador (PV) <span class="kpi-trend" id="trend-pv"></span></div>
       <div class="kpi-value" id="v-mes-pv">&mdash;</div>
       <div class="kpi-sub">Canal mostrador del mes</div>
       <div id="sem-pv" class="sem info"><div class="sem-dot"></div>Mostrador</div>
@@ -750,6 +759,25 @@ function computeDirectorExecScore(o){
   return Math.round(Math.min(100, Math.max(0, raw)));
 }
 
+/**
+ * Renderiza un badge de tendencia YoY en un elemento .kpi-trend
+ * @param {string} id   - elemento id (e.g. 'trend-mes')
+ * @param {number} curr - valor actual
+ * @param {number} prev - valor año anterior (mismo periodo)
+ */
+function renderTrend(id, curr, prev) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (!prev || prev <= 0 || !curr) { el.textContent = ''; el.className = 'kpi-trend'; return; }
+  const pct = ((curr - prev) / prev) * 100;
+  const abs = Math.abs(pct);
+  const sign = pct >= 0 ? '▲' : '▼';
+  const cls  = pct >= 2 ? 'trend-up' : pct <= -2 ? 'trend-down' : 'trend-flat';
+  el.textContent = `${sign} ${abs.toFixed(1)}% YoY`;
+  el.className = `kpi-trend ${cls}`;
+  el.title = `Año anterior: ${prev.toLocaleString('es-MX',{style:'currency',currency:'MXN',minimumFractionDigits:0})}`;
+}
+
 function renderDirectorExecScore(score){
   const wrap = document.getElementById('dir-exec-score');
   const valEl = document.getElementById('dir-exec-val');
@@ -827,11 +855,25 @@ async function loadAll() {
         .then((x)=>{ if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.note=label+':ok'; } return x; })
         .catch((e)=>{ if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.note=label+':err:'+(e&&e.message?e.message:String(e)); } throw e; });
     };
-    const [dirRes, cxcRes, metasRes] = await Promise.allSettled([
+    // Skeleton loading state
+    ['v-hoy','v-mes','v-mes-ve','v-mes-pv'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('loading');
+    });
+
+    const [dirRes, cxcRes, metasRes, yoyRes] = await Promise.allSettled([
       dbgWrap('director/resumen', fetchJson(buildApiUrl('/api/director/resumen', 'omitCxc=1'), {}, tDir)),
       dbgWrap('cxc/resumen-aging', fetchJson(buildApiUrl('/api/cxc/resumen-aging','queryMs=180000'), {}, tDir)),
       dbgWrap('config/metas', fetchJson(buildApiUrl('/api/config/metas'), {}, tDir)),
+      // YoY: ventas del mismo periodo del año anterior (ligero, 30s timeout)
+      dbgWrap('ventas/resumen/yoy', fetchJson(buildApiUrl('/api/ventas/resumen', 'preset=anio_ant'), {}, 30000).catch(() => null)),
     ]);
+
+    // Remove skeleton
+    ['v-hoy','v-mes','v-mes-ve','v-mes-pv'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('loading');
+    });
     const dir = (dirRes.status === 'fulfilled' && dirRes.value && typeof dirRes.value === 'object') ? dirRes.value : {};
     let cxcSnap = (cxcRes.status === 'fulfilled' && cxcRes.value && typeof cxcRes.value === 'object') ? cxcRes.value : {};
     cxcSnap = normalizeDirectorCxcApiPayload(cxcSnap);
@@ -959,6 +1001,15 @@ async function loadAll() {
     setText('v-mes-pv', fmtK(ventaPV));
     setSem('sem-pv','info',Math.round(ventaPV/totalCanal*100)+'% del mix');
     setText('v-docs', v.FACTURAS_MES||0);
+
+    // ── YoY trend badges ───────────────────────────────────────────────────
+    const yoyData = (yoyRes && yoyRes.status === 'fulfilled' && yoyRes.value) ? yoyRes.value : null;
+    if (yoyData) {
+      renderTrend('trend-hoy', ventaHoy, +(yoyData.HOY||yoyData.TOTAL_HOY||yoyData.VENTA_HOY||0));
+      renderTrend('trend-mes', ventaMes,  +(yoyData.MES_ACTUAL||yoyData.TOTAL_MES||yoyData.VENTA_MES||0));
+      renderTrend('trend-ve',  ventaVE,   +(yoyData.MES_VE||0));
+      renderTrend('trend-pv',  ventaPV,   +(yoyData.MES_PV||0));
+    }
 
     function applyDirectorCotizKpi(coObj){
       // Cotizaciones: respetan el periodo del filtro (Hoy, Mes, Año Anterior, etc.)

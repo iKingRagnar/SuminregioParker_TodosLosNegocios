@@ -113,12 +113,31 @@
 
   const SUGGESTIONS = getSuggestions();
 
-  let history  = [];
+  // ── Persistent chat history (localStorage) ──────────────────────────────
+  const HISTORY_KEY = 'cw_chat_history_v2';
+  function loadPersistedHistory() {
+    try {
+      const raw = localStorage.getItem(HISTORY_KEY);
+      if (!raw) return [];
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr.slice(-40) : []; // keep last 40 turns
+    } catch (_) { return []; }
+  }
+  function persistHistory() {
+    try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(-40))); } catch (_) {}
+  }
+  function clearPersistedHistory() {
+    try { localStorage.removeItem(HISTORY_KEY); } catch (_) {}
+    history = [];
+  }
+
+  let history  = loadPersistedHistory();
   let pendingImg = null;  // { dataUrl, base64 }
   let isOpen   = false;
   let isTyping = false;
   let activeTab = 'chat';
   let alertsCache = null;
+  let lastFailedMessage = null; // para retry
 
   // ── CSS injection ─────────────────────────────────────────────────────────
   function injectCss() {
@@ -140,10 +159,11 @@
     <div id="cw-header-icon">🤖</div>
     <div id="cw-header-info">
       <div id="cw-header-title">Asistente IA — ERP</div>
-      <div id="cw-header-sub" id="cw-sub">Cargando datos en tiempo real…</div>
+      <div id="cw-header-sub">Cargando datos en tiempo real…</div>
     </div>
     <div id="cw-status-dot" title="Conectado"></div>
     <div id="cw-header-actions">
+      <button class="cw-hbtn" id="cw-clear-history" title="Borrar historial">🗑</button>
       <button class="cw-hbtn" id="cw-refresh-btn" title="Actualizar datos">↻</button>
       <button class="cw-hbtn" id="cw-minimize" title="Minimizar">✕</button>
     </div>
@@ -163,6 +183,16 @@
 
   <!-- KPIs Tab -->
   <div id="cw-kpis-panel" style="display:none;flex:1;overflow-y:auto;padding:12px"></div>
+
+  <!-- Quick action buttons (chat mode only) -->
+  <div id="cw-quick-actions">
+    <button class="cw-qa-btn" data-q="Dame el resumen ejecutivo completo de hoy">📋 Resumen hoy</button>
+    <button class="cw-qa-btn" data-q="¿Estamos en meta? Dame % de cumplimiento">🎯 Meta</button>
+    <button class="cw-qa-btn" data-q="¿Cuánto está vencido en CXC y qué % representa?">💰 CXC</button>
+    <button class="cw-qa-btn" data-q="Top 5 vendedores del mes con cumplimiento">🏆 Top 5</button>
+    <button class="cw-qa-btn" data-q="Proyección de cierre de mes (regresión lineal)">📈 Proyección</button>
+    <button class="cw-qa-btn" data-q="¿Cuál es el margen bruto actual?">📊 Margen</button>
+  </div>
 
   <div id="cw-suggestions"></div>
   <div id="cw-img-preview">
@@ -196,39 +226,70 @@
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
-  /** Convierte markdown básico a HTML — con soporte para tablas y listas */
+  /** Convierte markdown básico a HTML — con soporte para tablas GFM, listas y formato */
   function mdToHtml(text) {
+    // 1. Escapar HTML primero
     let s = text
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-      // Encabezados
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+    // 2. Tablas GFM — detectar bloques | col | col |
+    s = s.replace(/((?:^\|.+\|[ \t]*\n?)+)/gm, (tableBlock) => {
+      const rows = tableBlock.trim().split('\n').filter(r => r.trim().startsWith('|'));
+      if (rows.length < 2) return tableBlock;
+      const isSep = r => /^\|[\s\|:\-]+\|$/.test(r.trim());
+      let html = '<table>';
+      let inBody = false;
+      rows.forEach((row, i) => {
+        if (isSep(row)) { inBody = true; return; }
+        const cells = row.replace(/^\||\|$/g,'').split('|').map(c => c.trim());
+        if (!inBody && i === 0) {
+          html += '<thead><tr>' + cells.map(c=>`<th>${c}</th>`).join('') + '</tr></thead><tbody>';
+        } else {
+          html += '<tr>' + cells.map(c=>`<td>${c}</td>`).join('') + '</tr>';
+        }
+      });
+      html += '</tbody></table>';
+      return html;
+    });
+
+    // 3. Encabezados
+    s = s
       .replace(/^### (.+)$/gm,'<strong style="color:#E6A800;display:block;margin:6px 0 2px">$1</strong>')
-      .replace(/^## (.+)$/gm,'<strong style="display:block;margin:8px 0 3px;font-size:1.05em">$1</strong>')
-      // Negrita + itálica
+      .replace(/^## (.+)$/gm,'<strong style="display:block;margin:8px 0 3px;font-size:1.05em">$1</strong>');
+
+    // 4. Negrita + itálica
+    s = s
       .replace(/\*\*\*(.*?)\*\*\*/g,'<strong><em>$1</em></strong>')
       .replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
       .replace(/\*(.*?)\*/g,'<em>$1</em>')
-      .replace(/_(.*?)_/g,'<em>$1</em>')
-      // Código inline
-      .replace(/`([^`]+)`/g,'<code style="background:rgba(255,255,255,.08);padding:1px 6px;border-radius:3px;font-family:monospace;font-size:.88em">$1</code>')
-      // Listas con guión / bullet
+      .replace(/_(.*?)_/g,'<em>$1</em>');
+
+    // 5. Código inline
+    s = s.replace(/`([^`]+)`/g,'<code style="background:rgba(255,255,255,.08);padding:1px 6px;border-radius:3px;font-family:monospace;font-size:.88em">$1</code>');
+
+    // 6. Listas
+    s = s
       .replace(/^[\-\*] (.+)$/gm,'<div style="padding-left:12px;margin:2px 0">• $1</div>')
-      // Listas numeradas
-      .replace(/^\d+\. (.+)$/gm,'<div style="padding-left:12px;margin:2px 0">$1</div>')
-      // Semáforos visuales
+      .replace(/^\d+\. (.+)$/gm,'<div style="padding-left:12px;margin:2px 0">$1</div>');
+
+    // 7. Emojis semáforo
+    s = s
       .replace(/🔴/g,'<span style="color:#ef4444">🔴</span>')
       .replace(/🟡/g,'<span style="color:#f59e0b">🟡</span>')
       .replace(/🟢/g,'<span style="color:#22c55e">🟢</span>')
       .replace(/⚠️/g,'<span style="color:#f59e0b">⚠️</span>')
       .replace(/✅/g,'<span style="color:#22c55e">✅</span>')
-      .replace(/🚨/g,'<span style="color:#ef4444">🚨</span>')
-      // Línea separadora
+      .replace(/🚨/g,'<span style="color:#ef4444">🚨</span>');
+
+    // 8. HR + newlines (no dentro de tablas ya procesadas)
+    s = s
       .replace(/^---$/gm,'<hr style="border:none;border-top:1px solid rgba(255,255,255,.1);margin:6px 0">')
-      // Saltos de línea
       .replace(/\n/g,'<br>');
+
     return s;
   }
 
-  function addMessage(role, text, imgDataUrl) {
+  function addMessage(role, text, imgDataUrl, opts = {}) {
     const msgs = $('cw-msgs');
     if (!msgs) return;
     const div = document.createElement('div');
@@ -239,11 +300,28 @@
     if (imgDataUrl && role === 'user') {
       bubbleContent += `<br><img src="${imgDataUrl}" style="margin-top:6px;max-width:200px;border-radius:6px;border:1px solid #1e3a5f" alt="captura"/>`;
     }
+    // Retry button for error messages
+    const isError = opts.isError || (role === 'ai' && /^[⚠️📶⏱]/.test(text.trim()));
+    const retryHtml = (isError && lastFailedMessage)
+      ? `<div style="margin-top:6px"><button class="cw-retry-btn" onclick="this.closest('.cw-msg').dispatchEvent(new CustomEvent('cw:retry',{bubbles:true}))">↺ Reintentar</button></div>`
+      : '';
+
     div.innerHTML = `
       <div class="cw-msg-avatar">${avatarIcon}</div>
-      <div class="cw-msg-bubble">${bubbleContent}</div>`;
+      <div class="cw-msg-bubble">${bubbleContent}${retryHtml}</div>`;
+
+    if (isError && lastFailedMessage) {
+      const failedMsg = lastFailedMessage;
+      div.addEventListener('cw:retry', () => {
+        div.remove();
+        sendMessage(failedMsg);
+      });
+    }
     msgs.appendChild(div);
-    history.push({ role: role === 'ai' ? 'assistant' : 'user', content: text });
+    if (!opts.noHistory) {
+      history.push({ role: role === 'ai' ? 'assistant' : 'user', content: text });
+      persistHistory();
+    }
     scrollBottom();
   }
 
@@ -316,6 +394,7 @@
   async function sendMessage(text) {
     if (!text.trim() || isTyping) return;
     isTyping = true;
+    lastFailedMessage = null;
 
     const imgDataUrl = pendingImg ? pendingImg.dataUrl : null;
     const imgBase64  = pendingImg ? pendingImg.base64  : null;
@@ -326,6 +405,7 @@
     clearInput();
     showTyping();
     hideSuggestions();
+    hideQuickActions();
 
     try {
       // Historial en formato que espera el servidor (sin el último turno user ya agregado)
@@ -376,18 +456,19 @@
       }
     } catch (e) {
       removeTyping();
+      lastFailedMessage = text; // habilita botón retry
       if (e.name === 'TimeoutError' || e.name === 'AbortError') {
         const fallback = await quickFallbackReply(text);
         if (fallback) {
           addMessage('ai', fallback + '\n\n_Nota: la capa IA tardó más de lo esperado; te mostré datos directos del sistema._');
         } else {
-          addMessage('ai', '⏱ La consulta tardó demasiado. Intenta de nuevo o haz una pregunta más específica.\n\nSugerencia: _"ventas hoy"_, _"CXC vencida"_, _"resumen del mes"_.');
+          addMessage('ai', '⏱ La consulta tardó demasiado. Intenta de nuevo o haz una pregunta más específica.\n\nSugerencia: _"ventas hoy"_, _"CXC vencida"_, _"resumen del mes"_.', null, { isError: true });
         }
       } else if (e.message && (e.message.includes('Failed to fetch') || e.message.includes('NetworkError'))) {
-        addMessage('ai', '📶 Sin conexión al servidor IA. Verifica que el servicio esté corriendo.');
+        addMessage('ai', '📶 Sin conexión al servidor IA. Verifica que el servicio esté corriendo.', null, { isError: true });
         setStatus('Sin conexión', false);
       } else {
-        addMessage('ai', `⚠️ Error de conexión: ${e.message || 'Error desconocido'}`);
+        addMessage('ai', `⚠️ Error de conexión: ${e.message || 'Error desconocido'}`, null, { isError: true });
         setStatus('Sin conexión', false);
       }
       setTimeout(() => setStatus('Reconectando…', null), 3000);
@@ -520,19 +601,21 @@
     activeTab = tab;
     document.querySelectorAll('.cw-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
     $('cw-msgs').classList.toggle('hidden', tab !== 'chat');
-    const alertPanel = $('cw-alerts-panel');
-    const kpiPanel   = $('cw-kpis-panel');
-    const sugPanel   = $('cw-suggestions');
-    const inputArea  = $('cw-input-area');
-    const alertBtns  = $('cw-send-alert-btns');
-    const imgPreview = $('cw-img-preview');
+    const alertPanel  = $('cw-alerts-panel');
+    const kpiPanel    = $('cw-kpis-panel');
+    const sugPanel    = $('cw-suggestions');
+    const inputArea   = $('cw-input-area');
+    const alertBtns   = $('cw-send-alert-btns');
+    const imgPreview  = $('cw-img-preview');
+    const quickAct    = $('cw-quick-actions');
 
     if (alertPanel) { alertPanel.classList.toggle('active', tab === 'alerts'); }
-    if (kpiPanel)   { kpiPanel.style.display   = tab === 'kpis'    ? 'block'  : 'none'; }
-    if (sugPanel)   { sugPanel.style.display    = tab === 'chat'    ? 'flex'   : 'none'; }
-    if (inputArea)  { inputArea.style.display   = tab === 'chat'    ? 'flex'   : 'none'; }
-    if (alertBtns)  { alertBtns.style.display   = tab === 'alerts'  ? 'flex'   : 'none'; }
+    if (kpiPanel)   { kpiPanel.style.display    = tab === 'kpis'    ? 'block' : 'none'; }
+    if (sugPanel)   { sugPanel.style.display     = tab === 'chat'    ? 'flex'  : 'none'; }
+    if (inputArea)  { inputArea.style.display    = tab === 'chat'    ? 'flex'  : 'none'; }
+    if (alertBtns)  { alertBtns.style.display    = tab === 'alerts'  ? 'flex'  : 'none'; }
     if (imgPreview) { imgPreview.classList.toggle('visible', tab === 'chat' && !!pendingImg); }
+    if (quickAct)   { quickAct.style.display     = tab === 'chat'    ? 'flex'  : 'none'; }
 
     if (tab === 'alerts') loadAlerts();
     if (tab === 'kpis')   loadKpis();
@@ -557,6 +640,16 @@
   function hideSuggestions() {
     const el = $('cw-suggestions');
     if (el) el.innerHTML = '';
+  }
+
+  function hideQuickActions() {
+    const el = $('cw-quick-actions');
+    if (el) el.style.display = 'none';
+  }
+
+  function showQuickActions() {
+    const el = $('cw-quick-actions');
+    if (el) el.style.display = 'flex';
   }
 
   function clearInput() {
@@ -663,6 +756,33 @@
     const input = $('cw-input');
     const send  = $('cw-send');
 
+    // Botón borrar historial
+    const clearHistBtn = $('cw-clear-history');
+    if (clearHistBtn) {
+      clearHistBtn.addEventListener('click', () => {
+        clearPersistedHistory();
+        const msgs = $('cw-msgs');
+        if (msgs) msgs.innerHTML = '';
+        showWelcome();
+        renderSuggestions();
+        showQuickActions();
+      });
+    }
+
+    // Quick action buttons
+    const qaContainer = $('cw-quick-actions');
+    if (qaContainer) {
+      qaContainer.querySelectorAll('.cw-qa-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const q = btn.getAttribute('data-q');
+          if (q) {
+            $('cw-input').value = q;
+            sendMessage(q);
+          }
+        });
+      });
+    }
+
     // Abrir / cerrar
     fab.addEventListener('click', () => {
       isOpen = !isOpen;
@@ -671,6 +791,7 @@
       if (isOpen && history.length === 0) {
         showWelcome();
         renderSuggestions();
+        showQuickActions();
         // Verificar estado de alertas en background
         fetch(API + '/api/alerts/check' + (DB_PARAM ? '?db=' + DB_PARAM : ''), { signal: AbortSignal.timeout(30000) })
           .then(r => r.json())

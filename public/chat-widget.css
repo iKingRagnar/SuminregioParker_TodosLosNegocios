@@ -348,3 +348,55 @@
 #cw-kpis-panel::-webkit-scrollbar{ width:3px; }
 #cw-alerts-panel::-webkit-scrollbar-thumb,
 #cw-kpis-panel::-webkit-scrollbar-thumb{ background:#1e3a5f; border-radius:2px; }
+
+/* ── Quick action buttons ──────────────────────────────────────────────── */
+#cw-quick-actions{
+  display:flex; flex-wrap:wrap; gap:5px;
+  padding:7px 10px 5px; border-top:1px solid var(--cw-border); flex-shrink:0;
+}
+.cw-qa-btn{
+  background:linear-gradient(135deg,rgba(230,168,0,.10),rgba(77,166,255,.06));
+  border:1px solid rgba(230,168,0,.25); color:var(--cw-acc);
+  padding:4px 10px; border-radius:16px; font-size:10.5px; cursor:pointer;
+  transition:all .18s; white-space:nowrap; font-weight:600; letter-spacing:.02em;
+  font-family:'DM Mono',monospace;
+}
+.cw-qa-btn:hover{
+  background:rgba(230,168,0,.18); border-color:var(--cw-acc);
+  transform:translateY(-1px); box-shadow:0 3px 10px rgba(230,168,0,.20);
+}
+.cw-qa-btn:active{ transform:translateY(0); }
+
+/* ── Retry button (in error messages) ─────────────────────────────────── */
+.cw-retry-btn{
+  background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.35);
+  color:#ef4444; padding:3px 10px; border-radius:12px;
+  font-size:10px; cursor:pointer; font-weight:700; letter-spacing:.04em;
+  transition:all .18s; font-family:'DM Mono',monospace;
+}
+.cw-retry-btn:hover{
+  background:rgba(239,68,68,.22); border-color:#ef4444;
+  box-shadow:0 2px 8px rgba(239,68,68,.25); transform:translateY(-1px);
+}
+
+/* ── Markdown table in chat ──────────────────────────────────────────── */
+.cw-msg-bubble table{
+  width:100%; border-collapse:collapse; font-size:10.5px;
+  margin:6px 0; border-radius:6px; overflow:hidden;
+}
+.cw-msg-bubble table th{
+  background:rgba(230,168,0,.12); color:var(--cw-acc);
+  padding:4px 8px; text-align:left; font-weight:700;
+  border-bottom:1px solid rgba(230,168,0,.25);
+}
+.cw-msg-bubble table td{
+  padding:3px 8px; border-bottom:1px solid rgba(255,255,255,.04);
+  color:var(--cw-txt2);
+}
+.cw-msg-bubble table tr:hover td{
+  background:rgba(77,166,255,.05);
+}
+
+/* ── Clear history btn ───────────────────────────────────────────────── */
+#cw-clear-history{ opacity:.6; }
+#cw-clear-history:hover{ opacity:1; color:var(--cw-red,#ef4444) !important; }

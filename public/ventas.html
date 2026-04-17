@@ -96,6 +96,11 @@ nav{display:flex;align-items:center;gap:.25rem}
 .card-title svg{width:16px;height:16px;fill:var(--muted)}
 .card-badge{font-family:'DM Mono',monospace;font-size:.63rem;padding:.2rem .6rem;border-radius:99px;border:1px solid var(--border2);color:var(--muted);background:transparent;cursor:default}
 .card-badge.btn{cursor:pointer}.card-badge.btn:hover{border-color:var(--blue);color:var(--blue)}
+/* ── Trend badges (ventas) ── */
+.kpi-trend-v{display:inline-flex;align-items:center;font-size:.52rem;font-weight:700;padding:1px 5px;border-radius:9px;letter-spacing:.03em;vertical-align:middle;transition:all .3s}
+.kpi-trend-v.tv-up{background:rgba(0,229,160,.12);color:var(--green,#22c55e);border:1px solid rgba(0,229,160,.25)}
+.kpi-trend-v.tv-down{background:rgba(255,69,102,.12);color:var(--red,#ef4444);border:1px solid rgba(255,69,102,.25)}
+.kpi-trend-v.tv-flat{background:rgba(255,255,255,.05);color:var(--muted);border:1px solid var(--border)}
 .ms-time-stack{display:flex;flex-direction:column;gap:.55rem;margin-bottom:1rem}
 .ms-month-picker{margin:0;padding:.65rem 1rem;border:1px solid var(--border2);border-radius:12px;background:var(--s1)}
 .ms-month-picker-head{display:flex;align-items:center;justify-content:space-between;gap:.7rem;flex-wrap:wrap}
@@ -339,15 +344,21 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
     <span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted)" id="split-info"></span>
   </div>
 
+  <!-- Export + YoY bar -->
+  <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:.6rem;flex-wrap:wrap">
+    <button id="btn-export-csv" class="card-badge btn" onclick="exportVentasCsv()" title="Exportar tabla vendedores a CSV">⬇ Exportar CSV</button>
+    <button id="btn-yoy-toggle" class="card-badge btn" onclick="toggleYoyPanel()" title="Ver comparativa Año Anterior" style="display:none">📊 YoY</button>
+  </div>
+
   <div class="kpi-grid">
     <div class="kpi-card blue">
-      <div class="kpi-label">Hoy</div>
+      <div class="kpi-label">Hoy <span class="kpi-trend-v" id="trend-v-hoy"></span></div>
       <div class="kpi-value" id="kpi-hoy">?</div>
       <div class="kpi-sub" id="kpi-hoy-sub">&nbsp;</div>
       <div class="meta-bar-wrap"><div class="meta-bar-bg"><div class="meta-bar-fill" id="bar-hoy" style="width:0%"></div></div><div class="meta-pct" id="pct-hoy">&nbsp;</div></div>
     </div>
     <div class="kpi-card green">
-      <div class="kpi-label">Mes Actual</div>
+      <div class="kpi-label">Mes Actual <span class="kpi-trend-v" id="trend-v-mes"></span></div>
       <div class="kpi-value" id="kpi-mes">?</div>
       <div class="kpi-sub" id="kpi-mes-sub">&nbsp;</div>
       <div class="meta-bar-wrap"><div class="meta-bar-bg"><div class="meta-bar-fill" id="bar-mes" style="width:0%"></div></div><div class="meta-pct" id="pct-mes">&nbsp;</div></div>
@@ -358,7 +369,7 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
       <div class="kpi-sub" id="kpi-meta-sub">Base / Ideal (+30%)</div>
     </div>
     <div class="kpi-card orange">
-      <div class="kpi-label">Facturas Mes</div>
+      <div class="kpi-label">Facturas Mes <span class="kpi-trend-v" id="trend-v-fact"></span></div>
       <div class="kpi-value" id="kpi-facturas">?</div>
       <div class="kpi-sub" id="kpi-facturas-sub">&nbsp;</div>
     </div>
@@ -1189,6 +1200,30 @@ async function loadResumen() {
       apply('kpi-facturas', docs > 0 ? 'info' : 'warn');
       apply('kpi-prom', 'info');
     }
+
+    // ── YoY trend badges (async, non-blocking) ────────────────────────────
+    fwt(buildApiUrl('/api/ventas/resumen', 'preset=anio_ant'), {}).then(function(yoy) {
+      function renderTrendV(elId, curr, prev) {
+        const el = document.getElementById(elId);
+        if (!el || !prev || prev <= 0 || !curr) return;
+        const pct = ((curr - prev) / prev) * 100;
+        const sign = pct >= 0 ? '▲' : '▼';
+        const cls  = pct >= 2 ? 'tv-up' : pct <= -2 ? 'tv-down' : 'tv-flat';
+        el.textContent = `${sign} ${Math.abs(pct).toFixed(1)}% YoY`;
+        el.className = `kpi-trend-v ${cls}`;
+        el.title = `Año anterior: ${fmtK(prev)}`;
+      }
+      const yoyHoy  = +(yoy.HOY||yoy.TOTAL_HOY||yoy.VENTA_HOY||0);
+      const yoyMes  = +(yoy.MES_ACTUAL||yoy.TOTAL_MES||yoy.VENTA_MES||0);
+      const yoyDocs = +(yoy.FACTURAS_MES||yoy.NUM_FACTURAS_MES||0);
+      renderTrendV('trend-v-hoy',  hoy,  yoyHoy);
+      renderTrendV('trend-v-mes',  mes,  yoyMes);
+      renderTrendV('trend-v-fact', docs, yoyDocs);
+      // Show YoY toggle button
+      const yBtn = document.getElementById('btn-yoy-toggle');
+      if (yBtn && yoyMes > 0) yBtn.style.display = '';
+    }).catch(function(){});
+
   } catch(e){ console.error('resumen',e); }
 }
 
@@ -1617,6 +1652,51 @@ if (typeof initFilters === 'function') {
   loadAll();
 }
 setInterval(loadAll, 1800000);
+
+// ── Export vendedores table to CSV ────────────────────────────────────────────
+function exportVentasCsv() {
+  try {
+    const table = document.querySelector('#vend-table, table.vend-table, [id*="vend"] table');
+    if (!table) {
+      // Fallback: fetch data and build CSV from API
+      const qs = typeof buildApiUrl === 'function' ? buildApiUrl('/api/ventas/por-vendedor', tipoQ ? tipoQ() : '') : '/api/ventas/por-vendedor';
+      fwt(qs, []).then(function(rows) {
+        const arr = Array.isArray(rows) ? rows : (rows.rows || rows.data || []);
+        if (!arr.length) { alert('Sin datos para exportar.'); return; }
+        const keys = Object.keys(arr[0]);
+        const csvRows = [keys.join(',')].concat(
+          arr.map(r => keys.map(k => JSON.stringify(r[k] != null ? r[k] : '')).join(','))
+        );
+        downloadCsv(csvRows.join('\n'), 'ventas-por-vendedor.csv');
+      }).catch(function(e) { alert('Error al obtener datos: ' + e.message); });
+      return;
+    }
+    // Export from DOM table
+    const rows = [];
+    table.querySelectorAll('tr').forEach(function(tr) {
+      const cells = [];
+      tr.querySelectorAll('th,td').forEach(function(td) { cells.push(JSON.stringify(td.innerText.trim())); });
+      if (cells.length) rows.push(cells.join(','));
+    });
+    downloadCsv(rows.join('\n'), 'ventas-por-vendedor.csv');
+  } catch(e) { console.error('exportVentasCsv', e); alert('Error al exportar: ' + e.message); }
+}
+
+function downloadCsv(content, filename) {
+  const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(a.href); }, 1000);
+}
+
+function toggleYoyPanel() {
+  // Placeholder for future YoY panel expansion
+  alert('Comparativa año anterior: ver badges YoY en cada KPI card.');
+}
 </script>
 <script src="nav.js"></script>
 <script src="/chat-widget.js" defer></script>
