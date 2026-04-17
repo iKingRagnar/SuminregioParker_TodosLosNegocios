@@ -1399,16 +1399,36 @@ async function loadAll(){
         .then((x)=>{ if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.note=label+':ok'; } return x; })
         .catch((e)=>{ if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.note=label+':err:'+(e&&e.message?e.message:String(e)); } throw e; });
     };
-    const [m,cRaw,inv,dir,vends,cumpl,cliRes,pnlData]=await Promise.all([
-      dbgWrap('config/metas', fetchJsonAbort(buildApiUrl('/api/config/metas'), {}, tKpi)),
-      dbgWrap('cxc/resumen-aging', fetchJsonAbort(buildApiUrl('/api/cxc/resumen-aging','queryMs=180000'), {}, tCxcResumenAging)),
-      dbgWrap('inv/resumen', fetchJsonAbort(buildApiUrl('/api/inv/resumen'), {}, tKpi)),
-      dbgWrap('director/resumen', fetchJsonAbort(buildApiUrl('/api/director/resumen', 'omitCxc=1'), {}, tDirResumen)),
-      dbgWrap('director/vendedores', fetchJsonAbort(buildApiUrl('/api/director/vendedores'), [], tKpi)),
-      dbgWrap('ventas/cumplimiento', fetchJsonAbort(buildApiUrl('/api/ventas/cumplimiento'), [], tKpi)),
-      dbgWrap('clientes/riesgo', fetchJsonAbort(buildApiUrl('/api/clientes/resumen-riesgo'), {}, tKpi)),
-      dbgWrap('resultados/pnl', fetchJsonAbort(buildApiUrl('/api/resultados/pnl','meses=1'), {}, tKpi)),
+    // ── Promise.allSettled: si un endpoint falla/timeout, los demás siguen renderizando ──
+    const _settled = await Promise.allSettled([
+      dbgWrap('config/metas',       fetchJsonAbort(buildApiUrl('/api/config/metas'), {}, tKpi)),
+      dbgWrap('cxc/resumen-aging',  fetchJsonAbort(buildApiUrl('/api/cxc/resumen-aging','queryMs=180000'), {}, tCxcResumenAging)),
+      dbgWrap('inv/resumen',        fetchJsonAbort(buildApiUrl('/api/inv/resumen'), {}, tKpi)),
+      dbgWrap('director/resumen',   fetchJsonAbort(buildApiUrl('/api/director/resumen', 'omitCxc=1'), {}, tDirResumen)),
+      dbgWrap('director/vendedores',fetchJsonAbort(buildApiUrl('/api/director/vendedores'), [], tKpi)),
+      dbgWrap('ventas/cumplimiento',fetchJsonAbort(buildApiUrl('/api/ventas/cumplimiento'), [], tKpi)),
+      dbgWrap('clientes/riesgo',    fetchJsonAbort(buildApiUrl('/api/clientes/resumen-riesgo'), {}, tKpi)),
+      dbgWrap('resultados/pnl',     fetchJsonAbort(buildApiUrl('/api/resultados/pnl','meses=1'), {}, tKpi)),
     ]);
+    // Extraer valores — cada uno tiene su fallback si el endpoint falló
+    function _val(res, fallback) { return res.status === 'fulfilled' ? res.value : fallback; }
+    const m       = _val(_settled[0], {});
+    const cRaw    = _val(_settled[1], {});
+    const inv     = _val(_settled[2], {});
+    const dir     = _val(_settled[3], {});
+    const vends   = _val(_settled[4], []);
+    const cumpl   = _val(_settled[5], []);
+    const cliRes  = _val(_settled[6], {});
+    const pnlData = _val(_settled[7], {});
+    // Mostrar badge si algún endpoint degradó
+    const _failedEndpoints = _settled.filter(r => r.status === 'rejected').length;
+    if (_failedEndpoints > 0) {
+      console.warn('[index] ' + _failedEndpoints + ' endpoint(s) fallaron — renderizando con datos parciales.');
+      const subEl = document.getElementById('page-sub');
+      if (subEl && subEl.textContent.includes('Cargando')) {
+        subEl.innerHTML = '⚠️ ' + _failedEndpoints + ' fuente(s) con timeout — datos parciales. <button onclick="loadAll()" style="background:none;border:1px solid var(--border2);color:var(--yellow);padding:2px 10px;border-radius:9px;cursor:pointer;font-size:.7rem;font-family:\'DM Mono\',monospace">↺ Reintentar</button>';
+      }
+    }
     const v = (dir && dir.ventas && typeof dir.ventas === 'object') ? dir.ventas : {};
     let cot = canonCotiResumenForIndex((dir && dir.cotizaciones) ? dir.cotizaciones : {});
     const ventaMesProbe = +v.MES_ACTUAL || 0;

@@ -53,6 +53,7 @@ require('dotenv').config();
 const express  = require('express');
 const cors     = require('cors');
 const fs       = require('fs');
+const zlib     = require('zlib');
 const Firebird = require('node-firebird');
 const path     = require('path');
 
@@ -100,6 +101,27 @@ function sqlVentaImporteResultadosExpr(alias = 'd') {
 // ── Middleware ────────────────────────────────────────────────────────────────
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 app.use(express.json());
+
+// ── Gzip compression (inline, no external dep) ────────────────────────────────
+// Comprime respuestas JSON de la API (/api/*) cuando el cliente acepta gzip.
+app.use(function gzipMiddleware(req, res, next) {
+  const ae = req.headers['accept-encoding'] || '';
+  if (!ae.includes('gzip') || !req.path.startsWith('/api/')) return next();
+  const origJson = res.json.bind(res);
+  res.json = function(data) {
+    const body = JSON.stringify(data);
+    if (!body || body.length < 860) { return origJson(data); } // no comprimir payloads pequeños
+    res.setHeader('Content-Encoding', 'gzip');
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.setHeader('Vary', 'Accept-Encoding');
+    zlib.gzip(Buffer.from(body, 'utf8'), { level: 6 }, function(err, compressed) {
+      if (err) { res.removeHeader('Content-Encoding'); return origJson(data); }
+      res.setHeader('Content-Length', compressed.length);
+      res.end(compressed);
+    });
+  };
+  next();
+});
 
 // Servir archivos estáticos — public/ primero: si hay mismo nombre en raíz y en public/, gana public/
 // (evita que index.html viejo en la raíz opaque public/index.html).
@@ -1276,7 +1298,15 @@ async function mapPoolLimit(items, limit, mapper) {
 
 // ── Route-level TTL cache configuration (ms) ────────────────────────────────
 const ROUTE_TTL_MAP = {
+  // Ventas
   "/api/ventas/resumen": 90000,
+  "/api/ventas/diario": 60000,
+  "/api/ventas/por-vendedor": 90000,
+  "/api/ventas/cobradas": 120000,
+  "/api/ventas/margen": 180000,
+  "/api/ventas/ranking-clientes": 120000,
+  "/api/ventas/cumplimiento": 90000,
+  // Cotizaciones
   "/api/ventas/cotizaciones/resumen": 90000,
   "/api/ventas/cotizaciones/diarias": 60000,
   "/api/ventas/cotizaciones/semanales": 120000,
@@ -1284,12 +1314,30 @@ const ROUTE_TTL_MAP = {
   "/api/ventas/por-vendedor/cotizaciones": 90000,
   "/api/ventas/vs-cotizaciones": 90000,
   "/api/ventas/cotizaciones": 60000,
-  "/api/ventas/diario": 60000,
+  // Director
   "/api/director/resumen": 120000,
+  "/api/director/vendedores": 90000,
+  // CXC
   "/api/cxc/resumen": 120000,
   "/api/cxc/resumen-aging": 120000,
+  "/api/cxc/top-deudores": 120000,
+  "/api/cxc/por-condicion": 120000,
+  "/api/cxc/vencidas": 90000,
+  "/api/cxc/vigentes": 90000,
+  "/api/cxc/historial": 90000,
+  // Resultados
   "/api/resultados/pnl": 180000,
-  "/api/resultados/pnl-universe": 180000
+  "/api/resultados/pnl-universe": 180000,
+  "/api/resultados/balance-general": 180000,
+  "/api/resultados/estado-sr": 180000,
+  // Inventario
+  "/api/inv/resumen": 120000,
+  "/api/inv/articulos": 120000,
+  "/api/inv/sin-movimiento": 180000,
+  // Clientes
+  "/api/clientes/resumen-riesgo": 120000,
+  // Config (muy estable)
+  "/api/config/metas": 300000,
 };
 
 // ── Helper: ruta GET con manejo de errores + cache automático por ROUTE_TTL_MAP ─

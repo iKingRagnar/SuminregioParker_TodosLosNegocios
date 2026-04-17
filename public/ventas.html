@@ -1119,9 +1119,9 @@ async function loadAll() {
     setText('kc-meta', bloq ? '—' : fmtK(metaCDia));
   } catch(e){}
 
-  // Cotizaciones + conversión aparte: menos contienda en Firebird/Render (antes 9 rutas en paralelo).
+  // allSettled: si un sub-módulo falla, los demás siguen renderizando
   try {
-    await Promise.all([loadResumen(), loadSplit(), loadDiarias(), loadMensuales(), loadVendedores(), loadClientes(), loadRecientes()]);
+    await Promise.allSettled([loadResumen(), loadSplit(), loadDiarias(), loadMensuales(), loadVendedores(), loadClientes(), loadRecientes()]);
   } catch (e) {
     console.error('ventas loadAll bloque principal', e);
   }
@@ -1369,25 +1369,45 @@ async function loadMensuales() {
 async function loadVendedores() {
   try {
     const rows = await fwt(buildApiUrl('/api/ventas/por-vendedor', tipoQ()), []);
-    const max = rows.reduce((m,r)=>Math.max(m,+(r.VENTAS_MES||0)),0);
+    const sorted = [...rows].sort((a,b) => (+(b.VENTAS_MES||0)) - (+(a.VENTAS_MES||0)));
+    const max = sorted.reduce((m,r)=>Math.max(m,+(r.VENTAS_MES||0)),0);
     const el = document.getElementById('vendedores-list');
-    el.innerHTML = rows.length ? `<div class="vendor-list">${rows.map((r,i)=>{
-      const pct = max>0?((+(r.VENTAS_MES||0))/max*100).toFixed(0):0;
+    const MEDALS = ['🥇','🥈','🥉'];
+    const bloq = ventasMetaBloqueadasPorTipo();
+    const nV = getVendedoresEnContexto(metas);
+    const metaBase = +(metas.META_DIARIA_POR_VENDEDOR||5650);
+    const laborMes = countLaborDaysMonthToDate(new Date());
+    const metaMesVend = metaBase * laborMes; // meta individual acumulada al día de hoy
+
+    el.innerHTML = sorted.length ? `<div class="vendor-list" id="vend-table">${sorted.map((r,i)=>{
+      const mes    = +(r.VENTAS_MES||0);
+      const pct    = max>0 ? (mes/max*100).toFixed(0) : 0;
+      const cumpl  = (!bloq && metaMesVend > 0) ? Math.round(mes/metaMesVend*100) : null;
+      const cumplColor = cumpl == null ? 'var(--muted)' : cumpl >= 100 ? 'var(--green)' : cumpl >= 70 ? 'var(--yellow)' : 'var(--red)';
+      const cumplBadge = cumpl != null ? `<span style="font-family:'DM Mono',monospace;font-size:.62rem;font-weight:700;color:${cumplColor};margin-left:6px">${cumpl}%▸meta</span>` : '';
+      const medal  = MEDALS[i] || `<span class="rank-num">${i+1}</span>`;
+      const ve = +(r.VENTAS_MES_VE||0), pv = +(r.VENTAS_MES_PV||0);
+      const docs = +(r.FACTURAS_MES||r.NUM_FACTURAS||0);
       return `<div class="vendor-item">
         <div class="vendor-head">
-          <span class="vendor-name"><span class="rank-num">${i+1}</span>${r.VENDEDOR}</span>
-          <span><span class="vendor-amount">${fmtK(r.VENTAS_MES)}</span><span class="vendor-pct">${pct}%</span></span>
+          <span class="vendor-name">${medal} ${r.VENDEDOR}</span>
+          <span style="display:flex;align-items:center;gap:4px">
+            <span class="vendor-amount">${fmtK(mes)}</span>
+            ${cumplBadge}
+          </span>
         </div>
-        <div class="vendor-bar-bg"><div class="vendor-bar-fill" style="width:${pct}%"></div></div>
-        <div class="vendor-split">
-          <span style="color:var(--blue)">VE: ${fmtK(r.VENTAS_MES_VE||0)}</span>
-          <span style="color:var(--muted)">|</span>
-          <span style="color:var(--purple)">PV: ${fmtK(r.VENTAS_MES_PV||0)}</span>
+        <div class="vendor-bar-bg" title="${pct}% del líder">
+          <div class="vendor-bar-fill" style="width:${pct}%;background:${cumpl==null?'var(--blue)':cumpl>=100?'var(--green)':cumpl>=70?'var(--yellow)':'var(--red)'}"></div>
+        </div>
+        <div class="vendor-split" style="display:flex;gap:10px;font-size:.62rem;margin-top:3px;flex-wrap:wrap">
+          <span style="color:var(--blue)">VE: ${fmtK(ve)}</span>
+          <span style="color:var(--purple)">PV: ${fmtK(pv)}</span>
+          ${docs > 0 ? `<span style="color:var(--muted)">${docs} docs</span>` : ''}
         </div>
       </div>`;
     }).join('')}</div>` : '<div class="ms-empty" role="status">Sin datos para este filtro o periodo.</div>';
-    setText('vendedor-badge', `${rows.length} vendedores`);
-  } catch(e){}
+    setText('vendedor-badge', `${sorted.length} vendedores`);
+  } catch(e){ console.error('loadVendedores',e); }
 }
 
 async function loadClientes() {

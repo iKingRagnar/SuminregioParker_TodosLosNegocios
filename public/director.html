@@ -1119,7 +1119,7 @@ async function loadAll() {
     }
   }
 
-  await Promise.all([loadDiarias(), loadVendedores(), loadClientes(), loadRecientes()]);
+  await Promise.allSettled([loadDiarias(), loadVendedores(), loadClientes(), loadRecientes()]);
   setText('page-sub', `Actualizado: ${new Date().toLocaleTimeString('es-MX')}`);
 }
 

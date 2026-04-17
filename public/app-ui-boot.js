@@ -67,35 +67,63 @@
     bar.setAttribute('aria-label', 'Actualización de datos');
     bar.innerHTML =
       '<div class="ms-refresh-inner">' +
-      '<button type="button" class="ms-refresh-btn">↻ Actualizar</button>' +
-      '<span class="ms-refresh-status loading">Cargando…</span>' +
+      '<button type="button" class="ms-refresh-btn" id="ms-ref-btn">↻ Actualizar</button>' +
+      '<span class="ms-refresh-status loading" id="ms-ref-status">Cargando datos…</span>' +
+      '<span id="ms-countdown" style="font-family:\'DM Mono\',monospace;font-size:10.5px;color:rgba(148,163,184,.7);margin-left:auto;white-space:nowrap"></span>' +
       '</div>';
 
     document.body.insertBefore(bar, document.body.firstChild);
 
-    var statusEl = bar.querySelector('.ms-refresh-status');
-    var btn = bar.querySelector('.ms-refresh-btn');
+    var statusEl = document.getElementById('ms-ref-status') || bar.querySelector('.ms-refresh-status');
+    var btn      = document.getElementById('ms-ref-btn')    || bar.querySelector('.ms-refresh-btn');
+    var cntEl    = document.getElementById('ms-countdown');
+
+    var _lastOkTs   = null;
+    var _cntTimer   = null;
+    var AUTO_MINS   = 30; // minutos de auto-refresh (setInterval de los dashboards)
 
     function fmt(dt) {
-      try { return dt.toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'medium' }); }
+      try { return dt.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
       catch (e) { return String(dt); }
     }
 
+    function startCountdown() {
+      if (_cntTimer) clearInterval(_cntTimer);
+      if (!_lastOkTs || !cntEl) return;
+      _cntTimer = setInterval(function() {
+        var elapsed = Math.floor((Date.now() - _lastOkTs) / 1000);
+        var total   = AUTO_MINS * 60;
+        var remain  = Math.max(0, total - elapsed);
+        if (remain <= 0) { cntEl.textContent = '↻ auto-refresco ahora'; return; }
+        var m = Math.floor(remain / 60);
+        var s = remain % 60;
+        cntEl.textContent = '⏱ próx. auto ' + m + ':' + String(s).padStart(2, '0');
+      }, 1000);
+    }
+
     function setLoading() {
-      statusEl.textContent = 'Cargando…';
+      if (_cntTimer) { clearInterval(_cntTimer); _cntTimer = null; }
+      if (cntEl) cntEl.textContent = '';
+      statusEl.textContent = 'Cargando datos…';
       statusEl.className = 'ms-refresh-status loading';
       btn.disabled = true;
     }
 
     function setSuccess() {
-      var now = new Date();
+      _lastOkTs = Date.now();
+      var now = new Date(_lastOkTs);
       statusEl.textContent = '✓ Actualizado: ' + fmt(now);
       statusEl.className = 'ms-refresh-status ok';
       btn.disabled = false;
+      startCountdown();
     }
 
     btn.addEventListener('click', function () {
       setLoading();
+      // Intentar llamar loadAll() si existe; sino reload
+      if (typeof window.loadAll === 'function') {
+        try { window.loadAll(); return; } catch(_) {}
+      }
       window.location.reload();
     });
 
