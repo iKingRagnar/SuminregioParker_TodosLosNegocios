@@ -11444,11 +11444,19 @@ app.get('/api/debug/cotizaciones', async (req, res) => {
     V: [`SELECT COUNT(*) AS N, COALESCE(SUM(h.IMPORTE_NETO),0) AS TOTAL FROM DOCTOS_VE h WHERE h.TIPO_DOCTO IN ('C','O','Q','P','CT','CU') AND (h.ESTATUS IS NULL OR h.ESTATUS NOT IN ('C','D')) AND CAST(h.FECHA AS DATE) >= CAST('2026-04-01' AS DATE) AND CAST(h.FECHA AS DATE) < CAST('2026-05-01' AS DATE)`, []],
     // W: Solo TIPO_DOCTO='C' + FECHA abril (menor IN list para mayor selectividad)
     W: [`SELECT COUNT(*) AS N, COALESCE(SUM(h.IMPORTE_NETO),0) AS TOTAL FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'C' AND CAST(h.FECHA AS DATE) >= CAST('2026-04-01' AS DATE) AND CAST(h.FECHA AS DATE) < CAST('2026-05-01' AS DATE)`, []],
-    // X: Usando IE1 implícito — TIPO_DOCTO='F' + FECHA (ventas abril, como referencia de velocidad)
+    // X: Ventas abril referencia (AK1 covering)
     X: [`SELECT COUNT(*) AS N, COALESCE(SUM(h.IMPORTE_NETO),0) AS TOTAL FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'F' AND h.APLICADO = 'S' AND CAST(h.FECHA AS DATE) >= CAST('2026-04-01' AS DATE) AND CAST(h.FECHA AS DATE) < CAST('2026-05-01' AS DATE)`, []],
+    // Y: COUNT PURO sin SUM — TIPO='C' + APLICADO='N' (solo index AK1, sin data pages para importe)
+    Y: [`SELECT COUNT(*) AS N FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'C' AND h.APLICADO = 'N'`, []],
+    // Z: COUNT PURO sin SUM + fecha abril — mismo AK1 covering intent
+    Z: [`SELECT COUNT(*) AS N FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'C' AND h.APLICADO = 'N' AND CAST(h.FECHA AS DATE) >= CAST('2026-04-01' AS DATE) AND CAST(h.FECHA AS DATE) < CAST('2026-05-01' AS DATE)`, []],
+    // Z2: FIRST 1 TIPO='C' por fecha — si existe cotizacion en abril
+    Z2: [`SELECT FIRST 1 h.DOCTO_VE_ID, h.FECHA, h.IMPORTE_NETO FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'C' AND CAST(h.FECHA AS DATE) >= CAST('2026-04-01' AS DATE)`, []],
+    // Z3: RDB$INDICES verify new server version
+    Z3: [`SELECT FIRST 1 RDB$INDEX_NAME FROM RDB$INDICES WHERE RDB$RELATION_NAME = 'DOCTOS_VE'`, []],
   };
   const entry = queries[q];
-  if (!entry) return res.json({ ok: false, error: `q debe ser A-X, Q2, recibido: ${q}` });
+  if (!entry) return res.json({ ok: false, error: `q debe ser A-Z3, Q2, recibido: ${q}` });
   try {
     const rows = await query(entry[0], entry[1], 30000, dbo);
     res.json({ ok: true, q, ms: Date.now() - t, data: rows });
