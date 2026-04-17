@@ -11458,9 +11458,15 @@ app.get('/api/debug/cotizaciones', async (req, res) => {
     Z4: [`SELECT FIRST 500 h.DOCTO_VE_ID, h.IMPORTE_NETO, h.VENDEDOR_ID, CAST(h.FECHA AS DATE) AS FECHA FROM DOCTOS_VE h WHERE h.TIPO_DOCTO IN ('C','O','Q','P','CT','CU') AND (h.ESTATUS IS NULL OR h.ESTATUS NOT IN ('C','D')) AND CAST(h.FECHA AS DATE) >= CAST('2026-04-01' AS DATE) AND CAST(h.FECHA AS DATE) < CAST('2026-05-01' AS DATE) ORDER BY h.DOCTO_VE_ID DESC`, []],
     // Z5: FIRST 500 sin ESTATUS filter + sin ORDER (más simple, ver si esto es rápido)
     Z5: [`SELECT FIRST 500 h.DOCTO_VE_ID, h.IMPORTE_NETO FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'C' AND CAST(h.FECHA AS DATE) >= CAST('2026-04-01' AS DATE) AND CAST(h.FECHA AS DATE) < CAST('2026-05-01' AS DATE)`, []],
+    // Z6: FIRST 500 SIN CAST en FECHA — ver si IE1 funciona sin CAST (puede ser la clave)
+    Z6: [`SELECT FIRST 500 h.DOCTO_VE_ID, h.IMPORTE_NETO, h.FECHA FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'C' AND h.FECHA >= '2026-04-01' AND h.FECHA < '2026-05-01'`, []],
+    // Z7: FIRST 500 todas tipo coti sin CAST (todos tipos en IN)
+    Z7: [`SELECT FIRST 500 h.DOCTO_VE_ID, h.TIPO_DOCTO, h.IMPORTE_NETO, h.FECHA FROM DOCTOS_VE h WHERE h.TIPO_DOCTO IN ('C','O','Q','P','CT','CU') AND h.FECHA >= '2026-04-01' AND h.FECHA < '2026-05-01'`, []],
+    // Z8: FIRST 1 SIN CAST (referencia para comparar con Z2)
+    Z8: [`SELECT FIRST 1 h.DOCTO_VE_ID, h.FECHA, h.IMPORTE_NETO FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'C' AND h.FECHA >= '2026-04-01'`, []],
   };
   const entry = queries[q];
-  if (!entry) return res.json({ ok: false, error: `q debe ser A-Z5, Q2, recibido: ${q}` });
+  if (!entry) return res.json({ ok: false, error: `q debe ser A-Z8, Q2, recibido: ${q}` });
   try {
     const rows = await query(entry[0], entry[1], 30000, dbo);
     res.json({ ok: true, q, ms: Date.now() - t, data: rows });
