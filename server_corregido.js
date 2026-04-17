@@ -11354,6 +11354,57 @@ setImmediate(() => {
   });
 })();
 
+// ── DEBUG: diagnóstico cotizaciones (temporal — remover después de fix) ──────
+app.get('/api/debug/cotizaciones', async (req, res) => {
+  const dbo = getReqDbOpts(req);
+  const t0 = Date.now();
+  try {
+    const cotiOpts = await cotizacionSqlOpts(dbo);
+    const t1 = Date.now();
+
+    const whereFast = sqlWhereCotizacionFast('h', 'VE');
+    const feExpr = cotiOpts.sqlFeVe ? String(cotiOpts.sqlFeVe).replace(/\bd\./g, 'h.') : 'h.FECHA';
+    const rawDetExpr  = cotiOpts.cotiDetSumExpr || null;
+    const hasValidDet = rawDetExpr && rawDetExpr.includes('SUM(');
+
+    // Test 1: contar todos los registros en cotizacionesSub sin filtro de fecha
+    const cotiSub = cotizacionesSub('', cotiOpts);
+    const [r1, r2, r3, r4, r5] = await Promise.all([
+      // Conteo total de cotizaciones sin filtro de fecha
+      query(`SELECT COUNT(*) AS N, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL FROM ${cotiSub} d`, [], 30000, dbo).catch(e => [{N:0, TOTAL:0, err: e.message}]),
+      // Conteo con filtro de fecha CAST (date range) - mi fix
+      query(`SELECT COUNT(*) AS N, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL FROM ${cotiSub} d WHERE CAST(d.FECHA AS DATE) >= CAST('2026-04-01' AS DATE) AND CAST(d.FECHA AS DATE) < CAST('2026-05-01' AS DATE)`, [], 30000, dbo).catch(e => [{N:0, TOTAL:0, err: e.message}]),
+      // Conteo con EXTRACT (código original)
+      query(`SELECT COUNT(*) AS N, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL FROM ${cotiSub} d WHERE EXTRACT(YEAR FROM d.FECHA) = 2026 AND EXTRACT(MONTH FROM d.FECHA) = 4`, [], 30000, dbo).catch(e => [{N:0, TOTAL:0, err: e.message}]),
+      // Conteo directo en DOCTOS_VE (sin subquery) para comparación
+      query(`SELECT COUNT(*) AS N FROM DOCTOS_VE h WHERE ${whereFast} AND CAST(${feExpr} AS DATE) >= CAST('2026-04-01' AS DATE) AND CAST(${feExpr} AS DATE) < CAST('2026-05-01' AS DATE)`, [], 30000, dbo).catch(e => [{N:0, err: e.message}]),
+      // TIPO_DOCTO distribution en DOCTOS_VE este mes
+      query(`SELECT FIRST 10 h.TIPO_DOCTO, COUNT(*) AS N, COALESCE(SUM(h.IMPORTE_NETO),0) AS TOTAL FROM DOCTOS_VE h WHERE CAST(${feExpr} AS DATE) >= CAST('2026-04-01' AS DATE) AND CAST(${feExpr} AS DATE) < CAST('2026-05-01' AS DATE) GROUP BY h.TIPO_DOCTO ORDER BY N DESC`, [], 30000, dbo).catch(e => [{err: e.message}]),
+    ]);
+    const t2 = Date.now();
+
+    res.json({
+      ok: true,
+      timings: { cotiOpts_ms: t1 - t0, queries_ms: t2 - t1 },
+      cotiOpts_summary: {
+        sqlFeVe: cotiOpts.sqlFeVe,
+        feExpr_in_sub: feExpr,
+        cotiDetSumExpr: rawDetExpr,
+        hasValidDet,
+        cotiDsctoExpr: cotiOpts.cotiDsctoExpr,
+        vigenciaVeSuffix: cotiOpts.vigenciaVeSuffix || '(ninguna)',
+      },
+      test1_sin_fecha: r1[0],
+      test2_range_cast: r2[0],
+      test3_extract: r3[0],
+      test4_doctos_ve_directo: r4[0],
+      test5_tipo_docto_dist: r5,
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message, timings: { total_ms: Date.now() - t0 } });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Suminregio API escuchando en http://localhost:${PORT} · build=${BUILD_FINGERPRINT}`);
 });
