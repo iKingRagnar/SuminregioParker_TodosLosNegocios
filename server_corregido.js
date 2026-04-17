@@ -11523,6 +11523,56 @@ app.get('/api/debug/cotizaciones', async (req, res) => {
   setTimeout(doWarmUp, 5000);
 })();
 
+// ── DEBUG: cursor-iteration cotizaciones — testear iteración FIRST 1 por ID ──
+app.get('/api/debug/cotizaciones-cursor', async (req, res) => {
+  const dbo = getReqDbOpts(req);
+  const desde = req.query.desde || '2026-04-01';
+  const hasta = req.query.hasta || '2026-05-01';
+  const tipos = parseCotizacionTipos().map(t => `'${t}'`).join(',');
+  const MAX_ITER = 200;
+  const t0 = Date.now();
+  const rows = [];
+  let lastId = 0;
+  let iters = 0;
+  try {
+    // Encontrar primer ID del período
+    const [first] = await query(
+      `SELECT FIRST 1 h.DOCTO_VE_ID, h.IMPORTE_NETO, h.FECHA, h.VENDEDOR_ID
+       FROM DOCTOS_VE h
+       WHERE h.TIPO_DOCTO IN (${tipos}) AND h.FECHA >= '${desde}'
+       ORDER BY h.DOCTO_VE_ID`,
+      [], 10000, dbo
+    ).catch(() => []);
+    if (!first) return res.json({ ok: true, count: 0, total_ms: Date.now() - t0, rows: [] });
+    // Validar que está dentro del período
+    const fechaFirst = first.FECHA instanceof Date ? first.FECHA : new Date(first.FECHA);
+    if (fechaFirst >= new Date(hasta)) return res.json({ ok: true, count: 0, total_ms: Date.now() - t0, rows: [] });
+    rows.push(first);
+    lastId = first.DOCTO_VE_ID;
+    iters++;
+    // Iterar: FIRST 1 WHERE ID > lastId AND TIPO IN (...) AND FECHA < hasta
+    while (iters < MAX_ITER) {
+      const [next] = await query(
+        `SELECT FIRST 1 h.DOCTO_VE_ID, h.IMPORTE_NETO, h.FECHA, h.VENDEDOR_ID
+         FROM DOCTOS_VE h
+         WHERE h.TIPO_DOCTO IN (${tipos}) AND h.DOCTO_VE_ID > ${lastId} AND h.FECHA < '${hasta}'
+         ORDER BY h.DOCTO_VE_ID`,
+        [], 10000, dbo
+      ).catch(() => []);
+      if (!next) break;
+      const fechaNext = next.FECHA instanceof Date ? next.FECHA : new Date(next.FECHA);
+      if (fechaNext >= new Date(hasta)) break;
+      rows.push(next);
+      lastId = next.DOCTO_VE_ID;
+      iters++;
+    }
+    const total = rows.reduce((s, r) => s + +(r.IMPORTE_NETO || 0), 0);
+    res.json({ ok: true, count: rows.length, total_ms: Date.now() - t0, total_importe: total, iters, rows });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message, count: rows.length, iters, total_ms: Date.now() - t0 });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Suminregio API escuchando en http://localhost:${PORT} · build=${BUILD_FINGERPRINT}`);
 });
