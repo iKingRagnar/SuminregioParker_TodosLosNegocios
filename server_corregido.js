@@ -1896,6 +1896,94 @@ function normalizeCotizacionResumenRow(row) {
 }
 
 /**
+ * Obtiene cotizaciones por período usando cursor iterativo FIRST 1.
+ *
+ * Estrategia para Firebird remoto (Render→Windows WAN):
+ * - Ninguna query de agregación sobre cotizaciones funciona (full scan → timeout).
+ * - FIRST 1 con filtro de tipo+ID es rápido (~200ms por iteración, usa AK1+PK).
+ * - Iteramos con cursor y agregamos en JavaScript.
+ *
+ * @returns {{ HOY, MES_ACTUAL, COTIZACIONES_MES, COTIZACIONES_HOY, rows, byVendedor }}
+ */
+async function getCotizacionesByPeriodCursor(dbo, desde, hasta, timeoutMs = 80000) {
+  const tipos = (parseCotizacionTipos() || []).filter(Boolean);
+  const esc = (t) => `'${String(t).replace(/'/g, "''")}'`;
+  const tiposIn = tipos.map(esc).join(',');
+  const t0 = Date.now();
+  const MAX_ITER = 300; // límite de seguridad
+
+  const todayStr = new Date().toISOString().substring(0, 10);
+
+  const rows = [];
+  let lastId = -1;
+  let iters = 0;
+
+  const elapsed = () => Date.now() - t0;
+
+  // Paso 1: Encontrar primera cotizacion del período (usa IE1 index via FECHA)
+  const firstRows = await query(
+    `SELECT FIRST 1 h.DOCTO_VE_ID, h.IMPORTE_NETO, h.FECHA, h.VENDEDOR_ID, h.TIPO_DOCTO
+     FROM DOCTOS_VE h
+     WHERE h.TIPO_DOCTO IN (${tiposIn}) AND h.FECHA >= '${desde}'
+     ORDER BY h.DOCTO_VE_ID`,
+    [], Math.min(10000, timeoutMs), dbo
+  ).catch(() => []);
+
+  if (!firstRows || !firstRows.length) {
+    return { HOY: 0, MES_ACTUAL: 0, COTIZACIONES_MES: 0, COTIZACIONES_HOY: 0, rows: [], byVendedor: {} };
+  }
+  const first = firstRows[0];
+  const fechaFirst = first.FECHA instanceof Date ? first.FECHA.toISOString() : String(first.FECHA);
+  if (fechaFirst >= hasta) {
+    return { HOY: 0, MES_ACTUAL: 0, COTIZACIONES_MES: 0, COTIZACIONES_HOY: 0, rows: [], byVendedor: {} };
+  }
+  rows.push(first);
+  lastId = first.DOCTO_VE_ID;
+  iters++;
+
+  // Paso 2: Cursor iterativo — FIRST 1 WHERE ID > lastId AND tipo AND fecha < hasta
+  while (iters < MAX_ITER && elapsed() < timeoutMs - 5000) {
+    const remaining = timeoutMs - elapsed();
+    const [next] = await query(
+      `SELECT FIRST 1 h.DOCTO_VE_ID, h.IMPORTE_NETO, h.FECHA, h.VENDEDOR_ID, h.TIPO_DOCTO
+       FROM DOCTOS_VE h
+       WHERE h.TIPO_DOCTO IN (${tiposIn}) AND h.DOCTO_VE_ID > ${lastId} AND h.FECHA < '${hasta}'
+       ORDER BY h.DOCTO_VE_ID`,
+      [], Math.min(8000, remaining), dbo
+    ).catch(() => []);
+    if (!next) break;
+    const fechaNext = next.FECHA instanceof Date ? next.FECHA.toISOString() : String(next.FECHA);
+    if (fechaNext >= hasta) break;
+    rows.push(next);
+    lastId = next.DOCTO_VE_ID;
+    iters++;
+  }
+
+  // Agregación JavaScript
+  let HOY = 0, MES_ACTUAL = 0, COTIZACIONES_MES = 0, COTIZACIONES_HOY = 0;
+  const byVendedor = {};
+  const IVA_DIV = VENTAS_SIN_IVA_DIVISOR && VENTAS_SIN_IVA_DIVISOR > 1 ? VENTAS_SIN_IVA_DIVISOR : 1;
+
+  for (const r of rows) {
+    const imp = +(r.IMPORTE_NETO || 0) / IVA_DIV;
+    const fechaStr = r.FECHA instanceof Date
+      ? r.FECHA.toISOString().substring(0, 10)
+      : String(r.FECHA).substring(0, 10);
+    COTIZACIONES_MES++;
+    MES_ACTUAL += imp;
+    if (fechaStr === todayStr) { COTIZACIONES_HOY++; HOY += imp; }
+    const vid = r.VENDEDOR_ID || 0;
+    if (!byVendedor[vid]) byVendedor[vid] = { COTIZACIONES_HOY: 0, COTIZACIONES_MES: 0, IMPORTE_HOY: 0, IMPORTE_MES: 0 };
+    byVendedor[vid].COTIZACIONES_MES++;
+    byVendedor[vid].IMPORTE_MES += imp;
+    if (fechaStr === todayStr) { byVendedor[vid].COTIZACIONES_HOY++; byVendedor[vid].IMPORTE_HOY += imp; }
+  }
+
+  console.log(`[cursor-coti] ${desde}→${hasta}: ${rows.length} docs, $${MES_ACTUAL.toFixed(0)}, ${elapsed()}ms, iters=${iters}`);
+  return { HOY, MES_ACTUAL, COTIZACIONES_MES, COTIZACIONES_HOY, rows, byVendedor };
+}
+
+/**
  * Importe cotización: IMPORTE_NETO ya calculado en cotizacionesSub desde líneas de detalle
  * (SUM(UNIDADES*PRECIO_UNITARIO) - DSCTO_IMPORTE), igual al DAX de Power BI.
  * No aplica divisor IVA porque el cálculo viene de PRECIO_UNITARIO (sin IVA acumulado en encabezado).
@@ -2601,26 +2689,17 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
     req.query.mes = now.getMonth() + 1;
   }
   const run = async (dbo) => {
-    const f = buildFiltros(req, 'd');
-    const tipo = getCotizacionesTipo(req);
-    const cotiOpts = await cotizacionSqlOpts(dbo);
-    // innerBounds: inyecta el rango de fecha DENTRO del subquery para que Firebird use
-    // el índice IE1 (FECHA, TIPO_DOCTO) y solo lea las filas del mes — no toda la historia.
-    const innerBounds = getDateBoundsFromReq(req);
-    const cotiSub = cotizacionesSub(tipo, cotiOpts, innerBounds);
-    const rows = await query(`
-      SELECT
-        SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END) AS HOY,
-        COALESCE(SUM(d.IMPORTE_NETO), 0)                                                    AS MES_ACTUAL,
-        COUNT(*)                                                                            AS COTIZACIONES_MES,
-        COUNT(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 END)                   AS COTIZACIONES_HOY
-      FROM ${cotiSub} d
-      WHERE 1=1 ${f.sql}
-    `, f.params, 90000, dbo).catch((err) => {
-      console.error('[cotizaciones/resumen]', err && (err.message || err));
-      return [];
-    });
-    return normalizeCotizacionResumenRow(rows[0]);
+    const bounds = getDateBoundsFromReq(req);
+    const desde = bounds.desde;
+    const hasta = bounds.hasta;
+    if (!desde || !hasta) return normalizeCotizacionResumenRow({});
+    const result = await getCotizacionesByPeriodCursor(dbo, desde, hasta, 85000);
+    return {
+      HOY: result.HOY,
+      MES_ACTUAL: result.MES_ACTUAL,
+      COTIZACIONES_MES: result.COTIZACIONES_MES,
+      COTIZACIONES_HOY: result.COTIZACIONES_HOY,
+    };
   };
   if (isAllDbs(req)) {
     const rows = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
@@ -2916,44 +2995,37 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
     req.query.anio = now.getFullYear();
     req.query.mes = now.getMonth() + 1;
   }
-  const f = buildFiltros(req, 'd');
   const run = async (dbo) => {
-    const t = 50000;
-    const tipoPanel = getCotizacionesTipo(req);
-    const cotiOpts = await cotizacionSqlOpts(dbo);
-    const qSub = (sub) =>
-      query(
-        `
-    SELECT
-      COALESCE(d.VENDEDOR_ID, 0) AS VENDEDOR_ID,
-      CASE WHEN COALESCE(d.VENDEDOR_ID, 0) = 0 THEN 'No asignado'
-           ELSE COALESCE(MAX(v.NOMBRE), 'Vendedor ' || CAST(COALESCE(d.VENDEDOR_ID, 0) AS VARCHAR(12)))
-      END AS VENDEDOR,
-      SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END) AS COTIZACIONES_HOY,
-      COALESCE(SUM(d.IMPORTE_NETO), 0) AS COTIZACIONES_MES,
-      COUNT(*) AS NUM_COTI_MES
-    FROM ${sub} d
-    LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
-    WHERE 1=1 ${f.sql}
-    GROUP BY COALESCE(d.VENDEDOR_ID, 0)
-    ORDER BY COTIZACIONES_MES DESC
-  `,
-        f.params,
-        t,
-        dbo,
-      ).catch((err) => {
-        console.error('[por-vendedor/cotizaciones]', err && (err.message || err));
-        return [];
-      });
-    const innerBounds = getDateBoundsFromReq(req);
-    if (tipoPanel === 'VE' || tipoPanel === 'PV') {
-      return qSub(cotizacionesSub(tipoPanel, cotiOpts, innerBounds));
+    const bounds = getDateBoundsFromReq(req);
+    const desde = bounds.desde;
+    const hasta = bounds.hasta;
+    if (!desde || !hasta) return [];
+    // Cursor iteration — evita full scan en Firebird remoto
+    const result = await getCotizacionesByPeriodCursor(dbo, desde, hasta, 85000);
+    const byVendedor = result.byVendedor || {};
+    // Obtener nombres de vendedores en una sola query rápida
+    const vendedorIds = Object.keys(byVendedor).map(Number).filter((id) => id > 0);
+    let vendedorNames = {};
+    if (vendedorIds.length > 0) {
+      const vRows = await query(
+        `SELECT VENDEDOR_ID, NOMBRE FROM VENDEDORES WHERE VENDEDOR_ID IN (${vendedorIds.join(',')})`,
+        [], 10000, dbo
+      ).catch(() => []);
+      for (const v of vRows) vendedorNames[v.VENDEDOR_ID] = v.NOMBRE;
     }
-    const [ve, pv] = await Promise.all([
-      qSub(cotizacionesSub('VE', cotiOpts, innerBounds)),
-      qSub(cotizacionesSub('PV', cotiOpts, innerBounds)),
-    ]);
-    return mergePorVendedorCotizVePv(ve, pv);
+    return Object.entries(byVendedor)
+      .map(([vid, data]) => {
+        const vidN = Number(vid);
+        return {
+          VENDEDOR_ID: vidN,
+          VENDEDOR: vidN === 0 ? 'No asignado' : (vendedorNames[vidN] || `Vendedor ${vidN}`),
+          COTIZACIONES_HOY: data.IMPORTE_HOY,
+          COTIZACIONES_MES: data.IMPORTE_MES,
+          NUM_COTI_MES: data.COTIZACIONES_MES,
+          NUM_COTI_HOY: data.COTIZACIONES_HOY,
+        };
+      })
+      .sort((a, b) => b.COTIZACIONES_MES - a.COTIZACIONES_MES);
   };
   if (isAllDbs(req)) {
     const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {
@@ -11487,40 +11559,23 @@ app.get('/api/debug/cotizaciones', async (req, res) => {
   const doWarmUp = async () => {
     const now = new Date();
     const anio = now.getFullYear(), mes = now.getMonth() + 1;
-    const mockReq = {
-      query: { anio: String(anio), mes: String(mes), db: 'default' },
-      headers: {},
-      originalUrl: `/api/ventas/cotizaciones/resumen?db=default&anio=${anio}&mes=${mes}&_warmup=1`,
-      path: '/api/ventas/cotizaciones/resumen',
-    };
+    const desde = `${anio}-${String(mes).padStart(2,'0')}-01`;
+    const nextY = mes === 12 ? anio + 1 : anio;
+    const nextM = mes === 12 ? 1 : mes + 1;
+    const hasta = `${nextY}-${String(nextM).padStart(2,'0')}-01`;
     const dbo = DB_OPTIONS;
     try {
-      const cotiOpts = await cotizacionSqlOpts(dbo);
-      const innerBounds = { desde: `${anio}-${String(mes).padStart(2,'0')}-01`, hasta: (() => {
-        const ny = mes === 12 ? anio + 1 : anio, nm = mes === 12 ? 1 : mes + 1;
-        return `${ny}-${String(nm).padStart(2,'0')}-01`;
-      })() };
-      const cotiSub = cotizacionesSub('', cotiOpts, innerBounds);
-      const rows = await query(`
-        SELECT
-          SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END) AS HOY,
-          COALESCE(SUM(d.IMPORTE_NETO), 0) AS MES_ACTUAL,
-          COUNT(*) AS COTIZACIONES_MES,
-          COUNT(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 END) AS COTIZACIONES_HOY
-        FROM ${cotiSub} d
-        WHERE CAST(d.FECHA AS DATE) >= CAST('${innerBounds.desde}' AS DATE)
-          AND CAST(d.FECHA AS DATE) < CAST('${innerBounds.hasta}' AS DATE)
-      `, [], 90000, dbo);
-      const result = normalizeCotizacionResumenRow(rows[0]);
+      console.log(`[warm-up] iniciando cotizaciones ${desde}→${hasta} vía cursor...`);
+      const result = await getCotizacionesByPeriodCursor(dbo, desde, hasta, 120000);
       if ((+result.COTIZACIONES_MES || 0) > 0 || (+result.MES_ACTUAL || 0) > 0) {
         const cacheKey = `/api/ventas/cotizaciones/resumen?anio=${anio}&mes=${mes}&db=default`;
         _cacheSet(cacheKey, result);
-        console.log(`[warm-up] cotizaciones/${mes}/${anio} cacheado: ${result.COTIZACIONES_MES} docs, $${result.MES_ACTUAL}`);
+        console.log(`[warm-up] ✓ cotizaciones ${mes}/${anio}: ${result.COTIZACIONES_MES} docs, $${result.MES_ACTUAL.toFixed(0)}`);
       } else {
         console.log(`[warm-up] cotizaciones/${mes}/${anio}: sin datos (ok)`);
       }
     } catch (e) {
-      console.warn('[warm-up] cotizaciones falló:', e && (e.message || e));
+      console.warn('[warm-up] cotizaciones cursor falló:', e && (e.message || e));
     }
   };
   // Esperar 5s después del arranque para que Firebird esté conectado
