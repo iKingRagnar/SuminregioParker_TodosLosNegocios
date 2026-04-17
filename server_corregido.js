@@ -11388,9 +11388,17 @@ app.get('/api/debug/cotizaciones', async (req, res) => {
     O: [`SELECT i.RDB$INDEX_NAME, s.RDB$FIELD_NAME, s.RDB$STATISTICS FROM RDB$INDEX_SEGMENTS s JOIN RDB$INDICES i ON i.RDB$INDEX_NAME = s.RDB$INDEX_NAME WHERE i.RDB$RELATION_NAME = 'DOCTOS_VE' ORDER BY i.RDB$INDEX_NAME, s.RDB$FIELD_POSITION`, []],
     // P: COUNT(*) WHERE TIPO_DOCTO='V' (venta contado)
     P: [`SELECT COUNT(*) AS N FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'V' AND h.APLICADO = 'S'`, []],
+    // Q: Actualizar estadísticas AK1 — luego ver si COUNT('C') es rápido
+    Q: [`SET STATISTICS INDEX DOCTOS_VE_AK1`, []],
+    // R: COUNT TIPO='C' con PLAN hint explícito (fuerza AK1 sin depender de stats)
+    R: [`SELECT COUNT(*) AS N FROM DOCTOS_VE h PLAN (h INDEX (DOCTOS_VE_AK1)) WHERE h.TIPO_DOCTO = 'C'`, []],
+    // S: COUNT TIPO='C' + APLICADO='N' con PLAN hint (cotizaciones no aplicadas)
+    S: [`SELECT COUNT(*) AS N, COALESCE(SUM(h.IMPORTE_NETO),0) AS TOTAL FROM DOCTOS_VE h PLAN (h INDEX (DOCTOS_VE_AK1)) WHERE h.TIPO_DOCTO = 'C' AND h.APLICADO = 'N'`, []],
+    // T: Total de filas en DOCTOS_VE (para saber tamaño real de la tabla)
+    T: [`SELECT COUNT(*) AS N FROM DOCTOS_VE h PLAN (h INDEX (DOCTOS_VE_PK))`, []],
   };
   const entry = queries[q];
-  if (!entry) return res.json({ ok: false, error: `q debe ser A-P, recibido: ${q}` });
+  if (!entry) return res.json({ ok: false, error: `q debe ser A-T, recibido: ${q}` });
   try {
     const rows = await query(entry[0], entry[1], 12000, dbo);
     res.json({ ok: true, q, ms: Date.now() - t, data: rows });
