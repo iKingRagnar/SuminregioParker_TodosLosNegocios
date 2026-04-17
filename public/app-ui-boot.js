@@ -684,6 +684,414 @@
   }
 
   // ════════════════════════════════════════════════════════
+  //  THEME TOGGLE — dark / light mode
+  // ════════════════════════════════════════════════════════
+  function bootThemeToggle() {
+    if (typeof document === 'undefined') return;
+    // Apply saved theme on load
+    var saved = '';
+    try { saved = localStorage.getItem('sumi_theme') || ''; } catch(_) {}
+    if (saved === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+      document.documentElement.classList.remove('theme-premium-light');
+    } else if (saved === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+
+    // Inject toggle button into nav-right after nav.js runs
+    setTimeout(function () {
+      var navRight = document.querySelector('.nav-right');
+      if (!navRight || document.getElementById('sumi-theme-toggle')) return;
+      var btn = document.createElement('button');
+      btn.id = 'sumi-theme-toggle';
+      btn.type = 'button';
+      btn.setAttribute('aria-label', 'Cambiar tema');
+      btn.setAttribute('title', 'Cambiar tema (claro/oscuro)');
+      btn.textContent = _isDark() ? '☀️' : '🌙';
+      btn.addEventListener('click', _toggleTheme);
+      navRight.insertBefore(btn, navRight.firstChild);
+    }, 180);
+  }
+
+  function _isDark() {
+    var th = document.documentElement.getAttribute('data-theme');
+    return th !== 'light';
+  }
+
+  function _toggleTheme() {
+    var btn = document.getElementById('sumi-theme-toggle');
+    if (_isDark()) {
+      document.documentElement.setAttribute('data-theme', 'light');
+      document.documentElement.classList.add('theme-premium-light');
+      try { localStorage.setItem('sumi_theme', 'light'); } catch(_) {}
+      if (btn) btn.textContent = '🌙';
+    } else {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      document.documentElement.classList.remove('theme-premium-light');
+      try { localStorage.setItem('sumi_theme', 'dark'); } catch(_) {}
+      if (btn) btn.textContent = '☀️';
+    }
+  }
+
+  // ════════════════════════════════════════════════════════
+  //  COMMAND PALETTE — Cmd+K / Ctrl+K
+  // ════════════════════════════════════════════════════════
+  var _cmdPalOpen = false;
+  var _cmdPalIdx  = 0;
+
+  var _CMD_PAGES = [
+    { href:'index.html',      label:'Inicio',      desc:'Scorecard ejecutivo · KPIs principales',      icon:'🏠', color:'#4DA6FF' },
+    { href:'ventas.html',     label:'Ventas',       desc:'Venta del día, mes, vendedores, facturas',    icon:'📈', color:'#00E5A0' },
+    { href:'cobradas.html',   label:'Cobradas',     desc:'Cobranza realizada · facturas cobradas',      icon:'✅', color:'#00E5A0' },
+    { href:'vendedores.html', label:'Vendedores',   desc:'Ranking y desempeño del equipo de ventas',   icon:'👥', color:'#9B6DFF' },
+    { href:'cxc.html',        label:'CxC',          desc:'Cuentas por cobrar · aging · DSO',           icon:'💰', color:'#FFB800' },
+    { href:'clientes.html',   label:'Clientes',     desc:'Top clientes · concentración',               icon:'🏢', color:'#4DA6FF' },
+    { href:'director.html',   label:'Director',     desc:'Panel ejecutivo · ventas + cartera + equipo', icon:'📊', color:'#E6A800' },
+    { href:'inventario.html', label:'Inventario',   desc:'Existencias · mínimos · artículos sin stock', icon:'📦', color:'#FF8C42' },
+    { href:'resultados.html', label:'Resultados',   desc:'Estado de resultados · PnL · margen bruto',  icon:'📋', color:'#00E5A0' },
+  ];
+
+  var _CMD_ACTIONS = [
+    { id:'chat',    label:'Abrir Asistente IA',   desc:'Consulta inteligente en tiempo real',  icon:'🤖', color:'#E6A800', kbd:'Alt+A' },
+    { id:'refresh', label:'Actualizar datos',      desc:'Recargar todos los KPIs del dashboard', icon:'↻',  color:'#4DA6FF', kbd:'Alt+R' },
+    { id:'theme',   label:'Cambiar tema',          desc:'Alternar modo oscuro / claro',          icon:'🌙', color:'#9B6DFF', kbd:''      },
+    { id:'export',  label:'Exportar CSV',          desc:'Descargar datos de la tabla activa',    icon:'⬇', color:'#00E5A0',  kbd:''      },
+  ];
+
+  function bootCommandPalette() {
+    if (typeof document === 'undefined') return;
+
+    // Build palette DOM
+    var overlay = document.createElement('div');
+    overlay.id = 'sumi-cmdpal-overlay';
+    overlay.innerHTML =
+      '<div id="sumi-cmdpal">' +
+        '<div id="sumi-cmdpal-input-wrap">' +
+          '<span id="sumi-cmdpal-icon">⌘</span>' +
+          '<input id="sumi-cmdpal-input" type="text" placeholder="Buscar página o acción…" autocomplete="off" spellcheck="false"/>' +
+          '<span id="sumi-cmdpal-hint">ESC para cerrar</span>' +
+        '</div>' +
+        '<div id="sumi-cmdpal-results"></div>' +
+        '<div id="sumi-cmdpal-footer">' +
+          '<span><span class="cp-kbd">↑↓</span> navegar</span>' +
+          '<span><span class="cp-kbd">↵</span> abrir</span>' +
+          '<span><span class="cp-kbd">ESC</span> cerrar</span>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    // Keyboard shortcut to open
+    document.addEventListener('keydown', function (e) {
+      // Cmd+K / Ctrl+K
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        _cmdPalOpen ? _closeCmdPal() : _openCmdPal();
+        return;
+      }
+      // / key on non-input elements
+      if (e.key === '/' && !_cmdPalOpen) {
+        var tag = document.activeElement ? document.activeElement.tagName : '';
+        if (['INPUT','TEXTAREA','SELECT'].includes(tag)) return;
+        if (document.activeElement && document.activeElement.isContentEditable) return;
+        e.preventDefault();
+        _openCmdPal();
+        return;
+      }
+      if (!_cmdPalOpen) return;
+      if (e.key === 'Escape') { _closeCmdPal(); return; }
+      if (e.key === 'ArrowDown') { e.preventDefault(); _cmdPalMove(1); return; }
+      if (e.key === 'ArrowUp')   { e.preventDefault(); _cmdPalMove(-1); return; }
+      if (e.key === 'Enter')     { e.preventDefault(); _cmdPalActivate(); return; }
+    });
+
+    // Click overlay to close
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) _closeCmdPal();
+    });
+
+    // Input filter
+    var inp = document.getElementById('sumi-cmdpal-input');
+    if (inp) inp.addEventListener('input', function () { _cmdPalRender(this.value); });
+  }
+
+  function _openCmdPal() {
+    var overlay = document.getElementById('sumi-cmdpal-overlay');
+    if (!overlay) return;
+    _cmdPalOpen = true;
+    _cmdPalIdx = 0;
+    overlay.classList.add('open');
+    var inp = document.getElementById('sumi-cmdpal-input');
+    if (inp) { inp.value = ''; inp.focus(); }
+    _cmdPalRender('');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function _closeCmdPal() {
+    var overlay = document.getElementById('sumi-cmdpal-overlay');
+    if (!overlay) return;
+    _cmdPalOpen = false;
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  function _cmdPalItems(q) {
+    var term = (q || '').toLowerCase().trim();
+    var pages = _CMD_PAGES.filter(function (p) {
+      return !term || p.label.toLowerCase().includes(term) || p.desc.toLowerCase().includes(term);
+    });
+    var actions = _CMD_ACTIONS.filter(function (a) {
+      return !term || a.label.toLowerCase().includes(term) || a.desc.toLowerCase().includes(term);
+    });
+    return { pages: pages, actions: actions };
+  }
+
+  function _cmdPalRender(q) {
+    var res = document.getElementById('sumi-cmdpal-results');
+    if (!res) return;
+    var items = _cmdPalItems(q);
+    var html = '';
+    if (items.pages.length) {
+      html += '<div class="cmdpal-section-label">Páginas</div>';
+      items.pages.forEach(function (p) {
+        html += '<a class="cmdpal-item" href="' + p.href + '" data-cmdpal-type="page">' +
+          '<div class="cmdpal-item-icon" style="color:' + p.color + '">' + p.icon + '</div>' +
+          '<div class="cmdpal-item-text">' +
+            '<div class="cmdpal-item-name">' + p.label + '</div>' +
+            '<div class="cmdpal-item-desc">' + p.desc + '</div>' +
+          '</div>' +
+        '</a>';
+      });
+    }
+    if (items.actions.length) {
+      html += '<div class="cmdpal-section-label">Acciones</div>';
+      items.actions.forEach(function (a) {
+        html += '<div class="cmdpal-item" data-cmdpal-action="' + a.id + '" data-cmdpal-type="action">' +
+          '<div class="cmdpal-item-icon" style="color:' + a.color + '">' + a.icon + '</div>' +
+          '<div class="cmdpal-item-text">' +
+            '<div class="cmdpal-item-name">' + a.label + '</div>' +
+            '<div class="cmdpal-item-desc">' + a.desc + '</div>' +
+          '</div>' +
+          (a.kbd ? '<span class="cmdpal-item-kbd">' + a.kbd + '</span>' : '') +
+        '</div>';
+      });
+    }
+    if (!html) {
+      html = '<div class="cmdpal-empty">Sin resultados para "' + q + '"</div>';
+    }
+    res.innerHTML = html;
+    _cmdPalIdx = 0;
+    _cmdPalHighlight();
+
+    // Wire action clicks
+    res.querySelectorAll('[data-cmdpal-action]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        _cmdPalRunAction(el.getAttribute('data-cmdpal-action'));
+        _closeCmdPal();
+      });
+    });
+    // Wire page clicks
+    res.querySelectorAll('a.cmdpal-item').forEach(function (el) {
+      el.addEventListener('click', function () { _closeCmdPal(); });
+    });
+  }
+
+  function _cmdPalRunAction(id) {
+    if (id === 'chat') {
+      var fab = document.getElementById('cw-fab');
+      if (fab) fab.click();
+    } else if (id === 'refresh') {
+      if (typeof window.loadAll === 'function') window.loadAll();
+      else location.reload();
+    } else if (id === 'theme') {
+      _toggleTheme();
+    } else if (id === 'export') {
+      // Try CSV export functions in order of priority
+      if (typeof window.exportVentasCsv === 'function') window.exportVentasCsv();
+      else if (typeof window.exportVendedoresCsv === 'function') window.exportVendedoresCsv();
+      else if (typeof window.exportClientesCsv === 'function') window.exportClientesCsv();
+    }
+  }
+
+  function _cmdPalAllItems() {
+    var q = '';
+    try { q = document.getElementById('sumi-cmdpal-input').value; } catch(_) {}
+    var items = _cmdPalItems(q);
+    return Array.from(document.querySelectorAll('#sumi-cmdpal-results .cmdpal-item'));
+  }
+
+  function _cmdPalHighlight() {
+    var all = _cmdPalAllItems();
+    all.forEach(function (el, i) {
+      el.classList.toggle('cmdpal-active', i === _cmdPalIdx);
+      if (i === _cmdPalIdx) el.scrollIntoView({ block: 'nearest' });
+    });
+  }
+
+  function _cmdPalMove(dir) {
+    var all = _cmdPalAllItems();
+    if (!all.length) return;
+    _cmdPalIdx = (_cmdPalIdx + dir + all.length) % all.length;
+    _cmdPalHighlight();
+  }
+
+  function _cmdPalActivate() {
+    var all = _cmdPalAllItems();
+    if (all[_cmdPalIdx]) all[_cmdPalIdx].click();
+  }
+
+  // ════════════════════════════════════════════════════════
+  //  OFFLINE BANNER
+  // ════════════════════════════════════════════════════════
+  function bootOfflineBanner() {
+    if (typeof document === 'undefined' || typeof window === 'undefined') return;
+    var banner = document.createElement('div');
+    banner.id = 'sumi-offline-banner';
+    banner.textContent = '📡 Sin conexión a Internet — algunos datos pueden estar desactualizados';
+    document.body.appendChild(banner);
+
+    function update() {
+      banner.classList.toggle('show', !navigator.onLine);
+    }
+    window.addEventListener('online',  update);
+    window.addEventListener('offline', update);
+    update();
+  }
+
+  // ════════════════════════════════════════════════════════
+  //  PULL-TO-REFRESH — mobile swipe down at top
+  // ════════════════════════════════════════════════════════
+  function bootPullToRefresh() {
+    if (typeof document === 'undefined') return;
+    var mq = typeof window.matchMedia === 'function' && window.matchMedia('(max-width:768px)');
+    if (!mq || !mq.matches) return;
+
+    var indicator = document.createElement('div');
+    indicator.id = 'sumi-ptr-indicator';
+    indicator.textContent = '↓ Suelta para actualizar';
+    document.body.appendChild(indicator);
+
+    var startY = 0;
+    var pulling = false;
+    var THRESHOLD = 72;
+
+    document.addEventListener('touchstart', function (e) {
+      if (window.scrollY === 0) {
+        startY = e.touches[0].clientY;
+        pulling = true;
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchmove', function (e) {
+      if (!pulling) return;
+      var dy = e.touches[0].clientY - startY;
+      if (dy > 20 && window.scrollY === 0) {
+        indicator.style.display = 'block';
+        if (dy > THRESHOLD) {
+          indicator.classList.add('ptr-ready');
+          indicator.textContent = '↑ Suelta para actualizar';
+        } else {
+          indicator.classList.remove('ptr-ready');
+          indicator.textContent = '↓ Jalando para actualizar… (' + Math.round(dy) + 'px)';
+        }
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchend', function (e) {
+      if (!pulling) return;
+      var dy = e.changedTouches[0].clientY - startY;
+      indicator.style.display = 'none';
+      indicator.classList.remove('ptr-ready');
+      pulling = false;
+      if (dy > THRESHOLD && window.scrollY === 0) {
+        indicator.textContent = '↻ Actualizando...';
+        indicator.style.display = 'block';
+        setTimeout(function () { indicator.style.display = 'none'; }, 1200);
+        // Trigger page data reload
+        if (typeof window.loadAll === 'function') {
+          window.loadAll();
+        } else {
+          location.reload();
+        }
+      }
+    }, { passive: true });
+  }
+
+  // ════════════════════════════════════════════════════════
+  //  BOTTOM NAVIGATION BAR — mobile only
+  // ════════════════════════════════════════════════════════
+  var BOTTOM_NAV_ITEMS = [
+    { href:'index.html',    label:'Inicio',   icon:'M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z',    id:'bnav-inicio' },
+    { href:'ventas.html',   label:'Ventas',   icon:'M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z', id:'bnav-ventas' },
+    { href:'cxc.html',      label:'CxC',      icon:'M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z', id:'bnav-cxc-tab' },
+    { href:'director.html', label:'Director', icon:'M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z',  id:'bnav-director' },
+    { href:null,            label:'IA',       icon:'M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-1H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2M9 9a1 1 0 0 0-1 1 1 1 0 0 0 1 1 1 1 0 0 0 1-1 1 1 0 0 0-1-1m6 0a1 1 0 0 0-1 1 1 1 0 0 0 1 1 1 1 0 0 0 1-1 1 1 0 0 0-1-1z', id:'bnav-ai-btn', isAi:true },
+  ];
+
+  function bootBottomNav() {
+    if (typeof document === 'undefined') return;
+    var mq = typeof window.matchMedia === 'function' && window.matchMedia('(max-width:768px)');
+    if (!mq || !mq.matches) return;
+    if (document.getElementById('sumi-bottom-nav')) return;
+
+    var cur = (location.pathname.split('/').pop() || 'index.html');
+    var nav = document.createElement('nav');
+    nav.id = 'sumi-bottom-nav';
+    nav.setAttribute('aria-label', 'Navegación principal');
+
+    var ul = document.createElement('ul');
+    BOTTOM_NAV_ITEMS.forEach(function (item) {
+      var li = document.createElement('li');
+      li.id = item.id || '';
+      var isActive = item.href && (item.href === cur);
+
+      if (item.isAi) {
+        var btn = document.createElement('button');
+        btn.id = 'bnav-ai-btn';
+        btn.type = 'button';
+        btn.className = 'bnav-ai-btn';
+        btn.setAttribute('aria-label', 'Asistente IA');
+        btn.innerHTML =
+          '<div class="bnav-icon"><svg viewBox="0 0 24 24"><path d="' + item.icon + '"/></svg></div>' +
+          '<span class="bnav-label">' + item.label + '</span>';
+        btn.addEventListener('click', function () {
+          var fab = document.getElementById('cw-fab');
+          if (fab) fab.click();
+        });
+        li.appendChild(btn);
+      } else {
+        var a = document.createElement('a');
+        a.href = item.href;
+        if (isActive) a.className = 'bnav-active';
+        a.setAttribute('aria-label', item.label);
+        // CxC gets an alert badge span
+        var badge = item.id === 'bnav-cxc-tab' ? '<span class="bnav-badge" id="bnav-cxc-badge"></span>' : '';
+        a.innerHTML =
+          badge +
+          '<div class="bnav-icon"><svg viewBox="0 0 24 24"><path d="' + item.icon + '"/></svg></div>' +
+          '<span class="bnav-label">' + item.label + '</span>';
+        li.appendChild(a);
+      }
+      ul.appendChild(li);
+    });
+    nav.appendChild(ul);
+    document.body.appendChild(nav);
+
+    // Check for CxC alerts in background
+    setTimeout(function () {
+      var apiBase = (typeof window.__API_BASE === 'string' && window.__API_BASE) ? window.__API_BASE : '';
+      fetch(apiBase + '/api/alerts/check', { signal: AbortSignal.timeout(15000) })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var badge = document.getElementById('bnav-cxc-badge');
+          if (badge && data.alertas && data.alertas.length > 0) {
+            badge.classList.add('show');
+          }
+        })
+        .catch(function () {});
+    }, 3000);
+  }
+
+  // ════════════════════════════════════════════════════════
   //  BOOT ALL
   // ════════════════════════════════════════════════════════
   function bootAll() {
@@ -694,6 +1102,11 @@
     setTimeout(bootAiProLauncher, 120);
     bootKeyboardShortcuts();
     bootMobile();
+    bootThemeToggle();
+    bootCommandPalette();
+    bootOfflineBanner();
+    bootPullToRefresh();
+    bootBottomNav();
   }
 
   if (document.readyState === 'loading') {

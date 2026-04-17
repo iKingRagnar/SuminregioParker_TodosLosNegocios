@@ -387,3 +387,252 @@
   body { background:white !important; color:black !important; }
   .page, .page-wrap { padding:0 !important; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   BOTTOM NAVIGATION BAR — mobile quick-access (5 tabs at bottom)
+   ════════════════════════════════════════════════════════════════════════ */
+#sumi-bottom-nav {
+  display:none;
+  position:fixed;
+  bottom:0; left:0; right:0;
+  z-index:9990;
+  background:rgba(6,14,26,.97);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  border-top:1px solid rgba(255,255,255,.09);
+  box-shadow:0 -4px 24px rgba(0,0,0,.45);
+  padding:0 0 env(safe-area-inset-bottom,0px);
+}
+#sumi-bottom-nav ul {
+  margin:0; padding:0; list-style:none;
+  display:flex; align-items:stretch;
+}
+#sumi-bottom-nav li { flex:1; }
+#sumi-bottom-nav a, #sumi-bottom-nav button {
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  gap:3px; width:100%;
+  padding:10px 4px 8px;
+  border:none; background:transparent; cursor:pointer;
+  color:#6A85A6; font-size:.56rem; font-family:'DM Mono',monospace;
+  letter-spacing:.04em; text-decoration:none;
+  transition:color .18s, background .18s;
+  -webkit-tap-highlight-color:transparent;
+  min-height:54px;
+  position:relative;
+}
+#sumi-bottom-nav a:active, #sumi-bottom-nav button:active {
+  background:rgba(255,255,255,.06);
+}
+#sumi-bottom-nav .bnav-icon {
+  width:22px; height:22px;
+  display:flex; align-items:center; justify-content:center;
+}
+#sumi-bottom-nav .bnav-icon svg {
+  width:20px; height:20px; fill:currentColor;
+  transition:transform .22s cubic-bezier(.34,1.56,.64,1);
+}
+#sumi-bottom-nav a:active .bnav-icon svg,
+#sumi-bottom-nav button:active .bnav-icon svg {
+  transform:scale(.88);
+}
+#sumi-bottom-nav .bnav-label { font-size:.57rem; line-height:1; }
+/* Active page */
+#sumi-bottom-nav a.bnav-active,
+#sumi-bottom-nav button.bnav-active {
+  color:#E6A800;
+}
+#sumi-bottom-nav a.bnav-active .bnav-icon svg {
+  filter:drop-shadow(0 0 5px rgba(230,168,0,.6));
+}
+/* Indicator dot above active tab */
+#sumi-bottom-nav a.bnav-active::after,
+#sumi-bottom-nav button.bnav-active::after {
+  content:''; position:absolute; top:0; left:50%; transform:translateX(-50%);
+  width:24px; height:2.5px; border-radius:0 0 2px 2px;
+  background:linear-gradient(90deg,#E6A800,#FF8C42);
+  box-shadow:0 1px 6px rgba(230,168,0,.5);
+}
+/* AI button special style */
+#bnav-ai-btn { color:#E6A800 !important; }
+#bnav-ai-btn .bnav-icon svg {
+  filter:drop-shadow(0 0 4px rgba(230,168,0,.45));
+}
+/* Alert badge on CxC */
+#bnav-cxc-tab .bnav-badge {
+  display:none; position:absolute; top:8px; right:calc(50% - 16px);
+  width:7px; height:7px; border-radius:50%;
+  background:#EF4444; border:1.5px solid rgba(6,14,26,.97);
+  animation:bnavPulse 2s ease-in-out infinite;
+}
+#bnav-cxc-tab .bnav-badge.show { display:block; }
+@keyframes bnavPulse{ 0%,100%{opacity:1}50%{opacity:.4} }
+
+@media (max-width:768px) {
+  #sumi-bottom-nav { display:block; }
+  /* Push page content above the bottom nav */
+  body { padding-bottom:calc(60px + env(safe-area-inset-bottom,0px)) !important; }
+  /* Push chat FAB above bottom nav */
+  #cw-fab { bottom:calc(70px + env(safe-area-inset-bottom,0px)) !important; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   COMMAND PALETTE (Cmd+K / Ctrl+K)
+   ════════════════════════════════════════════════════════════════════════ */
+#sumi-cmdpal-overlay {
+  display:none; position:fixed; inset:0;
+  z-index:99999;
+  background:rgba(4,10,22,.75);
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+  animation:cmdPalFadeIn .15s ease;
+}
+#sumi-cmdpal-overlay.open { display:flex; align-items:flex-start; justify-content:center; padding-top:min(12vh,100px); }
+@keyframes cmdPalFadeIn { from{opacity:0} to{opacity:1} }
+
+#sumi-cmdpal {
+  width:min(580px, 94vw);
+  background:rgba(8,18,36,.98);
+  border:1px solid rgba(230,168,0,.22);
+  border-radius:18px;
+  box-shadow:0 32px 80px rgba(0,0,0,.7), 0 0 0 1px rgba(230,168,0,.1);
+  overflow:hidden;
+  animation:cmdPalSlideIn .18s cubic-bezier(.4,0,.2,1);
+}
+@keyframes cmdPalSlideIn { from{opacity:0;transform:translateY(-16px) scale(.97)} to{opacity:1;transform:none} }
+
+#sumi-cmdpal-input-wrap {
+  display:flex; align-items:center; gap:10px;
+  padding:14px 16px;
+  border-bottom:1px solid rgba(255,255,255,.07);
+}
+#sumi-cmdpal-icon {
+  font-size:18px; flex-shrink:0; opacity:.6;
+}
+#sumi-cmdpal-input {
+  flex:1; background:transparent; border:none; outline:none;
+  font-size:.95rem; color:#F0F6FF;
+  font-family:'Syne',system-ui,sans-serif;
+  caret-color:#E6A800;
+}
+#sumi-cmdpal-input::placeholder { color:#4A6080; }
+#sumi-cmdpal-hint {
+  font-family:'DM Mono',monospace; font-size:.6rem;
+  color:#4A6080; white-space:nowrap;
+}
+
+#sumi-cmdpal-results {
+  max-height:360px; overflow-y:auto;
+  padding:6px 0 8px;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(230,168,0,.2) transparent;
+}
+#sumi-cmdpal-results::-webkit-scrollbar { width:4px; }
+#sumi-cmdpal-results::-webkit-scrollbar-thumb { background:rgba(230,168,0,.2); border-radius:2px; }
+
+.cmdpal-section-label {
+  font-family:'DM Mono',monospace; font-size:.58rem;
+  color:#4A6080; letter-spacing:.1em; text-transform:uppercase;
+  padding:8px 16px 4px; user-select:none;
+}
+.cmdpal-item {
+  display:flex; align-items:center; gap:12px;
+  padding:10px 16px;
+  cursor:pointer; transition:background .1s;
+  -webkit-tap-highlight-color:transparent;
+  text-decoration:none;
+  color:inherit;
+}
+.cmdpal-item:hover, .cmdpal-item.cmdpal-active {
+  background:rgba(230,168,0,.08);
+}
+.cmdpal-item.cmdpal-active { background:rgba(230,168,0,.12); }
+.cmdpal-item-icon {
+  width:34px; height:34px; border-radius:9px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.07);
+  font-size:16px;
+}
+.cmdpal-item-icon svg { width:17px; height:17px; fill:currentColor; }
+.cmdpal-item-text { flex:1; min-width:0; }
+.cmdpal-item-name { font-size:.84rem; font-weight:600; color:#E8EFF8; }
+.cmdpal-item-desc { font-size:.68rem; color:#5A7090; margin-top:1px; font-family:'DM Mono',monospace; }
+.cmdpal-item-kbd {
+  font-family:'DM Mono',monospace; font-size:.6rem;
+  padding:.15rem .45rem; border-radius:5px;
+  background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.1);
+  color:#5A7090; flex-shrink:0;
+}
+.cmdpal-empty {
+  padding:28px 16px; text-align:center;
+  font-family:'DM Mono',monospace; font-size:.78rem; color:#4A6080;
+}
+#sumi-cmdpal-footer {
+  padding:8px 16px;
+  border-top:1px solid rgba(255,255,255,.06);
+  display:flex; gap:14px;
+  font-family:'DM Mono',monospace; font-size:.58rem; color:#4A6080;
+}
+#sumi-cmdpal-footer span { display:flex; align-items:center; gap:4px; }
+.cp-kbd { padding:.1rem .36rem; border-radius:4px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.1); font-size:.56rem; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   OFFLINE BANNER
+   ════════════════════════════════════════════════════════════════════════ */
+#sumi-offline-banner {
+  display:none;
+  position:fixed; top:0; left:0; right:0;
+  z-index:999999;
+  background:linear-gradient(90deg,#1a0a0a,#2a1010);
+  border-bottom:2px solid #EF4444;
+  padding:8px 16px;
+  text-align:center;
+  font-family:'DM Mono',monospace; font-size:.72rem;
+  color:#FCA5A5; letter-spacing:.04em;
+  animation:offlineBannerIn .3s ease;
+}
+#sumi-offline-banner.show { display:block; }
+@keyframes offlineBannerIn { from{transform:translateY(-100%)} to{transform:none} }
+
+/* ════════════════════════════════════════════════════════════════════════
+   PULL-TO-REFRESH INDICATOR
+   ════════════════════════════════════════════════════════════════════════ */
+#sumi-ptr-indicator {
+  display:none; position:fixed;
+  top:56px; left:50%; transform:translateX(-50%) translateY(-20px);
+  z-index:9997;
+  background:rgba(14,28,50,.92); border:1px solid rgba(230,168,0,.3);
+  border-radius:99px; padding:6px 14px;
+  font-family:'DM Mono',monospace; font-size:.65rem;
+  color:#E6A800; letter-spacing:.05em;
+  box-shadow:0 4px 20px rgba(0,0,0,.4);
+  transition:transform .25s, opacity .25s;
+  pointer-events:none;
+  white-space:nowrap;
+}
+#sumi-ptr-indicator.ptr-ready {
+  transform:translateX(-50%) translateY(0);
+  opacity:1;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   THEME TOGGLE BUTTON (in header)
+   ════════════════════════════════════════════════════════════════════════ */
+#sumi-theme-toggle {
+  display:flex; align-items:center; justify-content:center;
+  width:32px; height:32px; border-radius:8px;
+  border:1px solid rgba(255,255,255,.1);
+  background:transparent; cursor:pointer;
+  color:#6A85A6; font-size:14px;
+  transition:all .2s; flex-shrink:0;
+  -webkit-tap-highlight-color:transparent;
+}
+#sumi-theme-toggle:hover { color:#E6A800; border-color:rgba(230,168,0,.35); background:rgba(230,168,0,.07); }
+
+/* Light theme overrides */
+html[data-theme="light"] body { background:#f0f4f8 !important; color:#1e293b !important; }
+html[data-theme="light"] #sumi-bottom-nav { background:rgba(248,250,252,.97) !important; border-top-color:rgba(0,0,0,.1) !important; }
+html[data-theme="light"] #sumi-bottom-nav a, html[data-theme="light"] #sumi-bottom-nav button { color:#64748b !important; }
+html[data-theme="light"] #sumi-cmdpal { background:rgba(248,250,252,.99) !important; border-color:rgba(230,168,0,.3) !important; }
+html[data-theme="light"] #sumi-cmdpal-input { color:#1e293b !important; }
+html[data-theme="light"] .cmdpal-item-name { color:#1e293b !important; }
