@@ -9518,12 +9518,36 @@ function iniciarCronEmail() {
 // ═══════════════════════════════════════════════════════════
 
 app.get('/api/ping', (req, res) => {
+  const mem = process.memoryUsage();
+  const uptimeSec = process.uptime();
+  const uptimeHours = (uptimeSec / 3600).toFixed(2);
+  const cacheSize = typeof _resCache !== 'undefined' ? _resCache.size : 0;
   res.json({
     ok: true,
     ts: new Date().toISOString(),
-    version: '9.0',
+    version: '9.1',
     build: BUILD_FINGERPRINT,
     empresa: process.env.EMPRESA_NOMBRE || 'SUMINREGIO PARKER',
+    uptime: {
+      seconds: Math.round(uptimeSec),
+      hours: parseFloat(uptimeHours),
+      human: uptimeSec < 3600
+        ? `${Math.round(uptimeSec / 60)}m`
+        : `${Math.floor(uptimeSec / 3600)}h ${Math.round((uptimeSec % 3600) / 60)}m`,
+    },
+    memory: {
+      heapUsedMB: (mem.heapUsed / 1048576).toFixed(1),
+      heapTotalMB: (mem.heapTotal / 1048576).toFixed(1),
+      rssMB: (mem.rss / 1048576).toFixed(1),
+      pctUsed: ((mem.heapUsed / mem.heapTotal) * 100).toFixed(1) + '%',
+    },
+    cache: {
+      entries: cacheSize,
+      maxEntries: 300,
+      pctFull: ((cacheSize / 300) * 100).toFixed(1) + '%',
+    },
+    databases: Array.isArray(DATABASE_REGISTRY) ? DATABASE_REGISTRY.length : 0,
+    node: process.version,
   });
 });
 
@@ -10499,7 +10523,37 @@ app.post('/api/ai/visuals/screenshot', async (req, res) => {
   }
 });
 
-app.post('/api/ai/chat', async (req, res) => {
+// ── Rate limit para /api/ai/chat: max 20 req / minuto por IP ──────────────────
+const _aiChatRateMap = new Map(); // ip → { count, windowStart }
+function aiChatRateLimit(req, res, next) {
+  const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').split(',')[0].trim();
+  const now = Date.now();
+  const WINDOW = 60 * 1000; // 1 minuto
+  const MAX    = 20;
+  let entry = _aiChatRateMap.get(ip);
+  if (!entry || (now - entry.windowStart) > WINDOW) {
+    entry = { count: 0, windowStart: now };
+  }
+  entry.count++;
+  _aiChatRateMap.set(ip, entry);
+  // Purgar IPs viejas cada 5 minutos aprox.
+  if (_aiChatRateMap.size > 500) {
+    for (const [k, v] of _aiChatRateMap) {
+      if ((now - v.windowStart) > WINDOW * 2) _aiChatRateMap.delete(k);
+    }
+  }
+  if (entry.count > MAX) {
+    const retryAfter = Math.ceil((WINDOW - (now - entry.windowStart)) / 1000);
+    res.set('Retry-After', retryAfter);
+    return res.status(429).json({
+      error: `Demasiadas solicitudes. Por favor espera ${retryAfter}s antes de reintentar.`,
+      retryAfter,
+    });
+  }
+  next();
+}
+
+app.post('/api/ai/chat', aiChatRateLimit, async (req, res) => {
   const providerEnv = String(process.env.AI_PROVIDER || '').trim().toLowerCase();
   const openaiKey = process.env.OPENAI_API_KEY || process.env.AI_API_KEY;
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
@@ -10532,6 +10586,8 @@ app.post('/api/ai/chat', async (req, res) => {
 
     let systemContent = AI_SYSTEM_BASE_MICROSIP + empresaCtx;
     const pageCtx = body && body.context && body.context.page ? String(body.context.page) : '';
+    const pageUrl  = body && body.context && body.context.url  ? String(body.context.url)  : '';
+    const pageKpis = body && body.context && body.context.pageKpis ? String(body.context.pageKpis).slice(0, 1200) : '';
     const q = (aiReq && aiReq.query) || {};
     const filtrosCtx = [
       q.preset ? `preset=${q.preset}` : '',
@@ -10544,7 +10600,11 @@ app.post('/api/ai/chat', async (req, res) => {
       q.tipo ? `tipo=${q.tipo}` : '',
     ].filter(Boolean).join(', ');
     if (pageCtx || filtrosCtx) {
-      systemContent += `\n\nContexto actual del usuario: ${pageCtx || 'dashboard'}${filtrosCtx ? ` · filtros: ${filtrosCtx}` : ''}.`;
+      systemContent += `\n\nContexto actual del usuario: ${pageCtx || 'dashboard'}${pageUrl ? ` (${pageUrl})` : ''}${filtrosCtx ? ` · filtros: ${filtrosCtx}` : ''}.`;
+    }
+    // Valores KPI actualmente visibles en el dashboard del usuario (scrapeados del DOM)
+    if (pageKpis) {
+      systemContent += `\n\n📊 KPIs actualmente visibles en pantalla (datos en vivo del dashboard):\n${pageKpis}\n\nPuedes referenciar estos valores directamente en tu respuesta sin necesidad de llamar herramientas adicionales.`;
     }
 
     const historyText = `${text} ${(Array.isArray(body.messages) ? body.messages : []).map(m => (m && m.content) || '').join(' ')}`;

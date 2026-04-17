@@ -406,7 +406,18 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
       </div>
     </div>
     <div class="card">
-      <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>Desempe&ntilde;o Vendedores (mes)</div><div class="card-badge" id="vend-badge">&mdash;</div></div>
+      <div class="card-head">
+        <div class="card-title"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>Desempe&ntilde;o Vendedores (mes)</div>
+        <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+          <input id="vend-search" type="search" placeholder="🔍 Buscar…"
+            style="font-family:'DM Mono',monospace;font-size:.65rem;padding:.3rem .6rem;border-radius:7px;border:1px solid var(--border2);background:var(--s2);color:var(--text2);outline:none;width:110px;transition:border-color .18s"
+            oninput="filterVendedoresList(this.value)" onfocus="this.style.borderColor='var(--suminregio)'" onblur="this.style.borderColor='var(--border2)'"/>
+          <button type="button" onclick="exportVendedoresCsv()" title="Exportar CSV"
+            style="font-size:.6rem;font-family:'DM Mono',monospace;padding:.3rem .6rem;border-radius:7px;border:1px solid var(--border2);background:var(--s2);color:var(--muted);cursor:pointer;transition:all .18s"
+            onmouseover="this.style.borderColor='var(--green)';this.style.color='var(--green)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--muted)'">⬇ CSV</button>
+          <div class="card-badge" id="vend-badge">&mdash;</div>
+        </div>
+      </div>
       <div class="card-body" id="vendedores-list"><div style="text-align:center;color:var(--muted);padding:1.5rem">Cargando...</div></div>
     </div>
   </div>
@@ -423,6 +434,9 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
             <button type="button" class="top-dir-btn" data-top="40" onclick="setDirTopCli(40)">40</button>
             <button type="button" class="top-dir-btn" data-top="50" onclick="setDirTopCli(50)">50</button>
           </div>
+          <button type="button" onclick="exportClientesCsv()" title="Exportar CSV"
+            style="font-size:.6rem;font-family:'DM Mono',monospace;padding:.3rem .6rem;border-radius:7px;border:1px solid var(--border2);background:var(--s2);color:var(--muted);cursor:pointer;transition:all .18s"
+            onmouseover="this.style.borderColor='var(--green)';this.style.color='var(--green)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--muted)'">⬇ CSV</button>
           <div class="card-badge" id="badge-top-clientes">Periodo filtrado</div>
         </div>
       </div>
@@ -711,7 +725,7 @@ const MESES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov'
 function sanitizeLabel(s){ if(!s) return ''; return String(s).replace(/[\u0370-\u03FF\u0400-\u04FF]/g,'').trim() || String(s).trim(); }
 const fmt  = n => isNaN(+n)||n==null?'?':'$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 const fmtK = n => { if(isNaN(+n)||n==null) return '?'; n=+n; return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2}); };
-const setText = (id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
+const setText = (id,v)=>{ const e=document.getElementById(id); if(e){ e.textContent=v; if(e.classList.contains('kpi-value')) e.setAttribute('data-val',v); } };
 const setHtml = (id,v)=>{ const e=document.getElementById(id); if(e) e.innerHTML=v; };
 const setWid = (id,p)=>{ const e=document.getElementById(id); if(e) e.style.width=Math.min(+p||0,100)+'%'; };
 
@@ -1201,6 +1215,53 @@ async function loadDiarias() {
   } catch(e){}
 }
 
+let _vendedoresData = []; // para search/export
+function renderVendedoresList(rows) {
+  const el = document.getElementById('vendedores-list');
+  if (!el) return;
+  if (!rows || !rows.length) {
+    el.innerHTML = '<div style="text-align:center;color:var(--muted);padding:1.5rem">Sin datos</div>';
+    return;
+  }
+  const max = rows.reduce((m,r)=>Math.max(m,+(r.VENTAS_MES||0)),0)||1;
+  const MEDALS = ['🥇','🥈','🥉'];
+  const COLORS = ['var(--green)','var(--blue)','var(--purple)','var(--suminregio)','var(--orange)','var(--red)','var(--cyan)'];
+  el.innerHTML = `<div class="vendor-list">${rows.map((r,i)=>{
+    const venta = +(r.VENTAS_MES||0);
+    const pct = max>0?(venta/max*100).toFixed(0):0;
+    const rank = i < 3 ? `<span style="font-size:1rem;line-height:1">${MEDALS[i]}</span>` : `<span class="rank-num">${i+1}</span>`;
+    const col = COLORS[i % COLORS.length];
+    const metaPct = r.META_MES && +r.META_MES > 0 ? Math.min(200, (venta / +r.META_MES * 100)).toFixed(0) : null;
+    const metaBadge = metaPct ? `<span style="font-family:'DM Mono',monospace;font-size:.57rem;padding:.15rem .38rem;border-radius:5px;margin-left:.3rem;background:${+metaPct>=100?'rgba(0,229,160,.12)':'rgba(255,184,0,.1)'};color:${+metaPct>=100?'var(--green)':'var(--yellow)';}">${metaPct}%▸meta</span>` : '';
+    return `<div class="vendor-item" data-name="${(r.VENDEDOR||'').toLowerCase()}">
+      <div class="vendor-head">
+        <span class="vendor-name">${rank}&nbsp;${sanitizeLabel(r.VENDEDOR)}${metaBadge}</span>
+        <span><span class="vendor-amount" style="color:${col}">${fmtK(r.VENTAS_MES)}</span><span class="vendor-pct">${pct}%</span></span>
+      </div>
+      <div class="vendor-bar-bg"><div class="vendor-bar-fill" style="width:${pct}%;background:${col}"></div></div>
+    </div>`;
+  }).join('')}</div>`;
+}
+function filterVendedoresList(q) {
+  const term = (q||'').toLowerCase().trim();
+  document.querySelectorAll('#vendedores-list .vendor-item').forEach(el => {
+    el.style.display = (!term || (el.dataset.name||'').includes(term)) ? '' : 'none';
+  });
+}
+function exportVendedoresCsv() {
+  if (!_vendedoresData.length) return;
+  const header = 'Vendedor,Ventas Mes,% de Máximo';
+  const max = _vendedoresData.reduce((m,r)=>Math.max(m,+(r.VENTAS_MES||0)),0)||1;
+  const rows = _vendedoresData.map(r => {
+    const v = +(r.VENTAS_MES||0);
+    return `"${(r.VENDEDOR||'').replace(/"/g,'""')}",${v.toFixed(2)},${(v/max*100).toFixed(1)}%`;
+  });
+  const csv = '\uFEFF' + header + '\n' + rows.join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'vendedores_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+}
 async function loadVendedores() {
   try {
     const rawV = await fetchJson(buildApiUrl('/api/director/vendedores'), []);
@@ -1211,30 +1272,40 @@ async function loadVendedores() {
       return;
     }
     const rows = rawV.slice().sort((a,b)=>(+b.VENTAS_MES||0)-(+a.VENTAS_MES||0));
-    const max = rows.reduce((m,r)=>Math.max(m,+(r.VENTAS_MES||0)),0);
-    const el = document.getElementById('vendedores-list');
-    el.innerHTML = rows.length ? `<div class="vendor-list">${rows.map((r,i)=>{
-      const pct = max>0?(+(r.VENTAS_MES||0)/max*100).toFixed(0):0;
-      return `<div class="vendor-item">
-        <div class="vendor-head">
-          <span class="vendor-name"><span class="rank-num">${i+1}</span>${sanitizeLabel(r.VENDEDOR)}</span>
-          <span><span class="vendor-amount">${fmtK(r.VENTAS_MES)}</span><span class="vendor-pct">${pct}%</span></span>
-        </div>
-        <div class="vendor-bar-bg"><div class="vendor-bar-fill" style="width:${pct}%"></div></div>
-      </div>`;
-    }).join('')}</div>` : '<div style="text-align:center;color:var(--muted);padding:1.5rem">Sin datos</div>';
+    _vendedoresData = rows;
+    renderVendedoresList(rows);
     setText('vend-badge', `${rows.length} vendedores`);
+    // Reaplicar filtro si había texto
+    const inp = document.getElementById('vend-search');
+    if (inp && inp.value) filterVendedoresList(inp.value);
   } catch(e){}
 }
 
+let _clientesData = [];
+function exportClientesCsv() {
+  if (!_clientesData.length) return;
+  const header = 'Rank,Cliente,Ventas Mes,Documentos';
+  const tot = r => +(r.TOTAL_VENTAS ?? r.TOTAL ?? r.IMPORTE_NETO ?? 0);
+  const docs = r => +(r.NUM_FACTURAS ?? r.FACTURAS ?? r.DOCS ?? 0);
+  const rows = _clientesData.map((r,i) =>
+    `${i+1},"${(r.CLIENTE||'').replace(/"/g,'""')}",${tot(r).toFixed(2)},${docs(r)}`
+  );
+  const csv = '\uFEFF' + header + '\n' + rows.join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'top_clientes_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+}
 async function loadClientes() {
   try {
     const rows = await fetchJson(buildApiUrl('/api/director/top-clientes', 'limit=' + topDirCliLimit), []);
     if (!Array.isArray(rows)) return;
+    _clientesData = rows;
     const tot = r => +(r.TOTAL_VENTAS ?? r.TOTAL ?? r.IMPORTE_NETO ?? 0);
     const docs = r => +(r.NUM_FACTURAS ?? r.FACTURAS ?? r.DOCS ?? 0);
+    const MEDALS = ['🥇','🥈','🥉'];
     document.querySelector('#tbl-clientes tbody').innerHTML = rows.map((r,i)=>`<tr>
-      <td><span class="rank-num">${i+1}</span></td>
+      <td>${i < 3 ? `<span style="font-size:.9rem">${MEDALS[i]}</span>` : `<span class="rank-num">${i+1}</span>`}</td>
       <td class="lbl">${r.CLIENTE || '—'}</td>
       <td class="num">${fmt(tot(r))}</td>
       <td class="num">${docs(r).toLocaleString('es-MX')}</td>

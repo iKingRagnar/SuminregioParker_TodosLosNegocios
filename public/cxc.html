@@ -952,7 +952,7 @@ const fmtSaldoDoc = v => {
   return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 };
 const fmtM = v => '$'+(+v||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
-const setText = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
+const setText = (id,v) => { const e=document.getElementById(id); if(e){ e.textContent=v; if(e.classList.contains('kpi-val')||e.classList.contains('kpi-value')) e.setAttribute('data-val',v); } };
 
 function staggerKpiStoryCards(){
   const cards = document.querySelectorAll('.kpi-grid--story .kpi-story');

@@ -400,3 +400,12 @@
 /* ── Clear history btn ───────────────────────────────────────────────── */
 #cw-clear-history{ opacity:.6; }
 #cw-clear-history:hover{ opacity:1; color:var(--cw-red,#ef4444) !important; }
+
+/* ── Message timestamps ───────────────────────────────────────────────── */
+.cw-msg-ts{
+  display:block; font-family:'DM Mono',monospace;
+  font-size:9.5px; color:rgba(148,163,184,.45);
+  text-align:right; margin-top:4px; letter-spacing:.04em;
+  user-select:none; pointer-events:none;
+}
+.cw-msg.user .cw-msg-ts{ color:rgba(255,255,255,.3); }

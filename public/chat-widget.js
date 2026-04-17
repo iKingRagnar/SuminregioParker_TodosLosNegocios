@@ -139,6 +139,64 @@
   let alertsCache = null;
   let lastFailedMessage = null; // para retry
 
+  // ── Live DOM KPI Collector ─────────────────────────────────────────────────
+  // Scrapes visible KPI values from the current dashboard page and returns a
+  // compact summary string that gets injected into every AI request as context.
+  function collectPageKpis() {
+    const entries = [];
+    const seen = new Set();
+
+    function push(label, val) {
+      if (!label || !val) return;
+      const key = label.toLowerCase().trim();
+      if (seen.has(key)) return;
+      seen.add(key);
+      entries.push(`${label.trim()}: ${String(val).trim()}`);
+    }
+
+    // 1. Elements with explicit data-kpi + data-val attributes (most reliable)
+    document.querySelectorAll('[data-kpi][data-val]').forEach(el => {
+      push(el.getAttribute('data-kpi'), el.getAttribute('data-val'));
+    });
+
+    // 2. KPI cards pattern: sibling .kpi-label / .kpi-title + .kpi-val / .kpi-value
+    document.querySelectorAll('.kpi-val[data-val], .kpi-value[data-val], .kpi-num[data-val]').forEach(el => {
+      const card = el.closest('.kpi-card, .kpi-item, .stat-card, [class*="kpi"]');
+      const labelEl = card
+        ? (card.querySelector('.kpi-label,.kpi-title,.kpi-name,.stat-label,.card-label') || null)
+        : el.previousElementSibling;
+      const label = labelEl ? labelEl.textContent : el.getAttribute('data-kpi') || el.id || 'KPI';
+      push(label, el.getAttribute('data-val') || el.textContent);
+    });
+
+    // 3. Generic .kpi-val / .kpi-value without data-val — read textContent
+    document.querySelectorAll('.kpi-val:not([data-val]), .kpi-value:not([data-val])').forEach(el => {
+      const card = el.closest('.kpi-card, .kpi-item, .stat-card');
+      if (!card) return;
+      const labelEl = card.querySelector('.kpi-label,.kpi-title,.kpi-name,.stat-label');
+      const label = labelEl ? labelEl.textContent : 'KPI';
+      const val = el.textContent.replace(/\s+/g,' ').trim();
+      if (val && val !== '—' && val !== '-') push(label, val);
+    });
+
+    // 4. Hero / big summary numbers (index.html style)
+    document.querySelectorAll('.hero-num, .big-num, .uni-sum-pill').forEach(el => {
+      const lbl = el.querySelector('.u-l, .hero-label, .big-label');
+      const val = el.querySelector('.u-v, .hero-value, .big-value');
+      if (lbl && val) push(lbl.textContent, val.textContent);
+    });
+
+    // 5. Stat pills / summary strip
+    document.querySelectorAll('.stat-pill, .summary-pill, [class*="sum-pill"]').forEach(el => {
+      const lbl = el.querySelector('[class*="label"],[class*="name"]');
+      const val = el.querySelector('[class*="val"],[class*="value"],[class*="num"]');
+      if (lbl && val) push(lbl.textContent, val.textContent);
+    });
+
+    if (!entries.length) return null;
+    return entries.slice(0, 20).join('\n');
+  }
+
   // ── CSS injection ─────────────────────────────────────────────────────────
   function injectCss() {
     if (document.getElementById('cw-css')) return;
@@ -295,6 +353,10 @@
     const div = document.createElement('div');
     div.className = 'cw-msg ' + role;
 
+    const now = new Date();
+    const ts = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+    div.setAttribute('data-ts', now.toISOString());
+
     const avatarIcon = role === 'ai' ? '🤖' : '👤';
     let bubbleContent = mdToHtml(text);
     if (imgDataUrl && role === 'user') {
@@ -305,10 +367,11 @@
     const retryHtml = (isError && lastFailedMessage)
       ? `<div style="margin-top:6px"><button class="cw-retry-btn" onclick="this.closest('.cw-msg').dispatchEvent(new CustomEvent('cw:retry',{bubbles:true}))">↺ Reintentar</button></div>`
       : '';
+    const tsHtml = `<span class="cw-msg-ts">${ts}</span>`;
 
     div.innerHTML = `
       <div class="cw-msg-avatar">${avatarIcon}</div>
-      <div class="cw-msg-bubble">${bubbleContent}${retryHtml}</div>`;
+      <div class="cw-msg-bubble">${bubbleContent}${retryHtml}${tsHtml}</div>`;
 
     if (isError && lastFailedMessage) {
       const failedMsg = lastFailedMessage;
@@ -410,9 +473,15 @@
     try {
       // Historial en formato que espera el servidor (sin el último turno user ya agregado)
       const prevHistory = history.slice(-14).slice(0, -1);
+      // Inyectar KPIs vivos del DOM para que el LLM tenga contexto actual sin consultas extra
+      const liveKpis = collectPageKpis();
       const body = {
         message   : text,
-        context   : { page: PAGE },
+        context   : {
+          page: PAGE,
+          url: location.pathname,
+          ...(liveKpis ? { pageKpis: liveKpis } : {}),
+        },
         messages  : prevHistory.map(h => ({ role: h.role, content: h.content })),
       };
       if (DB_PARAM) body.db = DB_PARAM;
@@ -526,15 +595,30 @@
     panel.innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;font-size:12px">🔄 Cargando KPIs…</div>';
 
     try {
+      // Mostrar KPIs del DOM (instantáneo, sin fetch)
+      const domKpis = collectPageKpis();
+      let domSection = '';
+      if (domKpis) {
+        const domLines = domKpis.split('\n').filter(Boolean).slice(0, 12);
+        domSection = `<div class="cw-kpi-card">
+          <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:6px;text-transform:uppercase">🖥️ Dashboard actual</div>
+          ${domLines.map(line => {
+            const [label, ...rest] = line.split(':');
+            return kpiRow(label.trim(), rest.join(':').trim());
+          }).join('')}
+        </div>`;
+        panel.innerHTML = domSection + '<div style="padding:12px;text-align:center;color:#64748b;font-size:11px">🔄 Cargando datos de sistema…</div>';
+      }
+
       // Usar alertsCache si ya fue cargado
-      const data = alertsCache || await fetch(API + '/api/alerts/check' + (DB_PARAM ? '?db=' + DB_PARAM : ''))
+      const data = alertsCache || await fetch(API + '/api/alerts/check' + (DB_PARAM ? '?db=' + DB_PARAM : ''), { signal: AbortSignal.timeout(30000) })
         .then(r => r.json());
       const { ventas, cxc, pnl, metas } = data.kpis || {};
       const v = ventas || {}; const c = cxc || {}; const p = pnl?.totales || {};
       const fmtM = n => { if (n == null || isNaN(+n)) return 'N/D'; n = +n; if (Math.abs(n) >= 1e6) return '$' + (n/1e6).toFixed(2)+'M'; if (Math.abs(n)>=1e3) return '$'+(n/1e3).toFixed(1)+'K'; return '$'+Math.round(n).toLocaleString(); };
       const fmtP = n => (n == null||isNaN(+n)) ? 'N/D' : (+n).toFixed(1)+'%';
 
-      panel.innerHTML = `
+      panel.innerHTML = (domSection || '') + `
         <div class="cw-kpi-card">
           <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:6px;text-transform:uppercase">📊 Ventas</div>
           ${kpiRow('Venta mes', fmtM(v.TOTAL_MES||v.VENTA_MES))}

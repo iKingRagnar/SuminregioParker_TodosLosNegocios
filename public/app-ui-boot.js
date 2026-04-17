@@ -354,15 +354,9 @@
     var nav = document.querySelector('header nav.hdr-nav, header .hdr-nav, nav#main-nav');
     if (!nav || document.getElementById('sumi-ai-pro-btn')) return;
 
-    var aiUrl = (typeof window.__ASISTENTE_AI_URL === 'string' && window.__ASISTENTE_AI_URL)
-      ? window.__ASISTENTE_AI_URL
-      : 'http://localhost:5173';
-
-    var btn = document.createElement('a');
+    var btn = document.createElement('button');
     btn.id = 'sumi-ai-pro-btn';
-    btn.href = aiUrl;
-    btn.target = '_blank';
-    btn.rel = 'noopener';
+    btn.type = 'button';
     btn.setAttribute('aria-label', 'Abrir Asistente IA Pro');
     btn.innerHTML =
       '<span style="font-size:12px;margin-right:3px;filter:drop-shadow(0 0 4px rgba(230,168,0,.8))">✦</span>' +
@@ -401,7 +395,69 @@
       btn.style.animationPlayState = 'running';
     });
 
+    // ── Click: abre el chat widget embebido; nunca navega a un servidor externo ──
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+
+      // 1. Si el FAB del chat widget existe, simular click para abrirlo
+      var fab = document.getElementById('cw-fab');
+      if (fab) {
+        // Si ya está abierto (panel visible), sólo enfocar input
+        var panel = document.getElementById('cw-panel');
+        if (panel && panel.style.display !== 'none' && panel.style.display !== '') {
+          var inp = document.getElementById('cw-input');
+          if (inp) inp.focus();
+          return;
+        }
+        fab.click();
+        // Dar foco al input tras apertura de animación
+        setTimeout(function () {
+          var inp = document.getElementById('cw-input');
+          if (inp) inp.focus();
+        }, 320);
+        return;
+      }
+
+      // 2. Fallback: Si __ASISTENTE_AI_URL está configurado explícitamente en el servidor, usarlo
+      if (typeof window.__ASISTENTE_AI_URL === 'string' && window.__ASISTENTE_AI_URL &&
+          !window.__ASISTENTE_AI_URL.includes('localhost:5173')) {
+        window.open(window.__ASISTENTE_AI_URL, '_blank', 'noopener');
+        return;
+      }
+
+      // 3. Último recurso: mostrar toast de aviso en vez de página de error
+      _showAiProToast();
+    });
+
     nav.appendChild(btn);
+  }
+
+  function _showAiProToast() {
+    if (document.getElementById('sumi-ai-toast')) return;
+    var t = document.createElement('div');
+    t.id = 'sumi-ai-toast';
+    t.textContent = '💬 El asistente IA está disponible en el panel de chat (ícono inferior derecho)';
+    t.style.cssText =
+      'position:fixed;bottom:80px;right:20px;z-index:99999;' +
+      'background:linear-gradient(135deg,#1a2740,#0d1a2e);' +
+      'color:#e6c84a;font-size:13px;font-weight:600;' +
+      'padding:12px 18px;border-radius:12px;max-width:320px;' +
+      'box-shadow:0 4px 24px rgba(0,0,0,.55),0 0 0 1px rgba(230,168,0,.3);' +
+      'border-left:3px solid #E6A800;' +
+      'animation:sumi-toast-in .3s ease;pointer-events:none;';
+    if (!document.getElementById('sumi-toast-kf')) {
+      var ks = document.createElement('style');
+      ks.id = 'sumi-toast-kf';
+      ks.textContent =
+        '@keyframes sumi-toast-in{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}' +
+        '@keyframes sumi-toast-out{from{opacity:1}to{opacity:0;transform:translateY(16px)}}';
+      document.head.appendChild(ks);
+    }
+    document.body.appendChild(t);
+    setTimeout(function () {
+      t.style.animation = 'sumi-toast-out .35s ease forwards';
+      setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 380);
+    }, 3500);
   }
 
   // ════════════════════════════════════════════════════════
@@ -458,6 +514,40 @@
   }
 
   // ════════════════════════════════════════════════════════
+  //  TECLADO — Alt+A → abrir / cerrar panel IA
+  // ════════════════════════════════════════════════════════
+  function bootKeyboardShortcuts() {
+    if (typeof document === 'undefined') return;
+    document.addEventListener('keydown', function (e) {
+      // Alt+A (sin Ctrl, sin Meta) → toggle chat widget
+      if (e.altKey && !e.ctrlKey && !e.metaKey && e.key.toLowerCase() === 'a') {
+        // No interferir si el foco está en un input / textarea / select / contenteditable
+        var tag = document.activeElement ? document.activeElement.tagName : '';
+        if (['INPUT','TEXTAREA','SELECT'].includes(tag)) return;
+        if (document.activeElement && document.activeElement.isContentEditable) return;
+
+        e.preventDefault();
+        var fab = document.getElementById('cw-fab');
+        if (fab) {
+          fab.click();
+          return;
+        }
+        // Sin chat widget: abrir botón IA Pro si existe
+        var iapro = document.getElementById('sumi-ai-pro-btn');
+        if (iapro) iapro.click();
+      }
+    });
+
+    // Tooltip de atajo en el botón IA Pro
+    setTimeout(function () {
+      var iapro = document.getElementById('sumi-ai-pro-btn');
+      if (iapro && !iapro.getAttribute('title')) {
+        iapro.setAttribute('title', 'Asistente IA (Alt+A)');
+      }
+    }, 200);
+  }
+
+  // ════════════════════════════════════════════════════════
   //  BOOT ALL
   // ════════════════════════════════════════════════════════
   function bootAll() {
@@ -466,6 +556,7 @@
     bootCursorGlow();
     bootKpiCountUp();
     setTimeout(bootAiProLauncher, 120);
+    bootKeyboardShortcuts();
   }
 
   if (document.readyState === 'loading') {

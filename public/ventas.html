@@ -1029,7 +1029,7 @@ function venSetupMonthPicker(arr){
 }
 const fmt  = n => '$'+fnum(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 const fmtK = n => '$'+fnum(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
-const setText = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
+const setText = (id,v) => { const e=document.getElementById(id); if(e){ e.textContent=v; if(e.classList.contains('kpi-val')||e.classList.contains('kpi-value')) e.setAttribute('data-val',v); } };
 const setWid  = (id,p) => { const e=document.getElementById(id); if(e) e.style.width=Math.min(+p||0,100)+'%'; };
 
 setInterval(()=>{ document.getElementById('clock').textContent=new Date().toLocaleTimeString('es-MX'); },1000);
