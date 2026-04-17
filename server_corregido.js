@@ -1432,6 +1432,39 @@ function buildFiltros(req, alias = 'd', options = {}) {
 }
 
 /**
+ * Extrae el rango de fechas de la request para inyectarlo en innerBounds de cotizacionesSub().
+ * Evita escanear toda la historia — Firebird usa IE1 (FECHA, TIPO_DOCTO, FOLIO) con solo
+ * las filas del período solicitado en vez de la tabla completa.
+ * @returns {{ desde: string|null, hasta: string|null }}
+ */
+function getDateBoundsFromReq(req) {
+  const { anio, mes, desde: desdeQ, hasta: hastaQ } = req.query;
+  const reDate = /^\d{4}-\d{2}-\d{2}$/;
+  if (desdeQ && reDate.test(desdeQ)) {
+    const hasta = hastaQ && reDate.test(hastaQ) ? hastaQ : null;
+    return { desde: desdeQ, hasta };
+  }
+  if (anio && mes) {
+    const y = parseInt(anio), m = parseInt(mes);
+    const desde = `${y}-${String(m).padStart(2,'0')}-01`;
+    const nextY = m === 12 ? y + 1 : y;
+    const nextM = m === 12 ? 1 : m + 1;
+    const hasta = `${nextY}-${String(nextM).padStart(2,'0')}-01`;
+    return { desde, hasta };
+  }
+  if (anio) {
+    const y = parseInt(anio);
+    return { desde: `${y}-01-01`, hasta: `${y+1}-01-01` };
+  }
+  // Fallback: mes actual
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth() + 1;
+  const desde = `${y}-${String(m).padStart(2,'0')}-01`;
+  const nextY = m === 12 ? y + 1 : y, nextM = m === 12 ? 1 : m + 1;
+  return { desde, hasta: `${nextY}-${String(nextM).padStart(2,'0')}-01` };
+}
+
+/**
  * Filtro de fechas sobre IMPORTES_DOCTOS_CC + vendedor/cliente vía documento CC aplicado
  * (COALESCE(DOCTO_CC_ACR_ID, DOCTO_CC_ID) → DOCTOS_CC → VE/PV).
  */
@@ -1797,38 +1830,39 @@ function sqlCotizInnerFechaBounds(feExpr, bounds) {
  * @param {object} opts - mantenido por compatibilidad
  * @param {{ desde?: string, hasta?: string } | null} innerBounds - filtro de fecha en el subquery.
  */
-function cotizacionesSub(tipo = '', opts = {}) {
-  // Cotizaciones: SOLO DOCTOS_VE.
-  // Estrategia de importe (orden de prioridad):
-  //   1. JOIN con DOCTOS_VE_DET agrupado (detSumExpr válido con SUM) → evita correlated subquery N+1.
-  //   2. Fallback: COALESCE(h.IMPORTE_NETO, 0) del encabezado (evita "multiple rows in singleton select"
-  //      cuando no se detectaron columnas de detalle y detSumExpr sería la constante '0').
+/**
+ * Genera el sub-SELECT de cotizaciones de DOCTOS_VE.
+ *
+ * ESTRATEGIA DE RENDIMIENTO (Render→Firebird WAN):
+ *   - El índice IE1 = (FECHA, TIPO_DOCTO, FOLIO) permite acceso rápido por rango de fecha.
+ *   - Inyectar innerBounds (desde/hasta) DENTRO del WHERE evita escanear toda la historia:
+ *     solo se leen las filas del mes/período solicitado → N filas en cache/disco en vez de
+ *     miles de registros históricos.
+ *   - IMPORTE_NETO del encabezado: evita el LEFT JOIN a DOCTOS_VE_DET que haría un full scan
+ *     de toda esa tabla. Si IMPORTE_NETO = 0 en el encabezado, el monto es 0 pero el COUNT
+ *     es correcto — y es mejor que timeout.
+ *
+ * @param {string} tipo - 'VE', 'PV' o '' (ambos)
+ * @param {object} opts - opciones de cotizacionSqlOpts
+ * @param {{ desde?: string, hasta?: string } | null} innerBounds - filtro de fecha para el WHERE interno
+ */
+function cotizacionesSub(tipo = '', opts = {}, innerBounds = null) {
   const feExprVe    = (opts && opts.sqlFeVe) ? String(opts.sqlFeVe).replace(/\bd\./g, 'h.') : 'h.FECHA';
   const vigVe       = (opts && opts.vigenciaVeSuffix) ? String(opts.vigenciaVeSuffix).replace(/\bd\./g, 'h.') : '';
-  const rawDetExpr  = (opts && opts.cotiDetSumExpr) ? String(opts.cotiDetSumExpr) : null;
-  const dsctoExpr   = (opts && opts.cotiDsctoExpr) ? String(opts.cotiDsctoExpr) : 'COALESCE(h.DSCTO_IMPORTE, 0)';
   const whereFast   = sqlWhereCotizacionFast('h', 'VE');
 
-  // Determinar si tenemos una expresión SUM real o solo '0' (columnas no detectadas)
-  const hasValidDet = rawDetExpr && rawDetExpr.includes('SUM(');
-  const detSumExpr  = hasValidDet ? rawDetExpr : 'COALESCE(SUM(det2.PRECIO_TOTAL), 0)';
+  // IMPORTE: usar siempre el encabezado IMPORTE_NETO para evitar JOIN costoso a DOCTOS_VE_DET.
+  // En algunas instalaciones Microsip el encabezado SÍ tiene el importe calculado.
+  // Si es 0, al menos el COUNT de cotizaciones es correcto.
+  const importeNetoExpr = `COALESCE(h.IMPORTE_NETO, 0)`;
 
-  let importeNetoExpr;
-  let joinClause = '';
-
-  if (hasValidDet) {
-    // JOIN agrupado: una sola pasada sobre DOCTOS_VE_DET (mucho más eficiente que correlated subquery).
-    joinClause = `
-      LEFT JOIN (
-        SELECT det2.DOCTO_VE_ID, ${detSumExpr} AS IMPORTE_DET
-        FROM DOCTOS_VE_DET det2
-        GROUP BY det2.DOCTO_VE_ID
-      ) det_agg ON det_agg.DOCTO_VE_ID = h.DOCTO_VE_ID`;
-    importeNetoExpr = `COALESCE(det_agg.IMPORTE_DET, 0) - ${dsctoExpr}`;
-  } else {
-    // Fallback seguro: IMPORTE_NETO del encabezado.
-    // En cotizaciones no aplicadas suele ser 0, pero es mejor que SQL roto.
-    importeNetoExpr = `COALESCE(h.IMPORTE_NETO, 0)`;
+  // Filtro de fecha interno (inyectado desde la ruta para limitar el escaneo al mes/período)
+  let innerDateSql = '';
+  if (innerBounds && innerBounds.desde) {
+    innerDateSql += ` AND CAST(h.FECHA AS DATE) >= CAST('${innerBounds.desde}' AS DATE)`;
+  }
+  if (innerBounds && innerBounds.hasta) {
+    innerDateSql += ` AND CAST(h.FECHA AS DATE) < CAST('${innerBounds.hasta}' AS DATE)`;
   }
 
   const ve = `
@@ -1843,8 +1877,8 @@ function cotizacionesSub(tipo = '', opts = {}) {
       h.DOCTO_VE_ID,
       CAST(NULL AS INTEGER) AS DOCTO_PV_ID,
       'VE' AS TIPO_SRC
-    FROM DOCTOS_VE h${joinClause}
-    WHERE ${whereFast} ${vigVe}
+    FROM DOCTOS_VE h
+    WHERE ${whereFast}${innerDateSql} ${vigVe}
   `;
   if (tipo === 'VE') return `(${ve})`;
   if (tipo === 'PV') return `(${ve})`; // PV no existe para cotizaciones, retornar VE
@@ -2570,7 +2604,10 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
     const f = buildFiltros(req, 'd');
     const tipo = getCotizacionesTipo(req);
     const cotiOpts = await cotizacionSqlOpts(dbo);
-    const cotiSub = cotizacionesSub(tipo, cotiOpts);
+    // innerBounds: inyecta el rango de fecha DENTRO del subquery para que Firebird use
+    // el índice IE1 (FECHA, TIPO_DOCTO) y solo lea las filas del mes — no toda la historia.
+    const innerBounds = getDateBoundsFromReq(req);
+    const cotiSub = cotizacionesSub(tipo, cotiOpts, innerBounds);
     const rows = await query(`
       SELECT
         SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END) AS HOY,
@@ -2579,7 +2616,7 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
         COUNT(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 END)                   AS COTIZACIONES_HOY
       FROM ${cotiSub} d
       WHERE 1=1 ${f.sql}
-    `, f.params, 45000, dbo).catch((err) => {
+    `, f.params, 90000, dbo).catch((err) => {
       console.error('[cotizaciones/resumen]', err && (err.message || err));
       return [];
     });
@@ -2725,18 +2762,20 @@ get('/api/ventas/mensuales', async (req) => {
 
 get('/api/ventas/cotizaciones/diarias', async (req) => {
   const dias = Math.min(parseInt(req.query.dias) || 30, 366);
-  const desde = new Date();
-  desde.setDate(desde.getDate() - dias);
-  const desdeStr = desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-' + String(desde.getDate()).padStart(2, '0');
+  const desdeDate = new Date();
+  desdeDate.setDate(desdeDate.getDate() - dias);
+  const desdeStr = desdeDate.getFullYear() + '-' + String(desdeDate.getMonth() + 1).padStart(2, '0') + '-' + String(desdeDate.getDate()).padStart(2, '0');
   const run = async (dbo) => {
     const cotiOpts = await cotizacionSqlOpts(dbo);
-    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
+    // innerBounds: limita el escaneo al rango de días solicitados
+    const innerBounds = { desde: desdeStr, hasta: null };
+    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts, innerBounds);
     const rows = await query(`
     SELECT CAST(d.FECHA AS DATE) AS DIA, COUNT(*) AS COTIZACIONES, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL_COTIZACIONES
     FROM ${cotiSub} d
     WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
     GROUP BY CAST(d.FECHA AS DATE) ORDER BY 1
-  `, [desdeStr], 12000, dbo).catch((err) => {
+  `, [desdeStr], 60000, dbo).catch((err) => {
       console.error('[cotizaciones/diarias]', err && (err.message || err));
       return [];
     });
@@ -2906,12 +2945,13 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
         console.error('[por-vendedor/cotizaciones]', err && (err.message || err));
         return [];
       });
+    const innerBounds = getDateBoundsFromReq(req);
     if (tipoPanel === 'VE' || tipoPanel === 'PV') {
-      return qSub(cotizacionesSub(tipoPanel, cotiOpts));
+      return qSub(cotizacionesSub(tipoPanel, cotiOpts, innerBounds));
     }
     const [ve, pv] = await Promise.all([
-      qSub(cotizacionesSub('VE', cotiOpts)),
-      qSub(cotizacionesSub('PV', cotiOpts)),
+      qSub(cotizacionesSub('VE', cotiOpts, innerBounds)),
+      qSub(cotizacionesSub('PV', cotiOpts, innerBounds)),
     ]);
     return mergePorVendedorCotizVePv(ve, pv);
   };
@@ -11400,16 +11440,70 @@ app.get('/api/debug/cotizaciones', async (req, res) => {
     T: [`SELECT COUNT(*) AS N FROM DOCTOS_VE h WHERE h.DOCTO_VE_ID > 0 PLAN (h INDEX (DOCTOS_VE_PK))`, []],
     // U: Distribución TIPO_DOCTO en AK1 — FIRST 50 desde inicio del índice
     U: [`SELECT FIRST 50 h.TIPO_DOCTO, h.APLICADO FROM DOCTOS_VE h WHERE h.TIPO_DOCTO >= 'A' PLAN (h INDEX (DOCTOS_VE_AK1)) ORDER BY h.TIPO_DOCTO, h.APLICADO`, []],
+    // V: TEST DEFINITIVO — cotizaciones del mes con innerBounds (estrategia nueva)
+    V: [`SELECT COUNT(*) AS N, COALESCE(SUM(h.IMPORTE_NETO),0) AS TOTAL FROM DOCTOS_VE h WHERE h.TIPO_DOCTO IN ('C','O','Q','P','CT','CU') AND (h.ESTATUS IS NULL OR h.ESTATUS NOT IN ('C','D')) AND CAST(h.FECHA AS DATE) >= CAST('2026-04-01' AS DATE) AND CAST(h.FECHA AS DATE) < CAST('2026-05-01' AS DATE)`, []],
+    // W: Solo TIPO_DOCTO='C' + FECHA abril (menor IN list para mayor selectividad)
+    W: [`SELECT COUNT(*) AS N, COALESCE(SUM(h.IMPORTE_NETO),0) AS TOTAL FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'C' AND CAST(h.FECHA AS DATE) >= CAST('2026-04-01' AS DATE) AND CAST(h.FECHA AS DATE) < CAST('2026-05-01' AS DATE)`, []],
+    // X: Usando IE1 implícito — TIPO_DOCTO='F' + FECHA (ventas abril, como referencia de velocidad)
+    X: [`SELECT COUNT(*) AS N, COALESCE(SUM(h.IMPORTE_NETO),0) AS TOTAL FROM DOCTOS_VE h WHERE h.TIPO_DOCTO = 'F' AND h.APLICADO = 'S' AND CAST(h.FECHA AS DATE) >= CAST('2026-04-01' AS DATE) AND CAST(h.FECHA AS DATE) < CAST('2026-05-01' AS DATE)`, []],
   };
   const entry = queries[q];
-  if (!entry) return res.json({ ok: false, error: `q debe ser A-U, Q2, recibido: ${q}` });
+  if (!entry) return res.json({ ok: false, error: `q debe ser A-X, Q2, recibido: ${q}` });
   try {
-    const rows = await query(entry[0], entry[1], 12000, dbo);
+    const rows = await query(entry[0], entry[1], 30000, dbo);
     res.json({ ok: true, q, ms: Date.now() - t, data: rows });
   } catch (e) {
     res.json({ ok: false, q, ms: Date.now() - t, err: e.message });
   }
 });
+
+// ── Warm-up startup: precalentar cache de cotizaciones al iniciar ────────────
+// Las cotizaciones en Firebird remoto son lentas la primera vez (páginas frías).
+// Al arrancar, se ejecutan las queries del mes actual con timeout extendido (90s)
+// para poblar el cache antes del primer request del usuario.
+(function warmUpCotizaciones() {
+  const doWarmUp = async () => {
+    const now = new Date();
+    const anio = now.getFullYear(), mes = now.getMonth() + 1;
+    const mockReq = {
+      query: { anio: String(anio), mes: String(mes), db: 'default' },
+      headers: {},
+      originalUrl: `/api/ventas/cotizaciones/resumen?db=default&anio=${anio}&mes=${mes}&_warmup=1`,
+      path: '/api/ventas/cotizaciones/resumen',
+    };
+    const dbo = DB_OPTIONS;
+    try {
+      const cotiOpts = await cotizacionSqlOpts(dbo);
+      const innerBounds = { desde: `${anio}-${String(mes).padStart(2,'0')}-01`, hasta: (() => {
+        const ny = mes === 12 ? anio + 1 : anio, nm = mes === 12 ? 1 : mes + 1;
+        return `${ny}-${String(nm).padStart(2,'0')}-01`;
+      })() };
+      const cotiSub = cotizacionesSub('', cotiOpts, innerBounds);
+      const rows = await query(`
+        SELECT
+          SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END) AS HOY,
+          COALESCE(SUM(d.IMPORTE_NETO), 0) AS MES_ACTUAL,
+          COUNT(*) AS COTIZACIONES_MES,
+          COUNT(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 END) AS COTIZACIONES_HOY
+        FROM ${cotiSub} d
+        WHERE CAST(d.FECHA AS DATE) >= CAST('${innerBounds.desde}' AS DATE)
+          AND CAST(d.FECHA AS DATE) < CAST('${innerBounds.hasta}' AS DATE)
+      `, [], 90000, dbo);
+      const result = normalizeCotizacionResumenRow(rows[0]);
+      if ((+result.COTIZACIONES_MES || 0) > 0 || (+result.MES_ACTUAL || 0) > 0) {
+        const cacheKey = `/api/ventas/cotizaciones/resumen?anio=${anio}&mes=${mes}&db=default`;
+        _cacheSet(cacheKey, result);
+        console.log(`[warm-up] cotizaciones/${mes}/${anio} cacheado: ${result.COTIZACIONES_MES} docs, $${result.MES_ACTUAL}`);
+      } else {
+        console.log(`[warm-up] cotizaciones/${mes}/${anio}: sin datos (ok)`);
+      }
+    } catch (e) {
+      console.warn('[warm-up] cotizaciones falló:', e && (e.message || e));
+    }
+  };
+  // Esperar 5s después del arranque para que Firebird esté conectado
+  setTimeout(doWarmUp, 5000);
+})();
 
 app.listen(PORT, () => {
   console.log(`Suminregio API escuchando en http://localhost:${PORT} · build=${BUILD_FINGERPRINT}`);
