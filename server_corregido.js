@@ -1394,10 +1394,28 @@ function buildFiltros(req, alias = 'd', options = {}) {
   if (desde) { conds.push(`CAST(${feRoot} AS DATE) >= CAST(? AS DATE)`); params.push(desde); }
   if (hasta) { conds.push(`CAST(${feRoot} AS DATE) <= CAST(? AS DATE)`); params.push(hasta); }
 
-  // anio/mes solo si no hay rango explícito
+  // anio/mes solo si no hay rango explícito.
+  // NOTA: usamos CAST(fecha AS DATE) >= ? AND < ? en vez de EXTRACT(YEAR/MONTH) porque
+  // EXTRACT fuerza full table scan en Firebird (no puede usar índices de fecha).
+  // El rango equivalente permite al motor filtrar eficientemente.
   if (!desde) {
-    if (anio) { conds.push(`EXTRACT(YEAR  FROM ${feRoot}) = ?`); params.push(parseInt(anio)); }
-    if (mes)  { conds.push(`EXTRACT(MONTH FROM ${feRoot}) = ?`); params.push(parseInt(mes)); }
+    if (anio && mes) {
+      const y = parseInt(anio), m = parseInt(mes);
+      const d1 = `${y}-${String(m).padStart(2,'0')}-01`;
+      const nextY = m === 12 ? y + 1 : y;
+      const nextM = m === 12 ? 1 : m + 1;
+      const d2 = `${nextY}-${String(nextM).padStart(2,'0')}-01`;
+      conds.push(`CAST(${feRoot} AS DATE) >= CAST(? AS DATE) AND CAST(${feRoot} AS DATE) < CAST(? AS DATE)`);
+      params.push(d1, d2);
+    } else if (anio) {
+      const y = parseInt(anio);
+      conds.push(`CAST(${feRoot} AS DATE) >= CAST(? AS DATE) AND CAST(${feRoot} AS DATE) < CAST(? AS DATE)`);
+      params.push(`${y}-01-01`, `${y+1}-01-01`);
+    } else if (mes) {
+      // Solo mes sin año: fallback a EXTRACT (raro, pero seguro)
+      conds.push(`EXTRACT(MONTH FROM ${feRoot}) = ?`);
+      params.push(parseInt(mes));
+    }
   }
   if (dia) { conds.push(`CAST(${feRoot} AS DATE) = CAST(? AS DATE)`); params.push(dia); }
   if (!omitVC && vendedor) { conds.push(`${alias}.VENDEDOR_ID = ?`); params.push(parseInt(vendedor)); }
