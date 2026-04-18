@@ -541,6 +541,65 @@ body.ms-page-cxc .cond-row{
   body.ms-page-cxc main::after{display:none}
 }
 
+/* ─── Hint / debug paragraphs: fuera del flujo principal ─────────────── */
+.cxc-no-period-hint { display:none !important; }
+/* Solo ocultar si están FUERA del drawer; dentro del drawer sí se muestran */
+main > p.cxc-total-hint,
+main > p#cxcKpiTotalHint,
+main > p#cxcBiExplain,
+main > p#cxcRvOpenExplain { display:none !important; }
+/* aging breakdown: ahora es .cxc-aging-meta, no ocultarlo */
+
+/* ─── Info drawer (metodología, visible sólo al expandir) ─────────────── */
+.cxc-info-drawer {
+  background:var(--s1);border:1px solid var(--brd);border-radius:10px;
+  padding:14px 18px;margin-bottom:20px;
+  font-size:11px;color:var(--txt3);line-height:1.65;
+  display:none;
+}
+.cxc-info-drawer.open { display:block; }
+.cxc-info-drawer p { margin:0 0 6px; }
+.cxc-info-drawer p:last-child { margin:0; }
+.cxc-info-drawer strong { color:var(--txt2); }
+.cxc-info-drawer code {
+  background:var(--s3);border-radius:4px;padding:1px 5px;
+  font-family:var(--mono);font-size:10px;
+}
+
+/* ─── Info toggle button ──────────────────────────────────────────────── */
+.cxc-info-toggle {
+  display:inline-flex;align-items:center;gap:5px;
+  background:transparent;border:1px solid var(--brd);border-radius:7px;
+  color:var(--txt3);font-family:var(--font);font-size:11px;font-weight:600;
+  padding:5px 12px;cursor:pointer;transition:all .2s;margin-left:auto;
+  letter-spacing:.03em;
+}
+.cxc-info-toggle:hover { border-color:rgba(230,168,0,.35);color:var(--txt2); }
+.cxc-info-toggle.active { border-color:rgba(230,168,0,.4);color:var(--suminregio); }
+.cxc-info-toggle svg {
+  width:13px;height:13px;flex-shrink:0;
+  fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;
+}
+
+/* ─── KPI journey: header más limpio ─────────────────────────────────── */
+.cxc-kpi-journey-head {
+  margin-bottom:18px;
+  padding-bottom:14px;
+  border-bottom:1px solid var(--brd);
+}
+.cxc-kpi-storytitle {
+  font-size:clamp(.95rem,1.8vw,1.2rem);
+  letter-spacing:-.01em;
+}
+
+/* ─── Aging breakdown label sutil bajo buckets ────────────────────────── */
+.cxc-aging-meta {
+  font-family:var(--mono);font-size:10px;color:var(--txt3);
+  margin:-6px 0 18px;padding:8px 14px;
+  background:var(--s1);border:1px solid var(--brd);border-radius:8px;
+  line-height:1.5;
+}
+
 /* Tema claro (nav + app-ui): buckets aging legibles — &aacute;mbar/coral oscuro, sin amarillo p&aacute;lido sobre blanco */
 html.theme-premium-light[data-theme="light"] body.ms-page-cxc .aging-bkt.c0 .aging-val,
 html.theme-premium-light[data-theme="light"] body.ms-page-cxc .c0 .aging-val{color:#166534!important}
@@ -670,6 +729,26 @@ html[data-theme="light"] [style*="color:var(--ylw)"],
 html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
 /* Barra global de periodo (Hoy/Mes/Año) no aplica a CxC; ocultar si caché antigua la inyecta */
 body.ms-page-cxc #filter-bar{display:none!important;height:0!important;margin:0!important;padding:0!important;overflow:hidden!important;border:0!important}
+
+/* Light theme: info toggle + drawer + aging meta */
+html[data-theme="light"] .cxc-info-toggle,html.theme-premium-light .cxc-info-toggle{
+  border-color:rgba(15,23,42,.12)!important;color:#475569!important;
+}
+html[data-theme="light"] .cxc-info-toggle:hover,html.theme-premium-light .cxc-info-toggle:hover{
+  border-color:#B45309!important;color:#B45309!important;
+}
+html[data-theme="light"] .cxc-info-toggle.active,html.theme-premium-light .cxc-info-toggle.active{
+  border-color:#B45309!important;color:#B45309!important;
+}
+html[data-theme="light"] .cxc-info-drawer,html.theme-premium-light .cxc-info-drawer{
+  background:#fff!important;border-color:rgba(15,23,42,.07)!important;color:#475569!important;
+}
+html[data-theme="light"] .cxc-info-drawer strong,html.theme-premium-light .cxc-info-drawer strong{
+  color:#1E293B!important;
+}
+html[data-theme="light"] .cxc-aging-meta,html.theme-premium-light .cxc-aging-meta{
+  background:#F1F5F9!important;border-color:rgba(15,23,42,.07)!important;color:#475569!important;
+}
 </style>
 <link rel="stylesheet" href="public/app-ui.css">
 <link rel="stylesheet" href="public/app-responsive.css">
@@ -694,9 +773,6 @@ body.ms-page-cxc #filter-bar{display:none!important;height:0!important;margin:0!
     </div>
     <div class="cxc-hero-meta" id="cxcDbHint" title="Negocio activo">Cargando contexto&hellip;</div>
   </div>
-  <p class="cxc-no-period-hint" style="font-size:12px;color:var(--txt3);margin:0 auto 1rem;max-width:1900px;padding:0 1.5rem;line-height:1.45">
-    <strong>Cartera al corte:</strong> el saldo de CxC no usa periodo de ventas (mes/año/chips). Solo aplica el filtro de <em>cliente</em> abajo. Criterio fijo: <strong>saldo neto por documento</strong> (cargo − cobro en base ex-IVA), cartera a crédito (sin contado).
-  </p>
   <div class="client-filter-bar">
     <div class="filter-group">
       <span class="filter-label">CLIENTE</span>
@@ -705,16 +781,19 @@ body.ms-page-cxc #filter-bar{display:none!important;height:0!important;margin:0!
       </select>
     </div>
     <button class="btn" onclick="loadAll()">Aplicar</button>
-    <span style="font-size:11px;color:var(--txt3);font-family:var(--mono);margin-left:auto" title="Saldo neto por documento (Microsip IMPORTES_DOCTOS_CC), alineado al modelo DAX de referencia.">
-      Deuda total = cargos − cobros (neto documento, solo cr&eacute;dito).
-    </span>
+    <button class="cxc-info-toggle" id="cxcInfoToggle" type="button" title="Ver metodolog&iacute;a y notas de conciliaci&oacute;n">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      Metodolog&iacute;a
+    </button>
   </div>
-  <p id="cxcKpiTotalHint" class="cxc-total-hint" style="font-size:11px;color:var(--txt3);margin:4px 0 0;font-family:var(--mono);" aria-live="polite"></p>
-  <p class="cxc-no-period-hint" style="font-size:11px;color:var(--txt3);margin:0 auto 0.75rem;max-width:1900px;padding:0 1.5rem;line-height:1.4">
-    <strong>Buscar un folio:</strong> usa la pestaña <em>Deudas vigentes</em> (al corriente) o <em>Facturas vencidas</em> (mora); o <em>Deudas Totales</em> para ambos. Si un folio est&aacute; en Power BI y no aqu&iacute;, suele ser <em>condici&oacute;n contado/efectivo</em> (excluida en este panel), saldo liquidado en Microsip, o cobros sin <code>APLICADO</code> seg&uacute;n configuraci&oacute;n del servidor.
-  </p>
-  <p id="cxcBiExplain" class="cxc-total-hint" style="font-size:11px;color:var(--txt3);margin:2px 0 0;font-family:var(--mono);" aria-live="polite"></p>
-  <p id="cxcRvOpenExplain" class="cxc-total-hint" style="font-size:11px;color:var(--txt3);margin:4px 0 0;font-family:var(--mono);line-height:1.45" aria-live="polite"></p>
+  <!-- Drawer colapsable: información técnica y notas de conciliación -->
+  <div class="cxc-info-drawer" id="cxcInfoDrawer">
+    <p><strong>Cartera al corte:</strong> el saldo de CxC no usa periodo de ventas. Criterio fijo: <strong>saldo neto por documento</strong> (cargo &minus; cobro en base ex-IVA), cartera a crédito (sin contado).</p>
+    <p><strong>Buscar un folio:</strong> usa las pestañas <em>Facturas Vencidas</em>, <em>Deudas Vigentes</em> o <em>Deudas Totales</em>. Si un folio está en Power BI y no aquí, suele ser condición contado/efectivo (excluida), saldo liquidado, o cobros sin <code>APLICADO</code>.</p>
+    <p id="cxcKpiTotalHint" aria-live="polite"></p>
+    <p id="cxcBiExplain" aria-live="polite"></p>
+    <p id="cxcRvOpenExplain" aria-live="polite"></p>
+  </div>
 
   <!-- KPIs: narrativa + datos (alineado Power BI: saldo, vencido, por vencer) -->
   <section class="cxc-kpi-journey ms-reveal" aria-labelledby="cxcKpiStoryTitle">
@@ -779,8 +858,7 @@ body.ms-page-cxc #filter-bar{display:none!important;height:0!important;margin:0!
     <div class="aging-bkt c3"><div class="aging-lbl">61&#8211;90 d&iacute;as</div><div class="aging-val" id="ag3">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag3Bar" style="width:0%"></div></div><div class="aging-sub">Atraso alto</div></div>
     <div class="aging-bkt c4"><div class="aging-lbl">+90 d&iacute;as</div><div class="aging-val" id="ag4">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag4Bar" style="width:0%"></div></div><div class="aging-sub">Atraso cr&iacute;tico</div></div>
   </div>
-  <p class="card-note" style="margin-top:-8px;margin-bottom:16px">Corriente = No vencido (Saldo Cartera Vigente). 1-30, 31-60, 61-90, +90 = Vencido por antig&uuml;edad (Saldo Cartera Vencido), igual que Power BI.</p>
-  <p class="card-note" id="agingBreakdown" style="margin-top:-10px;margin-bottom:20px">Cargando desglose de buckets…</p>
+  <p class="cxc-aging-meta" id="agingBreakdown">Cargando...</p>
 
   <!-- TABS -->
   <div class="tabs">
@@ -1368,8 +1446,9 @@ async function loadResumen() {
     }
     const elSaldo = document.getElementById('kSaldo');
     if (elSaldo) {
-      elSaldo.style.color = saldo > 0 ? '#0f172a' : '#64748b';
-      elSaldo.style.fontWeight = saldo > 0 ? '600' : '500';
+      // Let CSS variables handle theme-aware color; just adjust weight/accent
+      elSaldo.style.color = saldo > 0 ? 'var(--suminregio)' : 'var(--txt3)';
+      elSaldo.style.fontWeight = saldo > 0 ? '700' : '400';
     }
     if (salEl) {
       if (saldo <= 0 || typeof pV !== 'number' || isNaN(pV)) {
@@ -1396,7 +1475,7 @@ async function loadResumen() {
     const lineaBi = ventaCargoAbierta > 0.005
       ? (' · Facturaci\u00f3n abierta (suma cargos en docs con saldo, referencia BI "Total Venta"): ' + fmtK(ventaCargoAbierta))
       : '';
-    setText('agingBreakdown', 'Aging (ajustado al saldo KPI): Corriente '+fmtK(ageUi.CORRIENTE)+' · Mora (1-30 … +90) '+fmtK(vencFromAgingUi)+' · Suma buckets '+fmtK(sumAgingUi)+'. KPI: Vencido '+fmtK(venc)+' · No vencido '+fmtK(pvenc)+' · Deuda total '+fmtK(saldo)+'.'+lineaBi);
+    setText('agingBreakdown', 'Deuda total '+fmtK(saldo)+' · Vencido '+fmtK(venc)+' · Vigente '+fmtK(pvenc)+(lineaBi ? lineaBi : ''));
     var hintEl = document.getElementById('cxcKpiTotalHint');
     if (hintEl) {
       hintEl.textContent = 'Saldo neto documento (KPI): ' + fmtK(res.CXC_TOTAL_DOC || res.SALDO_TOTAL) + ' · referencia cliente neto ' + fmtK(res.CXC_TOTAL_ALT_NETO) + ' · referencia con IVA ' + fmtK(res.CXC_TOTAL_ALT_IVA);
@@ -1878,6 +1957,21 @@ async function refreshCxcDbHint(){
 
 (async function init(){
   try { var _fbRm = document.getElementById('filter-bar'); if (_fbRm) _fbRm.remove(); } catch (_) {}
+
+  // Info toggle drawer
+  (function(){
+    var btn = document.getElementById('cxcInfoToggle');
+    var drawer = document.getElementById('cxcInfoDrawer');
+    if (!btn || !drawer) return;
+    btn.addEventListener('click', function(){
+      var open = drawer.classList.toggle('open');
+      btn.classList.toggle('active', open);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    btn.setAttribute('aria-expanded', 'false');
+    btn.setAttribute('aria-controls', 'cxcInfoDrawer');
+  })();
+
   try { initCharts(); } catch (e) { console.warn('[cxc] initCharts', e && e.message ? e.message : e); }
   void checkStatus().catch(()=>{});
   // Sin barra de periodo (filters.js): la cartera es snapshot; mes/año/chips no aplican a las APIs CxC.
