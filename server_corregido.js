@@ -3075,7 +3075,10 @@ get('/api/ventas/vs-cotizaciones', async (req) => {
   const tipoVentas = getTipo(req);
   const run = async (dbo) => {
     const cotiOpts = await cotizacionSqlOpts(dbo);
-    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts);
+    // innerBounds empuja el filtro de fecha DENTRO del subquery para que Firebird use el índice IE1
+    // (FECHA, TIPO_DOCTO, FOLIO). Sin esto el subquery escanea toda la tabla → timeout → []
+    const innerBounds = { desde: desdeStr, hasta: null };
+    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts, innerBounds);
     const [ventasMes, cotizMes] = await Promise.all([
       query(`
       SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
