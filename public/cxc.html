@@ -316,15 +316,6 @@ main{padding-top:24px;padding-bottom:48px;max-width:1520px;margin:0 auto;
             display:flex;align-items:center;gap:8px;color:var(--suminregio)}
 .card-note{font-size:11px;color:var(--txt3);margin:-8px 0 12px 0}
 .badge{font-size:10px;background:var(--s3);padding:2px 8px;border-radius:10px;color:var(--txt3);font-family:var(--mono)}
-/* ── DSO strip ── */
-.dso-strip{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px}
-.dso-card{background:var(--s1);border:1px solid var(--brd);border-radius:12px;padding:14px 18px;flex:1;min-width:160px;cursor:default;transition:all .25s}
-.dso-card:hover{border-color:rgba(230,168,0,.3);transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,0,0,.22)}
-.dso-label{font-family:var(--mono);font-size:10px;color:var(--txt3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
-.dso-val{font-family:var(--mono);font-size:1.75rem;font-weight:600;color:var(--txt);line-height:1;letter-spacing:-.02em}
-.dso-sub{font-size:10.5px;color:var(--txt3);margin-top:4px;margin-bottom:8px}
-.dso-bar-wrap{height:3px;background:var(--s3);border-radius:99px;overflow:hidden}
-.dso-bar{height:100%;border-radius:99px;background:var(--accent);transition:width 1s cubic-bezier(.4,0,.2,1)}
 
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
 .grid-32{display:grid;grid-template-columns:2fr 1fr;gap:20px;margin-bottom:20px}
@@ -550,6 +541,65 @@ body.ms-page-cxc .cond-row{
   body.ms-page-cxc main::after{display:none}
 }
 
+/* ─── Hint / debug paragraphs: fuera del flujo principal ─────────────── */
+.cxc-no-period-hint { display:none !important; }
+/* Solo ocultar si están FUERA del drawer; dentro del drawer sí se muestran */
+main > p.cxc-total-hint,
+main > p#cxcKpiTotalHint,
+main > p#cxcBiExplain,
+main > p#cxcRvOpenExplain { display:none !important; }
+/* aging breakdown: ahora es .cxc-aging-meta, no ocultarlo */
+
+/* ─── Info drawer (metodología, visible sólo al expandir) ─────────────── */
+.cxc-info-drawer {
+  background:var(--s1);border:1px solid var(--brd);border-radius:10px;
+  padding:14px 18px;margin-bottom:20px;
+  font-size:11px;color:var(--txt3);line-height:1.65;
+  display:none;
+}
+.cxc-info-drawer.open { display:block; }
+.cxc-info-drawer p { margin:0 0 6px; }
+.cxc-info-drawer p:last-child { margin:0; }
+.cxc-info-drawer strong { color:var(--txt2); }
+.cxc-info-drawer code {
+  background:var(--s3);border-radius:4px;padding:1px 5px;
+  font-family:var(--mono);font-size:10px;
+}
+
+/* ─── Info toggle button ──────────────────────────────────────────────── */
+.cxc-info-toggle {
+  display:inline-flex;align-items:center;gap:5px;
+  background:transparent;border:1px solid var(--brd);border-radius:7px;
+  color:var(--txt3);font-family:var(--font);font-size:11px;font-weight:600;
+  padding:5px 12px;cursor:pointer;transition:all .2s;margin-left:auto;
+  letter-spacing:.03em;
+}
+.cxc-info-toggle:hover { border-color:rgba(230,168,0,.35);color:var(--txt2); }
+.cxc-info-toggle.active { border-color:rgba(230,168,0,.4);color:var(--suminregio); }
+.cxc-info-toggle svg {
+  width:13px;height:13px;flex-shrink:0;
+  fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;
+}
+
+/* ─── KPI journey: header más limpio ─────────────────────────────────── */
+.cxc-kpi-journey-head {
+  margin-bottom:18px;
+  padding-bottom:14px;
+  border-bottom:1px solid var(--brd);
+}
+.cxc-kpi-storytitle {
+  font-size:clamp(.95rem,1.8vw,1.2rem);
+  letter-spacing:-.01em;
+}
+
+/* ─── Aging breakdown label sutil bajo buckets ────────────────────────── */
+.cxc-aging-meta {
+  font-family:var(--mono);font-size:10px;color:var(--txt3);
+  margin:-6px 0 18px;padding:8px 14px;
+  background:var(--s1);border:1px solid var(--brd);border-radius:8px;
+  line-height:1.5;
+}
+
 /* Tema claro (nav + app-ui): buckets aging legibles — &aacute;mbar/coral oscuro, sin amarillo p&aacute;lido sobre blanco */
 html.theme-premium-light[data-theme="light"] body.ms-page-cxc .aging-bkt.c0 .aging-val,
 html.theme-premium-light[data-theme="light"] body.ms-page-cxc .c0 .aging-val{color:#166534!important}
@@ -679,11 +729,30 @@ html[data-theme="light"] [style*="color:var(--ylw)"],
 html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
 /* Barra global de periodo (Hoy/Mes/Año) no aplica a CxC; ocultar si caché antigua la inyecta */
 body.ms-page-cxc #filter-bar{display:none!important;height:0!important;margin:0!important;padding:0!important;overflow:hidden!important;border:0!important}
+
+/* Light theme: info toggle + drawer + aging meta */
+html[data-theme="light"] .cxc-info-toggle,html.theme-premium-light .cxc-info-toggle{
+  border-color:rgba(15,23,42,.12)!important;color:#475569!important;
+}
+html[data-theme="light"] .cxc-info-toggle:hover,html.theme-premium-light .cxc-info-toggle:hover{
+  border-color:#B45309!important;color:#B45309!important;
+}
+html[data-theme="light"] .cxc-info-toggle.active,html.theme-premium-light .cxc-info-toggle.active{
+  border-color:#B45309!important;color:#B45309!important;
+}
+html[data-theme="light"] .cxc-info-drawer,html.theme-premium-light .cxc-info-drawer{
+  background:#fff!important;border-color:rgba(15,23,42,.07)!important;color:#475569!important;
+}
+html[data-theme="light"] .cxc-info-drawer strong,html.theme-premium-light .cxc-info-drawer strong{
+  color:#1E293B!important;
+}
+html[data-theme="light"] .cxc-aging-meta,html.theme-premium-light .cxc-aging-meta{
+  background:#F1F5F9!important;border-color:rgba(15,23,42,.07)!important;color:#475569!important;
+}
 </style>
-<link rel="stylesheet" href="app-ui.css">
-<link rel="stylesheet" href="app-responsive.css">
-<script src="app-ui-boot.js" defer></script>
-<link rel="stylesheet" href="design-upgrade.css">
+<link rel="stylesheet" href="public/app-ui.css">
+<link rel="stylesheet" href="public/app-responsive.css">
+<script src="public/app-ui-boot.js" defer></script>
 </head>
 <body class="ms-page-cxc">
 <div class="orb orb-1"></div>
@@ -704,9 +773,6 @@ body.ms-page-cxc #filter-bar{display:none!important;height:0!important;margin:0!
     </div>
     <div class="cxc-hero-meta" id="cxcDbHint" title="Negocio activo">Cargando contexto&hellip;</div>
   </div>
-  <p class="cxc-no-period-hint" style="font-size:12px;color:var(--txt3);margin:0 auto 1rem;max-width:1900px;padding:0 1.5rem;line-height:1.45">
-    <strong>Cartera al corte:</strong> el saldo de CxC no usa periodo de ventas (mes/año/chips). Solo aplica el filtro de <em>cliente</em> abajo. Criterio fijo: <strong>saldo neto por documento</strong> (cargo − cobro en base ex-IVA), cartera a crédito (sin contado).
-  </p>
   <div class="client-filter-bar">
     <div class="filter-group">
       <span class="filter-label">CLIENTE</span>
@@ -715,16 +781,19 @@ body.ms-page-cxc #filter-bar{display:none!important;height:0!important;margin:0!
       </select>
     </div>
     <button class="btn" onclick="loadAll()">Aplicar</button>
-    <span style="font-size:11px;color:var(--txt3);font-family:var(--mono);margin-left:auto" title="Saldo neto por documento (Microsip IMPORTES_DOCTOS_CC), alineado al modelo DAX de referencia.">
-      Deuda total = cargos − cobros (neto documento, solo cr&eacute;dito).
-    </span>
+    <button class="cxc-info-toggle" id="cxcInfoToggle" type="button" title="Ver metodolog&iacute;a y notas de conciliaci&oacute;n">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      Metodolog&iacute;a
+    </button>
   </div>
-  <p id="cxcKpiTotalHint" class="cxc-total-hint" style="font-size:11px;color:var(--txt3);margin:4px 0 0;font-family:var(--mono);" aria-live="polite"></p>
-  <p class="cxc-no-period-hint" style="font-size:11px;color:var(--txt3);margin:0 auto 0.75rem;max-width:1900px;padding:0 1.5rem;line-height:1.4">
-    <strong>Buscar un folio:</strong> usa la pestaña <em>Deudas vigentes</em> (al corriente) o <em>Facturas vencidas</em> (mora); o <em>Deudas Totales</em> para ambos. Si un folio est&aacute; en Power BI y no aqu&iacute;, suele ser <em>condici&oacute;n contado/efectivo</em> (excluida en este panel), saldo liquidado en Microsip, o cobros sin <code>APLICADO</code> seg&uacute;n configuraci&oacute;n del servidor.
-  </p>
-  <p id="cxcBiExplain" class="cxc-total-hint" style="font-size:11px;color:var(--txt3);margin:2px 0 0;font-family:var(--mono);" aria-live="polite"></p>
-  <p id="cxcRvOpenExplain" class="cxc-total-hint" style="font-size:11px;color:var(--txt3);margin:4px 0 0;font-family:var(--mono);line-height:1.45" aria-live="polite"></p>
+  <!-- Drawer colapsable: información técnica y notas de conciliación -->
+  <div class="cxc-info-drawer" id="cxcInfoDrawer">
+    <p><strong>Cartera al corte:</strong> el saldo de CxC no usa periodo de ventas. Criterio fijo: <strong>saldo neto por documento</strong> (cargo &minus; cobro en base ex-IVA), cartera a crédito (sin contado).</p>
+    <p><strong>Buscar un folio:</strong> usa las pestañas <em>Facturas Vencidas</em>, <em>Deudas Vigentes</em> o <em>Deudas Totales</em>. Si un folio está en Power BI y no aquí, suele ser condición contado/efectivo (excluida), saldo liquidado, o cobros sin <code>APLICADO</code>.</p>
+    <p id="cxcKpiTotalHint" aria-live="polite"></p>
+    <p id="cxcBiExplain" aria-live="polite"></p>
+    <p id="cxcRvOpenExplain" aria-live="polite"></p>
+  </div>
 
   <!-- KPIs: narrativa + datos (alineado Power BI: saldo, vencido, por vencer) -->
   <section class="cxc-kpi-journey ms-reveal" aria-labelledby="cxcKpiStoryTitle">
@@ -789,30 +858,7 @@ body.ms-page-cxc #filter-bar{display:none!important;height:0!important;margin:0!
     <div class="aging-bkt c3"><div class="aging-lbl">61&#8211;90 d&iacute;as</div><div class="aging-val" id="ag3">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag3Bar" style="width:0%"></div></div><div class="aging-sub">Atraso alto</div></div>
     <div class="aging-bkt c4"><div class="aging-lbl">+90 d&iacute;as</div><div class="aging-val" id="ag4">$&mdash;</div><div class="bar-wrap"><div class="bar-fill" id="ag4Bar" style="width:0%"></div></div><div class="aging-sub">Atraso cr&iacute;tico</div></div>
   </div>
-  <p class="card-note" style="margin-top:-8px;margin-bottom:16px">Corriente = No vencido (Saldo Cartera Vigente). 1-30, 31-60, 61-90, +90 = Vencido por antig&uuml;edad (Saldo Cartera Vencido), igual que Power BI.</p>
-  <p class="card-note" id="agingBreakdown" style="margin-top:-10px;margin-bottom:8px">Cargando desglose de buckets…</p>
-
-  <!-- DSO + Effectiveness KPI strip -->
-  <div class="dso-strip ms-reveal" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">
-    <div class="dso-card" id="dso-card" title="Days Sales Outstanding: (Saldo CxC / Venta mensual) × 30">
-      <div class="dso-label">DSO estimado</div>
-      <div class="dso-val" id="kDso">&mdash;</div>
-      <div class="dso-sub" id="kDsoSub">Días de cartera pendiente</div>
-      <div class="dso-bar-wrap"><div class="dso-bar" id="kDsoBar" style="width:0%"></div></div>
-    </div>
-    <div class="dso-card" id="coll-eff-card" title="Concentración crítica: % de cartera vencida +60 días">
-      <div class="dso-label">Cartera crítica (+60d)</div>
-      <div class="dso-val" id="kCritPct">&mdash;</div>
-      <div class="dso-sub" id="kCritSub">% del saldo total</div>
-      <div class="dso-bar-wrap"><div class="dso-bar" id="kCritBar" style="width:0%;background:var(--rojo)"></div></div>
-    </div>
-    <div class="dso-card" id="conc-card" title="Índice de concentración: % del saldo que representan los top 5 deudores">
-      <div class="dso-label">Concentración Top 5</div>
-      <div class="dso-val" id="kConc">&mdash;</div>
-      <div class="dso-sub">% del saldo en top 5</div>
-      <div class="dso-bar-wrap"><div class="dso-bar" id="kConcBar" style="width:0%;background:var(--ylw)"></div></div>
-    </div>
-  </div>
+  <p class="cxc-aging-meta" id="agingBreakdown">Cargando...</p>
 
   <!-- TABS -->
   <div class="tabs">
@@ -832,7 +878,7 @@ body.ms-page-cxc #filter-bar{display:none!important;height:0!important;margin:0!
         <p class="card-note">Estatus por d&iacute;as como Power BI para documentos de cr&eacute;dito. Saldo = neto por documento (cargo &minus; cobro). <strong>No aparecen facturas ya liquidadas</strong> (saldo pendiente 0).</p>
         <p class="card-note" id="vencListHint" style="display:none;font-size:12px;color:var(--ylw)"></p>
         <div class="tbl-wrap">
-          <table class="table--analytic">
+          <table>
             <thead><tr><th>Folio</th><th>Cliente</th><th>Condici&oacute;n</th><th>Estatus</th><th>Saldo</th><th>F. Venta</th><th>Venc. (plazo)</th><th>Atraso</th><th>Sin pagar</th><th>F. Venc. (sist.)</th></tr></thead>
             <tbody id="tbVenc"><tr><td colspan="10"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr></tbody>
           </table>
@@ -852,7 +898,7 @@ body.ms-page-cxc #filter-bar{display:none!important;height:0!important;margin:0!
       <p class="card-note">Documentos de cr&eacute;dito <strong>sin atraso</strong> (corriente / por vencer), con saldo pendiente &gt; 0. Misma f&oacute;rmula de saldo que Facturas vencidas (cargo &minus; cobro aplicado). Alineado al KPI <em>Corriente / No vencido</em>.</p>
       <p class="card-note" id="vigListHint" style="display:none;font-size:12px;color:var(--ylw)"></p>
       <div class="tbl-wrap">
-        <table class="table--analytic">
+        <table>
           <thead><tr><th>Folio</th><th>Cliente</th><th>Condici&oacute;n</th><th>Estatus</th><th>Saldo</th><th>F. Venta</th><th>Venc. (plazo)</th><th>Atraso</th><th>Al plazo</th><th>F. Venc. (sist.)</th></tr></thead>
           <tbody id="tbVig"><tr><td colspan="10"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr></tbody>
         </table>
@@ -867,7 +913,7 @@ body.ms-page-cxc #filter-bar{display:none!important;height:0!important;margin:0!
       <p class="card-note">Documentos de cr&eacute;dito con saldo pendiente &gt; 0: <strong>vencidas</strong> (mora) y <strong>vigentes</strong> (corriente / por vencer), misma f&oacute;rmula de saldo que las pesta&ntilde;as anteriores. Orden por saldo descendente.</p>
       <p class="card-note" id="totListHint" style="display:none;font-size:12px;color:var(--ylw)"></p>
       <div class="tbl-wrap">
-        <table class="table--analytic">
+        <table>
           <thead><tr><th>Tipo</th><th>Folio</th><th>Cliente</th><th>Condici&oacute;n</th><th>Estatus</th><th>Saldo</th><th>F. Venta</th><th>Venc. (plazo)</th><th>Atraso</th><th>Al plazo / Sin pagar</th><th>F. Venc. (sist.)</th></tr></thead>
           <tbody id="tbTot"><tr><td colspan="11"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr></tbody>
         </table>
@@ -880,7 +926,7 @@ body.ms-page-cxc #filter-bar{display:none!important;height:0!important;margin:0!
     <div class="card">
       <div class="card-title">Top Deudores <span class="badge" title="Deuda total = Cargo − Cobro (Saldo_Documento)">Saldo neto real</span></div>
       <div class="tbl-wrap">
-        <table class="table--analytic">
+        <table>
           <thead><tr><th>#</th><th>Cliente</th><th>Condici&oacute;n</th><th>Saldo Total</th><th>Vencido</th><th>M&aacute;x. Atraso</th><th>Docs</th></tr></thead>
           <tbody id="tbTop"><tr><td colspan="7"><div class="loading"><div class="spin"></div>Cargando...</div></td></tr></tbody>
         </table>
@@ -953,7 +999,7 @@ const fmtSaldoDoc = v => {
   return '$' + n.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 };
 const fmtM = v => '$'+(+v||0).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
-const setText = (id,v) => { const e=document.getElementById(id); if(e){ e.textContent=v; if(e.classList.contains('kpi-val')||e.classList.contains('kpi-value')) e.setAttribute('data-val',v); } };
+const setText = (id,v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
 
 function staggerKpiStoryCards(){
   const cards = document.querySelectorAll('.kpi-grid--story .kpi-story');
@@ -1263,8 +1309,8 @@ async function loadResumen() {
   try {
     // Resumen-aging + diagnóstico VE/PV sin DOCTOS_CC (remisiones/pedidos aún no en cartera).
     const _cxcPair = await Promise.all([
-      apiFetch('/api/cxc/resumen-aging' + buildCxcQuery('queryMs=180000'), { timeout: 90000 }),
-      apiFetch('/api/debug/cxc-ve-pv-gap' + buildCxcQuery('queryMs=90000'), { timeout: 60000 }).catch(function () { return null; }),
+      apiFetch('/api/cxc/resumen-aging' + buildCxcQuery('queryMs=180000'), { timeout: 195000 }),
+      apiFetch('/api/debug/cxc-ve-pv-gap' + buildCxcQuery('queryMs=90000'), { timeout: 95000 }).catch(function () { return null; }),
     ]);
     let snap = _cxcPair[0];
     const gapRv = _cxcPair[1];
@@ -1279,7 +1325,7 @@ async function loadResumen() {
     // Defensa Render: si llega degradado (aging=0 pero saldo>0), reintentar sin caché para recuperar buckets/vencido.
     if (saldo0 > 1000 && mora0 <= 0.005 && (+res0.VENCIDO || 0) <= 0.005) {
       try {
-        const snap2 = await apiFetch('/api/cxc/resumen-aging' + buildCxcQuery('queryMs=180000&nocache=1'), { timeout: 90000 });
+        const snap2 = await apiFetch('/api/cxc/resumen-aging' + buildCxcQuery('queryMs=180000&nocache=1'), { timeout: 195000 });
         const r2 = (snap2 && snap2.resumen) || {};
         const a2raw = (snap2 && snap2.aging) || {};
         const a2 = typeof window.normalizeCxcAging === 'function'
@@ -1400,8 +1446,9 @@ async function loadResumen() {
     }
     const elSaldo = document.getElementById('kSaldo');
     if (elSaldo) {
-      elSaldo.style.color = saldo > 0 ? '#0f172a' : '#64748b';
-      elSaldo.style.fontWeight = saldo > 0 ? '600' : '500';
+      // Let CSS variables handle theme-aware color; just adjust weight/accent
+      elSaldo.style.color = saldo > 0 ? 'var(--suminregio)' : 'var(--txt3)';
+      elSaldo.style.fontWeight = saldo > 0 ? '700' : '400';
     }
     if (salEl) {
       if (saldo <= 0 || typeof pV !== 'number' || isNaN(pV)) {
@@ -1428,69 +1475,13 @@ async function loadResumen() {
     const lineaBi = ventaCargoAbierta > 0.005
       ? (' · Facturaci\u00f3n abierta (suma cargos en docs con saldo, referencia BI "Total Venta"): ' + fmtK(ventaCargoAbierta))
       : '';
-    setText('agingBreakdown', 'Aging (ajustado al saldo KPI): Corriente '+fmtK(ageUi.CORRIENTE)+' · Mora (1-30 … +90) '+fmtK(vencFromAgingUi)+' · Suma buckets '+fmtK(sumAgingUi)+'. KPI: Vencido '+fmtK(venc)+' · No vencido '+fmtK(pvenc)+' · Deuda total '+fmtK(saldo)+'.'+lineaBi);
+    setText('agingBreakdown', 'Deuda total '+fmtK(saldo)+' · Vencido '+fmtK(venc)+' · Vigente '+fmtK(pvenc)+(lineaBi ? lineaBi : ''));
     var hintEl = document.getElementById('cxcKpiTotalHint');
     if (hintEl) {
       hintEl.textContent = 'Saldo neto documento (KPI): ' + fmtK(res.CXC_TOTAL_DOC || res.SALDO_TOTAL) + ' · referencia cliente neto ' + fmtK(res.CXC_TOTAL_ALT_NETO) + ' · referencia con IVA ' + fmtK(res.CXC_TOTAL_ALT_IVA);
     }
     const agCorriente = document.getElementById('agC');
     if (agCorriente) agCorriente.style.color = '';
-
-    // ── DSO + analytics strip ─────────────────────────────────────────────
-    (function renderDsoStrip() {
-      // DSO: fetch ventas/resumen para saber venta mensual del periodo
-      apiFetch('/api/ventas/resumen', { timeout: 25000 }).then(function(vRes) {
-        try {
-          const ventaMes = +(vRes.MES_ACTUAL || vRes.TOTAL_MES || vRes.VENTA_MES || 0);
-          if (saldo > 0 && ventaMes > 0) {
-            const dso = Math.round((saldo / ventaMes) * 30);
-            const dsoEl = document.getElementById('kDso');
-            const dsoSub = document.getElementById('kDsoSub');
-            const dsoBar = document.getElementById('kDsoBar');
-            if (dsoEl) dsoEl.textContent = dso + 'd';
-            if (dsoSub) dsoSub.textContent = 'Benchmark: < 30 días · ref. venta ' + fmtK(ventaMes);
-            if (dsoBar) {
-              const pct = Math.min(100, (dso / 90) * 100);
-              dsoBar.style.width = pct + '%';
-              dsoBar.style.background = dso <= 30 ? 'var(--grn)' : dso <= 60 ? 'var(--ylw)' : 'var(--red)';
-            }
-            const dsoCard = document.getElementById('dso-card');
-            if (dsoCard) {
-              dsoCard.title = 'DSO = (Saldo CxC ' + fmtK(saldo) + ' / Venta mes ' + fmtK(ventaMes) + ') × 30';
-            }
-          }
-        } catch(_) {}
-      }).catch(function(){});
-
-      // Cartera crítica (+60 días)
-      const crit60 = (ageUi.DIAS_61_90 || 0) + (ageUi.DIAS_MAS_90 || 0);
-      const critPct = saldo > 0 ? ((crit60 / saldo) * 100).toFixed(1) : null;
-      const critEl = document.getElementById('kCritPct');
-      const critSub = document.getElementById('kCritSub');
-      const critBar = document.getElementById('kCritBar');
-      if (critEl) critEl.textContent = critPct != null ? critPct + '%' : '—';
-      if (critSub) critSub.textContent = fmtK(crit60) + ' en mora crítica (+60d)';
-      if (critBar && saldo > 0) {
-        critBar.style.width = Math.min(100, (+critPct || 0)) + '%';
-      }
-
-      // Concentración Top 5 — calculada desde los top deudores cacheados
-      apiFetch('/api/cxc/top-deudores' + buildCxcQuery('limit=5'), { timeout: 30000 }).then(function(rows) {
-        try {
-          const top5 = (Array.isArray(rows) ? rows : []).slice(0, 5);
-          const sumTop5 = top5.reduce((a, r) => a + (+r.SALDO_TOTAL || 0), 0);
-          const concPct = saldo > 0 ? ((sumTop5 / saldo) * 100).toFixed(1) : null;
-          const concEl = document.getElementById('kConc');
-          const concBar = document.getElementById('kConcBar');
-          if (concEl) concEl.textContent = concPct != null ? concPct + '%' : '—';
-          if (concBar && saldo > 0) {
-            concBar.style.width = Math.min(100, (+concPct || 0)) + '%';
-            concBar.style.background = (+concPct || 0) > 60 ? 'var(--red)' : (+concPct || 0) > 40 ? 'var(--ylw)' : 'var(--grn)';
-          }
-        } catch(_) {}
-      }).catch(function(){});
-    })();
-
     if(chartAging){
       chartAging.data.datasets[0].data=[ageUi.CORRIENTE||0,ageUi.DIAS_1_30||0,ageUi.DIAS_31_60||0,ageUi.DIAS_61_90||0,ageUi.DIAS_MAS_90||0];
       chartAging.update();
@@ -1535,12 +1526,12 @@ async function loadVencidas() {
   try {
     const queryBase = buildCxcQuery('limit=' + CXC_DOC_LIST_LIMIT + '&queryMs=180000');
 
-    const raw = await apiFetch('/api/cxc/vencidas' + queryBase, { timeout: 90000 });
+    const raw = await apiFetch('/api/cxc/vencidas' + queryBase, { timeout: 195000 });
     let rows = asArrayCxC(raw)
       .filter(r => (+r.DIAS_ATRASO || 0) > 0)
       .sort((a,b)=>cxcRowSaldo(b)-cxcRowSaldo(a));
     if(!rows.length && (document.getElementById('fCliente')?.value||'').trim()){
-      const rawNoCli = await apiFetch('/api/cxc/vencidas?limit=' + CXC_DOC_LIST_LIMIT + '&queryMs=180000', { timeout: 90000 });
+      const rawNoCli = await apiFetch('/api/cxc/vencidas?limit=' + CXC_DOC_LIST_LIMIT + '&queryMs=180000', { timeout: 195000 });
       rows = asArrayCxC(rawNoCli)
         .filter(r => (+r.DIAS_ATRASO || 0) > 0)
         .sort((a,b)=>cxcRowSaldo(b)-cxcRowSaldo(a));
@@ -1587,12 +1578,12 @@ async function loadVigentes() {
   if (!tb) return;
   try {
     const queryBase = buildCxcQuery('limit=' + CXC_DOC_LIST_LIMIT + '&queryMs=180000');
-    const raw = await apiFetch('/api/cxc/vigentes' + queryBase, { timeout: 90000 });
+    const raw = await apiFetch('/api/cxc/vigentes' + queryBase, { timeout: 195000 });
     let rows = asArrayCxC(raw)
       .filter(r => (+r.DIAS_ATRASO || 0) <= 0)
       .sort((a,b)=>cxcRowSaldo(b)-cxcRowSaldo(a));
     if(!rows.length && (document.getElementById('fCliente')?.value||'').trim()){
-      const rawNoCli = await apiFetch('/api/cxc/vigentes?limit=' + CXC_DOC_LIST_LIMIT + '&queryMs=180000', { timeout: 90000 });
+      const rawNoCli = await apiFetch('/api/cxc/vigentes?limit=' + CXC_DOC_LIST_LIMIT + '&queryMs=180000', { timeout: 195000 });
       rows = asArrayCxC(rawNoCli)
         .filter(r => (+r.DIAS_ATRASO || 0) <= 0)
         .sort((a,b)=>cxcRowSaldo(b)-cxcRowSaldo(a));
@@ -1635,8 +1626,8 @@ async function loadTotales() {
   try {
     const queryBase = buildCxcQuery('limit=' + CXC_DOC_LIST_LIMIT + '&queryMs=180000');
     const [rawV, rawG] = await Promise.all([
-      apiFetch('/api/cxc/vencidas' + queryBase, { timeout: 90000 }),
-      apiFetch('/api/cxc/vigentes' + queryBase, { timeout: 90000 }),
+      apiFetch('/api/cxc/vencidas' + queryBase, { timeout: 195000 }),
+      apiFetch('/api/cxc/vigentes' + queryBase, { timeout: 195000 }),
     ]);
     function estatusRango(d){
       if(d<=0) return 'No Vencido';
@@ -1648,8 +1639,8 @@ async function loadTotales() {
     let vig = asArrayCxC(rawG).filter(r => (+r.DIAS_ATRASO || 0) <= 0).map(r => ({ r: r, tipo: 'vigente' }));
     if (!ven.length && !vig.length && (document.getElementById('fCliente')?.value||'').trim()) {
       const [rawV2, rawG2] = await Promise.all([
-        apiFetch('/api/cxc/vencidas?limit=' + CXC_DOC_LIST_LIMIT + '&queryMs=180000', { timeout: 90000 }),
-        apiFetch('/api/cxc/vigentes?limit=' + CXC_DOC_LIST_LIMIT + '&queryMs=180000', { timeout: 90000 }),
+        apiFetch('/api/cxc/vencidas?limit=' + CXC_DOC_LIST_LIMIT + '&queryMs=180000', { timeout: 195000 }),
+        apiFetch('/api/cxc/vigentes?limit=' + CXC_DOC_LIST_LIMIT + '&queryMs=180000', { timeout: 195000 }),
       ]);
       ven = asArrayCxC(rawV2).filter(r => (+r.DIAS_ATRASO || 0) > 0).map(r => ({ r: r, tipo: 'vencida' }));
       vig = asArrayCxC(rawG2).filter(r => (+r.DIAS_ATRASO || 0) <= 0).map(r => ({ r: r, tipo: 'vigente' }));
@@ -1825,7 +1816,7 @@ async function loadBuro() {
       if(!byC[cid]) byC[cid]={ nombre:r.CLIENTE, docs:[] };
       byC[cid].docs.push(r);
     }
-    let html='<table class="buro-tbl table--analytic"><thead><tr>'
+    let html='<table class="buro-tbl"><thead><tr>'
       +'<th style="min-width:140px">Cliente</th>'
       +cols.map(c=>'<th style="text-align:center;min-width:52px;font-size:10px">'+c.lbl+'</th>').join('')
       +'<th>Saldo</th><th>Estado</th>'
@@ -1966,6 +1957,21 @@ async function refreshCxcDbHint(){
 
 (async function init(){
   try { var _fbRm = document.getElementById('filter-bar'); if (_fbRm) _fbRm.remove(); } catch (_) {}
+
+  // Info toggle drawer
+  (function(){
+    var btn = document.getElementById('cxcInfoToggle');
+    var drawer = document.getElementById('cxcInfoDrawer');
+    if (!btn || !drawer) return;
+    btn.addEventListener('click', function(){
+      var open = drawer.classList.toggle('open');
+      btn.classList.toggle('active', open);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    btn.setAttribute('aria-expanded', 'false');
+    btn.setAttribute('aria-controls', 'cxcInfoDrawer');
+  })();
+
   try { initCharts(); } catch (e) { console.warn('[cxc] initCharts', e && e.message ? e.message : e); }
   void checkStatus().catch(()=>{});
   // Sin barra de periodo (filters.js): la cartera es snapshot; mes/año/chips no aplican a las APIs CxC.
