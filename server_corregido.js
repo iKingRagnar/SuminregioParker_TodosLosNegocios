@@ -3074,28 +3074,33 @@ get('/api/ventas/vs-cotizaciones', async (req) => {
   const desdeStr = desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-01';
   const tipoVentas = getTipo(req);
   const run = async (dbo) => {
-    const cotiOpts = await cotizacionSqlOpts(dbo);
-    // innerBounds empuja el filtro de fecha DENTRO del subquery para que Firebird use el índice IE1
-    // (FECHA, TIPO_DOCTO, FOLIO). Sin esto el subquery escanea toda la tabla → timeout → []
-    const innerBounds = { desde: desdeStr, hasta: null };
-    const cotiSub = cotizacionesSub(getCotizacionesTipo(req), cotiOpts, innerBounds);
+    // ESTRATEGIA: query DIRECTO a DOCTOS_VE (sin derived table) para cotizaciones.
+    // cotizacionesSub genera un subquery en FROM que Firebird materializa completamente
+    // incluso con innerBounds → timeout WAN. Query directo usa índice IE1 (FECHA, TIPO_DOCTO)
+    // directamente y es ~10x más rápido. Mismo patrón que getCotizacionesByPeriodCursor.
+    const tipos = (parseCotizacionTipos() || []).filter(Boolean);
+    const escTipo = (t) => `'${String(t).replace(/'/g, "''")}'`;
+    const tiposInSql = tipos.length ? tipos.map(escTipo).join(', ') : "'C'";
     const [ventasMes, cotizMes] = await Promise.all([
       query(`
       SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
         CAST(COALESCE(SUM(d.IMPORTE_NETO), 0) AS DOUBLE PRECISION) AS TOTAL_VENTAS, COUNT(*) AS NUM_DOCS
       FROM ${ventasSub(tipoVentas)} d WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
       GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
-    `, [desdeStr], 25000, dbo).catch((err) => {
+    `, [desdeStr], 60000, dbo).catch((err) => {
         console.error('[vs-cotizaciones ventas]', err && (err.message || err));
         return [];
       }),
       query(`
-      SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
-        CAST(COALESCE(SUM(${sqlCotiImporteExpr('d')}), 0) AS DOUBLE PRECISION) AS TOTAL_COTI, COUNT(*) AS NUM_COTI
-      FROM ${cotiSub} d
-      WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
-      GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
-    `, [desdeStr], 25000, dbo).catch((err) => {
+      SELECT EXTRACT(YEAR FROM h.FECHA) AS ANIO, EXTRACT(MONTH FROM h.FECHA) AS MES,
+        CAST(COALESCE(SUM(COALESCE(h.IMPORTE_NETO, 0)), 0) AS DOUBLE PRECISION) AS TOTAL_COTI,
+        COUNT(*) AS NUM_COTI
+      FROM DOCTOS_VE h
+      WHERE h.TIPO_DOCTO IN (${tiposInSql})
+        AND (h.ESTATUS IS NULL OR h.ESTATUS NOT IN ('C', 'D'))
+        AND h.FECHA >= '${desdeStr}'
+      GROUP BY EXTRACT(YEAR FROM h.FECHA), EXTRACT(MONTH FROM h.FECHA) ORDER BY 1, 2
+    `, [], 60000, dbo).catch((err) => {
         console.error('[vs-cotizaciones cotiz]', err && (err.message || err));
         return [];
       }),
