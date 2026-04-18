@@ -11632,6 +11632,116 @@ app.get('/api/debug/cotizaciones-cursor', async (req, res) => {
   }
 });
 
+// ── /api/briefing/diario — Resumen ejecutivo consolidado de todas las BDs ──────
+// H1-5 del Plan Integral AI: resumen de ventas, CXC y cotizaciones por unidad de negocio.
+// GET /api/briefing/diario?dbs=default,suminregio_suministros_medicos,...
+// Si no se pasa ?dbs, usa todas las BDs configuradas excepto las de respaldo.
+app.get('/api/briefing/diario', async (req, res) => {
+  const t0 = Date.now();
+  const now = new Date();
+  const anio = now.getFullYear(), mes = now.getMonth() + 1;
+  const todayStr = now.toISOString().substring(0, 10);
+
+  // BDs activas (excluir respaldos)
+  const SKIP_SUFFIX = ['_ant', '_ant_temp', '_23jun', '_320', 'parkerpaso'];
+  const activeDbs = DATABASE_REGISTRY.filter(e =>
+    !SKIP_SUFFIX.some(s => (e.id || '').includes(s))
+  );
+
+  // Si se especifican BDs en query, filtrar
+  const dbsParam = req.query.dbs ? req.query.dbs.split(',').map(s => s.trim()) : null;
+  const targetDbs = dbsParam
+    ? activeDbs.filter(e => dbsParam.includes(e.id))
+    : activeDbs;
+
+  const results = await Promise.allSettled(
+    targetDbs.map(async (entry) => {
+      const dbo = entry.options;
+      const label = entry.label || entry.id;
+      const t1 = Date.now();
+      try {
+        // Ventas del día y mes
+        const [venRow] = await query(`
+          SELECT
+            COALESCE(SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END), 0) AS VENTAS_HOY,
+            COALESCE(SUM(d.IMPORTE_NETO), 0) AS VENTAS_MES,
+            COUNT(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 END) AS DOCS_HOY,
+            COUNT(*) AS DOCS_MES
+          FROM DOCTOS_VE d
+          WHERE d.TIPO_DOCTO = 'F' AND d.APLICADO = 'S'
+            AND EXTRACT(YEAR FROM d.FECHA) = ${anio}
+            AND EXTRACT(MONTH FROM d.FECHA) = ${mes}
+        `, [], 30000, dbo).catch(() => [{}]);
+
+        // CXC resumen
+        const [cxcRow] = await query(`
+          SELECT
+            COALESCE(SUM(dc.SALDO_NETO), 0) AS CARTERA_TOTAL,
+            COALESCE(SUM(CASE WHEN dc.DIAS_VENCIDO > 0 THEN dc.SALDO_NETO ELSE 0 END), 0) AS VENCIDO,
+            COUNT(DISTINCT CASE WHEN dc.DIAS_VENCIDO > 0 THEN dc.CLIENTE_ID END) AS CLIENTES_VENCIDOS
+          FROM DOCTOS_CC dc
+          WHERE dc.SALDO_NETO > 0 AND dc.TIPO_DOCTO IN ('F','C','D')
+        `, [], 30000, dbo).catch(() => [{}]);
+
+        return {
+          db: entry.id,
+          label,
+          ms: Date.now() - t1,
+          ventas_hoy: +(venRow && venRow.VENTAS_HOY || 0),
+          ventas_mes: +(venRow && venRow.VENTAS_MES || 0),
+          docs_hoy:   +(venRow && venRow.DOCS_HOY || 0),
+          docs_mes:   +(venRow && venRow.DOCS_MES || 0),
+          cartera:    +(cxcRow && cxcRow.CARTERA_TOTAL || 0),
+          vencido:    +(cxcRow && cxcRow.VENCIDO || 0),
+          clientes_vencidos: +(cxcRow && cxcRow.CLIENTES_VENCIDOS || 0),
+          ok: true,
+        };
+      } catch (e) {
+        return { db: entry.id, label, ms: Date.now() - t1, ok: false, error: e.message };
+      }
+    })
+  );
+
+  const data = results.map(r => r.status === 'fulfilled' ? r.value : { ok: false, error: r.reason?.message });
+  const ok = data.filter(d => d.ok);
+
+  // Totales consolidados
+  const totales = {
+    ventas_hoy:   ok.reduce((s, d) => s + d.ventas_hoy, 0),
+    ventas_mes:   ok.reduce((s, d) => s + d.ventas_mes, 0),
+    docs_hoy:     ok.reduce((s, d) => s + d.docs_hoy, 0),
+    docs_mes:     ok.reduce((s, d) => s + d.docs_mes, 0),
+    cartera:      ok.reduce((s, d) => s + d.cartera, 0),
+    vencido:      ok.reduce((s, d) => s + d.vencido, 0),
+    clientes_vencidos: ok.reduce((s, d) => s + d.clientes_vencidos, 0),
+  };
+
+  // Resumen texto para WhatsApp/correo
+  const fmtM = n => n >= 1e6 ? `$${(n/1e6).toFixed(2)}M` : n >= 1e3 ? `$${(n/1e3).toFixed(1)}K` : `$${n.toFixed(0)}`;
+  const lines = [
+    `📊 *Briefing Diario Suminregio* — ${todayStr}`,
+    ``,
+    `*VENTAS HOY:* ${fmtM(totales.ventas_hoy)} (${totales.docs_hoy} docs)`,
+    `*VENTAS MES:* ${fmtM(totales.ventas_mes)} (${totales.docs_mes} docs)`,
+    `*CARTERA CXC:* ${fmtM(totales.cartera)} | *VENCIDO:* ${fmtM(totales.vencido)}`,
+    `*CLIENTES EN MORA:* ${totales.clientes_vencidos}`,
+    ``,
+    `*Por unidad:*`,
+    ...ok.map(d => `• ${d.label}: ${fmtM(d.ventas_mes)} vtas mes | ${fmtM(d.vencido)} vencido`),
+    ``,
+    `_Generado: ${new Date().toLocaleString('es-MX')} · ${Date.now()-t0}ms_`,
+  ];
+
+  res.json({
+    ok: true,
+    fecha: todayStr,
+    total_ms: Date.now() - t0,
+    totales,
+    unidades: data,
+    resumen_texto: lines.join('\n'),
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`Suminregio API escuchando en http://localhost:${PORT} · build=${BUILD_FINGERPRINT}`);
 });
