@@ -3142,20 +3142,34 @@ get('/api/ventas/vs-cotizaciones', async (req) => {
   const desdeStr = desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-01';
   const tipoVentas = getTipo(req);
   const run = async (dbo) => {
-    // Cotizaciones: batch cursor por PK (getCotizMensualesBatch) — evita timeout WAN.
-    // Ventas: query SQL normal, funciona porque ventasSub ya está optimizado.
+    // Misma lógica que ventas. Cotizaciones = DOCTOS_VE con TIPO_DOCTO='C'.
+    // CRÍTICO: fecha sin CAST para que Firebird use el índice IE1 (FECHA, TIPO_DOCTO).
+    // CAST(d.FECHA AS DATE) en el WHERE bloquea el índice → full scan → timeout WAN.
+    const imp = sqlVentaImporteBaseExpr('d');
     const [ventasMes, cotizMes] = await Promise.all([
       query(`
-      SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
-        CAST(COALESCE(SUM(d.IMPORTE_NETO), 0) AS DOUBLE PRECISION) AS TOTAL_VENTAS, COUNT(*) AS NUM_DOCS
-      FROM ${ventasSub(tipoVentas)} d WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
-      GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
-    `, [desdeStr], 60000, dbo).catch((err) => {
+        SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
+          CAST(COALESCE(SUM(d.IMPORTE_NETO), 0) AS DOUBLE PRECISION) AS TOTAL_VENTAS, COUNT(*) AS NUM_DOCS
+        FROM ${ventasSub(tipoVentas)} d
+        WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
+        GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
+      `, [desdeStr], 60000, dbo).catch((err) => {
         console.error('[vs-cotizaciones ventas]', err && (err.message || err));
         return [];
       }),
-      getCotizMensualesBatch(dbo, desdeStr, 55000).catch((err) => {
-        console.error('[vs-cotizaciones cotiz batch]', err && (err.message || err));
+      query(`
+        SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
+          CAST(COALESCE(SUM(${imp}), 0) AS DOUBLE PRECISION) AS TOTAL_COTI, COUNT(*) AS NUM_COTI
+        FROM (
+          SELECT d.FECHA, ${imp} AS IMPORTE_NETO
+          FROM DOCTOS_VE d
+          WHERE d.TIPO_DOCTO = 'C'
+            AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
+            AND d.FECHA >= '${desdeStr}'
+        ) d
+        GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
+      `, [], 90000, dbo).catch((err) => {
+        console.error('[vs-cotizaciones cotiz]', err && (err.message || err));
         return [];
       }),
     ]);
