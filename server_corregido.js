@@ -1905,6 +1905,74 @@ function normalizeCotizacionResumenRow(row) {
  *
  * @returns {{ HOY, MES_ACTUAL, COTIZACIONES_MES, COTIZACIONES_HOY, rows, byVendedor }}
  */
+/**
+ * Cotizaciones mensualizadas para vs-cotizaciones usando lotes por PK.
+ * Evita full-scan de GROUP BY EXTRACT sobre WAN (timeout >60s).
+ * Estrategia:
+ *   1. Encontrar primer DOCTO_VE_ID del periodo via IE1 (FECHA, TIPO_DOCTO) — 1 query
+ *   2. FIRST N WHERE DOCTO_VE_ID > lastId ORDER BY PK — ~10-15 queries de 200 docs c/u
+ *   3. Agregar por mes en JavaScript
+ * Reducción: de ~900 queries de 1 fila a ~10-15 queries de 200 filas = ~50x menos round-trips.
+ */
+async function getCotizMensualesBatch(dbo, desdeStr, timeoutMs = 55000) {
+  const tipos = (parseCotizacionTipos() || []).filter(Boolean);
+  const escT = (t) => `'${String(t).replace(/'/g, "''")}'`;
+  const tiposIn = tipos.length ? tipos.map(escT).join(',') : "'C'";
+  const todayStr = new Date().toISOString().substring(0, 10);
+  const t0 = Date.now();
+  const byMonth = {};
+  const BATCH = 200;
+  const MAX_BATCHES = 25; // hasta 5000 cotizaciones en 6 meses
+
+  // Paso 1: primer ID del rango via IE1 (FECHA, TIPO_DOCTO) — rápido, usa índice
+  const startRows = await query(
+    `SELECT FIRST 1 h.DOCTO_VE_ID FROM DOCTOS_VE h
+     WHERE h.TIPO_DOCTO IN (${tiposIn}) AND h.FECHA >= '${desdeStr}'
+     ORDER BY h.DOCTO_VE_ID`,
+    [], Math.min(12000, timeoutMs), dbo
+  ).catch(() => []);
+
+  if (!startRows || !startRows.length) return [];
+  let lastId = Math.max(0, (startRows[0].DOCTO_VE_ID || 1) - 1);
+
+  // Paso 2: batches por PK — sin filtro FECHA en SQL para máxima velocidad de índice
+  for (let b = 0; b < MAX_BATCHES; b++) {
+    if (Date.now() - t0 > timeoutMs - 7000) break;
+    const rem = timeoutMs - (Date.now() - t0);
+    const batch = await query(
+      `SELECT FIRST ${BATCH} h.DOCTO_VE_ID, h.IMPORTE_NETO, h.FECHA
+       FROM DOCTOS_VE h
+       WHERE h.TIPO_DOCTO IN (${tiposIn})
+         AND h.DOCTO_VE_ID > ${lastId}
+         AND (h.ESTATUS IS NULL OR h.ESTATUS NOT IN ('C', 'D'))
+       ORDER BY h.DOCTO_VE_ID`,
+      [], Math.min(14000, rem), dbo
+    ).catch(() => null);
+
+    if (!batch || !batch.length) break;
+
+    let pastToday = false;
+    for (const r of batch) {
+      const fechaStr = r.FECHA instanceof Date
+        ? r.FECHA.toISOString().substring(0, 10)
+        : String(r.FECHA || '').substring(0, 10);
+      lastId = r.DOCTO_VE_ID;
+      if (fechaStr < desdeStr) continue; // pre-rango, skip
+      if (fechaStr > todayStr) { pastToday = true; break; } // futuro, parar
+      const anio = +fechaStr.substring(0, 4);
+      const mes  = +fechaStr.substring(5, 7);
+      const k = `${anio}-${mes}`;
+      if (!byMonth[k]) byMonth[k] = { ANIO: anio, MES: mes, TOTAL_COTI: 0, NUM_COTI: 0 };
+      byMonth[k].TOTAL_COTI += +(r.IMPORTE_NETO || 0);
+      byMonth[k].NUM_COTI++;
+    }
+    if (pastToday || batch.length < BATCH) break;
+  }
+
+  console.log(`[getCotizMensualesBatch] desde=${desdeStr} months=${Object.keys(byMonth).length} elapsed=${Date.now()-t0}ms`);
+  return Object.values(byMonth).sort((a, b) => a.ANIO !== b.ANIO ? a.ANIO - b.ANIO : a.MES - b.MES);
+}
+
 async function getCotizacionesByPeriodCursor(dbo, desde, hasta, timeoutMs = 80000) {
   const tipos = (parseCotizacionTipos() || []).filter(Boolean);
   const esc = (t) => `'${String(t).replace(/'/g, "''")}'`;
@@ -3074,13 +3142,8 @@ get('/api/ventas/vs-cotizaciones', async (req) => {
   const desdeStr = desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-01';
   const tipoVentas = getTipo(req);
   const run = async (dbo) => {
-    // ESTRATEGIA: query DIRECTO a DOCTOS_VE (sin derived table) para cotizaciones.
-    // cotizacionesSub genera un subquery en FROM que Firebird materializa completamente
-    // incluso con innerBounds → timeout WAN. Query directo usa índice IE1 (FECHA, TIPO_DOCTO)
-    // directamente y es ~10x más rápido. Mismo patrón que getCotizacionesByPeriodCursor.
-    const tipos = (parseCotizacionTipos() || []).filter(Boolean);
-    const escTipo = (t) => `'${String(t).replace(/'/g, "''")}'`;
-    const tiposInSql = tipos.length ? tipos.map(escTipo).join(', ') : "'C'";
+    // Cotizaciones: batch cursor por PK (getCotizMensualesBatch) — evita timeout WAN.
+    // Ventas: query SQL normal, funciona porque ventasSub ya está optimizado.
     const [ventasMes, cotizMes] = await Promise.all([
       query(`
       SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
@@ -3091,17 +3154,8 @@ get('/api/ventas/vs-cotizaciones', async (req) => {
         console.error('[vs-cotizaciones ventas]', err && (err.message || err));
         return [];
       }),
-      query(`
-      SELECT EXTRACT(YEAR FROM h.FECHA) AS ANIO, EXTRACT(MONTH FROM h.FECHA) AS MES,
-        CAST(COALESCE(SUM(COALESCE(h.IMPORTE_NETO, 0)), 0) AS DOUBLE PRECISION) AS TOTAL_COTI,
-        COUNT(*) AS NUM_COTI
-      FROM DOCTOS_VE h
-      WHERE h.TIPO_DOCTO IN (${tiposInSql})
-        AND (h.ESTATUS IS NULL OR h.ESTATUS NOT IN ('C', 'D'))
-        AND h.FECHA >= '${desdeStr}'
-      GROUP BY EXTRACT(YEAR FROM h.FECHA), EXTRACT(MONTH FROM h.FECHA) ORDER BY 1, 2
-    `, [], 60000, dbo).catch((err) => {
-        console.error('[vs-cotizaciones cotiz]', err && (err.message || err));
+      getCotizMensualesBatch(dbo, desdeStr, 55000).catch((err) => {
+        console.error('[vs-cotizaciones cotiz batch]', err && (err.message || err));
         return [];
       }),
     ]);
