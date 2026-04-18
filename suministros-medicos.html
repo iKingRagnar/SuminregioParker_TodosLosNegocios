@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suminregio Suministros Médicos — Scorecard Ejecutivo</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');
+const DB_ID = 'suminregio_suministros_medicos';
+</script>
+<script src="filters.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#050D18;--s1:#0A1828;--s2:#0F2035;--s3:#152840;--s4:#1A3050;
+  --border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.12);
+  --green:#00E5A0;--green-dim:rgba(0,229,160,.1);
+  --teal:#00C9D4;--teal-dim:rgba(0,201,212,.1);
+  --blue:#4DA6FF;--blue-dim:rgba(77,166,255,.1);
+  --yellow:#FFB800;--yellow-dim:rgba(255,184,0,.12);--yellow-ink:#c9a227;
+  --orange:#FF8C42;--orange-dim:rgba(255,140,66,.1);
+  --red:#FF4566;--red-dim:rgba(255,69,102,.12);
+  --purple:#9B6DFF;--purple-dim:rgba(155,109,255,.1);
+  --cyan:#22D3EE;--cyan-dim:rgba(34,211,238,.1);
+  --text:#E8EFF8;--text2:#B0BECE;--muted:#5A7090;--dim:#1C2E42;
+  --accent:#22D3EE;--accent-dim:rgba(34,211,238,.15);
+  --medical:#0EA5E9;--medical-dim:rgba(14,165,233,.12);
+}
+html{font-size:16px;-webkit-font-smoothing:antialiased}
+body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh}
+
+/* ─── Orbs ─── */
+.bg-orbs{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.orb{position:absolute;border-radius:50%;filter:blur(130px);opacity:.1;animation:drift 20s ease-in-out infinite alternate}
+.orb-1{width:700px;height:700px;background:radial-gradient(circle,#0EA5E9,transparent 70%);top:-200px;left:-150px}
+.orb-2{width:500px;height:500px;background:radial-gradient(circle,#00E5A0,transparent 70%);bottom:-100px;right:-100px;animation-delay:-8s}
+.orb-3{width:400px;height:400px;background:radial-gradient(circle,#9B6DFF,transparent 72%);top:40%;right:20%;opacity:.07;animation-delay:-14s}
+@keyframes drift{0%{transform:translate(0,0)}100%{transform:translate(20px,15px)}}
+
+/* ─── Header ─── */
+header{position:sticky;top:0;z-index:100;background:rgba(5,13,24,.88);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
+.header-inner{max-width:1600px;margin:0 auto;height:64px;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;padding:0 2rem}
+.logo{display:flex;align-items:center;gap:.75rem;text-decoration:none}
+.logo-icon{width:36px;height:36px;background:linear-gradient(135deg,#0EA5E9,#22D3EE);border-radius:10px;display:grid;place-items:center;flex-shrink:0;box-shadow:0 0 14px rgba(14,165,233,.4)}
+.logo-icon svg{width:22px;height:22px;fill:white}
+.logo-text{font-size:.9rem;font-weight:700;color:var(--text)}
+.logo-sub{font-size:.6rem;font-family:'DM Mono',monospace;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+nav{display:flex;align-items:center;gap:.25rem}
+.nav-link{display:flex;align-items:center;gap:.4rem;padding:.4rem .85rem;border-radius:8px;font-size:.8rem;font-weight:500;color:var(--muted);text-decoration:none;transition:all .2s}
+.nav-link:hover{color:var(--text);background:var(--s2)}
+.nav-link.active{color:var(--cyan);background:var(--cyan-dim);border:1px solid rgba(34,211,238,.3)}
+.nav-link svg{width:14px;height:14px;fill:currentColor}
+.header-right{display:flex;align-items:center;gap:1rem}
+.live-pill{display:flex;align-items:center;gap:.5rem;background:var(--green-dim);border:1px solid rgba(0,229,160,.2);border-radius:99px;padding:.3rem .75rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--green);letter-spacing:.06em}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.clock{font-family:'DM Mono',monospace;font-size:.78rem;color:var(--muted)}
+.theme-btn{background:none;border:1px solid var(--border2);border-radius:8px;padding:.35rem .6rem;cursor:pointer;color:var(--muted);font-size:.75rem;transition:all .2s}
+.theme-btn:hover{color:var(--text);border-color:var(--text2)}
+
+/* ─── Layout ─── */
+.page{position:relative;z-index:1;max-width:1600px;margin:0 auto;padding:2rem}
+.page-header{margin-bottom:2rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.page-title{font-size:1.75rem;font-weight:800;background:linear-gradient(135deg,#22D3EE 0%,#0EA5E9 50%,#6366F1 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.page-sub{font-size:.85rem;color:var(--muted);margin-top:.35rem}
+.period-controls{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.period-btn{padding:.4rem 1rem;border-radius:8px;font-size:.78rem;font-weight:600;cursor:pointer;border:1px solid var(--border2);background:var(--s1);color:var(--muted);transition:all .2s;font-family:'Syne',sans-serif}
+.period-btn:hover{color:var(--text);border-color:var(--cyan)}
+.period-btn.active{background:var(--cyan-dim);color:var(--cyan);border-color:var(--cyan)}
+.refresh-btn{padding:.4rem .9rem;border-radius:8px;font-size:.78rem;font-weight:600;cursor:pointer;border:1px solid rgba(34,211,238,.3);background:var(--cyan-dim);color:var(--cyan);transition:all .2s;font-family:'Syne',sans-serif}
+.refresh-btn:hover{background:rgba(34,211,238,.2)}
+
+/* ─── Section titles ─── */
+.section-title{font-size:.72rem;font-family:'DM Mono',monospace;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;margin-bottom:1rem;display:flex;align-items:center;gap:.5rem}
+.section-title::before{content:'';display:block;width:16px;height:2px;background:var(--accent);border-radius:2px}
+
+/* ─── KPI Grid ─── */
+.kpi-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:1rem;margin-bottom:2rem}
+@media(max-width:1200px){.kpi-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:700px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+.kpi-card{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:1.25rem 1.5rem;position:relative;overflow:hidden;transition:all .3s}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--kpi-c),transparent);opacity:.8}
+.kpi-card:hover{border-color:var(--border2);transform:translateY(-2px);box-shadow:0 12px 40px rgba(0,0,0,.3)}
+.kpi-card.blue{--kpi-c:var(--blue)}.kpi-card.green{--kpi-c:var(--green)}.kpi-card.yellow{--kpi-c:var(--yellow)}.kpi-card.orange{--kpi-c:var(--orange)}.kpi-card.teal{--kpi-c:var(--teal)}.kpi-card.cyan{--kpi-c:var(--cyan)}.kpi-card.purple{--kpi-c:var(--purple)}.kpi-card.red{--kpi-c:var(--red)}
+.kpi-label{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem}
+.kpi-value{font-family:'DM Mono',monospace;font-size:1.4rem;font-weight:500;letter-spacing:-.02em;line-height:1}
+.kpi-card.blue .kpi-value{color:var(--blue)}.kpi-card.green .kpi-value{color:var(--green)}.kpi-card.yellow .kpi-value{color:var(--yellow-ink)}.kpi-card.orange .kpi-value{color:var(--orange)}.kpi-card.teal .kpi-value{color:var(--teal)}.kpi-card.cyan .kpi-value{color:var(--cyan)}.kpi-card.purple .kpi-value{color:var(--purple)}.kpi-card.red .kpi-value{color:var(--red)}
+.kpi-sub{font-size:.72rem;color:var(--muted);margin-top:.45rem}
+.kpi-badge{display:inline-flex;align-items:center;gap:.25rem;padding:.2rem .55rem;border-radius:99px;font-family:'DM Mono',monospace;font-size:.65rem;font-weight:600;margin-top:.5rem}
+.badge-up{background:rgba(0,229,160,.15);color:var(--green)}
+.badge-dn{background:rgba(255,69,102,.15);color:var(--red)}
+.badge-neu{background:var(--dim);color:var(--muted)}
+.kpi-progress{height:3px;background:rgba(255,255,255,.06);border-radius:99px;margin-top:.75rem;overflow:hidden}
+.kpi-progress-fill{height:100%;border-radius:99px;transition:width .8s ease;background:var(--kpi-c)}
+
+/* ─── CXC Aging ─── */
+.aging-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:2rem}
+@media(max-width:900px){.aging-grid{grid-template-columns:repeat(2,1fr)}}
+.aging-card{background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:1.1rem 1.25rem;position:relative;overflow:hidden}
+.aging-card::after{content:'';position:absolute;top:0;left:0;bottom:0;width:3px;background:var(--aging-c);border-radius:3px 0 0 3px}
+.aging-card.al-dia{--aging-c:var(--green)}
+.aging-card.d30{--aging-c:var(--yellow)}
+.aging-card.d60{--aging-c:var(--orange)}
+.aging-card.d90{--aging-c:var(--red)}
+.aging-label{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.35rem;margin-left:.75rem}
+.aging-value{font-family:'DM Mono',monospace;font-size:1.2rem;font-weight:500;margin-left:.75rem}
+.aging-card.al-dia .aging-value{color:var(--green)}
+.aging-card.d30 .aging-value{color:var(--yellow-ink)}
+.aging-card.d60 .aging-value{color:var(--orange)}
+.aging-card.d90 .aging-value{color:var(--red)}
+.aging-docs{font-size:.72rem;color:var(--muted);margin-top:.3rem;margin-left:.75rem}
+
+/* ─── Charts ─── */
+.charts-row{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:2rem}
+@media(max-width:900px){.charts-row{grid-template-columns:1fr}}
+.chart-card{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:1.5rem}
+.chart-title{font-size:.72rem;font-family:'DM Mono',monospace;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:1rem}
+.chart-wrap{position:relative;height:220px}
+
+/* ─── Tables ─── */
+.tables-row{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:2rem}
+@media(max-width:900px){.tables-row{grid-template-columns:1fr}}
+.table-card{background:var(--s1);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.table-header{padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.table-title{font-size:.72rem;font-family:'DM Mono',monospace;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+.table-count{font-size:.7rem;color:var(--muted);font-family:'DM Mono',monospace}
+.table-body{max-height:280px;overflow-y:auto}
+.table-body::-webkit-scrollbar{width:4px}
+.table-body::-webkit-scrollbar-track{background:transparent}
+.table-body::-webkit-scrollbar-thumb{background:var(--dim);border-radius:4px}
+.trow{display:grid;padding:.75rem 1.5rem;border-bottom:1px solid rgba(255,255,255,.04);transition:background .15s;align-items:center}
+.trow:hover{background:var(--s2)}
+.trow:last-child{border-bottom:none}
+.trow-clientes{grid-template-columns:auto 1fr auto auto}
+.trow-vendedores{grid-template-columns:auto 1fr auto}
+.trow-cotizaciones{grid-template-columns:auto 1fr auto auto}
+.t-rank{font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted);width:22px;text-align:center}
+.t-name{font-size:.82rem;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 .75rem}
+.t-val{font-family:'DM Mono',monospace;font-size:.82rem;font-weight:500;color:var(--cyan);text-align:right;white-space:nowrap}
+.t-sub{font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted);text-align:right;white-space:nowrap}
+.t-bar{height:3px;background:rgba(34,211,238,.15);border-radius:99px;overflow:hidden;margin-top:.3rem}
+.t-bar-fill{height:100%;background:var(--cyan);border-radius:99px;transition:width .6s ease}
+
+/* ─── Cotizaciones section ─── */
+.coti-section{margin-bottom:2rem}
+.coti-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem}
+@media(max-width:800px){.coti-kpi-grid{grid-template-columns:repeat(2,1fr)}}
+
+/* ─── Mensual chart big ─── */
+.mensual-card{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:1.5rem;margin-bottom:2rem}
+.mensual-wrap{position:relative;height:240px}
+
+/* ─── Vendedores table ─── */
+.vendedores-table{width:100%;border-collapse:collapse;font-size:.82rem}
+.vendedores-table th{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;padding:.6rem 1rem;text-align:left;border-bottom:1px solid var(--border)}
+.vendedores-table td{padding:.7rem 1rem;border-bottom:1px solid rgba(255,255,255,.04);color:var(--text2)}
+.vendedores-table tr:hover td{background:var(--s2)}
+.vendedores-table .num{font-family:'DM Mono',monospace;color:var(--cyan)}
+.vendedores-table .muted{color:var(--muted)}
+.pct-bar{width:80px;height:4px;background:rgba(255,255,255,.06);border-radius:99px;overflow:hidden;display:inline-block;vertical-align:middle;margin-left:.4rem}
+.pct-bar-fill{height:100%;background:var(--cyan);border-radius:99px}
+
+/* ─── Skeleton ─── */
+.skel{background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 50%,var(--s2) 75%);background-size:200% 100%;animation:skel 1.4s ease infinite;border-radius:6px;display:block}
+@keyframes skel{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* ─── Status bar ─── */
+.status-bar{display:flex;align-items:center;gap:.75rem;padding:.75rem 1.5rem;background:var(--s2);border-radius:12px;margin-bottom:2rem;font-size:.78rem;color:var(--muted);border:1px solid var(--border)}
+.status-bar .ok{color:var(--green)}
+.status-bar .err{color:var(--red)}
+.status-bar .loading{color:var(--cyan)}
+.status-sep{opacity:.3}
+
+/* ─── Responsive tweaks ─── */
+@media(max-width:600px){
+  .page{padding:1rem}
+  .kpi-grid{gap:.75rem}
+  .header-inner{padding:0 1rem}
+  nav{display:none}
+}
+
+/* ─── Medical badge ─── */
+.medical-badge{display:inline-flex;align-items:center;gap:.4rem;padding:.25rem .75rem;background:var(--medical-dim);border:1px solid rgba(14,165,233,.2);border-radius:99px;font-size:.7rem;font-family:'DM Mono',monospace;color:var(--medical);letter-spacing:.04em}
+</style>
+</head>
+<body>
+<div class="bg-orbs">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+</div>
+
+<!-- ─── HEADER ─── -->
+<header>
+  <div class="header-inner">
+    <a href="index.html" class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
+      </div>
+      <div>
+        <div class="logo-text">Suminregio</div>
+        <div class="logo-sub">Suministros Médicos</div>
+      </div>
+    </a>
+    <nav>
+      <a href="ventas.html?db=suminregio_suministros_medicos&anio=2026&mes=4" class="nav-link">
+        <svg viewBox="0 0 24 24"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg>Ventas
+      </a>
+      <a href="cxc.html?db=suminregio_suministros_medicos" class="nav-link">
+        <svg viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg>CXC
+      </a>
+      <a href="inventario.html?db=suminregio_suministros_medicos" class="nav-link">
+        <svg viewBox="0 0 24 24"><path d="M20 7H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zm-8 9c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zM4 3h16v2H4z"/></svg>Inventario
+      </a>
+      <a href="suministros-medicos.html" class="nav-link active">
+        <svg viewBox="0 0 24 24"><path d="M3 9h2v2H3zm0 4h2v2H3zm0 4h2v2H3zM19 3H5c-1.1 0-2 .9-2 2v2h2V5h14v14H5v-2H3v2c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 6h-2v3H7v2h3v3h2v-3h3v-2h-3z"/></svg>Scorecard
+      </a>
+    </nav>
+    <div class="header-right">
+      <span class="medical-badge">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
+        EQUIPO MÉDICO
+      </span>
+      <div class="live-pill"><div class="live-dot"></div><span id="live-status">LIVE</span></div>
+      <div class="clock" id="clock"></div>
+    </div>
+  </div>
+</header>
+
+<!-- ─── PAGE ─── -->
+<div class="page">
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div>
+      <div class="page-title">Scorecard Ejecutivo</div>
+      <div class="page-sub" id="period-sub">Cargando período...</div>
+    </div>
+    <div class="period-controls">
+      <button class="period-btn" onclick="setPeriod('hoy')">Hoy</button>
+      <button class="period-btn active" id="btn-mes" onclick="setPeriod('mes')">Este Mes</button>
+      <button class="period-btn" onclick="setPeriod('prev')">Mes Anterior</button>
+      <button class="period-btn" onclick="setPeriod('trim')">Trimestre</button>
+      <button class="refresh-btn" onclick="reloadAll()">↻ Actualizar</button>
+    </div>
+  </div>
+
+  <!-- Status bar -->
+  <div class="status-bar" id="status-bar">
+    <span class="loading" id="sb-ventas">⏳ Cargando ventas...</span>
+    <span class="status-sep">|</span>
+    <span class="loading" id="sb-cxc">⏳ Cargando CXC...</span>
+    <span class="status-sep">|</span>
+    <span class="loading" id="sb-coti">⏳ Cargando cotizaciones...</span>
+    <span class="status-sep">|</span>
+    <span id="sb-ts" style="margin-left:auto;font-family:'DM Mono',monospace;font-size:.7rem"></span>
+  </div>
+
+  <!-- ─── VENTAS KPIs ─── -->
+  <div class="section-title">📊 Ventas</div>
+  <div class="kpi-grid" id="ventas-kpis">
+    <div class="kpi-card cyan"><div class="kpi-label">Ventas Hoy</div><div class="kpi-value" id="kv-hoy">—</div><div class="kpi-sub" id="kv-hoy-docs">— facturas</div></div>
+    <div class="kpi-card green"><div class="kpi-label">Ventas Mes</div><div class="kpi-value" id="kv-mes">—</div><div class="kpi-sub" id="kv-mes-docs">— documentos</div></div>
+    <div class="kpi-card yellow"><div class="kpi-label">Meta Mes</div><div class="kpi-value" id="kv-meta">—</div><div class="kpi-progress" id="kv-meta-prog-wrap"><div class="kpi-progress-fill" id="kv-meta-prog" style="width:0%"></div></div></div>
+    <div class="kpi-card orange"><div class="kpi-label">Cumplimiento</div><div class="kpi-value" id="kv-cumpl">—</div><div class="kpi-sub" id="kv-cumpl-sub">vs. meta del período</div></div>
+    <div class="kpi-card blue"><div class="kpi-label">Prom. Diario</div><div class="kpi-value" id="kv-prom">—</div><div class="kpi-sub" id="kv-dias-hab">días hábiles</div></div>
+  </div>
+
+  <!-- ─── CXC AGING ─── -->
+  <div class="section-title">💰 Cartera — CXC Aging</div>
+  <div class="aging-grid" id="cxc-aging">
+    <div class="aging-card al-dia"><div class="aging-label">Al Día</div><div class="aging-value" id="cxc-aldia">—</div><div class="aging-docs" id="cxc-aldia-docs">— documentos</div></div>
+    <div class="aging-card d30"><div class="aging-label">1–30 días</div><div class="aging-value" id="cxc-30">—</div><div class="aging-docs" id="cxc-30-docs">— documentos</div></div>
+    <div class="aging-card d60"><div class="aging-label">31–60 días</div><div class="aging-value" id="cxc-60">—</div><div class="aging-docs" id="cxc-60-docs">— documentos</div></div>
+    <div class="aging-card d90"><div class="aging-label">+60 días</div><div class="aging-value" id="cxc-90">—</div><div class="aging-docs" id="cxc-90-docs">— documentos</div></div>
+  </div>
+  <!-- CXC totales -->
+  <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:2rem" id="cxc-kpis">
+    <div class="kpi-card green"><div class="kpi-label">Total Cartera</div><div class="kpi-value" id="cxc-total">—</div><div class="kpi-sub">Saldo neto total</div></div>
+    <div class="kpi-card red"><div class="kpi-label">Total Vencido</div><div class="kpi-value" id="cxc-vencido">—</div><div class="kpi-sub" id="cxc-vencido-pct">—% de la cartera</div></div>
+    <div class="kpi-card orange"><div class="kpi-label">Clientes con mora</div><div class="kpi-value" id="cxc-mora-clientes">—</div><div class="kpi-sub">con saldo vencido</div></div>
+  </div>
+
+  <!-- ─── COTIZACIONES ─── -->
+  <div class="section-title">📋 Cotizaciones</div>
+  <div class="coti-kpi-grid">
+    <div class="kpi-card cyan"><div class="kpi-label">Cotiz. Hoy</div><div class="kpi-value" id="coti-hoy-n">—</div><div class="kpi-sub" id="coti-hoy-imp">$—</div></div>
+    <div class="kpi-card blue"><div class="kpi-label">Cotiz. Mes</div><div class="kpi-value" id="coti-mes-n">—</div><div class="kpi-sub" id="coti-mes-imp">$—</div></div>
+    <div class="kpi-card green"><div class="kpi-label">Importe Mes</div><div class="kpi-value" id="coti-mes-total">—</div><div class="kpi-sub">Total cotizado</div></div>
+    <div class="kpi-card purple"><div class="kpi-label">Conv. Estimada</div><div class="kpi-value" id="coti-conv">—</div><div class="kpi-sub">Cotiz. → Venta</div></div>
+  </div>
+
+  <!-- ─── CHARTS ─── -->
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="chart-title">📈 Ventas Diarias — Últimos 30 días</div>
+      <div class="chart-wrap"><canvas id="chart-diarias"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">📅 Ventas Mensuales — Últimos 12 meses</div>
+      <div class="chart-wrap"><canvas id="chart-mensuales"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ─── TOP CLIENTES + VENDEDORES ─── -->
+  <div class="tables-row">
+    <div class="table-card">
+      <div class="table-header">
+        <div class="table-title">🏆 Top 10 Clientes</div>
+        <div class="table-count" id="clientes-count">—</div>
+      </div>
+      <div class="table-body" id="top-clientes-body">
+        <div style="padding:2rem;text-align:center;color:var(--muted);font-size:.82rem">Cargando...</div>
+      </div>
+    </div>
+    <div class="table-card">
+      <div class="table-header">
+        <div class="table-title">👤 Vendedores del Mes</div>
+        <div class="table-count" id="vendedores-count">—</div>
+      </div>
+      <div class="table-body" id="vendedores-body">
+        <div style="padding:2rem;text-align:center;color:var(--muted);font-size:.82rem">Cargando...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── VENTAS RECIENTES ─── -->
+  <div class="table-card" style="margin-bottom:2rem">
+    <div class="table-header">
+      <div class="table-title">🕐 Ventas Recientes</div>
+      <div class="table-count" id="recientes-count">Últimas 20</div>
+    </div>
+    <div class="table-body" id="recientes-body">
+      <div style="padding:2rem;text-align:center;color:var(--muted);font-size:.82rem">Cargando...</div>
+    </div>
+  </div>
+
+</div><!-- /page -->
+
+<script>
+// ── Utils ─────────────────────────────────────────────────────────
+const DB = 'suminregio_suministros_medicos';
+const BASE = window.__API_BASE || '';
+
+function fmt$(n){ if(n==null||isNaN(n))return'—'; n=+n; if(Math.abs(n)>=1e6)return'$'+(n/1e6).toFixed(2)+'M'; if(Math.abs(n)>=1e3)return'$'+(n/1e3).toFixed(1)+'K'; return'$'+n.toFixed(0); }
+function fmtN(n){ if(n==null||isNaN(n))return'—'; return(+n).toLocaleString('es-MX'); }
+function fmtPct(n){ if(n==null||isNaN(n))return'—'; return(+n).toFixed(1)+'%'; }
+function setText(id,v){ const el=document.getElementById(id); if(el)el.textContent=v; }
+
+async function apiFetch(path, fallback, ms=60000){
+  const url = BASE+path;
+  const ctrl = new AbortController();
+  const tid = setTimeout(()=>ctrl.abort(), ms);
+  try{
+    const r = await fetch(url, {signal:ctrl.signal});
+    clearTimeout(tid);
+    if(!r.ok) return fallback;
+    return await r.json();
+  }catch(e){ clearTimeout(tid); return fallback; }
+}
+
+// ── Period state ──────────────────────────────────────────────────
+let currentPeriod = 'mes';
+const now = new Date();
+let curAnio = now.getFullYear();
+let curMes  = now.getMonth()+1;
+
+function getPeriodParams(){
+  if(currentPeriod==='hoy'){
+    return `anio=${curAnio}&mes=${curMes}`; // will filter by hoy on display
+  }
+  if(currentPeriod==='mes'){
+    return `anio=${curAnio}&mes=${curMes}`;
+  }
+  if(currentPeriod==='prev'){
+    const pm = curMes===1?12:curMes-1;
+    const py = curMes===1?curAnio-1:curAnio;
+    return `anio=${py}&mes=${pm}`;
+  }
+  if(currentPeriod==='trim'){
+    // 3 months range using desde/hasta
+    const desde = new Date(curAnio, curMes-3, 1);
+    const d = `${desde.getFullYear()}-${String(desde.getMonth()+1).padStart(2,'0')}-01`;
+    const h = `${curAnio}-${String(curMes+1<=12?curMes+1:1).padStart(2,'0')}-01`;
+    return `desde=${d}&hasta=${h}`;
+  }
+  return `anio=${curAnio}&mes=${curMes}`;
+}
+
+function setPeriod(p){
+  currentPeriod = p;
+  document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));
+  const map = {hoy:0,mes:1,prev:2,trim:3};
+  document.querySelectorAll('.period-btn')[map[p]||1].classList.add('active');
+  reloadAll();
+}
+
+function updatePeriodSub(){
+  const labels={hoy:'Hoy — '+now.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'}),mes:'Mes actual — '+now.toLocaleDateString('es-MX',{month:'long',year:'numeric'}),prev:'Mes anterior',trim:'Últimos 3 meses'};
+  setText('period-sub', labels[currentPeriod]||'');
+}
+
+// ── Clock ─────────────────────────────────────────────────────────
+function tickClock(){
+  const n=new Date();
+  setText('clock', n.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',second:'2-digit'}));
+}
+setInterval(tickClock,1000); tickClock();
+
+// ── Chart helpers ─────────────────────────────────────────────────
+let chartDiarias=null, chartMensuales=null;
+const chartDefaults = {
+  responsive:true, maintainAspectRatio:false,
+  plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' $'+Number(c.raw).toLocaleString('es-MX',{minimumFractionDigits:0})}}},
+  scales:{
+    x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5A7090',font:{size:10,family:'DM Mono'}}},
+    y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5A7090',font:{size:10,family:'DM Mono'},callback:v=>fmt$(v)}}
+  }
+};
+
+function buildChartDiarias(rows){
+  const ctx=document.getElementById('chart-diarias');
+  if(!ctx)return;
+  const labels=rows.map(r=>{ const d=new Date(r.FECHA||r.fecha||''); return isNaN(d)?r.FECHA||'':d.toLocaleDateString('es-MX',{day:'2-digit',month:'2-digit'}); });
+  const vals=rows.map(r=>+(r.TOTAL||r.total||r.IMPORTE||0));
+  if(chartDiarias){ chartDiarias.data.labels=labels; chartDiarias.data.datasets[0].data=vals; chartDiarias.update(); return; }
+  chartDiarias=new Chart(ctx,{type:'bar',data:{labels,datasets:[{data:vals,backgroundColor:'rgba(34,211,238,.35)',borderColor:'#22D3EE',borderWidth:1,borderRadius:4,borderSkipped:false}]},options:chartDefaults});
+}
+
+function buildChartMensuales(rows){
+  const ctx=document.getElementById('chart-mensuales');
+  if(!ctx)return;
+  const labels=rows.map(r=>{ const d=new Date((r.ANIO||r.anio||2024),((r.MES||r.mes||1)-1),1); return d.toLocaleDateString('es-MX',{month:'short',year:'2-digit'}); });
+  const vals=rows.map(r=>+(r.TOTAL||r.IMPORTE||r.MES_ACTUAL||0));
+  if(chartMensuales){ chartMensuales.data.labels=labels; chartMensuales.data.datasets[0].data=vals; chartMensuales.update(); return; }
+  chartMensuales=new Chart(ctx,{type:'line',data:{labels,datasets:[{data:vals,borderColor:'#22D3EE',backgroundColor:'rgba(34,211,238,.08)',fill:true,tension:.4,pointRadius:3,pointBackgroundColor:'#22D3EE'}]},options:chartDefaults});
+}
+
+// ── Render helpers ────────────────────────────────────────────────
+function renderTopClientes(rows){
+  const el=document.getElementById('top-clientes-body'); if(!el)return;
+  setText('clientes-count', rows.length+' clientes');
+  const max=Math.max(...rows.map(r=>+(r.TOTAL||r.MES_ACTUAL||0)),1);
+  el.innerHTML=rows.slice(0,10).map((r,i)=>{
+    const val=+(r.TOTAL||r.MES_ACTUAL||0);
+    const pct=Math.round(val/max*100);
+    return `<div class="trow trow-clientes">
+      <span class="t-rank">${i+1}</span>
+      <div class="t-name" title="${r.CLIENTE||r.nombre||''}">${r.CLIENTE||r.nombre||'Sin nombre'}
+        <div class="t-bar"><div class="t-bar-fill" style="width:${pct}%"></div></div>
+      </div>
+      <span class="t-val">${fmt$(val)}</span>
+      <span class="t-sub">${r.NUM_FACTURAS||r.docs||''}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderVendedores(rows){
+  const el=document.getElementById('vendedores-body'); if(!el)return;
+  setText('vendedores-count', rows.length+' vendedores');
+  const max=Math.max(...rows.map(r=>+(r.MES_ACTUAL||r.TOTAL||0)),1);
+  el.innerHTML=rows.map((r,i)=>{
+    const val=+(r.MES_ACTUAL||r.TOTAL||0);
+    const pct=Math.round(val/max*100);
+    return `<div class="trow trow-vendedores">
+      <span class="t-rank">${i+1}</span>
+      <div class="t-name">${r.VENDEDOR||r.nombre||'Vendedor '+i}
+        <div class="t-bar"><div class="t-bar-fill" style="width:${pct}%"></div></div>
+      </div>
+      <span class="t-val">${fmt$(val)}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderRecientes(rows){
+  const el=document.getElementById('recientes-body'); if(!el)return;
+  if(!rows.length){ el.innerHTML='<div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:.82rem">Sin datos recientes</div>'; return; }
+  el.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:.8rem">
+    <thead><tr style="border-bottom:1px solid var(--border)">
+      <th style="padding:.6rem 1rem;text-align:left;color:var(--muted);font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.08em;font-weight:400">FECHA</th>
+      <th style="padding:.6rem 1rem;text-align:left;color:var(--muted);font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.08em;font-weight:400">CLIENTE</th>
+      <th style="padding:.6rem 1rem;text-align:left;color:var(--muted);font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.08em;font-weight:400">VENDEDOR</th>
+      <th style="padding:.6rem 1rem;text-align:right;color:var(--muted);font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:.08em;font-weight:400">TOTAL</th>
+    </tr></thead>
+    <tbody>${rows.map(r=>{
+      const fecha=r.FECHA?new Date(r.FECHA).toLocaleDateString('es-MX',{day:'2-digit',month:'2-digit'}):r.fecha||'—';
+      return `<tr style="border-bottom:1px solid rgba(255,255,255,.04)">
+        <td style="padding:.6rem 1rem;color:var(--muted);font-family:'DM Mono',monospace">${fecha}</td>
+        <td style="padding:.6rem 1rem;color:var(--text2);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.CLIENTE||'—'}</td>
+        <td style="padding:.6rem 1rem;color:var(--text2)">${r.VENDEDOR||'—'}</td>
+        <td style="padding:.6rem 1rem;text-align:right;font-family:'DM Mono',monospace;color:var(--cyan)">${fmt$(r.TOTAL||r.IMPORTE_NETO||0)}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
+// ── Main load ─────────────────────────────────────────────────────
+let loading = false;
+async function reloadAll(){
+  if(loading)return;
+  loading=true;
+  updatePeriodSub();
+  const q = getPeriodParams();
+  const dbQ = `db=${DB}`;
+  const ts = new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+  setText('sb-ts','Actualizado: '+ts);
+
+  // ── Ventas resumen ──
+  setText('sb-ventas','⏳ Cargando ventas...');
+  const vRes = await apiFetch(`/api/ventas/resumen?${dbQ}&${q}`, {}, 90000);
+  {
+    const hoy   = +(vRes.HOY||vRes.IMPORTE_HOY||0);
+    const mes   = +(vRes.MES_ACTUAL||vRes.IMPORTE_MES||0);
+    const meta  = +(vRes.META_MES||0);
+    const docs  = +(vRes.NUM_FACTURAS_MES||vRes.NUM_DOCS||0);
+    const docsH = +(vRes.NUM_FACTURAS_HOY||0);
+    const diasH = +(vRes.DIAS_HABILES_MES||vRes.DIAS_TRANSCURRIDOS||20);
+    const prom  = diasH>0?(mes/diasH):0;
+    const cumpl = meta>0?Math.min(hoy/meta*100,999):0; // vs meta prorrata
+    const cumplMes = meta>0?Math.min(mes/meta*100,999):0;
+
+    setText('kv-hoy', fmt$(hoy));
+    setText('kv-hoy-docs', docsH+' facturas hoy');
+    setText('kv-mes', fmt$(mes));
+    setText('kv-mes-docs', docs+' documentos');
+    setText('kv-meta', meta>0?fmt$(meta):'Sin meta');
+    setText('kv-cumpl', fmtPct(cumplMes));
+    setText('kv-cumpl-sub', 'vs. meta mensual');
+    setText('kv-prom', fmt$(prom));
+    setText('kv-dias-hab', diasH+' días transcurridos');
+
+    const prog = document.getElementById('kv-meta-prog');
+    if(prog) prog.style.width=Math.min(cumplMes,100)+'%';
+
+    setText('sb-ventas','✅ Ventas OK — '+fmt$(mes));
+  }
+
+  // ── CXC resumen-aging ──
+  setText('sb-cxc','⏳ Cargando CXC...');
+  const cxcRes = await apiFetch(`/api/cxc/resumen-aging?${dbQ}`, {}, 120000);
+  {
+    const total   = +(cxcRes.TOTAL||cxcRes.SALDO_TOTAL||0);
+    const vencido = +(cxcRes.VENCIDO||cxcRes.SALDO_VENCIDO||0);
+    const aldia   = total-vencido;
+
+    // aging buckets
+    const b0 = +(cxcRes.BUCKET_0||cxcRes.AL_DIA||aldia||0);
+    const b1 = +(cxcRes.BUCKET_1||cxcRes.DIAS_1_30||0);
+    const b2 = +(cxcRes.BUCKET_2||cxcRes.DIAS_31_60||0);
+    const b3 = +(cxcRes.BUCKET_3||cxcRes.DIAS_61_MAS||cxcRes.DIAS_60_MAS||0);
+
+    const d0 = +(cxcRes.DOCS_0||cxcRes.NUM_AL_DIA||0);
+    const d1 = +(cxcRes.DOCS_1||cxcRes.NUM_1_30||0);
+    const d2 = +(cxcRes.DOCS_2||cxcRes.NUM_31_60||0);
+    const d3 = +(cxcRes.DOCS_3||cxcRes.NUM_61_MAS||0);
+    const clientes = +(cxcRes.CLIENTES_VENCIDOS||cxcRes.NUM_CLIENTES||0);
+    const pctVenc = total>0?Math.round(vencido/total*100):0;
+
+    setText('cxc-aldia', fmt$(b0)); setText('cxc-aldia-docs', d0+' docs');
+    setText('cxc-30',    fmt$(b1)); setText('cxc-30-docs',    d1+' docs');
+    setText('cxc-60',    fmt$(b2)); setText('cxc-60-docs',    d2+' docs');
+    setText('cxc-90',    fmt$(b3)); setText('cxc-90-docs',    d3+' docs');
+    setText('cxc-total',   fmt$(total));
+    setText('cxc-vencido', fmt$(vencido));
+    setText('cxc-vencido-pct', pctVenc+'% de la cartera');
+    setText('cxc-mora-clientes', clientes||'—');
+
+    setText('sb-cxc','✅ CXC OK — '+fmt$(total)+' cartera');
+  }
+
+  // ── Cotizaciones ──
+  setText('sb-coti','⏳ Cargando cotizaciones...');
+  const cotiRes = await apiFetch(`/api/ventas/cotizaciones/resumen?${dbQ}&${q}`, {}, 120000);
+  {
+    const cHoy  = +(cotiRes.COTIZACIONES_HOY||0);
+    const cMes  = +(cotiRes.COTIZACIONES_MES||0);
+    const iHoy  = +(cotiRes.HOY||0);
+    const iMes  = +(cotiRes.MES_ACTUAL||0);
+    const vMes  = +(vRes.MES_ACTUAL||vRes.IMPORTE_MES||0);
+    const conv  = iMes>0&&vMes>0?Math.min(vMes/iMes*100,999):0;
+
+    setText('coti-hoy-n',    cHoy);
+    setText('coti-hoy-imp',  fmt$(iHoy));
+    setText('coti-mes-n',    cMes);
+    setText('coti-mes-imp',  cMes+' cotizaciones');
+    setText('coti-mes-total', fmt$(iMes));
+    setText('coti-conv',     conv>0?fmtPct(conv):'—');
+
+    setText('sb-coti', cMes>0 ? '✅ Cotizaciones OK — '+cMes+' docs' : '⚠️ Cotizaciones: sin datos');
+  }
+
+  // ── Ventas diarias ──
+  const dias = await apiFetch(`/api/ventas/diarias?${dbQ}&dias=30`, [], 60000);
+  if(Array.isArray(dias)&&dias.length) buildChartDiarias(dias);
+
+  // ── Ventas mensuales ──
+  const mens = await apiFetch(`/api/ventas/mensuales?${dbQ}&meses=12`, [], 60000);
+  if(Array.isArray(mens)&&mens.length) buildChartMensuales(mens);
+
+  // ── Top clientes ──
+  const clientes = await apiFetch(`/api/ventas/top-clientes?${dbQ}&${q}&limit=10`, [], 90000);
+  if(Array.isArray(clientes)&&clientes.length) renderTopClientes(clientes);
+  else document.getElementById('top-clientes-body').innerHTML='<div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:.82rem">Sin datos</div>';
+
+  // ── Por vendedor ──
+  const vends = await apiFetch(`/api/ventas/por-vendedor?${dbQ}&${q}`, [], 90000);
+  if(Array.isArray(vends)&&vends.length) renderVendedores(vends);
+  else document.getElementById('vendedores-body').innerHTML='<div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:.82rem">Sin datos</div>';
+
+  // ── Recientes ──
+  const rec = await apiFetch(`/api/ventas/recientes?${dbQ}&limit=20`, [], 60000);
+  if(Array.isArray(rec)&&rec.length) renderRecientes(rec);
+
+  loading=false;
+}
+
+// ── Init ──────────────────────────────────────────────────────────
+reloadAll();
+// Auto-refresh cada 5 minutos
+setInterval(()=>{ if(!document.hidden) reloadAll(); }, 5*60*1000);
+</script>
+</body>
+</html>

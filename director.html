@@ -436,6 +436,119 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
   </div>
 </div>
 
+<!-- ─── PANEL: 4 UNIDADES DE NEGOCIO ─────────────────────────────────────── -->
+<div style="max-width:1600px;margin:0 auto;padding:0 2rem 3rem">
+  <div style="font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.75rem;display:flex;align-items:center;gap:.5rem">
+    <span style="display:block;width:14px;height:2px;background:var(--suminregio);border-radius:2px"></span>
+    Grupo Suminregio — Briefing 4 Unidades
+    <button onclick="loadBriefing()" style="margin-left:auto;background:none;border:1px solid var(--border2);border-radius:6px;padding:.25rem .6rem;color:var(--muted);cursor:pointer;font-size:.7rem;font-family:'Syne',sans-serif">↻ Actualizar</button>
+    <span id="briefing-ts" style="font-size:.68rem;color:var(--muted)"></span>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1rem" id="briefing-units">
+    <!-- renderizado por JS -->
+    <div style="grid-column:1/-1;padding:1.5rem;text-align:center;color:var(--muted);font-size:.82rem;background:var(--s1);border-radius:14px;border:1px solid var(--border)">Cargando briefing de unidades...</div>
+  </div>
+
+  <!-- Totales consolidados -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1rem" id="briefing-totals">
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:1rem 1.25rem">
+      <div style="font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem">Ventas Grupo Hoy</div>
+      <div style="font-family:'DM Mono',monospace;font-size:1.4rem;color:var(--green)" id="bt-vhoy">—</div>
+    </div>
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:1rem 1.25rem">
+      <div style="font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem">Ventas Grupo Mes</div>
+      <div style="font-family:'DM Mono',monospace;font-size:1.4rem;color:var(--suminregio)" id="bt-vmes">—</div>
+    </div>
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:1rem 1.25rem">
+      <div style="font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:.4rem">Cartera Vencida Total</div>
+      <div style="font-family:'DM Mono',monospace;font-size:1.4rem;color:var(--red)" id="bt-venc">—</div>
+    </div>
+  </div>
+</div>
+
+<style>
+.unit-card{background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:1.1rem 1.25rem;text-decoration:none;color:inherit;transition:all .25s;display:block;position:relative;overflow:hidden}
+.unit-card:hover{border-color:var(--border2);transform:translateY(-2px);box-shadow:0 12px 30px rgba(0,0,0,.3)}
+.unit-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--uc);opacity:.9}
+.unit-name{font-size:.78rem;font-weight:700;color:var(--text2);margin-bottom:.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.unit-kpi{margin-bottom:.5rem}
+.unit-kpi-lbl{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.unit-kpi-val{font-family:'DM Mono',monospace;font-size:1.05rem;font-weight:500}
+.unit-err{color:var(--red);font-size:.75rem;padding:.5rem 0}
+.unit-link{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);margin-top:.6rem;display:inline-flex;align-items:center;gap:.25rem}
+.unit-link:hover{color:var(--accent)}
+</style>
+
+<script>
+// ── Briefing 4 Unidades ─────────────────────────────────────────────────────
+const UNIT_COLORS = {
+  default: '#E6A800',
+  suminregio_suministros_medicos: '#22D3EE',
+  suminregio_maderas: '#00E5A0',
+  suminregio_reciclaje: '#9B6DFF',
+};
+const UNIT_LINKS = {
+  default: 'ventas.html?db=default',
+  suminregio_suministros_medicos: 'suministros-medicos.html',
+  suminregio_maderas: 'ventas.html?db=suminregio_maderas',
+  suminregio_reciclaje: 'ventas.html?db=suminregio_reciclaje',
+};
+
+function fmtM(n){ if(!n||isNaN(n))return'—'; n=+n; if(Math.abs(n)>=1e6)return'$'+(n/1e6).toFixed(2)+'M'; if(Math.abs(n)>=1e3)return'$'+(n/1e3).toFixed(1)+'K'; return'$'+Math.round(n).toLocaleString(); }
+
+async function loadBriefing(){
+  const target = 'default,suminregio_suministros_medicos,suminregio_maderas,suminregio_reciclaje';
+  const url = (window.__API_BASE||'') + '/api/briefing/diario?dbs=' + target;
+  const el = document.getElementById('briefing-units');
+  try {
+    const data = await Promise.race([
+      fetch(url).then(r=>r.json()),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),30000))
+    ]);
+    if(!data||!data.unidades){ el.innerHTML='<div style="grid-column:1/-1;color:var(--muted);padding:1rem;text-align:center">Sin datos del briefing</div>'; return; }
+
+    el.innerHTML = data.unidades.map(u=>{
+      const color = UNIT_COLORS[u.db] || '#4DA6FF';
+      const link  = UNIT_LINKS[u.db] || ('ventas.html?db='+u.db);
+      if(!u.ok) return `<a href="${link}" class="unit-card" style="--uc:var(--red)">
+        <div class="unit-name">${u.label||u.db}</div>
+        <div class="unit-err">⚠ ${u.error||'Error de conexión'}</div>
+        <div class="unit-link">Ver módulo →</div>
+      </a>`;
+      return `<a href="${link}" class="unit-card" style="--uc:${color}">
+        <div class="unit-name">${u.label||u.db}</div>
+        <div class="unit-kpi">
+          <div class="unit-kpi-lbl">Ventas Hoy</div>
+          <div class="unit-kpi-val" style="color:${color}">${fmtM(u.ventas_hoy)} <span style="font-size:.72rem;color:var(--muted)">(${u.docs_hoy||0} docs)</span></div>
+        </div>
+        <div class="unit-kpi">
+          <div class="unit-kpi-lbl">Ventas Mes</div>
+          <div class="unit-kpi-val" style="color:var(--text)">${fmtM(u.ventas_mes)}</div>
+        </div>
+        <div class="unit-kpi">
+          <div class="unit-kpi-lbl">Vencido CXC</div>
+          <div class="unit-kpi-val" style="color:${u.vencido>0?'var(--red)':'var(--green)'}">${fmtM(u.vencido)}</div>
+        </div>
+        <div class="unit-link">Ver scorecard →</div>
+      </a>`;
+    }).join('');
+
+    // Totales
+    const tot = data.totales || {};
+    document.getElementById('bt-vhoy').textContent = fmtM(tot.ventas_hoy);
+    document.getElementById('bt-vmes').textContent = fmtM(tot.ventas_mes);
+    document.getElementById('bt-venc').textContent = fmtM(tot.vencido);
+    document.getElementById('briefing-ts').textContent = '· ' + new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+  } catch(e) {
+    el.innerHTML = `<div style="grid-column:1/-1;color:var(--muted);padding:1rem;text-align:center;font-size:.82rem">Error cargando briefing: ${e.message}</div>`;
+  }
+}
+
+// Cargar briefing al inicio (después de 2s para no bloquear KPIs principales)
+setTimeout(loadBriefing, 2000);
+</script>
+
 <script>
 const API = (window.__API_BASE != null ? String(window.__API_BASE).replace(/\/+$/, '') : (window.location.protocol === 'file:' ? 'http://localhost:7000' : (window.location.origin || '')));
 function fwt(url,fallback,ms=20000){return Promise.race([fetch(url).then(r=>{if(!r.ok)throw new Error(String(r.status));return r.json();}).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
