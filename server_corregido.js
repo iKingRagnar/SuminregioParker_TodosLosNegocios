@@ -1963,7 +1963,8 @@ async function getCotizMensualesBatch(dbo, desdeStr, timeoutMs = 55000) {
       const mes  = +fechaStr.substring(5, 7);
       const k = `${anio}-${mes}`;
       if (!byMonth[k]) byMonth[k] = { ANIO: anio, MES: mes, TOTAL_COTI: 0, NUM_COTI: 0 };
-      byMonth[k].TOTAL_COTI += +(r.IMPORTE_NETO || 0);
+      const imp = +(r.IMPORTE_NETO || 0);
+      byMonth[k].TOTAL_COTI += VENTAS_SIN_IVA_DIVISOR > 1.00001 ? imp / VENTAS_SIN_IVA_DIVISOR : imp;
       byMonth[k].NUM_COTI++;
     }
     if (pastToday || batch.length < BATCH) break;
@@ -3157,19 +3158,10 @@ get('/api/ventas/vs-cotizaciones', async (req) => {
         console.error('[vs-cotizaciones ventas]', err && (err.message || err));
         return [];
       }),
-      query(`
-        SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
-          CAST(COALESCE(SUM(${imp}), 0) AS DOUBLE PRECISION) AS TOTAL_COTI, COUNT(*) AS NUM_COTI
-        FROM (
-          SELECT d.FECHA, ${imp} AS IMPORTE_NETO
-          FROM DOCTOS_VE d
-          WHERE d.TIPO_DOCTO = 'C'
-            AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
-            AND d.FECHA >= '${desdeStr}'
-        ) d
-        GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
-      `, [], 90000, dbo).catch((err) => {
-        console.error('[vs-cotizaciones cotiz]', err && (err.message || err));
+      // Cotizaciones: batch por PK — evita full-scan GROUP BY EXTRACT sobre WAN (timeout >60s).
+      // Itera lotes de 200 filas por PK. Agrega por mes en JS. ~10-15 queries vs 900.
+      getCotizMensualesBatch(dbo, desdeStr, 55000).catch((err) => {
+        console.error('[vs-cotizaciones cotiz batch]', err && (err.message || err));
         return [];
       }),
     ]);
