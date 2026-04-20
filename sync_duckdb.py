@@ -116,7 +116,7 @@ TABLES = {
     },
     'CLIENTES': {
         'sql': """
-            SELECT c.CLIENTE_ID, c.NOMBRE, c.NOMBRE_COMERCIAL,
+            SELECT c.CLIENTE_ID, c.NOMBRE,
                    c.RFC, c.CONDICION_PAGO_ID
             FROM CLIENTES c
         """,
