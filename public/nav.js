@@ -1,7 +1,7 @@
 /**
- * nav.js — Navegación unificada con hamburger móvil
+ * nav.js — Navegación unificada con selector de unidad de negocio global
  * Inyecta header completo en <header> (vacío) o #app-header.
- * Auto-detecta página activa · compatible con app-ui-boot.js mobile system
+ * Auto-detecta página activa · Selector de DB en todas las páginas.
  */
 (function () {
   'use strict';
@@ -19,6 +19,46 @@
     { href: 'capital.html',    label: 'Capital',      icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93V18h-2v1.93c-3.94-.49-7-3.86-7-7.93s3.05-7.44 7-7.93V6h2V4.07c3.94.49 7 3.86 7 7.93s-3.05 7.44-7 7.93zM11 9h2v4h-2zm0 6h2v2h-2z' },
   ];
 
+  var API_BASE = (function () {
+    try {
+      var m = location.origin.match(/localhost|127\.0\.0\.1/);
+      return m ? 'http://localhost:3000' : location.origin;
+    } catch (_) { return ''; }
+  })();
+
+  // ── DB helpers ──────────────────────────────────────────────────────────────
+
+  function getCurrentDb() {
+    try {
+      var u = new URL(location.href);
+      var q = u.searchParams.get('db');
+      if (q != null && String(q).trim() !== '') return String(q).trim();
+    } catch (_) {}
+    try {
+      var s = sessionStorage.getItem('microsip_erp_db');
+      if (s != null && String(s).trim() !== '') return String(s).trim();
+    } catch (_) {}
+    return '';
+  }
+
+  function setDb(dbId) {
+    try {
+      if (dbId) sessionStorage.setItem('microsip_erp_db', dbId);
+      else sessionStorage.removeItem('microsip_erp_db');
+    } catch (_) {}
+    // Reload current page with ?db= param
+    try {
+      var u = new URL(location.href);
+      if (dbId) u.searchParams.set('db', dbId);
+      else u.searchParams.delete('db');
+      location.href = u.toString();
+    } catch (_) {
+      location.reload();
+    }
+  }
+
+  // ── UI helpers ──────────────────────────────────────────────────────────────
+
   function currentPage() {
     try {
       var p = location.pathname.split('/').pop() || 'index.html';
@@ -32,15 +72,97 @@
 
   function buildNav() {
     var cur = currentPage();
-    var links = NAV_LINKS.map(function (nl) {
+    return NAV_LINKS.map(function (nl) {
       var active = (nl.href === cur || (cur === '' && nl.href === 'index.html')) ? ' active' : '';
       return '<a class="nav-link' + active + '" href="' + nl.href + '">' +
         '<svg viewBox="0 0 24 24"><path d="' + nl.icon + '"/></svg>' +
         nl.label +
       '</a>';
     }).join('');
-    return links;
   }
+
+  // ── DB Selector dropdown ────────────────────────────────────────────────────
+
+  function buildDbSelector(databases) {
+    var cur = getCurrentDb();
+    // Sort: default first, then alphabetical by label
+    var sorted = databases.slice().sort(function (a, b) {
+      if ((a.id || '').toLowerCase() === 'default') return -1;
+      if ((b.id || '').toLowerCase() === 'default') return 1;
+      return (a.label || a.id || '').localeCompare(b.label || b.id || '');
+    });
+
+    var curEntry = sorted.find(function (d) { return String(d.id) === cur; });
+    var curLabel = curEntry
+      ? (curEntry.label || curEntry.id)
+      : (cur ? cur : 'Por defecto');
+    // Trim long labels
+    if (curLabel.length > 16) curLabel = curLabel.substring(0, 14) + '…';
+
+    var optionsHtml = '<div class="nav-db-opt' + (!cur ? ' active' : '') + '" data-db="">' +
+      '<span class="nav-db-opt-dot"></span>Por defecto</div>';
+    sorted.forEach(function (d) {
+      var active = String(d.id) === cur ? ' active' : '';
+      var lbl = (d.label || d.id || '').replace(/</g, '&lt;');
+      optionsHtml += '<div class="nav-db-opt' + active + '" data-db="' + String(d.id).replace(/"/g, '&quot;') + '">' +
+        '<span class="nav-db-opt-dot"></span>' + lbl + '</div>';
+    });
+
+    return '<div class="nav-db-wrap" id="navDbWrap">' +
+      '<button class="nav-db-btn" id="navDbBtn" type="button" title="Cambiar unidad de negocio">' +
+        '<svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>' +
+        '<span id="navDbLabel">' + curLabel + '</span>' +
+        '<svg class="nav-db-chevron" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>' +
+      '</button>' +
+      '<div class="nav-db-dropdown" id="navDbDropdown">' +
+        '<div class="nav-db-dropdown-title">Unidad de negocio</div>' +
+        optionsHtml +
+      '</div>' +
+    '</div>';
+  }
+
+  function attachDbEvents() {
+    var btn = document.getElementById('navDbBtn');
+    var dropdown = document.getElementById('navDbDropdown');
+    var wrap = document.getElementById('navDbWrap');
+    if (!btn || !dropdown) return;
+
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var open = wrap.classList.toggle('open');
+      dropdown.style.display = open ? 'block' : 'none';
+    });
+
+    dropdown.querySelectorAll('.nav-db-opt').forEach(function (opt) {
+      opt.addEventListener('click', function () {
+        var dbId = opt.getAttribute('data-db') || '';
+        setDb(dbId);
+      });
+    });
+
+    // Close on outside click
+    document.addEventListener('click', function () {
+      wrap.classList.remove('open');
+      dropdown.style.display = 'none';
+    });
+  }
+
+  function loadDbSelector(containerId) {
+    var cont = document.getElementById(containerId);
+    if (!cont) return;
+
+    // If only 1 DB or API fails, show nothing
+    fetch(API_BASE + '/api/universe/databases')
+      .then(function (r) { return r.json(); })
+      .then(function (dbs) {
+        if (!Array.isArray(dbs) || dbs.length < 2) return; // hide when single DB
+        cont.innerHTML = buildDbSelector(dbs);
+        attachDbEvents();
+      })
+      .catch(function () { /* silently skip */ });
+  }
+
+  // ── Styles ──────────────────────────────────────────────────────────────────
 
   function injectStyles() {
     if (document.getElementById('nav-js-style')) return;
@@ -77,7 +199,7 @@
       'border-color:rgba(230,168,0,.4);}',
       '#app-header .nav-link svg{width:13px;height:13px;fill:currentColor;flex-shrink:0;}',
 
-      '.nav-right{display:flex;align-items:center;gap:10px;flex-shrink:0;}',
+      '.nav-right{display:flex;align-items:center;gap:8px;flex-shrink:0;}',
       '.nav-live{display:flex;align-items:center;gap:.4rem;',
       'background:rgba(0,229,160,.1);border:1px solid rgba(0,229,160,.2);',
       'border-radius:99px;padding:.25rem .65rem;',
@@ -90,7 +212,36 @@
       '.nav-clock{font-family:"DM Mono",monospace;font-size:.72rem;',
       'color:#6A85A6;letter-spacing:.04em;min-width:6.5rem;}',
 
-      /* ── Mobile: nav becomes a horizontal scroll strip ── */
+      /* ── DB Selector ── */
+      '.nav-db-wrap{position:relative;flex-shrink:0;}',
+      '.nav-db-btn{display:flex;align-items:center;gap:.35rem;',
+      'padding:.3rem .6rem;border-radius:8px;',
+      'background:rgba(230,168,0,.08);border:1px solid rgba(230,168,0,.25);',
+      'color:#E6A800;font-size:.7rem;font-weight:600;cursor:pointer;',
+      'white-space:nowrap;transition:all .2s;font-family:inherit;}',
+      '.nav-db-btn:hover{background:rgba(230,168,0,.15);border-color:rgba(230,168,0,.45);}',
+      '.nav-db-btn svg{width:12px;height:12px;fill:currentColor;flex-shrink:0;}',
+      '.nav-db-chevron{transition:transform .2s;}',
+      '.nav-db-wrap.open .nav-db-chevron{transform:rotate(180deg);}',
+      '.nav-db-dropdown{display:none;position:absolute;right:0;top:calc(100% + 6px);',
+      'background:#0A1628;border:1px solid rgba(255,255,255,.1);',
+      'border-radius:10px;min-width:180px;z-index:500;',
+      'box-shadow:0 8px 32px rgba(0,0,0,.5);overflow:hidden;}',
+      '.nav-db-dropdown-title{padding:.5rem .85rem .35rem;',
+      'font-size:.6rem;font-weight:700;color:#6A85A6;',
+      'text-transform:uppercase;letter-spacing:.1em;',
+      'border-bottom:1px solid rgba(255,255,255,.06);}',
+      '.nav-db-opt{display:flex;align-items:center;gap:.5rem;',
+      'padding:.55rem .85rem;font-size:.78rem;font-weight:500;',
+      'color:#C8D8EC;cursor:pointer;transition:background .15s;}',
+      '.nav-db-opt:hover{background:rgba(230,168,0,.1);color:#E6A800;}',
+      '.nav-db-opt.active{color:#E6A800;font-weight:700;}',
+      '.nav-db-opt-dot{width:6px;height:6px;border-radius:50%;',
+      'background:currentColor;flex-shrink:0;opacity:.5;}',
+      '.nav-db-opt.active .nav-db-opt-dot{opacity:1;',
+      'box-shadow:0 0 6px currentColor;}',
+
+      /* ── Mobile ── */
       '@media(max-width:1180px){',
       '#app-header nav{max-width:calc(100vw - 5rem);overflow-x:auto;',
       'overflow-y:hidden;-webkit-overflow-scrolling:touch;',
@@ -105,27 +256,28 @@
       'padding:.4rem .9rem!important;flex-wrap:nowrap;}',
       '.nav-logo-sub{display:none;}',
       '.nav-live,.nav-clock{display:none!important;}',
+      '#navDbLabel{display:none;}',
+      '.nav-db-btn{padding:.3rem .4rem;}',
+      '.nav-db-dropdown{right:0;left:auto;}',
       '}',
     ].join('');
     document.head.appendChild(s);
   }
 
+  // ── Init ─────────────────────────────────────────────────────────────────────
+
   function init() {
     injectStyles();
 
-    // Find or create the header element
     var hdr = document.querySelector('header') || document.getElementById('app-header');
     if (!hdr) {
       hdr = document.createElement('header');
       document.body.insertBefore(hdr, document.body.firstChild);
     }
-    // Rename to #app-header if not already set
     if (!hdr.id) hdr.id = 'app-header';
-    // Remove display:none if template was hidden
     hdr.style.display = '';
     hdr.removeAttribute('aria-hidden');
 
-    // Build the header HTML
     var clockId = 'nav-clock-' + Date.now();
     hdr.innerHTML =
       '<div class="nav-hi">' +
@@ -140,6 +292,7 @@
         '</a>' +
         '<nav id="main-nav">' + buildNav() + '</nav>' +
         '<div class="nav-right">' +
+          '<div id="navDbContainer"></div>' +
           '<div class="nav-live">' +
             '<div class="nav-live-dot"></div>LIVE' +
           '</div>' +
@@ -151,13 +304,13 @@
     var clockEl = document.getElementById(clockId);
     if (clockEl) {
       clockEl.textContent = fmtTime(new Date());
-      setInterval(function () {
-        clockEl.textContent = fmtTime(new Date());
-      }, 1000);
+      setInterval(function () { clockEl.textContent = fmtTime(new Date()); }, 1000);
     }
+
+    // DB selector (loads asynchronously, only shows if >1 DB registered)
+    loadDbSelector('navDbContainer');
   }
 
-  // Run immediately (script is synchronous, DOM may not have <header> yet)
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
