@@ -39,6 +39,8 @@ import os
 import sys
 import time
 import logging
+import decimal
+import datetime as dt
 from datetime import datetime, timedelta
 
 # ── Configuración ───────────────────────────────────────────────────────────
@@ -186,6 +188,41 @@ def fetch_table(fb_conn, name, sql, params):
     return cols, rows
 
 
+def _duck_type(val):
+    """Mapea un valor Python al tipo DuckDB correspondiente."""
+    if val is None:
+        return 'VARCHAR'
+    if isinstance(val, bool):
+        return 'BOOLEAN'
+    if isinstance(val, int):
+        return 'BIGINT'
+    if isinstance(val, (float, decimal.Decimal)):
+        return 'DOUBLE'
+    if isinstance(val, datetime):
+        return 'TIMESTAMP'
+    if isinstance(val, dt.date):
+        return 'DATE'
+    if isinstance(val, dt.time):
+        return 'TIME'
+    return 'VARCHAR'
+
+def _infer_types(cols, rows):
+    """Recorre filas hasta encontrar el primer valor no-NULL por columna."""
+    types = ['VARCHAR'] * len(cols)
+    found = [False] * len(cols)
+    for row in rows:
+        for i, val in enumerate(row):
+            if not found[i] and val is not None:
+                types[i] = _duck_type(val)
+                found[i] = True
+        if all(found):
+            break
+    return types
+
+def _clean_row(row):
+    """Convierte Decimal → float para compatibilidad con DuckDB."""
+    return tuple(float(v) if isinstance(v, decimal.Decimal) else v for v in row)
+
 def build_duckdb(fb_conn, out_path):
     import duckdb
     log.info(f'Fecha de corte: {CUTOFF_DATE} (últimos {YEARS_BACK} años)')
@@ -204,15 +241,19 @@ def build_duckdb(fb_conn, out_path):
 
         duck.execute(f'DROP TABLE IF EXISTS "{name}"')
         if rows:
-            # Let DuckDB infer schema from data
-            col_list = ', '.join([f'"{c}"' for c in cols])
+            # Inferir tipos desde los datos reales de Firebird
+            col_types = _infer_types(cols, rows)
+            col_defs  = ', '.join([f'"{c}" {t}' for c, t in zip(cols, col_types)])
+            duck.execute(f'CREATE TABLE "{name}" ({col_defs})')
+
+            col_list     = ', '.join([f'"{c}"' for c in cols])
             placeholders = ', '.join(['?' for _ in cols])
-            # Insert in batches of 5000 to avoid memory spikes
-            batch_size = 5000
+            batch_size   = 5000
             for i in range(0, len(rows), batch_size):
+                clean = [_clean_row(r) for r in rows[i:i+batch_size]]
                 duck.executemany(
                     f'INSERT INTO "{name}" ({col_list}) VALUES ({placeholders})',
-                    rows[i:i+batch_size]
+                    clean
                 )
         else:
             log.warning(f'  {name}: 0 filas — tabla vacía')
