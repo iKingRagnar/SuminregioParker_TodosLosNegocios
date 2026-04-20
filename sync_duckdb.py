@@ -10,14 +10,17 @@ INSTALAR dependencias (una sola vez):
 
 CONFIGURAR variables de entorno en Windows (o editar los defaults abajo):
     FB_HOST          = localhost
-    FB_DATABASE      = C:\Microsip\Datos\SUMIN.FDB    (ruta real de tu .FDB)
+    FB_DATABASE      = C:\Microsip datos\SUMINREGIO-PARKER.FDB  ← base principal (487 MB)
     FB_USER          = SYSDBA
     FB_PASSWORD      = masterkey
     FB_PORT          = 3050
     FB_CHARSET       = WIN1252
     RENDER_URL       = https://suminregioparker-todoslosnegocios.onrender.com
-    SNAPSHOT_TOKEN   = (el mismo valor de SNAPSHOT_TOKEN en Render)
-    DUCK_OUT         = C:\Microsip\snapshot.duckdb
+    SNAPSHOT_TOKEN   = suminregio-snap-2026
+    DUCK_OUT         = C:\Microsip datos\snapshot.duckdb
+
+RUTA CORRECTA en este servidor: C:\Microsip datos\  (con espacio, sin backslash al final)
+Bases disponibles en esa ruta: SUMINREGIO-PARKER.FDB, SUMINREGIO MADERAS.FDB, etc.
 
 EJECUTAR manualmente:
     python sync_duckdb.py
@@ -27,7 +30,7 @@ SALIDA esperada:
     2026-04-19 23:00:02 INFO Leyendo DOCTOS_VE...
     2026-04-19 23:00:08 INFO   → 48,312 filas en 6.1s
     ...
-    2026-04-19 23:02:15 INFO DuckDB creado: C:\Microsip\snapshot.duckdb (87.3 MB)
+    2026-04-19 23:02:15 INFO DuckDB creado: C:\Microsip datos\snapshot.duckdb (87.3 MB)
     2026-04-19 23:02:48 INFO Upload exitoso en 33.1s: {"ok":true}
     2026-04-19 23:02:48 INFO ✅ Sync completado
 """
@@ -40,7 +43,7 @@ from datetime import datetime, timedelta
 
 # ── Configuración ───────────────────────────────────────────────────────────
 FB_HOST     = os.environ.get('FB_HOST',     'localhost')
-FB_DB       = os.environ.get('FB_DATABASE', r'C:\Microsip\Datos\SUMIN.FDB')
+FB_DB       = os.environ.get('FB_DATABASE', r'C:\Microsip datos\SUMINREGIO-PARKER.FDB')
 FB_USER     = os.environ.get('FB_USER',     'SYSDBA')
 FB_PASS     = os.environ.get('FB_PASSWORD', 'masterkey')
 FB_PORT     = int(os.environ.get('FB_PORT', '3050'))
@@ -48,7 +51,7 @@ FB_CHARSET  = os.environ.get('FB_CHARSET',  'WIN1252')
 
 RENDER_URL     = os.environ.get('RENDER_URL',     'https://suminregioparker-todoslosnegocios.onrender.com')
 SNAPSHOT_TOKEN = os.environ.get('SNAPSHOT_TOKEN', 'suminregio-snap-2026')
-DUCK_OUT       = os.environ.get('DUCK_OUT',       r'C:\Microsip\snapshot.duckdb')
+DUCK_OUT       = os.environ.get('DUCK_OUT',       r'C:\Microsip datos\snapshot.duckdb')
 
 YEARS_BACK = 3  # años de historia a sincronizar
 
