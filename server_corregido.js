@@ -156,17 +156,20 @@ const DB_OPTIONS = {
 console.log('DB path:', DB_OPTIONS.database);
 
 // ── Helper: ejecuta query → promesa ──────────────────────────────────────────
-// dbOptsOverride: si se pasa, usa esa conexión (multi-empresa / scorecard universo).
-// DuckDB fast-path: si el snapshot está cargado y la query solo toca tablas
-// sincronizadas, va a DuckDB (<50ms). Si falla → fallback transparente a Firebird.
+// DuckDB fast-path: si hay snapshot para esta empresa y la query solo toca
+// tablas sincronizadas, va a DuckDB (<50ms). Fallback automático a Firebird.
 function query(sql, params = [], timeoutMs = 12000, dbOptsOverride = null) {
   // eslint-disable-next-line no-use-before-define
-  if (!dbOptsOverride && _duckConn && queryUsesOnlyDuckTables(sql)) {
+  if (queryUsesOnlyDuckTables(sql)) {
     // eslint-disable-next-line no-use-before-define
-    return duckQueryPromise(sql, params).catch((duckErr) => {
-      console.warn('[DuckDB] fallback Firebird:', duckErr && duckErr.message);
-      return _fbQuery(sql, params, timeoutMs, null);
-    });
+    const snap = getDuckSnap(dbOptsOverride);
+    if (snap) {
+      // eslint-disable-next-line no-use-before-define
+      return duckQueryPromise(snap, sql, params).catch((duckErr) => {
+        console.warn('[DuckDB] fallback Firebird:', duckErr && duckErr.message);
+        return _fbQuery(sql, params, timeoutMs, dbOptsOverride);
+      });
+    }
   }
   return _fbQuery(sql, params, timeoutMs, dbOptsOverride);
 }
@@ -194,11 +197,10 @@ function _fbQuery(sql, params = [], timeoutMs = 12000, dbOptsOverride = null) {
   return Promise.race([queryPromise, timeoutPromise]);
 }
 
-// ── DuckDB Snapshot Layer ─────────────────────────────────────────────────────
-// Queries sobre tablas sincronizadas van a DuckDB (<50ms columnar) en vez de
-// Firebird WAN (200-400ms). El snapshot se genera 1x/noche desde Windows
-// con sync_duckdb.py y se sube automáticamente vía POST /api/admin/snapshot/upload.
-// Fallback automático a Firebird si el snapshot no está cargado o la query falla.
+// ── DuckDB Multi-Base Snapshot Layer ─────────────────────────────────────────
+// Cada empresa tiene su propio snapshot DuckDB.
+// sync_duckdb.py genera uno por base y los sube cada noche.
+// 0 conexiones WAN a Firebird durante el día para cualquier empresa.
 
 const DUCK_TABLES = new Set([
   'DOCTOS_VE', 'DOCTOS_PV', 'DOCTOS_VE_DET',
@@ -206,73 +208,95 @@ const DUCK_TABLES = new Set([
   'IMPORTES_DOCTOS_CC', 'DOCTOS_CC', 'CONDICIONES_PAGO', 'CONFIGURACIONES_GEN',
 ]);
 
-const DUCK_SNAPSHOT_PATH = process.env.DUCK_SNAPSHOT_PATH || null; // e.g. /data/snapshot.duckdb
+// Directorio donde se guardan los snapshots: /tmp/duck_snaps/ por defecto
+const DUCK_SNAPSHOT_DIR  = process.env.DUCK_SNAPSHOT_DIR  || '/tmp/duck_snaps';
+const DUCK_SNAPSHOT_PATH = process.env.DUCK_SNAPSHOT_PATH || null; // compatibilidad legacy
 const SNAPSHOT_TOKEN     = process.env.SNAPSHOT_TOKEN     || 'suminregio-snap-2026';
 
-let _duckDb      = null;  // duckdb.Database instance
-let _duckConn    = null;  // persistent connection
-let _duckMeta    = null;  // { CREATED_AT, CUTOFF_DATE, TOTAL_ROWS, VERSION }
-let _duckPath    = null;  // path currently loaded
-let _duckLoading = false;
+// Map<dbId, { db, conn, meta, path, loadingAt }>
+const _duckSnaps = new Map();
 
-function loadDuckSnapshot(filePath) {
-  if (!filePath) return;
-  if (_duckLoading) return;
-  _duckLoading = true;
+/** Resuelve el dbId a partir de dbOptsOverride comparando la ruta de BD. */
+function dbOptsToId(dbOptsOverride) {
+  if (!dbOptsOverride) return 'default';
+  const dbPath = String(dbOptsOverride.database || '').toLowerCase().replace(/\\/g, '/');
+  // Buscar en el registro global de bases (se construye al arrancar)
+  if (typeof DATABASE_REGISTRY !== 'undefined') {
+    for (const e of DATABASE_REGISTRY) {
+      const ep = String(e.database || '').toLowerCase().replace(/\\/g, '/');
+      if (ep === dbPath) return e.id;
+    }
+  }
+  // Comparar con DB_OPTIONS principal
+  const mainPath = String(DB_OPTIONS.database || '').toLowerCase().replace(/\\/g, '/');
+  if (dbPath === mainPath) return 'default';
+  return null;
+}
+
+/** Obtiene la conexión DuckDB para esta empresa, o null si no hay snapshot. */
+function getDuckSnap(dbOptsOverride) {
+  const id = dbOptsToId(dbOptsOverride);
+  if (!id) return null;
+  const snap = _duckSnaps.get(id);
+  return (snap && snap.conn) ? snap : null;
+}
+
+/** Carga (o recarga) un snapshot DuckDB para un dbId específico. */
+function loadDuckSnapshot(dbId, filePath) {
+  if (!filePath || !dbId) return;
+  const prev = _duckSnaps.get(dbId);
+  if (prev && prev.loadingAt && Date.now() - prev.loadingAt < 5000) return; // evitar doble carga
+
+  _duckSnaps.set(dbId, { ...(prev || {}), loadingAt: Date.now() });
   try {
     const duckdb = require('duckdb');
-    // Cerrar conexión anterior
-    if (_duckConn) { try { _duckConn.close(); } catch (_) {} _duckConn = null; }
-    if (_duckDb)   { try { _duckDb.close();   } catch (_) {} _duckDb   = null; }
+    if (prev && prev.conn) { try { prev.conn.close(); } catch (_) {} }
+    if (prev && prev.db)   { try { prev.db.close();   } catch (_) {} }
 
     const db   = new duckdb.Database(filePath, { access_mode: 'READ_ONLY' });
     const conn = db.connect();
     conn.all('SELECT * FROM _snapshot_meta LIMIT 1', (err, rows) => {
-      _duckLoading = false;
-      if (err) {
-        console.warn('[DuckDB] _snapshot_meta no legible:', err.message);
-      }
-      _duckDb   = db;
-      _duckConn = conn;
-      _duckPath = filePath;
-      _duckMeta = (rows && rows[0]) ? rows[0] : null;
-      const m = _duckMeta;
-      console.log(`[DuckDB] Snapshot cargado: ${filePath} | filas=${m && m.TOTAL_ROWS} | corte=${m && m.CUTOFF_DATE} | ts=${m && m.CREATED_AT}`);
+      const meta = (!err && rows && rows[0]) ? rows[0] : null;
+      _duckSnaps.set(dbId, { db, conn, meta, path: filePath, loadingAt: null });
+      console.log(`[DuckDB][${dbId}] Cargado: ${filePath} | filas=${meta && meta.TOTAL_ROWS} | corte=${meta && meta.CUTOFF_DATE}`);
     });
   } catch (e) {
-    _duckLoading = false;
-    console.warn('[DuckDB] Error cargando snapshot:', e.message);
+    console.warn(`[DuckDB][${dbId}] Error cargando snapshot: ${e.message}`);
+    _duckSnaps.delete(dbId);
   }
 }
 
-// Cargar snapshot al arrancar (si DUCK_SNAPSHOT_PATH está configurado en env)
-if (DUCK_SNAPSHOT_PATH) {
-  try {
-    if (require('fs').existsSync(DUCK_SNAPSHOT_PATH)) {
-      loadDuckSnapshot(DUCK_SNAPSHOT_PATH);
-    } else {
-      console.log('[DuckDB] Snapshot no encontrado en arranque:', DUCK_SNAPSHOT_PATH, '— esperando upload nightly.');
+// Cargar snapshots existentes al arrancar (escanea DUCK_SNAPSHOT_DIR)
+try {
+  require('fs').mkdirSync(DUCK_SNAPSHOT_DIR, { recursive: true });
+  const files = require('fs').readdirSync(DUCK_SNAPSHOT_DIR);
+  for (const f of files) {
+    // Nombre esperado: snapshot_{dbId}.duckdb
+    const m = f.match(/^snapshot_(.+)\.duckdb$/);
+    if (m) {
+      const dbId   = m[1];
+      const fpath  = require('path').join(DUCK_SNAPSHOT_DIR, f);
+      console.log(`[DuckDB] Auto-cargando snapshot al arrancar: ${dbId}`);
+      loadDuckSnapshot(dbId, fpath);
     }
-  } catch (_) {}
+  }
+  // Compatibilidad con legacy DUCK_SNAPSHOT_PATH (snapshot único para 'default')
+  if (DUCK_SNAPSHOT_PATH && require('fs').existsSync(DUCK_SNAPSHOT_PATH)) {
+    console.log('[DuckDB] Cargando legacy DUCK_SNAPSHOT_PATH para default');
+    loadDuckSnapshot('default', DUCK_SNAPSHOT_PATH);
+  }
+} catch (e) {
+  console.warn('[DuckDB] Error en auto-carga al arrancar:', e.message);
 }
 
-/**
- * Traduce SQL Firebird → DuckDB.
- * Única diferencia relevante: SELECT FIRST N → SELECT ... LIMIT N
- */
+/** SELECT FIRST N → SELECT ... LIMIT N */
 function sqlFirebirdToDuck(sql) {
   let limitVal = null;
-  const translated = sql.replace(/^\s*SELECT\s+FIRST\s+(\d+)\s+/i, (_, n) => {
-    limitVal = n;
-    return 'SELECT ';
-  });
-  return limitVal !== null ? translated.trimEnd() + ` LIMIT ${limitVal}` : sql;
+  const out = sql.replace(/^\s*SELECT\s+FIRST\s+(\d+)\s+/i, (_, n) => { limitVal = n; return 'SELECT '; });
+  return limitVal !== null ? out.trimEnd() + ` LIMIT ${limitVal}` : sql;
 }
 
-/**
- * Devuelve true si el SQL solo referencia tablas disponibles en el snapshot DuckDB.
- * Extrae nombres de cláusulas FROM / JOIN (excluye subqueries sys como RDB$RELATION_FIELDS).
- */
+/** True si el SQL solo toca tablas del snapshot DuckDB. */
 function queryUsesOnlyDuckTables(sql) {
   const refs = [];
   const re = /\b(?:FROM|JOIN)\s+["'`]?([A-Z_][A-Z0-9_]*)["'`]?/gi;
@@ -281,15 +305,11 @@ function queryUsesOnlyDuckTables(sql) {
   return refs.length > 0 && refs.every(t => DUCK_TABLES.has(t));
 }
 
-/**
- * Ejecuta una query en DuckDB y devuelve Promise<Array>.
- * DuckDB acepta parámetros posicionales con ? (misma sintaxis que Firebird).
- */
-function duckQueryPromise(sql, params = []) {
+/** Ejecuta en DuckDB y devuelve Promise<Array>. */
+function duckQueryPromise(snap, sql, params = []) {
   return new Promise((resolve, reject) => {
-    if (!_duckConn) return reject(new Error('DuckDB no disponible'));
-    const translated = sqlFirebirdToDuck(sql);
-    _duckConn.all(translated, ...params, (err, rows) => {
+    if (!snap || !snap.conn) return reject(new Error('DuckDB snap no disponible'));
+    snap.conn.all(sqlFirebirdToDuck(sql), ...params, (err, rows) => {
       if (err) return reject(err);
       resolve(rows || []);
     });
@@ -385,23 +405,24 @@ app.get('/api/cache/stats', (_req, res) => {
 
 // ── DuckDB Admin Endpoints ────────────────────────────────────────────────────
 
-// GET /api/admin/snapshot/status — estado del snapshot cargado
+// GET /api/admin/snapshot/status — estado de TODOS los snapshots cargados
 app.get('/api/admin/snapshot/status', (req, res) => {
   const token = req.headers['x-snapshot-token'] || req.query.token;
   if (token !== SNAPSHOT_TOKEN) return res.status(401).json({ error: 'Unauthorized' });
+  const snaps = {};
+  for (const [id, s] of _duckSnaps) {
+    snaps[id] = { loaded: !!s.conn, path: s.path, meta: s.meta };
+  }
   res.json({
-    loaded: !!_duckConn,
-    path: _duckPath,
-    loading: _duckLoading,
-    meta: _duckMeta,
-    duckTablesCount: DUCK_TABLES.size,
+    totalSnaps: _duckSnaps.size,
+    snapshots: snaps,
     duckTables: [...DUCK_TABLES],
+    snapshotDir: DUCK_SNAPSHOT_DIR,
   });
 });
 
-// POST /api/admin/snapshot/upload — recibe el archivo .duckdb binario desde sync_duckdb.py
-// Body: application/octet-stream (raw binary del .duckdb)
-// Header: X-Snapshot-Token, X-DB-Id (futuro multi-empresa, por ahora ignorado)
+// POST /api/admin/snapshot/upload — recibe un .duckdb binario para UNA empresa
+// Headers: X-Snapshot-Token (auth), X-DB-Id (cual empresa, ej: "suminregio_maderas")
 app.post(
   '/api/admin/snapshot/upload',
   express.raw({ type: 'application/octet-stream', limit: '600mb' }),
@@ -409,28 +430,29 @@ app.post(
     const token = req.headers['x-snapshot-token'];
     if (token !== SNAPSHOT_TOKEN) return res.status(401).json({ error: 'Unauthorized' });
     if (!req.body || !Buffer.isBuffer(req.body) || req.body.length < 1024) {
-      return res.status(400).json({ error: 'Body vacío o muy pequeño (¿no es un .duckdb?)' });
+      return res.status(400).json({ error: 'Body vacío o muy pequeño' });
     }
 
-    const uploadPath = DUCK_SNAPSHOT_PATH || '/tmp/snapshot.duckdb';
-    const tmpPath    = uploadPath + '.uploading';
+    const dbId      = String(req.headers['x-db-id'] || 'default').trim();
+    const snapDir   = DUCK_SNAPSHOT_DIR;
+    const snapFile  = require('path').join(snapDir, `snapshot_${dbId}.duckdb`);
+    const tmpFile   = snapFile + '.uploading';
+
     try {
-      require('fs').writeFileSync(tmpPath, req.body);
-      // Renombrar atómicamente
-      require('fs').renameSync(tmpPath, uploadPath);
-      console.log(`[DuckDB] Snapshot recibido: ${(req.body.length / 1024 / 1024).toFixed(1)} MB → ${uploadPath}`);
+      require('fs').mkdirSync(snapDir, { recursive: true });
+      require('fs').writeFileSync(tmpFile, req.body);
+      require('fs').renameSync(tmpFile, snapFile);
+      const mb = (req.body.length / 1024 / 1024).toFixed(1);
+      console.log(`[DuckDB][${dbId}] Snapshot recibido: ${mb} MB → ${snapFile}`);
 
-      // Recargar en memoria
-      loadDuckSnapshot(uploadPath);
-
-      // Limpiar cache del servidor para que el dashboard vea datos frescos
+      loadDuckSnapshot(dbId, snapFile);
       _resCache.clear();
-      console.log('[DuckDB] Cache de API limpiado tras snapshot upload.');
+      console.log(`[DuckDB][${dbId}] Cache limpiado.`);
 
-      res.json({ ok: true, bytes: req.body.length, path: uploadPath });
+      res.json({ ok: true, dbId, bytes: req.body.length, path: snapFile });
     } catch (e) {
-      console.error('[DuckDB] Error guardando snapshot:', e.message);
-      try { require('fs').unlinkSync(tmpPath); } catch (_) {}
+      console.error(`[DuckDB][${dbId}] Error guardando:`, e.message);
+      try { require('fs').unlinkSync(tmpFile); } catch (_) {}
       res.status(500).json({ error: e.message });
     }
   }
