@@ -1,0 +1,324 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+ * cxc-redesign.css — Rediseño completo del módulo CXC (light mode premium)
+ *
+ * cxc.html tiene un <style> inline con colores oscuros hardcoded que chocan
+ * con el tema light. Este CSS sobreescribe con !important para unificar.
+ * Se carga al final del cascade vía nav.js.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/* Solo aplica en la página de CxC */
+body.ms-page-cxc,
+body:has(#cxc-app),
+html[data-page="cxc"] body,
+/* Selector conservador: si el body tiene clases de CxC o el contenido principal */
+body[class*="cxc"] {
+  /* Marker container — usaremos prefix .cxc-redesign para evitar afectar otras páginas */
+}
+
+/* Aplicamos a TODA la página cxc.html — se detecta por el elemento cxc-particles
+ * o por clases típicas del módulo. Como override agresivo, usamos body selector
+ * amplio pero limitado al path /cxc.html en la práctica por el cache bust.
+ *
+ * Para ser seguros y no afectar otras páginas, gatilla con :has() de un
+ * elemento único que solo existe en cxc.html (#cxc-particles, #cxc-app, etc.)
+ */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VARIABLES & BASE — override de las variables oscuras del style inline
+   ═══════════════════════════════════════════════════════════════════════════ */
+html.theme-premium-light body:has(#cxc-particles),
+html.theme-premium-light body:has([id*="cxc"]),
+html body:has(#cxc-particles) {
+  --bg: #F6F8FB !important;
+  --s1: #FFFFFF !important;
+  --s2: #F8FAFC !important;
+  --s3: #F1F5F9 !important;
+  --s4: #E2E8F0 !important;
+  --txt:  #0F172A !important;
+  --txt2: #334155 !important;
+  --txt3: #64748B !important;
+  --brd:  rgba(15, 23, 42, 0.08) !important;
+  background: #F6F8FB !important;
+  color: #0F172A !important;
+}
+
+/* Partículas y orbs oscuros: quitar o suavizar */
+body:has(#cxc-particles) #cxc-particles { display: none !important; }
+body:has(.orb) .orb { opacity: 0.06 !important; }
+body:has(.orb-1) .orb-1 { background: radial-gradient(circle, rgba(230,168,0,.25), transparent 70%) !important; }
+body:has(.orb-2) .orb-2 { background: radial-gradient(circle, rgba(64,150,255,.2), transparent 70%) !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HEADER — ya lo ajusta visual-polish.css, aquí refuerzo por el z-index
+   ═══════════════════════════════════════════════════════════════════════════ */
+body:has(#cxc-particles) #app-header {
+  background: rgba(255, 255, 255, 0.88) !important;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08) !important;
+  color: #0F172A !important;
+}
+body:has(#cxc-particles) #app-header .logo-text { color: #0F172A !important; }
+body:has(#cxc-particles) #app-header .logo-sub { color: #64748B !important; }
+body:has(#cxc-particles) #app-header .nav-link { color: #475569 !important; }
+body:has(#cxc-particles) #app-header .nav-link:hover {
+  color: #B8860B !important;
+  background: rgba(230, 168, 0, 0.08) !important;
+}
+body:has(#cxc-particles) #app-header .nav-link.active {
+  color: #B8860B !important;
+  background: linear-gradient(135deg, rgba(230,168,0,.18), rgba(230,168,0,.06)) !important;
+  border-color: rgba(230, 168, 0, 0.45) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CARDS, KPIs, PANELES
+   ═══════════════════════════════════════════════════════════════════════════ */
+body:has(#cxc-particles) .kpi,
+body:has(#cxc-particles) .sc-card,
+body:has(#cxc-particles) .card,
+body:has(#cxc-particles) [class*="panel"],
+body:has(#cxc-particles) [class*="-card"] {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border: 1px solid rgba(230, 168, 0, 0.22) !important;
+  border-radius: 16px !important;
+  color: #0F172A !important;
+  box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.08), 0 2px 4px -1px rgba(15, 23, 42, 0.04) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: transform .22s cubic-bezier(.22, 1, .36, 1),
+              border-color .22s cubic-bezier(.22, 1, .36, 1),
+              box-shadow .22s cubic-bezier(.22, 1, .36, 1);
+}
+body:has(#cxc-particles) .kpi:hover,
+body:has(#cxc-particles) .sc-card:hover,
+body:has(#cxc-particles) .card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(230, 168, 0, 0.55) !important;
+  box-shadow: 0 16px 40px -12px rgba(15, 23, 42, 0.15),
+              0 0 24px -4px rgba(230, 168, 0, 0.3) !important;
+}
+
+/* Textos dentro de cards */
+body:has(#cxc-particles) .kpi-lbl,
+body:has(#cxc-particles) .kpi-sub,
+body:has(#cxc-particles) .hero-eyebrow,
+body:has(#cxc-particles) .hero-sub,
+body:has(#cxc-particles) [class*="label"],
+body:has(#cxc-particles) [class*="caption"] {
+  color: #64748B !important;
+}
+body:has(#cxc-particles) .kpi-val,
+body:has(#cxc-particles) .kpi .value,
+body:has(#cxc-particles) .metric-value,
+body:has(#cxc-particles) [class*="value"]:not([class*="sub"]) {
+  color: #0F172A !important;
+  -webkit-text-fill-color: #0F172A !important;
+  background: none !important;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+body:has(#cxc-particles) h1,
+body:has(#cxc-particles) h2,
+body:has(#cxc-particles) h3,
+body:has(#cxc-particles) h4,
+body:has(#cxc-particles) .title,
+body:has(#cxc-particles) [class*="title"] {
+  color: #0F172A !important;
+  -webkit-text-fill-color: #0F172A !important;
+  background: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TABLAS CXC — donde viven vencidas, vigentes, top-deudores
+   ═══════════════════════════════════════════════════════════════════════════ */
+body:has(#cxc-particles) table {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+  color: #0F172A !important;
+}
+body:has(#cxc-particles) table th {
+  background: rgba(230, 168, 0, 0.08) !important;
+  color: #475569 !important;
+  font-weight: 600 !important;
+  font-size: .72rem !important;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  padding: 10px 14px !important;
+  border-bottom: 1px solid rgba(230, 168, 0, 0.2) !important;
+}
+body:has(#cxc-particles) table td {
+  color: #0F172A !important;
+  padding: 10px 14px !important;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.05) !important;
+}
+body:has(#cxc-particles) table tbody tr {
+  transition: background-color .15s ease;
+}
+body:has(#cxc-particles) table tbody tr:hover {
+  background: linear-gradient(90deg, rgba(230, 168, 0, 0.1) 0%, rgba(230, 168, 0, 0.02) 60%, transparent 100%) !important;
+}
+body:has(#cxc-particles) table tbody tr:nth-child(even) {
+  background: rgba(15, 23, 42, 0.015);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BADGES DE ESTADO (vencido/vigente/crítico)
+   ═══════════════════════════════════════════════════════════════════════════ */
+body:has(#cxc-particles) [class*="badge"],
+body:has(#cxc-particles) [class*="chip"],
+body:has(#cxc-particles) [class*="status"] {
+  padding: 3px 10px !important;
+  border-radius: 999px !important;
+  font-size: .7rem !important;
+  font-weight: 600 !important;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Rojos (vencidas, críticos) */
+body:has(#cxc-particles) [class*="red"],
+body:has(#cxc-particles) [class*="danger"],
+body:has(#cxc-particles) [class*="vencid"]:not([class*="no-"]) {
+  background: rgba(239, 68, 68, 0.1) !important;
+  color: #B91C1C !important;
+  border: 1px solid rgba(239, 68, 68, 0.25) !important;
+}
+/* Verdes (vigentes, pagados) */
+body:has(#cxc-particles) [class*="grn"],
+body:has(#cxc-particles) [class*="green"],
+body:has(#cxc-particles) [class*="success"],
+body:has(#cxc-particles) [class*="vigent"] {
+  background: rgba(34, 197, 94, 0.1) !important;
+  color: #15803D !important;
+  border: 1px solid rgba(34, 197, 94, 0.25) !important;
+}
+/* Amarillos (próximos a vencer) */
+body:has(#cxc-particles) [class*="ylw"],
+body:has(#cxc-particles) [class*="yellow"],
+body:has(#cxc-particles) [class*="warning"],
+body:has(#cxc-particles) [class*="proxim"] {
+  background: rgba(245, 158, 11, 0.1) !important;
+  color: #B45309 !important;
+  border: 1px solid rgba(245, 158, 11, 0.25) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CHARTS — Chart.js canvas, contenedores
+   ═══════════════════════════════════════════════════════════════════════════ */
+body:has(#cxc-particles) canvas {
+  background: transparent !important;
+  border-radius: 12px;
+  max-width: 100%;
+}
+body:has(#cxc-particles) .chart-container,
+body:has(#cxc-particles) [class*="chart"] {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+  border-radius: 16px !important;
+  color: #0F172A !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INPUTS & FILTROS
+   ═══════════════════════════════════════════════════════════════════════════ */
+body:has(#cxc-particles) input,
+body:has(#cxc-particles) select,
+body:has(#cxc-particles) textarea {
+  background: #FFFFFF !important;
+  color: #0F172A !important;
+  border: 1px solid rgba(15, 23, 42, 0.1) !important;
+  border-radius: 8px !important;
+  padding: 6px 10px !important;
+}
+body:has(#cxc-particles) input:focus,
+body:has(#cxc-particles) select:focus,
+body:has(#cxc-particles) textarea:focus {
+  border-color: #E6A800 !important;
+  box-shadow: 0 0 0 3px rgba(230, 168, 0, 0.15) !important;
+  outline: none !important;
+}
+
+/* Filter bar superior */
+body:has(#cxc-particles) [class*="filter"],
+body:has(#cxc-particles) [class*="toolbar"] {
+  background: rgba(255, 255, 255, 0.88) !important;
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+  border-radius: 14px !important;
+  color: #0F172A !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DOCK DE CONTROLES CXC — caja dorada flotante abajo derecha
+   ═══════════════════════════════════════════════════════════════════════════ */
+body:has(.cxc-spectacle-dock) .cxc-spectacle-dock {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border: 1px solid rgba(230, 168, 0, 0.35) !important;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(230,168,0,0.1) inset !important;
+  color: #0F172A;
+}
+body:has(.cxc-spectacle-dock) .cxc-spectacle-dock span.cxc-dock-hint {
+  color: #64748B !important;
+  border-right-color: rgba(15, 23, 42, 0.1) !important;
+}
+body:has(.cxc-spectacle-dock) .cxc-spectacle-dock button {
+  background: linear-gradient(165deg, rgba(230, 168, 0, 0.18), rgba(255, 255, 255, 0.98)) !important;
+  border: 1px solid rgba(230, 168, 0, 0.3) !important;
+  color: #0F172A !important;
+}
+body:has(.cxc-spectacle-dock) .cxc-spectacle-dock button:hover {
+  border-color: rgba(230, 168, 0, 0.6) !important;
+  box-shadow: 0 6px 18px rgba(230, 168, 0, 0.25) !important;
+  background: linear-gradient(165deg, rgba(230, 168, 0, 0.3), rgba(255, 255, 255, 1)) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOADING / SKELETONS
+   ═══════════════════════════════════════════════════════════════════════════ */
+body:has(#cxc-particles) [class*="skeleton"],
+body:has(#cxc-particles) [class*="loading"],
+body:has(#cxc-particles) [data-loading="true"] {
+  background: linear-gradient(90deg,
+    rgba(15, 23, 42, 0.04) 0%,
+    rgba(230, 168, 0, 0.12) 50%,
+    rgba(15, 23, 42, 0.04) 100%) !important;
+  background-size: 200% 100% !important;
+  animation: vpShimmer 1.4s linear infinite !important;
+  border-radius: 8px !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LINKS Y BOTONES DE ACCIÓN
+   ═══════════════════════════════════════════════════════════════════════════ */
+body:has(#cxc-particles) a:not([class*="nav"]):not(.btn) {
+  color: #B8860B !important;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(184, 134, 11, 0.3);
+  transition: all .18s ease;
+}
+body:has(#cxc-particles) a:not([class*="nav"]):not(.btn):hover {
+  color: #E6A800 !important;
+  border-bottom-color: #E6A800;
+}
+
+body:has(#cxc-particles) button:not(.cxc-spectacle-dock button):not([class*="nav"]) {
+  background: linear-gradient(135deg, #F5C33C 0%, #E6A800 50%, #B8860B 100%) !important;
+  color: #1A1200 !important;
+  border: none !important;
+  padding: 7px 14px !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  font-size: .78rem !important;
+  cursor: pointer;
+  box-shadow: 0 2px 8px -1px rgba(230, 168, 0, 0.45);
+}
+body:has(#cxc-particles) button[class*="ghost"],
+body:has(#cxc-particles) button[class*="secondary"] {
+  background: rgba(255, 255, 255, 0.9) !important;
+  color: #0F172A !important;
+  border: 1px solid rgba(15, 23, 42, 0.12) !important;
+  box-shadow: none !important;
+}

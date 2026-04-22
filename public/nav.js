@@ -6,6 +6,23 @@
 (function () {
   'use strict';
 
+  // Forzar SIEMPRE light mode — nunca dark. Al inicio para evitar FOUC.
+  (function forceLightTheme() {
+    try {
+      var de = document.documentElement;
+      de.classList.add('theme-premium-light');
+      de.classList.remove('theme-premium-dark', 'theme-dark', 'dark');
+      de.setAttribute('data-theme', 'light');
+      // Mantenerlo fijo: si otro script intenta cambiarlo, lo revertimos
+      try {
+        new MutationObserver(function () {
+          if (de.getAttribute('data-theme') !== 'light') de.setAttribute('data-theme', 'light');
+          if (!de.classList.contains('theme-premium-light')) de.classList.add('theme-premium-light');
+        }).observe(de, { attributes: true, attributeFilter: ['class', 'data-theme'] });
+      } catch (_) {}
+    } catch (_) {}
+  })();
+
   // Cargar capa visual premium al final del cascade, en todas las páginas
   (function injectVisualPolish() {
     try {
@@ -13,14 +30,21 @@
         var link = document.createElement('link');
         link.id = 'vp-polish-css';
         link.rel = 'stylesheet';
-        link.href = '/visual-polish.css?v=3';
+        link.href = '/visual-polish.css?v=4';
         (document.head || document.documentElement).appendChild(link);
+      }
+      if (!document.getElementById('vp-cxc-css')) {
+        var link2 = document.createElement('link');
+        link2.id = 'vp-cxc-css';
+        link2.rel = 'stylesheet';
+        link2.href = '/cxc-redesign.css?v=1';
+        (document.head || document.documentElement).appendChild(link2);
       }
       // Fondo aurora interactivo con parallax de mouse
       if (!document.getElementById('vp-aurora-js')) {
         var s = document.createElement('script');
         s.id = 'vp-aurora-js';
-        s.src = '/aurora-background.js?v=2';
+        s.src = '/aurora-background.js?v=3';
         s.defer = true;
         (document.head || document.documentElement).appendChild(s);
       }
