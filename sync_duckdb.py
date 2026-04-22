@@ -345,10 +345,15 @@ def sync_one(db_entry):
     gz_mb = os.path.getsize(gz_out) / 1024 / 1024
     log.info(f'Comprimido: {size_mb:.1f} MB -> {gz_mb:.1f} MB ({100*(1-gz_mb/size_mb):.0f}% reduccion)')
 
-    # 4. Upload a Render — 3 intentos con backoff
-    url  = f'{RENDER_URL}/api/admin/snapshot/upload'
-    last_err = None
-    for attempt in range(1, 4):
+    # 4. Upload a Render — hasta 6 intentos con backoff adaptativo
+    # HTTP 503 = Render en deploy/maintenance → esperar mas tiempo (deploy tarda 2-5 min)
+    # Response ended prematurely = timeout de red → gzip ya lo resolvio, pero por si acaso
+    url      = f'{RENDER_URL}/api/admin/snapshot/upload'
+    MAX_TRIES = 6
+    last_err  = None
+
+    for attempt in range(1, MAX_TRIES + 1):
+        http_status = None
         try:
             with open(gz_out, 'rb') as f:
                 resp = requests.post(url, data=f, timeout=360, headers={
@@ -357,25 +362,36 @@ def sync_one(db_entry):
                     'Content-Type': 'application/octet-stream',
                     'Content-Encoding': 'gzip',
                 })
+            http_status = resp.status_code
             if resp.ok:
-                log.info(f'Upload OK (intento {attempt}) en {time.time()-t_start:.0f}s: {resp.text[:120]}')
+                elapsed = time.time() - t_start
+                log.info(f'Upload OK (intento {attempt}) en {elapsed:.0f}s: {resp.text[:120]}')
                 try: os.remove(gz_out)
                 except: pass
                 return db_id, True, None
-            else:
-                last_err = f'HTTP {resp.status_code}: {resp.text[:200]}'
-                log.warning(f'Upload intento {attempt}/3 fallo: {last_err}')
+            last_err = f'HTTP {http_status}: {resp.text[:120]}'
+            log.warning(f'Upload intento {attempt}/{MAX_TRIES} fallo: HTTP {http_status}')
         except Exception as e:
             last_err = str(e)
-            log.warning(f'Upload intento {attempt}/3 error: {last_err}')
-        if attempt < 3:
-            wait = 15 * attempt
+            log.warning(f'Upload intento {attempt}/{MAX_TRIES} error: {last_err[:100]}')
+
+        if attempt >= MAX_TRIES:
+            break
+
+        # Backoff adaptativo:
+        # 503 (Render deploy) → esperar 90s para darle tiempo al deploy
+        # Otros errores → backoff progresivo 15s, 30s, 60s, 90s, 120s
+        if http_status == 503:
+            wait = 90
+            log.info(f'Render en deploy/maintenance, esperando {wait}s antes de reintentar...')
+        else:
+            wait = min(15 * attempt, 120)
             log.info(f'Reintentando en {wait}s...')
-            time.sleep(wait)
+        time.sleep(wait)
 
     try: os.remove(gz_out)
     except: pass
-    log.error(f'Upload fallido tras 3 intentos: {last_err}')
+    log.error(f'Upload fallido tras {MAX_TRIES} intentos: {last_err}')
     return db_id, False, last_err
 
 
