@@ -436,34 +436,43 @@ app.get('/api/admin/snapshot/status', (req, res) => {
 });
 
 // POST /api/admin/snapshot/upload — recibe un .duckdb binario para UNA empresa
-// Headers: X-Snapshot-Token (auth), X-DB-Id (cual empresa, ej: "suminregio_maderas")
+// Headers: X-Snapshot-Token (auth), X-DB-Id (cual empresa), Content-Encoding: gzip (opcional)
 app.post(
   '/api/admin/snapshot/upload',
   express.raw({ type: 'application/octet-stream', limit: '600mb' }),
   async (req, res) => {
     const token = req.headers['x-snapshot-token'];
     if (token !== SNAPSHOT_TOKEN) return res.status(401).json({ error: 'Unauthorized' });
-    if (!req.body || !Buffer.isBuffer(req.body) || req.body.length < 1024) {
+    if (!req.body || !Buffer.isBuffer(req.body) || req.body.length < 64) {
       return res.status(400).json({ error: 'Body vacío o muy pequeño' });
     }
 
-    const dbId      = String(req.headers['x-db-id'] || 'default').trim();
-    const snapDir   = DUCK_SNAPSHOT_DIR;
-    const snapFile  = require('path').join(snapDir, `snapshot_${dbId}.duckdb`);
-    const tmpFile   = snapFile + '.uploading';
+    const dbId    = String(req.headers['x-db-id'] || 'default').trim();
+    const snapDir = DUCK_SNAPSHOT_DIR;
+    const snapFile = require('path').join(snapDir, `snapshot_${dbId}.duckdb`);
+    const tmpFile  = snapFile + '.uploading';
 
     try {
       require('fs').mkdirSync(snapDir, { recursive: true });
-      require('fs').writeFileSync(tmpFile, req.body);
+
+      // Descomprimir si viene en gzip (Content-Encoding: gzip desde sync_duckdb.py)
+      let bodyBuffer = req.body;
+      const encoding = (req.headers['content-encoding'] || '').toLowerCase();
+      if (encoding === 'gzip') {
+        bodyBuffer = await new Promise((resolve, reject) => {
+          require('zlib').gunzip(req.body, (err, buf) => err ? reject(err) : resolve(buf));
+        });
+        console.log(`[DuckDB][${dbId}] Descomprimido: ${(req.body.length/1024/1024).toFixed(1)} MB gz → ${(bodyBuffer.length/1024/1024).toFixed(1)} MB`);
+      }
+
+      require('fs').writeFileSync(tmpFile, bodyBuffer);
       require('fs').renameSync(tmpFile, snapFile);
-      const mb = (req.body.length / 1024 / 1024).toFixed(1);
-      console.log(`[DuckDB][${dbId}] Snapshot recibido: ${mb} MB → ${snapFile}`);
+      const mb = (bodyBuffer.length / 1024 / 1024).toFixed(1);
+      console.log(`[DuckDB][${dbId}] Snapshot guardado: ${mb} MB → ${snapFile}`);
 
       loadDuckSnapshot(dbId, snapFile);
       _resCache.clear();
-      console.log(`[DuckDB][${dbId}] Cache limpiado.`);
-
-      res.json({ ok: true, dbId, bytes: req.body.length, path: snapFile });
+      res.json({ ok: true, dbId, bytes: bodyBuffer.length, mb, path: snapFile });
     } catch (e) {
       console.error(`[DuckDB][${dbId}] Error guardando:`, e.message);
       try { require('fs').unlinkSync(tmpFile); } catch (_) {}
