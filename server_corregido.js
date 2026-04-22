@@ -156,30 +156,72 @@ const DB_OPTIONS = {
 console.log('DB path:', DB_OPTIONS.database);
 
 // ── Helper: ejecuta query → promesa ──────────────────────────────────────────
-// DuckDB-FIRST: si hay snapshot para esta empresa, TODA query va a DuckDB.
-// Solo excepcion: queries con RDB$ (catalogo de sistema Firebird) → siempre FB.
-// Si DuckDB falla (tabla no existe aun, etc.) → fallback automatico a Firebird
-// y se loggea la tabla faltante para agregarlo al siguiente ciclo de sync.
+// DUCK_ONLY_MODE (env DUCK_ONLY_MODE, default 1):
+//   - Si =1: NUNCA toca Firebird. Si hay snapshot, usa DuckDB; si no, retorna [].
+//     Las queries RDB$ de schema se traducen a information_schema de DuckDB.
+//     Uso: servidor en Render no abre conexiones al Microsip local.
+//   - Si =0: comportamiento legacy (DuckDB-FIRST con fallback a Firebird).
+const DUCK_ONLY_MODE = String(process.env.DUCK_ONLY_MODE || '1') !== '0';
+
+/** Traduce la query típica `RDB$RELATION_FIELDS WHERE RDB$RELATION_NAME = ?`
+ *  a information_schema de DuckDB. Retorna null si el patrón no matchea. */
+function translateRdbSchemaQuery(sql) {
+  const s = String(sql).replace(/\s+/g, ' ').toUpperCase();
+  if (s.includes('RDB$RELATION_FIELDS') && s.includes('RDB$RELATION_NAME')) {
+    return `SELECT column_name AS N
+            FROM information_schema.columns
+            WHERE upper(table_name) = upper(?)
+            ORDER BY ordinal_position`;
+  }
+  if (s.includes('RDB$RELATIONS') && s.includes('COUNT')) {
+    return `SELECT COUNT(*) AS C
+            FROM information_schema.tables
+            WHERE table_schema = 'main'`;
+  }
+  return null;
+}
+
 function query(sql, params = [], timeoutMs = 12000, dbOptsOverride = null) {
-  // Queries al catalogo de sistema Firebird nunca van a DuckDB
-  if (/RDB\$/i.test(sql)) {
+  const isSystemCatalog = /RDB\$/i.test(sql);
+
+  // 1) Queries al catalogo de sistema Firebird
+  if (isSystemCatalog) {
+    if (DUCK_ONLY_MODE) {
+      // eslint-disable-next-line no-use-before-define
+      const snap = getDuckSnap(dbOptsOverride);
+      const translated = translateRdbSchemaQuery(sql);
+      if (snap && translated) {
+        // eslint-disable-next-line no-use-before-define
+        return duckQueryPromise(snap, translated, params).catch(() => []);
+      }
+      // Patron RDB$ no traducible (debug/indices): retornamos vacío en modo duck-only
+      return Promise.resolve([]);
+    }
     return _fbQuery(sql, params, timeoutMs, dbOptsOverride);
   }
+
+  // 2) Query normal: prefiere DuckDB
   // eslint-disable-next-line no-use-before-define
   const snap = getDuckSnap(dbOptsOverride);
   if (snap) {
     // eslint-disable-next-line no-use-before-define
     return duckQueryPromise(snap, sql, params).catch((duckErr) => {
       const msg = (duckErr && duckErr.message) || String(duckErr);
-      // Extraer nombre de tabla faltante para diagnostico
       const missing = msg.match(/Table with name ([A-Z_0-9]+) does not exist/i);
-      if (missing) {
-        console.warn(`[DuckDB] tabla no sincronizada: "${missing[1]}" → fallback Firebird`);
-      } else {
-        console.warn(`[DuckDB] fallback Firebird: ${msg.slice(0, 100)}`);
-      }
+      const prefix = DUCK_ONLY_MODE ? '→ retornando []' : '→ fallback Firebird';
+      if (missing) console.warn(`[DuckDB] tabla no sincronizada: "${missing[1]}" ${prefix}`);
+      else         console.warn(`[DuckDB] error ${prefix}: ${msg.slice(0, 100)}`);
+      if (DUCK_ONLY_MODE) return [];
       return _fbQuery(sql, params, timeoutMs, dbOptsOverride);
     });
+  }
+
+  // 3) Sin snapshot para esta empresa
+  if (DUCK_ONLY_MODE) {
+    // eslint-disable-next-line no-use-before-define
+    const id = dbOptsToId(dbOptsOverride) || 'unknown';
+    console.warn(`[DuckDB] sin snapshot para "${id}" → retornando [] (DUCK_ONLY_MODE)`);
+    return Promise.resolve([]);
   }
   return _fbQuery(sql, params, timeoutMs, dbOptsOverride);
 }
@@ -433,6 +475,27 @@ try {
 } catch (e) {
   console.warn('[performance-boost] no instalado:', e.message);
 }
+
+// Reporta modo de ejecución y empresas con snapshot disponible (público, solo lectura)
+app.get('/api/admin/mode', (_req, res) => {
+  const loaded = [];
+  for (const [id, s] of _duckSnaps) {
+    if (s && s.conn) loaded.push({
+      id,
+      totalRows: s.meta && s.meta.TOTAL_ROWS,
+      cutoff: s.meta && s.meta.CUTOFF_DATE,
+      createdAt: s.meta && s.meta.CREATED_AT,
+    });
+  }
+  res.json({
+    duckOnlyMode: DUCK_ONLY_MODE,
+    snapshotsLoaded: loaded.length,
+    snapshots: loaded,
+    hint: DUCK_ONLY_MODE
+      ? 'Servidor en modo DUCK-ONLY: no se conectará a Firebird/Microsip bajo ninguna circunstancia.'
+      : 'Modo legacy: si DuckDB falla, hace fallback a Firebird remoto.',
+  });
+});
 
 // ── DuckDB Admin Endpoints ────────────────────────────────────────────────────
 
