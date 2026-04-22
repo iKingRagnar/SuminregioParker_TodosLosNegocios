@@ -50,12 +50,12 @@ html, body {
 }
 
 body {
-  /* Gradiente ambient detrás de todo: aurora sutil */
-  background:
-    radial-gradient(ellipse at 15% -10%, rgba(230, 168, 0, .08) 0%, transparent 45%),
-    radial-gradient(ellipse at 85% 110%, rgba(64, 150, 255, .06) 0%, transparent 50%),
-    var(--vp-night) !important;
+  /* Base oscura — la aurora animada va detrás vía #vp-aurora-root (aurora-background.js) */
+  background: transparent !important;
+  position: relative;
 }
+/* Fallback si aurora-background.js no carga: degradado estático */
+html { background: #0B1629; }
 
 /* ── Scrollbar custom refinado ──────────────────────────────────────────────── */
 *::-webkit-scrollbar          { width: 10px; height: 10px; }

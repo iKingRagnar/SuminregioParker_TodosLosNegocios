@@ -9,13 +9,21 @@
   // Cargar capa visual premium al final del cascade, en todas las páginas
   (function injectVisualPolish() {
     try {
-      if (document.getElementById('vp-polish-css')) return;
-      var link = document.createElement('link');
-      link.id = 'vp-polish-css';
-      link.rel = 'stylesheet';
-      link.href = '/visual-polish.css?v=1';
-      // appendChild al final de <head> asegura que gane el cascade
-      (document.head || document.documentElement).appendChild(link);
+      if (!document.getElementById('vp-polish-css')) {
+        var link = document.createElement('link');
+        link.id = 'vp-polish-css';
+        link.rel = 'stylesheet';
+        link.href = '/visual-polish.css?v=2';
+        (document.head || document.documentElement).appendChild(link);
+      }
+      // Fondo aurora interactivo con parallax de mouse
+      if (!document.getElementById('vp-aurora-js')) {
+        var s = document.createElement('script');
+        s.id = 'vp-aurora-js';
+        s.src = '/aurora-background.js?v=1';
+        s.defer = true;
+        (document.head || document.documentElement).appendChild(s);
+      }
     } catch (_) {}
   })();
 
