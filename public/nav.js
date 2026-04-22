@@ -67,12 +67,16 @@
         ex.defer = true;
         head.appendChild(ex);
       }
-      // Búsqueda global, atajos, badges temporales, notas
+      // Búsqueda global, atajos, badges temporales, notas, extras
       [
         ['vp-search-js',    '/global-search.js?v=1'],
         ['vp-keyb-js',      '/keyboard-shortcuts.js?v=1'],
         ['vp-yoy-js',       '/yoy-badges.js?v=1'],
         ['vp-notes-js',     '/kpi-notes.js?v=1'],
+        ['vp-pres-js',      '/presentation-mode.js?v=1'],
+        ['vp-tour-js',      '/tour-guide.js?v=1'],
+        ['vp-push-js',      '/push-client.js?v=1'],
+        ['vp-xlsx-js',      '/xlsx-export.js?v=1'],
       ].forEach(function (pair) {
         if (document.getElementById(pair[0])) return;
         var sc = document.createElement('script');

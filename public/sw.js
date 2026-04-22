@@ -8,7 +8,7 @@
  *     → Datos siempre frescos cuando hay red; al menos vista stale cuando no.
  *   · Excepción: /api/admin/*, /api/ai/* → solo red (nunca cache, son sensibles)
  */
-const CACHE_VERSION = 'sumi-v2';
+const CACHE_VERSION = 'sumi-v3';
 const SHELL_CACHE   = CACHE_VERSION + '-shell';
 const API_CACHE     = CACHE_VERSION + '-api';
 
@@ -36,6 +36,10 @@ const SHELL_PRECACHE = [
   '/keyboard-shortcuts.js',
   '/yoy-badges.js',
   '/kpi-notes.js',
+  '/presentation-mode.js',
+  '/tour-guide.js',
+  '/push-client.js',
+  '/xlsx-export.js',
   '/comparar.html',
   '/aurora-background.js',
   '/app-ui.css',
@@ -124,6 +128,34 @@ async function staleWhileRevalidate(req) {
     .catch(() => cached);
   return cached || fetchPromise;
 }
+
+// ── Push notifications ─────────────────────────────────────────────────────
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (_) {
+    data = { title: 'Suminregio', body: event.data ? event.data.text() : '' };
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title || 'Suminregio', {
+      body: data.body || '',
+      icon: '/favicon.svg',
+      badge: '/favicon.svg',
+      tag: data.tag || 'sumi-notif',
+      data: { url: data.url || '/' },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window' }).then((wins) => {
+      for (const c of wins) { if (c.url.includes(url) && 'focus' in c) return c.focus(); }
+      return clients.openWindow(url);
+    })
+  );
+});
 
 // Permite al frontend pedir un flush manual
 self.addEventListener('message', (event) => {

@@ -505,6 +505,37 @@ try {
   require('./ai-chat-v2').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
 } catch (e) { console.warn('[ai-chat-v2] no instalado:', e.message); }
 
+// Business intelligence específico Microsip (pipeline, cashflow, comisiones, margen, rotación, conciliación)
+try {
+  require('./business-intel').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[business-intel] no instalado:', e.message); }
+
+// Notificaciones (WhatsApp/SMS/Slack/Push)
+try {
+  require('./notifications').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[notifications] no instalado:', e.message); }
+
+// Colaboración (notas, tareas, aprobaciones, audit)
+try {
+  require('./collaboration').install(app, { log: _boostLog });
+} catch (e) { console.warn('[collaboration] no instalado:', e.message); }
+
+// Observabilidad (métricas propias, endpoints lentos, freshness)
+try {
+  require('./observability').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[observability] no instalado:', e.message); }
+
+// Seguridad hardening (2FA TOTP + rate-limit global en writes)
+try {
+  const { createRateLimiter } = require('./performance-boost');
+  require('./security-hardening').install(app, { createRateLimiter, log: _boostLog });
+} catch (e) { console.warn('[security-hardening] no instalado:', e.message); }
+
+// Integraciones (Power BI, Sheets, Zapier)
+try {
+  require('./integrations').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[integrations] no instalado:', e.message); }
+
 // Reporta modo de ejecución y empresas con snapshot disponible (público, solo lectura)
 app.get('/api/admin/mode', (_req, res) => {
   const loaded = [];
