@@ -174,16 +174,70 @@ function compressionMiddleware(req, res, next) {
 // ── /health endpoint ultra-ligero (no toca DB, no log) ────────────────────────
 function installHealth(app, opts) {
   const buildFingerprint = opts.buildFingerprint || 'unknown';
+  const { duckSnaps } = opts;
+
   // `/health` sin prefijo — lo que Python sync_duckdb.py espera
   app.get('/health', (_req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.end(`{"ok":true,"build":"${buildFingerprint}","uptime":${Math.round(process.uptime())}}`);
   });
-  // Alias en /api por si algún monitor lo busca ahí
   app.get('/api/health', (_req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.json({ ok: true, build: buildFingerprint, uptime: Math.round(process.uptime()) });
+  });
+
+  // `/healthz` profundo: chequea memoria, snapshots, disco, conectividad DuckDB
+  app.get('/healthz', (_req, res) => {
+    const mem = process.memoryUsage();
+    const heapPct = (mem.heapUsed / mem.heapTotal) * 100;
+    const checks = {
+      process_uptime:  { ok: true, value: Math.round(process.uptime()) },
+      memory_heap_pct: { ok: heapPct < 90, value: +heapPct.toFixed(1), threshold: 90 },
+      memory_rss_mb:   { ok: true, value: +(mem.rss / 1048576).toFixed(1) },
+      snapshots_loaded:{ ok: false, value: 0 },
+      duckdb_query_ms: { ok: false, value: null },
+      disk_writable:   { ok: false, value: null },
+    };
+    try {
+      if (duckSnaps && duckSnaps.size) {
+        checks.snapshots_loaded.value = duckSnaps.size;
+        checks.snapshots_loaded.ok = duckSnaps.size > 0;
+
+        // Test query on first snapshot
+        const [firstId, firstSnap] = duckSnaps.entries().next().value || [];
+        if (firstSnap && firstSnap.conn) {
+          const t0 = Date.now();
+          firstSnap.conn.all('SELECT 1 AS x', (err) => {
+            checks.duckdb_query_ms.ok = !err;
+            checks.duckdb_query_ms.value = Date.now() - t0;
+            finish();
+          });
+          return; // async path
+        }
+      }
+    } catch (_) {}
+    finish();
+
+    function finish() {
+      // disk write check
+      try {
+        const tmp = path.join(process.env.DUCK_SNAPSHOT_DIR || '/tmp', '.healthz_check');
+        fs.writeFileSync(tmp, '1');
+        fs.unlinkSync(tmp);
+        checks.disk_writable.ok = true;
+        checks.disk_writable.value = 'ok';
+      } catch (e) {
+        checks.disk_writable.value = e.message;
+      }
+      const overall = Object.values(checks).every((c) => c.ok);
+      res.status(overall ? 200 : 503).json({
+        ok: overall,
+        build: buildFingerprint,
+        ts: new Date().toISOString(),
+        checks,
+      });
+    }
   });
 }
 

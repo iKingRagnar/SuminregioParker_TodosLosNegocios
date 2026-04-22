@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es" class="theme-premium-light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>API Docs — Suminregio</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#E6A800">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui.css">
+<script src="nav.js" defer></script>
+<style>
+  body { margin: 0; font-family: 'Inter', system-ui, sans-serif; background: #F6F8FB; }
+  #swagger-ui { max-width: 1400px; margin: 0 auto; padding: 14px; }
+  .swagger-ui .topbar { display: none; }
+  .swagger-ui .info .title { color: #0F172A !important; font-family: 'Inter', sans-serif !important; }
+  .swagger-ui .info hgroup.main a { color: #B8860B !important; }
+  .swagger-ui .scheme-container { background: rgba(255,255,255,.95); border: 1px solid rgba(230,168,0,.2); border-radius: 12px; box-shadow: none; }
+  .swagger-ui .opblock.opblock-get .opblock-summary-method { background: #E6A800; }
+  .swagger-ui .opblock.opblock-post .opblock-summary-method { background: #15803D; }
+  .swagger-ui .opblock.opblock-delete .opblock-summary-method { background: #B91C1C; }
+  .swagger-ui .btn.execute { background: linear-gradient(135deg,#F5C33C,#E6A800); color: #1A1200; border: none; }
+  h1.docs-title { padding: 22px 28px 0; color: #0F172A; font-weight: 700; letter-spacing: -.028em; }
+  p.docs-sub { padding: 4px 28px 16px; color: #64748B; font-size: .9rem; }
+</style>
+</head>
+<body>
+<header id="app-header"></header>
+<h1 class="docs-title">Suminregio API — Playground</h1>
+<p class="docs-sub">Interactúa con los ~45 endpoints desde aquí. La spec se carga desde <code>/openapi.yaml</code>.</p>
+<div id="swagger-ui"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui-bundle.js"></script>
+<script>
+  window.onload = function () {
+    window.ui = SwaggerUIBundle({
+      url: '/openapi.yaml',
+      dom_id: '#swagger-ui',
+      presets: [SwaggerUIBundle.presets.apis],
+      deepLinking: true,
+      docExpansion: 'list',
+      tryItOutEnabled: true,
+      persistAuthorization: true,
+    });
+  };
+</script>
+</body>
+</html>

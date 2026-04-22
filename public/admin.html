@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="es" class="theme-premium-light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin — Suminregio</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#E6A800">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="nav.js" defer></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', system-ui, sans-serif; background: #F6F8FB; color: #0F172A; min-height: 100vh; }
+  main { max-width: 1600px; margin: 0 auto; padding: 24px; }
+  h1 { font-size: 1.8rem; font-weight: 700; letter-spacing: -.028em; margin-bottom: 4px; }
+  .sub { color: #64748B; font-size: .88rem; margin-bottom: 24px; }
+  .tabs { display: inline-flex; gap: 4px; background: #fff; border: 1px solid rgba(15,23,42,.08); padding: 5px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 8px -2px rgba(15,23,42,.06); }
+  .tabs button { background: transparent; border: none; padding: 8px 16px; border-radius: 8px; font-size: .82rem; font-weight: 600; color: #475569; cursor: pointer; transition: all .18s ease; font-family: inherit; }
+  .tabs button:hover { background: rgba(230,168,0,.08); color: #B8860B; }
+  .tabs button.active { background: linear-gradient(135deg,#F5C33C,#E6A800,#B8860B); color: #1A1200; box-shadow: 0 2px 10px -2px rgba(230,168,0,.5); }
+  section.panel { display: none; background: #fff; border: 1px solid rgba(230,168,0,.22); border-radius: 16px; padding: 22px 24px; box-shadow: 0 4px 12px -2px rgba(15,23,42,.06); }
+  section.panel.active { display: block; }
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  table th { text-align: left; padding: 10px 12px; background: rgba(230,168,0,.08); color: #475569; font-size: .68rem; text-transform: uppercase; letter-spacing: .05em; font-weight: 700; border-bottom: 1px solid rgba(230,168,0,.2); }
+  table td { padding: 10px 12px; border-bottom: 1px solid rgba(15,23,42,.05); font-variant-numeric: tabular-nums; }
+  table tbody tr:hover { background: rgba(230,168,0,.05); }
+  .badge { padding: 3px 8px; border-radius: 999px; font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; display: inline-block; }
+  .badge.ok { background: rgba(34,197,94,.12); color: #15803D; }
+  .badge.warn { background: rgba(245,158,11,.12); color: #B45309; }
+  .badge.err { background: rgba(239,68,68,.12); color: #B91C1C; }
+  .badge.none { background: rgba(100,116,139,.1); color: #64748B; }
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .stat { background: linear-gradient(180deg, rgba(230,168,0,.05), #fff); border: 1px solid rgba(230,168,0,.18); border-radius: 12px; padding: 14px 16px; }
+  .stat .l { font-size: .65rem; text-transform: uppercase; letter-spacing: .06em; color: #64748B; font-weight: 700; }
+  .stat .v { font-size: 1.4rem; font-weight: 700; color: #0F172A; font-variant-numeric: tabular-nums; margin-top: 4px; }
+  .stat .x { font-size: .72rem; color: #94A3B8; margin-top: 2px; }
+  .refresh { background: none; border: none; color: #B8860B; font-size: .78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; }
+  .refresh:hover { color: #E6A800; }
+  pre { background: #0F172A; color: #F5C33C; padding: 12px; border-radius: 8px; font-family: 'DM Mono', monospace; font-size: .75rem; overflow-x: auto; max-height: 400px; overflow-y: auto; }
+  .row-actions { display: flex; gap: 6px; }
+  .btn-sm { background: rgba(239,68,68,.1); color: #B91C1C; border: 1px solid rgba(239,68,68,.25); padding: 3px 8px; border-radius: 5px; font-size: .7rem; cursor: pointer; font-family: inherit; }
+  .btn-sm:hover { background: rgba(239,68,68,.2); }
+  .qr { display: block; margin: 12px 0; max-width: 200px; border: 1px solid rgba(15,23,42,.1); border-radius: 8px; }
+  code { background: rgba(15,23,42,.05); padding: 2px 6px; border-radius: 4px; font-family: 'DM Mono', monospace; font-size: .8em; }
+  input[type="text"], input[type="number"] { background: #fff; border: 1px solid rgba(15,23,42,.1); border-radius: 8px; padding: 6px 10px; font-family: inherit; font-size: .85rem; }
+  input:focus { outline: none; border-color: #E6A800; box-shadow: 0 0 0 3px rgba(230,168,0,.15); }
+  button.primary { background: linear-gradient(135deg,#F5C33C,#E6A800); color: #1A1200; border: none; padding: 6px 14px; border-radius: 8px; font-weight: 600; cursor: pointer; font-family: inherit; }
+</style>
+</head>
+<body>
+<header id="app-header"></header>
+<main>
+  <h1>Panel de administración</h1>
+  <p class="sub">Estado del servidor, datos, métricas, errores y seguridad — todo en un lugar.</p>
+
+  <div class="tabs" role="tablist">
+    <button data-panel="snaps" class="active">Snapshots</button>
+    <button data-panel="metrics">Métricas</button>
+    <button data-panel="errors">Errores</button>
+    <button data-panel="audit">Audit</button>
+    <button data-panel="health">Salud</button>
+    <button data-panel="2fa">2FA</button>
+    <button data-panel="alerts">Alertas</button>
+    <button data-panel="docs">Docs API</button>
+  </div>
+
+  <!-- SNAPSHOTS -->
+  <section id="panel-snaps" class="panel active">
+    <div class="stat-grid" id="snap-stats"></div>
+    <div style="overflow-x:auto"><table id="snap-table"><thead><tr><th>Empresa</th><th>Tablas</th><th>Filas</th><th>Tamaño</th><th>Edad</th><th>Estado</th></tr></thead><tbody></tbody></table></div>
+    <p style="margin-top:14px;font-size:.78rem;color:#64748B">Los snapshots persisten en <code id="snap-dir">...</code>. Si la edad supera 48h, corre <code>python sync_duckdb.py</code> en tu servidor Windows.</p>
+  </section>
+
+  <!-- METRICS -->
+  <section id="panel-metrics" class="panel">
+    <div class="stat-grid" id="metrics-stats"></div>
+    <h3 style="font-weight:700;margin:16px 0 10px 0">Top endpoints más lentos (p95)</h3>
+    <div style="overflow-x:auto"><table id="metrics-table"><thead><tr><th>Endpoint</th><th>Requests</th><th>p50 ms</th><th>p95 ms</th><th>p99 ms</th><th>Errores</th></tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <!-- ERRORS -->
+  <section id="panel-errors" class="panel">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <strong id="err-total">0 errores</strong>
+      <button class="btn-sm" onclick="flushErrors()">Limpiar buffer</button>
+    </div>
+    <div style="overflow-x:auto"><table id="err-table"><thead><tr><th>Hora</th><th>Tag</th><th>Mensaje</th></tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <!-- AUDIT -->
+  <section id="panel-audit" class="panel">
+    <div style="overflow-x:auto"><table id="audit-table"><thead><tr><th>Hora</th><th>Evento</th><th>Actor</th><th>Detalles</th></tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <!-- HEALTH -->
+  <section id="panel-health" class="panel">
+    <pre id="health-json">Cargando...</pre>
+  </section>
+
+  <!-- 2FA -->
+  <section id="panel-2fa" class="panel">
+    <h3 style="font-weight:700;margin-bottom:10px">Configurar 2FA (TOTP)</h3>
+    <p style="font-size:.85rem;color:#475569">Escanea el QR con Google Authenticator / Authy. Luego copia el secret a env <code>TOTP_SECRET</code> y agrega <code>REQUIRE_2FA_ADMIN=1</code>.</p>
+    <button class="primary" style="margin:14px 0" onclick="setup2FA()">Generar nuevo secret</button>
+    <div id="2fa-output"></div>
+  </section>
+
+  <!-- ALERTS -->
+  <section id="panel-alerts" class="panel">
+    <p style="margin-bottom:14px;font-size:.88rem">Envía una alerta de prueba por los canales configurados:</p>
+    <div style="display:flex;flex-wrap:wrap;gap:10px">
+      <button class="primary" onclick="testAlert('/api/admin/alerts/test')">Webhook genérico</button>
+      <button class="primary" onclick="testAlert('/api/notify/slack', {text:'🔔 Test desde admin'})">Slack</button>
+      <button class="primary" onclick="testPushAll()">Push a todos</button>
+    </div>
+    <div id="alert-result" style="margin-top:14px;font-family:DM Mono,monospace;font-size:.78rem;color:#475569"></div>
+  </section>
+
+  <!-- DOCS -->
+  <section id="panel-docs" class="panel">
+    <p style="margin-bottom:12px">Spec OpenAPI completa del API:</p>
+    <a href="/docs.html" target="_blank" style="display:inline-block;padding:10px 18px;background:linear-gradient(135deg,#F5C33C,#E6A800);color:#1A1200;border-radius:8px;text-decoration:none;font-weight:600">Abrir Swagger UI →</a>
+    <a href="/openapi.yaml" target="_blank" style="margin-left:10px;color:#B8860B;font-size:.85rem">Ver openapi.yaml</a>
+  </section>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  const fmtMs = (v) => v == null ? '—' : Math.round(v) + 'ms';
+  const fmt = (n) => n == null ? '—' : Number(n).toLocaleString('es-MX');
+  const fmtSize = (mb) => mb == null ? '—' : (mb > 1024 ? (mb/1024).toFixed(1) + ' GB' : mb.toFixed(1) + ' MB');
+  const ageStatus = (h) => h == null ? {cls:'none',t:'—'} : h > 48 ? {cls:'err',t:h+'h'} : h > 30 ? {cls:'warn',t:h+'h'} : {cls:'ok',t:h+'h'};
+
+  async function j(url, opts) {
+    try { const r = await fetch(url, opts); return await r.json(); } catch (e) { return { error: e.message }; }
+  }
+
+  // ── Snapshots ──
+  async function loadSnaps() {
+    const r = await j('/api/admin/sync/status');
+    document.getElementById('snap-dir').textContent = r.snapshotDir || '—';
+    const stats = [
+      { l: 'Total empresas', v: r.snapshots?.length || 0 },
+      { l: 'Cargadas en memoria', v: r.totalLoaded || 0 },
+      { l: 'Servidor', v: new Date(r.serverTime).toLocaleTimeString('es-MX') },
+    ];
+    document.getElementById('snap-stats').innerHTML = stats.map(s => `<div class="stat"><div class="l">${s.l}</div><div class="v">${s.v}</div></div>`).join('');
+
+    const tbody = document.querySelector('#snap-table tbody');
+    tbody.innerHTML = (r.snapshots || []).map(s => {
+      const st = ageStatus(s.fileAgeHours);
+      const tablas = s.tablesSynced ? String(s.tablesSynced).split(',').length : '—';
+      return `<tr><td><strong>${s.dbId}</strong></td><td>${tablas}</td><td>${fmt(s.totalRows)}</td><td>${fmtSize(s.fileSizeMB)}</td><td>${st.t}</td><td><span class="badge ${s.loaded?'ok':'none'}">${s.loaded?'cargado':'sin cargar'}</span> <span class="badge ${st.cls}">${s.fileAgeHours==null?'—':(s.fileAgeHours>48?'viejo':s.fileAgeHours>30?'atento':'fresco')}</span></td></tr>`;
+    }).join('') || '<tr><td colspan="6" style="text-align:center;padding:30px;color:#94A3B8">Sin snapshots</td></tr>';
+  }
+
+  // ── Metrics ──
+  async function loadMetrics() {
+    const r = await j('/api/metrics');
+    const stats = [
+      { l: 'Endpoints únicos', v: r.total_endpoints },
+      { l: 'Requests totales', v: fmt(r.total_requests) },
+      { l: 'Errores totales', v: fmt(r.total_errors) },
+    ];
+    document.getElementById('metrics-stats').innerHTML = stats.map(s => `<div class="stat"><div class="l">${s.l}</div><div class="v">${s.v||0}</div></div>`).join('');
+
+    const top = (r.endpoints || []).sort((a,b) => b.p95_ms - a.p95_ms).slice(0, 15);
+    document.querySelector('#metrics-table tbody').innerHTML = top.map(m =>
+      `<tr><td><code>${m.path}</code></td><td>${fmt(m.count)}</td><td>${fmtMs(m.p50_ms)}</td><td><strong>${fmtMs(m.p95_ms)}</strong></td><td>${fmtMs(m.p99_ms)}</td><td>${m.errors||0}</td></tr>`
+    ).join('') || '<tr><td colspan="6" style="text-align:center;padding:30px;color:#94A3B8">Sin datos — navega por la app para generar métricas</td></tr>';
+  }
+
+  // ── Errors ──
+  async function loadErrors() {
+    const r = await j('/api/admin/errors?limit=50');
+    document.getElementById('err-total').textContent = (r.total||0) + ' errores en buffer';
+    document.querySelector('#err-table tbody').innerHTML = (r.errors||[]).map(e =>
+      `<tr><td><code style="font-size:.72rem">${new Date(e.ts).toLocaleTimeString('es-MX')}</code></td><td><span class="badge err">${e.tag}</span></td><td style="color:#B91C1C;font-size:.82rem">${e.msg}</td></tr>`
+    ).join('') || '<tr><td colspan="3" style="text-align:center;padding:30px;color:#15803D">Sin errores 🎉</td></tr>';
+  }
+
+  window.flushErrors = async function () {
+    await fetch('/api/admin/errors', { method: 'DELETE' });
+    loadErrors();
+  };
+
+  // ── Audit ──
+  async function loadAudit() {
+    const r = await j('/api/collab/audit?limit=100');
+    document.querySelector('#audit-table tbody').innerHTML = (r.events||[]).map(e =>
+      `<tr><td><code style="font-size:.72rem">${new Date(e.ts || e.createdAt).toLocaleString('es-MX')}</code></td><td><span class="badge ok">${e.event}</span></td><td>${e.actor||'—'}</td><td style="font-size:.78rem;color:#64748B">${JSON.stringify(e.details||{}).slice(0,120)}</td></tr>`
+    ).join('') || '<tr><td colspan="4" style="text-align:center;padding:30px;color:#94A3B8">Sin eventos todavía</td></tr>';
+  }
+
+  // ── Health ──
+  async function loadHealth() {
+    const r = await j('/healthz');
+    document.getElementById('health-json').textContent = JSON.stringify(r, null, 2);
+  }
+
+  // ── 2FA ──
+  window.setup2FA = async function () {
+    const r = await j('/api/sec/2fa/setup');
+    document.getElementById('2fa-output').innerHTML =
+      `<img src="${r.qrURL}" class="qr" alt="QR"/>` +
+      `<div><strong>Secret:</strong> <code>${r.secret}</code></div>` +
+      `<p style="margin-top:8px;font-size:.85rem;color:#475569">${r.hint}</p>`;
+  };
+
+  // ── Alerts ──
+  window.testAlert = async function (url, body) {
+    const opts = body ? { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) } : { method: 'POST' };
+    const r = await j(url, opts);
+    document.getElementById('alert-result').textContent = JSON.stringify(r);
+  };
+  window.testPushAll = async function () {
+    const r = await j('/api/notify/push/send', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({payload:{title:'Test Suminregio',body:'Push de prueba desde admin'}}) });
+    document.getElementById('alert-result').textContent = JSON.stringify(r);
+  };
+
+  // ── Tabs ──
+  document.querySelectorAll('.tabs button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.tabs button').forEach(x => x.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      const id = 'panel-' + b.dataset.panel;
+      document.getElementById(id).classList.add('active');
+      const loaders = { snaps: loadSnaps, metrics: loadMetrics, errors: loadErrors, audit: loadAudit, health: loadHealth };
+      if (loaders[b.dataset.panel]) loaders[b.dataset.panel]();
+    });
+  });
+
+  // Boot
+  loadSnaps();
+  setInterval(function () {
+    const active = document.querySelector('.tabs button.active').dataset.panel;
+    const loaders = { snaps: loadSnaps, metrics: loadMetrics, errors: loadErrors, audit: loadAudit, health: loadHealth };
+    if (loaders[active]) loaders[active]();
+  }, 10_000);
+})();
+</script>
+</body>
+</html>
