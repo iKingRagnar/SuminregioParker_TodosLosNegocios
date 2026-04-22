@@ -36,6 +36,7 @@
       addLink('vp-polish-css',  '/visual-polish.css?v=5');
       addLink('vp-module-css',  '/module-polish.css?v=1');
       addLink('vp-cxc-css',     '/cxc-redesign.css?v=2');
+      addLink('vp-mobile-css',  '/mobile-enhance.css?v=1');
 
       // Manifest PWA
       if (!document.querySelector('link[rel="manifest"]')) {
@@ -66,6 +67,18 @@
         ex.defer = true;
         head.appendChild(ex);
       }
+      // Búsqueda global, atajos, badges temporales, notas
+      [
+        ['vp-search-js',    '/global-search.js?v=1'],
+        ['vp-keyb-js',      '/keyboard-shortcuts.js?v=1'],
+        ['vp-yoy-js',       '/yoy-badges.js?v=1'],
+        ['vp-notes-js',     '/kpi-notes.js?v=1'],
+      ].forEach(function (pair) {
+        if (document.getElementById(pair[0])) return;
+        var sc = document.createElement('script');
+        sc.id = pair[0]; sc.src = pair[1]; sc.defer = true;
+        head.appendChild(sc);
+      });
 
       // Registrar Service Worker (offline-first)
       if ('serviceWorker' in navigator) {

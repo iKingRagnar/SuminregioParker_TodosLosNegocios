@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci || npm install
+
+      - name: Syntax check
+        run: |
+          node -c server_corregido.js
+          node -c performance-boost.js
+          node -c ai-tools.js
+          node -c ai-chat-v2.js
+          node -c analytics-deep.js
+          node -c email-reports.js
+          node -c safe-catch.js
+
+      - name: Run tests
+        env:
+          DUCK_ONLY_MODE: '1'
+          LOG_LEVEL: 'warn'
+        run: npm test
+
+      - name: Validate manifests
+        run: |
+          python3 -c "import json; json.load(open('public/manifest.webmanifest'))"
+
+  lint-yaml:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate openapi.yaml
+        run: |
+          if [ -f openapi.yaml ]; then
+            python3 -c "import yaml; yaml.safe_load(open('openapi.yaml'))"
+          fi

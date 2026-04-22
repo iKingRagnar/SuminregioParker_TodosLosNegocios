@@ -1,0 +1,259 @@
+openapi: 3.0.3
+info:
+  title: Suminregio API
+  description: |
+    API para dashboard ejecutivo de Suminregio Parker (ventas, CXC, inventario,
+    contabilidad, consumos, análisis avanzado). Consume DuckDB snapshots.
+  version: '9.1'
+  contact:
+    name: Guillermo Ragnar
+servers:
+  - url: https://suminregioparker-todoslosnegocios.onrender.com
+    description: Producción (Render)
+  - url: http://localhost:7000
+    description: Desarrollo local
+
+tags:
+  - name: Health
+  - name: Admin
+  - name: Ventas
+  - name: CXC
+  - name: Inventario
+  - name: Resultados
+  - name: Analytics
+  - name: AI
+  - name: Reports
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check ultra-ligero (< 10ms, no toca DB)
+      responses:
+        '200': { description: OK }
+
+  /api/ping:
+    get:
+      tags: [Health]
+      summary: Estado detallado (memoria, uptime, cache, build)
+      responses:
+        '200':
+          description: JSON con uptime + memory + cache + databases
+
+  /api/admin/mode:
+    get:
+      tags: [Admin]
+      summary: Reporta si el server está en DUCK_ONLY_MODE y qué snapshots hay
+      responses:
+        '200': { description: Estado del servidor }
+
+  /api/admin/sync/status:
+    get:
+      tags: [Admin]
+      summary: Lista snapshots con edad, tamaño, filas, tablas sincronizadas
+      responses:
+        '200': { description: Arreglo de snapshots }
+
+  /api/admin/snapshot/upload:
+    post:
+      tags: [Admin]
+      summary: Subir snapshot DuckDB (con validación pre-swap)
+      parameters:
+        - in: header
+          name: X-Snapshot-Token
+          required: true
+          schema: { type: string }
+        - in: header
+          name: X-DB-Id
+          schema: { type: string, default: default }
+      requestBody:
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        '200': { description: Upload OK }
+        '401': { description: Token inválido }
+        '422': { description: Snapshot corrupto (rechazado) }
+
+  /api/admin/errors:
+    get:
+      tags: [Admin]
+      summary: Últimos N errores capturados (ring buffer en memoria)
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50, maximum: 200 }
+      responses:
+        '200': { description: Lista de errores con stack trace }
+
+  /api/ventas/resumen:
+    get:
+      tags: [Ventas]
+      summary: KPIs de ventas (hoy, mes actual, facturas, remisiones)
+      parameters:
+        - in: query
+          name: db
+          schema: { type: string, default: default }
+      responses:
+        '200': { description: Objeto con HOY, MES_ACTUAL, FACTURAS_MES, REMISIONES }
+
+  /api/ventas/diarias:
+    get:
+      tags: [Ventas]
+      summary: Serie diaria del mes actual
+      parameters:
+        - in: query
+          name: db
+          schema: { type: string }
+
+  /api/cxc/resumen-aging:
+    get:
+      tags: [CXC]
+      summary: Saldo total + distribución por aging buckets (corriente/30/60/90/+90)
+      parameters:
+        - in: query
+          name: db
+          schema: { type: string }
+
+  /api/cxc/vencidas:
+    get:
+      tags: [CXC]
+      summary: Lista de documentos con días vencidos > 0
+
+  /api/cxc/top-deudores:
+    get:
+      tags: [CXC]
+      summary: Top clientes con mayor deuda
+
+  /api/inv/resumen:
+    get:
+      tags: [Inventario]
+      summary: Total de artículos, valor, almacenes
+
+  /api/resultados/pnl:
+    get:
+      tags: [Resultados]
+      summary: Estado de Resultados (P&L)
+
+  /api/resultados/balance-general:
+    get:
+      tags: [Resultados]
+      summary: Balance general con desglose activo/pasivo
+
+  /api/analytics/rfm:
+    get:
+      tags: [Analytics]
+      summary: Segmentación RFM de clientes (Champions, Leales, En Riesgo, Perdidos)
+
+  /api/analytics/pareto:
+    get:
+      tags: [Analytics]
+      summary: Análisis 80/20 de clientes o artículos
+      parameters:
+        - in: query
+          name: dim
+          schema: { type: string, enum: [cliente, articulo] }
+        - in: query
+          name: dias
+          schema: { type: integer, default: 365 }
+
+  /api/analytics/clv:
+    get:
+      tags: [Analytics]
+      summary: Customer Lifetime Value estimado a 12 meses
+
+  /api/compare/temporal:
+    get:
+      tags: [Analytics]
+      summary: Comparación MoM y YoY para una o más métricas
+      parameters:
+        - in: query
+          name: metrics
+          schema: { type: string, example: 'ventas_mes,cxc_total' }
+
+  /api/search/global:
+    get:
+      tags: [Analytics]
+      summary: Búsqueda unificada (clientes, vendedores, artículos, folios)
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema: { type: string }
+
+  /api/anomalies/check:
+    get:
+      tags: [Analytics]
+      summary: Detecta anomalías de venta diaria (z-score > 2σ)
+
+  /api/forecast/ventas:
+    get:
+      tags: [Analytics]
+      summary: Proyección de ventas N días (regresión lineal + EWMA)
+      parameters:
+        - in: query
+          name: dias
+          schema: { type: integer, default: 30, maximum: 180 }
+
+  /api/forecast/inventario:
+    get:
+      tags: [Analytics]
+      summary: Días de cobertura por artículo (top 50 próximos a agotarse)
+
+  /api/ai/ask:
+    post:
+      tags: [AI]
+      summary: NL→SQL determinístico (sin LLM, patrones regex)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                q: { type: string, example: 'ventas de hoy' }
+
+  /api/ai/chat-v2:
+    post:
+      tags: [AI]
+      summary: Chat conversacional con memoria por sesión (Anthropic Claude)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message: { type: string }
+                sessionId: { type: string }
+                db: { type: string }
+
+  /api/reports/preview:
+    get:
+      tags: [Reports]
+      summary: HTML del reporte diario (sin enviar email)
+      parameters:
+        - in: query
+          name: db
+          schema: { type: string }
+
+  /api/reports/send:
+    post:
+      tags: [Reports]
+      summary: Envío manual de reporte por email
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                to: { type: string, format: email }
+                subject: { type: string }
+                db: { type: string }
+
+  /api/boot/prefetch:
+    get:
+      tags: [Admin]
+      summary: Batch — fetch paralelo de endpoints core para hidratación rápida
+      parameters:
+        - in: query
+          name: db
+          schema: { type: string }

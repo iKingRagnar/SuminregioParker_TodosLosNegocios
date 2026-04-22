@@ -484,16 +484,26 @@ try {
 }
 
 // AI tools + forecasting (endpoints consumen DuckDB en memoria)
+const _boostLog = (() => { try { return require('./performance-boost').log; } catch (_) { return null; } })();
 try {
   const { installAiTools } = require('./ai-tools');
-  installAiTools(app, {
-    duckSnaps: _duckSnaps,
-    dbOptsToId,
-    log: require('./performance-boost').log,
-  });
-} catch (e) {
-  console.warn('[ai-tools] no instalado:', e.message);
-}
+  installAiTools(app, { duckSnaps: _duckSnaps, dbOptsToId, log: _boostLog });
+} catch (e) { console.warn('[ai-tools] no instalado:', e.message); }
+
+// Analytics deep (RFM, Pareto, CLV, temporal, search global, anomalías)
+try {
+  require('./analytics-deep').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[analytics-deep] no instalado:', e.message); }
+
+// Reportes por email con cron diario
+try {
+  require('./email-reports').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[email-reports] no instalado:', e.message); }
+
+// AI conversacional v2 con memoria (Anthropic SDK)
+try {
+  require('./ai-chat-v2').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[ai-chat-v2] no instalado:', e.message); }
 
 // Reporta modo de ejecución y empresas con snapshot disponible (público, solo lectura)
 app.get('/api/admin/mode', (_req, res) => {

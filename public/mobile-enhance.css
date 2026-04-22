@@ -1,0 +1,161 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+ * mobile-enhance.css — Experiencia móvil de primer nivel
+ * Hapticks, swipe, bottom sheets, touch targets adecuados.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 760px) {
+
+  /* Touch targets ≥ 44px (Apple/Material guidelines) */
+  html.theme-premium-light button,
+  html.theme-premium-light .btn,
+  html.theme-premium-light a.nav-link,
+  html.theme-premium-light .tab-btn,
+  html.theme-premium-light .tabs button {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 10px 14px;
+  }
+
+  /* Header compacto con hamburguesa */
+  html.theme-premium-light #app-header .header-inner {
+    padding: 0 12px !important;
+    height: 56px !important;
+  }
+  html.theme-premium-light #app-header nav {
+    display: none;
+  }
+  html.theme-premium-light #app-header nav.mobile-open {
+    display: flex !important;
+    position: fixed;
+    top: 56px; left: 0; right: 0;
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    flex-direction: column;
+    padding: 12px;
+    gap: 4px;
+    border-bottom: 1px solid rgba(15, 23, 42, 0.1);
+    box-shadow: 0 10px 30px -8px rgba(15, 23, 42, 0.2);
+    z-index: 100;
+    max-height: calc(100vh - 56px);
+    overflow-y: auto;
+  }
+  html.theme-premium-light #app-header nav.mobile-open .nav-link {
+    width: 100%;
+    justify-content: flex-start;
+    padding: 12px 14px !important;
+    font-size: .92rem !important;
+  }
+
+  /* Grids colapsan a 1-2 columnas en móvil */
+  html.theme-premium-light .kpi-grid,
+  html.theme-premium-light .grid,
+  html.theme-premium-light [class*="kpi-row"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+  @media (max-width: 440px) {
+    html.theme-premium-light .kpi-grid,
+    html.theme-premium-light .grid,
+    html.theme-premium-light [class*="kpi-row"] {
+      grid-template-columns: 1fr !important;
+    }
+  }
+
+  /* Cards con padding más generoso para el pulgar */
+  html.theme-premium-light .kpi-card,
+  html.theme-premium-light .kpi,
+  html.theme-premium-light .card,
+  html.theme-premium-light .sc-card {
+    padding: 14px 16px !important;
+  }
+
+  /* Tablas: scroll horizontal interno, no romper layout */
+  html.theme-premium-light main table,
+  html.theme-premium-light section table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+    max-width: 100vw;
+  }
+  html.theme-premium-light main table th,
+  html.theme-premium-light main table td {
+    font-size: .82rem !important;
+    padding: 8px 12px !important;
+  }
+
+  /* Charts responsive */
+  html.theme-premium-light canvas {
+    max-height: 280px !important;
+  }
+
+  /* FAB más grande y accesible con pulgar */
+  html.theme-premium-light #cw-fab,
+  html.theme-premium-light #sumi-ai-pro-btn,
+  html.theme-premium-light #sumi-search-trigger {
+    width: 52px;
+    height: 52px;
+    bottom: 18px;
+  }
+  html.theme-premium-light #sumi-search-trigger {
+    padding: 0 !important;
+    justify-content: center;
+  }
+  html.theme-premium-light #sumi-search-trigger span.sumi-kbd,
+  html.theme-premium-light #sumi-search-trigger > span:not(:first-child) {
+    display: none;
+  }
+
+  /* Modales / panels en móvil toman pantalla completa tipo iOS */
+  html.theme-premium-light #sumi-search-overlay {
+    padding-top: 0 !important;
+    align-items: stretch !important;
+  }
+  html.theme-premium-light #sumi-search-box {
+    border-radius: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    max-height: 100vh !important;
+    height: 100vh !important;
+  }
+
+  /* Páginas: padding lateral más ajustado */
+  html.theme-premium-light main {
+    padding: 14px !important;
+  }
+  html.theme-premium-light h1,
+  html.theme-premium-light .page-title {
+    font-size: clamp(1.3rem, 5vw, 1.7rem) !important;
+  }
+
+  /* Bottom nav para navegar con pulgar (solo si se activa con data-attr) */
+  html.theme-premium-light body[data-bottom-nav="true"] #sumi-bottom-nav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(255, 255, 255, .98);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-top: 1px solid rgba(15, 23, 42, .1);
+    display: flex;
+    justify-content: space-around;
+    padding: 8px 4px calc(8px + env(safe-area-inset-bottom)) 4px;
+    z-index: 90;
+  }
+  html.theme-premium-light body[data-bottom-nav="true"] main {
+    padding-bottom: 80px;
+  }
+}
+
+/* Tap highlight oro suave */
+html.theme-premium-light * {
+  -webkit-tap-highlight-color: rgba(230, 168, 0, 0.15);
+}
+
+/* Safe areas en iPhone con notch */
+@supports (padding: env(safe-area-inset-top)) {
+  html.theme-premium-light body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}

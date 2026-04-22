@@ -8,7 +8,7 @@
  *     → Datos siempre frescos cuando hay red; al menos vista stale cuando no.
  *   · Excepción: /api/admin/*, /api/ai/* → solo red (nunca cache, son sensibles)
  */
-const CACHE_VERSION = 'sumi-v1';
+const CACHE_VERSION = 'sumi-v2';
 const SHELL_CACHE   = CACHE_VERSION + '-shell';
 const API_CACHE     = CACHE_VERSION + '-api';
 
@@ -30,6 +30,13 @@ const SHELL_PRECACHE = [
   '/visual-polish.css',
   '/cxc-redesign.css',
   '/module-polish.css',
+  '/mobile-enhance.css',
+  '/export-utils.js',
+  '/global-search.js',
+  '/keyboard-shortcuts.js',
+  '/yoy-badges.js',
+  '/kpi-notes.js',
+  '/comparar.html',
   '/aurora-background.js',
   '/app-ui.css',
   '/app-ui-boot.js',
