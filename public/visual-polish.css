@@ -1,0 +1,338 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+ * visual-polish.css — Capa visual premium Suminregio
+ * Se carga al final del cascade (después de app-ui.css, design-upgrade.css,
+ * ms-ai-super.css, ms-ux-premium.css) para refinar sin romper.
+ *
+ * Paleta base existente: #0d1b2e (noche profundo) / #E6A800 (oro)
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --vp-gold:          #E6A800;
+  --vp-gold-soft:     #F5C33C;
+  --vp-gold-deep:     #B8860B;
+  --vp-night:         #0B1629;
+  --vp-night-2:       #0F1F36;
+  --vp-night-3:       #162D4D;
+  --vp-ink:           #F3F8FF;
+  --vp-ink-dim:       rgba(243, 248, 255, 0.72);
+  --vp-ink-soft:      rgba(243, 248, 255, 0.45);
+  --vp-stroke:        rgba(230, 168, 0, 0.18);
+  --vp-stroke-strong: rgba(230, 168, 0, 0.4);
+
+  --vp-shadow-sm:     0 2px 8px rgba(0, 0, 0, .28);
+  --vp-shadow-md:     0 8px 28px -4px rgba(0, 0, 0, .45);
+  --vp-shadow-lg:     0 24px 48px -12px rgba(0, 0, 0, .55);
+  --vp-glow-gold:     0 0 32px -8px rgba(230, 168, 0, .55);
+
+  --vp-r-sm: 8px;
+  --vp-r-md: 14px;
+  --vp-r-lg: 20px;
+  --vp-r-xl: 28px;
+
+  --vp-ease:          cubic-bezier(.22, 1, .36, 1);
+  --vp-ease-spring:   cubic-bezier(.34, 1.56, .64, 1);
+  --vp-dur:           .28s;
+
+  --vp-gradient-gold: linear-gradient(135deg, #F5C33C 0%, #E6A800 45%, #B8860B 100%);
+  --vp-gradient-card: linear-gradient(180deg, rgba(15, 31, 54, .85) 0%, rgba(11, 22, 41, .92) 100%);
+  --vp-gradient-hover:linear-gradient(180deg, rgba(22, 45, 77, .95) 0%, rgba(15, 31, 54, .98) 100%);
+}
+
+/* ── Fuentes: cargar Inter del sistema con fallback ────────────────────────── */
+html, body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI",
+               system-ui, "Helvetica Neue", sans-serif;
+  font-feature-settings: "cv11", "ss01", "ss03", "tnum";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  letter-spacing: -0.005em;
+}
+
+body {
+  /* Gradiente ambient detrás de todo: aurora sutil */
+  background:
+    radial-gradient(ellipse at 15% -10%, rgba(230, 168, 0, .08) 0%, transparent 45%),
+    radial-gradient(ellipse at 85% 110%, rgba(64, 150, 255, .06) 0%, transparent 50%),
+    var(--vp-night) !important;
+}
+
+/* ── Scrollbar custom refinado ──────────────────────────────────────────────── */
+*::-webkit-scrollbar          { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track    { background: rgba(255,255,255,.02); }
+*::-webkit-scrollbar-thumb    {
+  background: linear-gradient(180deg, rgba(230,168,0,.35), rgba(230,168,0,.15));
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, rgba(230,168,0,.6), rgba(230,168,0,.3)); background-clip: padding-box; }
+* { scrollbar-color: rgba(230,168,0,.35) rgba(255,255,255,.02); scrollbar-width: thin; }
+
+/* ── Headline tipografía premium ────────────────────────────────────────────── */
+h1, h2, h3, .ms-title, .page-title {
+  letter-spacing: -0.022em;
+  font-weight: 600;
+}
+h1, .page-title {
+  background: linear-gradient(180deg, #FFFFFF 0%, rgba(243, 248, 255, .72) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ── KPI cards: glassmorphism + glow on hover ──────────────────────────────── */
+.kpi-card,
+.ms-kpi,
+.card-kpi,
+.metric-card,
+[class*="kpi-"][class*="card"] {
+  background: var(--vp-gradient-card) !important;
+  border: 1px solid var(--vp-stroke) !important;
+  border-radius: var(--vp-r-lg) !important;
+  box-shadow: var(--vp-shadow-md);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: transform var(--vp-dur) var(--vp-ease),
+              border-color var(--vp-dur) var(--vp-ease),
+              box-shadow var(--vp-dur) var(--vp-ease);
+  position: relative;
+  overflow: hidden;
+}
+
+.kpi-card::before,
+.ms-kpi::before,
+.card-kpi::before,
+.metric-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(230, 168, 0, .35) 0%, transparent 40%, transparent 60%, rgba(230, 168, 0, .18) 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
+  opacity: .6;
+  transition: opacity var(--vp-dur) var(--vp-ease);
+}
+
+.kpi-card:hover,
+.ms-kpi:hover,
+.card-kpi:hover,
+.metric-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--vp-stroke-strong) !important;
+  box-shadow: var(--vp-shadow-lg), var(--vp-glow-gold);
+}
+
+.kpi-card:hover::before,
+.ms-kpi:hover::before,
+.card-kpi:hover::before,
+.metric-card:hover::before { opacity: 1; }
+
+/* Valores principales de KPI: efecto número premium */
+.kpi-value, .ms-kpi-value, .metric-value,
+.kpi-card .value, .ms-kpi .value, .metric-card .value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  background: linear-gradient(180deg, #FFFFFF 0%, rgba(255, 255, 255, .78) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ── Badges / chips con gradient dorado ─────────────────────────────────────── */
+.badge-gold, .chip-gold, .tag-gold, .ms-chip-gold,
+[class*="badge"][class*="warning"],
+[class*="badge"][class*="gold"] {
+  background: var(--vp-gradient-gold) !important;
+  color: #1A1200 !important;
+  font-weight: 600;
+  border: none !important;
+  box-shadow: 0 2px 10px -2px rgba(230, 168, 0, .55);
+}
+
+/* ── Tablas: hover row con slide highlight ─────────────────────────────────── */
+table tbody tr {
+  transition: background-color .18s var(--vp-ease);
+}
+table tbody tr:hover {
+  background: linear-gradient(90deg, rgba(230, 168, 0, .08) 0%, rgba(230, 168, 0, .02) 40%, transparent 100%) !important;
+}
+table th {
+  letter-spacing: .04em;
+  font-size: .72rem;
+  text-transform: uppercase;
+  color: var(--vp-ink-dim);
+  font-weight: 600;
+}
+
+/* ── Botones: feedback táctil ──────────────────────────────────────────────── */
+button:not([disabled]),
+.btn,
+.ms-btn {
+  transition: transform .12s var(--vp-ease),
+              box-shadow var(--vp-dur) var(--vp-ease),
+              background-color var(--vp-dur) var(--vp-ease);
+}
+button:not([disabled]):hover,
+.btn:hover,
+.ms-btn:hover { transform: translateY(-1px); }
+button:not([disabled]):active,
+.btn:active,
+.ms-btn:active { transform: translateY(0); transition-duration: .05s; }
+
+.btn-primary, .ms-btn-primary, button.primary,
+[class*="btn"][class*="gold"] {
+  background: var(--vp-gradient-gold) !important;
+  color: #1A1200 !important;
+  font-weight: 600 !important;
+  border: none !important;
+  box-shadow: 0 4px 16px -4px rgba(230, 168, 0, .55);
+}
+.btn-primary:hover, .ms-btn-primary:hover, button.primary:hover {
+  box-shadow: 0 8px 24px -4px rgba(230, 168, 0, .7), var(--vp-glow-gold);
+}
+
+/* ── Focus rings accesibles ────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--vp-gold);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  box-shadow: 0 0 0 3px rgba(230, 168, 0, .35);
+  outline: none;
+}
+
+/* ── Inputs / selects: bordes refinados ────────────────────────────────────── */
+input, select, textarea {
+  transition: border-color var(--vp-dur) var(--vp-ease), box-shadow var(--vp-dur) var(--vp-ease);
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--vp-gold) !important;
+  box-shadow: 0 0 0 3px rgba(230, 168, 0, .15);
+}
+
+/* ── Animación de entrada para tarjetas/gráficas al cargar ─────────────────── */
+@keyframes vpFadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+main > *, .page-content > *, .grid > *, section > .card, section > .kpi-card {
+  animation: vpFadeUp .5s var(--vp-ease) both;
+}
+/* Stagger: cada uno un poquito después */
+main > *:nth-child(1), .grid > *:nth-child(1) { animation-delay: .02s; }
+main > *:nth-child(2), .grid > *:nth-child(2) { animation-delay: .06s; }
+main > *:nth-child(3), .grid > *:nth-child(3) { animation-delay: .10s; }
+main > *:nth-child(4), .grid > *:nth-child(4) { animation-delay: .14s; }
+main > *:nth-child(5), .grid > *:nth-child(5) { animation-delay: .18s; }
+main > *:nth-child(6), .grid > *:nth-child(6) { animation-delay: .22s; }
+
+/* ── Skeleton shimmer para loading states ──────────────────────────────────── */
+.skeleton, .loading-shimmer, [data-loading="true"] {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(230, 168, 0, 0.10) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: vpShimmer 1.4s linear infinite;
+  border-radius: var(--vp-r-sm);
+}
+@keyframes vpShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Navbar superior: refinado ─────────────────────────────────────────────── */
+header, .ms-header, .app-header {
+  backdrop-filter: saturate(180%) blur(14px);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+  background: rgba(11, 22, 41, .75) !important;
+  border-bottom: 1px solid var(--vp-stroke) !important;
+}
+
+/* Nav links hover suave */
+nav a, .nav-link {
+  transition: color .2s var(--vp-ease), background .2s var(--vp-ease);
+  border-radius: var(--vp-r-sm);
+}
+nav a:hover, .nav-link:hover {
+  background: rgba(230, 168, 0, .08);
+  color: var(--vp-gold-soft) !important;
+}
+nav a.active, .nav-link.active, nav a[aria-current="page"] {
+  background: linear-gradient(135deg, rgba(230, 168, 0, .18), rgba(230, 168, 0, .06));
+  color: var(--vp-gold) !important;
+  position: relative;
+}
+nav a.active::after, .nav-link.active::after {
+  content: "";
+  position: absolute;
+  left: 20%; right: 20%; bottom: -2px;
+  height: 2px;
+  background: var(--vp-gradient-gold);
+  border-radius: 2px;
+  box-shadow: 0 0 8px var(--vp-gold);
+}
+
+/* ── Charts container ──────────────────────────────────────────────────────── */
+.chart-container, .ms-chart-wrapper, canvas {
+  border-radius: var(--vp-r-md);
+}
+
+/* ── Modales / overlays con glassmorphism ──────────────────────────────────── */
+.modal, .overlay, dialog, .ms-modal {
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  background: rgba(11, 22, 41, .78);
+  border: 1px solid var(--vp-stroke);
+  border-radius: var(--vp-r-xl);
+  box-shadow: var(--vp-shadow-lg);
+}
+
+/* ── Toasts / notifications refinadas ──────────────────────────────────────── */
+.toast, .notification, .ms-toast {
+  border-radius: var(--vp-r-md);
+  border: 1px solid var(--vp-stroke);
+  background: var(--vp-gradient-card);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--vp-shadow-lg);
+}
+
+/* ── Separadores / divisores ───────────────────────────────────────────────── */
+hr, .divider {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--vp-stroke) 50%, transparent 100%);
+  margin: 1.5rem 0;
+}
+
+/* ── Selección de texto con oro ────────────────────────────────────────────── */
+::selection      { background: rgba(230, 168, 0, .35); color: #FFF; }
+::-moz-selection { background: rgba(230, 168, 0, .35); color: #FFF; }
+
+/* ── Reduce motion respect ─────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+}
+
+/* ── Móvil: compactar spacings sin romper ──────────────────────────────────── */
+@media (max-width: 640px) {
+  .kpi-card, .ms-kpi, .card-kpi, .metric-card {
+    border-radius: var(--vp-r-md) !important;
+  }
+  h1, .page-title { font-size: clamp(1.4rem, 5vw, 1.8rem); }
+}
