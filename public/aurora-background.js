@@ -23,6 +23,14 @@
     prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   } catch (_) {}
 
+  // Detectar tema: light mode usa blobs más pálidos para no tapar el contenido
+  function isLightTheme() {
+    try {
+      return document.documentElement.classList.contains('theme-premium-light') ||
+             document.documentElement.getAttribute('data-theme') === 'light';
+    } catch (_) { return false; }
+  }
+
   // Paleta — colores pertinentes al proyecto
   var BLOBS = [
     { color: 'rgba(230, 168, 0, 0.42)',   size: 620, ax: 0.14, ay: 0.10, bx: 22, by: 18 },  // oro grande (top-left)
@@ -99,6 +107,19 @@
     } else {
       document.body.appendChild(root);
     }
+
+    // Re-chequear tema cada vez que cambie el data-theme (toggle dark/light)
+    try {
+      var mo = new MutationObserver(function () {
+        if (isLightTheme()) {
+          root.setAttribute('data-theme', 'light');
+        } else {
+          root.removeAttribute('data-theme');
+        }
+      });
+      mo.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'data-theme'] });
+      if (isLightTheme()) root.setAttribute('data-theme', 'light');
+    } catch (_) {}
 
     // ── Parallax con easing ──────────────────────────────────────────────────
     var mouseX = window.innerWidth  / 2;

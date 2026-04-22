@@ -13,14 +13,14 @@
         var link = document.createElement('link');
         link.id = 'vp-polish-css';
         link.rel = 'stylesheet';
-        link.href = '/visual-polish.css?v=2';
+        link.href = '/visual-polish.css?v=3';
         (document.head || document.documentElement).appendChild(link);
       }
       // Fondo aurora interactivo con parallax de mouse
       if (!document.getElementById('vp-aurora-js')) {
         var s = document.createElement('script');
         s.id = 'vp-aurora-js';
-        s.src = '/aurora-background.js?v=1';
+        s.src = '/aurora-background.js?v=2';
         s.defer = true;
         (document.head || document.documentElement).appendChild(s);
       }

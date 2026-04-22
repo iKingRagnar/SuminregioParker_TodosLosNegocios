@@ -49,13 +49,13 @@ html, body {
   letter-spacing: -0.005em;
 }
 
-body {
-  /* Base oscura — la aurora animada va detrás vía #vp-aurora-root (aurora-background.js) */
+/* Base oscura — solo cuando el tema NO es light */
+html:not(.theme-premium-light) { background: #0B1629; }
+html:not(.theme-premium-light) body {
   background: transparent !important;
   position: relative;
 }
-/* Fallback si aurora-background.js no carga: degradado estático */
-html { background: #0B1629; }
+/* En light mode, el body ya lo maneja app-ui.css (#f1f5f9) — no tocamos */
 
 /* ── Scrollbar custom refinado ──────────────────────────────────────────────── */
 *::-webkit-scrollbar          { width: 10px; height: 10px; }
@@ -70,34 +70,87 @@ html { background: #0B1629; }
 * { scrollbar-color: rgba(230,168,0,.35) rgba(255,255,255,.02); scrollbar-width: thin; }
 
 /* ── Headline tipografía premium ────────────────────────────────────────────── */
-h1, h2, h3, .ms-title, .page-title {
+h1, h2, h3, .ms-title, .page-title, .card-title, .section-title, .chart-title {
   letter-spacing: -0.022em;
   font-weight: 600;
 }
-h1, .page-title {
+/* Gradiente claro SOLO en dark mode. En light mode queda color sólido oscuro. */
+html:not(.theme-premium-light) h1,
+html:not(.theme-premium-light) .page-title {
   background: linear-gradient(180deg, #FFFFFF 0%, rgba(243, 248, 255, .72) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
+/* Light mode: garantizar que los títulos sean legibles sobre fondo claro */
+html.theme-premium-light h1,
+html.theme-premium-light h2,
+html.theme-premium-light h3,
+html.theme-premium-light h4,
+html.theme-premium-light h5,
+html.theme-premium-light .page-title,
+html.theme-premium-light .ms-title,
+html.theme-premium-light .card-title,
+html.theme-premium-light .section-title,
+html.theme-premium-light .chart-title,
+html.theme-premium-light .hero-eyebrow,
+html.theme-premium-light .hero-sub {
+  color: #0F172A !important;
+  background: none !important;
+  -webkit-text-fill-color: #0F172A !important;
+}
+/* Link de títulos en light mode */
+html.theme-premium-light [class*="title"],
+html.theme-premium-light [class*="heading"] {
+  color: #0F172A !important;
+  -webkit-text-fill-color: #0F172A !important;
+}
+/* Subtítulos / eyebrows / captions en light mode con buen contraste */
+html.theme-premium-light .subtitle,
+html.theme-premium-light .caption,
+html.theme-premium-light .muted,
+html.theme-premium-light .text-muted,
+html.theme-premium-light .label,
+html.theme-premium-light .eyebrow {
+  color: #475569 !important;
+}
 
-/* ── KPI cards: glassmorphism + glow on hover ──────────────────────────────── */
-.kpi-card,
-.ms-kpi,
-.card-kpi,
-.metric-card,
-[class*="kpi-"][class*="card"] {
+/* ── KPI cards — dark mode: glassmorphism oscuro ────────────────────────────── */
+html:not(.theme-premium-light) .kpi-card,
+html:not(.theme-premium-light) .ms-kpi,
+html:not(.theme-premium-light) .card-kpi,
+html:not(.theme-premium-light) .metric-card,
+html:not(.theme-premium-light) [class*="kpi-"][class*="card"] {
   background: var(--vp-gradient-card) !important;
   border: 1px solid var(--vp-stroke) !important;
   border-radius: var(--vp-r-lg) !important;
   box-shadow: var(--vp-shadow-md);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  position: relative;
+  overflow: hidden;
+}
+/* KPI cards — light mode: glass blanco con borde oro sutil */
+html.theme-premium-light .kpi-card,
+html.theme-premium-light .ms-kpi,
+html.theme-premium-light .card-kpi,
+html.theme-premium-light .metric-card {
+  background: rgba(255, 255, 255, 0.82) !important;
+  border: 1px solid rgba(230, 168, 0, 0.22) !important;
+  border-radius: var(--vp-r-lg) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 16px -4px rgba(15, 23, 42, 0.08);
+  color: #0F172A;
+  position: relative;
+  overflow: hidden;
+}
+/* Transiciones y hover comunes a ambos temas */
+.kpi-card, .ms-kpi, .card-kpi, .metric-card,
+[class*="kpi-"][class*="card"] {
   transition: transform var(--vp-dur) var(--vp-ease),
               border-color var(--vp-dur) var(--vp-ease),
               box-shadow var(--vp-dur) var(--vp-ease);
-  position: relative;
-  overflow: hidden;
 }
 
 .kpi-card::before,
@@ -133,16 +186,34 @@ h1, .page-title {
 .card-kpi:hover::before,
 .metric-card:hover::before { opacity: 1; }
 
-/* Valores principales de KPI: efecto número premium */
+/* Valores principales de KPI — base común */
 .kpi-value, .ms-kpi-value, .metric-value,
 .kpi-card .value, .ms-kpi .value, .metric-card .value {
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   letter-spacing: -0.03em;
+}
+/* Dark mode: gradiente blanco */
+html:not(.theme-premium-light) .kpi-value,
+html:not(.theme-premium-light) .ms-kpi-value,
+html:not(.theme-premium-light) .metric-value,
+html:not(.theme-premium-light) .kpi-card .value,
+html:not(.theme-premium-light) .ms-kpi .value,
+html:not(.theme-premium-light) .metric-card .value {
   background: linear-gradient(180deg, #FFFFFF 0%, rgba(255, 255, 255, .78) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+/* Light mode: color sólido oscuro para legibilidad */
+html.theme-premium-light .kpi-value,
+html.theme-premium-light .ms-kpi-value,
+html.theme-premium-light .metric-value,
+html.theme-premium-light .kpi-card .value,
+html.theme-premium-light .ms-kpi .value,
+html.theme-premium-light .metric-card .value {
+  color: #0F172A !important;
+  -webkit-text-fill-color: #0F172A !important;
 }
 
 /* ── Badges / chips con gradient dorado ─────────────────────────────────────── */
@@ -335,4 +406,84 @@ hr, .divider {
     border-radius: var(--vp-r-md) !important;
   }
   h1, .page-title { font-size: clamp(1.4rem, 5vw, 1.8rem); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DEFENSIVO — Light mode: garantizar contraste mínimo en cualquier texto
+   que haya quedado con color claro por CSS anteriores o reglas heredadas.
+   ═══════════════════════════════════════════════════════════════════════════ */
+html.theme-premium-light {
+  /* Aurora atenuada: los blobs con mix-blend-mode: screen se ven blancos sobre claro.
+     Ocultamos el noise grain que también aclara demasiado. */
+  color-scheme: light;
+}
+html.theme-premium-light #vp-aurora-root {
+  opacity: 0.35 !important;
+}
+html.theme-premium-light #vp-aurora-root .vp-blob {
+  mix-blend-mode: multiply !important;
+  filter: blur(100px) !important;
+}
+html.theme-premium-light #vp-aurora-root .vp-noise { display: none !important; }
+
+/* Textos comunes que pudieran haber quedado blancos en light mode */
+html.theme-premium-light body,
+html.theme-premium-light p,
+html.theme-premium-light span:not([class*="badge"]):not([class*="chip"]):not([class*="tag"]),
+html.theme-premium-light li,
+html.theme-premium-light td,
+html.theme-premium-light dd,
+html.theme-premium-light label {
+  color: #0F172A;
+}
+/* Pero NO romper los elementos que legítimamente usan texto claro (badges, chips, chips oro) */
+html.theme-premium-light [class*="badge"],
+html.theme-premium-light [class*="chip"],
+html.theme-premium-light [class*="tag-gold"],
+html.theme-premium-light .btn-primary,
+html.theme-premium-light .ms-btn-primary {
+  color: inherit;
+}
+
+/* Texto específico: headings de cards y secciones en light mode */
+html.theme-premium-light .kpi-card h1,
+html.theme-premium-light .kpi-card h2,
+html.theme-premium-light .kpi-card h3,
+html.theme-premium-light .ms-kpi h1,
+html.theme-premium-light .ms-kpi h2,
+html.theme-premium-light .ms-kpi h3,
+html.theme-premium-light .card h1,
+html.theme-premium-light .card h2,
+html.theme-premium-light .card h3 {
+  color: #0F172A !important;
+  -webkit-text-fill-color: #0F172A !important;
+  background: none !important;
+}
+
+/* Header de sección con ícono — el título junto al ícono también */
+html.theme-premium-light section > header,
+html.theme-premium-light .card > header,
+html.theme-premium-light .chart-header,
+html.theme-premium-light .panel-header {
+  color: #0F172A;
+}
+html.theme-premium-light section > header *,
+html.theme-premium-light .card > header *:not([class*="badge"]):not([class*="chip"]):not(svg) {
+  color: inherit;
+}
+
+/* Tablas en light mode: hover row sobre fondo blanco */
+html.theme-premium-light table tbody tr:hover {
+  background: linear-gradient(90deg, rgba(230, 168, 0, .12) 0%, rgba(230, 168, 0, .03) 60%, transparent 100%) !important;
+}
+html.theme-premium-light table th {
+  color: #475569;
+}
+
+/* Links en light mode */
+html.theme-premium-light a:not(.btn):not([class*="nav"]) {
+  color: #B8860B;
+}
+html.theme-premium-light a:not(.btn):not([class*="nav"]):hover {
+  color: #E6A800;
 }
