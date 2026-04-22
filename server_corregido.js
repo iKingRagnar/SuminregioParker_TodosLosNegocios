@@ -536,6 +536,18 @@ try {
   require('./integrations').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
 } catch (e) { console.warn('[integrations] no instalado:', e.message); }
 
+// Auth pluggable (dummy | basic | clerk)
+try {
+  require('./src/auth').install(app);
+} catch (e) { console.warn('[auth] no instalado:', e.message); }
+
+// Ejemplo de route extraído del monolito (solo si USE_NEW_VENTAS=1)
+if (process.env.USE_NEW_VENTAS === '1') {
+  try {
+    require('./src/routes/ventas-example').install(app, { query, getReqDbOpts, log: _boostLog });
+  } catch (e) { console.warn('[routes/ventas-example] no instalado:', e.message); }
+}
+
 // Reporta modo de ejecución y empresas con snapshot disponible (público, solo lectura)
 app.get('/api/admin/mode', (_req, res) => {
   const loaded = [];
