@@ -417,6 +417,23 @@ app.get('/api/cache/stats', (_req, res) => {
   res.json({ count: _resCache.size, max: RES_CACHE_MAX, entries: entries.slice(0, 50) });
 });
 
+// ── Performance-boost: /health, ETag, prefetch, keep-alive, shutdown ──────────
+// Se instala antes del endpoint legacy /api/admin/snapshot/upload para que el
+// nuevo (con validación pre-swap) tenga precedencia sobre el legacy.
+try {
+  const boost = require('./performance-boost');
+  boost.install(app, {
+    resCache: _resCache,
+    duckSnaps: _duckSnaps,
+    loadDuckSnapshot,
+    snapshotDir: DUCK_SNAPSHOT_DIR,
+    snapshotToken: SNAPSHOT_TOKEN,
+    buildFingerprint: BUILD_FINGERPRINT,
+  });
+} catch (e) {
+  console.warn('[performance-boost] no instalado:', e.message);
+}
+
 // ── DuckDB Admin Endpoints ────────────────────────────────────────────────────
 
 // GET /api/admin/snapshot/status — estado de TODOS los snapshots cargados
