@@ -476,6 +476,25 @@ try {
   console.warn('[performance-boost] no instalado:', e.message);
 }
 
+// Captura de errores silenciosos + endpoint /api/admin/errors
+try {
+  require('./safe-catch').install(app);
+} catch (e) {
+  console.warn('[safe-catch] no instalado:', e.message);
+}
+
+// AI tools + forecasting (endpoints consumen DuckDB en memoria)
+try {
+  const { installAiTools } = require('./ai-tools');
+  installAiTools(app, {
+    duckSnaps: _duckSnaps,
+    dbOptsToId,
+    log: require('./performance-boost').log,
+  });
+} catch (e) {
+  console.warn('[ai-tools] no instalado:', e.message);
+}
+
 // Reporta modo de ejecución y empresas con snapshot disponible (público, solo lectura)
 app.get('/api/admin/mode', (_req, res) => {
   const loaded = [];

@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="es" class="theme-premium-light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Comparar Empresas — Suminregio</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#E6A800">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="nav.js" defer></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #F6F8FB;
+    color: #0F172A;
+    min-height: 100vh;
+  }
+  header { padding: 0 !important; }
+  main {
+    max-width: 1800px; margin: 0 auto; padding: 24px;
+  }
+  .page-head {
+    display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
+    gap: 12px; margin-bottom: 20px;
+  }
+  .page-head h1 { font-size: clamp(1.4rem, 2.2vw, 1.9rem); font-weight: 700; letter-spacing: -.028em; }
+  .page-head p { color: #64748B; font-size: .85rem; margin-top: 4px; }
+  .toolbar {
+    display: inline-flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    background: rgba(255, 255, 255, .92); border: 1px solid rgba(15, 23, 42, .08);
+    padding: 8px; border-radius: 12px;
+  }
+  .toolbar button {
+    background: transparent; border: none; padding: 6px 12px; border-radius: 8px;
+    font-size: .8rem; font-weight: 600; color: #475569; cursor: pointer; transition: all .15s;
+  }
+  .toolbar button:hover { background: rgba(230,168,0,.08); color: #B8860B; }
+  .toolbar button.active {
+    background: linear-gradient(135deg, #F5C33C, #E6A800, #B8860B);
+    color: #1A1200; box-shadow: 0 2px 8px -2px rgba(230, 168, 0, .5);
+  }
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px; margin-top: 16px;
+  }
+  .biz-card {
+    background: rgba(255, 255, 255, .95); border: 1px solid rgba(230, 168, 0, .22);
+    border-radius: 16px; padding: 18px 20px; box-shadow: 0 4px 12px -2px rgba(15, 23, 42, .06);
+    transition: transform .22s cubic-bezier(.22, 1, .36, 1), box-shadow .22s, border-color .22s;
+  }
+  .biz-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(230, 168, 0, .55);
+    box-shadow: 0 14px 32px -12px rgba(15, 23, 42, .14), 0 0 20px -4px rgba(230, 168, 0, .3);
+  }
+  .biz-name { font-size: 1.05rem; font-weight: 700; color: #0F172A; margin-bottom: 2px; }
+  .biz-id { font-size: .68rem; color: #94A3B8; font-family: 'DM Mono', monospace; margin-bottom: 14px; }
+  .kpi-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;
+  }
+  .kpi-block {
+    background: rgba(230, 168, 0, .04); border: 1px solid rgba(230, 168, 0, .15);
+    border-radius: 10px; padding: 10px 12px;
+  }
+  .kpi-lbl {
+    font-size: .63rem; text-transform: uppercase; letter-spacing: .06em;
+    color: #64748B; font-weight: 700; margin-bottom: 4px;
+  }
+  .kpi-val {
+    font-size: 1.1rem; font-weight: 700; color: #0F172A; font-variant-numeric: tabular-nums;
+    letter-spacing: -.02em;
+  }
+  .kpi-sub { font-size: .7rem; color: #94A3B8; margin-top: 2px; }
+  .biz-status {
+    display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px;
+    border-radius: 999px; font-size: .68rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .biz-status.ok { background: rgba(34, 197, 94, .12); color: #15803D; border: 1px solid rgba(34, 197, 94, .3); }
+  .biz-status.warn { background: rgba(245, 158, 11, .12); color: #B45309; border: 1px solid rgba(245, 158, 11, .3); }
+  .biz-status.danger { background: rgba(239, 68, 68, .12); color: #B91C1C; border: 1px solid rgba(239, 68, 68, .3); }
+  .biz-status.none { background: rgba(100, 116, 139, .1); color: #64748B; border: 1px solid rgba(100, 116, 139, .2); }
+  .loading {
+    display: grid; place-items: center; padding: 80px 20px; color: #64748B; font-size: .9rem;
+  }
+  .empty {
+    grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: #94A3B8;
+    font-style: italic; background: rgba(255, 255, 255, .6); border-radius: 16px;
+    border: 1px dashed rgba(15, 23, 42, .1);
+  }
+  .summary-bar {
+    display: flex; flex-wrap: wrap; gap: 18px; align-items: center;
+    background: linear-gradient(135deg, rgba(230, 168, 0, .08), rgba(255, 255, 255, .95));
+    border: 1px solid rgba(230, 168, 0, .25); border-radius: 12px;
+    padding: 12px 18px; margin-bottom: 16px;
+  }
+  .summary-item { display: flex; flex-direction: column; gap: 2px; }
+  .summary-item span:first-child { font-size: .65rem; text-transform: uppercase; color: #64748B; letter-spacing: .06em; font-weight: 700; }
+  .summary-item span:last-child { font-size: 1.1rem; font-weight: 700; color: #0F172A; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<header id="app-header"></header>
+<main>
+  <div class="page-head">
+    <div>
+      <h1>Comparar Empresas</h1>
+      <p>Scorecard en paralelo · consume <code>/api/universe/scorecard</code></p>
+    </div>
+    <div class="toolbar" role="tablist" aria-label="Ordenar por">
+      <button data-sort="ventas" class="active" role="tab">Ventas mes</button>
+      <button data-sort="vencido" role="tab">CXC vencida</button>
+      <button data-sort="total" role="tab">CXC total</button>
+      <button data-sort="nombre" role="tab">Nombre</button>
+    </div>
+  </div>
+
+  <div class="summary-bar" id="summary">
+    <div class="summary-item"><span>Empresas</span><span id="s-count">—</span></div>
+    <div class="summary-item"><span>Ventas mes (total)</span><span id="s-ventas">—</span></div>
+    <div class="summary-item"><span>CXC total</span><span id="s-cxc">—</span></div>
+    <div class="summary-item"><span>CXC vencida</span><span id="s-venc">—</span></div>
+    <div class="summary-item"><span>Última actualización</span><span id="s-updated">—</span></div>
+  </div>
+
+  <div class="grid" id="grid">
+    <div class="loading">Cargando empresas…</div>
+  </div>
+</main>
+
+<script>
+(function () {
+  'use strict';
+  var fmtM = function (n) {
+    if (n == null || !isFinite(n)) return '—';
+    if (Math.abs(n) >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
+    if (Math.abs(n) >= 1e3) return '$' + (n / 1e3).toFixed(1) + 'k';
+    return '$' + Math.round(n).toLocaleString('es-MX');
+  };
+  var fmtN = function (n) { return (n == null || !isFinite(n)) ? '—' : Math.round(n).toLocaleString('es-MX'); };
+
+  var state = { data: [], sort: 'ventas' };
+
+  function statusFor(item) {
+    if (!item || item.snapshot === false) return { cls: 'none', txt: 'Sin snapshot' };
+    var venc = Number(item.cxc && item.cxc.vencido) || 0;
+    var total = Number(item.cxc && item.cxc.total) || 0;
+    if (total === 0) return { cls: 'none', txt: 'Sin datos' };
+    var pct = (venc / total) * 100;
+    if (pct >= 30) return { cls: 'danger', txt: 'Crítico' };
+    if (pct >= 15) return { cls: 'warn', txt: 'Atento' };
+    return { cls: 'ok', txt: 'Saludable' };
+  }
+
+  function render() {
+    var grid = document.getElementById('grid');
+    grid.innerHTML = '';
+
+    var arr = state.data.slice();
+    arr.sort(function (a, b) {
+      if (state.sort === 'nombre') return (a.label || '').localeCompare(b.label || '');
+      var ka = state.sort === 'ventas' ? (a.ventas && a.ventas.mes) :
+               state.sort === 'vencido' ? (a.cxc && a.cxc.vencido) :
+               state.sort === 'total' ? (a.cxc && a.cxc.total) : 0;
+      var kb = state.sort === 'ventas' ? (b.ventas && b.ventas.mes) :
+               state.sort === 'vencido' ? (b.cxc && b.cxc.vencido) :
+               state.sort === 'total' ? (b.cxc && b.cxc.total) : 0;
+      return (Number(kb) || 0) - (Number(ka) || 0);
+    });
+
+    if (!arr.length) {
+      grid.innerHTML = '<div class="empty">Sin empresas con snapshot cargado. Corre <code>sync_duckdb.py</code> para poblar datos.</div>';
+      return;
+    }
+
+    arr.forEach(function (item) {
+      var st = statusFor(item);
+      var card = document.createElement('div');
+      card.className = 'biz-card';
+      card.innerHTML =
+        '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px">' +
+          '<div>' +
+            '<div class="biz-name">' + (item.label || item.id) + '</div>' +
+            '<div class="biz-id">' + item.id + '</div>' +
+          '</div>' +
+          '<span class="biz-status ' + st.cls + '">' + st.txt + '</span>' +
+        '</div>' +
+        '<div class="kpi-row">' +
+          '<div class="kpi-block">' +
+            '<div class="kpi-lbl">Ventas mes</div>' +
+            '<div class="kpi-val">' + fmtM(item.ventas && item.ventas.mes) + '</div>' +
+            '<div class="kpi-sub">Hoy: ' + fmtM(item.ventas && item.ventas.hoy) + '</div>' +
+          '</div>' +
+          '<div class="kpi-block">' +
+            '<div class="kpi-lbl">CXC total</div>' +
+            '<div class="kpi-val">' + fmtM(item.cxc && item.cxc.total) + '</div>' +
+            '<div class="kpi-sub">Vencido: ' + fmtM(item.cxc && item.cxc.vencido) + '</div>' +
+          '</div>' +
+          '<div class="kpi-block">' +
+            '<div class="kpi-lbl">Inventario</div>' +
+            '<div class="kpi-val">' + fmtM(item.inv && item.inv.valor) + '</div>' +
+            '<div class="kpi-sub">' + fmtN(item.inv && item.inv.articulos) + ' artículos</div>' +
+          '</div>' +
+          '<div class="kpi-block">' +
+            '<div class="kpi-lbl">Clientes</div>' +
+            '<div class="kpi-val">' + fmtN(item.clientes && item.clientes.activos) + '</div>' +
+            '<div class="kpi-sub">' + fmtN(item.clientes && item.clientes.total) + ' total</div>' +
+          '</div>' +
+        '</div>';
+      grid.appendChild(card);
+    });
+
+    // Summary bar
+    var totalVentas = arr.reduce(function (s, x) { return s + (Number(x.ventas && x.ventas.mes) || 0); }, 0);
+    var totalCxc    = arr.reduce(function (s, x) { return s + (Number(x.cxc && x.cxc.total) || 0); }, 0);
+    var totalVenc   = arr.reduce(function (s, x) { return s + (Number(x.cxc && x.cxc.vencido) || 0); }, 0);
+    document.getElementById('s-count').textContent = arr.length;
+    document.getElementById('s-ventas').textContent = fmtM(totalVentas);
+    document.getElementById('s-cxc').textContent = fmtM(totalCxc);
+    document.getElementById('s-venc').textContent = fmtM(totalVenc);
+    document.getElementById('s-updated').textContent = new Date().toLocaleTimeString('es-MX');
+  }
+
+  function load() {
+    fetch('/api/universe/scorecard')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        state.data = Array.isArray(data) ? data : (data.items || data.empresas || []);
+        render();
+      })
+      .catch(function (e) {
+        document.getElementById('grid').innerHTML =
+          '<div class="empty">Error al cargar: ' + e.message + '</div>';
+      });
+  }
+
+  document.querySelectorAll('.toolbar button[data-sort]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('.toolbar button').forEach(function (b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      state.sort = btn.dataset.sort;
+      render();
+    });
+  });
+
+  load();
+  // Refresh cada 5 min
+  setInterval(load, 5 * 60 * 1000);
+})();
+</script>
+</body>
+</html>
