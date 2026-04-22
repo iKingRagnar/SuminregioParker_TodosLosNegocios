@@ -435,11 +435,13 @@ app.get('/api/admin/snapshot/status', (req, res) => {
   });
 });
 
-// POST /api/admin/snapshot/upload — recibe un .duckdb binario para UNA empresa
-// Headers: X-Snapshot-Token (auth), X-DB-Id (cual empresa), Content-Encoding: gzip (opcional)
+// POST /api/admin/snapshot/upload — recibe un .duckdb (express.raw descomprime gzip automaticamente)
+// Headers: X-Snapshot-Token (auth), X-DB-Id (cual empresa)
+// NOTA: express.raw con inflate:true (default) descomprime Content-Encoding: gzip antes de llegar aqui.
+//       req.body ya contiene el .duckdb descomprimido. NO volver a descomprimir manualmente.
 app.post(
   '/api/admin/snapshot/upload',
-  express.raw({ type: 'application/octet-stream', limit: '600mb' }),
+  express.raw({ type: 'application/octet-stream', limit: '600mb', inflate: true }),
   async (req, res) => {
     const token = req.headers['x-snapshot-token'];
     if (token !== SNAPSHOT_TOKEN) return res.status(401).json({ error: 'Unauthorized' });
@@ -454,25 +456,14 @@ app.post(
 
     try {
       require('fs').mkdirSync(snapDir, { recursive: true });
-
-      // Descomprimir si viene en gzip (Content-Encoding: gzip desde sync_duckdb.py)
-      let bodyBuffer = req.body;
-      const encoding = (req.headers['content-encoding'] || '').toLowerCase();
-      if (encoding === 'gzip') {
-        bodyBuffer = await new Promise((resolve, reject) => {
-          require('zlib').gunzip(req.body, (err, buf) => err ? reject(err) : resolve(buf));
-        });
-        console.log(`[DuckDB][${dbId}] Descomprimido: ${(req.body.length/1024/1024).toFixed(1)} MB gz → ${(bodyBuffer.length/1024/1024).toFixed(1)} MB`);
-      }
-
-      require('fs').writeFileSync(tmpFile, bodyBuffer);
+      // req.body ya esta descomprimido por express.raw (inflate:true maneja Content-Encoding:gzip)
+      require('fs').writeFileSync(tmpFile, req.body);
       require('fs').renameSync(tmpFile, snapFile);
-      const mb = (bodyBuffer.length / 1024 / 1024).toFixed(1);
+      const mb = (req.body.length / 1024 / 1024).toFixed(1);
       console.log(`[DuckDB][${dbId}] Snapshot guardado: ${mb} MB → ${snapFile}`);
-
       loadDuckSnapshot(dbId, snapFile);
       _resCache.clear();
-      res.json({ ok: true, dbId, bytes: bodyBuffer.length, mb, path: snapFile });
+      res.json({ ok: true, dbId, bytes: req.body.length, mb, path: snapFile });
     } catch (e) {
       console.error(`[DuckDB][${dbId}] Error guardando:`, e.message);
       try { require('fs').unlinkSync(tmpFile); } catch (_) {}

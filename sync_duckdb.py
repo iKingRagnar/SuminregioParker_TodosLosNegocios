@@ -148,6 +148,34 @@ DATE_FILTER = {
     'DOCTOS_IN':          'FECHA',
 }
 
+# ── Wake-up de Render antes de subir ─────────────────────────────────────────
+
+def wait_for_render_ready(log, max_wait_s=600, poll_interval=20):
+    """
+    Espera hasta que Render responda 200 en /health (o /).
+    Render free tier puede tardar 2-5 min en arrancar desde cold start.
+    Llama esto UNA VEZ antes de los uploads, no por cada base.
+    """
+    import requests as _req
+    health_url = f'{RENDER_URL}/health'
+    deadline    = time.time() + max_wait_s
+    log.info(f'[Render] Verificando disponibilidad del servidor: {health_url}')
+    attempt = 0
+    while time.time() < deadline:
+        attempt += 1
+        try:
+            r = _req.get(health_url, timeout=15, allow_redirects=True)
+            if r.status_code < 500:   # 200, 404, 401 todos significan "servidor activo"
+                log.info(f'[Render] Servidor listo (HTTP {r.status_code}) en intento {attempt}')
+                return True
+            log.info(f'[Render] HTTP {r.status_code} — esperando {poll_interval}s...')
+        except Exception as e:
+            log.info(f'[Render] Sin respuesta ({e.__class__.__name__}) — esperando {poll_interval}s...')
+        time.sleep(poll_interval)
+    log.error(f'[Render] Servidor NO disponible despues de {max_wait_s}s. Abortando uploads.')
+    return False
+
+
 # ── Helpers Firebird ──────────────────────────────────────────────────────────
 
 def get_columns(fb_conn, table):
@@ -378,14 +406,12 @@ def sync_one(db_entry):
         if attempt >= MAX_TRIES:
             break
 
-        # Backoff adaptativo:
-        # 503 (Render deploy) → esperar 90s para darle tiempo al deploy
-        # Otros errores → backoff progresivo 15s, 30s, 60s, 90s, 120s
+        # Backoff: 503 → esperar al servidor, otros errores → backoff progresivo
         if http_status == 503:
-            wait = 90
-            log.info(f'Render en deploy/maintenance, esperando {wait}s antes de reintentar...')
+            wait = 60
+            log.info(f'Render no disponible (503), esperando {wait}s...')
         else:
-            wait = min(15 * attempt, 120)
+            wait = min(20 * attempt, 90)
             log.info(f'Reintentando en {wait}s...')
         time.sleep(wait)
 
@@ -412,6 +438,12 @@ def main():
             sys.exit(1)
 
     os.makedirs(DUCK_DIR, exist_ok=True)
+
+    # Verificar que Render esta despierto ANTES de lanzar los threads de sync.
+    # Evita que 20 bases intenten subir en paralelo mientras el servidor esta durmiendo.
+    if not wait_for_render_ready(root, max_wait_s=600, poll_interval=20):
+        root.error('Render no disponible. Abortando sync.')
+        sys.exit(1)
 
     t0 = time.time()
     ok, fail = [], []
