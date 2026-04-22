@@ -1,0 +1,283 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+ * module-polish.css — Auditoría visual defensiva para TODOS los módulos
+ *
+ * Corrige patrones comunes de estilos oscuros hardcoded inline en:
+ *   ventas.html, vendedores.html, clientes.html, inventario.html,
+ *   resultados.html, consumos.html, margen-producto.html, director.html,
+ *   capital.html, cobradas.html, suministros-medicos.html
+ *
+ * Usa selectores con :has() para detectar páginas específicas y aplicar overrides
+ * sin romper módulos que ya se ven bien.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/* Variables comunes que los estilos inline definen como oscuras — forzamos light */
+html.theme-premium-light body {
+  --bg: #F6F8FB;
+  --s1: #FFFFFF;
+  --s2: #F8FAFC;
+  --s3: #F1F5F9;
+  --s4: #E2E8F0;
+  --txt: #0F172A;
+  --txt2: #334155;
+  --txt3: #64748B;
+  --brd: rgba(15, 23, 42, 0.08);
+  --card-bg: rgba(255, 255, 255, 0.92);
+  --card-brd: rgba(230, 168, 0, 0.22);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FONDO: siempre claro. Los orbs/partículas oscuros de cada módulo se atenúan.
+   ═══════════════════════════════════════════════════════════════════════════ */
+html.theme-premium-light body {
+  background: #F6F8FB !important;
+  color: #0F172A !important;
+}
+html.theme-premium-light [id*="particles"],
+html.theme-premium-light [class*="particles"],
+html.theme-premium-light [class*="bg-stars"],
+html.theme-premium-light [class*="bg-grid"],
+html.theme-premium-light .sumi-cursor-dot,
+html.theme-premium-light .sumi-cursor-ring,
+html.theme-premium-light .sumi-particles {
+  display: none !important;
+}
+html.theme-premium-light .orb,
+html.theme-premium-light .bg-orbs,
+html.theme-premium-light [class*="orb-"] {
+  opacity: 0.06 !important;
+  mix-blend-mode: multiply !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   HEADER UNIFICADO — todos los módulos usan #app-header con variables oscuras
+   ═══════════════════════════════════════════════════════════════════════════ */
+html.theme-premium-light #app-header {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08) !important;
+  color: #0F172A !important;
+}
+html.theme-premium-light #app-header .logo-text { color: #0F172A !important; }
+html.theme-premium-light #app-header .logo-sub { color: #64748B !important; }
+html.theme-premium-light #app-header .nav-link { color: #475569 !important; border-color: transparent !important; }
+html.theme-premium-light #app-header .nav-link:hover {
+  color: #B8860B !important;
+  background: rgba(230, 168, 0, 0.08) !important;
+}
+html.theme-premium-light #app-header .nav-link.active {
+  color: #B8860B !important;
+  background: linear-gradient(135deg, rgba(230, 168, 0, 0.18), rgba(230, 168, 0, 0.06)) !important;
+  border-color: rgba(230, 168, 0, 0.4) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CARDS, KPIs, paneles — patrones comunes
+   ═══════════════════════════════════════════════════════════════════════════ */
+html.theme-premium-light .kpi,
+html.theme-premium-light .kpi-card,
+html.theme-premium-light .ms-kpi,
+html.theme-premium-light .card,
+html.theme-premium-light .sc-card,
+html.theme-premium-light [class*="card"]:not([class*="nav"]):not([class*="tab"]):not([class*="widget"]),
+html.theme-premium-light [class*="panel"]:not([class*="header"]),
+html.theme-premium-light .metric-card,
+html.theme-premium-light .stat-card,
+html.theme-premium-light .info-card {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border: 1px solid rgba(230, 168, 0, 0.2) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.06), 0 2px 4px -1px rgba(15, 23, 42, 0.03) !important;
+  color: #0F172A !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: transform .22s cubic-bezier(.22, 1, .36, 1),
+              border-color .22s cubic-bezier(.22, 1, .36, 1),
+              box-shadow .22s cubic-bezier(.22, 1, .36, 1);
+}
+
+html.theme-premium-light .kpi:hover,
+html.theme-premium-light .kpi-card:hover,
+html.theme-premium-light .card:hover,
+html.theme-premium-light .sc-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(230, 168, 0, 0.45) !important;
+  box-shadow: 0 12px 28px -8px rgba(15, 23, 42, 0.12), 0 0 20px -4px rgba(230, 168, 0, 0.25) !important;
+}
+
+/* Títulos y valores dentro */
+html.theme-premium-light .kpi-lbl,
+html.theme-premium-light .kpi-sub,
+html.theme-premium-light [class*="label"],
+html.theme-premium-light [class*="caption"],
+html.theme-premium-light [class*="eyebrow"],
+html.theme-premium-light [class*="subtitle"] {
+  color: #64748B !important;
+}
+html.theme-premium-light .kpi-val,
+html.theme-premium-light .kpi .value,
+html.theme-premium-light [class*="value"]:not([class*="sub"]):not([class*="label"]) {
+  color: #0F172A !important;
+  -webkit-text-fill-color: #0F172A !important;
+  background: none !important;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TABLAS (ventas, cxc, vendedores, etc.)
+   ═══════════════════════════════════════════════════════════════════════════ */
+html.theme-premium-light table {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-collapse: collapse;
+  border-radius: 12px;
+  overflow: hidden;
+  color: #0F172A !important;
+}
+html.theme-premium-light table thead th,
+html.theme-premium-light table th {
+  background: rgba(230, 168, 0, 0.07) !important;
+  color: #475569 !important;
+  font-weight: 600 !important;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  font-size: .72rem !important;
+  padding: 10px 14px !important;
+  border-bottom: 1px solid rgba(230, 168, 0, 0.2) !important;
+}
+html.theme-premium-light table tbody td,
+html.theme-premium-light table td {
+  color: #0F172A !important;
+  padding: 10px 14px !important;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.05) !important;
+  font-variant-numeric: tabular-nums;
+}
+html.theme-premium-light table tbody tr { transition: background-color .15s ease; }
+html.theme-premium-light table tbody tr:nth-child(even) {
+  background: rgba(15, 23, 42, 0.015);
+}
+html.theme-premium-light table tbody tr:hover {
+  background: linear-gradient(90deg, rgba(230, 168, 0, 0.1) 0%, rgba(230, 168, 0, 0.02) 60%, transparent 100%) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CHARTS & GRAPHS
+   ═══════════════════════════════════════════════════════════════════════════ */
+html.theme-premium-light canvas {
+  background: transparent !important;
+  max-width: 100%;
+}
+html.theme-premium-light .chart-container,
+html.theme-premium-light [class*="chart-wrapper"] {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+  border-radius: 14px !important;
+  padding: 16px !important;
+  color: #0F172A !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INPUTS, SELECTS, FILTROS
+   ═══════════════════════════════════════════════════════════════════════════ */
+html.theme-premium-light input,
+html.theme-premium-light select,
+html.theme-premium-light textarea {
+  background: #FFFFFF !important;
+  color: #0F172A !important;
+  border: 1px solid rgba(15, 23, 42, 0.1) !important;
+  border-radius: 8px !important;
+  padding: 6px 10px !important;
+  font-size: .82rem;
+}
+html.theme-premium-light input:focus,
+html.theme-premium-light select:focus,
+html.theme-premium-light textarea:focus {
+  border-color: #E6A800 !important;
+  box-shadow: 0 0 0 3px rgba(230, 168, 0, 0.15) !important;
+  outline: none !important;
+}
+html.theme-premium-light ::placeholder { color: #94A3B8; }
+
+/* Toolbar / filter row */
+html.theme-premium-light [class*="filter-bar"],
+html.theme-premium-light [class*="filters-row"],
+html.theme-premium-light [class*="toolbar"] {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+  border-radius: 14px !important;
+  padding: 12px 16px !important;
+  color: #0F172A !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BOTONES
+   ═══════════════════════════════════════════════════════════════════════════ */
+html.theme-premium-light button,
+html.theme-premium-light .btn {
+  font-family: inherit;
+  cursor: pointer;
+}
+html.theme-premium-light button[class*="primary"],
+html.theme-premium-light .btn-primary,
+html.theme-premium-light [class*="btn-gold"] {
+  background: linear-gradient(135deg, #F5C33C 0%, #E6A800 50%, #B8860B 100%) !important;
+  color: #1A1200 !important;
+  border: none !important;
+  padding: 8px 16px !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  box-shadow: 0 3px 10px -2px rgba(230, 168, 0, 0.5) !important;
+}
+html.theme-premium-light button[class*="ghost"],
+html.theme-premium-light button[class*="secondary"],
+html.theme-premium-light .btn-ghost {
+  background: rgba(255, 255, 255, 0.92) !important;
+  color: #0F172A !important;
+  border: 1px solid rgba(15, 23, 42, 0.12) !important;
+  padding: 8px 16px !important;
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BADGES SEMÁNTICOS (ok/warning/danger)
+   ═══════════════════════════════════════════════════════════════════════════ */
+html.theme-premium-light [class*="badge-ok"],
+html.theme-premium-light [class*="badge-success"],
+html.theme-premium-light [class*="badge-grn"] {
+  background: rgba(34, 197, 94, 0.12) !important;
+  color: #15803D !important;
+  border: 1px solid rgba(34, 197, 94, 0.3) !important;
+}
+html.theme-premium-light [class*="badge-warn"],
+html.theme-premium-light [class*="badge-ylw"] {
+  background: rgba(245, 158, 11, 0.12) !important;
+  color: #B45309 !important;
+  border: 1px solid rgba(245, 158, 11, 0.3) !important;
+}
+html.theme-premium-light [class*="badge-danger"],
+html.theme-premium-light [class*="badge-red"],
+html.theme-premium-light [class*="badge-error"] {
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #B91C1C !important;
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CHAT WIDGET / FAB ASISTENTE — light mode friendly
+   ═══════════════════════════════════════════════════════════════════════════ */
+html.theme-premium-light #cw-fab,
+html.theme-premium-light #sumi-ai-pro-btn,
+html.theme-premium-light [class*="ai-fab"],
+html.theme-premium-light [id*="chat-fab"] {
+  background: linear-gradient(135deg, #F5C33C, #E6A800, #B8860B) !important;
+  color: #1A1200 !important;
+  border: none !important;
+  box-shadow: 0 10px 32px -4px rgba(230, 168, 0, 0.55), 0 4px 14px rgba(15, 23, 42, 0.12) !important;
+}
+
+html.theme-premium-light [class*="chat-panel"],
+html.theme-premium-light [id*="chat-panel"] {
+  background: rgba(255, 255, 255, 0.98) !important;
+  border: 1px solid rgba(230, 168, 0, 0.25) !important;
+  color: #0F172A !important;
+  box-shadow: 0 20px 60px -10px rgba(15, 23, 42, 0.2) !important;
+}

@@ -26,27 +26,46 @@
   // Cargar capa visual premium al final del cascade, en todas las páginas
   (function injectVisualPolish() {
     try {
-      if (!document.getElementById('vp-polish-css')) {
-        var link = document.createElement('link');
-        link.id = 'vp-polish-css';
-        link.rel = 'stylesheet';
-        link.href = '/visual-polish.css?v=4';
-        (document.head || document.documentElement).appendChild(link);
+      var head = document.head || document.documentElement;
+      function addLink(id, href) {
+        if (document.getElementById(id)) return;
+        var l = document.createElement('link');
+        l.id = id; l.rel = 'stylesheet'; l.href = href;
+        head.appendChild(l);
       }
-      if (!document.getElementById('vp-cxc-css')) {
-        var link2 = document.createElement('link');
-        link2.id = 'vp-cxc-css';
-        link2.rel = 'stylesheet';
-        link2.href = '/cxc-redesign.css?v=1';
-        (document.head || document.documentElement).appendChild(link2);
+      addLink('vp-polish-css',  '/visual-polish.css?v=5');
+      addLink('vp-module-css',  '/module-polish.css?v=1');
+      addLink('vp-cxc-css',     '/cxc-redesign.css?v=2');
+
+      // Manifest PWA
+      if (!document.querySelector('link[rel="manifest"]')) {
+        var m = document.createElement('link');
+        m.rel = 'manifest'; m.href = '/manifest.webmanifest';
+        head.appendChild(m);
       }
-      // Fondo aurora interactivo con parallax de mouse
+      // Theme color (barra del navegador en móvil)
+      if (!document.querySelector('meta[name="theme-color"]')) {
+        var meta = document.createElement('meta');
+        meta.name = 'theme-color'; meta.content = '#E6A800';
+        head.appendChild(meta);
+      }
+
+      // Fondo aurora
       if (!document.getElementById('vp-aurora-js')) {
         var s = document.createElement('script');
         s.id = 'vp-aurora-js';
         s.src = '/aurora-background.js?v=3';
         s.defer = true;
-        (document.head || document.documentElement).appendChild(s);
+        head.appendChild(s);
+      }
+
+      // Registrar Service Worker (offline-first)
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js').catch(function (e) {
+            console.warn('[SW] registro falló:', e.message);
+          });
+        });
       }
     } catch (_) {}
   })();

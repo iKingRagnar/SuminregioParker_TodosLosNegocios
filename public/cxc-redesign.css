@@ -322,3 +322,187 @@ body:has(#cxc-particles) button[class*="secondary"] {
   border: 1px solid rgba(15, 23, 42, 0.12) !important;
   box-shadow: none !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AGING BUCKETS — 5 cards con color semántico (corriente → crítico)
+   ═══════════════════════════════════════════════════════════════════════════ */
+body:has(.aging-grid) .aging-grid {
+  display: grid !important;
+  grid-template-columns: repeat(5, 1fr) !important;
+  gap: 14px !important;
+  margin: 16px 0 28px !important;
+}
+@media (max-width: 900px) {
+  body:has(.aging-grid) .aging-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+@media (max-width: 520px) {
+  body:has(.aging-grid) .aging-grid { grid-template-columns: 1fr !important; }
+}
+
+body:has(.aging-bkt) .aging-bkt {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+  border-radius: 14px !important;
+  padding: 18px 16px !important;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  transition: transform .25s cubic-bezier(.22, 1, .36, 1),
+              box-shadow .25s cubic-bezier(.22, 1, .36, 1),
+              border-color .25s cubic-bezier(.22, 1, .36, 1);
+}
+body:has(.aging-bkt) .aging-bkt::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: currentColor;
+  opacity: .7;
+}
+body:has(.aging-bkt) .aging-bkt:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px -6px rgba(15, 23, 42, 0.12);
+  border-color: rgba(230, 168, 0, 0.35) !important;
+}
+
+/* Colores por bucket — se preservan de las clases existentes c0..c4 */
+body:has(.aging-bkt) .aging-bkt.c0 { color: #15803D; background: linear-gradient(180deg, rgba(34,197,94,.05), rgba(255,255,255,.95)) !important; }
+body:has(.aging-bkt) .aging-bkt.c1 { color: #B45309; background: linear-gradient(180deg, rgba(245,158,11,.05), rgba(255,255,255,.95)) !important; }
+body:has(.aging-bkt) .aging-bkt.c2 { color: #C2410C; background: linear-gradient(180deg, rgba(251,146,60,.06), rgba(255,255,255,.95)) !important; }
+body:has(.aging-bkt) .aging-bkt.c3 { color: #B91C1C; background: linear-gradient(180deg, rgba(249,115,22,.06), rgba(255,255,255,.95)) !important; }
+body:has(.aging-bkt) .aging-bkt.c4 { color: #991B1B; background: linear-gradient(180deg, rgba(239,68,68,.08), rgba(255,255,255,.95)) !important; }
+
+body:has(.aging-bkt) .aging-lbl {
+  color: #64748B !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  margin-bottom: 10px !important;
+}
+body:has(.aging-bkt) .aging-val {
+  color: inherit !important;
+  font-family: "DM Mono", "Fira Code", monospace !important;
+  font-size: clamp(1.1rem, 2vw, 1.5rem) !important;
+  font-weight: 600 !important;
+  margin-bottom: 6px;
+}
+body:has(.aging-bkt) .aging-sub {
+  color: #94A3B8 !important;
+  font-size: 10px !important;
+  line-height: 1.4;
+}
+/* Barra inferior con gradient del color */
+body:has(.aging-bkt) .bar-fill {
+  height: 4px !important;
+  border-radius: 3px !important;
+  background: currentColor !important;
+  opacity: 0.6;
+  margin-top: 10px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TABS (Facturas Vencidas, Deudas Vigentes, …)
+   ═══════════════════════════════════════════════════════════════════════════ */
+body:has(.tabs) .tabs {
+  display: inline-flex !important;
+  gap: 4px !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+  border-radius: 14px !important;
+  padding: 5px !important;
+  margin-bottom: 20px !important;
+  box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.06);
+}
+body:has(.tabs) .tabs button,
+body:has(.tabs) .tabs .tab-btn,
+body:has(.tabs) .tabs [role="tab"] {
+  background: transparent !important;
+  color: #475569 !important;
+  border: none !important;
+  padding: 8px 16px !important;
+  border-radius: 10px !important;
+  font-size: .78rem !important;
+  font-weight: 600 !important;
+  cursor: pointer;
+  transition: all .18s cubic-bezier(.22, 1, .36, 1);
+  box-shadow: none !important;
+}
+body:has(.tabs) .tabs button:hover,
+body:has(.tabs) .tabs .tab-btn:hover,
+body:has(.tabs) .tabs [role="tab"]:hover {
+  background: rgba(230, 168, 0, 0.08) !important;
+  color: #B8860B !important;
+}
+body:has(.tabs) .tabs button.active,
+body:has(.tabs) .tabs .tab-btn.active,
+body:has(.tabs) .tabs [role="tab"][aria-selected="true"],
+body:has(.tabs) .tabs button[data-active="true"] {
+  background: linear-gradient(135deg, #F5C33C 0%, #E6A800 50%, #B8860B 100%) !important;
+  color: #1A1200 !important;
+  box-shadow: 0 2px 10px -2px rgba(230, 168, 0, 0.55) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EMPTY STATE — "Sin facturas vencidas" etc.
+   ═══════════════════════════════════════════════════════════════════════════ */
+body:has(#cxc-particles) table tbody tr td[colspan] {
+  text-align: center !important;
+  padding: 48px 20px !important;
+  color: #94A3B8 !important;
+  font-size: .85rem !important;
+  font-style: italic;
+  background: rgba(15, 23, 42, 0.02);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   "Deuda total / Vencido / Vigente" — fila de totales
+   ═══════════════════════════════════════════════════════════════════════════ */
+body:has(#cxc-particles) [class*="deuda-total"],
+body:has(#cxc-particles) [class*="totales-cxc"],
+body:has(#cxc-particles) .totals-bar {
+  background: linear-gradient(135deg, rgba(230, 168, 0, 0.08), rgba(255, 255, 255, 0.95)) !important;
+  border: 1px solid rgba(230, 168, 0, 0.25) !important;
+  border-radius: 12px !important;
+  padding: 12px 18px !important;
+  color: #0F172A !important;
+  font-weight: 500 !important;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  align-items: center;
+  box-shadow: 0 2px 8px -2px rgba(230, 168, 0, 0.15);
+}
+
+/* Título de sección "Facturas vencidas" / "Distribución Aging" */
+body:has(#cxc-particles) h2,
+body:has(#cxc-particles) h3,
+body:has(#cxc-particles) .section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px !important;
+  color: #0F172A !important;
+}
+body:has(#cxc-particles) [class*="count-badge"],
+body:has(#cxc-particles) [class*="docs-count"] {
+  background: rgba(230, 168, 0, 0.1) !important;
+  color: #B8860B !important;
+  border: 1px solid rgba(230, 168, 0, 0.25) !important;
+  padding: 3px 10px !important;
+  border-radius: 999px !important;
+  font-size: .7rem !important;
+  font-weight: 600 !important;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+/* FAB Sumi (asistente AI flotante) — refinar para que encaje en light */
+body:has(#cw-fab) #cw-fab,
+body:has(#sumi-ai-pro-btn) #sumi-ai-pro-btn {
+  background: linear-gradient(135deg, #F5C33C, #E6A800, #B8860B) !important;
+  color: #1A1200 !important;
+  border: none !important;
+  box-shadow: 0 8px 28px -4px rgba(230, 168, 0, 0.55), 0 4px 12px rgba(15, 23, 42, 0.15) !important;
+}

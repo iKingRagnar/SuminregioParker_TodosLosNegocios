@@ -35,6 +35,59 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 
+// ── Logger centralizado con niveles (pino-lite, sin dependencias) ─────────────
+const LOG_LEVELS = { debug: 10, info: 20, warn: 30, error: 40 };
+const LOG_LEVEL  = LOG_LEVELS[String(process.env.LOG_LEVEL || 'info').toLowerCase()] || 20;
+function logAt(level, tag, msg, meta) {
+  if (LOG_LEVELS[level] < LOG_LEVEL) return;
+  const t = new Date().toISOString();
+  const suffix = meta ? ' ' + (typeof meta === 'string' ? meta : JSON.stringify(meta)) : '';
+  const line = `[${t}] ${level.toUpperCase()} [${tag}] ${msg}${suffix}`;
+  const out = level === 'error' ? console.error : level === 'warn' ? console.warn : console.log;
+  out(line);
+}
+const log = {
+  debug: (tag, msg, meta) => logAt('debug', tag, msg, meta),
+  info:  (tag, msg, meta) => logAt('info',  tag, msg, meta),
+  warn:  (tag, msg, meta) => logAt('warn',  tag, msg, meta),
+  error: (tag, msg, meta) => logAt('error', tag, msg, meta),
+};
+
+// ── Rate limiter in-memory (token bucket por IP) ──────────────────────────────
+function createRateLimiter(opts) {
+  const windowMs  = opts.windowMs  || 60_000;
+  const max       = opts.max       || 20;
+  const buckets   = new Map(); // ip → { tokens, updatedAt }
+  const refillPerMs = max / windowMs;
+
+  // GC: limpia buckets viejos cada 10min
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, b] of buckets) {
+      if (now - b.updatedAt > windowMs * 5) buckets.delete(ip);
+    }
+  }, 10 * 60_000).unref();
+
+  return function rateLimit(req, res, next) {
+    const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown')
+      .split(',')[0].trim();
+    const now = Date.now();
+    const b = buckets.get(ip) || { tokens: max, updatedAt: now };
+    const elapsed = now - b.updatedAt;
+    b.tokens = Math.min(max, b.tokens + elapsed * refillPerMs);
+    b.updatedAt = now;
+    if (b.tokens < 1) {
+      const retryAfter = Math.ceil((1 - b.tokens) / refillPerMs / 1000);
+      res.setHeader('Retry-After', String(retryAfter));
+      log.warn('rate-limit', `bloqueado ${ip} en ${req.path}`, { retryAfter });
+      return res.status(429).json({ error: 'Demasiadas solicitudes', retryAfter });
+    }
+    b.tokens -= 1;
+    buckets.set(ip, b);
+    next();
+  };
+}
+
 // ── Seguridad: warnings de defaults peligrosos ────────────────────────────────
 function securityAudit(opts) {
   const warns = [];
@@ -64,7 +117,6 @@ function etagMiddleware(req, res, next) {
   res.json = function etagJson(data) {
     try {
       const body = typeof data === 'string' ? data : JSON.stringify(data);
-      // Hash rápido (md5 es suficiente para ETag, no es crypto real)
       const hash = crypto.createHash('md5').update(body).digest('hex').slice(0, 20);
       const etag = `W/"${hash}"`;
       res.setHeader('ETag', etag);
@@ -75,8 +127,46 @@ function etagMiddleware(req, res, next) {
         res.status(304).end();
         return res;
       }
-    } catch (_) { /* si falla el hash, responder normal */ }
+    } catch (_) {}
     return origJson(data);
+  };
+  next();
+}
+
+// ── Brotli + Gzip compression middleware ─────────────────────────────────────
+// Brotli es 15-25% mejor que gzip para JSON. Usamos Brotli si el cliente lo soporta,
+// caemos a gzip si no. Existe un gzipMiddleware en server_corregido.js pero este es
+// más agresivo y soporta brotli.
+function compressionMiddleware(req, res, next) {
+  if (!req.path.startsWith('/api/')) return next();
+  const ae = String(req.headers['accept-encoding'] || '');
+  const useBrotli = /\bbr\b/.test(ae) && typeof zlib.brotliCompress === 'function';
+  const useGzip   = !useBrotli && /\bgzip\b/.test(ae);
+  if (!useBrotli && !useGzip) return next();
+
+  const origJson = res.json.bind(res);
+  res.json = function compJson(data) {
+    const body = typeof data === 'string' ? data : JSON.stringify(data);
+    // Respetar 304 del ETag middleware (si se seteó)
+    if (res.statusCode === 304) return res.end();
+    if (!body || body.length < 1024) return origJson(data); // no vale la pena
+    // Ya comprimido? skip
+    if (res.getHeader('Content-Encoding')) return origJson(data);
+
+    const buf = Buffer.from(body, 'utf8');
+    const opts = useBrotli
+      ? { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 4 } }
+      : { level: 6 };
+    const fn  = useBrotli ? zlib.brotliCompress : zlib.gzip;
+
+    fn(buf, opts, (err, compressed) => {
+      if (err) return origJson(data);
+      res.setHeader('Content-Encoding', useBrotli ? 'br' : 'gzip');
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Vary', 'Accept-Encoding');
+      res.setHeader('Content-Length', compressed.length);
+      res.end(compressed);
+    });
   };
   next();
 }
@@ -347,37 +437,103 @@ function installGracefulShutdown(opts) {
   process.on('SIGINT', handler);
 }
 
+// ── /api/admin/sync/status — estado de los snapshots (última vez, filas, edad) ──
+function installSyncStatus(app, opts) {
+  const { duckSnaps, snapshotDir } = opts;
+  app.get('/api/admin/sync/status', (_req, res) => {
+    const out = [];
+    try {
+      if (duckSnaps && typeof duckSnaps.forEach === 'function') {
+        duckSnaps.forEach((snap, id) => {
+          const meta = (snap && snap.meta) || {};
+          let sizeMB = null, mtime = null;
+          try {
+            const st = fs.statSync(snap.path);
+            sizeMB = +(st.size / 1048576).toFixed(2);
+            mtime  = st.mtime.toISOString();
+          } catch (_) {}
+          out.push({
+            dbId: id,
+            loaded: !!(snap && snap.conn),
+            path: snap && snap.path,
+            totalRows: meta.TOTAL_ROWS || null,
+            cutoff: meta.CUTOFF_DATE || null,
+            tablesSynced: meta.TABLES_SYNCED || null,
+            snapshotCreatedAt: meta.CREATED_AT || null,
+            fileSizeMB: sizeMB,
+            fileMtime: mtime,
+            fileAgeHours: mtime ? +((Date.now() - new Date(mtime).getTime()) / 3600_000).toFixed(1) : null,
+          });
+        });
+      }
+    } catch (e) {
+      log.warn('sync-status', 'error listando snapshots', e.message);
+    }
+    res.json({
+      totalLoaded: out.filter((x) => x.loaded).length,
+      snapshots: out,
+      snapshotDir,
+      serverTime: new Date().toISOString(),
+    });
+  });
+}
+
+// ── Rate limiter para endpoints caros (AI) ────────────────────────────────────
+function installAiRateLimit(app) {
+  const windowMs = parseInt(process.env.AI_RATE_WINDOW_MS, 10) || 60_000;
+  const max      = parseInt(process.env.AI_RATE_MAX, 10) || 10;
+  const limiter  = createRateLimiter({ windowMs, max });
+  // Se aplica como middleware PREfijo para /api/ai/*
+  app.use('/api/ai', limiter);
+  // Expose el middleware para que server_corregido.js pueda referenciarlo
+  app.locals.aiChatRateLimit = limiter;
+  global.aiChatRateLimit = limiter; // en caso de referencia global
+  log.info('rate-limit', `activo en /api/ai/* — ${max} req por ${windowMs}ms`);
+}
+
 // ── Install principal ─────────────────────────────────────────────────────────
 function install(app, opts = {}) {
-  console.log('[performance-boost] instalando mejoras...');
+  log.info('boost', 'instalando mejoras...');
 
-  // 1. Seguridad (emite warnings si hay defaults peligrosos)
+  // 1. Seguridad (warnings por defaults peligrosos)
   securityAudit(opts);
 
-  // 2. ETag middleware — DEBE registrarse antes que cualquier route que quiera beneficiarse
+  // 2. ETag + Compression middleware (deben ir antes de las rutas)
   app.use(etagMiddleware);
+  app.use(compressionMiddleware);
 
-  // 3. Health endpoint (ligero; Render free wake-up)
+  // 3. Rate limit para /api/ai/* ANTES de que se registren esas rutas
+  installAiRateLimit(app);
+
+  // 4. Health endpoint
   installHealth(app, opts);
 
-  // 4. Snapshot upload seguro (con validación pre-swap)
+  // 5. Snapshot upload seguro
   installSafeSnapshotUpload(app, opts);
 
-  // 5. Prefetch batch endpoint
+  // 6. Prefetch batch
   installPrefetch(app);
 
-  // 6. Keep-alive cron (solo si hay URL pública configurada)
+  // 7. Sync status público
+  installSyncStatus(app, opts);
+
+  // 8. Keep-alive
   installKeepAlive();
 
-  // 7. Graceful shutdown
+  // 9. Graceful shutdown
   installGracefulShutdown(opts);
 
-  console.log('[performance-boost] ✅ listo: /health, ETag, prefetch, keep-alive, shutdown');
+  log.info('boost', '✅ listo', {
+    features: ['health', 'etag', 'brotli+gzip', 'rate-limit', 'prefetch', 'sync-status', 'keep-alive', 'shutdown'],
+  });
 }
 
 module.exports = {
   install,
   etagMiddleware,
+  compressionMiddleware,
+  createRateLimiter,
   validateDuckSnapshot,
   securityAudit,
+  log,
 };

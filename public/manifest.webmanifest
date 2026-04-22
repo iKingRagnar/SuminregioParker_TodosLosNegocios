@@ -1,0 +1,28 @@
+{
+  "name": "Suminregio · Dashboard Ejecutivo",
+  "short_name": "Suminregio",
+  "description": "Dashboard de ventas, CXC, inventario y resultados de Suminregio Parker y grupo de empresas.",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F6F8FB",
+  "theme_color": "#E6A800",
+  "lang": "es-MX",
+  "dir": "ltr",
+  "categories": ["business", "productivity", "finance"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    { "name": "Ventas",       "url": "/ventas.html" },
+    { "name": "CxC",          "url": "/cxc.html" },
+    { "name": "Inventario",   "url": "/inventario.html" },
+    { "name": "Resultados",   "url": "/resultados.html" }
+  ]
+}
