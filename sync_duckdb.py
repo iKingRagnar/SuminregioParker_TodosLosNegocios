@@ -91,30 +91,59 @@ logging.basicConfig(
 
 # ── Columnas minimas requeridas por tabla ─────────────────────────────────────
 REQUIRED_COLS = {
+    # ── Ventas ─────────────────────────────────────────────────────────────────
     'DOCTOS_VE':          ['DOCTO_VE_ID','FOLIO','FECHA','TIPO_DOCTO',
                            'CLIENTE_ID','VENDEDOR_ID','IMPORTE_NETO','ESTATUS','APLICADO'],
     'DOCTOS_PV':          ['DOCTO_PV_ID','FOLIO','FECHA','TIPO_DOCTO',
                            'CLIENTE_ID','VENDEDOR_ID','IMPORTE_NETO','ESTATUS','APLICADO'],
     'DOCTOS_VE_DET':      ['DOCTO_VE_DET_ID','DOCTO_VE_ID','ARTICULO_ID',
                            'UNIDADES','PRECIO_UNITARIO','PRECIO_TOTAL_NETO','POSICION'],
+    'DOCTOS_PV_DET':      ['DOCTO_PV_DET_ID','DOCTO_PV_ID','ARTICULO_ID',
+                           'UNIDADES','PRECIO_UNITARIO','PRECIO_TOTAL_NETO','POSICION'],
+    'DOCTOS_PV_LIGAS':    ['DOCTO_PV_LIGA_ID','DOCTO_PV_ID','DOCTO_VE_ID'],
+    # ── Maestros ───────────────────────────────────────────────────────────────
     'CLIENTES':           ['CLIENTE_ID','NOMBRE','CONDICION_PAGO_ID'],
     'VENDEDORES':         ['VENDEDOR_ID','NOMBRE'],
     'ARTICULOS':          ['ARTICULO_ID','NOMBRE','CLAVE'],
-    'IMPORTES_DOCTOS_CC': ['FECHA','IMPORTE_NETO'],
-    'DOCTOS_CC':          ['DOCTO_CC_ID','FOLIO','FECHA','CLIENTE_ID','IMPORTE_NETO','ESTATUS'],
     'CONDICIONES_PAGO':   ['CONDICION_PAGO_ID','NOMBRE'],
     'CONFIGURACIONES_GEN':[],
+    # ── CXC ────────────────────────────────────────────────────────────────────
+    'IMPORTES_DOCTOS_CC': ['FECHA','IMPORTE_NETO'],
+    'DOCTOS_CC':          ['DOCTO_CC_ID','FOLIO','FECHA','CLIENTE_ID','IMPORTE_NETO','ESTATUS'],
+    # ── Contabilidad ───────────────────────────────────────────────────────────
+    'CUENTAS_CO':         ['CUENTA_CO_ID','NUMERO','NOMBRE','TIPO'],
+    'DOCTOS_CO':          ['DOCTO_CO_ID','FOLIO','FECHA','TIPO_DOCTO','IMPORTE'],
+    'DOCTOS_CO_DET':      ['DOCTO_CO_DET_ID','DOCTO_CO_ID','CUENTA_CO_ID',
+                           'CARGO','ABONO'],
+    'SALDOS_CO':          ['CUENTA_CO_ID','PERIODO','SALDO_INICIAL',
+                           'TOTAL_CARGOS','TOTAL_ABONOS','SALDO_FINAL'],
+    # ── Inventario ─────────────────────────────────────────────────────────────
+    'SALDOS_IN':          ['ARTICULO_ID','ALMACEN_ID',
+                           'ENTRADAS_UNIDADES','SALIDAS_UNIDADES'],
+    'DOCTOS_IN':          ['DOCTO_IN_ID','FOLIO','FECHA','TIPO_DOCTO','ESTATUS'],
+    'DOCTOS_IN_DET':      ['DOCTO_IN_DET_ID','DOCTO_IN_ID','ARTICULO_ID',
+                           'UNIDADES','COSTO_UNITARIO'],
+    'NIVELES_ARTICULOS':  ['ARTICULO_ID','ALMACEN_ID','INVENTARIO_MINIMO',
+                           'INVENTARIO_MAXIMO'],
+    'PRECIOS_ARTICULOS':  ['ARTICULO_ID','PRECIO','MONEDA_ID'],
 }
 
 NUMERIC_COLS = {
     'IMPORTE_NETO','IMPORTE_NETO_IVA','PRECIO_UNITARIO','PCTJE_DSCTO',
     'PRECIO_TOTAL_NETO','UNIDADES','DIAS_CREDITO','DIAS_PPAG',
     'META_DIARIA_POR_VENDEDOR','META_IDEAL_POR_VENDEDOR',
+    'CARGO','ABONO','SALDO_INICIAL','TOTAL_CARGOS','TOTAL_ABONOS','SALDO_FINAL',
+    'ENTRADAS_UNIDADES','SALIDAS_UNIDADES','COSTO_UNITARIO',
+    'INVENTARIO_MINIMO','INVENTARIO_MAXIMO','IMPORTE','PRECIO',
 }
 
 DATE_FILTER = {
-    'DOCTOS_VE': 'FECHA', 'DOCTOS_PV': 'FECHA',
-    'IMPORTES_DOCTOS_CC': 'FECHA', 'DOCTOS_CC': 'FECHA',
+    'DOCTOS_VE':          'FECHA',
+    'DOCTOS_PV':          'FECHA',
+    'IMPORTES_DOCTOS_CC': 'FECHA',
+    'DOCTOS_CC':          'FECHA',
+    'DOCTOS_CO':          'FECHA',
+    'DOCTOS_IN':          'FECHA',
 }
 
 # ── Helpers Firebird ──────────────────────────────────────────────────────────
@@ -157,11 +186,19 @@ def fetch_table(fb_conn, table, log):
         else:
             col_exprs.append(c)
 
-    # WHERE clause
+    # WHERE clause — tablas de detalle filtran por subquery a su cabecera
     date_col = DATE_FILTER.get(table)
     where, params = '', []
     if table == 'DOCTOS_VE_DET' and 'DOCTO_VE_ID' in avail_set:
         where = f"WHERE DOCTO_VE_ID IN (SELECT DOCTO_VE_ID FROM DOCTOS_VE WHERE FECHA >= '{CUTOFF_DATE}')"
+    elif table == 'DOCTOS_PV_DET' and 'DOCTO_PV_ID' in avail_set:
+        where = f"WHERE DOCTO_PV_ID IN (SELECT DOCTO_PV_ID FROM DOCTOS_PV WHERE FECHA >= '{CUTOFF_DATE}')"
+    elif table == 'DOCTOS_PV_LIGAS' and 'DOCTO_PV_ID' in avail_set:
+        where = f"WHERE DOCTO_PV_ID IN (SELECT DOCTO_PV_ID FROM DOCTOS_PV WHERE FECHA >= '{CUTOFF_DATE}')"
+    elif table == 'DOCTOS_CO_DET' and 'DOCTO_CO_ID' in avail_set:
+        where = f"WHERE DOCTO_CO_ID IN (SELECT DOCTO_CO_ID FROM DOCTOS_CO WHERE FECHA >= '{CUTOFF_DATE}')"
+    elif table == 'DOCTOS_IN_DET' and 'DOCTO_IN_ID' in avail_set:
+        where = f"WHERE DOCTO_IN_ID IN (SELECT DOCTO_IN_ID FROM DOCTOS_IN WHERE FECHA >= '{CUTOFF_DATE}')"
     elif date_col and date_col in avail_set:
         where = f'WHERE {date_col} >= ?'
         params = [CUTOFF_DATE]
@@ -266,10 +303,26 @@ def sync_one(db_entry):
 
     # Indices (best effort)
     for stmt in [
-        'CREATE INDEX idx_ve_fecha ON "DOCTOS_VE"("FECHA")',
-        'CREATE INDEX idx_ve_tipo  ON "DOCTOS_VE"("TIPO_DOCTO","FECHA")',
-        'CREATE INDEX idx_pv_fecha ON "DOCTOS_PV"("FECHA")',
-        'CREATE INDEX idx_icc_fecha ON "IMPORTES_DOCTOS_CC"("FECHA")',
+        'CREATE INDEX idx_ve_fecha    ON "DOCTOS_VE"("FECHA")',
+        'CREATE INDEX idx_ve_tipo     ON "DOCTOS_VE"("TIPO_DOCTO","FECHA")',
+        'CREATE INDEX idx_ve_cli      ON "DOCTOS_VE"("CLIENTE_ID")',
+        'CREATE INDEX idx_pv_fecha    ON "DOCTOS_PV"("FECHA")',
+        'CREATE INDEX idx_pv_cli      ON "DOCTOS_PV"("CLIENTE_ID")',
+        'CREATE INDEX idx_icc_fecha   ON "IMPORTES_DOCTOS_CC"("FECHA")',
+        'CREATE INDEX idx_vedet_ve    ON "DOCTOS_VE_DET"("DOCTO_VE_ID")',
+        'CREATE INDEX idx_vedet_art   ON "DOCTOS_VE_DET"("ARTICULO_ID")',
+        'CREATE INDEX idx_pvdet_pv    ON "DOCTOS_PV_DET"("DOCTO_PV_ID")',
+        'CREATE INDEX idx_pvdet_art   ON "DOCTOS_PV_DET"("ARTICULO_ID")',
+        'CREATE INDEX idx_pvligas_pv  ON "DOCTOS_PV_LIGAS"("DOCTO_PV_ID")',
+        'CREATE INDEX idx_pvligas_ve  ON "DOCTOS_PV_LIGAS"("DOCTO_VE_ID")',
+        'CREATE INDEX idx_co_fecha    ON "DOCTOS_CO"("FECHA")',
+        'CREATE INDEX idx_codet_co    ON "DOCTOS_CO_DET"("DOCTO_CO_ID")',
+        'CREATE INDEX idx_codet_cta   ON "DOCTOS_CO_DET"("CUENTA_CO_ID")',
+        'CREATE INDEX idx_sin_art     ON "SALDOS_IN"("ARTICULO_ID")',
+        'CREATE INDEX idx_in_fecha    ON "DOCTOS_IN"("FECHA")',
+        'CREATE INDEX idx_indet_in    ON "DOCTOS_IN_DET"("DOCTO_IN_ID")',
+        'CREATE INDEX idx_niv_art     ON "NIVELES_ARTICULOS"("ARTICULO_ID")',
+        'CREATE INDEX idx_prec_art    ON "PRECIOS_ARTICULOS"("ARTICULO_ID")',
     ]:
         try: duck.execute(stmt)
         except: pass

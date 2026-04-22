@@ -156,20 +156,30 @@ const DB_OPTIONS = {
 console.log('DB path:', DB_OPTIONS.database);
 
 // ── Helper: ejecuta query → promesa ──────────────────────────────────────────
-// DuckDB fast-path: si hay snapshot para esta empresa y la query solo toca
-// tablas sincronizadas, va a DuckDB (<50ms). Fallback automático a Firebird.
+// DuckDB-FIRST: si hay snapshot para esta empresa, TODA query va a DuckDB.
+// Solo excepcion: queries con RDB$ (catalogo de sistema Firebird) → siempre FB.
+// Si DuckDB falla (tabla no existe aun, etc.) → fallback automatico a Firebird
+// y se loggea la tabla faltante para agregarlo al siguiente ciclo de sync.
 function query(sql, params = [], timeoutMs = 12000, dbOptsOverride = null) {
+  // Queries al catalogo de sistema Firebird nunca van a DuckDB
+  if (/RDB\$/i.test(sql)) {
+    return _fbQuery(sql, params, timeoutMs, dbOptsOverride);
+  }
   // eslint-disable-next-line no-use-before-define
-  if (queryUsesOnlyDuckTables(sql)) {
+  const snap = getDuckSnap(dbOptsOverride);
+  if (snap) {
     // eslint-disable-next-line no-use-before-define
-    const snap = getDuckSnap(dbOptsOverride);
-    if (snap) {
-      // eslint-disable-next-line no-use-before-define
-      return duckQueryPromise(snap, sql, params).catch((duckErr) => {
-        console.warn('[DuckDB] fallback Firebird:', duckErr && duckErr.message);
-        return _fbQuery(sql, params, timeoutMs, dbOptsOverride);
-      });
-    }
+    return duckQueryPromise(snap, sql, params).catch((duckErr) => {
+      const msg = (duckErr && duckErr.message) || String(duckErr);
+      // Extraer nombre de tabla faltante para diagnostico
+      const missing = msg.match(/Table with name ([A-Z_0-9]+) does not exist/i);
+      if (missing) {
+        console.warn(`[DuckDB] tabla no sincronizada: "${missing[1]}" → fallback Firebird`);
+      } else {
+        console.warn(`[DuckDB] fallback Firebird: ${msg.slice(0, 100)}`);
+      }
+      return _fbQuery(sql, params, timeoutMs, dbOptsOverride);
+    });
   }
   return _fbQuery(sql, params, timeoutMs, dbOptsOverride);
 }
@@ -202,10 +212,14 @@ function _fbQuery(sql, params = [], timeoutMs = 12000, dbOptsOverride = null) {
 // sync_duckdb.py genera uno por base y los sube cada noche.
 // 0 conexiones WAN a Firebird durante el día para cualquier empresa.
 
+// Tablas sincronizadas en DuckDB (referencia para status endpoint y diagnostico).
+// Ya NO se usa para enrutamiento — query() envia todo a DuckDB si hay snapshot.
 const DUCK_TABLES = new Set([
-  'DOCTOS_VE', 'DOCTOS_PV', 'DOCTOS_VE_DET',
+  'DOCTOS_VE', 'DOCTOS_PV', 'DOCTOS_VE_DET', 'DOCTOS_PV_DET', 'DOCTOS_PV_LIGAS',
   'CLIENTES', 'VENDEDORES', 'ARTICULOS',
   'IMPORTES_DOCTOS_CC', 'DOCTOS_CC', 'CONDICIONES_PAGO', 'CONFIGURACIONES_GEN',
+  'DOCTOS_CO', 'DOCTOS_CO_DET', 'CUENTAS_CO', 'SALDOS_CO',
+  'SALDOS_IN', 'DOCTOS_IN', 'DOCTOS_IN_DET', 'NIVELES_ARTICULOS', 'PRECIOS_ARTICULOS',
 ]);
 
 // Directorio donde se guardan los snapshots: /tmp/duck_snaps/ por defecto
