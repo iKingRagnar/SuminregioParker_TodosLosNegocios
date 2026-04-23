@@ -353,6 +353,24 @@
       '.nav-db-btn{padding:.3rem .4rem;}',
       '.nav-db-dropdown{right:0;left:auto;}',
       '}',
+
+      /* Barra horizontal de negocios (todas las páginas) */
+      '.nav-biz-bar{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;',
+      'max-width:1900px;margin:1rem auto .25rem;padding:.65rem 1rem;',
+      'background:linear-gradient(180deg,rgba(17,34,51,.92),rgba(10,22,38,.88));',
+      'border:1px solid rgba(255,255,255,.1);border-radius:12px;',
+      'box-shadow:0 10px 40px rgba(0,0,0,.28);position:sticky;top:62px;z-index:90;}',
+      '.nav-biz-label{font-family:"DM Mono",monospace;font-size:.58rem;',
+      'color:#8899aa;letter-spacing:.1em;text-transform:uppercase;white-space:nowrap;}',
+      '.nav-biz-chips{display:flex;flex-wrap:wrap;gap:.45rem;flex:1;min-width:0;}',
+      '.nav-biz-chip{font-family:"DM Mono",monospace;font-size:.68rem;',
+      'padding:.32rem .85rem;border-radius:99px;border:1px solid rgba(255,255,255,.12);',
+      'background:transparent;color:#c4d1e0;cursor:pointer;transition:all .2s;white-space:nowrap;}',
+      '.nav-biz-chip:hover{color:#f0f6ff;border-color:rgba(230,168,0,.35);}',
+      '.nav-biz-chip.active{color:#E6A800;border-color:rgba(230,168,0,.55);',
+      'background:rgba(230,168,0,.1);font-weight:600;}',
+      '@media(max-width:780px){.nav-biz-bar{margin:.5rem .75rem;padding:.5rem .75rem;top:54px;}',
+      '.nav-biz-label{display:none;}}',
     ].join('');
     document.head.appendChild(s);
   }
@@ -406,9 +424,81 @@
     // DB selector (loads asynchronously, only shows if >1 DB registered)
     loadDbSelector('navDbContainer');
 
+    // Barra horizontal de chips de negocios (como en index.html) — en TODAS las páginas
+    injectBizContextBar(hdr);
+
     // ── Chatbot flotante: auto-inyectar en toda página si no está ya cargado ──
     // (algunas páginas no tenían <script src="/chat-widget.js">, quedaban sin bot)
     ensureChatWidget();
+  }
+
+  function injectBizContextBar(hdr) {
+    // Si la página ya tiene #bizContextBar (index.html), no la duplicamos
+    if (document.getElementById('bizContextBar')) return;
+    if (document.getElementById('navBizBar')) return;
+
+    var bar = document.createElement('div');
+    bar.id = 'navBizBar';
+    bar.className = 'nav-biz-bar';
+    bar.setAttribute('aria-label', 'Unidad de negocio');
+    bar.style.display = 'none';
+    bar.innerHTML =
+      '<span class="nav-biz-label">Unidad de negocio</span>' +
+      '<div class="nav-biz-chips" id="navBizChips"></div>';
+
+    // Insertar justo después del header
+    if (hdr && hdr.parentNode) {
+      hdr.parentNode.insertBefore(bar, hdr.nextSibling);
+    } else {
+      document.body.insertBefore(bar, document.body.firstChild);
+    }
+
+    fetch(API_BASE + '/api/universe/databases')
+      .then(function (r) { return r.json(); })
+      .then(function (dbs) {
+        if (!Array.isArray(dbs) || dbs.length < 1) return;
+        renderBizChips(dbs);
+        bar.style.display = 'flex';
+      })
+      .catch(function (e) { console.warn('[nav] biz-bar no pudo cargar dbs', e); });
+  }
+
+  function renderBizChips(dbs) {
+    var box = document.getElementById('navBizChips');
+    if (!box) return;
+    var curDb = getCurrentDb();
+    var sorted = dbs.slice().sort(function (a, b) {
+      if ((a.id || '').toLowerCase() === 'default') return -1;
+      if ((b.id || '').toLowerCase() === 'default') return 1;
+      return (a.label || a.id || '').localeCompare(b.label || b.id || '');
+    });
+    var html = '<button type="button" class="nav-biz-chip' + (curDb === '' ? ' active' : '') + '" data-db="">Todos</button>';
+    sorted.forEach(function (d) {
+      var id = String(d.id || '');
+      var lbl = (d.label || d.id || '').replace(/</g, '&lt;');
+      html += '<button type="button" class="nav-biz-chip' + (curDb === id ? ' active' : '') + '" data-db="' + id.replace(/"/g, '&quot;') + '">' + lbl + '</button>';
+    });
+    box.innerHTML = html;
+    box.querySelectorAll('.nav-biz-chip').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var raw = btn.getAttribute('data-db') || '';
+        try {
+          var u = new URL(location.href);
+          if (raw) u.searchParams.set('db', raw); else u.searchParams.delete('db');
+          history.replaceState({}, '', u);
+        } catch (_) {}
+        try {
+          if (raw) {
+            sessionStorage.setItem('microsip_erp_db', raw);
+            localStorage.setItem('currentDb', raw);
+          } else {
+            sessionStorage.removeItem('microsip_erp_db');
+            localStorage.removeItem('currentDb');
+          }
+        } catch (_) {}
+        location.reload();
+      });
+    });
   }
 
   function ensureChatWidget() {
