@@ -405,6 +405,20 @@
 
     // DB selector (loads asynchronously, only shows if >1 DB registered)
     loadDbSelector('navDbContainer');
+
+    // ── Chatbot flotante: auto-inyectar en toda página si no está ya cargado ──
+    // (algunas páginas no tenían <script src="/chat-widget.js">, quedaban sin bot)
+    ensureChatWidget();
+  }
+
+  function ensureChatWidget() {
+    if (document.getElementById('cw-root')) return; // ya montado
+    if (document.querySelector('script[src*="chat-widget.js"]')) return; // ya cargándose
+    var s = document.createElement('script');
+    s.src = '/chat-widget.js';
+    s.defer = true;
+    s.onerror = function () { console.warn('[nav] chat-widget.js no se pudo cargar'); };
+    document.body.appendChild(s);
   }
 
   if (document.readyState === 'loading') {

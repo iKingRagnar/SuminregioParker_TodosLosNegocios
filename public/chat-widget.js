@@ -9,7 +9,16 @@
   // ── Config ──────────────────────────────────────────────────────────────────
   const API     = (typeof window !== 'undefined' && window.__API_BASE) ? window.__API_BASE : '';
   const PAGE    = (() => { try { return document.title.split('—')[0].trim() || location.pathname.split('/').pop(); } catch { return ''; } })();
-  const DB_PARAM = (() => { try { return new URLSearchParams(location.search).get('db') || ''; } catch { return ''; } })();
+  // DB dinámico: se resuelve en cada sendMessage para respetar el selector de negocio en vivo.
+  function currentDb() {
+    try {
+      var fromUrl = new URLSearchParams(location.search).get('db');
+      if (fromUrl) return fromUrl;
+      var fromLs = (typeof localStorage !== 'undefined') && localStorage.getItem('currentDb');
+      if (fromLs) return fromLs;
+    } catch (_) {}
+    return '';
+  }
 
   // Sugerencias contextuales por página — enriquecidas con análisis profundo
   const SUGGESTIONS_BY_PAGE = {
@@ -484,7 +493,7 @@
         },
         messages  : prevHistory.map(h => ({ role: h.role, content: h.content })),
       };
-      if (DB_PARAM) body.db = DB_PARAM;
+      var _db = currentDb(); if (_db) body.db = _db;
       if (imgBase64) {
         body.imageBase64    = imgBase64;
         body.imageMimeType  = 'image/png';
