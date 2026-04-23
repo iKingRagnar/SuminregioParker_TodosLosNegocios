@@ -244,15 +244,15 @@
     var cont = document.getElementById(containerId);
     if (!cont) return;
 
-    // If only 1 DB or API fails, show nothing
+    // Mostrar siempre si hay al menos 1 DB — usuario necesita saber qué negocio ve.
     fetch(API_BASE + '/api/universe/databases')
       .then(function (r) { return r.json(); })
       .then(function (dbs) {
-        if (!Array.isArray(dbs) || dbs.length < 2) return; // hide when single DB
+        if (!Array.isArray(dbs) || dbs.length < 1) return;
         cont.innerHTML = buildDbSelector(dbs);
         attachDbEvents();
       })
-      .catch(function () { /* silently skip */ });
+      .catch(function (e) { console.warn('[nav] no pude cargar /api/universe/databases', e); });
   }
 
   // ── Styles ──────────────────────────────────────────────────────────────────
@@ -362,13 +362,16 @@
   function init() {
     injectStyles();
 
-    var hdr = document.querySelector('header') || document.getElementById('app-header');
+    // Buscar/crear header y garantizar reemplazo limpio (algunos HTML tienen
+    // <header><div class="hd">…</div></header> hardcodeado que competía con este).
+    var hdr = document.getElementById('app-header') || document.querySelector('header');
     if (!hdr) {
       hdr = document.createElement('header');
       document.body.insertBefore(hdr, document.body.firstChild);
     }
     if (!hdr.id) hdr.id = 'app-header';
-    hdr.style.display = '';
+    hdr.className = '';
+    hdr.removeAttribute('style');
     hdr.removeAttribute('aria-hidden');
 
     var clockId = 'nav-clock-' + Date.now();

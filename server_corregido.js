@@ -391,11 +391,25 @@ function queryUsesOnlyDuckTables(sql) {
 }
 
 /** Ejecuta en DuckDB y devuelve Promise<Array>. */
+function _normalizeDuckRow(row) {
+  // DuckDB devuelve BIGINT como BigInt nativo. El código hace `+bigint`, Math.round(bigint),
+  // bigint + number, etc. → TypeError "Cannot convert a BigInt value to a number".
+  // Convertimos a Number de una sola vez aquí. Valores > MAX_SAFE_INTEGER → string (raro).
+  if (!row || typeof row !== 'object') return row;
+  for (const k in row) {
+    const v = row[k];
+    if (typeof v === 'bigint') {
+      row[k] = v <= Number.MAX_SAFE_INTEGER && v >= -Number.MAX_SAFE_INTEGER ? Number(v) : v.toString();
+    }
+  }
+  return row;
+}
 function duckQueryPromise(snap, sql, params = []) {
   return new Promise((resolve, reject) => {
     if (!snap || !snap.conn) return reject(new Error('DuckDB snap no disponible'));
     snap.conn.all(sqlFirebirdToDuck(sql), ...params, (err, rows) => {
       if (err) return reject(err);
+      if (rows && rows.length) for (let i = 0; i < rows.length; i++) _normalizeDuckRow(rows[i]);
       resolve(rows || []);
     });
   });
