@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: suminregioparker-todoslosnegocios
+    runtime: node
+    region: oregon
+    plan: starter
+    branch: main
+    buildCommand: npm ci
+    startCommand: node server_corregido.js
+    healthCheckPath: /health
+    disk:
+      name: duck-snapshots
+      mountPath: /var/data/duck_snaps
+      sizeGB: 1
+    envVars:
+      - key: DUCK_SNAPSHOT_DIR
+        value: /var/data/duck_snaps
+      - key: DUCK_ONLY_MODE
+        value: "1"
+      - key: NODE_VERSION
+        value: "20"

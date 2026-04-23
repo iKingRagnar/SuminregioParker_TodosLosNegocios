@@ -290,7 +290,10 @@ const DUCK_TABLES = new Set([
 ]);
 
 // Directorio donde se guardan los snapshots: /tmp/duck_snaps/ por defecto
-const DUCK_SNAPSHOT_DIR  = process.env.DUCK_SNAPSHOT_DIR  || '/tmp/duck_snaps';
+// Si existe disco persistente en Render (/var/data/duck_snaps) úsalo, si no /tmp (efímero).
+const DUCK_SNAPSHOT_DIR = process.env.DUCK_SNAPSHOT_DIR || (
+  (() => { try { return require('fs').existsSync('/var/data') ? '/var/data/duck_snaps' : '/tmp/duck_snaps'; } catch { return '/tmp/duck_snaps'; } })()
+);
 const DUCK_SNAPSHOT_PATH = process.env.DUCK_SNAPSHOT_PATH || null; // compatibilidad legacy
 const SNAPSHOT_TOKEN     = process.env.SNAPSHOT_TOKEN     || 'suminregio-snap-2026';
 

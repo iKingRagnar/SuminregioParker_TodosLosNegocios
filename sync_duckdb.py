@@ -357,6 +357,18 @@ def sync_one(db_entry):
         try: duck.execute(stmt)
         except: pass
 
+    # Conteo explicito de tablas clave para confirmar que si llegaron
+    key_counts = {}
+    for t in ('ARTICULOS', 'CLIENTES', 'VENDEDORES', 'DOCTOS_VE', 'DOCTOS_PV',
+              'DOCTOS_VE_DET', 'DOCTOS_PV_DET', 'DOCTOS_CC', 'SALDOS_IN',
+              'PRECIOS_ARTICULOS', 'NIVELES_ARTICULOS'):
+        try:
+            n = duck.execute(f'SELECT COUNT(*) FROM "{t}"').fetchone()[0]
+            key_counts[t] = n
+        except Exception:
+            key_counts[t] = 'NO_SINCRONIZADA'
+    log.info(f'Tablas clave: {key_counts}')
+
     duck.close()
     fb.close()
 
@@ -364,7 +376,7 @@ def sync_one(db_entry):
     else: os.rename(tmp, duck_out)
 
     size_mb = os.path.getsize(duck_out) / 1024 / 1024
-    log.info(f'DuckDB OK: {size_mb:.1f} MB, {total_rows:,} filas')
+    log.info(f'DuckDB OK: {size_mb:.1f} MB, {total_rows:,} filas (ARTICULOS={key_counts.get("ARTICULOS")}, DOCTOS_VE_DET={key_counts.get("DOCTOS_VE_DET")})')
 
     # 3. Comprimir con gzip antes de subir (reduce 3-5x → mucho mas rapido en Render)
     gz_out = duck_out + '.gz'
