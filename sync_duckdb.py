@@ -195,7 +195,44 @@ def get_columns(fb_conn, table):
         cur.close()
 
 
-def fetch_table(fb_conn, table, log):
+def _decode_bytes_row(row):
+    """Convierte bytes->str con errors='replace' (para fallback charset=NONE)."""
+    out = []
+    for v in row:
+        if isinstance(v, (bytes, bytearray)):
+            try:
+                out.append(v.decode('cp1252', errors='replace').rstrip('\x00').strip())
+            except Exception:
+                out.append(v.decode('latin-1', errors='replace').rstrip('\x00').strip())
+        else:
+            out.append(v)
+    return tuple(out)
+
+
+def _fetch_with_charset_none(db_path, sql, params, log):
+    """Reintenta la lectura con charset=NONE (bytes crudos) y decodifica a cp1252."""
+    import fdb
+    log.warning(f'    retry con charset=NONE (bytes -> cp1252 errors=replace)')
+    fb2 = fdb.connect(host=FB_HOST, port=FB_PORT, database=db_path,
+                      user=FB_USER, password=FB_PASS, charset='NONE')
+    try:
+        cur = fb2.cursor()
+        try:
+            cur.execute(sql, params)
+            raw = cur.fetchall()
+            cols = [d[0] for d in cur.description]
+            if isinstance(cols[0], (bytes, bytearray)):
+                cols = [c.decode('cp1252', errors='replace') for c in cols]
+            rows = [_decode_bytes_row(r) for r in raw]
+        finally:
+            cur.close()
+    finally:
+        try: fb2.close()
+        except Exception: pass
+    return cols, rows
+
+
+def fetch_table(fb_conn, table, log, db_path=None):
     log.info(f'  Leyendo {table}...')
     t0 = time.time()
 
@@ -241,8 +278,21 @@ def fetch_table(fb_conn, table, log):
         cur.execute(sql, params)
         rows = cur.fetchall()
         cols = [d[0] for d in cur.description]
+    except Exception as e:
+        # SQLCODE -802 = transliteration error. Retry con charset=NONE (bytes crudos).
+        msg = str(e)
+        if db_path and ('-802' in msg or 'transliterate' in msg.lower() or 'character sets' in msg.lower()):
+            log.warning(f'  {table}: error charset ({msg[:120]}...)')
+            try:
+                cols, rows = _fetch_with_charset_none(db_path, sql, params, log)
+            except Exception as e2:
+                log.error(f'  {table}: falló incluso con charset=NONE: {e2}')
+                raise
+        else:
+            raise
     finally:
-        cur.close()
+        try: cur.close()
+        except Exception: pass
 
     log.info(f'    -> {len(rows):,} filas, {len(cols)} cols en {time.time()-t0:.1f}s')
     return cols, rows
@@ -304,7 +354,7 @@ def sync_one(db_entry):
     total_rows, tables_done = 0, []
     for table in REQUIRED_COLS:
         try:
-            cols, rows = fetch_table(fb, table, log)
+            cols, rows = fetch_table(fb, table, log, db_path=db_path)
             if not cols: continue
             total_rows += len(rows)
             duck.execute(f'DROP TABLE IF EXISTS "{table}"')
