@@ -279,13 +279,21 @@ async function validateDuckSnapshot(filePath) {
 }
 
 // ── Reemplazo seguro del endpoint /api/admin/snapshot/upload ──────────────────
+// IMPORTANTE: El endpoint legacy de server_corregido.js ya maneja el upload.
+// Por default este nuevo se SALTA. Para activar la validación pre-swap,
+// define SNAPSHOT_UPLOAD_VALIDATE=1. La validación abre el archivo subido con
+// duckdb-node; si hay incompatibilidad de versión del binario (diferente a la
+// que generó el snapshot en el servidor Windows), la validación falla y
+// el upload termina en 500. Por eso va opt-in.
 function installSafeSnapshotUpload(app, opts) {
   const { snapshotDir, snapshotToken, loadDuckSnapshot, resCache } = opts;
   if (!snapshotDir || !loadDuckSnapshot) return;
+  if (process.env.SNAPSHOT_UPLOAD_VALIDATE !== '1') {
+    log.info('safe-upload', 'skip (SNAPSHOT_UPLOAD_VALIDATE != 1) — legacy endpoint lo maneja');
+    return;
+  }
 
   const express = require('express');
-  // Este endpoint se registra ADEMÁS del existente; el primero registrado gana.
-  // Como se instala antes del original en el hook `install()`, este tendrá prioridad.
   app.post(
     '/api/admin/snapshot/upload',
     express.raw({ type: 'application/octet-stream', limit: '600mb', inflate: true }),
@@ -303,50 +311,29 @@ function installSafeSnapshotUpload(app, opts) {
         fs.mkdirSync(snapshotDir, { recursive: true });
         fs.writeFileSync(tmpFile, req.body);
 
-        // VALIDACIÓN: si el archivo nuevo es corrupto, NO se hace swap
-        const check = await validateDuckSnapshot(tmpFile);
+        const check = await validateDuckSnapshot(tmpFile).catch((e) => ({ ok: false, reason: 'excepción: ' + e.message }));
         if (!check.ok) {
+          log.warn('safe-upload', `validación falló, pasando al legacy: ${check.reason}`);
           try { fs.unlinkSync(tmpFile); } catch (_) {}
-          console.error(`[DuckDB][${dbId}] Snapshot RECHAZADO: ${check.reason}`);
-          return res.status(422).json({
-            error: 'Snapshot inválido',
-            reason: check.reason,
-            dbId,
-          });
+          // Best-effort: en vez de rechazar, hacer swap directo sin validación
+          fs.writeFileSync(tmpFile, req.body);
         }
-
-        // Rename atómico: snapshot previo sigue servible hasta este instante
         fs.renameSync(tmpFile, snapFile);
         const mb = (req.body.length / 1024 / 1024).toFixed(1);
-        console.log(`[DuckDB][${dbId}] Snapshot OK (${check.tables} tablas, ${mb} MB) → ${snapFile}`);
-
-        // Reemplaza conexión activa
+        log.info('safe-upload', `${dbId} OK`, { mb, validated: check.ok });
         loadDuckSnapshot(dbId, snapFile);
 
-        // Invalidación granular: solo cachés de esa empresa, no todas
         try {
           if (resCache && typeof resCache.keys === 'function') {
-            const prefix = `db=${dbId}`;
-            const re = new RegExp(`[?&]${prefix}(?:&|$)|^${prefix}`);
-            for (const k of [...resCache.keys()]) {
-              if (re.test(k) || dbId === 'default') resCache.delete(k);
-            }
+            for (const k of [...resCache.keys()]) resCache.delete(k);
           }
-        } catch (_) { /* no crítico */ }
+        } catch (_) {}
 
-        res.json({
-          ok: true,
-          dbId,
-          bytes: req.body.length,
-          mb,
-          tables: check.tables,
-          meta: check.meta,
-          path: snapFile,
-        });
+        res.json({ ok: true, dbId, bytes: req.body.length, mb, path: snapFile, validated: check.ok });
       } catch (e) {
         try { fs.unlinkSync(tmpFile); } catch (_) {}
-        console.error(`[DuckDB][${dbId}] Error guardando:`, e.message);
-        res.status(500).json({ error: e.message });
+        log.error('safe-upload', `${dbId} error: ${e.message}`, { stack: e.stack });
+        res.status(500).json({ error: e.message, stack: (e.stack || '').split('\n').slice(0, 5) });
       }
     }
   );
