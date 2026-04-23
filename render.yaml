@@ -9,13 +9,13 @@ services:
     startCommand: node server_corregido.js
     healthCheckPath: /health
     disk:
-      name: duck-snapshots
-      mountPath: /var/data/duck_snaps
+      name: daily-cache
+      mountPath: /var/data/cache
       sizeGB: 1
     envVars:
-      - key: DUCK_SNAPSHOT_DIR
-        value: /var/data/duck_snaps
-      - key: DUCK_ONLY_MODE
+      - key: CACHE_MODE
         value: "1"
+      - key: CACHE_DIR
+        value: /var/data/cache
       - key: NODE_VERSION
         value: "20"

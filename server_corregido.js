@@ -56,6 +56,7 @@ const fs       = require('fs');
 const zlib     = require('zlib');
 const Firebird = require('node-firebird');
 const path     = require('path');
+const dailyCache = require('./daily-cache');
 
 (function warnIfEnvLooksLikeJs() {
   try {
@@ -186,7 +187,12 @@ console.log('DB path:', DB_OPTIONS.database);
 //     Las queries RDB$ de schema se traducen a information_schema de DuckDB.
 //     Uso: servidor en Render no abre conexiones al Microsip local.
 //   - Si =0: comportamiento legacy (DuckDB-FIRST con fallback a Firebird).
-const DUCK_ONLY_MODE = String(process.env.DUCK_ONLY_MODE || '1') !== '0';
+const DUCK_ONLY_MODE = String(process.env.DUCK_ONLY_MODE || '0') !== '0';
+
+// CACHE_MODE (default ON): el server habla Firebird DIRECTO pero envuelve toda
+// consulta en daily-cache. Firebird solo se toca en el refresh diario (23:00
+// CDMX) o en el primer request de una query nueva. Reemplaza a DuckDB.
+const CACHE_MODE = String(process.env.CACHE_MODE || '1') !== '0';
 
 /** Traduce la query típica `RDB$RELATION_FIELDS WHERE RDB$RELATION_NAME = ?`
  *  a information_schema de DuckDB. Retorna null si el patrón no matchea. */
@@ -209,7 +215,19 @@ function translateRdbSchemaQuery(sql) {
 function query(sql, params = [], timeoutMs = 12000, dbOptsOverride = null) {
   const isSystemCatalog = /RDB\$/i.test(sql);
 
-  // 1) Queries al catalogo de sistema Firebird
+  // CACHE_MODE: Firebird directo envuelto en daily-cache (refresh 23:00 CDMX).
+  // Queries RDB$ de schema NO se cachean (son metadata, baratas y cambian poco).
+  if (CACHE_MODE) {
+    if (isSystemCatalog) return _fbQuery(sql, params, timeoutMs, dbOptsOverride);
+    const dbId = dbOptsToId(dbOptsOverride) || (dbOptsOverride
+      ? String(dbOptsOverride.database || '').toLowerCase().replace(/\\/g, '/')
+      : 'default');
+    return dailyCache.wrap(dbId, sql, params, () =>
+      _fbQuery(sql, params, timeoutMs, dbOptsOverride)
+    );
+  }
+
+  // 1) Queries al catalogo de sistema Firebird (legacy DuckDB path)
   if (isSystemCatalog) {
     if (DUCK_ONLY_MODE) {
       // eslint-disable-next-line no-use-before-define
@@ -299,6 +317,22 @@ const SNAPSHOT_TOKEN     = process.env.SNAPSHOT_TOKEN     || 'suminregio-snap-20
 
 // Map<dbId, { db, conn, meta, path, loadingAt }>
 const _duckSnaps = new Map();
+
+/** Resuelve dbOpts a partir de un dbId (inverso de dbOptsToId). null = DB_OPTIONS por defecto. */
+function _resolveDbOptsFromId(dbId) {
+  if (!dbId || dbId === 'default') return null;
+  if (typeof DATABASE_REGISTRY !== 'undefined') {
+    const idLc = String(dbId).toLowerCase();
+    const hit = DATABASE_REGISTRY.find(e => String(e.id || '').toLowerCase() === idLc);
+    if (hit && hit.options) return hit.options;
+    // Fallback: dbId pudo quedar grabado como ruta absoluta ("c:/microsip datos/foo.fdb")
+    for (const e of DATABASE_REGISTRY) {
+      const ep = String(e.database || e.options?.database || '').toLowerCase().replace(/\\/g, '/');
+      if (ep === String(dbId).toLowerCase().replace(/\\/g, '/')) return e.options;
+    }
+  }
+  return null;
+}
 
 /** Resuelve el dbId a partir de dbOptsOverride comparando la ruta de BD. */
 function dbOptsToId(dbOptsOverride) {
@@ -12244,4 +12278,11 @@ app.get('/api/briefing/diario', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Suminregio API escuchando en http://localhost:${PORT} · build=${BUILD_FINGERPRINT}`);
+  if (CACHE_MODE) {
+    console.log('[cache] CACHE_MODE=1 — Firebird directo + refresh diario 23:00 CDMX');
+    dailyCache.scheduleDailyRefresh((dbId, sql, params) => {
+      const override = _resolveDbOptsFromId(dbId);
+      return _fbQuery(sql, params, 60_000, override);
+    });
+  }
 });
