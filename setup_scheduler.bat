@@ -12,11 +12,12 @@ REM  Ruta esperada del bat: C:\Microsip datos\sync_duckdb.bat
 REM ================================================================
 
 SET TASK_NAME=SuminregioSyncDuckDB
-SET BAT_PATH=C:\Microsip datos\sync_duckdb.bat
+REM Usar la ubicación del propio .bat — permite correr desde donde sea
+SET BAT_PATH=%~dp0sync_duckdb.bat
 
 if not exist "%BAT_PATH%" (
     echo [ERROR] No encuentro: %BAT_PATH%
-    echo Copia sync_duckdb.bat y sync_duckdb.py a "C:\Microsip datos\" primero.
+    echo Este setup_scheduler.bat debe estar en la misma carpeta que sync_duckdb.bat.
     pause
     exit /b 1
 )
