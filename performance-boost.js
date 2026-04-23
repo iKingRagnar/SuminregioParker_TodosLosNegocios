@@ -35,6 +35,16 @@ const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 
+// DuckDB devuelve BIGINT como BigInt nativo; JSON.stringify lo rechaza.
+// Convertimos BigInt a Number (o string si excede MAX_SAFE_INTEGER).
+const bigintReplacer = (_k, v) => {
+  if (typeof v !== 'bigint') return v;
+  return v <= Number.MAX_SAFE_INTEGER && v >= -Number.MAX_SAFE_INTEGER ? Number(v) : v.toString();
+};
+function safeStringify(data) {
+  return typeof data === 'string' ? data : JSON.stringify(data, bigintReplacer);
+}
+
 // ── Logger centralizado con niveles (pino-lite, sin dependencias) ─────────────
 const LOG_LEVELS = { debug: 10, info: 20, warn: 30, error: 40 };
 const LOG_LEVEL  = LOG_LEVELS[String(process.env.LOG_LEVEL || 'info').toLowerCase()] || 20;
@@ -116,7 +126,7 @@ function etagMiddleware(req, res, next) {
   const origJson = res.json.bind(res);
   res.json = function etagJson(data) {
     try {
-      const body = typeof data === 'string' ? data : JSON.stringify(data);
+      const body = safeStringify(data);
       const hash = crypto.createHash('md5').update(body).digest('hex').slice(0, 20);
       const etag = `W/"${hash}"`;
       res.setHeader('ETag', etag);
@@ -146,7 +156,9 @@ function compressionMiddleware(req, res, next) {
 
   const origJson = res.json.bind(res);
   res.json = function compJson(data) {
-    const body = typeof data === 'string' ? data : JSON.stringify(data);
+    let body;
+    try { body = safeStringify(data); }
+    catch (e) { return origJson(data); }
     // Respetar 304 del ETag middleware (si se seteó)
     if (res.statusCode === 304) return res.end();
     if (!body || body.length < 1024) return origJson(data); // no vale la pena

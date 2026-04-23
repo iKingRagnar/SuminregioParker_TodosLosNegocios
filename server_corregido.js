@@ -102,14 +102,39 @@ function sqlVentaImporteResultadosExpr(alias = 'd') {
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 app.use(express.json());
 
+// Patch global res.json para que tolere BigInt (DuckDB BIGINT → BigInt nativo).
+app.use(function bigintSafeJson(req, res, next) {
+  const orig = res.json.bind(res);
+  res.json = function (data) {
+    try {
+      const body = JSON.stringify(data, (_k, v) => {
+        if (typeof v !== 'bigint') return v;
+        return v <= Number.MAX_SAFE_INTEGER && v >= -Number.MAX_SAFE_INTEGER ? Number(v) : v.toString();
+      });
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      return res.send(body);
+    } catch (e) {
+      return orig(data);
+    }
+  };
+  next();
+});
+
 // ── Gzip compression (inline, no external dep) ────────────────────────────────
 // Comprime respuestas JSON de la API (/api/*) cuando el cliente acepta gzip.
+// DuckDB devuelve BIGINT como BigInt nativo; JSON.stringify lo rechaza.
+const _bigintReplacer = (_k, v) => {
+  if (typeof v !== 'bigint') return v;
+  return v <= Number.MAX_SAFE_INTEGER && v >= -Number.MAX_SAFE_INTEGER ? Number(v) : v.toString();
+};
 app.use(function gzipMiddleware(req, res, next) {
   const ae = req.headers['accept-encoding'] || '';
   if (!ae.includes('gzip') || !req.path.startsWith('/api/')) return next();
   const origJson = res.json.bind(res);
   res.json = function(data) {
-    const body = JSON.stringify(data);
+    let body;
+    try { body = JSON.stringify(data, _bigintReplacer); }
+    catch (e) { return origJson(data); }
     if (!body || body.length < 860) { return origJson(data); } // no comprimir payloads pequeños
     res.setHeader('Content-Encoding', 'gzip');
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -312,7 +337,11 @@ function loadDuckSnapshot(dbId, filePath) {
     const db   = new duckdb.Database(filePath, { access_mode: 'READ_ONLY' });
     const conn = db.connect();
     conn.all('SELECT * FROM _snapshot_meta LIMIT 1', (err, rows) => {
-      const meta = (!err && rows && rows[0]) ? rows[0] : null;
+      const rawMeta = (!err && rows && rows[0]) ? rows[0] : null;
+      // DuckDB devuelve BIGINT como BigInt nativo → JSON.stringify revienta. Normalizamos.
+      const meta = rawMeta ? Object.fromEntries(
+        Object.entries(rawMeta).map(([k, v]) => [k, typeof v === 'bigint' ? Number(v) : v])
+      ) : null;
       _duckSnaps.set(dbId, { db, conn, meta, path: filePath, loadingAt: null });
       console.log(`[DuckDB][${dbId}] Cargado: ${filePath} | filas=${meta && meta.TOTAL_ROWS} | corte=${meta && meta.CUTOFF_DATE}`);
     });
