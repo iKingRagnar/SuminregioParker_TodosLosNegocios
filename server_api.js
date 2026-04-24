@@ -173,7 +173,10 @@ function currentSession(req) {
 // el gate real vive en los endpoints /api/* que devuelven información. Sin esto, cada
 // script del dashboard redirige a /login y el cliente entra en loop de 302s (visible
 // en logs como "GET /nav.js → 688B", "GET /login?next=%2Fnav.js → 9732B", etc).
-const PUBLIC_ALLOW_RE = /^(?:\/login(?:\.html)?$|\/logout$|\/api\/auth\/|\/api\/ping$|\/health$|\/favicon|\/assets\/|\/manifest\.webmanifest$|\/sw\.js$|\/.*\.(?:css|js|mjs|map|svg|png|jpg|jpeg|gif|ico|webp|avif|woff2?|ttf|otf|eot|txt|json)(?:\?.*)?$)/i;
+// /fix(.html) es la utilidad técnica de rescate que desregistra el SW zombie y
+// limpia cachés — DEBE ser pública porque si el browser no puede llegar al login
+// por culpa del SW viejo, tampoco podría llegar a /fix si estuviera gateado.
+const PUBLIC_ALLOW_RE = /^(?:\/login(?:\.html)?$|\/fix(?:\.html)?$|\/logout$|\/api\/auth\/|\/api\/ping$|\/health$|\/favicon|\/assets\/|\/manifest\.webmanifest$|\/sw\.js$|\/.*\.(?:css|js|mjs|map|svg|png|jpg|jpeg|gif|ico|webp|avif|woff2?|ttf|otf|eot|txt|json)(?:\?.*)?$)/i;
 
 if (AUTH_ENABLED) {
   console.log(`[auth] session-cookie auth ACTIVO para ${Object.keys(AUTH_USERS).length} usuario(s)`);
@@ -251,6 +254,18 @@ app.get('/login', (_req, res) => {
 app.get('/logout', (_req, res) => {
   clearSessionCookie(res);
   res.redirect(302, '/login');
+});
+// /fix → public/fix.html — utilidad técnica pública que desregistra el SW zombie
+// y limpia cachés del navegador. Debe responder siempre, sin auth, porque el
+// usuario que no puede llegar al login por culpa del SW viejo tampoco podría
+// llegar a /fix si estuviera gateado.
+app.get('/fix', (_req, res) => {
+  const fixHtml = path.join(__dirname, 'public', 'fix.html');
+  if (fs.existsSync(fixHtml)) {
+    res.setHeader('Cache-Control', 'no-store');
+    return res.sendFile(fixHtml);
+  }
+  return res.status(500).send('fix.html no encontrado');
 });
 
 // ── Estáticos (misma lógica que server_corregido.js) ────────────────────────
