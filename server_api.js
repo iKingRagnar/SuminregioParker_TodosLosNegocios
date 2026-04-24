@@ -603,24 +603,69 @@ app.get('/api/ventas/cumplimiento', async (req, res) => {
 });
 
 // /api/ventas/margen-lineas
+// Nota: upstream NO expone el detalle renglón-a-renglón (FOLIO/FECHA/CLIENTE
+// por fila). Lo mejor disponible en el catálogo externo es `margen_por_producto`,
+// que agrega por artículo y sí trae CLAVE_ARTICULO, descripción, unidades,
+// venta, costo, utilidad y margen. Esa es la granularidad que poblamos aquí.
+// Los campos por documento (FOLIO/FECHA/CLIENTE/VENDEDOR) quedan vacíos para
+// no mentirle al usuario sobre el origen de los datos. La página
+// margen-producto.html ya funciona con esta shape: KPIs totales, top artículos
+// por utilidad y detalle por producto se rinden correctamente; los clientes
+// top se pueblan en paralelo desde /api/ventas/margen-clientes.
 app.get('/api/ventas/margen-lineas', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
     const { anio, mes } = yearMonthFromReq(req);
-    const rows = await api.runQuery(unidad, 'margen_por_linea', { anio, mes });
-    // margen_por_linea devuelve { linea, num_articulos, unidades, total_venta,
-    // total_costo, utilidad, margen_pct }. Los fields antiguos (venta/costo/
-    // margen) nunca existieron — quedaban en 0 en la UI.
-    res.json(rows.map(r => ({
-      LINEA: r.linea || r.LINEA,
-      VENTA: num(r.total_venta || r.venta || r.VENTA),
-      COSTO: num(r.total_costo || r.costo || r.COSTO),
-      MARGEN: num(r.utilidad || r.margen || r.MARGEN),
-      MARGEN_PCT: num(r.margen_pct || r.MARGEN_PCT),
-      NUM_ARTICULOS: num(r.num_articulos),
-      UNIDADES: num(r.unidades),
-    })));
+    const rows = await api.runQuery(unidad, 'margen_por_producto', { anio, mes });
+    res.json(rows.map(r => {
+      const venta = num(r.total_venta);
+      const costo = num(r.total_costo);
+      const util = Number.isFinite(Number(r.utilidad)) ? num(r.utilidad) : venta - costo;
+      return {
+        // Campos por documento — no disponibles en la agregación upstream.
+        FOLIO: '',
+        FECHA: null,
+        TIPO_SRC: '',
+        CLIENTE: '',
+        VENDEDOR: '',
+        // Campos por artículo — los que sí podemos poblar.
+        ARTICULO_ID: r.ARTICULO_ID,
+        CLAVE_ARTICULO: r.CLAVE_ARTICULO || '',
+        DESC_ARTICULO: r.articulo || '',
+        CANTIDAD: num(r.unidades),
+        PRECIO_U: num(r.unidades) > 0 ? venta / num(r.unidades) : 0,
+        COSTO: costo,
+        VENTA: venta,
+        UTILIDAD: util,
+        MARGEN_PCT: num(r.margen_pct),
+      };
+    }));
   } catch (e) { return wrapError(res, e, 'ventas/margen-lineas'); }
+});
+
+// /api/ventas/margen-clientes — companion para el panel "Mejores clientes"
+// en margen-producto.html. Upstream devuelve {CLIENTE_ID, cliente,
+// total_venta, total_costo, utilidad, margen_pct}.
+app.get('/api/ventas/margen-clientes', async (req, res) => {
+  try {
+    const unidad = unidadFromReq(req);
+    const { anio, mes } = yearMonthFromReq(req);
+    const rows = await api.runQuery(unidad, 'margen_por_cliente', { anio, mes });
+    res.json(rows.map(r => {
+      const venta = num(r.total_venta);
+      const costo = num(r.total_costo);
+      const util = Number.isFinite(Number(r.utilidad)) ? num(r.utilidad) : venta - costo;
+      return {
+        CLIENTE_ID: r.CLIENTE_ID,
+        CLIENTE: r.cliente || '',
+        NOMBRE: r.cliente || '',
+        VENTA: venta,
+        COSTO: costo,
+        UTILIDAD: util,
+        MARGEN_PCT: num(r.margen_pct),
+      };
+    }));
+  } catch (e) { return wrapError(res, e, 'ventas/margen-clientes'); }
 });
 
 // /api/ventas/cobradas
