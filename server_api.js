@@ -1772,21 +1772,63 @@ app.get('/api/inv/existencias', async (req, res) => {
 // CONSUMOS (suministros médicos / cliente dedicado)
 // ─────────────────────────────────────────────────────────────────────────────
 
+// /api/consumos/resumen — compone los KPIs que consumos.html espera a partir
+// de ventas_resumen_mes + ventas_diarias + ventas_top_productos. El catálogo
+// externo no expone HOY_UNIDADES (conteo de piezas por día) así que ese campo
+// queda en 0; el resto lo inferimos de las consultas existentes.
 app.get('/api/consumos/resumen', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
     const { anio, mes } = yearMonthFromReq(req);
-    const rows = await api.runQuery(unidad, 'ventas_resumen_mes', { anio, mes });
-    res.json({ ok: true, ...(rows[0] || {}) });
+    const [rmRows, dRows, topRows] = await Promise.all([
+      api.runQuery(unidad, 'ventas_resumen_mes', { anio, mes }).catch(() => []),
+      api.runQuery(unidad, 'ventas_diarias', { anio, mes }).catch(() => []),
+      api.runQuery(unidad, 'ventas_top_productos', { anio, mes, limite: 500 }).catch(() => []),
+    ]);
+    const rm = rmRows[0] || {};
+    const ventaPeriodo = num(rm.total_general || rm.total_ve + rm.total_pv);
+    const dias = Array.isArray(dRows) ? dRows : [];
+    const diasConMov = dias.length;
+    const today = new Date();
+    const hoyDia = today.getFullYear() === anio && (today.getMonth() + 1) === mes ? today.getDate() : null;
+    const hoyRow = hoyDia != null ? dias.find(x => num(x.dia) === hoyDia) : null;
+    const maxDia = dias.reduce((best, x) => (num(x.total_dia) > num(best.total_dia) ? x : best), dias[0] || {});
+    const movimientos = dias.reduce((s, x) => s + num(x.num_docs), num(rm.num_facturas));
+    const unidadesPeriodo = topRows.reduce((s, r) => s + num(r.unidades_vendidas), 0);
+    const diaMaxIso = maxDia && maxDia.dia ? `${anio}-${String(mes).padStart(2, '0')}-${String(maxDia.dia).padStart(2, '0')}` : null;
+    res.json({
+      ok: true,
+      HOY_UNIDADES: 0, // no disponible a nivel diario en upstream
+      UNIDADES_PERIODO: unidadesPeriodo,
+      CONSUMO_PROMEDIO_DIARIO: diasConMov > 0 ? ventaPeriodo / diasConMov : 0,
+      CONSUMO_MAXIMO_DIARIO: num((maxDia || {}).total_dia),
+      ARTICULOS_CONSUMIDOS: topRows.length,
+      HOY_VENTA_IMPORTE: num((hoyRow || {}).total_dia),
+      VENTA_IMPORTE_PERIODO: ventaPeriodo,
+      DIAS_CON_MOVIMIENTO: diasConMov,
+      DIA_MAXIMO: diaMaxIso,
+      MOVIMIENTOS: movimientos || num(rm.num_facturas),
+    });
   } catch (e) { return wrapError(res, e, 'consumos/resumen'); }
 });
 
+// Normaliza ventas_diarias al shape que consumos.html usa: DIA (ISO),
+// CONSUMO_TOTAL + VENTA_IMPORTE (mismo valor, importe $ del día), MOVIMIENTOS.
 app.get('/api/consumos/diarias', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
     const { anio, mes } = yearMonthFromReq(req);
     const rows = await api.runQuery(unidad, 'ventas_diarias', { anio, mes });
-    res.json(rows);
+    res.json(rows.map(r => {
+      const d = num(r.dia);
+      const iso = d > 0 ? `${anio}-${String(mes).padStart(2, '0')}-${String(d).padStart(2, '0')}` : null;
+      const total = num(r.total_dia);
+      return {
+        DIA: iso, FECHA: iso,
+        CONSUMO_TOTAL: total, VENTA_IMPORTE: total, TOTAL: total,
+        MOVIMIENTOS: num(r.num_docs), NUM_DOCS: num(r.num_docs),
+      };
+    }));
   } catch (e) { return wrapError(res, e, 'consumos/diarias'); }
 });
 
@@ -1796,28 +1838,108 @@ app.get('/api/consumos/top-articulos', async (req, res) => {
     const { anio, mes } = yearMonthFromReq(req);
     const limite = Number(req.query.limit) || 20;
     const rows = await api.runQuery(unidad, 'ventas_top_productos', { anio, mes, limite });
-    res.json(rows);
+    res.json(rows.map(r => ({
+      ARTICULO_ID: r.ARTICULO_ID,
+      CLAVE_ARTICULO: r.CLAVE_ARTICULO || '',
+      ARTICULO: r.articulo || r.ARTICULO || '',
+      UNIDADES: num(r.unidades_vendidas || r.unidades),
+      VENTA_IMPORTE: num(r.total_venta),
+    })));
   } catch (e) { return wrapError(res, e, 'consumos/top-articulos'); }
 });
 
+// semanal-por-articulo — upstream consumo_semanal viene en formato wide
+// (sem_actual, sem_1..sem_12 como columnas). El frontend pide formato long
+// (una fila por artículo-semana con SEMANA_INICIO ISO). Explotamos las
+// columnas y calculamos la fecha del lunes de cada semana retrocediendo N
+// semanas desde hoy.
 app.get('/api/consumos/semanal-por-articulo', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
     const limite = Number(req.query.limit) || 30;
     const rows = await api.runQuery(unidad, 'consumo_semanal', { limite }).catch(() => []);
-    res.json(rows);
+    const today = new Date();
+    const dow = today.getDay(); // 0 dom .. 6 sab
+    const mondayOffset = dow === 0 ? -6 : (1 - dow);
+    const thisMonday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + mondayOffset);
+    const weekIso = (idxBack) => {
+      const d = new Date(thisMonday);
+      d.setDate(d.getDate() - idxBack * 7);
+      return d.toISOString().slice(0, 10);
+    };
+    const long = [];
+    for (const r of rows) {
+      const base = {
+        ARTICULO_ID: r.ARTICULO_ID,
+        CLAVE_ARTICULO: r.CLAVE_ARTICULO || '',
+        ARTICULO: r.articulo || '',
+        UNIDAD: 'PZA',
+      };
+      const totU = num(r.unidades_total), totV = num(r.venta_total);
+      const precioProm = totU > 0 ? totV / totU : 0;
+      // sem_actual es la semana actual (back=0), sem_1..sem_12 es N semanas atrás
+      const samples = [
+        { back: 0, val: num(r.sem_actual) },
+        { back: 1, val: num(r.sem_1) }, { back: 2, val: num(r.sem_2) },
+        { back: 3, val: num(r.sem_3) }, { back: 4, val: num(r.sem_4) },
+        { back: 5, val: num(r.sem_5) }, { back: 6, val: num(r.sem_6) },
+        { back: 7, val: num(r.sem_7) }, { back: 8, val: num(r.sem_8) },
+        { back: 9, val: num(r.sem_9) }, { back: 10, val: num(r.sem_10) },
+        { back: 11, val: num(r.sem_11) }, { back: 12, val: num(r.sem_12) },
+      ];
+      for (const s of samples) {
+        if (s.val <= 0) continue;
+        long.push({
+          ...base,
+          SEMANA_INICIO: weekIso(s.back),
+          UNIDADES: s.val,
+          IMPORTE: s.val * precioProm, // aproximación: precio promedio del artículo
+        });
+      }
+    }
+    res.json({ ok: true, rows: long });
   } catch (e) { return wrapError(res, e, 'consumos/semanal-por-articulo'); }
 });
 
+// insights — compone los bloques que consumos.html renderea: variación vs
+// periodo anterior, concentración top 5 y semáforo semanal. Todo derivado
+// de scorecard + abc_inventario.
 app.get('/api/consumos/insights', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
     const { anio, mes } = yearMonthFromReq(req);
-    const [sc, abc] = await Promise.all([
+    const [sc, abc, topProds] = await Promise.all([
       api.runQuery(unidad, 'scorecard', {}).catch(() => []),
       api.runQuery(unidad, 'abc_inventario', {}).catch(() => []),
+      api.runQuery(unidad, 'ventas_top_productos', { anio, mes, limite: 500 }).catch(() => []),
     ]);
-    res.json({ ok: true, scorecard: sc[0] || {}, abc });
+    const s = sc[0] || {};
+    const actual = num(s.ventas_mes_actual);
+    const anterior = num(s.ventas_mes_anterior);
+    const varPct = anterior > 0 ? ((actual - anterior) / anterior) * 100 : null;
+    const concUnidades = topProds.slice(0, 5).reduce((sum, r) => sum + num(r.unidades_vendidas), 0);
+    const totalUnidades = topProds.reduce((sum, r) => sum + num(r.unidades_vendidas), 0);
+    const concPct = totalUnidades > 0 ? (concUnidades / totalUnidades) * 100 : 0;
+    res.json({
+      ok: true,
+      vs_periodo_anterior: {
+        valor_actual: actual,
+        valor_anterior: anterior,
+        variacion_pct: varPct,
+      },
+      concentracion_top5: {
+        unidades_top5: concUnidades,
+        unidades_periodo: totalUnidades,
+        porcentaje: concPct,
+      },
+      // Upstream no expone series semanales a nivel empresa; la UI sigue
+      // consumiendo consumo_semanal a nivel artículo.
+      variacion_semanal: { semaforo: 'amarillo', variacion_pct: null },
+      operacion_minima: {},
+      alertas_criticas: [],
+      abc,
+      scorecard: s,
+    });
   } catch (e) { return wrapError(res, e, 'consumos/insights'); }
 });
 
@@ -1826,15 +1948,91 @@ app.get('/api/consumos/por-vendedor', async (req, res) => {
     const unidad = unidadFromReq(req);
     const { anio, mes } = yearMonthFromReq(req);
     const rows = await api.runQuery(unidad, 'ventas_por_vendedor', { anio, mes });
-    res.json(rows);
+    // Upstream no expone unidades por vendedor; aproximamos con num_docs
+    // y agregamos participación relativa.
+    const totalDocs = rows.reduce((s, r) => s + num(r.num_docs), 0);
+    const totalImp = rows.reduce((s, r) => s + num(r.total_ventas), 0);
+    res.json(rows.map(r => {
+      const docs = num(r.num_docs);
+      const imp = num(r.total_ventas);
+      return {
+        VENDEDOR_ID: r.VENDEDOR_ID,
+        VENDEDOR: r.vendedor || '',
+        NOMBRE: r.vendedor || '',
+        UNIDADES: docs, // proxy: documentos (el catálogo no desglosa unidades)
+        NUM_DOCS: docs,
+        VENTA_IMPORTE: imp,
+        TOTAL_VENTAS: imp,
+        PARTICIPACION: totalDocs > 0 ? (docs / totalDocs) * 100 : 0,
+        PARTICIPACION_IMPORTE: totalImp > 0 ? (imp / totalImp) * 100 : 0,
+      };
+    }));
   } catch (e) { return wrapError(res, e, 'consumos/por-vendedor'); }
 });
 
+// pedidos-compra — consumos.html espera un wrapper con source/resumen/
+// top_consumo donde cada fila trae UNIDADES_CONSUMO/UNIDADES_PEDIDAS/
+// BRECHA_UNIDADES/COBERTURA_PEDIDOS_PCT. Upstream sólo expone órdenes de
+// compra pendientes individuales (sin consumo). Emitimos el cruce mínimo:
+// los pedidos pendientes top y los top de consumo como dos series aliadas,
+// uniéndolas por CLAVE_ARTICULO cuando hay match.
 app.get('/api/consumos/pedidos-compra', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
-    const rows = await api.runQuery(unidad, 'ordenes_compra_pendientes', {}).catch(() => []);
-    res.json(rows);
+    const { anio, mes } = yearMonthFromReq(req);
+    const limite = Number(req.query.limit) || 15;
+    const [ocs, tops] = await Promise.all([
+      api.runQuery(unidad, 'ordenes_compra_pendientes', {}).catch(() => []),
+      api.runQuery(unidad, 'ventas_top_productos', { anio, mes, limite: 200 }).catch(() => []),
+    ]);
+    const consumoByClave = new Map();
+    for (const t of tops) {
+      const k = String(t.CLAVE_ARTICULO || '').trim();
+      if (!k) continue;
+      const prev = consumoByClave.get(k) || 0;
+      consumoByClave.set(k, prev + num(t.unidades_vendidas));
+    }
+    // No siempre el OC trae CLAVE_ARTICULO — si no la trae, UNIDADES_PEDIDAS
+    // quedan a nivel total de la OC y no se pueden imputar por artículo.
+    // Para la UI, listamos los top artículos de consumo y si hay OC con la
+    // misma clave, traemos sus unidades_pedidas.
+    const pedidasByClave = new Map();
+    for (const oc of ocs) {
+      const k = String(oc.CLAVE_ARTICULO || oc.clave_articulo || '').trim();
+      if (!k) continue;
+      const prev = pedidasByClave.get(k) || 0;
+      pedidasByClave.set(k, prev + num(oc.unidades_pedidas));
+    }
+    const topConsumo = tops.slice(0, limite).map(t => {
+      const clave = String(t.CLAVE_ARTICULO || '').trim();
+      const c = num(t.unidades_vendidas);
+      const p = pedidasByClave.get(clave) || 0;
+      const brecha = Math.max(0, c - p);
+      const cov = c > 0 ? (p / c) * 100 : 0;
+      return {
+        CLAVE_ARTICULO: clave,
+        ARTICULO: t.articulo || '',
+        UNIDADES_CONSUMO: c,
+        UNIDADES_PEDIDAS: p,
+        BRECHA_UNIDADES: brecha,
+        COBERTURA_PEDIDOS_PCT: Math.round(cov * 10) / 10,
+      };
+    });
+    const totC = topConsumo.reduce((s, r) => s + r.UNIDADES_CONSUMO, 0);
+    const totP = topConsumo.reduce((s, r) => s + r.UNIDADES_PEDIDAS, 0);
+    const totB = topConsumo.reduce((s, r) => s + r.BRECHA_UNIDADES, 0);
+    const cob = totC > 0 ? (totP / totC) * 100 : 0;
+    res.json({
+      ok: true,
+      source: { key: 'ordenes_compra_pendientes', rows: ocs.length },
+      resumen: {
+        cobertura_pedidos_top_pct: Math.round(cob * 10) / 10,
+        unidades_consumo_top: totC,
+        unidades_pedidas_top: totP,
+        brecha_top: totB,
+      },
+      top_consumo: topConsumo,
+    });
   } catch (e) { return wrapError(res, e, 'consumos/pedidos-compra'); }
 });
 
