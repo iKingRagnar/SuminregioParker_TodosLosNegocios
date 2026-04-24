@@ -486,38 +486,59 @@ app.get('/api/ventas/mensuales', async (req, res) => {
 });
 
 // /api/ventas/por-vendedor
+// ventas.html ordena y muestra barras usando r.VENTAS_MES y r.FACTURAS_MES,
+// así que emitimos esos alias además de VENTAS/NUM_DOCS/TOTAL/DOCS para que
+// cualquier consumidor (director, vendedores, charts) encuentre el field.
 app.get('/api/ventas/por-vendedor', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
     const { anio, mes } = yearMonthFromReq(req);
     const rows = await api.runQuery(unidad, 'ventas_por_vendedor', { anio, mes });
-    res.json(rows.map(r => ({
-      VENDEDOR_ID: r.VENDEDOR_ID,
-      VENDEDOR: r.vendedor,
-      NOMBRE: r.vendedor,
-      VENTAS: num(r.total_ventas),
-      TOTAL: num(r.total_ventas),
-      NUM_DOCS: num(r.num_docs),
-      DOCS: num(r.num_docs),
-    })));
+    res.json(rows.map(r => {
+      const ventas = num(r.total_ventas);
+      const docs = num(r.num_docs);
+      return {
+        VENDEDOR_ID: r.VENDEDOR_ID,
+        VENDEDOR: r.vendedor,
+        NOMBRE: r.vendedor,
+        VENTAS: ventas,
+        VENTAS_MES: ventas,        // alias que ventas.html usa para ordenar
+        TOTAL: ventas,
+        TOTAL_VENTAS: ventas,
+        NUM_DOCS: docs,
+        DOCS: docs,
+        FACTURAS_MES: docs,        // alias que ventas.html usa para mostrar #facturas
+        NUM_FACTURAS: docs,
+      };
+    }));
   } catch (e) { return wrapError(res, e, 'ventas/por-vendedor'); }
 });
 
 // /api/ventas/top-clientes
+// ventas.html lee r.TOTAL ?? r.TOTAL_VENTAS ?? r.IMPORTE_NETO — emitimos todos
+// los aliases para evitar mismatch entre páginas (ventas, director, index).
 app.get('/api/ventas/top-clientes', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
     const { anio, mes } = yearMonthFromReq(req);
     const limite = Number(req.query.limit) || 10;
     const rows = await api.runQuery(unidad, 'ventas_top_clientes', { anio, mes, limite });
-    res.json(rows.map(r => ({
-      CLIENTE_ID: r.CLIENTE_ID,
-      CLIENTE: r.cliente,
-      NOMBRE: r.cliente,
-      VENTAS: num(r.total_ventas),
-      TOTAL: num(r.total_ventas),
-      NUM_DOCS: num(r.num_docs),
-    })));
+    res.json(rows.map(r => {
+      const ventas = num(r.total_ventas);
+      const docs = num(r.num_docs);
+      return {
+        CLIENTE_ID: r.CLIENTE_ID,
+        CLIENTE: r.cliente,
+        NOMBRE: r.cliente,
+        VENTAS: ventas,
+        TOTAL: ventas,
+        TOTAL_VENTAS: ventas,
+        IMPORTE_NETO: ventas,
+        NUM_DOCS: docs,
+        NUM_FACTURAS: docs,
+        FACTURAS: docs,
+      };
+    }));
   } catch (e) { return wrapError(res, e, 'ventas/top-clientes'); }
 });
 
@@ -1439,7 +1460,9 @@ app.get('/api/clientes/inteligencia', async (req, res) => {
       return out;
     });
 
-    res.json({ ok: true, rows: enriched });
+    // clientes.html hace `Array.isArray(riesgo) ? riesgo : []` — devolver
+    // directamente el array para que la tabla de riesgo se llene.
+    res.json(enriched);
   } catch (e) { return wrapError(res, e, 'clientes/inteligencia'); }
 });
 

@@ -216,9 +216,12 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     return base.replace(/\.fdb$/i, '');
   }
 
-  // Las 6 unidades reales que expone el API externo + términos legacy para
-  // compat con listados de DBs Firebird (snapshots antiguos, backups, etc.).
-  const UNIDADES_VALIDAS_FILTERS = ['parker', 'medico', 'maderas', 'empaque', 'agua', 'reciclaje'];
+  // Las 6 unidades reales + 'grupo' (consolidado sintético upstream) +
+  // términos legacy para compat con listados de DBs Firebird (snapshots
+  // antiguos, backups, etc.). 'grupo' se muestra como chip aparte para que
+  // el usuario pueda ver el consolidado directo sin hacer "Todos" (que suma
+  // cliente-side; 'grupo' viene ya consolidado desde el API).
+  const UNIDADES_VALIDAS_FILTERS = ['parker', 'medico', 'maderas', 'empaque', 'agua', 'reciclaje', 'grupo'];
   const UNIDADES_LABELS_FILTERS = {
     parker: 'Suminregio Parker',
     medico: 'Suministros Médicos',
@@ -226,9 +229,10 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     empaque: 'Suminregio Empaque',
     agua: 'Suminregio Agua',
     reciclaje: 'Suminregio Reciclaje',
+    grupo: 'Grupo Suminregio',
   };
-  const ALLOWED_DB_TERMS = ['parker', 'medico', 'medicos', 'maderas', 'madera', 'empaque', 'agua', 'reciclaje', 'suminregio', 'carton', 'especial'];
-  const DB_DISPLAY_STRIP_TERMS = ['suminregio', 'grupo', 'suministros'];
+  const ALLOWED_DB_TERMS = ['parker', 'medico', 'medicos', 'maderas', 'madera', 'empaque', 'agua', 'reciclaje', 'suminregio', 'carton', 'especial', 'grupo'];
+  const DB_DISPLAY_STRIP_TERMS = ['suminregio', 'suministros'];
   const DB_ALLOWED_SET = ALLOWED_DB_TERMS.reduce(function (acc, t) { acc[t] = 1; return acc; }, {});
   function isSnapshotOrTempDb(e) {
     const pool = normDbText([
@@ -313,7 +317,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     // Orden: parker primero (negocio bandera), luego el resto de las 6 unidades
     // por orden lógico (maderas/medico/empaque/agua/reciclaje), y al final cualquier
     // DB legacy que no caiga en las 6 unidades.
-    const ORDEN = ['parker', 'medico', 'maderas', 'empaque', 'agua', 'reciclaje'];
+    const ORDEN = ['parker', 'medico', 'maderas', 'empaque', 'agua', 'reciclaje', 'grupo'];
     const ordenList = (list || []).slice().sort(function (a, b) {
       const ia = ORDEN.indexOf(String(a.id || '').toLowerCase());
       const ib = ORDEN.indexOf(String(b.id || '').toLowerCase());
