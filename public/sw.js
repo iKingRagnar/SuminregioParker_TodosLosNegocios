@@ -1,29 +1,32 @@
 /**
- * sw.js — Service Worker de Suminregio (offline-first)
+ * sw.js — Service Worker de Suminregio
  * ──────────────────────────────────────────────────────────────────────────────
+ * v4-auth-migration: bumpeo de versión para invalidar caches viejos que servían
+ * HTML del dashboard sin pasar por el gate de /login (causaba que el usuario
+ * viera Panel Ejecutivo con $0 en vez del login page tras activar auth v2).
+ *
  * Estrategia:
- *   · Shell (HTML, CSS, JS, fonts): cache-first con update on revalidate
- *     → Abre instantáneo incluso sin red. Actualiza en background.
- *   · API (/api/*): network-first con fallback a cache de última respuesta
- *     → Datos siempre frescos cuando hay red; al menos vista stale cuando no.
- *   · Excepción: /api/admin/*, /api/ai/* → solo red (nunca cache, son sensibles)
+ *   · HTML (navegación): NETWORK-FIRST siempre. Así el middleware de auth del
+ *     server puede redirigir a /login cuando no hay cookie. Si no hay red,
+ *     fallback a último HTML cacheado para vista offline.
+ *   · Scripts estáticos (JS, CSS, fonts, imágenes): stale-while-revalidate.
+ *     Carga instantánea desde cache + refresh en background.
+ *   · API (/api/*): network-first con fallback a cache. Datos siempre frescos.
+ *   · API sensible (/api/admin/*, /api/ai/*, /api/auth/*, /api/cache/*):
+ *     solo red, nunca cache.
+ *
+ * Al activar esta versión, se eliminan TODOS los caches anteriores (sumi-v*).
+ * Se envía un mensaje a todos los clientes para que recarguen automáticamente
+ * y vean el login/dashboard nuevo sin necesidad de limpiar cache manual.
  */
-const CACHE_VERSION = 'sumi-v3';
+const CACHE_VERSION = 'sumi-v4-auth-migration';
 const SHELL_CACHE   = CACHE_VERSION + '-shell';
 const API_CACHE     = CACHE_VERSION + '-api';
+const HTML_CACHE    = CACHE_VERSION + '-html';
 
+// Solo precacheamos assets estáticos (no HTML). Los HTML viven en HTML_CACHE
+// pero se pueblan on-demand vía network-first, nunca se pre-cachean.
 const SHELL_PRECACHE = [
-  '/',
-  '/index.html',
-  '/ventas.html',
-  '/cxc.html',
-  '/inventario.html',
-  '/resultados.html',
-  '/consumos.html',
-  '/vendedores.html',
-  '/clientes.html',
-  '/margen-producto.html',
-  '/director.html',
   '/nav.js',
   '/filters.js',
   '/data-cache.js',
@@ -40,7 +43,6 @@ const SHELL_PRECACHE = [
   '/tour-guide.js',
   '/push-client.js',
   '/xlsx-export.js',
-  '/comparar.html',
   '/aurora-background.js',
   '/app-ui.css',
   '/app-ui-boot.js',
@@ -50,30 +52,43 @@ const SHELL_PRECACHE = [
   '/manifest.webmanifest',
 ];
 
-// Rutas API que NO deben cachear (sensibles/admin/IA en tiempo real)
-const API_NO_CACHE = [/^\/api\/admin\//, /^\/api\/ai\//, /^\/api\/cache\//];
+// Rutas API que NO deben cachear (sensibles o que cambian auth state)
+const API_NO_CACHE = [
+  /^\/api\/admin\//,
+  /^\/api\/ai\//,
+  /^\/api\/auth\//,
+  /^\/api\/cache\//,
+];
 
 self.addEventListener('install', (event) => {
+  // Activar inmediatamente sin esperar cierre de pestañas
   self.skipWaiting();
   event.waitUntil(
     caches.open(SHELL_CACHE).then((cache) =>
       cache.addAll(SHELL_PRECACHE).catch((err) => {
-        console.warn('[SW] precache parcial:', err);
+        console.warn('[SW v4] precache parcial:', err);
       })
     )
   );
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((k) => k.startsWith('sumi-') && !k.startsWith(CACHE_VERSION))
-          .map((k) => caches.delete(k))
-      )
-    ).then(() => self.clients.claim())
-  );
+  event.waitUntil((async () => {
+    // Borrar TODOS los caches viejos (sumi-v1, sumi-v2, sumi-v3, etc.)
+    const keys = await caches.keys();
+    await Promise.all(
+      keys
+        .filter((k) => k.startsWith('sumi-') && !k.startsWith(CACHE_VERSION))
+        .map((k) => caches.delete(k))
+    );
+    // Tomar control de todas las pestañas abiertas inmediatamente
+    await self.clients.claim();
+    // Avisar a cada cliente para que recargue y vea la versión nueva
+    const allClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const client of allClients) {
+      try { client.postMessage({ type: 'SW_UPDATED', version: CACHE_VERSION }); } catch (_) {}
+    }
+  })());
 });
 
 self.addEventListener('fetch', (event) => {
@@ -81,38 +96,74 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
 
   const url = new URL(req.url);
-  // Solo same-origin
   if (url.origin !== self.location.origin) return;
 
-  // API sensible: siempre red, sin cache
+  // 1. API sensible: siempre red, nunca cache
   if (API_NO_CACHE.some((rx) => rx.test(url.pathname))) return;
 
-  // API normal: network-first, cache fallback
+  // 2. API normal: network-first con cache fallback
   if (url.pathname.startsWith('/api/')) {
-    event.respondWith(networkFirst(req));
+    event.respondWith(networkFirst(req, API_CACHE));
     return;
   }
 
-  // Shell: cache-first, revalidate en background
+  // 3. HTML (navegación): NETWORK-FIRST siempre, así el auth gate del server
+  //    tiene oportunidad de redirigir a /login cuando no hay cookie válida.
+  //    Sin esto, el SW servía HTML cacheado y la redirección nunca ocurría.
+  const accept = req.headers.get('accept') || '';
+  const isHtmlNav = req.mode === 'navigate'
+                 || accept.includes('text/html')
+                 || url.pathname.endsWith('.html')
+                 || url.pathname === '/'
+                 || (!url.pathname.includes('.') && !url.pathname.startsWith('/api/'));
+  if (isHtmlNav) {
+    event.respondWith(networkFirstHTML(req));
+    return;
+  }
+
+  // 4. Assets estáticos (JS, CSS, fuentes, imágenes): stale-while-revalidate
   event.respondWith(staleWhileRevalidate(req));
 });
 
-async function networkFirst(req) {
+async function networkFirst(req, cacheName) {
   try {
     const res = await fetch(req);
+    // Solo cacheamos 200s (no cacheamos 401, 403, redirects)
     if (res && res.status === 200) {
       const clone = res.clone();
-      caches.open(API_CACHE).then((c) => c.put(req, clone)).catch(() => {});
+      caches.open(cacheName).then((c) => c.put(req, clone)).catch(() => {});
     }
     return res;
   } catch (err) {
     const cached = await caches.match(req);
     if (cached) {
-      // Marcamos respuesta como stale para que el frontend pueda detectarlo
       const h = new Headers(cached.headers);
       h.set('X-From-SW-Cache', 'stale');
       return new Response(await cached.blob(), { status: cached.status, headers: h });
     }
+    throw err;
+  }
+}
+
+async function networkFirstHTML(req) {
+  try {
+    // Siempre intenta red primero. Si el server redirige (302 a /login) el browser
+    // sigue el redirect naturalmente. Si devuelve 401 no lo cacheamos.
+    const res = await fetch(req, { redirect: 'follow' });
+    if (res && res.status === 200 && res.type === 'basic') {
+      const clone = res.clone();
+      caches.open(HTML_CACHE).then((c) => c.put(req, clone)).catch(() => {});
+    }
+    return res;
+  } catch (err) {
+    // Sin red: intenta servir HTML cacheado como último recurso
+    const cached = await caches.match(req);
+    if (cached) {
+      const h = new Headers(cached.headers);
+      h.set('X-From-SW-Cache', 'offline');
+      return new Response(await cached.blob(), { status: cached.status, headers: h });
+    }
+    // Sin red y sin cache: dejamos que falle para que el browser muestre su error
     throw err;
   }
 }
@@ -162,6 +213,8 @@ self.addEventListener('message', (event) => {
   if (!event.data) return;
   if (event.data.type === 'SKIP_WAITING') self.skipWaiting();
   if (event.data.type === 'CLEAR_CACHE') {
-    caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))));
+    event.waitUntil(
+      caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+    );
   }
 });
