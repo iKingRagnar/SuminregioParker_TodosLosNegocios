@@ -386,15 +386,27 @@ app.get('/api/ventas/resumen', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
     const { anio, mes } = yearMonthFromReq(req);
-    const [mesRows, diaRows, comp] = await Promise.all([
+    const [mesRows, diaRows, comp, scoreRows] = await Promise.all([
       api.runQuery(unidad, 'ventas_resumen_mes', { anio, mes }),
       api.runQuery(unidad, 'ventas_diarias', { anio, mes }),
       api.runQuery(unidad, 'ventas_comparativo', { anio, mes }).catch(() => []),
+      api.runQuery(unidad, 'scorecard', {}).catch(() => []),
     ]);
     const mesRow = mesRows[0] || {};
     const hoyStr = new Date().toISOString().slice(0, 10);
     const hoyRow = (diaRows || []).find(r => String(r.dia).startsWith(hoyStr)) || {};
     const cmpRow = comp[0] || {};
+    const scoreRow = (scoreRows || [])[0] || {};
+    // ventas_comparativo devuelve total_anterior = mismo mes del año anterior.
+    // El mes anterior consecutivo sale de scorecard.ventas_mes_anterior.
+    const anioAnterior = num(
+      cmpRow.total_anterior || cmpRow.total_anio_anterior || cmpRow.anio_anterior,
+    );
+    const mesAnterior = num(
+      scoreRow.ventas_mes_anterior || cmpRow.total_mes_anterior || cmpRow.mes_anterior,
+    );
+    // ventas.html consume FACTURAS_MES / REMISIONES_MES por alias. El external
+    // API no expone IVA por separado — esos campos se quedan en 0.
     res.json({
       ok: true,
       unidad,
@@ -403,10 +415,17 @@ app.get('/api/ventas/resumen', async (req, res) => {
       MES_VE: num(mesRow.total_ve),
       MES_PV: num(mesRow.total_pv),
       NUM_FACTURAS: num(mesRow.num_facturas),
+      FACTURAS_MES: num(mesRow.num_facturas),       // alias para ventas.html
+      NUM_FACTURAS_MES: num(mesRow.num_facturas),   // alias para ventas.html
+      REMISIONES_MES: num(mesRow.total_pv),         // PV ≈ punto de venta/remisiones
       HOY: num(hoyRow.total_dia),
+      TOTAL_HOY: num(hoyRow.total_dia),
+      VENTA_HOY: num(hoyRow.total_dia),
+      TOTAL_MES: num(mesRow.total_general),
+      VENTA_MES: num(mesRow.total_general),
       NUM_DOCS_HOY: num(hoyRow.num_docs),
-      MES_ANTERIOR: num(cmpRow.total_mes_anterior || cmpRow.mes_anterior),
-      ANIO_ANTERIOR: num(cmpRow.total_anio_anterior || cmpRow.anio_anterior),
+      MES_ANTERIOR: mesAnterior,
+      ANIO_ANTERIOR: anioAnterior,
       BUILD: BUILD_FINGERPRINT,
     });
   } catch (e) { return wrapError(res, e, 'ventas/resumen'); }
@@ -430,13 +449,18 @@ app.get('/api/ventas/mensuales', async (req, res) => {
     const unidad = unidadFromReq(req);
     const anio = Number(req.query.anio) || new Date().getFullYear();
     const rows = await api.runQuery(unidad, 'ventas_acumulado_anual', { anio });
-    res.json(rows.map(r => ({
-      ANIO: num(r.anio || anio),
-      MES: num(r.mes),
-      TOTAL: num(r.total_ve || r.total),
-      VENTAS: num(r.total_ve || r.total),
-      VE: num(r.total_ve), PV: num(r.total_pv),
-    })));
+    // ventas_acumulado_anual devuelve { mes, total_mes }. No separa VE/PV.
+    res.json(rows.map(r => {
+      const total = num(r.total_mes || r.total_ve || r.total);
+      return {
+        ANIO: num(r.anio || anio),
+        MES: num(r.mes),
+        TOTAL: total,
+        VENTAS: total,
+        VE: num(r.total_ve), // puede ser 0 si la query no lo separa
+        PV: num(r.total_pv),
+      };
+    }));
   } catch (e) { return wrapError(res, e, 'ventas/mensuales'); }
 });
 
@@ -513,12 +537,17 @@ app.get('/api/ventas/margen-lineas', async (req, res) => {
     const unidad = unidadFromReq(req);
     const { anio, mes } = yearMonthFromReq(req);
     const rows = await api.runQuery(unidad, 'margen_por_linea', { anio, mes });
+    // margen_por_linea devuelve { linea, num_articulos, unidades, total_venta,
+    // total_costo, utilidad, margen_pct }. Los fields antiguos (venta/costo/
+    // margen) nunca existieron — quedaban en 0 en la UI.
     res.json(rows.map(r => ({
       LINEA: r.linea || r.LINEA,
-      VENTA: num(r.venta || r.VENTA),
-      COSTO: num(r.costo || r.COSTO),
-      MARGEN: num(r.margen || r.MARGEN),
+      VENTA: num(r.total_venta || r.venta || r.VENTA),
+      COSTO: num(r.total_costo || r.costo || r.COSTO),
+      MARGEN: num(r.utilidad || r.margen || r.MARGEN),
       MARGEN_PCT: num(r.margen_pct || r.MARGEN_PCT),
+      NUM_ARTICULOS: num(r.num_articulos),
+      UNIDADES: num(r.unidades),
     })));
   } catch (e) { return wrapError(res, e, 'ventas/margen-lineas'); }
 });
@@ -711,20 +740,52 @@ app.get('/api/cxc/resumen-aging', async (req, res) => {
     const totalVencido = vencida
       .filter(r => r.dias_vencido > 0)
       .reduce((s, r) => s + num(r.saldo_venc), 0);
+    const totalVigente = vencida
+      .filter(r => num(r.dias_vencido) <= 0)
+      .reduce((s, r) => s + num(r.saldo_venc), 0);
     const maxDias = vencida.reduce((m, r) => Math.max(m, num(r.dias_vencido)), 0);
+    const clientesVencidos = new Set(
+      vencida.filter(r => num(r.dias_vencido) > 0 && r.cliente)
+             .map(r => String(r.cliente).trim().toUpperCase())
+    ).size;
+    const clientesTotales = new Set(
+      vencida.filter(r => r.cliente)
+             .map(r => String(r.cliente).trim().toUpperCase())
+    ).size;
+
+    // Dos formas del aging para compatibilidad con distintos consumidores:
+    //   - agingObj: forma canónica que espera cxc.html y filters.js
+    //     (CORRIENTE / DIAS_1_30 / DIAS_31_60 / DIAS_61_90 / DIAS_MAS_90).
+    //   - agingArray: forma cruda del external API ([{bucket, total_bucket,
+    //     num_cargos}, ...]) — se conserva en `aging_raw` por si alguien la usa.
+    // El campo `aging` principal sale como OBJECT porque filters.js hace
+    //   base = ageRaw[0]  cuando detecta array, y cxc_aging no pone num_cargos
+    //   como bucket numérico — quedaría todo en 0.
+    const agingObj = {
+      CORRIENTE: totalVigente,
+      DIAS_1_30: bucketMap['0-30'],
+      DIAS_31_60: bucketMap['31-60'],
+      DIAS_61_90: bucketMap['61-90'],
+      DIAS_MAS_90: bucketMap['90+'],
+    };
+
     res.json({
       ok: true,
       resumen: {
         SALDO_TOTAL: totalSaldo,
         VENCIDO: totalVencido,
         VIGENTE: Math.max(0, totalSaldo - totalVencido),
+        POR_VENCER: totalVigente, // alias que usa cxc.html
         MAX_DIAS: maxDias,
+        NUM_CLIENTES: clientesTotales,
+        NUM_CLIENTES_VENCIDOS: clientesVencidos,
         BUCKET_0_30: bucketMap['0-30'],
         BUCKET_31_60: bucketMap['31-60'],
         BUCKET_61_90: bucketMap['61-90'],
         BUCKET_90_PLUS: bucketMap['90+'],
       },
-      aging,
+      aging: agingObj,
+      aging_raw: aging,
     });
   } catch (e) { return wrapError(res, e, 'cxc/resumen-aging'); }
 });
@@ -773,13 +834,59 @@ app.get('/api/cxc/vigentes', async (req, res) => {
 app.get('/api/cxc/por-condicion', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
-    const rows = await api.runQuery(unidad, 'cxc_por_condicion', {});
-    res.json(rows.map(r => ({
-      CONDICION_PAGO: r.condicion_pago || r.CONDICION,
-      SALDO: num(r.saldo || r.SALDO),
-      NUM_CLIENTES: num(r.num_clientes || r.NUM_CLIENTES),
-      NUM_DOCS: num(r.num_docs || r.NUM_DOCS),
-    })));
+    // cxc_por_condicion sólo devuelve { condicion_pago, saldo }, así que
+    // enriquecemos con cxc_vencida_detalle para poder partir corriente vs
+    // vencido, contar clientes únicos y documentos por condición — que es
+    // justo lo que consume cxc.html (SALDO_TOTAL, CORRIENTE, VENCIDO,
+    // NUM_CLIENTES, NUM_DOCUMENTOS, DIAS_CREDITO).
+    const [condRows, detalle] = await Promise.all([
+      api.runQuery(unidad, 'cxc_por_condicion', {}),
+      api.runQuery(unidad, 'cxc_vencida_detalle', { limite: 5000 }).catch(() => []),
+    ]);
+
+    // Detectar "días de crédito" a partir del nombre de la condición
+    // (p.ej. "30 DIAS", "Contado", "60 DÍAS"). Si no hay número, 0.
+    const diasFromCond = (s) => {
+      const m = String(s || '').match(/(\d+)\s*d/i);
+      return m ? Number(m[1]) : 0;
+    };
+
+    // Agrupar detalle por condición de pago para sacar corriente/vencido,
+    // clientes únicos y docs.
+    const agg = new Map();
+    for (const v of detalle) {
+      const cond = String(v.condicion_pago || 'S/D').trim();
+      const key = cond.toUpperCase();
+      if (!agg.has(key)) {
+        agg.set(key, { clientes: new Set(), docs: 0, corriente: 0, vencido: 0 });
+      }
+      const a = agg.get(key);
+      const saldoVenc = num(v.saldo_venc);
+      if (num(v.dias_vencido) > 0) a.vencido += saldoVenc;
+      else a.corriente += saldoVenc;
+      a.docs += 1;
+      if (v.cliente) a.clientes.add(String(v.cliente).trim().toUpperCase());
+    }
+
+    res.json(condRows.map(r => {
+      const cond = r.condicion_pago || r.CONDICION || '';
+      const saldoTotal = num(r.saldo || r.SALDO);
+      const a = agg.get(String(cond).trim().toUpperCase())
+              || { clientes: new Set(), docs: 0, corriente: 0, vencido: 0 };
+      return {
+        CONDICION_PAGO: cond,
+        // SALDO kept for backward compat, SALDO_TOTAL is the canonical name
+        // that cxc.html expects.
+        SALDO: saldoTotal,
+        SALDO_TOTAL: saldoTotal,
+        CORRIENTE: a.corriente,
+        VENCIDO: a.vencido,
+        NUM_CLIENTES: a.clientes.size,
+        NUM_DOCS: a.docs,
+        NUM_DOCUMENTOS: a.docs,
+        DIAS_CREDITO: diasFromCond(cond),
+      };
+    }));
   } catch (e) { return wrapError(res, e, 'cxc/por-condicion'); }
 });
 
@@ -812,15 +919,32 @@ app.get('/api/director/resumen', async (req, res) => {
       api.runQuery(unidad, 'ventas_diarias', { anio, mes }),
       api.runQuery(unidad, 'cotizaciones_activas', { anio, mes }).catch(() => []),
       api.runQuery(unidad, 'ventas_comparativo', { anio, mes }).catch(() => []),
+      api.runQuery(unidad, 'scorecard', {}).catch(() => []),
     ];
     if (!omitCxc) queries.push(api.runQuery(unidad, 'cxc_saldo_total', {}));
 
-    const [mesRows, diaRows, cotis, cmp, saldo] = await Promise.all(queries);
+    const [mesRows, diaRows, cotis, cmp, scoreRows, saldo] = await Promise.all(queries);
     const mesRow = mesRows[0] || {};
     const hoyStr = new Date().toISOString().slice(0, 10);
     const hoyRow = (diaRows || []).find(r => String(r.dia).startsWith(hoyStr)) || {};
+    // Cotizaciones: separar total del mes y de hoy (director.html consume
+    // COTIZACIONES_MES / COTIZACIONES_HOY / IMPORTE_COTI_MES / IMPORTE_COTI_HOY).
     const cotiTotal = cotis.reduce((s, r) => s + num(r.importe_sin_iva), 0);
+    const cotisHoy = cotis.filter(r => String(r.FECHA || '').startsWith(hoyStr));
+    const cotiImporteHoy = cotisHoy.reduce((s, r) => s + num(r.importe_sin_iva), 0);
     const cmpRow = (cmp || [])[0] || {};
+    const scoreRow = (scoreRows || [])[0] || {};
+
+    // ventas_comparativo sólo devuelve { anio_actual, mes, total_actual,
+    // total_anterior } — total_anterior es MISMO MES DEL AÑO ANTERIOR por
+    // definición de la query (ver queries-catalogo.md). El mes anterior
+    // consecutivo viene de scorecard.ventas_mes_anterior.
+    const anioAnterior = num(
+      cmpRow.total_anterior || cmpRow.total_anio_anterior || cmpRow.anio_anterior,
+    );
+    const mesAnterior = num(
+      scoreRow.ventas_mes_anterior || cmpRow.total_mes_anterior || cmpRow.mes_anterior,
+    );
 
     res.json({
       ok: true,
@@ -832,12 +956,22 @@ app.get('/api/director/resumen', async (req, res) => {
         NUM_FACTURAS: num(mesRow.num_facturas),
         HOY: num(hoyRow.total_dia),
         NUM_DOCS_HOY: num(hoyRow.num_docs),
-        MES_ANTERIOR: num(cmpRow.total_mes_anterior || cmpRow.mes_anterior),
-        ANIO_ANTERIOR: num(cmpRow.total_anio_anterior || cmpRow.anio_anterior),
+        MES_ANTERIOR: mesAnterior,
+        ANIO_ANTERIOR: anioAnterior,
       },
       cotizaciones: {
         NUM: cotis.length,
         IMPORTE: cotiTotal,
+        // Canonical fields que director.html consume
+        COTIZACIONES_MES: cotis.length,
+        COTIZACIONES_HOY: cotisHoy.length,
+        COTI_MES: cotis.length,
+        COTI_HOY: cotisHoy.length,
+        IMPORTE_COTI_MES: cotiTotal,
+        IMPORTE_COTI_HOY: cotiImporteHoy,
+        NUM_COTIZACIONES: cotis.length,
+        MES_ACTUAL: cotiTotal,
+        HOY: cotiImporteHoy,
       },
       cxc: saldo ? { SALDO_TOTAL: num((saldo[0] || {}).saldo) } : null,
       build: BUILD_FINGERPRINT,
@@ -853,17 +987,25 @@ app.get('/api/director/vendedores', async (req, res) => {
       api.runQuery(unidad, 'ventas_por_vendedor', { anio, mes }),
       api.runQuery(unidad, 'margen_por_vendedor', { anio, mes }).catch(() => []),
     ]);
-    const margenById = new Map((margen || []).map(m => [m.VENDEDOR_ID || m.vendedor_id, m]));
+    // margen_por_vendedor sólo trae { vendedor, num_docs, venta_bruta,
+    // costo_total, utilidad, margen_pct } — no hay VENDEDOR_ID, así que el
+    // match tiene que ser por nombre normalizado.
+    const normName = (s) => String(s || '').trim().toUpperCase();
+    const margenByName = new Map();
+    for (const m of (margen || [])) {
+      const k = normName(m.vendedor || m.VENDEDOR);
+      if (k) margenByName.set(k, m);
+    }
     res.json(ventas.map(v => {
-      const m = margenById.get(v.VENDEDOR_ID) || {};
+      const m = margenByName.get(normName(v.vendedor)) || {};
       return {
         VENDEDOR_ID: v.VENDEDOR_ID,
         VENDEDOR: v.vendedor,
         NOMBRE: v.vendedor,
         VENTAS: num(v.total_ventas),
         NUM_DOCS: num(v.num_docs),
-        COSTO: num(m.costo || m.COSTO),
-        MARGEN: num(m.margen || m.MARGEN),
+        COSTO: num(m.costo_total || m.costo || m.COSTO),
+        MARGEN: num(m.utilidad || m.margen || m.MARGEN),
         MARGEN_PCT: num(m.margen_pct || m.MARGEN_PCT),
       };
     }));
@@ -962,13 +1104,32 @@ app.get('/api/clientes/inteligencia', async (req, res) => {
 app.get('/api/inv/resumen', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
-    const rows = await api.runQuery(unidad, 'inventario_resumen_marca', {});
-    const total = rows.reduce((s, r) => s + num(r.valor_total), 0);
+    // inventario_resumen_marca = { linea, total_arts, existencia_total,
+    // valor_total, pct_arts, pct_valor, valor_prom_por_art }.
+    // Para los KPI "bajo mínimo" y "sin stock" necesitamos queries aparte —
+    // las hacemos en paralelo y degradamos a 0 si fallan.
+    const [rows, bajoMin, topStock] = await Promise.all([
+      api.runQuery(unidad, 'inventario_resumen_marca', {}),
+      api.runQuery(unidad, 'inv_bajo_minimo', { limite: 5000 }).catch(() => []),
+      api.runQuery(unidad, 'inv_top_stock', { limite: 5000 }).catch(() => []),
+    ]);
+    const valorInventario = rows.reduce((s, r) => s + num(r.valor_total), 0);
     const totalArts = rows.reduce((s, r) => s + num(r.total_arts), 0);
+    const existenciaUnidades = rows.reduce((s, r) => s + num(r.existencia_total), 0);
+    // "Sin stock" = artículos con stock 0 en inv_top_stock. Si la query trae
+    // sólo los top-N no sabemos cuántos hay con stock 0 — usamos el dataset
+    // amplio (5000) como aproximación, y si viene corto reportamos lo que hay.
+    const sinStock = topStock.filter(r => num(r.stock) <= 0).length;
     res.json({
       ok: true,
-      VALOR_TOTAL: total,
+      // Canonical names expected by inventario.html
+      VALOR_INVENTARIO: valorInventario,
+      VALOR_TOTAL: valorInventario, // alias
       TOTAL_ARTICULOS: totalArts,
+      EXISTENCIA_UNIDADES_SUM: existenciaUnidades,
+      BAJO_MINIMO: bajoMin.length,
+      SIN_STOCK: sinStock,
+      VALOR_CRITERIO: 'costo_unitario × existencia',
       LINEAS: rows,
     });
   } catch (e) { return wrapError(res, e, 'inv/resumen'); }
