@@ -533,22 +533,51 @@ app.get('/api/ventas/recientes', async (req, res) => {
 });
 
 // /api/ventas/cumplimiento
+// Devuelve ARRAY de vendedores con ventas_mes + meta + cumplimiento_pct.
+// vendedores.html hace Array.isArray(cumplData) ? cumplData : [], por eso
+// la forma canónica aquí es array — no objeto agregado.
+// index.html y ai-chat.js lo consumen pero sólo lo pasan a través, así que
+// el cambio de shape (object → array) es compatible.
 app.get('/api/ventas/cumplimiento', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
     const { anio, mes } = yearMonthFromReq(req);
-    const [rows] = await Promise.all([
-      api.runQuery(unidad, 'ventas_resumen_mes', { anio, mes }),
+    const [vendedores, margen] = await Promise.all([
+      api.runQuery(unidad, 'ventas_por_vendedor', { anio, mes }),
+      api.runQuery(unidad, 'margen_por_vendedor', { anio, mes }).catch(() => []),
     ]);
     const metas = readMetas();
-    const total = num((rows[0] || {}).total_general);
-    const meta = num(metas.META_MES || 0);
-    const pct = meta > 0 ? (total / meta) * 100 : 0;
-    res.json({
-      ok: true,
-      MES_ACTUAL: total, META: meta, META_IDEAL: num(metas.META_IDEAL), PCT: pct,
-      CUMPLIMIENTO_PCT: pct,
-    });
+    const metaVendedorMes = num(metas.META_VENDEDOR_MES || 600000);
+    const metaVendedorDia = num(metas.META_DIARIA_POR_VENDEDOR || 20000);
+    // margen_por_vendedor no trae VENDEDOR_ID — match por nombre normalizado.
+    const normName = (s) => String(s || '').trim().toUpperCase();
+    const margenByName = new Map();
+    for (const mg of (margen || [])) {
+      const k = normName(mg.vendedor || mg.VENDEDOR);
+      if (k) margenByName.set(k, mg);
+    }
+    res.json(vendedores.map(v => {
+      const mg = margenByName.get(normName(v.vendedor)) || {};
+      const ventaMes = num(v.total_ventas);
+      const facturas = num(v.num_docs);
+      const pctMes = metaVendedorMes > 0 ? (ventaMes / metaVendedorMes) * 100 : 0;
+      return {
+        VENDEDOR_ID: v.VENDEDOR_ID,
+        NOMBRE: v.vendedor,
+        VENDEDOR: v.vendedor,
+        VENTA_MES: ventaMes,
+        VENTAS_MES: ventaMes,       // alias defensivo (index.html ranking sort)
+        VENTA_HOY: 0,                // upstream no tiene ventas_hoy_por_vendedor aún
+        FACTURAS_MES: facturas,
+        NUM_DOCS: facturas,
+        META_MES: metaVendedorMes,
+        META_DIA: metaVendedorDia,
+        CUMPLIMIENTO_PCT: pctMes,
+        PCT: pctMes,
+        MARGEN_PCT: num(mg.margen_pct || mg.MARGEN_PCT),
+        UTILIDAD: num(mg.utilidad || mg.UTILIDAD),
+      };
+    }));
   } catch (e) { return wrapError(res, e, 'ventas/cumplimiento'); }
 });
 
@@ -723,20 +752,47 @@ app.get('/api/ventas/cotizaciones/diarias', async (req, res) => {
 });
 
 // /api/ventas/por-vendedor/cotizaciones
+// Devuelve array agrupado por vendedor con:
+//   VENDEDOR (nombre), VENDEDOR_ID (match contra ventas_por_vendedor por nombre),
+//   COTIZACIONES_MES (monto total), NUM_COTI_MES (conteo), TOTAL/NUM (alias legacy).
+// vendedores.html hace: cotiMap[c.VENDEDOR_ID] = c; COTI_MES: cotiMap[v.VENDEDOR_ID].COTIZACIONES_MES
+// por eso es crítico emitir VENDEDOR_ID y los campos con nombres que el frontend espera.
 app.get('/api/ventas/por-vendedor/cotizaciones', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
     const { anio, mes } = yearMonthFromReq(req);
-    const rows = await api.runQuery(unidad, 'cotizaciones_activas', { anio, mes });
-    const byV = new Map();
-    for (const r of rows) {
-      const k = r.vendedor || '—';
-      const c = byV.get(k) || { VENDEDOR: k, TOTAL: 0, NUM: 0 };
-      c.TOTAL += num(r.importe_sin_iva);
-      c.NUM += 1;
-      byV.set(k, c);
+    const [cotis, ventas] = await Promise.all([
+      api.runQuery(unidad, 'cotizaciones_activas', { anio, mes }),
+      // Cruzamos contra ventas_por_vendedor para obtener VENDEDOR_ID (cotizaciones_activas no lo trae).
+      api.runQuery(unidad, 'ventas_por_vendedor', { anio, mes }).catch(() => []),
+    ]);
+    const normName = (s) => String(s || '').trim().toUpperCase();
+    const idByName = new Map();
+    for (const v of (ventas || [])) {
+      const k = normName(v.vendedor);
+      if (k) idByName.set(k, v.VENDEDOR_ID);
     }
-    res.json([...byV.values()].sort((a, b) => b.TOTAL - a.TOTAL));
+    const byV = new Map();
+    for (const r of cotis) {
+      const nombre = r.vendedor || '—';
+      const key = normName(nombre);
+      const c = byV.get(key) || {
+        VENDEDOR_ID: idByName.get(key) || null,
+        VENDEDOR: nombre,
+        NOMBRE: nombre,
+        COTIZACIONES_MES: 0,
+        NUM_COTI_MES: 0,
+        TOTAL: 0,
+        NUM: 0,
+      };
+      const monto = num(r.importe_sin_iva);
+      c.COTIZACIONES_MES += monto;
+      c.NUM_COTI_MES += 1;
+      c.TOTAL += monto;
+      c.NUM += 1;
+      byV.set(key, c);
+    }
+    res.json([...byV.values()].sort((a, b) => b.COTIZACIONES_MES - a.COTIZACIONES_MES));
   } catch (e) { return wrapError(res, e, 'ventas/por-vendedor/cotizaciones'); }
 });
 

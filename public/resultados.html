@@ -1052,15 +1052,26 @@ function rebuildTotalesFromMeses(meses){
   out.MARGEN_BRUTO_PCT=out.VENTAS_NETAS>0?Math.round((out.UTILIDAD_BRUTA/out.VENTAS_NETAS)*1000)/10:0;
   return out;
 }
-const DB_ALLOW_TERMS=['suminregio','agua','medicos','madera','carton','reciclaje'];
+// Las 6 unidades reales que expone pnl-universe (grupo es consolidado sintético).
+const UNIDADES_VALIDAS=['parker','medico','maderas','empaque','agua','reciclaje'];
+const UNIDADES_LABELS={
+  parker:'Suminregio Parker',
+  medico:'Suministros Médicos',
+  maderas:'Suminregio Maderas',
+  empaque:'Suminregio Empaque',
+  agua:'Suminregio Agua',
+  reciclaje:'Suminregio Reciclaje',
+};
 function normDbTxt(v){return String(v==null?'':v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
 function allowEmpresa(e){
-  const pool=normDbTxt([e&&e.id,e&&e.label,e&&e.database,e&&e.path].join(' '));
-  if(pool.includes('hamer')) return false;
-  if(pool.includes('empaque')) return false;
-  if(pool.includes('especial')) return false;
-  if(pool.includes('suminregio')&&!pool.includes('parker')&&!pool.includes('grupo')) return false;
-  return DB_ALLOW_TERMS.some(t=>pool.includes(t));
+  if(!e||!e.id) return false;
+  const id=String(e.id).toLowerCase().trim();
+  return UNIDADES_VALIDAS.includes(id);
+}
+function labelEmpresa(e){
+  if(!e||!e.id) return '—';
+  const id=String(e.id).toLowerCase().trim();
+  return UNIDADES_LABELS[id]||e.label||id;
 }
 
 function setMeses(m,btn){
@@ -1543,25 +1554,35 @@ function renderBizChips(empresas){
   const ok=(empresas||[]).filter(e=>e.ok);
   if(ok.length<=1){ bar.style.display='none'; return; }
   bar.style.display='flex';
+  // Default: Suminregio Parker si está disponible; si no, __ALL__ (grupo consolidado).
+  // Respetar selección previa en sessionStorage solo si corresponde a una empresa ok.
   if(!selectedBizId||selectedBizId===''){
     try{
       const saved=(sessionStorage.getItem('microsip_erp_db')||'').trim();
-      if(saved&&ok.some(e=>String(e.id)===String(saved)))selectedBizId=saved;
+      if(saved&&ok.some(e=>String(e.id)===String(saved))) selectedBizId=saved;
+      else if(ok.some(e=>String(e.id).toLowerCase()==='parker')) selectedBizId='parker';
       else selectedBizId='__ALL__';
-    }catch(_){ selectedBizId='__ALL__'; }
+    }catch(_){ selectedBizId=ok.some(e=>String(e.id).toLowerCase()==='parker')?'parker':'__ALL__'; }
   }
   sel.replaceChildren();
   const optAll=document.createElement('option');
   optAll.value='__ALL__';
   optAll.textContent='Grupo consolidado (\u03a3 todas las empresas)';
   sel.appendChild(optAll);
-  ok.forEach(e=>{
+  // Orden fijo: parker primero (es el negocio bandera), luego el resto en orden alfabético.
+  const orden=(a,b)=>{
+    const ia=String(a.id).toLowerCase()==='parker'?-1:0;
+    const ib=String(b.id).toLowerCase()==='parker'?-1:0;
+    if(ia!==ib) return ia-ib;
+    return labelEmpresa(a).localeCompare(labelEmpresa(b));
+  };
+  ok.slice().sort(orden).forEach(e=>{
     const o=document.createElement('option');
     o.value=String(e.id);
-    o.textContent=String(e.label||e.id);
+    o.textContent=labelEmpresa(e);
     sel.appendChild(o);
   });
-  sel.value=[...sel.options].some(o=>o.value===selectedBizId)?selectedBizId:'__ALL__';
+  sel.value=[...sel.options].some(o=>o.value===selectedBizId)?selectedBizId:(ok.some(e=>String(e.id).toLowerCase()==='parker')?'parker':'__ALL__');
   sel.onchange=function(){ selectBusiness(sel.value); };
 }
 
@@ -1597,11 +1618,11 @@ function renderPlMiniTable(empresas, meta){
   const sinAct = oks.filter(e => (+((e.totales||{}).NUM_FACTURAS)||0) === 0);
 
   const mkRow = e => {
-    if(!e.ok) return`<tr><td colspan="5" class="err">${(e.label||e.id)+': '+(e.error||'Error')}</td></tr>`;
+    if(!e.ok) return`<tr><td colspan="5" class="err">${labelEmpresa(e)+': '+(e.error||'Error')}</td></tr>`;
     const t=e.totales||{};
     const sinCosto=`<span title="No hay pólizas de costo (ctas 52*/53*/54*) en Microsip Contabilidad para este período" style="color:var(--muted);font-size:.78rem;cursor:help">Sin costo ℹ</span>`;
     return`<tr style="cursor:pointer" data-biz-row="${e.id}">
-      <td><strong>${(e.label||e.id).replace(/</g,'')}</strong></td>
+      <td><strong>${labelEmpresa(e).replace(/</g,'')}</strong></td>
       <td>${fmtM(+t.VENTAS_NETAS||0)}</td>
       <td>${e.tiene_costo?fmtM(+t.UTILIDAD_BRUTA||0):sinCosto}</td>
       <td>${fmtM(+t.COBROS||0)}</td>
@@ -1622,7 +1643,7 @@ function renderPlMiniTable(empresas, meta){
     </tr>`;
     html += `<tbody id="${toggleId}" style="display:none">${sinAct.map(e=>`
       <tr style="opacity:.4;font-size:.8rem;cursor:pointer" data-biz-row="${e.id}">
-        <td><strong>${(e.label||e.id).replace(/</g,'')}</strong></td>
+        <td><strong>${labelEmpresa(e).replace(/</g,'')}</strong></td>
         <td style="color:var(--muted)">$0</td><td style="color:var(--muted)">—</td>
         <td style="color:var(--muted)">$0</td>
         <td style="color:var(--muted)">0</td>
