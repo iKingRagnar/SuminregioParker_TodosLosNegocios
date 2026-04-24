@@ -646,6 +646,7 @@ app.get('/api/ventas/cobradas', async (req, res) => {
       const nombre = r.vendedor || r.VENDEDOR || '';
       const cobrado = num(r.total_cobrado || r.cobrado || r.COBRADO);
       const facturado = facturadoByV.get(normKey(nombre)) || 0;
+      const nCobros = num(r.num_cobros || r.NUM_COBROS);
       return {
         VENDEDOR: nombre,
         NOMBRE: nombre,
@@ -654,8 +655,9 @@ app.get('/api/ventas/cobradas', async (req, res) => {
         TOTAL_COBRADO: cobrado,        // alias que cobradas.html espera
         FACTURADO: facturado,
         TOTAL_FACTURADO: facturado,
-        NUM_COBROS: num(r.num_cobros || r.NUM_COBROS),
-        NUM_DOCS: num(r.num_cobros || r.NUM_COBROS),
+        NUM_COBROS: nCobros,
+        NUM_DOCS: nCobros,
+        NUM_FACTURAS: nCobros,         // alias: cobradas.html lee r.NUM_FACTURAS por fila
         PCT_COBRADO: facturado > 0 ? Math.round((cobrado / facturado) * 1000) / 10 : 0,
       };
     });
@@ -664,6 +666,7 @@ app.get('/api/ventas/cobradas', async (req, res) => {
     // para no dejar la UI vacía.
     if (!vendedores.length && ventasRaw.length) {
       for (const v of ventasRaw) {
+        const docs = num(v.num_docs);
         vendedores.push({
           VENDEDOR: v.vendedor,
           NOMBRE: v.vendedor,
@@ -673,7 +676,8 @@ app.get('/api/ventas/cobradas', async (req, res) => {
           FACTURADO: num(v.total_ventas),
           TOTAL_FACTURADO: num(v.total_ventas),
           NUM_COBROS: 0,
-          NUM_DOCS: num(v.num_docs),
+          NUM_DOCS: docs,
+          NUM_FACTURAS: docs,
           PCT_COBRADO: 0,
         });
       }
