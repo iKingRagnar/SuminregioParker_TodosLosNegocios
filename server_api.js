@@ -458,9 +458,23 @@ app.get('/api/ventas/diarias', async (req, res) => {
     const unidad = unidadFromReq(req);
     const { anio, mes } = yearMonthFromReq(req);
     const rows = await api.runQuery(unidad, 'ventas_diarias', { anio, mes });
-    res.json(rows.map(r => ({
-      DIA: r.dia, FECHA: r.dia, VENTAS: num(r.total_dia), TOTAL: num(r.total_dia), DOCS: num(r.num_docs),
-    })));
+    // upstream devuelve dia=1..31 (número). El chart del dashboard parsea
+    // FECHA como YYYY-MM-DD, así que convertimos a ISO.
+    res.json(rows.map(r => {
+      const d = Number(r.dia);
+      const iso = Number.isFinite(d) && d > 0 && d <= 31
+        ? `${anio}-${String(mes).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+        : String(r.dia || '');
+      const venta = num(r.total_dia);
+      return {
+        DIA: iso,
+        FECHA: iso,
+        VENTAS: venta,
+        TOTAL: venta,
+        TOTAL_VENTAS: venta, // alias para chart del index
+        DOCS: num(r.num_docs),
+      };
+    }));
   } catch (e) { return wrapError(res, e, 'ventas/diarias'); }
 });
 
@@ -1285,8 +1299,61 @@ app.get('/api/director/ventas-diarias', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
     const { anio, mes } = yearMonthFromReq(req);
+    const dias = Number(req.query.dias) || 0;
+
+    // Modo "histórico" — si dias >= 32, iteramos N meses hacia atrás y
+    // devolvemos una fila por mes con VENTAS_VE / VENTAS_PV separados
+    // (ventas_resumen_mes trae ese split; ventas_diarias no). El chart de
+    // director.html hace monthAgg y solo usa MES+AÑO.
+    if (dias >= 32) {
+      const monthsBack = Math.max(1, Math.min(24, Math.ceil(dias / 30)));
+      const targets = [];
+      for (let k = 0; k < monthsBack; k++) {
+        let y = anio, m = mes - k;
+        while (m <= 0) { m += 12; y -= 1; }
+        targets.push({ y, m });
+      }
+      const results = await Promise.all(
+        targets.map(t => api.runQuery(unidad, 'ventas_resumen_mes', { anio: t.y, mes: t.m }).catch(() => []))
+      );
+      const rows = targets.map((t, i) => {
+        const r = (results[i] && results[i][0]) || {};
+        const iso = `${t.y}-${String(t.m).padStart(2, '0')}-01`;
+        return {
+          DIA: iso,
+          FECHA: iso,
+          VENTAS: num(r.total_general),
+          VENTAS_VE: num(r.total_ve),
+          VENTAS_PV: num(r.total_pv),
+          DOCS: num(r.num_facturas),
+          META_EQUILIBRIO: 0,
+          META_IDEAL: 0,
+        };
+      });
+      return res.json(rows);
+    }
+
+    // Modo diario — default — ventas_diarias del mes solicitado. Normalizamos
+    // dia (número) → ISO YYYY-MM-DD para que parseVentasDiariasDay del
+    // frontend lo reconozca.
     const rows = await api.runQuery(unidad, 'ventas_diarias', { anio, mes });
-    res.json(rows.map(r => ({ DIA: r.dia, FECHA: r.dia, VENTAS: num(r.total_dia), DOCS: num(r.num_docs) })));
+    res.json(rows.map(r => {
+      const d = Number(r.dia);
+      const iso = Number.isFinite(d) && d > 0 && d <= 31
+        ? `${anio}-${String(mes).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+        : String(r.dia || '');
+      const venta = num(r.total_dia);
+      return {
+        DIA: iso,
+        FECHA: iso,
+        VENTAS: venta,
+        VENTAS_VE: venta,  // upstream ventas_diarias no hace split VE/PV
+        VENTAS_PV: 0,
+        DOCS: num(r.num_docs),
+        META_EQUILIBRIO: 0,
+        META_IDEAL: 0,
+      };
+    }));
   } catch (e) { return wrapError(res, e, 'director/ventas-diarias'); }
 });
 
@@ -1619,16 +1686,24 @@ app.get('/api/inv/sin-movimiento', async (req, res) => {
     res.json(rows.map(r => {
       const key = String(r.articulo || '').trim().toUpperCase();
       const d = detByDesc.get(key) || {};
+      const existencia = num(d.existencia);
+      // meses_sin_venta * ~30 como aproximación de dias_sin_venta real
+      const mesesSinVenta = num(d.meses_sin_venta);
+      const diasSinVenta = mesesSinVenta > 0 ? Math.round(mesesSinVenta * 30) : dias;
       return {
         ARTICULO_ID: r.ARTICULO_ID,
         DESCRIPCION: r.articulo || r.DESCRIPCION || '',
         UNIDAD: r.UNIDAD || '',
-        EXISTENCIA: num(d.existencia),
+        // Canonical names que inventario.html consume
+        EXISTENCIA: existencia,
+        EXISTENCIA_ACTUAL: existencia,
+        MIN_ACTUAL: 0, // catálogo externo no expone el mínimo por artículo
+        ULTIMO_MOVIMIENTO: d.ultima_venta || d.ultimo_movimiento || 'Sin registro',
         VALOR_INVENTARIO: num(d.valor),
         LINEA: d.linea || '',
-        MESES_SIN_VENTA: num(d.meses_sin_venta),
+        MESES_SIN_VENTA: mesesSinVenta,
         ROTACION_LABEL: d.rotacion_label || '',
-        DIAS_SIN_VENTA: dias,
+        DIAS_SIN_VENTA: diasSinVenta,
       };
     }));
   } catch (e) { return wrapError(res, e, 'inv/sin-movimiento'); }
@@ -1700,15 +1775,33 @@ app.get('/api/inv/consumo', async (req, res) => {
       for (let i = 1; i <= 12; i++) total += num(r[`sem_${i}`]);
       const diario = total / (12 * 7);
       const existencia = stockByClave.get(String(r.CLAVE_ARTICULO || '').trim()) || 0;
+      const stockLead = Math.round(diario * lead * 100) / 100;
+      const stockMinRecomendado = Math.round(diario * lead * 1.2 * 100) / 100; // 20% buffer
+      const reponer = existencia < stockMinRecomendado
+        ? Math.round((stockMinRecomendado - existencia) * 100) / 100 : 0;
+      const diasStock = diario > 0 ? Math.round((existencia / diario) * 10) / 10 : 9999;
+      // ALERTA: CRITICO (≤lead/3 días), BAJO (≤lead días), BAJO_MINIMO (≤lead*1.2), OK
+      let alerta = 'OK';
+      if (existencia <= 0) alerta = 'CRITICO';
+      else if (diasStock < lead / 3) alerta = 'CRITICO';
+      else if (diasStock < lead) alerta = 'BAJO';
+      else if (diasStock < lead * 1.2) alerta = 'BAJO_MINIMO';
       return {
         ARTICULO_ID: r.ARTICULO_ID,
         CLAVE_ARTICULO: r.CLAVE_ARTICULO,
         DESCRIPCION: r.articulo,
+        UNIDAD: r.UNIDAD || r.unidad || '',
+        // Canonical names que inventario.html (forecast) consume
         EXISTENCIA: existencia,
+        EXISTENCIA_ACTUAL: existencia,
         UNIDADES_TOTAL: num(r.unidades_total),
-        CONSUMO_DIARIO_PROM: Math.round(diario * 100) / 100,
-        CONSUMO_LEAD: Math.round(diario * lead * 100) / 100,
-        DIAS_STOCK: diario > 0 ? Math.round((existencia / diario) * 10) / 10 : 9999,
+        CONSUMO_DIARIO: Math.round(diario * 100) / 100,
+        CONSUMO_DIARIO_PROM: Math.round(diario * 100) / 100, // alias legacy
+        CONSUMO_LEAD: stockLead,
+        STOCK_MINIMO_RECOMENDADO: stockMinRecomendado,
+        CANTIDAD_REPONER: reponer,
+        DIAS_STOCK: diasStock,
+        ALERTA: alerta,
       };
     });
     res.json(out);
@@ -1719,41 +1812,106 @@ app.get('/api/inv/operacion-critica', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
     const limite = Number(req.query.limit) || 120;
-    const [bajos, sinMov, detalle] = await Promise.all([
-      api.runQuery(unidad, 'inv_bajo_minimo', { limite: Math.ceil(limite / 2) }).catch(() => []),
-      api.runQuery(unidad, 'inv_sin_movimiento', { dias: 180, limite: Math.ceil(limite / 2) }).catch(() => []),
+    // Para construir la tabla "operación inventario" necesitamos:
+    // - consumo_semanal (12 sem para CONSUMO_4_SEMANAS y DIAS_COBERTURA_EST)
+    // - inv_top_stock (existencia actual por CLAVE_ARTICULO)
+    // - inventario_articulos_detalle (meses_sin_venta, última venta)
+    // - inv_bajo_minimo y inv_sin_movimiento (para marcar CRITICO)
+    const [consumo, topStock, detalle, bajos, sinMov] = await Promise.all([
+      api.runQuery(unidad, 'consumo_semanal', { limite }).catch(() => []),
+      api.runQuery(unidad, 'inv_top_stock', { limite: 5000 }).catch(() => []),
       api.runQuery(unidad, 'inventario_articulos_detalle', { limite: 5000 }).catch(() => []),
+      api.runQuery(unidad, 'inv_bajo_minimo', { limite: 5000 }).catch(() => []),
+      api.runQuery(unidad, 'inv_sin_movimiento', { dias: 180, limite: 5000 }).catch(() => []),
     ]);
+    const stockByClave = new Map();
+    for (const s of (topStock || [])) {
+      const k = String(s.CLAVE_ARTICULO || '').trim();
+      if (k) stockByClave.set(k, { stock: num(s.stock), articulo: s.articulo });
+    }
     const detByDesc = new Map();
     for (const d of (detalle || [])) {
       const k = String(d.descripcion || '').trim().toUpperCase();
       if (k) detByDesc.set(k, d);
     }
-    const bajoMap = bajos.map((r) => {
-      const stock = num(r.stock_actual);
+    const bajoSet = new Set((bajos || []).map(r => String(r.articulo || '').trim().toUpperCase()));
+    const sinMovSet = new Set((sinMov || []).map(r => String(r.articulo || '').trim().toUpperCase()));
+
+    const out = (consumo || []).map((r) => {
+      const descKey = String(r.articulo || '').trim().toUpperCase();
+      const det = detByDesc.get(descKey) || {};
+      const stockInfo = stockByClave.get(String(r.CLAVE_ARTICULO || '').trim()) || {};
+      const existencia = num(stockInfo.stock);
+      // CONSUMO_4_SEMANAS = suma sem_1..sem_4 (las 4 más recientes)
+      const c4 = num(r.sem_1) + num(r.sem_2) + num(r.sem_3) + num(r.sem_4);
+      // CONSUMO promedio semanal (12 sem) para DIAS_COBERTURA_EST
+      let total12 = 0;
+      for (let i = 1; i <= 12; i++) total12 += num(r[`sem_${i}`]);
+      const diario = total12 / (12 * 7);
+      const diasCob = diario > 0 ? Math.round((existencia / diario) * 10) / 10 : null;
+      const semCob = diario > 0 ? Math.round((existencia / (total12 / 12)) * 10) / 10 : null;
+      const mesesSinVenta = num(det.meses_sin_venta);
+      const diasSinVenta = mesesSinVenta > 0 ? Math.round(mesesSinVenta * 30) : null;
+      const critico = existencia <= 0 || bajoSet.has(descKey) || (diasCob != null && diasCob < 7);
+      let estado = 'OK';
+      if (existencia <= 0) estado = 'Agotado';
+      else if (bajoSet.has(descKey)) estado = 'Bajo mínimo';
+      else if (sinMovSet.has(descKey)) estado = 'Baja rotación';
+      else if (diasCob != null && diasCob < 15) estado = 'Baja cobertura';
+      else if (diasCob != null && diasCob > 180) estado = 'Sobrestock';
       return {
+        ARTICULO_ID: r.ARTICULO_ID,
+        CLAVE_ARTICULO: r.CLAVE_ARTICULO,
+        DESCRIPCION: r.articulo,
+        EXISTENCIA_ACTUAL: existencia,
+        ENTRADAS_TOTAL: num(r.unidades_total), // proxy: movimiento total del periodo
+        CONSUMO_4_SEMANAS: Math.round(c4 * 100) / 100,
+        DIAS_COBERTURA_EST: diasCob,
+        SEMANAS_COBERTURA_EST: semCob,
+        DIAS_SIN_VENTA: diasSinVenta,
+        ULTIMO_MOVIMIENTO: det.ultima_venta || det.ultimo_movimiento || null,
+        CRITICO: critico,
+        ESTADO_OPERATIVO: estado,
+      };
+    });
+
+    // Ordenar: críticos primero, luego por días de cobertura ascendente
+    out.sort((a, b) => {
+      if (a.CRITICO !== b.CRITICO) return a.CRITICO ? -1 : 1;
+      const da = a.DIAS_COBERTURA_EST == null ? 1e9 : a.DIAS_COBERTURA_EST;
+      const db = b.DIAS_COBERTURA_EST == null ? 1e9 : b.DIAS_COBERTURA_EST;
+      return da - db;
+    });
+
+    const criticos = out.filter(r => r.CRITICO).length;
+    res.json({
+      ok: true,
+      resumen: {
+        total: out.length,
+        criticos,
+        bajo_minimo: bajoSet.size,
+        sin_movimiento: sinMovSet.size,
+      },
+      rows: out.slice(0, limite),
+      // Aliases legacy (compatibilidad con consumidores anteriores)
+      bajo_minimo: (bajos || []).map(r => ({
         ARTICULO_ID: r.ARTICULO_ID,
         DESCRIPCION: r.articulo,
         UNIDAD: '',
-        EXISTENCIA: stock,
+        EXISTENCIA: num(r.stock_actual),
         EXISTENCIA_MINIMA: 0,
-        FALTANTE: stock < 0 ? Math.abs(stock) : 0,
-      };
-    });
-    const sinMovMap = sinMov.map((r) => {
-      const d = detByDesc.get(String(r.articulo || '').trim().toUpperCase()) || {};
-      return {
-        ARTICULO_ID: r.ARTICULO_ID,
-        DESCRIPCION: r.articulo,
-        EXISTENCIA: num(d.existencia),
-        VALOR_INVENTARIO: num(d.valor),
-        MESES_SIN_VENTA: num(d.meses_sin_venta),
-      };
-    });
-    res.json({
-      ok: true,
-      bajo_minimo: bajoMap,
-      sin_movimiento: sinMovMap,
+        FALTANTE: num(r.stock_actual) < 0 ? Math.abs(num(r.stock_actual)) : 0,
+      })),
+      sin_movimiento: (sinMov || []).map(r => {
+        const d = detByDesc.get(String(r.articulo || '').trim().toUpperCase()) || {};
+        return {
+          ARTICULO_ID: r.ARTICULO_ID,
+          DESCRIPCION: r.articulo,
+          EXISTENCIA: num(d.existencia),
+          VALOR_INVENTARIO: num(d.valor),
+          MESES_SIN_VENTA: num(d.meses_sin_venta),
+        };
+      }),
     });
   } catch (e) { return wrapError(res, e, 'inv/operacion-critica'); }
 });
@@ -1763,8 +1921,46 @@ app.get('/api/inv/existencias', async (req, res) => {
     const unidad = unidadFromReq(req);
     const q = String(req.query.q || '').trim();
     if (!q) return res.json([]);
-    const rows = await api.runQuery(unidad, 'stock_articulo', { clave_articulo: q }).catch(() => []);
-    res.json(rows);
+    // stock_articulo upstream puede devolver shapes distintos según catálogo.
+    // Para el buscador de inventario.html necesitamos { DESCRIPCION, UNIDAD,
+    // EXISTENCIA, EXISTENCIA_MINIMA, PRECIO_VENTA }. Además, si el usuario
+    // busca por descripción parcial, cruzamos con inv_top_stock (limit alto).
+    const [stockRows, topStock] = await Promise.all([
+      api.runQuery(unidad, 'stock_articulo', { clave_articulo: q }).catch(() => []),
+      api.runQuery(unidad, 'inv_top_stock', { limite: 5000 }).catch(() => []),
+    ]);
+    const qUpper = q.toUpperCase();
+    // Fuente 1: stock_articulo directo
+    const fromStock = (stockRows || []).map(r => ({
+      ARTICULO_ID: r.ARTICULO_ID,
+      CLAVE_ARTICULO: r.CLAVE_ARTICULO || r.clave_articulo || q,
+      DESCRIPCION: r.articulo || r.DESCRIPCION || r.descripcion || '',
+      UNIDAD: r.UNIDAD || r.unidad || '',
+      EXISTENCIA: num(r.stock || r.existencia || r.EXISTENCIA),
+      EXISTENCIA_MINIMA: num(r.existencia_minima || r.EXISTENCIA_MINIMA, 0),
+      PRECIO_VENTA: num(r.precio_venta || r.PRECIO_VENTA || r.costo_unitario),
+    }));
+    // Fuente 2: búsqueda por descripción en top_stock (match parcial case-insensitive)
+    const fromTop = (topStock || [])
+      .filter(r => {
+        const desc = String(r.articulo || '').toUpperCase();
+        const clave = String(r.CLAVE_ARTICULO || '').toUpperCase();
+        return desc.includes(qUpper) || clave.includes(qUpper);
+      })
+      .map(r => ({
+        ARTICULO_ID: r.ARTICULO_ID,
+        CLAVE_ARTICULO: r.CLAVE_ARTICULO,
+        DESCRIPCION: r.articulo || '',
+        UNIDAD: r.UNIDAD || r.unidad || '',
+        EXISTENCIA: num(r.stock),
+        EXISTENCIA_MINIMA: 0,
+        PRECIO_VENTA: num(r.precio_venta || r.costo_unitario),
+      }));
+    // Dedup por CLAVE_ARTICULO, stock_articulo gana sobre top_stock
+    const byKey = new Map();
+    for (const row of fromTop) if (row.CLAVE_ARTICULO) byKey.set(row.CLAVE_ARTICULO, row);
+    for (const row of fromStock) if (row.CLAVE_ARTICULO) byKey.set(row.CLAVE_ARTICULO, row);
+    res.json([...byKey.values()].slice(0, 50));
   } catch (e) { return wrapError(res, e, 'inv/existencias'); }
 });
 
