@@ -757,14 +757,20 @@ app.get('/api/ventas/vs-cotizaciones', async (req, res) => {
       ventana.push({ anio: d.getFullYear(), mes: d.getMonth() + 1 });
     }
 
+    // Paralelizamos las N*2 llamadas (ventas + cotis por mes). Con 6 meses
+    // son 12 llamadas — un loop secuencial tardaba >45s y tumbaba la UI.
+    const tasks = ventana.flatMap(({ anio: a, mes: m }) => [
+      api.runQuery(unidad, 'ventas_resumen_mes', { anio: a, mes: m }).catch(() => []),
+      api.runQuery(unidad, 'cotizaciones_activas', { anio: a, mes: m }).catch(() => []),
+    ]);
+    const resultados = await Promise.all(tasks);
+
     const ventasArr = [];
     const cotiArr = [];
-    for (const { anio: a, mes: m } of ventana) {
-      const [ventasRows, cotisRows] = await Promise.all([
-        api.runQuery(unidad, 'ventas_resumen_mes', { anio: a, mes: m }).catch(() => []),
-        api.runQuery(unidad, 'cotizaciones_activas', { anio: a, mes: m }).catch(() => []),
-      ]);
-      const vRow = (ventasRows || [])[0] || {};
+    ventana.forEach(({ anio: a, mes: m }, i) => {
+      const ventasRows = resultados[i * 2] || [];
+      const cotisRows = resultados[i * 2 + 1] || [];
+      const vRow = ventasRows[0] || {};
       ventasArr.push({
         ANIO: a, MES: m,
         TOTAL_VENTAS: num(vRow.total_general),
@@ -772,13 +778,13 @@ app.get('/api/ventas/vs-cotizaciones', async (req, res) => {
         TOTAL_PV: num(vRow.total_pv),
         NUM_DOCS: num(vRow.num_facturas),
       });
-      const totC = (cotisRows || []).reduce((s, r) => s + num(r.importe_sin_iva), 0);
+      const totC = cotisRows.reduce((s, r) => s + num(r.importe_sin_iva), 0);
       cotiArr.push({
         ANIO: a, MES: m,
         TOTAL_COTI: totC,
-        NUM_COTI: (cotisRows || []).length,
+        NUM_COTI: cotisRows.length,
       });
-    }
+    });
 
     const totalV = ventasArr.reduce((s, r) => s + r.TOTAL_VENTAS, 0);
     const totalC = cotiArr.reduce((s, r) => s + r.TOTAL_COTI, 0);
