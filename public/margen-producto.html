@@ -35,7 +35,8 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
 .kpi-v{font-family:'DM Mono',monospace;font-size:1.28rem;margin-top:.35rem}
 .kpi-s{font-size:.7rem;color:var(--text2);margin-top:.25rem}
 .split{display:grid;grid-template-columns:1.2fr .8fr;gap:.75rem}
-.chart-box{height:250px}
+.chart-box{height:360px;min-height:320px}
+@media (max-width:900px){.chart-box{height:420px}}
 .rank{width:100%;border-collapse:collapse}
 .rank th,.rank td{padding:.5rem .6rem;border-bottom:1px solid var(--border);font-size:.72rem}
 .rank th{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);text-transform:uppercase}
@@ -361,25 +362,63 @@ function renderArtChart(list) {
     return { k, util: venta - costo };
   }).sort((a, b) => b.util - a.util).slice(0, 10);
   document.getElementById('artBadge').textContent = rows.length + ' artículos';
-  const labels = rows.map(r => r.k.length > 28 ? r.k.slice(0, 28) + '…' : r.k);
+  const labels = rows.map(r => r.k.length > 44 ? r.k.slice(0, 44) + '…' : r.k);
   const vals = rows.map(r => Math.round(r.util * 100) / 100);
   if (chartArt) chartArt.destroy();
   const ctx = document.getElementById('chartArt')?.getContext('2d');
   if (!ctx) return;
+  // Detecta tema (light/dark) para elegir colores legibles en ambos
+  const isLight = (document.documentElement.getAttribute('data-theme') === 'light') ||
+                  document.documentElement.classList.contains('theme-premium-light');
+  const COL_LABEL   = isLight ? '#0F2238' : '#E8EFF8';
+  const COL_LABEL_X = isLight ? '#415367' : '#C9D8E8';
+  const COL_GRID    = isLight ? 'rgba(15,34,56,.08)' : 'rgba(255,255,255,.06)';
+  const COL_BAR_BG  = isLight ? 'rgba(30,127,217,.22)' : 'rgba(77,166,255,.45)';
+  const COL_BAR_BR  = isLight ? '#1E7FD9' : '#4DA6FF';
   chartArt = new Chart(ctx, {
     type: 'bar',
     data: {
       labels,
-      datasets: [{ data: vals, backgroundColor: 'rgba(77,166,255,.45)', borderColor: '#4DA6FF', borderWidth: 1, borderRadius: 6 }]
+      datasets: [{
+        data: vals,
+        backgroundColor: COL_BAR_BG,
+        borderColor: COL_BAR_BR,
+        borderWidth: 1.5,
+        borderRadius: 8,
+        hoverBackgroundColor: isLight ? 'rgba(30,127,217,.38)' : 'rgba(77,166,255,.62)',
+      }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       indexAxis: 'y',
-      plugins: { legend: { display: false } },
+      layout: { padding: { left: 4, right: 12, top: 4, bottom: 4 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: isLight ? 'rgba(15,34,56,.96)' : 'rgba(12,27,41,.96)',
+          titleColor: '#fff', bodyColor: '#fff', padding: 10, cornerRadius: 8,
+          callbacks: { label: (c) => ' Utilidad: ' + fmtM(c.parsed.x) }
+        }
+      },
       scales: {
-        x: { ticks: { color: '#90A7C0', callback: v => fmtM(v) }, grid: { color: 'rgba(255,255,255,.05)' } },
-        y: { ticks: { color: '#C9D8E8' }, grid: { display: false } }
+        x: {
+          ticks: {
+            color: COL_LABEL_X,
+            font: { family: "'DM Mono', monospace", size: 11, weight: '500' },
+            callback: v => fmtM(v)
+          },
+          grid: { color: COL_GRID, drawBorder: false }
+        },
+        y: {
+          ticks: {
+            color: COL_LABEL,
+            font: { family: "'Syne', sans-serif", size: 12.5, weight: '600' },
+            padding: 6,
+            autoSkip: false
+          },
+          grid: { display: false, drawBorder: false }
+        }
       }
     }
   });

@@ -1258,8 +1258,53 @@ app.get('/api/resultados/pnl-universe', async (req, res) => {
 
 app.get('/api/universe/scorecard', async (_req, res) => {
   try {
-    const rows = await api.runQuery('grupo', 'scorecard', {});
-    res.json({ ok: true, unidades: rows });
+    const base = await api.runQuery('grupo', 'scorecard', {});
+    const rows = Array.isArray(base) ? base : [];
+
+    // Enriquecer en paralelo cada unidad con inventario y CxC vencido.
+    // Si alguna query falla individualmente no se cae el endpoint.
+    const enriched = await Promise.all(rows.map(async (u) => {
+      const id = u._unidad || u.unidad || u.id;
+      if (!id) return null;
+      const [invRows, agingRows] = await Promise.all([
+        api.runQuery(id, 'inventario_resumen_marca', {}).catch(() => []),
+        api.runQuery(id, 'cxc_aging', {}).catch(() => []),
+      ]);
+      const invValor = (invRows || []).reduce((s, r) => s + num(r.valor_total), 0);
+      const invArticulos = (invRows || []).reduce((s, r) => s + num(r.total_arts), 0);
+      // aging: "0-30" es al corriente; 31+ días = vencido
+      const cxcVencido = (agingRows || []).reduce((s, r) => {
+        const b = String(r.bucket || r.rango || '').toLowerCase().trim();
+        if (!b || b === '0-30' || b === '00-30' || b === 'al_corriente' || b === 'vigente' || b.startsWith('por_vencer')) return s;
+        return s + num(r.total_bucket, num(r.saldo));
+      }, 0);
+      return {
+        id,
+        label: u._unidad_nombre || u.nombre || id,
+        snapshot: true,
+        ventas: {
+          mes: num(u.ventas_mes_actual),
+          hoy: 0, // no expuesto por el query scorecard
+          mes_anterior: num(u.ventas_mes_anterior),
+          anio_anterior: num(u.ventas_anio_anterior),
+        },
+        cxc: {
+          total: num(u.saldo_cxc),
+          vencido: Math.round(cxcVencido * 100) / 100,
+        },
+        inv: {
+          valor: Math.round(invValor * 100) / 100,
+          articulos: invArticulos,
+        },
+        clientes: {
+          activos: num(u.clientes_activos),
+          total: num(u.clientes_activos), // el API sólo expone activos
+        },
+      };
+    }));
+    const items = enriched.filter(Boolean);
+    // Shape compatible: array bajo `items` (comparar.html) y `unidades` (legacy).
+    res.json({ ok: true, items, unidades: items });
   } catch (e) { return wrapError(res, e, 'universe/scorecard'); }
 });
 
