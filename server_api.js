@@ -540,11 +540,18 @@ app.get('/api/ventas/cobradas', async (req, res) => {
 });
 
 // /api/ventas/cobradas-detalle
+// cobros_detalle_mes corre sobre el engine Firebird (live). Cuando Firebird
+// está caído o la query del lado upstream lanza un 500, devolvemos un array
+// vacío para que la UI degrade a estado "sin cobros" en vez de crashear.
 app.get('/api/ventas/cobradas-detalle', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
     const { anio, mes } = yearMonthFromReq(req);
-    const rows = await api.runQuery(unidad, 'cobros_detalle_mes', { anio, mes });
+    const rows = await api.runQuery(unidad, 'cobros_detalle_mes', { anio, mes })
+      .catch((err) => {
+        console.warn(`[cobradas-detalle] upstream failed: ${err.message}`);
+        return [];
+      });
     res.json(rows);
   } catch (e) { return wrapError(res, e, 'ventas/cobradas-detalle'); }
 });
@@ -554,7 +561,11 @@ app.get('/api/ventas/cobradas-por-factura', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
     const { anio, mes } = yearMonthFromReq(req);
-    const rows = await api.runQuery(unidad, 'cobros_detalle_mes', { anio, mes });
+    const rows = await api.runQuery(unidad, 'cobros_detalle_mes', { anio, mes })
+      .catch((err) => {
+        console.warn(`[cobradas-por-factura] upstream failed: ${err.message}`);
+        return [];
+      });
     res.json(rows);
   } catch (e) { return wrapError(res, e, 'ventas/cobradas-por-factura'); }
 });
@@ -776,7 +787,12 @@ app.get('/api/cxc/historial-pagos', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
     const { anio, mes } = yearMonthFromReq(req);
-    const rows = await api.runQuery(unidad, 'cobros_detalle_mes', { anio, mes });
+    // Firebird engine — degradar a [] si upstream falla.
+    const rows = await api.runQuery(unidad, 'cobros_detalle_mes', { anio, mes })
+      .catch((err) => {
+        console.warn(`[cxc/historial-pagos] upstream failed: ${err.message}`);
+        return [];
+      });
     res.json(rows);
   } catch (e) { return wrapError(res, e, 'cxc/historial-pagos'); }
 });
