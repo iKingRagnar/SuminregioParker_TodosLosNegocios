@@ -169,7 +169,11 @@ function currentSession(req) {
 
 // Rutas/patrones que NO requieren sesión (estáticos de la pantalla de login
 // + endpoints de auth + health). Todo lo demás queda gateado.
-const PUBLIC_ALLOW_RE = /^(?:\/login(?:\.html)?$|\/logout$|\/api\/auth\/|\/api\/ping$|\/health$|\/favicon|\/assets\/|\/manifest\.webmanifest$|\/sw\.js$|\/.*\.(?:css|svg|png|jpg|jpeg|gif|ico|webp|woff2?)(?:\?.*)?$)/i;
+// NOTA CRÍTICA: los .js/.mjs/.map son públicos porque no contienen datos de negocio —
+// el gate real vive en los endpoints /api/* que devuelven información. Sin esto, cada
+// script del dashboard redirige a /login y el cliente entra en loop de 302s (visible
+// en logs como "GET /nav.js → 688B", "GET /login?next=%2Fnav.js → 9732B", etc).
+const PUBLIC_ALLOW_RE = /^(?:\/login(?:\.html)?$|\/logout$|\/api\/auth\/|\/api\/ping$|\/health$|\/favicon|\/assets\/|\/manifest\.webmanifest$|\/sw\.js$|\/.*\.(?:css|js|mjs|map|svg|png|jpg|jpeg|gif|ico|webp|avif|woff2?|ttf|otf|eot|txt|json)(?:\?.*)?$)/i;
 
 if (AUTH_ENABLED) {
   console.log(`[auth] session-cookie auth ACTIVO para ${Object.keys(AUTH_USERS).length} usuario(s)`);
