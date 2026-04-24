@@ -34,9 +34,9 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const basicAuth = require('express-basic-auth');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 const api = require('./api-client');
 
@@ -83,22 +83,171 @@ app.use('/api/', rateLimit({
 
 app.use(express.json({ limit: '1mb' }));
 
-// Basic auth OPCIONAL (solo si AUTH_USERS está configurada).
-// Formato: "usuario:pass;usuario2:pass2". Se aplica a TODO excepto /health y /api/ping.
-if (process.env.AUTH_USERS && process.env.AUTH_USERS.trim()) {
-  const users = {};
-  for (const pair of process.env.AUTH_USERS.split(';')) {
+// ── Session-cookie auth (reemplaza al basic auth del browser) ───────────────
+// AUTH_USERS="usuario:pass;usuario2:pass2" habilita login; sin esa env, el
+// acceso es abierto. La cookie "sumi_sess" es HMAC-firmada con un secreto
+// derivado o configurado en AUTH_SESSION_SECRET.
+const AUTH_USERS_RAW = (process.env.AUTH_USERS || '').trim();
+const AUTH_USERS = {};
+if (AUTH_USERS_RAW) {
+  for (const pair of AUTH_USERS_RAW.split(';')) {
     const [u, p] = pair.split(':');
-    if (u && p) users[u.trim()] = p.trim();
-  }
-  if (Object.keys(users).length) {
-    console.log(`[auth] basic auth ACTIVO para ${Object.keys(users).length} usuario(s)`);
-    app.use((req, res, next) => {
-      if (req.path === '/health' || req.path === '/api/ping') return next();
-      return basicAuth({ users, challenge: true, realm: 'Suminregio' })(req, res, next);
-    });
+    if (u && p) AUTH_USERS[u.trim()] = p.trim();
   }
 }
+const AUTH_ENABLED = Object.keys(AUTH_USERS).length > 0;
+const SESSION_COOKIE = 'sumi_sess';
+const SESSION_SECRET = (process.env.AUTH_SESSION_SECRET && process.env.AUTH_SESSION_SECRET.length >= 16)
+  ? process.env.AUTH_SESSION_SECRET
+  : crypto.createHash('sha256').update('suminregio-v2::' + AUTH_USERS_RAW + '::' + (process.env.SUMINREGIO_API_KEY || '')).digest('hex');
+const SESSION_MAX_AGE_DEFAULT_MS = 1000 * 60 * 60 * 12;       // 12 h por defecto
+const SESSION_MAX_AGE_REMEMBER_MS = 1000 * 60 * 60 * 24 * 30; // 30 d con "recordarme"
+
+function b64urlEncode(buf) {
+  return Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function b64urlDecode(str) {
+  const pad = (str + '==='.slice((str.length + 3) % 4)).replace(/-/g, '+').replace(/_/g, '/');
+  return Buffer.from(pad, 'base64');
+}
+function signSessionToken(payload) {
+  const body = b64urlEncode(JSON.stringify(payload));
+  const sig = crypto.createHmac('sha256', SESSION_SECRET).update(body).digest();
+  return body + '.' + b64urlEncode(sig);
+}
+function verifySessionToken(token) {
+  if (!token || typeof token !== 'string') return null;
+  const [body, sigB64] = token.split('.');
+  if (!body || !sigB64) return null;
+  const expected = crypto.createHmac('sha256', SESSION_SECRET).update(body).digest();
+  let given;
+  try { given = b64urlDecode(sigB64); } catch { return null; }
+  if (expected.length !== given.length) return null;
+  if (!crypto.timingSafeEqual(expected, given)) return null;
+  let payload;
+  try { payload = JSON.parse(b64urlDecode(body).toString('utf8')); } catch { return null; }
+  if (!payload || typeof payload !== 'object') return null;
+  if (typeof payload.exp !== 'number' || payload.exp <= Date.now()) return null;
+  if (!payload.u || typeof payload.u !== 'string') return null;
+  return payload;
+}
+function parseCookies(header) {
+  const out = {};
+  if (!header) return out;
+  for (const part of String(header).split(';')) {
+    const idx = part.indexOf('=');
+    if (idx === -1) continue;
+    const k = part.slice(0, idx).trim();
+    const v = part.slice(idx + 1).trim();
+    if (k) out[k] = decodeURIComponent(v);
+  }
+  return out;
+}
+function issueSessionCookie(res, username, remember) {
+  const maxAge = remember ? SESSION_MAX_AGE_REMEMBER_MS : SESSION_MAX_AGE_DEFAULT_MS;
+  const token = signSessionToken({ u: username, exp: Date.now() + maxAge, r: !!remember });
+  const parts = [
+    `${SESSION_COOKIE}=${encodeURIComponent(token)}`,
+    'Path=/',
+    'HttpOnly',
+    'SameSite=Lax',
+    `Max-Age=${Math.floor(maxAge / 1000)}`,
+  ];
+  if (IS_PROD) parts.push('Secure');
+  res.setHeader('Set-Cookie', parts.join('; '));
+}
+function clearSessionCookie(res) {
+  const parts = [`${SESSION_COOKIE}=`, 'Path=/', 'HttpOnly', 'SameSite=Lax', 'Max-Age=0'];
+  if (IS_PROD) parts.push('Secure');
+  res.setHeader('Set-Cookie', parts.join('; '));
+}
+function currentSession(req) {
+  const cookies = parseCookies(req.headers.cookie);
+  const tok = cookies[SESSION_COOKIE];
+  return tok ? verifySessionToken(tok) : null;
+}
+
+// Rutas/patrones que NO requieren sesión (estáticos de la pantalla de login
+// + endpoints de auth + health). Todo lo demás queda gateado.
+const PUBLIC_ALLOW_RE = /^(?:\/login(?:\.html)?$|\/logout$|\/api\/auth\/|\/api\/ping$|\/health$|\/favicon|\/assets\/|\/manifest\.webmanifest$|\/sw\.js$|\/.*\.(?:css|svg|png|jpg|jpeg|gif|ico|webp|woff2?)(?:\?.*)?$)/i;
+
+if (AUTH_ENABLED) {
+  console.log(`[auth] session-cookie auth ACTIVO para ${Object.keys(AUTH_USERS).length} usuario(s)`);
+  app.use((req, res, next) => {
+    // Always allow public routes, health checks, static assets for the login screen
+    if (req.method === 'OPTIONS') return next();
+    if (PUBLIC_ALLOW_RE.test(req.path)) return next();
+
+    const sess = currentSession(req);
+    if (sess) {
+      req.user = sess;
+      return next();
+    }
+    // API → 401 JSON; HTML → redirect al login conservando ?next=
+    if (req.path.startsWith('/api/')) {
+      return res.status(401).json({ ok: false, error: 'no_autenticado', login_url: '/login' });
+    }
+    const nextUrl = encodeURIComponent(req.originalUrl || req.url || '/');
+    return res.redirect(302, `/login?next=${nextUrl}`);
+  });
+} else {
+  console.log('[auth] AUTH_USERS vacío → acceso abierto (dev)');
+}
+
+// Endpoints de autenticación (siempre registrados; devuelven shape consistente)
+app.post('/api/auth/login', (req, res) => {
+  try {
+    const body = req.body || {};
+    const usernameRaw = typeof body.username === 'string' ? body.username.trim() : '';
+    const password = typeof body.password === 'string' ? body.password : '';
+    const remember = !!body.remember;
+    if (!usernameRaw || !password) {
+      return res.status(400).json({ ok: false, error: 'usuario_y_contrasena_requeridos' });
+    }
+    if (!AUTH_ENABLED) {
+      // Sin AUTH_USERS todo acceso es abierto; dejamos pasar y emitimos cookie "guest"
+      issueSessionCookie(res, 'guest', remember);
+      return res.json({ ok: true, user: 'guest', remember, mode: 'open' });
+    }
+    const expected = AUTH_USERS[usernameRaw];
+    let pwOk = false;
+    if (expected) {
+      const a = Buffer.from(password, 'utf8');
+      const b = Buffer.from(expected, 'utf8');
+      pwOk = a.length === b.length && crypto.timingSafeEqual(a, b);
+    }
+    if (!pwOk) {
+      // Delay pequeño para mitigar brute-force por red (no bloquea event-loop)
+      return setTimeout(() => {
+        res.status(401).json({ ok: false, error: 'credenciales_invalidas' });
+      }, 350);
+    }
+    issueSessionCookie(res, usernameRaw, remember);
+    return res.json({ ok: true, user: usernameRaw, remember, mode: 'auth' });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: 'login_fallo', detail: String(e && e.message || e) });
+  }
+});
+app.post('/api/auth/logout', (_req, res) => {
+  clearSessionCookie(res);
+  res.json({ ok: true });
+});
+app.get('/api/auth/me', (req, res) => {
+  const sess = currentSession(req);
+  if (!sess) return res.status(401).json({ ok: false, error: 'no_autenticado' });
+  res.json({ ok: true, user: sess.u, remember: !!sess.r, exp: sess.exp });
+});
+// /login → public/login.html (el static middleware resuelve la ruta concreta)
+app.get('/login', (_req, res) => {
+  const loginHtml = path.join(__dirname, 'public', 'login.html');
+  if (fs.existsSync(loginHtml)) return res.sendFile(loginHtml);
+  return res.status(500).send('login.html no encontrado');
+});
+// Logout convenience (GET) — borra la cookie y redirige al login
+app.get('/logout', (_req, res) => {
+  clearSessionCookie(res);
+  res.redirect(302, '/login');
+});
 
 // ── Estáticos (misma lógica que server_corregido.js) ────────────────────────
 const staticOpts = {
@@ -952,11 +1101,128 @@ app.get('/api/resultados/pnl', async (req, res) => {
 app.get('/api/resultados/balance-general', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
-    const [cap, prueba] = await Promise.all([
+    const { anio, mes } = yearMonthFromReq(req);
+
+    // Composición: el API externo expone vistas OPERATIVAS (no el catálogo
+    // contable completo). Por eso armamos el Balance General sintético a partir
+    // de capital_trabajo + cxc_saldo_total + cxp_saldo_total + desglose de
+    // inventario, CxC aging y top proveedores. Los rubros no-circulantes (fijo,
+    // diferidos) no están expuestos por el API → se reportan como 0 con nota.
+    const [cap, prueba, cxcSaldo, cxpSaldo, invPorMarca, cxcAging, topProv, cxpAging] = await Promise.all([
       api.runQuery(unidad, 'capital_trabajo', {}).catch(() => []),
       api.runQuery(unidad, 'prueba_acida', {}).catch(() => []),
+      api.runQuery(unidad, 'cxc_saldo_total', {}).catch(() => []),
+      api.runQuery(unidad, 'cxp_saldo_total', {}).catch(() => []),
+      api.runQuery(unidad, 'inventario_resumen_marca', {}).catch(() => []),
+      api.runQuery(unidad, 'cxc_aging', {}).catch(() => []),
+      api.runQuery(unidad, 'cxp_top_proveedores', { limite: 10 }).catch(() => []),
+      api.runQuery(unidad, 'cxp_aging', {}).catch(() => []),
     ]);
-    res.json({ ok: true, capital_trabajo: cap[0] || {}, prueba_acida: prueba[0] || {} });
+
+    const capRow = cap[0] || {};
+    const pruebaRow = prueba[0] || {};
+    const cxcRow = cxcSaldo[0] || {};
+    const cxpRow = cxpSaldo[0] || {};
+
+    // Preferimos saldos explícitos de cxc/cxp_saldo_total; capital_trabajo es fallback.
+    const caja = num(capRow.bancos);
+    const cxc = num(cxcRow.saldo, num(capRow.cxc));
+    const inventario = num(capRow.inventario);
+    const activoCirc = caja + cxc + inventario;
+    const activoFijoNeto = 0; // no expuesto en API externo
+    const cargosDiferidos = 0;
+    const otrosActivos = 0;
+    const activoTotal = activoCirc + activoFijoNeto + cargosDiferidos + otrosActivos;
+
+    const cxp = num(cxpRow.saldo, num(capRow.cxp));
+    const otrosPasivos = 0; // no expuesto
+    const pasivoTotal = cxp + otrosPasivos;
+
+    const capitalTotal = Math.round((activoTotal - pasivoTotal) * 100) / 100; // patrimonio implícito
+    const diferencia = Math.round(((pasivoTotal + capitalTotal) - activoTotal) * 100) / 100;
+
+    const totales = {
+      ACTIVO_TOTAL: activoTotal,
+      PASIVO_TOTAL: pasivoTotal,
+      CAPITAL_TOTAL: capitalTotal,
+      DIFERENCIA_BALANCE: diferencia,
+      ACTIVO_CAJA_BANCOS: caja,
+      ACTIVO_CXC: cxc,
+      ACTIVO_INVENTARIO: inventario,
+      ACTIVO_CIRCULANTE: activoCirc,
+      ACTIVO_FIJO_NETO: activoFijoNeto,
+      CARGOS_DIFERIDOS: cargosDiferidos,
+      OTROS_ACTIVOS: otrosActivos,
+      RATIO_CIRCULANTE: num(capRow.ratio_circulante),
+      CAPITAL_TRABAJO: num(capRow.capital_trabajo, activoCirc - pasivoTotal),
+      PRUEBA_ACIDA: num(pruebaRow.prueba_acida),
+    };
+
+    // Detalle "activo": mostramos caja, cxc y top-líneas de inventario con estilo Microsip
+    // (CUENTA_PT/NOMBRE/SALDO) para que el frontend existente lo pinte sin cambios.
+    const activoDetalle = [
+      { CUENTA_PT: '11', NOMBRE: 'Caja y bancos', SALDO: caja },
+      { CUENTA_PT: '12', NOMBRE: 'Cuentas por cobrar — clientes', SALDO: cxc },
+    ];
+    const topInvLineas = (Array.isArray(invPorMarca) ? invPorMarca : [])
+      .slice()
+      .sort((a, b) => num(b.valor_total) - num(a.valor_total))
+      .slice(0, 8);
+    for (const l of topInvLineas) {
+      if (num(l.valor_total) <= 0) continue;
+      activoDetalle.push({
+        CUENTA_PT: '13',
+        NOMBRE: `Inventario — ${l.linea || 'Línea sin clasificar'}`,
+        SALDO: num(l.valor_total),
+      });
+    }
+
+    // Detalle "pasivo": top proveedores (si disponibles) + resumen de aging.
+    const pasivoDetalle = [];
+    if (Array.isArray(topProv) && topProv.length) {
+      for (const p of topProv) {
+        const sal = num(p.saldo || p.SALDO);
+        if (sal <= 0) continue;
+        pasivoDetalle.push({
+          CUENTA_PT: '21',
+          NOMBRE: `Cuentas por pagar — ${p.proveedor || p.PROVEEDOR || 'Proveedor'}`,
+          SALDO: sal,
+        });
+      }
+    }
+    if (!pasivoDetalle.length && cxp > 0) {
+      pasivoDetalle.push({ CUENTA_PT: '21', NOMBRE: 'Cuentas por pagar — proveedores', SALDO: cxp });
+    }
+
+    // Detalle "capital": patrimonio implícito (el API externo no expone cuentas 3*)
+    const capitalDetalle = [];
+    if (Math.abs(capitalTotal) > 0.01) {
+      capitalDetalle.push({
+        CUENTA_PT: '3*',
+        NOMBRE: 'Patrimonio implícito (Activo − Pasivo; el API externo no expone catálogo contable 3*)',
+        SALDO: capitalTotal,
+      });
+    }
+
+    res.json({
+      ok: true,
+      unidad,
+      fuente: 'suminregio-api (vistas operativas)',
+      nota: 'Balance General sintético a partir de capital_trabajo + cxc_saldo_total + cxp_saldo_total + inventario_resumen_marca. Rubros no-circulantes (activo fijo, diferidos) no se exponen en el API externo: se calculan a $0. El patrimonio se reporta como implícito (Activo − Pasivo).',
+      totales,
+      detalle: {
+        activo: activoDetalle,
+        pasivo: pasivoDetalle,
+        capital: capitalDetalle,
+      },
+      aging: {
+        cxc: cxcAging,
+        cxp: cxpAging,
+      },
+      cierre: { MES: mes, ANIO: anio, balance_ultimo_cierre_disponible: false },
+      capital_trabajo: capRow,
+      prueba_acida: pruebaRow,
+    });
   } catch (e) { return wrapError(res, e, 'resultados/balance-general'); }
 });
 
@@ -1111,7 +1377,7 @@ app.listen(PORT, () => {
   console.log(`  build:    ${BUILD_FINGERPRINT}`);
   console.log(`  unidad:   ${DEFAULT_UNIDAD}`);
   console.log(`  cors:     ${CORS_ORIGIN}`);
-  if (process.env.AUTH_USERS) console.log('  auth:     basic auth activo');
+  console.log(`  auth:     ${AUTH_ENABLED ? 'session cookie (' + Object.keys(AUTH_USERS).length + ' usuario/s) — login en /login' : 'abierto (AUTH_USERS vacío)'}`);
   console.log(`  prod:     ${IS_PROD}`);
 });
 

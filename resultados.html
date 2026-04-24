@@ -255,6 +255,154 @@ details.sr-gastos-blk>summary{cursor:pointer;font-family:'DM Mono',monospace;fon
 .bg-ratio .k{font-family:'DM Mono',monospace;font-size:.56rem;color:var(--muted);letter-spacing:.07em;text-transform:uppercase}
 .bg-ratio .v{font-family:'DM Mono',monospace;font-size:.95rem;font-weight:700;margin-top:.2rem}
 
+/* ═════════ BALANCE GENERAL — Premium redesign v2 ═════════ */
+.bg-premium-hero{
+  position:relative;
+  display:grid;grid-template-columns:1.1fr 1fr 1fr 1fr;gap:1rem;
+  padding:1.6rem 1.6rem;margin:0 0 1.25rem;
+  border-radius:20px;
+  background:
+    radial-gradient(ellipse 80% 120% at 0% 0%,rgba(230,168,0,.14),transparent 55%),
+    radial-gradient(ellipse 80% 120% at 100% 100%,rgba(0,229,160,.10),transparent 55%),
+    linear-gradient(155deg,rgba(15,27,42,.96),rgba(12,21,34,.98));
+  border:1px solid rgba(230,168,0,.22);
+  overflow:hidden;
+  box-shadow:0 10px 40px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.05);
+}
+.bg-premium-hero::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:
+    linear-gradient(90deg,transparent 0,transparent calc(33% - 1px),rgba(255,255,255,.06) calc(33% - 1px),rgba(255,255,255,.06) 33%,transparent 33%),
+    linear-gradient(90deg,transparent 0,transparent calc(66% - 1px),rgba(255,255,255,.06) calc(66% - 1px),rgba(255,255,255,.06) 66%,transparent 66%);
+}
+.bg-hero-headline{grid-column:1/-1;display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.6rem;gap:1rem;flex-wrap:wrap}
+.bg-hero-kicker{font-family:'DM Mono',monospace;font-size:.62rem;letter-spacing:.14em;color:var(--suminregio);text-transform:uppercase;font-weight:500}
+.bg-hero-title{font-family:'Syne',sans-serif;font-size:1.55rem;font-weight:700;letter-spacing:-.02em;color:var(--text);margin-top:.25rem;line-height:1.12}
+.bg-hero-sub{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--text2);margin-top:.35rem;max-width:560px;line-height:1.45}
+.bg-hero-pill{
+  font-family:'DM Mono',monospace;font-size:.58rem;
+  padding:.45rem .85rem;border-radius:999px;
+  background:rgba(0,229,160,.14);color:var(--green);
+  border:1px solid rgba(0,229,160,.35);letter-spacing:.06em;
+  text-transform:uppercase;font-weight:600;
+  display:inline-flex;align-items:center;gap:.4rem;
+}
+.bg-hero-pill.warn{background:rgba(255,184,0,.14);color:var(--yellow);border-color:rgba(255,184,0,.35)}
+.bg-hero-pill.bad{background:rgba(255,69,102,.14);color:var(--red);border-color:rgba(255,69,102,.35)}
+.bg-hero-pill::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 10px currentColor}
+.bg-hero-metric{
+  position:relative;padding:.7rem .2rem;
+  border-left:1px solid rgba(255,255,255,.08);
+}
+.bg-hero-metric:first-of-type{border-left:none;padding-left:0}
+.bg-hero-metric-lbl{font-family:'DM Mono',monospace;font-size:.55rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;font-weight:500}
+.bg-hero-metric-val{font-family:'DM Mono',monospace;font-size:1.85rem;font-weight:700;color:var(--text);letter-spacing:-.02em;margin-top:.4rem;line-height:1;position:relative;z-index:1}
+.bg-hero-metric-val.good{color:var(--green)}
+.bg-hero-metric-val.warn{color:var(--yellow)}
+.bg-hero-metric-val.bad{color:var(--red)}
+.bg-hero-metric-hint{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--text2);margin-top:.35rem;line-height:1.4}
+
+/* Totales summary — 3 cards con alto contraste */
+.bg-totals-grid{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;margin:0 0 1.25rem;
+}
+@media(max-width:900px){.bg-totals-grid{grid-template-columns:1fr}}
+.bg-total-card{
+  position:relative;
+  background:linear-gradient(155deg,rgba(30,46,66,.86),rgba(15,27,42,.94));
+  border:1px solid var(--border2);border-radius:16px;
+  padding:1.15rem 1.3rem;
+  overflow:hidden;
+  transition:transform .25s ease,border-color .25s ease;
+}
+.bg-total-card:hover{transform:translateY(-2px);border-color:rgba(230,168,0,.3)}
+.bg-total-card::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:4px;
+  background:linear-gradient(180deg,var(--suminregio),var(--yellow));
+}
+.bg-total-card.pasivo::before{background:linear-gradient(180deg,#FF8C42,var(--red))}
+.bg-total-card.capital::before{background:linear-gradient(180deg,var(--green),var(--cyan))}
+.bg-total-card .tag{font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;font-weight:600}
+.bg-total-card .num{font-family:'DM Mono',monospace;font-size:1.85rem;font-weight:700;color:var(--text);margin-top:.4rem;letter-spacing:-.015em;line-height:1}
+.bg-total-card .line{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--text2);margin-top:.45rem;line-height:1.4}
+.bg-total-card .pct-bar{
+  margin-top:.75rem;height:6px;border-radius:3px;
+  background:rgba(255,255,255,.06);overflow:hidden;position:relative;
+}
+.bg-total-card .pct-fill{
+  height:100%;border-radius:3px;
+  background:linear-gradient(90deg,var(--suminregio),var(--yellow));
+  transition:width 1s cubic-bezier(.2,.8,.2,1);
+}
+.bg-total-card.pasivo .pct-fill{background:linear-gradient(90deg,#FF8C42,var(--red))}
+.bg-total-card.capital .pct-fill{background:linear-gradient(90deg,var(--green),var(--cyan))}
+
+/* Nota de fuente */
+.bg-source-note{
+  display:flex;align-items:flex-start;gap:.55rem;
+  padding:.6rem .85rem;margin:0 0 1.2rem;
+  border-radius:10px;
+  background:rgba(30,127,217,.08);
+  border:1px solid rgba(30,127,217,.25);
+  font-family:'DM Mono',monospace;font-size:.6rem;color:var(--text2);line-height:1.45;
+}
+.bg-source-note svg{width:14px;height:14px;stroke:var(--blue);flex-shrink:0;margin-top:2px}
+.bg-source-note strong{color:var(--blue);font-weight:600}
+
+/* Clasificación visual — upgrade del bg-classic existente */
+.bg-classic{
+  background:linear-gradient(150deg,rgba(18,30,46,.6),rgba(12,21,34,.85));
+  border-radius:16px;padding:1.1rem 1.2rem;
+  border:1px solid var(--border2);
+  margin:0 0 1.2rem;
+  box-shadow:0 4px 20px rgba(0,0,0,.14);
+}
+.bg-classic h4{
+  display:flex;align-items:center;gap:.55rem;
+  font-family:'Syne',sans-serif;font-size:.78rem;color:var(--text);letter-spacing:.02em;
+  font-weight:700;text-transform:none;margin-bottom:.75rem;padding-bottom:.65rem;
+  border-bottom:1px solid var(--border);
+}
+.bg-classic h4::before{
+  content:'';display:inline-block;width:6px;height:18px;border-radius:2px;
+  background:linear-gradient(180deg,var(--suminregio),var(--yellow));
+}
+.bg-classic h4 span{font-family:'DM Mono',monospace !important;font-weight:500 !important;color:var(--text2) !important;margin-left:auto !important}
+.bg-classic table td{font-size:.7rem;padding:.45rem .5rem}
+.bg-classic td.num{font-size:.74rem;font-weight:600}
+.bg-classic tr.total td{background:linear-gradient(90deg,rgba(230,168,0,.08),rgba(230,168,0,.03));border-top:1.5px solid rgba(230,168,0,.3) !important}
+
+html[data-theme="light"] .bg-premium-hero,html.theme-premium-light .bg-premium-hero{
+  background:
+    radial-gradient(ellipse 80% 120% at 0% 0%,rgba(180,83,9,.09),transparent 55%),
+    radial-gradient(ellipse 80% 120% at 100% 100%,rgba(22,163,74,.08),transparent 55%),
+    linear-gradient(155deg,#ffffff,#f8fafc);
+  border:1px solid rgba(180,83,9,.15);
+  box-shadow:0 10px 30px rgba(15,23,42,.06);
+}
+html[data-theme="light"] .bg-hero-title,html.theme-premium-light .bg-hero-title{color:#0F172A}
+html[data-theme="light"] .bg-hero-sub,html.theme-premium-light .bg-hero-sub{color:#475569}
+html[data-theme="light"] .bg-hero-metric-val,html.theme-premium-light .bg-hero-metric-val{color:#0F172A}
+html[data-theme="light"] .bg-hero-metric-hint,html.theme-premium-light .bg-hero-metric-hint{color:#475569}
+html[data-theme="light"] .bg-total-card,html.theme-premium-light .bg-total-card{
+  background:#ffffff;
+  border:1px solid rgba(15,23,42,.07);
+  box-shadow:0 4px 20px rgba(15,23,42,.06);
+}
+html[data-theme="light"] .bg-total-card .num,html.theme-premium-light .bg-total-card .num{color:#0F172A}
+html[data-theme="light"] .bg-total-card .line,html.theme-premium-light .bg-total-card .line{color:#475569}
+html[data-theme="light"] .bg-classic,html.theme-premium-light .bg-classic{
+  background:#ffffff;
+  border:1px solid rgba(15,23,42,.08);
+  box-shadow:0 4px 20px rgba(15,23,42,.06);
+}
+html[data-theme="light"] .bg-classic h4,html.theme-premium-light .bg-classic h4{color:#0F172A;border-bottom-color:rgba(15,23,42,.08)}
+html[data-theme="light"] .bg-classic td,html.theme-premium-light .bg-classic td{color:#1E293B}
+html[data-theme="light"] .bg-classic tr.total td,html.theme-premium-light .bg-classic tr.total td{background:rgba(180,83,9,.06);border-top-color:rgba(180,83,9,.25) !important;color:#0F172A}
+html[data-theme="light"] .bg-source-note,html.theme-premium-light .bg-source-note{
+  background:rgba(30,127,217,.06);border:1px solid rgba(30,127,217,.2);color:#334155
+}
+
 .footer{text-align:center;padding:1.75rem;font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.06em;border-top:1px solid var(--border);margin-top:2rem}
 /* ════ LIGHT THEME — Suminregio Parker ════ */
 html.theme-premium-light,html[data-theme="light"]{
@@ -576,7 +724,7 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
     </div>
   </div>
 
-  <div class="sd"><div class="sd-label">Balance General (resumen contable)</div><div class="sd-line"></div></div>
+  <div class="sd"><div class="sd-label">Balance General · Fotografía patrimonial</div><div class="sd-line"></div></div>
   <div class="card" style="margin-bottom:2rem">
     <div class="card-head">
       <div class="card-title">
@@ -586,21 +734,76 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
       <div class="card-badge" id="bgBadge">Cargando...</div>
     </div>
     <div class="card-body">
-      <div class="bg-classic">
-        <h4>Estructura contable · Microsip <span style="font-size:.62rem;font-weight:600;color:var(--green);margin-left:.35rem">· Activo: fijo / diferidos / otros</span></h4>
-        <div class="bg-classic-grid" id="bgClassic"><div style="color:var(--muted);font-size:.68rem">Cargando estructura de activo/pasivo/capital...</div></div>
+      <!-- Premium hero: narrativa + 4 métricas clave -->
+      <div class="bg-premium-hero">
+        <div class="bg-hero-headline">
+          <div style="min-width:0;flex:1">
+            <div class="bg-hero-kicker" id="bgHeroKicker">Fotografía patrimonial · Parker</div>
+            <div class="bg-hero-title">Estructura financiera en vivo</div>
+            <div class="bg-hero-sub">Activo circulante contra pasivo corriente y patrimonio implícito, calculado sobre cobros/pagos/inventario del API Suminregio en tiempo real. Sin cuentas contables 3*: el patrimonio se infiere de la ecuación A − P.</div>
+          </div>
+          <div class="bg-hero-pill" id="bgHeroPill">Balance cuadrado</div>
+        </div>
+        <div class="bg-hero-metric">
+          <div class="bg-hero-metric-lbl">Liquidez corriente</div>
+          <div class="bg-hero-metric-val" id="bgHeroLiq">—</div>
+          <div class="bg-hero-metric-hint" id="bgHeroLiqHint">Objetivo &gt; 1.5x</div>
+        </div>
+        <div class="bg-hero-metric">
+          <div class="bg-hero-metric-lbl">Prueba ácida</div>
+          <div class="bg-hero-metric-val" id="bgHeroAcid">—</div>
+          <div class="bg-hero-metric-hint" id="bgHeroAcidHint">(CxC + Efectivo) / CxP</div>
+        </div>
+        <div class="bg-hero-metric">
+          <div class="bg-hero-metric-lbl">Capital de trabajo</div>
+          <div class="bg-hero-metric-val" id="bgHeroWorking">—</div>
+          <div class="bg-hero-metric-hint" id="bgHeroWorkingHint">Activo circulante − Pasivo</div>
+        </div>
+        <div class="bg-hero-metric">
+          <div class="bg-hero-metric-lbl">Apalancamiento</div>
+          <div class="bg-hero-metric-val" id="bgHeroLev">—</div>
+          <div class="bg-hero-metric-hint" id="bgHeroLevHint">Pasivo / Activo — sano &lt; 55%</div>
+        </div>
       </div>
-      <div class="bg-grid">
-        <div class="bg-kpi"><div class="lbl">Activo Total</div><div class="val" id="bgActivo">—</div></div>
-        <div class="bg-kpi"><div class="lbl">Pasivo Total</div><div class="val" id="bgPasivo">—</div></div>
-        <div class="bg-kpi"><div class="lbl">Capital Total</div><div class="val" id="bgCapital">—</div></div>
-        <div class="bg-kpi"><div class="lbl">Diferencia</div><div class="val" id="bgDiff">—</div></div>
+
+      <!-- Totales: Activo / Pasivo / Capital -->
+      <div class="bg-totals-grid">
+        <div class="bg-total-card">
+          <div class="tag">◉ Activo total</div>
+          <div class="num" id="bgActivo">—</div>
+          <div class="line" id="bgActivoSub">Caja + cuentas por cobrar + inventario</div>
+          <div class="pct-bar"><div class="pct-fill" id="bgActivoBar" style="width:100%"></div></div>
+        </div>
+        <div class="bg-total-card pasivo">
+          <div class="tag">◉ Pasivo total</div>
+          <div class="num" id="bgPasivo">—</div>
+          <div class="line" id="bgPasivoSub">Deuda con proveedores · corto plazo</div>
+          <div class="pct-bar"><div class="pct-fill" id="bgPasivoBar" style="width:0%"></div></div>
+        </div>
+        <div class="bg-total-card capital">
+          <div class="tag">◉ Capital (patrimonio implícito)</div>
+          <div class="num" id="bgCapital">—</div>
+          <div class="line" id="bgCapitalSub">Activo − Pasivo (sin catálogo 3* en API)</div>
+          <div class="pct-bar"><div class="pct-fill" id="bgCapitalBar" style="width:0%"></div></div>
+        </div>
+      </div>
+
+      <!-- Nota de fuente -->
+      <div class="bg-source-note">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <span><strong>Fuente:</strong> API Suminregio (vistas operativas <code style="font-family:inherit;color:var(--text)">capital_trabajo</code>, <code style="font-family:inherit;color:var(--text)">cxc_saldo_total</code>, <code style="font-family:inherit;color:var(--text)">cxp_saldo_total</code>, <code style="font-family:inherit;color:var(--text)">inventario_resumen_marca</code>, <code style="font-family:inherit;color:var(--text)">prueba_acida</code>). Los rubros no-circulantes (activo fijo, cargos diferidos) no se exponen en el API externo y se reportan como $0 hasta que Guillermo habilite su extracción directa desde el catálogo contable.</span>
+      </div>
+
+      <div class="bg-classic">
+        <h4>Clasificación sintética · Activo / Pasivo / Capital <span>Estructura implícita desde vistas operativas</span></h4>
+        <div class="bg-classic-grid" id="bgClassic"><div style="color:var(--muted);font-size:.68rem">Cargando estructura de activo/pasivo/capital...</div></div>
       </div>
       <div class="bg-ratios">
         <div class="bg-ratio"><div class="k">Liquidez corriente</div><div class="v" id="bgRatioLiquidez">—</div></div>
         <div class="bg-ratio"><div class="k">Apalancamiento (Pasivo/Activo)</div><div class="v" id="bgRatioLeverage">—</div></div>
         <div class="bg-ratio"><div class="k">Capital de trabajo</div><div class="v" id="bgRatioWorking">—</div></div>
         <div class="bg-ratio"><div class="k">Pasivo / Capital</div><div class="v" id="bgRatioDebtEq">—</div></div>
+        <div class="bg-ratio" style="display:none"><div class="k">Diferencia contable</div><div class="v" id="bgDiff">—</div></div>
       </div>
       <div class="bg-viz">
         <div class="bg-viz-card">
@@ -1208,6 +1411,133 @@ async function loadBalanceGeneral(){
         sparkTxt.textContent = base;
       }
     }
+
+    // ═════════ Premium hero + totals progress — populate v2 ═════════
+    try {
+      const kickerEl = document.getElementById('bgHeroKicker');
+      if (kickerEl && bg && bg.unidad) {
+        const mmDisplay = (cierre.MES ? String(cierre.MES).padStart(2,'0') : '—');
+        const yyDisplay = cierre.ANIO || '—';
+        kickerEl.textContent = `Fotografía patrimonial · ${String(bg.unidad).toUpperCase()} · ${mmDisplay}/${yyDisplay}`;
+      }
+
+      // Pill: verde si balance cuadra (|diff| < 1), amarillo si pequeña, roja si material
+      const pillEl = document.getElementById('bgHeroPill');
+      if (pillEl) {
+        const abs = Math.abs(diff);
+        if (abs <= 1) {
+          pillEl.className = 'bg-hero-pill';
+          pillEl.textContent = 'Balance cuadrado';
+        } else if (abs <= 1000) {
+          pillEl.className = 'bg-hero-pill warn';
+          pillEl.textContent = 'Diferencia menor · ' + fmtM(diff);
+        } else {
+          pillEl.className = 'bg-hero-pill bad';
+          pillEl.textContent = 'Diferencia material · ' + fmtM(diff);
+        }
+      }
+
+      // Liquidez
+      const liqEl = document.getElementById('bgHeroLiq');
+      const liqHintEl = document.getElementById('bgHeroLiqHint');
+      if (liqEl) {
+        const liqSrv = (t.RATIO_CIRCULANTE != null && +t.RATIO_CIRCULANTE > 0) ? +t.RATIO_CIRCULANTE : liquidez;
+        if (liqSrv != null && isFinite(liqSrv)) {
+          liqEl.textContent = liqSrv.toFixed(2) + 'x';
+          liqEl.className = 'bg-hero-metric-val ' + (liqSrv >= 1.5 ? 'good' : liqSrv >= 1 ? 'warn' : 'bad');
+          if (liqHintEl) {
+            liqHintEl.textContent = liqSrv >= 1.5
+              ? `Muy sano — activo circulante cubre ${liqSrv.toFixed(1)}× el pasivo corto plazo`
+              : liqSrv >= 1 ? 'Cubre pasivo pero sin colchón · objetivo > 1.5x'
+              : 'Pasivo supera activo circulante · revisar flujo';
+          }
+        } else {
+          liqEl.textContent = 'N/D';
+          liqEl.className = 'bg-hero-metric-val';
+        }
+      }
+
+      // Prueba ácida
+      const acidEl = document.getElementById('bgHeroAcid');
+      const acidHintEl = document.getElementById('bgHeroAcidHint');
+      if (acidEl) {
+        const acidVal = +t.PRUEBA_ACIDA || 0;
+        if (acidVal > 0) {
+          acidEl.textContent = acidVal.toFixed(2) + 'x';
+          acidEl.className = 'bg-hero-metric-val ' + (acidVal >= 1 ? 'good' : acidVal >= 0.7 ? 'warn' : 'bad');
+          if (acidHintEl) {
+            acidHintEl.textContent = acidVal >= 1
+              ? `Liquidez inmediata ${acidVal.toFixed(2)}× sin vender inventario`
+              : acidVal >= 0.7 ? 'Liquidez inmediata ajustada · monitor'
+              : 'Dependencia de inventario para cubrir pasivo';
+          }
+        } else {
+          acidEl.textContent = 'N/D';
+          acidEl.className = 'bg-hero-metric-val';
+        }
+      }
+
+      // Capital de trabajo
+      const workEl = document.getElementById('bgHeroWorking');
+      const workHintEl = document.getElementById('bgHeroWorkingHint');
+      if (workEl) {
+        const workVal = (t.CAPITAL_TRABAJO != null) ? +t.CAPITAL_TRABAJO : workCap;
+        workEl.textContent = fmtM(workVal);
+        workEl.className = 'bg-hero-metric-val ' + (workVal > 0 ? 'good' : workVal === 0 ? '' : 'bad');
+        if (workHintEl) {
+          workHintEl.textContent = workVal > 0
+            ? `Excedente operativo tras pagar deuda a corto plazo`
+            : workVal < 0 ? 'Déficit · pasivo supera activo circulante'
+            : 'Activo circulante = pasivo';
+        }
+      }
+
+      // Apalancamiento
+      const levEl = document.getElementById('bgHeroLev');
+      const levHintEl = document.getElementById('bgHeroLevHint');
+      if (levEl) {
+        if (isFinite(leverage)) {
+          const levPct = leverage * 100;
+          levEl.textContent = levPct.toFixed(1) + '%';
+          levEl.className = 'bg-hero-metric-val ' + (leverage <= 0.55 ? 'good' : leverage <= 0.75 ? 'warn' : 'bad');
+          if (levHintEl) {
+            levHintEl.textContent = leverage <= 0.55
+              ? `Deuda cubre ${levPct.toFixed(0)}% del activo · margen sano`
+              : leverage <= 0.75 ? 'Apalancamiento intermedio · vigilar'
+              : 'Deuda alta frente a activos · riesgo';
+          }
+        } else {
+          levEl.textContent = 'N/D';
+          levEl.className = 'bg-hero-metric-val';
+        }
+      }
+
+      // Progress bars — relativos al mayor total (activo vs pasivo+capital), normalizados 0-100%
+      const denom = Math.max(activo, pasivo + capital, 1);
+      const setBar = (id, w) => { const el = document.getElementById(id); if (el) el.style.width = Math.max(0, Math.min(100, w)) + '%'; };
+      setBar('bgActivoBar', (activo / denom) * 100);
+      setBar('bgPasivoBar', (pasivo / denom) * 100);
+      setBar('bgCapitalBar', (capital / denom) * 100);
+
+      // Sublíneas con descomposición real
+      const subA = document.getElementById('bgActivoSub');
+      if (subA) {
+        const caja = +t.ACTIVO_CAJA_BANCOS || 0;
+        const cxc = +t.ACTIVO_CXC || 0;
+        const inv = +t.ACTIVO_INVENTARIO || 0;
+        subA.textContent = `Caja ${fmtM(caja)} · CxC ${fmtM(cxc)} · Inventario ${fmtM(inv)}`;
+      }
+      const subP = document.getElementById('bgPasivoSub');
+      if (subP) {
+        const pct = activo > 0 ? (pasivo / activo * 100) : 0;
+        subP.textContent = `Representa ${pct.toFixed(1)}% del activo · proveedores + corto plazo`;
+      }
+      const subC = document.getElementById('bgCapitalSub');
+      if (subC) {
+        const pct = activo > 0 ? (capital / activo * 100) : 0;
+        subC.textContent = `Representa ${pct.toFixed(1)}% del activo · patrimonio residual`;
+      }
+    } catch (_) { /* hero populate fallback — no-op */ }
 
   }catch(_){
     if(badge) badge.textContent='Sin datos';

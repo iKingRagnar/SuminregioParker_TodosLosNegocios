@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#060E1A">
+<title>Acceso &middot; Suminregio Parker</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060E1A;--s1:#0C1B29;--s2:#112233;--s3:#172D42;--s4:#1D3654;
+  --border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.14);--border3:rgba(255,255,255,.22);
+  --green:#00E5A0;--green-dim:rgba(0,229,160,.10);
+  --red:#FF4566;--red-dim:rgba(255,69,102,.12);--red-bg:rgba(255,69,102,.08);
+  --blue:#4DA6FF;--blue-dim:rgba(77,166,255,.10);
+  --text:#F0F6FF;--text2:#C8D8EC;--muted:#6A85A6;--dim:#1E2E42;
+  --suminregio:#E6A800;--suminregio-2:#F0B323;--suminregio-dim:rgba(230,168,0,.15);--suminregio-strong:rgba(230,168,0,.4);
+  --orange:#FF8C42;
+}
+html{font-size:16px;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{
+  background:var(--bg);color:var(--text);font-family:'Syne',system-ui,-apple-system,sans-serif;
+  min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;overflow-x:hidden;position:relative;
+}
+
+/* ── Fondo con orbes animados (match dashboard) ─────────────────────── */
+.bg-orbs{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.orb{position:absolute;border-radius:50%;filter:blur(140px);opacity:.12;animation:drift 22s ease-in-out infinite alternate;will-change:transform}
+.orb-1{width:820px;height:820px;background:radial-gradient(circle,#1E7FD9 0%,transparent 70%);top:-260px;left:-220px}
+.orb-2{width:640px;height:640px;background:radial-gradient(circle,#E6A800 0%,transparent 70%);bottom:-140px;right:-120px;animation-delay:-8s;opacity:.15}
+.orb-3{width:520px;height:520px;background:radial-gradient(circle,#FF8C42 0%,transparent 70%);top:40%;left:40%;animation-delay:-14s;opacity:.07}
+.orb-4{width:380px;height:380px;background:radial-gradient(circle,#00E5A0 0%,transparent 70%);top:20%;right:8%;animation-delay:-4s;opacity:.07}
+@keyframes drift{0%{transform:translate(0,0) scale(1)}50%{transform:translate(18px,-14px) scale(1.04)}100%{transform:translate(30px,22px) scale(1)}}
+
+/* Grid sutil de fondo (ambient industrial) */
+.bg-grid{
+  position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.35;
+  background-image:
+    linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
+  background-size:60px 60px;
+  mask-image:radial-gradient(ellipse at center,#000 0%,transparent 75%);
+  -webkit-mask-image:radial-gradient(ellipse at center,#000 0%,transparent 75%);
+}
+
+/* Header compacto arriba */
+.topbar{
+  position:relative;z-index:10;padding:1.2rem 1.75rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;
+  font-family:'DM Mono',monospace;
+}
+.topbar .brand-mini{display:flex;align-items:center;gap:.55rem;color:var(--text2);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase}
+.topbar .brand-mini-dot{width:6px;height:6px;border-radius:50%;background:var(--suminregio);box-shadow:0 0 10px var(--suminregio)}
+.topbar .meta{display:flex;align-items:center;gap:1rem;color:var(--muted);font-size:.6rem;letter-spacing:.14em;text-transform:uppercase}
+.topbar .live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 10px var(--green);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* Layout principal */
+.stage{position:relative;z-index:1;flex:1;display:grid;grid-template-columns:1fr;place-items:center;padding:1.5rem 1.5rem 3rem;min-height:calc(100vh - 80px)}
+@media (min-width:1024px){
+  .stage{grid-template-columns:1.15fr 1fr;gap:4rem;max-width:1280px;margin:0 auto;padding:0 3rem 3rem;align-items:center}
+}
+
+/* Columna izquierda — narrativa */
+.hero-col{display:flex;flex-direction:column;gap:1.75rem;padding:1rem 0;animation:rise 1s cubic-bezier(.2,.9,.3,1) both}
+@media (max-width:1023px){.hero-col{display:none}}
+.hero-kicker{
+  display:inline-flex;align-items:center;gap:.55rem;padding:.38rem .85rem;border-radius:99px;
+  background:linear-gradient(135deg,rgba(230,168,0,.14),rgba(255,140,66,.10));
+  border:1px solid rgba(230,168,0,.32);
+  font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--suminregio);
+  align-self:flex-start;
+}
+.hero-kicker-dot{width:6px;height:6px;border-radius:50%;background:var(--suminregio);box-shadow:0 0 8px var(--suminregio)}
+.hero-title{font-size:clamp(2.4rem,5vw,3.85rem);font-weight:800;line-height:1.02;letter-spacing:-.028em;color:var(--text)}
+.hero-title .accent{background:linear-gradient(135deg,var(--suminregio-2) 0%,var(--suminregio) 55%,var(--orange) 100%);-webkit-background-clip:text;background-clip:text;color:transparent;display:inline-block}
+.hero-sub{font-size:1.08rem;line-height:1.55;color:var(--text2);max-width:520px;font-weight:400}
+.hero-sub strong{color:var(--text);font-weight:700}
+.hero-list{display:grid;gap:.85rem;margin-top:.5rem}
+.hero-bullet{display:flex;align-items:flex-start;gap:.9rem;padding:.85rem 1rem;border-radius:14px;background:linear-gradient(135deg,rgba(17,34,51,.55),rgba(10,22,38,.4));border:1px solid var(--border);transition:all .35s cubic-bezier(.2,.9,.3,1)}
+.hero-bullet:hover{border-color:rgba(230,168,0,.35);transform:translateX(4px)}
+.hero-bullet-ico{flex-shrink:0;width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:linear-gradient(135deg,rgba(230,168,0,.18),rgba(255,140,66,.1));border:1px solid rgba(230,168,0,.28)}
+.hero-bullet-ico svg{width:16px;height:16px;stroke:var(--suminregio);fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.hero-bullet-txt{flex:1;min-width:0}
+.hero-bullet-title{font-size:.85rem;font-weight:700;color:var(--text);margin-bottom:.12rem;letter-spacing:-.005em}
+.hero-bullet-desc{font-size:.72rem;color:var(--muted);font-family:'DM Mono',monospace;letter-spacing:.02em;line-height:1.4}
+
+/* Columna derecha — card de login */
+.login-col{width:100%;max-width:460px;margin:0 auto;animation:rise 1s cubic-bezier(.2,.9,.3,1) .12s both}
+@keyframes rise{0%{opacity:0;transform:translateY(26px)}100%{opacity:1;transform:translateY(0)}}
+
+.login-card{
+  position:relative;overflow:hidden;border-radius:24px;padding:2.35rem 2.1rem 2.1rem;
+  background:
+    radial-gradient(120% 80% at 0% 0%,rgba(230,168,0,.09) 0%,transparent 55%),
+    radial-gradient(120% 80% at 100% 100%,rgba(77,166,255,.06) 0%,transparent 55%),
+    linear-gradient(160deg,rgba(17,34,51,.94) 0%,rgba(8,16,28,.96) 100%);
+  border:1px solid var(--border2);
+  box-shadow:
+    0 40px 100px rgba(0,0,0,.55),
+    0 0 0 1px rgba(255,255,255,.03) inset,
+    0 1px 0 rgba(255,255,255,.07) inset;
+  backdrop-filter:blur(22px);
+  -webkit-backdrop-filter:blur(22px);
+}
+.login-card::before{
+  content:'';position:absolute;inset:0;border-radius:24px;pointer-events:none;
+  background:linear-gradient(135deg,rgba(230,168,0,.28),transparent 35%,transparent 65%,rgba(77,166,255,.16));
+  -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+          mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude;
+  padding:1px;
+}
+
+.brand-block{display:flex;flex-direction:column;align-items:center;gap:.6rem;margin-bottom:1.6rem}
+.brand-logo{color:var(--text);width:100%;max-width:300px;height:auto;filter:drop-shadow(0 4px 16px rgba(230,168,0,.25))}
+.brand-logo svg{width:100%;height:auto;display:block}
+.brand-divider{width:52px;height:2px;background:linear-gradient(90deg,transparent,var(--suminregio),transparent);border-radius:2px;margin-top:.25rem}
+.brand-tag{
+  font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);
+  display:flex;align-items:center;gap:.55rem;margin-top:.15rem;
+}
+.brand-tag::before,.brand-tag::after{content:'';flex:1;max-width:24px;height:1px;background:linear-gradient(90deg,transparent,rgba(230,168,0,.4),transparent)}
+
+.login-head{text-align:center;margin-bottom:1.55rem}
+.login-title{font-size:1.38rem;font-weight:700;letter-spacing:-.012em;color:var(--text);margin-bottom:.3rem}
+.login-sub{font-size:.78rem;color:var(--muted);font-family:'DM Mono',monospace;letter-spacing:.04em}
+
+/* Campos con floating label */
+form{display:flex;flex-direction:column;gap:1rem}
+.field{position:relative}
+.field input{
+  width:100%;padding:1.05rem 1.05rem .65rem 2.9rem;border-radius:12px;
+  background:linear-gradient(180deg,rgba(12,27,41,.85),rgba(8,18,28,.75));
+  border:1.5px solid rgba(255,255,255,.09);
+  color:var(--text);font-family:'Syne',sans-serif;font-size:.92rem;font-weight:500;letter-spacing:-.005em;
+  transition:border-color .25s,background .25s,box-shadow .25s;
+  outline:none;
+}
+.field input::placeholder{color:transparent}
+.field input:hover{border-color:rgba(255,255,255,.18)}
+.field input:focus{
+  border-color:rgba(230,168,0,.55);
+  background:linear-gradient(180deg,rgba(17,34,51,.95),rgba(10,22,38,.85));
+  box-shadow:0 0 0 4px rgba(230,168,0,.10);
+}
+.field label{
+  position:absolute;left:2.9rem;top:1.05rem;color:var(--muted);
+  font-family:'DM Mono',monospace;font-size:.76rem;letter-spacing:.06em;
+  pointer-events:none;transition:all .22s cubic-bezier(.2,.9,.3,1);
+  transform-origin:left center;
+}
+.field input:focus + label,
+.field input:not(:placeholder-shown) + label{
+  top:.3rem;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--suminregio);
+  transform:translateY(0);
+}
+.field .ico{
+  position:absolute;left:1.05rem;top:50%;transform:translateY(-50%);
+  width:18px;height:18px;stroke:var(--muted);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;
+  transition:stroke .25s;
+}
+.field input:focus ~ .ico,
+.field:focus-within .ico{stroke:var(--suminregio)}
+
+/* Toggle password visibility */
+.field-pw{position:relative}
+.pw-toggle{
+  position:absolute;right:.85rem;top:50%;transform:translateY(-50%);
+  width:32px;height:32px;display:grid;place-items:center;border-radius:8px;
+  background:transparent;border:none;cursor:pointer;color:var(--muted);transition:all .2s;
+}
+.pw-toggle:hover{color:var(--text2);background:rgba(255,255,255,.05)}
+.pw-toggle svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* Remember-me + forgot row */
+.row-inline{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-top:.2rem}
+.remember{display:flex;align-items:center;gap:.55rem;cursor:pointer;user-select:none;font-family:'DM Mono',monospace;font-size:.7rem;color:var(--muted);letter-spacing:.05em}
+.remember input{appearance:none;-webkit-appearance:none;width:16px;height:16px;border-radius:5px;border:1.5px solid rgba(255,255,255,.22);background:rgba(12,27,41,.7);cursor:pointer;position:relative;transition:all .2s;flex-shrink:0}
+.remember input:checked{background:linear-gradient(135deg,var(--suminregio),var(--orange));border-color:var(--suminregio)}
+.remember input:checked::after{content:'';position:absolute;left:4px;top:1px;width:5px;height:9px;border:solid #0a0a0a;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.remember:hover{color:var(--text2)}
+.forgot{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;text-decoration:none;transition:color .2s}
+.forgot:hover{color:var(--suminregio)}
+
+/* Botón primario */
+.btn-submit{
+  margin-top:.5rem;position:relative;overflow:hidden;
+  width:100%;padding:1.05rem 1.25rem;border-radius:12px;border:none;cursor:pointer;
+  font-family:'Syne',sans-serif;font-size:.92rem;font-weight:700;letter-spacing:.02em;color:#1a1102;
+  background:linear-gradient(135deg,#F0B323 0%,#E6A800 45%,#D99900 100%);
+  box-shadow:0 10px 30px rgba(230,168,0,.35),0 0 0 1px rgba(230,168,0,.45) inset,0 1px 0 rgba(255,255,255,.3) inset;
+  transition:transform .18s cubic-bezier(.2,.9,.3,1),box-shadow .25s,filter .2s;
+  display:flex;align-items:center;justify-content:center;gap:.6rem;
+}
+.btn-submit::before{
+  content:'';position:absolute;inset:0;background:linear-gradient(120deg,transparent 0%,rgba(255,255,255,.28) 50%,transparent 100%);
+  transform:translateX(-120%);transition:transform .75s cubic-bezier(.2,.9,.3,1);pointer-events:none;
+}
+.btn-submit:hover{transform:translateY(-1.5px);box-shadow:0 14px 38px rgba(230,168,0,.45),0 0 0 1px rgba(230,168,0,.55) inset,0 1px 0 rgba(255,255,255,.35) inset;filter:brightness(1.06)}
+.btn-submit:hover::before{transform:translateX(120%)}
+.btn-submit:active{transform:translateY(0)}
+.btn-submit:disabled{cursor:not-allowed;opacity:.7;transform:none!important;filter:saturate(.6)}
+.btn-submit svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.btn-submit .spinner{display:none;width:16px;height:16px;border:2px solid rgba(26,17,2,.3);border-top-color:#1a1102;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.btn-submit.loading .spinner{display:inline-block}
+.btn-submit.loading .label,.btn-submit.loading svg:not(.spinner){display:none}
+
+/* Mensajes */
+.alert{
+  display:none;padding:.75rem .9rem;border-radius:10px;background:var(--red-bg);border:1px solid var(--red-dim);
+  color:#ffb0bd;font-family:'DM Mono',monospace;font-size:.72rem;letter-spacing:.02em;line-height:1.45;
+  animation:shake .4s cubic-bezier(.36,.07,.19,.97);
+}
+.alert.on{display:block}
+.alert.ok{background:rgba(0,229,160,.06);border-color:rgba(0,229,160,.24);color:#b8f3dd}
+.alert-ico{display:inline-block;margin-right:.45rem}
+@keyframes shake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-3px)}40%,60%{transform:translateX(3px)}}
+
+/* Footer del card */
+.login-foot{margin-top:1.3rem;padding-top:1.2rem;border-top:1px dashed var(--border);display:flex;flex-direction:column;align-items:center;gap:.35rem}
+.foot-line{font-family:'DM Mono',monospace;font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.foot-brand{font-family:'DM Mono',monospace;font-size:.66rem;color:var(--text2);letter-spacing:.08em}
+.foot-brand span{color:var(--suminregio)}
+
+/* Footer global (abajo del viewport) */
+.page-foot{position:relative;z-index:2;padding:1rem 1.75rem 1.3rem;display:flex;justify-content:center;gap:1.5rem;flex-wrap:wrap;font-family:'DM Mono',monospace;font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.page-foot a{color:var(--muted);text-decoration:none;transition:color .2s}
+.page-foot a:hover{color:var(--suminregio)}
+.page-foot .sep{color:var(--dim)}
+
+/* Responsive */
+@media (max-width:500px){
+  .login-card{padding:1.8rem 1.35rem 1.55rem;border-radius:20px}
+  .brand-logo{max-width:240px}
+  .topbar{padding:1rem 1rem}
+  .topbar .meta{font-size:.55rem;gap:.7rem}
+  .field input{padding-left:2.75rem}
+  .field label{left:2.75rem}
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+  .orb{animation:none}
+}
+</style>
+</head>
+<body>
+
+<!-- Fondos decorativos -->
+<div class="bg-grid" aria-hidden="true"></div>
+<div class="bg-orbs" aria-hidden="true">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+  <div class="orb orb-4"></div>
+</div>
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="brand-mini">
+    <span class="brand-mini-dot"></span>
+    <span>Suminregio &middot; Torre de Control</span>
+  </div>
+  <div class="meta">
+    <span class="live-dot" aria-hidden="true"></span>
+    <span>Acceso seguro</span>
+    <span id="topClock">—</span>
+  </div>
+</header>
+
+<!-- Escenario principal -->
+<main class="stage">
+
+  <!-- Columna narrativa (desktop only) -->
+  <section class="hero-col" aria-hidden="true">
+    <span class="hero-kicker">
+      <span class="hero-kicker-dot"></span>
+      Dashboard ejecutivo &middot; v2.0
+    </span>
+    <h1 class="hero-title">
+      La foto financiera de <span class="accent">Suminregio&nbsp;Parker</span>, al instante.
+    </h1>
+    <p class="hero-sub">
+      Inicia sesión para abrir el <strong>tablero consolidado</strong> de las 7 unidades
+      de negocio &mdash; ventas, cobranza, inventarios, margen y P&amp;L &mdash;
+      con datos actualizados del ecosistema industrial.
+    </p>
+    <div class="hero-list">
+      <div class="hero-bullet">
+        <div class="hero-bullet-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>
+        </div>
+        <div class="hero-bullet-txt">
+          <div class="hero-bullet-title">P&amp;L en tiempo real</div>
+          <div class="hero-bullet-desc">Ventas, margen y utilidad neta por unidad</div>
+        </div>
+      </div>
+      <div class="hero-bullet">
+        <div class="hero-bullet-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        </div>
+        <div class="hero-bullet-txt">
+          <div class="hero-bullet-title">Balance General sint&eacute;tico</div>
+          <div class="hero-bullet-desc">Activo, pasivo, capital y ratios de liquidez</div>
+        </div>
+      </div>
+      <div class="hero-bullet">
+        <div class="hero-bullet-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3.5 12h17M12 3c3 3 4.5 6 4.5 9s-1.5 6-4.5 9c-3-3-4.5-6-4.5-9s1.5-6 4.5-9z"/></svg>
+        </div>
+        <div class="hero-bullet-txt">
+          <div class="hero-bullet-title">Vista 360&deg; del grupo</div>
+          <div class="hero-bullet-desc">Parker, M&eacute;dico, Maderas, Empaque, Agua, Reciclaje</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Columna de login -->
+  <section class="login-col" aria-labelledby="loginTitle">
+    <div class="login-card" role="form" aria-describedby="loginSub">
+
+      <!-- Logo SUMINREGIO -->
+      <div class="brand-block">
+        <div class="brand-logo" aria-label="Suminregio Industrial">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 108" role="img" aria-label="Suminregio Industrial">
+            <g transform="translate(122 4)" fill="currentColor">
+              <path d="M98 12l-34 0 -20 20 20 20 34 0 -20 -20z"/>
+              <path d="M108 22l24 0 22 22 -22 22 -24 0 20 -22z"/>
+            </g>
+            <g transform="translate(122 4)" fill="#f0b323">
+              <polygon points="92,12 126,12 110,28 76,28"/>
+              <polygon points="92,76 126,76 110,60 76,60"/>
+            </g>
+            <text x="170" y="86" fill="currentColor" text-anchor="middle" font-family="Syne, Plus Jakarta Sans, Arial, sans-serif" font-size="30" font-weight="800" letter-spacing="3">SUMINREGIO</text>
+            <text x="170" y="102" fill="currentColor" text-anchor="middle" font-family="'DM Mono', JetBrains Mono, Arial, sans-serif" font-size="11" font-weight="600" letter-spacing="9">INDUSTRIAL</text>
+          </svg>
+        </div>
+        <div class="brand-divider" aria-hidden="true"></div>
+        <div class="brand-tag"><span>&middot; Acceso privado &middot;</span></div>
+      </div>
+
+      <div class="login-head">
+        <h2 class="login-title" id="loginTitle">Bienvenido de vuelta</h2>
+        <div class="login-sub" id="loginSub">Ingresa tus credenciales para continuar</div>
+      </div>
+
+      <!-- Alert area (errores / éxito) -->
+      <div class="alert" id="alertBox" role="alert" aria-live="polite"></div>
+
+      <!-- Formulario -->
+      <form id="loginForm" novalidate autocomplete="on">
+        <div class="field">
+          <input type="text" id="username" name="username" placeholder="Usuario" required autocomplete="username" autocapitalize="none" spellcheck="false">
+          <label for="username">Usuario</label>
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+
+        <div class="field field-pw">
+          <input type="password" id="password" name="password" placeholder="Contrase&ntilde;a" required autocomplete="current-password">
+          <label for="password">Contrase&ntilde;a</label>
+          <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <button type="button" class="pw-toggle" id="pwToggle" aria-label="Mostrar contrase&ntilde;a">
+            <svg id="pwIcoHide" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg id="pwIcoShow" viewBox="0 0 24 24" style="display:none"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
+          </button>
+        </div>
+
+        <div class="row-inline">
+          <label class="remember">
+            <input type="checkbox" id="remember" name="remember">
+            <span>Recordarme 30 d&iacute;as</span>
+          </label>
+          <a class="forgot" href="mailto:soporte@suminregio.com?subject=Soporte%20dashboard" aria-label="Contactar soporte">&iquest;Necesitas ayuda?</a>
+        </div>
+
+        <button type="submit" class="btn-submit" id="btnSubmit">
+          <span class="spinner" aria-hidden="true"></span>
+          <span class="label">Entrar al tablero</span>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+      </form>
+
+      <div class="login-foot">
+        <div class="foot-line">&middot; Conexi&oacute;n cifrada TLS &middot;</div>
+        <div class="foot-brand">Suminregio Parker <span>&middot;</span> Torre de Control v2.0</div>
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+<footer class="page-foot">
+  <span>&copy; <span id="yr">2026</span> Suminregio Industrial</span>
+  <span class="sep">&middot;</span>
+  <span id="buildTag">build &middot; &mdash;</span>
+  <span class="sep">&middot;</span>
+  <a href="mailto:soporte@suminregio.com">Soporte</a>
+</footer>
+
+<script>
+(function(){
+  'use strict';
+
+  var API_BASE = window.location.origin || '';
+  var form = document.getElementById('loginForm');
+  var alertBox = document.getElementById('alertBox');
+  var btn = document.getElementById('btnSubmit');
+  var inputUser = document.getElementById('username');
+  var inputPass = document.getElementById('password');
+  var inputRemember = document.getElementById('remember');
+  var pwToggle = document.getElementById('pwToggle');
+  var pwIcoHide = document.getElementById('pwIcoHide');
+  var pwIcoShow = document.getElementById('pwIcoShow');
+  var topClock = document.getElementById('topClock');
+  var buildTag = document.getElementById('buildTag');
+  var yr = document.getElementById('yr');
+
+  // Reloj topbar + año
+  try { yr.textContent = new Date().getFullYear(); } catch(e){}
+  function tick(){
+    try {
+      var d = new Date();
+      var hh = String(d.getHours()).padStart(2,'0');
+      var mm = String(d.getMinutes()).padStart(2,'0');
+      topClock.textContent = hh+':'+mm+' hrs';
+    } catch(e){}
+  }
+  tick(); setInterval(tick, 30000);
+
+  // Build tag desde /api/ping (no requiere auth)
+  fetch('/api/ping', { cache:'no-store' }).then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(j){
+      if (j && j.build) buildTag.textContent = 'build \u00b7 ' + String(j.build);
+    }).catch(function(){});
+
+  // Toggle mostrar/ocultar password
+  pwToggle.addEventListener('click', function(){
+    var isPw = inputPass.type === 'password';
+    inputPass.type = isPw ? 'text' : 'password';
+    pwIcoHide.style.display = isPw ? 'none' : '';
+    pwIcoShow.style.display = isPw ? '' : 'none';
+    pwToggle.setAttribute('aria-label', isPw ? 'Ocultar contrase\u00f1a' : 'Mostrar contrase\u00f1a');
+  });
+
+  // Next URL (si venía redirigido)
+  function getNext(){
+    try {
+      var sp = new URLSearchParams(window.location.search);
+      var nx = sp.get('next') || sp.get('redirect') || '';
+      if (!nx) return '/';
+      // Sanitización básica — nunca permitir URLs absolutas externas
+      if (/^https?:\/\//i.test(nx)) return '/';
+      if (nx.indexOf('//') === 0) return '/';
+      if (!nx.startsWith('/')) return '/';
+      // Evitar bucle al /login
+      if (/^\/login(\?|$)/.test(nx)) return '/';
+      return nx;
+    } catch(e){ return '/'; }
+  }
+
+  function showAlert(msg, kind){
+    alertBox.classList.remove('on','ok');
+    alertBox.innerHTML = '<span class="alert-ico" aria-hidden="true">' + (kind==='ok' ? '\u2713' : '\u26a0') + '</span>' + msg;
+    if (kind === 'ok') alertBox.classList.add('ok');
+    alertBox.classList.add('on');
+  }
+  function hideAlert(){ alertBox.classList.remove('on','ok'); }
+
+  function setLoading(on){
+    if (on) { btn.classList.add('loading'); btn.disabled = true; }
+    else { btn.classList.remove('loading'); btn.disabled = false; }
+  }
+
+  // Si ya hay sesión activa, rebotar directo al destino
+  (function checkExistingSession(){
+    fetch('/api/auth/me', { credentials:'include', cache:'no-store' })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){
+        if (j && j.ok) {
+          showAlert('Sesi\u00f3n activa como <strong>'+escapeHtml(j.user)+'</strong>, redirigiendo\u2026', 'ok');
+          setTimeout(function(){ window.location.href = getNext(); }, 650);
+        }
+      })
+      .catch(function(){});
+  })();
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+    });
+  }
+
+  form.addEventListener('submit', function(ev){
+    ev.preventDefault();
+    hideAlert();
+    var u = (inputUser.value || '').trim();
+    var p = inputPass.value || '';
+    var r = !!inputRemember.checked;
+    if (!u || !p) {
+      showAlert('Escribe tu <strong>usuario</strong> y <strong>contrase\u00f1a</strong> para continuar.');
+      if (!u) inputUser.focus(); else inputPass.focus();
+      return;
+    }
+    setLoading(true);
+    fetch('/api/auth/login', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ username: u, password: p, remember: r })
+    })
+    .then(function(res){
+      return res.json().catch(function(){ return { ok:false, error:'respuesta_no_json', status:res.status }; }).then(function(data){
+        return { status: res.status, data: data };
+      });
+    })
+    .then(function(out){
+      if (out.status === 200 && out.data && out.data.ok) {
+        showAlert('Bienvenido, <strong>'+escapeHtml(out.data.user || u)+'</strong>. Abriendo el tablero\u2026', 'ok');
+        setTimeout(function(){ window.location.href = getNext(); }, 520);
+        return;
+      }
+      setLoading(false);
+      var msg;
+      if (out.status === 401) {
+        msg = 'Usuario o contrase\u00f1a <strong>incorrectos</strong>. Verif\u00edcalos e int\u00e9ntalo de nuevo.';
+      } else if (out.status === 400) {
+        msg = 'Faltan datos de acceso. Completa usuario y contrase\u00f1a.';
+      } else if (out.status === 429) {
+        msg = 'Demasiados intentos. Espera un momento y vuelve a intentar.';
+      } else {
+        msg = 'No se pudo iniciar sesi\u00f3n ('+out.status+'). Int\u00e9ntalo de nuevo o contacta a soporte.';
+      }
+      showAlert(msg);
+      inputPass.select();
+    })
+    .catch(function(err){
+      setLoading(false);
+      showAlert('No pudimos conectar con el servidor. Revisa tu conexi\u00f3n e int\u00e9ntalo otra vez.');
+    });
+  });
+
+  // Enter en usuario → foco en contraseña
+  inputUser.addEventListener('keydown', function(ev){
+    if (ev.key === 'Enter' && !inputPass.value) { ev.preventDefault(); inputPass.focus(); }
+  });
+
+  // Foco inicial sutil en el usuario
+  setTimeout(function(){
+    try { if (!inputUser.value) inputUser.focus({ preventScroll: true }); } catch(e){ inputUser.focus(); }
+  }, 240);
+})();
+</script>
+
+</body>
+</html>
