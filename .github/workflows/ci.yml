@@ -23,17 +23,19 @@ jobs:
 
       - name: Syntax check
         run: |
-          node -c server_corregido.js
-          node -c performance-boost.js
+          node -c server_api.js
+          node -c api-client.js
           node -c ai-tools.js
           node -c ai-chat-v2.js
           node -c analytics-deep.js
           node -c email-reports.js
           node -c safe-catch.js
+          node -c performance-boost.js
 
       - name: Run tests
         env:
-          DUCK_ONLY_MODE: '1'
+          SUMINREGIO_API_KEY: 'sk_ext_ci_dummy_key_for_syntax_only'
+          PORT: '7099'
           LOG_LEVEL: 'warn'
         run: npm test
 
