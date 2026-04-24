@@ -2730,16 +2730,24 @@ app.post('/api/notify/push/subscribe', (_req, res) => res.json({ ok: false, erro
 app.post('/api/notify/push/send', (_req, res) => res.json({ ok: false, error: 'push no habilitado' }));
 app.post('/api/notify/slack', (_req, res) => res.json({ ok: false, error: 'slack no habilitado' }));
 
-// Capital (snapshot local opcional)
+// Capital (snapshot local opcional). El archivo se guarda bajo
+// `data: [ ... ]` (compat histórica) pero capital.html lee `semanas`, así
+// que emitimos ambos aliases. Si el archivo no existe devolvemos arrays
+// vacíos para que la UI no rompa.
 const CAPITAL_PATH = path.join(__dirname, 'data', 'capital.json');
+function capitalRead() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(CAPITAL_PATH, 'utf8'));
+    return { ok: true, data: Array.isArray(raw.data) ? raw.data : (Array.isArray(raw.semanas) ? raw.semanas : []) };
+  } catch { return { ok: true, data: [] }; }
+}
 app.get('/api/capital/data', (_req, res) => {
-  try { res.json(JSON.parse(fs.readFileSync(CAPITAL_PATH, 'utf8'))); }
-  catch { res.json({ ok: true, data: [] }); }
+  const file = capitalRead();
+  res.json({ ok: true, semanas: file.data, data: file.data });
 });
 app.post('/api/capital/semana', (req, res) => {
   try {
-    const curr = (() => { try { return JSON.parse(fs.readFileSync(CAPITAL_PATH, 'utf8')); } catch { return { ok: true, data: [] }; } })();
-    curr.data = curr.data || [];
+    const curr = capitalRead();
     curr.data.push({ ts: new Date().toISOString(), ...(req.body || {}) });
     fs.mkdirSync(path.dirname(CAPITAL_PATH), { recursive: true });
     fs.writeFileSync(CAPITAL_PATH, JSON.stringify(curr, null, 2));
