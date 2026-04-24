@@ -915,12 +915,13 @@ app.get('/api/cxc/resumen-aging', async (req, res) => {
       if (key in bucketMap) bucketMap[key] = num(b.total_bucket);
     }
     const totalSaldo = num((saldo[0] || {}).saldo);
-    const totalVencido = vencida
-      .filter(r => r.dias_vencido > 0)
-      .reduce((s, r) => s + num(r.saldo_venc), 0);
-    const totalVigente = vencida
-      .filter(r => num(r.dias_vencido) <= 0)
-      .reduce((s, r) => s + num(r.saldo_venc), 0);
+    // FUENTE DE VERDAD: los buckets de aging suman exactamente al saldo total.
+    // cxc_vencida_detalle es detalle filtrado (limite + saldo_venc con ruido
+    // float) — sirve para MAX_DIAS y conteo de clientes, pero NO para totales.
+    const totalVencidoFromAging = bucketMap['0-30'] + bucketMap['31-60'] + bucketMap['61-90'] + bucketMap['90+'];
+    // VIGENTE = saldo documental que aún no vence. Si los buckets aging cubren
+    // el saldo total, VIGENTE = 0 (situación actual: 100% de la cartera vencida).
+    const totalVigente = Math.max(0, totalSaldo - totalVencidoFromAging);
     const maxDias = vencida.reduce((m, r) => Math.max(m, num(r.dias_vencido)), 0);
     const clientesVencidos = new Set(
       vencida.filter(r => num(r.dias_vencido) > 0 && r.cliente)
@@ -936,9 +937,6 @@ app.get('/api/cxc/resumen-aging', async (req, res) => {
     //     (CORRIENTE / DIAS_1_30 / DIAS_31_60 / DIAS_61_90 / DIAS_MAS_90).
     //   - agingArray: forma cruda del external API ([{bucket, total_bucket,
     //     num_cargos}, ...]) — se conserva en `aging_raw` por si alguien la usa.
-    // El campo `aging` principal sale como OBJECT porque filters.js hace
-    //   base = ageRaw[0]  cuando detecta array, y cxc_aging no pone num_cargos
-    //   como bucket numérico — quedaría todo en 0.
     const agingObj = {
       CORRIENTE: totalVigente,
       DIAS_1_30: bucketMap['0-30'],
@@ -951,9 +949,9 @@ app.get('/api/cxc/resumen-aging', async (req, res) => {
       ok: true,
       resumen: {
         SALDO_TOTAL: totalSaldo,
-        VENCIDO: totalVencido,
-        VIGENTE: Math.max(0, totalSaldo - totalVencido),
-        POR_VENCER: totalVigente, // alias que usa cxc.html
+        VENCIDO: totalVencidoFromAging,     // fuente: suma de buckets aging (matchea saldo total)
+        VIGENTE: totalVigente,               // saldo - aging; 0 si toda la cartera está vencida
+        POR_VENCER: totalVigente,            // alias que usa cxc.html
         MAX_DIAS: maxDias,
         NUM_CLIENTES: clientesTotales,
         NUM_CLIENTES_VENCIDOS: clientesVencidos,

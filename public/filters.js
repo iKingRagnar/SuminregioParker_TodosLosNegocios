@@ -29,7 +29,9 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   const MESES_FULL = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
                       'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
   const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : '';
-  const PARKER_DB_CANDIDATES = ['default'];
+  // Orden de preferencia para "negocio default" cuando el usuario no eligió:
+  // parker primero (bandera), luego legacy 'default', luego cualquier otra unidad válida.
+  const PARKER_DB_CANDIDATES = ['parker', 'default', 'medico', 'maderas', 'empaque', 'agua', 'reciclaje'];
 
   let _cfg        = {};
   let _vendedores = [];
@@ -214,8 +216,19 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     return base.replace(/\.fdb$/i, '');
   }
 
-  const ALLOWED_DB_TERMS = ['suminregio', 'agua', 'medicos', 'madera', 'carton', 'especial', 'reciclaje'];
-  const DB_DISPLAY_STRIP_TERMS = ['suminregio', 'parker', 'grupo', 'suministros'];
+  // Las 6 unidades reales que expone el API externo + términos legacy para
+  // compat con listados de DBs Firebird (snapshots antiguos, backups, etc.).
+  const UNIDADES_VALIDAS_FILTERS = ['parker', 'medico', 'maderas', 'empaque', 'agua', 'reciclaje'];
+  const UNIDADES_LABELS_FILTERS = {
+    parker: 'Suminregio Parker',
+    medico: 'Suministros Médicos',
+    maderas: 'Suminregio Maderas',
+    empaque: 'Suminregio Empaque',
+    agua: 'Suminregio Agua',
+    reciclaje: 'Suminregio Reciclaje',
+  };
+  const ALLOWED_DB_TERMS = ['parker', 'medico', 'medicos', 'maderas', 'madera', 'empaque', 'agua', 'reciclaje', 'suminregio', 'carton', 'especial'];
+  const DB_DISPLAY_STRIP_TERMS = ['suminregio', 'grupo', 'suministros'];
   const DB_ALLOWED_SET = ALLOWED_DB_TERMS.reduce(function (acc, t) { acc[t] = 1; return acc; }, {});
   function isSnapshotOrTempDb(e) {
     const pool = normDbText([
@@ -297,15 +310,32 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     const isAll = (urlDb === '__all__');
     html += '<button type="button" class="biz-chip db-chip' + (isAll ? ' active' : '') + '" data-db="__all__" title="Suma ventas/P&amp;L de todos los negocios de la barra">' +
       '<span class="db-chip-main">Todos los Negocios</span><span class="db-chip-sub">Suma de negocios en barra</span></button>';
-    (list || []).forEach(function (e) {
+    // Orden: parker primero (negocio bandera), luego el resto de las 6 unidades
+    // por orden lógico (maderas/medico/empaque/agua/reciclaje), y al final cualquier
+    // DB legacy que no caiga en las 6 unidades.
+    const ORDEN = ['parker', 'medico', 'maderas', 'empaque', 'agua', 'reciclaje'];
+    const ordenList = (list || []).slice().sort(function (a, b) {
+      const ia = ORDEN.indexOf(String(a.id || '').toLowerCase());
+      const ib = ORDEN.indexOf(String(b.id || '').toLowerCase());
+      const iaSafe = ia < 0 ? 999 : ia;
+      const ibSafe = ib < 0 ? 999 : ib;
+      if (iaSafe !== ibSafe) return iaSafe - ibSafe;
+      return String(a.id || '').localeCompare(String(b.id || ''));
+    });
+    ordenList.forEach(function (e) {
       const id = String(e.id || '');
+      const idLow = id.toLowerCase();
       const fname = fdbBasename(e.database);
-      const main = cleanDbDisplayName(fname || id);
+      // Si es una de las 6 unidades conocidas, usar el label bonito; si no, fallback al cleaner.
+      const prettyLabel = UNIDADES_LABELS_FILTERS[idLow];
+      const main = prettyLabel || cleanDbDisplayName(fname || id);
       const idClean = String(id).replace(/\.fdb$/i, '');
       const labelClean = cleanDbDisplayName(String(e.label || '').replace(/\.fdb$/i, ''));
       const idPretty = cleanDbDisplayName(idClean);
-      const sub = (labelClean && labelClean !== main && labelClean !== idPretty) ? labelClean : idPretty;
-      const subHtml = dbChipSubRedundant(main, sub)
+      const sub = prettyLabel
+        ? ''  // cuando tenemos label bonito, sub queda vacío para no redundar
+        : ((labelClean && labelClean !== main && labelClean !== idPretty) ? labelClean : idPretty);
+      const subHtml = (!sub || dbChipSubRedundant(main, sub))
         ? ''
         : '<span class="db-chip-sub">' + escChip(sub) + '</span>';
       const active = (!isAll && urlDb === id) ? ' active' : '';
