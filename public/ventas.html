@@ -1147,7 +1147,7 @@ async function loadAll() {
   else if(params.anio && params.mes) labelParts.push(`${['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'][params.mes-1]} ${params.anio}`);
   else if(params.anio) labelParts.push(`A\u00f1o ${params.anio}`);
   labelParts.push(currentTipo||'Todos');
-  setText('page-sub', `Actualizado: ${new Date().toLocaleTimeString('es-MX')} · ${labelParts.join(' · ')}`);
+  setText('page-sub', `Actualizado: ${typeof window.serverFmtTime === 'function' ? window.serverFmtTime() : new Date().toLocaleTimeString('es-MX')} (servidor) · ${labelParts.join(' · ')}`);
   setText('top-cli-badge', labelParts.length ? labelParts.join(' · ') : 'Filtro activo');
 }
 

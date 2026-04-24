@@ -14,6 +14,40 @@
   document.head.appendChild(s);
 })();
 
+// ── Reloj sincronizado con el servidor ───────────────────────────────────────
+// El reloj del cliente puede estar desfasado (zona horaria mal configurada,
+// NTP caído, etc.). Sincronizamos contra /api/ping una vez al cargar la página
+// y exponemos helpers globales para que los dashboards muestren "Actualizado:
+// HH:MM:SS" con la hora del SERVIDOR, no la del cliente.
+//
+//   window.serverNow()    → Date ajustado al servidor (fallback: cliente)
+//   window.serverFmtTime()→ "HH:MM:SS" hora servidor local es-MX
+//   window.__serverOffset → ms de desfase (servidor - cliente); 0 hasta sync
+(function syncServerClock() {
+  if (typeof window === 'undefined' || typeof fetch !== 'function') return;
+  window.__serverOffset = 0;
+  window.serverNow = function () {
+    return new Date(Date.now() + (window.__serverOffset || 0));
+  };
+  window.serverFmtTime = function (opts) {
+    return window.serverNow().toLocaleTimeString('es-MX',
+      opts || { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  };
+  var t0 = Date.now();
+  fetch('/api/ping', { cache: 'no-store', credentials: 'same-origin' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (j) {
+      if (!j || !j.ts) return;
+      var t1 = Date.now();
+      // Estimamos RTT/2 para afinar la estimación del reloj servidor
+      var serverTs = Date.parse(j.ts);
+      if (isNaN(serverTs)) return;
+      var rttHalf = Math.round((t1 - t0) / 2);
+      window.__serverOffset = serverTs + rttHalf - t1;
+    })
+    .catch(function () { /* sin red: seguimos con offset=0 */ });
+})();
+
 (function () {
   // ════════════════════════════════════════════════════════
   //  REFRESH BAR

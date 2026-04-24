@@ -1135,7 +1135,7 @@ async function loadAll() {
   }
 
   await Promise.allSettled([loadDiarias(), loadVendedores(), loadClientes(), loadRecientes()]);
-  setText('page-sub', `Actualizado: ${new Date().toLocaleTimeString('es-MX')}`);
+  setText('page-sub', `Actualizado: ${typeof window.serverFmtTime === 'function' ? window.serverFmtTime() : new Date().toLocaleTimeString('es-MX')} (servidor)`);
 }
 
 function parseVentasDiariasDay(raw) {

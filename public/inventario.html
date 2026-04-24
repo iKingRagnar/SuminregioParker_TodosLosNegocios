@@ -669,7 +669,7 @@ async function loadAll() {
     ]);
     if (g !== invLoadGen) return;
     const pl = invPeriodLabel();
-    setText('page-sub', 'Actualizado: ' + new Date().toLocaleTimeString('es-MX') + (pl ? ' · ' + pl : ''));
+    setText('page-sub', 'Actualizado: ' + (typeof window.serverFmtTime === 'function' ? window.serverFmtTime() : new Date().toLocaleTimeString('es-MX')) + ' (servidor)' + (pl ? ' · ' + pl : ''));
   } finally {
     invLoadAllRunning = false;
     if (invLoadAllQueued) {
