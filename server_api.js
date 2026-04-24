@@ -297,8 +297,18 @@ function unidadFromReq(req) {
 
 function yearMonthFromReq(req, defAnio, defMes) {
   const now = new Date();
-  const anio = Number(req.query.anio || req.query.year || defAnio || now.getFullYear());
-  const mes = Number(req.query.mes || req.query.month || defMes || (now.getMonth() + 1));
+  let anio = Number(req.query.anio || req.query.year || defAnio || now.getFullYear());
+  let mes = Number(req.query.mes || req.query.month || defMes || (now.getMonth() + 1));
+  // Honrar ?preset=mes_ant / anio_ant cuando el cliente no manda anio/mes explícitos
+  const preset = String(req.query.preset || '').toLowerCase();
+  const anioExplicit = req.query.anio != null || req.query.year != null;
+  const mesExplicit = req.query.mes != null || req.query.month != null;
+  if (preset === 'mes_ant' && !mesExplicit) {
+    mes = mes - 1;
+    if (mes === 0) { mes = 12; if (!anioExplicit) anio = anio - 1; }
+  } else if (preset === 'anio_ant' && !anioExplicit) {
+    anio = anio - 1;
+  }
   return { anio, mes };
 }
 
@@ -370,8 +380,19 @@ app.get('/api/catalog/queries', async (_req, res) => {
 // ── Config / metas (local, no del API) ──────────────────────────────────────
 const METAS_PATH = path.join(__dirname, 'metas.json');
 function readMetas() {
-  try { return JSON.parse(fs.readFileSync(METAS_PATH, 'utf8')); }
-  catch { return { META_MES: 3000000, META_IDEAL: 3300000, META_ANIO: 36000000 }; }
+  const def = {
+    META_MES: 3000000,
+    META_IDEAL: 3300000,
+    META_ANIO: 36000000,
+    META_DIARIA: 100000,
+    META_DIARIA_POR_VENDEDOR: 20000,
+    META_VENDEDOR_MES: 600000,
+    META_VENDEDOR_ANIO: 7200000,
+  };
+  try {
+    const loaded = JSON.parse(fs.readFileSync(METAS_PATH, 'utf8'));
+    return { ...def, ...loaded };
+  } catch { return def; }
 }
 app.get('/api/config/metas', (_req, res) => {
   res.json({ ok: true, ...readMetas() });
@@ -557,14 +578,65 @@ app.get('/api/ventas/cobradas', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
     const { anio, mes } = yearMonthFromReq(req);
-    const rows = await api.runQuery(unidad, 'cobros_por_vendedor', { anio, mes })
-      .catch(() => []); // query tiene bug upstream — devolver vacío si falla
-    res.json(rows.map(r => ({
-      VENDEDOR: r.vendedor || r.VENDEDOR,
-      VENDEDOR_ID: r.VENDEDOR_ID,
-      COBRADO: num(r.total_cobrado || r.cobrado || r.COBRADO),
-      NUM_COBROS: num(r.num_cobros || r.NUM_COBROS),
-    })));
+    // cobros_por_vendedor corre sobre Firebird live y a veces devuelve 500.
+    // Degradamos a [] y al mismo tiempo intentamos `ventas_por_vendedor`
+    // como fallback para que la UI muestre al menos el facturado.
+    const [cobrosRaw, ventasRaw] = await Promise.all([
+      api.runQuery(unidad, 'cobros_por_vendedor', { anio, mes }).catch(() => []),
+      api.runQuery(unidad, 'ventas_por_vendedor', { anio, mes }).catch(() => []),
+    ]);
+
+    const normKey = (s) => String(s || '').trim().toUpperCase();
+    const facturadoByV = new Map();
+    for (const v of ventasRaw) {
+      facturadoByV.set(normKey(v.vendedor), num(v.total_ventas));
+    }
+
+    const vendedores = (cobrosRaw || []).map((r) => {
+      const nombre = r.vendedor || r.VENDEDOR || '';
+      const cobrado = num(r.total_cobrado || r.cobrado || r.COBRADO);
+      const facturado = facturadoByV.get(normKey(nombre)) || 0;
+      return {
+        VENDEDOR: nombre,
+        NOMBRE: nombre,
+        VENDEDOR_ID: r.VENDEDOR_ID,
+        COBRADO: cobrado,
+        TOTAL_COBRADO: cobrado,        // alias que cobradas.html espera
+        FACTURADO: facturado,
+        TOTAL_FACTURADO: facturado,
+        NUM_COBROS: num(r.num_cobros || r.NUM_COBROS),
+        NUM_DOCS: num(r.num_cobros || r.NUM_COBROS),
+        PCT_COBRADO: facturado > 0 ? Math.round((cobrado / facturado) * 1000) / 10 : 0,
+      };
+    });
+
+    // Si cobros falló pero hay ventas, construir la lista a partir de ventas
+    // para no dejar la UI vacía.
+    if (!vendedores.length && ventasRaw.length) {
+      for (const v of ventasRaw) {
+        vendedores.push({
+          VENDEDOR: v.vendedor,
+          NOMBRE: v.vendedor,
+          VENDEDOR_ID: v.VENDEDOR_ID,
+          COBRADO: 0,
+          TOTAL_COBRADO: 0,
+          FACTURADO: num(v.total_ventas),
+          TOTAL_FACTURADO: num(v.total_ventas),
+          NUM_COBROS: 0,
+          NUM_DOCS: num(v.num_docs),
+          PCT_COBRADO: 0,
+        });
+      }
+    }
+
+    const totalCobrado = vendedores.reduce((s, r) => s + r.COBRADO, 0);
+    const totalFacturado = vendedores.reduce((s, r) => s + r.FACTURADO, 0);
+    res.json({
+      ok: true,
+      vendedores,
+      totalCobrado: Math.round(totalCobrado * 100) / 100,
+      totalFacturado: Math.round(totalFacturado * 100) / 100,
+    });
   } catch (e) { return wrapError(res, e, 'ventas/cobradas'); }
 });
 
@@ -595,7 +667,18 @@ app.get('/api/ventas/cobradas-por-factura', async (req, res) => {
         console.warn(`[cobradas-por-factura] upstream failed: ${err.message}`);
         return [];
       });
-    res.json(rows);
+    // Normalizar al shape que cobradas.html espera: FECHA_FACTURA, FOLIO_VE,
+    // CLIENTE, COBRADO_PERIODO, VENDEDOR. Upstream los trae en minúscula.
+    res.json((rows || []).map((r) => ({
+      FECHA_FACTURA: r.fecha || r.FECHA || r.fecha_factura || '',
+      FECHA: r.fecha || r.FECHA || '',
+      FOLIO_VE: r.folio || r.FOLIO || r.folio_ve || '',
+      FOLIO: r.folio || r.FOLIO || '',
+      CLIENTE: r.cliente || r.CLIENTE || '',
+      MONTO_COBRADO: num(r.monto_cobrado || r.MONTO_COBRADO || r.cobrado),
+      COBRADO_PERIODO: num(r.cobrado_periodo || r.cobrado || r.monto_cobrado),
+      VENDEDOR: r.vendedor || r.VENDEDOR || '',
+    })));
   } catch (e) { return wrapError(res, e, 'ventas/cobradas-por-factura'); }
 });
 
@@ -658,22 +741,55 @@ app.get('/api/ventas/por-vendedor/cotizaciones', async (req, res) => {
 });
 
 // /api/ventas/vs-cotizaciones
+// ventas.html consume este endpoint con ?meses=6 y espera arrays:
+//   { ventas: [{ANIO, MES, TOTAL_VENTAS, NUM_DOCS}, ...],
+//     cotizaciones: [{ANIO, MES, TOTAL_COTI, NUM_COTI}, ...] }
+// Hay que iterar N meses y agregar por mes (ventas_resumen_mes + cotizaciones_activas).
 app.get('/api/ventas/vs-cotizaciones', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
+    const mesesN = Math.max(1, Math.min(24, Number(req.query.meses) || 6));
     const { anio, mes } = yearMonthFromReq(req);
-    const [ventas, cotis] = await Promise.all([
-      api.runQuery(unidad, 'ventas_resumen_mes', { anio, mes }),
-      api.runQuery(unidad, 'cotizaciones_activas', { anio, mes }),
-    ]);
-    const totalV = num((ventas[0] || {}).total_general);
-    const totalC = cotis.reduce((s, r) => s + num(r.importe_sin_iva), 0);
+    const base = new Date(anio, mes - 1, 1);
+    const ventana = [];
+    for (let i = mesesN - 1; i >= 0; i--) {
+      const d = new Date(base.getFullYear(), base.getMonth() - i, 1);
+      ventana.push({ anio: d.getFullYear(), mes: d.getMonth() + 1 });
+    }
+
+    const ventasArr = [];
+    const cotiArr = [];
+    for (const { anio: a, mes: m } of ventana) {
+      const [ventasRows, cotisRows] = await Promise.all([
+        api.runQuery(unidad, 'ventas_resumen_mes', { anio: a, mes: m }).catch(() => []),
+        api.runQuery(unidad, 'cotizaciones_activas', { anio: a, mes: m }).catch(() => []),
+      ]);
+      const vRow = (ventasRows || [])[0] || {};
+      ventasArr.push({
+        ANIO: a, MES: m,
+        TOTAL_VENTAS: num(vRow.total_general),
+        TOTAL_VE: num(vRow.total_ve),
+        TOTAL_PV: num(vRow.total_pv),
+        NUM_DOCS: num(vRow.num_facturas),
+      });
+      const totC = (cotisRows || []).reduce((s, r) => s + num(r.importe_sin_iva), 0);
+      cotiArr.push({
+        ANIO: a, MES: m,
+        TOTAL_COTI: totC,
+        NUM_COTI: (cotisRows || []).length,
+      });
+    }
+
+    const totalV = ventasArr.reduce((s, r) => s + r.TOTAL_VENTAS, 0);
+    const totalC = cotiArr.reduce((s, r) => s + r.TOTAL_COTI, 0);
     res.json({
       ok: true,
+      ventas: ventasArr,
+      cotizaciones: cotiArr,
       VENTAS: totalV, COTIZACIONES: totalC,
       RATIO: totalC > 0 ? totalV / totalC : 0,
-      NUM_VENTAS: num((ventas[0] || {}).num_facturas),
-      NUM_COTIZACIONES: cotis.length,
+      NUM_VENTAS: ventasArr.reduce((s, r) => s + r.NUM_DOCS, 0),
+      NUM_COTIZACIONES: cotiArr.reduce((s, r) => s + r.NUM_COTI, 0),
     });
   } catch (e) { return wrapError(res, e, 'ventas/vs-cotizaciones'); }
 });
@@ -796,17 +912,25 @@ app.get('/api/cxc/vencidas', async (req, res) => {
     const limite = Number(req.query.limit) || 100;
     const rows = await api.runQuery(unidad, 'cxc_vencida_detalle', { limite });
     res.json(rows
-      .filter(r => r.dias_vencido > 0)
-      .map(r => ({
-        CLIENTE: r.cliente,
-        DOCTO_CC_ID: r.doc_id,
-        FECHA: r.fecha_doc,
-        FECHA_VENCIMIENTO: r.fecha_venc,
-        DIAS_VENCIDO: num(r.dias_vencido),
-        IMPORTE: num(r.importe_cargo),
-        SALDO: num(r.saldo_venc),
-        CONDICION_PAGO: r.condicion_pago,
-      })));
+      .filter(r => num(r.dias_vencido) > 0)
+      .map(r => {
+        const dias = num(r.dias_vencido);
+        return {
+          CLIENTE: r.cliente,
+          DOCTO_CC_ID: r.doc_id,
+          FOLIO: r.folio || r.doc_id,
+          FECHA: r.fecha_doc,
+          FECHA_VENTA: r.fecha_doc,
+          FECHA_VENCIMIENTO: r.fecha_venc,
+          FECHA_VENC_PLAZO: r.fecha_venc,
+          DIAS_VENCIDO: dias,
+          DIAS_ATRASO: dias,            // alias que cxc.html espera para filtrar/ordenar
+          TIEMPO_SIN_PAGAR_DIAS: dias,
+          IMPORTE: num(r.importe_cargo),
+          SALDO: num(r.saldo_venc),
+          CONDICION_PAGO: r.condicion_pago,
+        };
+      }));
   } catch (e) { return wrapError(res, e, 'cxc/vencidas'); }
 });
 
@@ -818,15 +942,24 @@ app.get('/api/cxc/vigentes', async (req, res) => {
     const vigentes = rows
       .filter(r => num(r.dias_vencido) <= 0 && num(r.saldo_venc) > 0)
       .slice(0, limite)
-      .map(r => ({
-        CLIENTE: r.cliente,
-        DOCTO_CC_ID: r.doc_id,
-        FECHA: r.fecha_doc,
-        FECHA_VENCIMIENTO: r.fecha_venc,
-        DIAS_PARA_VENCER: Math.abs(num(r.dias_vencido)),
-        SALDO: num(r.saldo_venc),
-        CONDICION_PAGO: r.condicion_pago,
-      }));
+      .map(r => {
+        const dias = num(r.dias_vencido);
+        return {
+          CLIENTE: r.cliente,
+          DOCTO_CC_ID: r.doc_id,
+          FOLIO: r.folio || r.doc_id,
+          FECHA: r.fecha_doc,
+          FECHA_VENTA: r.fecha_doc,
+          FECHA_VENCIMIENTO: r.fecha_venc,
+          FECHA_VENC_PLAZO: r.fecha_venc,
+          DIAS_PARA_VENCER: Math.abs(dias),
+          DIAS_ATRASO: dias,        // cxc.html lo usa para orden (negativo o 0)
+          TIEMPO_SIN_PAGAR_DIAS: 0,
+          IMPORTE: num(r.importe_cargo),
+          SALDO: num(r.saldo_venc),
+          CONDICION_PAGO: r.condicion_pago,
+        };
+      });
     res.json(vigentes);
   } catch (e) { return wrapError(res, e, 'cxc/vigentes'); }
 });
@@ -998,12 +1131,18 @@ app.get('/api/director/vendedores', async (req, res) => {
     }
     res.json(ventas.map(v => {
       const m = margenByName.get(normName(v.vendedor)) || {};
+      const ventasMonto = num(v.total_ventas);
+      const numDocs = num(v.num_docs);
       return {
         VENDEDOR_ID: v.VENDEDOR_ID,
         VENDEDOR: v.vendedor,
         NOMBRE: v.vendedor,
-        VENTAS: num(v.total_ventas),
-        NUM_DOCS: num(v.num_docs),
+        VENTAS: ventasMonto,
+        VENTAS_MES: ventasMonto,       // alias que director.html usa para ordenar
+        TOTAL_VENTAS: ventasMonto,     // alias defensivo adicional
+        NUM_DOCS: numDocs,
+        FACTURAS: numDocs,
+        DOCS: numDocs,
         COSTO: num(m.costo_total || m.costo || m.COSTO),
         MARGEN: num(m.utilidad || m.margen || m.MARGEN),
         MARGEN_PCT: num(m.margen_pct || m.MARGEN_PCT),
@@ -1027,10 +1166,23 @@ app.get('/api/director/top-clientes', async (req, res) => {
     const { anio, mes } = yearMonthFromReq(req);
     const limite = Number(req.query.limit) || 10;
     const rows = await api.runQuery(unidad, 'ventas_top_clientes', { anio, mes, limite });
-    res.json(rows.map(r => ({
-      CLIENTE_ID: r.CLIENTE_ID, CLIENTE: r.cliente,
-      NOMBRE: r.cliente, VENTAS: num(r.total_ventas), NUM_DOCS: num(r.num_docs),
-    })));
+    res.json(rows.map(r => {
+      const ventas = num(r.total_ventas);
+      const docs = num(r.num_docs);
+      return {
+        CLIENTE_ID: r.CLIENTE_ID,
+        CLIENTE: r.cliente,
+        NOMBRE: r.cliente,
+        VENTAS: ventas,
+        TOTAL_VENTAS: ventas,    // director.html lee r.TOTAL_VENTAS / r.TOTAL / r.IMPORTE_NETO
+        TOTAL: ventas,
+        IMPORTE_NETO: ventas,
+        NUM_DOCS: docs,
+        NUM_FACTURAS: docs,      // director.html lee r.NUM_FACTURAS / r.FACTURAS / r.DOCS
+        FACTURAS: docs,
+        DOCS: docs,
+      };
+    }));
   } catch (e) { return wrapError(res, e, 'director/top-clientes'); }
 });
 
@@ -1038,8 +1190,27 @@ app.get('/api/director/recientes', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
     const { anio, mes } = yearMonthFromReq(req);
-    const rows = await api.runQuery(unidad, 'ventas_diarias', { anio, mes });
-    res.json(rows.slice(-10).reverse().map(r => ({ FECHA: r.dia, VENTAS: num(r.total_dia), DOCS: num(r.num_docs) })));
+    const limite = Number(req.query.limit) || 15;
+    // El catálogo externo NO tiene una query de "facturas recientes" a nivel
+    // documento (no existe `ventas_facturas_recientes`). Mostramos top-clientes
+    // del mes con el shape que director.html espera: {FOLIO, TIPO_SRC, CLIENTE,
+    // VENDEDOR, TOTAL, FECHA}. De esa forma la tarjeta "Movimientos recientes"
+    // queda con info útil (quién está comprando más este mes) aunque no sea
+    // factura-por-factura.
+    const [topClientes, ventasDia] = await Promise.all([
+      api.runQuery(unidad, 'ventas_top_clientes', { anio, mes, limite }).catch(() => []),
+      api.runQuery(unidad, 'ventas_diarias', { anio, mes }).catch(() => []),
+    ]);
+    const ultimaFecha = (ventasDia.length && ventasDia[ventasDia.length - 1].dia) || null;
+    const rows = (topClientes || []).slice(0, limite).map((r) => ({
+      FOLIO: '—',
+      TIPO_SRC: 'VE',
+      CLIENTE: r.cliente,
+      VENDEDOR: '—',
+      TOTAL: num(r.total_ventas),
+      FECHA: ultimaFecha,
+    }));
+    res.json(rows);
   } catch (e) { return wrapError(res, e, 'director/recientes'); }
 });
 
@@ -1060,12 +1231,73 @@ app.get('/api/clientes/inactivos', async (req, res) => {
 app.get('/api/clientes/resumen-riesgo', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
-    const rows = await api.runQuery(unidad, 'clientes_riesgo', {}).catch(() => []);
-    const resumen = {
-      NUM_RIESGO: rows.length,
-      TOTAL_VENTA_HISTORICA: rows.reduce((s, r) => s + num(r.venta_historica), 0),
+    // clientes_riesgo trae frecuencia de compra (CLIENTE_ID, cliente,
+    // compras_periodo_anterior, compras_periodo_reciente) — no trae niveles
+    // ni montos. Para el dashboard de riesgo agregamos el vencimiento real
+    // desde cxc_vencida_detalle y clasificamos por días de atraso, que es lo
+    // que los usuarios realmente quieren ver en las tarjetas CRITICO/ALTO/…
+    const [riesgoRows, vencidas] = await Promise.all([
+      api.runQuery(unidad, 'clientes_riesgo', {}).catch(() => []),
+      api.runQuery(unidad, 'cxc_vencida_detalle', { limite: 2000 }).catch(() => []),
+    ]);
+
+    // Agregar cartera vencida por cliente
+    const porCliente = new Map();
+    for (const v of vencidas) {
+      const key = String(v.cliente || '').trim().toUpperCase();
+      if (!key) continue;
+      const dias = num(v.dias_vencido);
+      if (dias <= 0) continue;
+      const saldo = num(v.saldo_venc);
+      const imp = saldo > 0.01 ? saldo : num(v.importe_cargo);
+      if (imp <= 0) continue;
+      const curr = porCliente.get(key) || { cliente: v.cliente, MAX_DIAS: 0, MONTO: 0, DOCS: 0 };
+      if (dias > curr.MAX_DIAS) curr.MAX_DIAS = dias;
+      curr.MONTO += imp;
+      curr.DOCS += 1;
+      porCliente.set(key, curr);
+    }
+
+    const acc = {
+      CRITICO: { n: 0, m: 0 },
+      ALTO: { n: 0, m: 0 },
+      MEDIO: { n: 0, m: 0 },
+      LEVE: { n: 0, m: 0 },
     };
-    res.json({ ok: true, resumen, clientes: rows.slice(0, 50) });
+    const clientesClasificados = [];
+    for (const c of porCliente.values()) {
+      let nivel;
+      if (c.MAX_DIAS > 90) nivel = 'CRITICO';
+      else if (c.MAX_DIAS > 60) nivel = 'ALTO';
+      else if (c.MAX_DIAS > 30) nivel = 'MEDIO';
+      else nivel = 'LEVE';
+      acc[nivel].n += 1;
+      acc[nivel].m += c.MONTO;
+      clientesClasificados.push({
+        cliente: c.cliente,
+        nivel_riesgo: nivel,
+        max_dias_vencido: c.MAX_DIAS,
+        monto_vencido: Math.round(c.MONTO * 100) / 100,
+        num_docs: c.DOCS,
+      });
+    }
+    clientesClasificados.sort((a, b) => b.monto_vencido - a.monto_vencido);
+
+    const resumen = {
+      NUM_RIESGO: clientesClasificados.length || riesgoRows.length,
+      TOTAL_VENTA_HISTORICA: 0, // no disponible en la API actual
+      NUM_CRITICO: acc.CRITICO.n, MONTO_CRITICO: Math.round(acc.CRITICO.m * 100) / 100,
+      NUM_ALTO: acc.ALTO.n,       MONTO_ALTO: Math.round(acc.ALTO.m * 100) / 100,
+      NUM_MEDIO: acc.MEDIO.n,     MONTO_MEDIO: Math.round(acc.MEDIO.m * 100) / 100,
+      NUM_LEVE: acc.LEVE.n,       MONTO_LEVE: Math.round(acc.LEVE.m * 100) / 100,
+      TOTAL_EN_RIESGO: Math.round((acc.CRITICO.m + acc.ALTO.m + acc.MEDIO.m + acc.LEVE.m) * 100) / 100,
+    };
+    res.json({
+      ok: true,
+      resumen,
+      clientes: clientesClasificados.slice(0, 50),
+      clientes_frecuencia: riesgoRows.slice(0, 50), // original clientes_riesgo para compat
+    });
   } catch (e) { return wrapError(res, e, 'clientes/resumen-riesgo'); }
 });
 
@@ -1092,8 +1324,62 @@ app.get('/api/clientes/inteligencia', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
     const limite = Number(req.query.limit) || 400;
-    const rows = await api.runQuery(unidad, 'clientes_nuevos_perdidos', { limite }).catch(() => []);
-    res.json(rows);
+    // El catálogo externo NO tiene `clientes_inteligencia_ventas`. Construimos
+    // el dataset de inteligencia cruzando `clientes_nuevos_perdidos` (status +
+    // histórico de compras) con `cxc_vencida_detalle` (máx días vencido,
+    // monto vencido por cliente) para derivar NIVEL_RIESGO localmente.
+    const [nuevosPerdidos, vencidas] = await Promise.all([
+      api.runQuery(unidad, 'clientes_nuevos_perdidos', { limite }).catch(() => []),
+      api.runQuery(unidad, 'cxc_vencida_detalle', { limite: 2000 }).catch(() => []),
+    ]);
+
+    const porCliente = new Map();
+    for (const v of vencidas) {
+      const key = String(v.cliente || '').trim().toUpperCase();
+      if (!key) continue;
+      const dias = num(v.dias_vencido);
+      const saldo = num(v.saldo_venc);
+      const monto = num(v.importe_cargo);
+      const curr = porCliente.get(key) || { MAX_DIAS_VENCIDO: 0, MONTO_VENCIDO: 0, NUM_DOCS_VENC: 0 };
+      if (dias > curr.MAX_DIAS_VENCIDO) curr.MAX_DIAS_VENCIDO = dias;
+      if (saldo > 0.01) curr.MONTO_VENCIDO += saldo;
+      else if (monto > 0 && dias > 0) curr.MONTO_VENCIDO += monto;
+      if (dias > 0) curr.NUM_DOCS_VENC += 1;
+      porCliente.set(key, curr);
+    }
+
+    const nivelRiesgo = (row) => {
+      const d = row.MAX_DIAS_VENCIDO;
+      if (d > 90) return 'CRITICO';
+      if (d > 60) return 'ALTO';
+      if (d > 30) return 'MEDIO';
+      if (d > 0)  return 'LEVE';
+      if (row.STATUS && /PERDIDO/i.test(row.STATUS)) return 'MEDIO';
+      return 'OK';
+    };
+
+    const enriched = nuevosPerdidos.map((r) => {
+      const key = String(r.cliente || '').trim().toUpperCase();
+      const v = porCliente.get(key) || { MAX_DIAS_VENCIDO: 0, MONTO_VENCIDO: 0, NUM_DOCS_VENC: 0 };
+      const numDocs = Math.max(1, num(r.total_docs) || 1);
+      const out = {
+        CLIENTE: r.cliente,
+        STATUS: r.status,
+        PRIMERA_COMPRA: r.primera_compra,
+        ULTIMA_COMPRA: r.ultima_compra,
+        NUM_COMPRAS_VIDA: num(r.total_docs),
+        TOTAL_VENTA: num(r.total_venta),
+        ULTIMA_COMPRA_IMPORTE: Math.round((num(r.total_venta) / numDocs) * 100) / 100,
+        DIAS_SIN_COMPRA: num(r.dias_sin_compra),
+        MAX_DIAS_VENCIDO: v.MAX_DIAS_VENCIDO,
+        MONTO_VENCIDO: Math.round(v.MONTO_VENCIDO * 100) / 100,
+        NUM_DOCS_VENC: v.NUM_DOCS_VENC,
+      };
+      out.NIVEL_RIESGO = nivelRiesgo(out);
+      return out;
+    });
+
+    res.json({ ok: true, rows: enriched });
   } catch (e) { return wrapError(res, e, 'clientes/inteligencia'); }
 });
 
@@ -1140,7 +1426,19 @@ app.get('/api/inv/top-stock', async (req, res) => {
     const unidad = unidadFromReq(req);
     const limite = Number(req.query.limit) || 30;
     const rows = await api.runQuery(unidad, 'inv_top_stock', { limite });
-    res.json(rows);
+    // inv_top_stock upstream devuelve {ARTICULO_ID, articulo, CLAVE_ARTICULO,
+    // stock, costo_unitario, valor_inventario}. El frontend lee DESCRIPCION /
+    // UNIDAD / EXISTENCIA / PRECIO_VENTA / VALOR_TOTAL.
+    res.json(rows.map(r => ({
+      ARTICULO_ID: r.ARTICULO_ID,
+      CLAVE_ARTICULO: r.CLAVE_ARTICULO,
+      DESCRIPCION: r.articulo || r.DESCRIPCION,
+      UNIDAD: r.UNIDAD || r.unidad || '',
+      EXISTENCIA: num(r.stock),
+      PRECIO_VENTA: num(r.precio_venta || r.costo_unitario),
+      COSTO_UNITARIO: num(r.costo_unitario),
+      VALOR_TOTAL: num(r.valor_inventario),
+    })));
   } catch (e) { return wrapError(res, e, 'inv/top-stock'); }
 });
 
@@ -1149,7 +1447,23 @@ app.get('/api/inv/bajo-minimo', async (req, res) => {
     const unidad = unidadFromReq(req);
     const limite = Number(req.query.limit) || 50;
     const rows = await api.runQuery(unidad, 'inv_bajo_minimo', { limite }).catch(() => []);
-    res.json(rows);
+    // inv_bajo_minimo upstream devuelve {ARTICULO_ID, articulo, stock_actual}.
+    // El frontend de inventario.html necesita DESCRIPCION / UNIDAD /
+    // EXISTENCIA / EXISTENCIA_MINIMA / FALTANTE. Como el API no expone
+    // EXISTENCIA_MINIMA, forzamos 0 y calculamos FALTANTE = -stock si stock<0
+    // (la query ya filtra por "bajo mínimo" upstream, así que todos los rows
+    // están bajo su umbral por definición).
+    res.json(rows.map(r => {
+      const stock = num(r.stock_actual);
+      return {
+        ARTICULO_ID: r.ARTICULO_ID,
+        DESCRIPCION: r.articulo || r.DESCRIPCION,
+        UNIDAD: r.UNIDAD || '',
+        EXISTENCIA: stock,
+        EXISTENCIA_MINIMA: num(r.existencia_minima, 0),
+        FALTANTE: stock < 0 ? Math.abs(stock) : 0,
+      };
+    }));
   } catch (e) { return wrapError(res, e, 'inv/bajo-minimo'); }
 });
 
@@ -1158,8 +1472,33 @@ app.get('/api/inv/sin-movimiento', async (req, res) => {
     const unidad = unidadFromReq(req);
     const dias = Number(req.query.dias) || 180;
     const limite = Number(req.query.limit) || 60;
-    const rows = await api.runQuery(unidad, 'inv_sin_movimiento', { dias, limite });
-    res.json(rows);
+    // inv_sin_movimiento sólo devuelve {ARTICULO_ID, articulo}. Cruzamos con
+    // inventario_articulos_detalle para enriquecer con existencia/valor si
+    // aparece el artículo (máx 3k artículos, match por descripción).
+    const [rows, detalle] = await Promise.all([
+      api.runQuery(unidad, 'inv_sin_movimiento', { dias, limite }).catch(() => []),
+      api.runQuery(unidad, 'inventario_articulos_detalle', { limite: 5000 }).catch(() => []),
+    ]);
+    const detByDesc = new Map();
+    for (const d of (detalle || [])) {
+      const key = String(d.descripcion || '').trim().toUpperCase();
+      if (key) detByDesc.set(key, d);
+    }
+    res.json(rows.map(r => {
+      const key = String(r.articulo || '').trim().toUpperCase();
+      const d = detByDesc.get(key) || {};
+      return {
+        ARTICULO_ID: r.ARTICULO_ID,
+        DESCRIPCION: r.articulo || r.DESCRIPCION || '',
+        UNIDAD: r.UNIDAD || '',
+        EXISTENCIA: num(d.existencia),
+        VALOR_INVENTARIO: num(d.valor),
+        LINEA: d.linea || '',
+        MESES_SIN_VENTA: num(d.meses_sin_venta),
+        ROTACION_LABEL: d.rotacion_label || '',
+        DIAS_SIN_VENTA: dias,
+      };
+    }));
   } catch (e) { return wrapError(res, e, 'inv/sin-movimiento'); }
 });
 
@@ -1168,8 +1507,43 @@ app.get('/api/inv/consumo-semanal', async (req, res) => {
     const unidad = unidadFromReq(req);
     const limite = Number(req.query.limit) || 30;
     const dias = Number(req.query.dias) || 90;
-    const rows = await api.runQuery(unidad, 'consumo_semanal', { dias, limite }).catch(() => []);
-    res.json(rows);
+    const [rows, topStock] = await Promise.all([
+      api.runQuery(unidad, 'consumo_semanal', { dias, limite }).catch(() => []),
+      api.runQuery(unidad, 'inv_top_stock', { limite: 5000 }).catch(() => []),
+    ]);
+    // consumo_semanal trae sem_1..sem_12 (12 semanas). Calculamos
+    // CONSUMO_SEMANAL_PROM como promedio de esas 12 semanas y
+    // SEMANAS_STOCK = EXISTENCIA / CONSUMO_SEMANAL_PROM, cruzando con
+    // inv_top_stock por CLAVE_ARTICULO para obtener el stock actual.
+    const stockByClave = new Map();
+    for (const s of (topStock || [])) {
+      const k = String(s.CLAVE_ARTICULO || '').trim();
+      if (k) stockByClave.set(k, num(s.stock));
+    }
+    const out = rows.map((r) => {
+      const semanas = [];
+      for (let i = 1; i <= 12; i++) {
+        const v = r[`sem_${i}`];
+        if (v != null) semanas.push(num(v));
+      }
+      const prom = semanas.length
+        ? semanas.reduce((s, v) => s + v, 0) / semanas.length
+        : 0;
+      const existencia = stockByClave.get(String(r.CLAVE_ARTICULO || '').trim()) || 0;
+      const semStock = prom > 0 ? (existencia / prom) : 9999;
+      return {
+        ARTICULO_ID: r.ARTICULO_ID,
+        CLAVE_ARTICULO: r.CLAVE_ARTICULO,
+        DESCRIPCION: r.articulo,
+        EXISTENCIA: existencia,
+        UNIDADES_TOTAL: num(r.unidades_total),
+        VENTA_TOTAL: num(r.venta_total),
+        CONSUMO_SEMANAL_PROM: Math.round(prom * 100) / 100,
+        SEMANAS_STOCK: Math.round(semStock * 10) / 10,
+        sem_actual: num(r.sem_actual),
+      };
+    });
+    res.json(out);
   } catch (e) { return wrapError(res, e, 'inv/consumo-semanal'); }
 });
 
@@ -1177,8 +1551,35 @@ app.get('/api/inv/consumo', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
     const limite = Number(req.query.limit) || 50;
-    const rows = await api.runQuery(unidad, 'consumo_semanal', { limite }).catch(() => []);
-    res.json(rows);
+    const lead = Number(req.query.lead) || 15; // días de lead time default
+    const [rows, topStock] = await Promise.all([
+      api.runQuery(unidad, 'consumo_semanal', { limite }).catch(() => []),
+      api.runQuery(unidad, 'inv_top_stock', { limite: 5000 }).catch(() => []),
+    ]);
+    const stockByClave = new Map();
+    for (const s of (topStock || [])) {
+      const k = String(s.CLAVE_ARTICULO || '').trim();
+      if (k) stockByClave.set(k, num(s.stock));
+    }
+    // Calcular consumo_diario_promedio (sumar sem_1..sem_12 / (12*7)) y
+    // stock_para_lead = consumo_diario * lead. Útil para tablas de reorden.
+    const out = rows.map((r) => {
+      let total = 0;
+      for (let i = 1; i <= 12; i++) total += num(r[`sem_${i}`]);
+      const diario = total / (12 * 7);
+      const existencia = stockByClave.get(String(r.CLAVE_ARTICULO || '').trim()) || 0;
+      return {
+        ARTICULO_ID: r.ARTICULO_ID,
+        CLAVE_ARTICULO: r.CLAVE_ARTICULO,
+        DESCRIPCION: r.articulo,
+        EXISTENCIA: existencia,
+        UNIDADES_TOTAL: num(r.unidades_total),
+        CONSUMO_DIARIO_PROM: Math.round(diario * 100) / 100,
+        CONSUMO_LEAD: Math.round(diario * lead * 100) / 100,
+        DIAS_STOCK: diario > 0 ? Math.round((existencia / diario) * 10) / 10 : 9999,
+      };
+    });
+    res.json(out);
   } catch (e) { return wrapError(res, e, 'inv/consumo'); }
 });
 
@@ -1186,14 +1587,41 @@ app.get('/api/inv/operacion-critica', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
     const limite = Number(req.query.limit) || 120;
-    const [bajos, sinMov] = await Promise.all([
+    const [bajos, sinMov, detalle] = await Promise.all([
       api.runQuery(unidad, 'inv_bajo_minimo', { limite: Math.ceil(limite / 2) }).catch(() => []),
       api.runQuery(unidad, 'inv_sin_movimiento', { dias: 180, limite: Math.ceil(limite / 2) }).catch(() => []),
+      api.runQuery(unidad, 'inventario_articulos_detalle', { limite: 5000 }).catch(() => []),
     ]);
+    const detByDesc = new Map();
+    for (const d of (detalle || [])) {
+      const k = String(d.descripcion || '').trim().toUpperCase();
+      if (k) detByDesc.set(k, d);
+    }
+    const bajoMap = bajos.map((r) => {
+      const stock = num(r.stock_actual);
+      return {
+        ARTICULO_ID: r.ARTICULO_ID,
+        DESCRIPCION: r.articulo,
+        UNIDAD: '',
+        EXISTENCIA: stock,
+        EXISTENCIA_MINIMA: 0,
+        FALTANTE: stock < 0 ? Math.abs(stock) : 0,
+      };
+    });
+    const sinMovMap = sinMov.map((r) => {
+      const d = detByDesc.get(String(r.articulo || '').trim().toUpperCase()) || {};
+      return {
+        ARTICULO_ID: r.ARTICULO_ID,
+        DESCRIPCION: r.articulo,
+        EXISTENCIA: num(d.existencia),
+        VALOR_INVENTARIO: num(d.valor),
+        MESES_SIN_VENTA: num(d.meses_sin_venta),
+      };
+    });
     res.json({
       ok: true,
-      bajo_minimo: bajos,
-      sin_movimiento: sinMov,
+      bajo_minimo: bajoMap,
+      sin_movimiento: sinMovMap,
     });
   } catch (e) { return wrapError(res, e, 'inv/operacion-critica'); }
 });
@@ -1282,15 +1710,266 @@ app.get('/api/consumos/pedidos-compra', async (req, res) => {
 // RESULTADOS (P&L)
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Normaliza una fila de `pnl_resumen` / `pnl_operativo` / `ventas_resumen_mes`
+// al shape que `public/resultados.html` espera:
+//   { ANIO, MES, VENTAS_BRUTAS, VENTAS_NETAS, VENTAS_VE, VENTAS_PV,
+//     COSTO_VENTAS, UTILIDAD_BRUTA, MARGEN_BRUTO_PCT, COBROS, NUM_FACTURAS,
+//     CO_A1..CO_C6 }. Las columnas upstream pueden venir en minúsculas
+// snake_case o ya en mayúsculas; aceptamos ambas.
+function _pickNum(row, ...keys) {
+  if (!row) return 0;
+  for (const k of keys) {
+    if (row[k] != null) {
+      const n = Number(row[k]);
+      if (Number.isFinite(n)) return n;
+    }
+  }
+  return 0;
+}
+function pnlRowNormalizar(r, anio, mes) {
+  r = r || {};
+  // pnl_operativo devuelve: ingreso_ve, ingreso_pv, ingreso_total,
+  //                         costo_ve, costo_pv, costo_total,
+  //                         utilidad_bruta, margen_bruto_pct
+  // ventas_resumen_mes devuelve: total_ve, total_pv, total_general,
+  //                              num_facturas, costo_total, utilidad_bruta,
+  //                              margen_bruto_pct
+  const ventasVe = _pickNum(r, 'VENTAS_VE', 'ventas_ve', 'ingreso_ve', 'total_ve');
+  const ventasPv = _pickNum(r, 'VENTAS_PV', 'ventas_pv', 'ingreso_pv', 'total_pv');
+  const ventasNetas = _pickNum(r,
+    'VENTAS_NETAS', 'ventas_netas',
+    'ingreso_total', 'total_general', 'total_ventas_netas', 'VENTAS_NETAS_DOCS',
+  ) || (ventasVe + ventasPv);
+  const ventasBrutas = _pickNum(r,
+    'VENTAS_BRUTAS', 'ventas_brutas', 'total_bruto',
+  ) || (ventasNetas + _pickNum(r, 'DESCUENTOS_DEV', 'descuentos_dev', 'descuentos'));
+  const costo = _pickNum(r,
+    'COSTO_VENTAS', 'costo_ventas', 'costo_total', 'costo',
+  );
+  const utilBruta = _pickNum(r, 'UTILIDAD_BRUTA', 'utilidad_bruta') ||
+    (costo > 0 ? Math.round((ventasNetas - costo) * 100) / 100 : 0);
+  const margenPct = _pickNum(r, 'MARGEN_BRUTO_PCT', 'margen_bruto_pct') ||
+    (ventasNetas > 0 ? Math.round((utilBruta / ventasNetas) * 1000) / 10 : 0);
+  const cobros = _pickNum(r, 'COBROS', 'cobros', 'total_cobrado');
+  const numFact = _pickNum(r, 'NUM_FACTURAS', 'num_facturas', 'facturas', 'num_docs');
+
+  const out = {
+    ANIO: _pickNum(r, 'ANIO', 'anio') || anio,
+    MES: _pickNum(r, 'MES', 'mes') || mes,
+    VENTAS_BRUTAS: ventasBrutas,
+    DESCUENTOS_DEV: _pickNum(r, 'DESCUENTOS_DEV', 'descuentos_dev', 'descuentos'),
+    VENTAS_NETAS: ventasNetas,
+    VENTAS_VE: ventasVe,
+    VENTAS_PV: ventasPv,
+    COSTO_VENTAS: costo,
+    UTILIDAD_BRUTA: utilBruta,
+    MARGEN_BRUTO_PCT: margenPct,
+    COBROS: cobros,
+    NUM_FACTURAS: numFact,
+  };
+  for (const k of ['CO_A1','CO_A2','CO_A3','CO_A4','CO_A5','CO_A6',
+                   'CO_B1','CO_B2','CO_B3','CO_B4','CO_B5',
+                   'CO_C1','CO_C2','CO_C3','CO_C4','CO_C5','CO_C6']) {
+    out[k] = _pickNum(r, k, k.toLowerCase());
+  }
+  return out;
+}
+
+function pnlTotalesDesdeMeses(meses) {
+  const KEYS_NUM = ['VENTAS_BRUTAS','DESCUENTOS_DEV','VENTAS_NETAS','VENTAS_VE','VENTAS_PV','COSTO_VENTAS','UTILIDAD_BRUTA','COBROS','NUM_FACTURAS',
+    'CO_A1','CO_A2','CO_A3','CO_A4','CO_A5','CO_A6','CO_B1','CO_B2','CO_B3','CO_B4','CO_B5','CO_C1','CO_C2','CO_C3','CO_C4','CO_C5','CO_C6'];
+  const tot = {};
+  for (const k of KEYS_NUM) tot[k] = 0;
+  for (const m of (meses || [])) {
+    for (const k of KEYS_NUM) tot[k] += _pickNum(m, k);
+  }
+  tot.MARGEN_BRUTO_PCT = tot.VENTAS_NETAS > 0
+    ? Math.round((tot.UTILIDAD_BRUTA / tot.VENTAS_NETAS) * 1000) / 10 : 0;
+  return tot;
+}
+
+/**
+ * Dado anio/mes o meses=N o desde/hasta, resuelve la lista de {anio, mes}
+ * que hay que consultar al catálogo. Si el usuario fijó mes único, devuelve
+ * solo ese; si pidió meses=6, devuelve los últimos 6 terminando en el mes
+ * actual (o el pedido si viene con anio+mes).
+ */
+function resolverVentanaMeses(req) {
+  const now = new Date();
+  const anioQ = Number(req.query.anio || req.query.year || 0);
+  const mesQ  = Number(req.query.mes || req.query.month || 0);
+  const mesesN = Math.max(1, Math.min(24, Number(req.query.meses || 0) || 0));
+  const desde = String(req.query.desde || '').trim();
+  const hasta = String(req.query.hasta || '').trim();
+
+  const out = [];
+  if (desde && /^\d{4}-\d{2}-\d{2}$/.test(desde) && hasta && /^\d{4}-\d{2}-\d{2}$/.test(hasta)) {
+    const dA = new Date(desde + 'T00:00:00');
+    const dB = new Date(hasta + 'T00:00:00');
+    if (!isNaN(dA) && !isNaN(dB) && dA <= dB) {
+      const cur = new Date(dA.getFullYear(), dA.getMonth(), 1);
+      const end = new Date(dB.getFullYear(), dB.getMonth(), 1);
+      while (cur <= end) {
+        out.push({ anio: cur.getFullYear(), mes: cur.getMonth() + 1 });
+        cur.setMonth(cur.getMonth() + 1);
+      }
+      return out;
+    }
+  }
+
+  if (anioQ && !mesQ && mesesN === 0) {
+    // ?anio=2026 solo → los 12 meses del año, acotados a mes actual si anio=actual
+    const topMes = (anioQ === now.getFullYear()) ? (now.getMonth() + 1) : 12;
+    for (let m = 1; m <= topMes; m++) out.push({ anio: anioQ, mes: m });
+    return out;
+  }
+
+  if (anioQ && mesQ) return [{ anio: anioQ, mes: mesQ }];
+
+  if (mesesN) {
+    const baseY = anioQ || now.getFullYear();
+    const baseM = mesQ || (now.getMonth() + 1);
+    const startDate = new Date(baseY, baseM - 1 - (mesesN - 1), 1);
+    for (let i = 0; i < mesesN; i++) {
+      const d = new Date(startDate.getFullYear(), startDate.getMonth() + i, 1);
+      out.push({ anio: d.getFullYear(), mes: d.getMonth() + 1 });
+    }
+    return out;
+  }
+
+  // Default: mes actual
+  return [{ anio: now.getFullYear(), mes: now.getMonth() + 1 }];
+}
+
+/**
+ * Construye el payload P&L a partir del catálogo externo. Intenta primero
+ * `pnl_resumen` + `pnl_operativo`; si alguno no existe o devuelve vacío,
+ * rellena con `ventas_resumen_mes` y gastos via `gastos_detalle` para que
+ * la UI no quede en ceros.
+ */
+async function construirPnlPayload(unidad, ventana) {
+  const meses = [];
+  let tieneGastosCoAny = false;
+  const gastosRangos = {};
+  const subconceptos = {};
+  const prefijos_labels = {
+    CO_A1: 'Total gastos de venta',
+    CO_A2: 'Total gastos de operación',
+    CO_A3: 'Total gastos de administración',
+    CO_B1: 'Gastos financieros',
+    CO_C1: 'Otros gastos (partidas extraordinarias)',
+  };
+
+  for (const { anio, mes } of ventana) {
+    // Traemos en paralelo las 3 vistas que pueden alimentar el mes.
+    const [pnlResumen, pnlOp, ventasMes, gastos] = await Promise.all([
+      api.runQuery(unidad, 'pnl_resumen', { anio, mes }).catch(() => []),
+      api.runQuery(unidad, 'pnl_operativo', { anio, mes }).catch(() => []),
+      api.runQuery(unidad, 'ventas_resumen_mes', { anio, mes }).catch(() => []),
+      api.runQuery(unidad, 'gastos_detalle', { anio, mes }).catch(() => []),
+    ]);
+
+    // Merge: arranca de ventas_resumen_mes (que sabemos existe), luego
+    // superpone lo que venga de pnl_resumen/pnl_operativo.
+    const baseRow = (Array.isArray(ventasMes) && ventasMes[0]) || {};
+    const resumenRow = (Array.isArray(pnlResumen) && pnlResumen[0]) || {};
+    const opRow = (Array.isArray(pnlOp) && pnlOp[0]) || {};
+    const merged = { ...baseRow, ...resumenRow, ...opRow };
+    const row = pnlRowNormalizar(merged, anio, mes);
+
+    // Gastos CO_*: intenta primero columnas directas de pnl_*; si todas son
+    // cero, clasifica `gastos_detalle` por CUENTA_PT.
+    const sumDirect = ['CO_A1','CO_A2','CO_A3','CO_A4','CO_A5','CO_A6',
+      'CO_B1','CO_B2','CO_B3','CO_B4','CO_B5',
+      'CO_C1','CO_C2','CO_C3','CO_C4','CO_C5','CO_C6']
+      .reduce((s, k) => s + (row[k] || 0), 0);
+
+    if (sumDirect < 0.01 && Array.isArray(gastos) && gastos.length) {
+      // gastos_detalle es en realidad el mayor contable: trae TODAS las cuentas
+      // con su saldo_neto del mes. Filtramos sólo las cuentas de gastos
+      // (operativos, financieros, extraordinarios) y las clasificamos por el
+      // nombre de la cuenta para poblar los buckets CO_A*/B*/C*.
+      const clasificarPorNombre = (nombre) => {
+        const n = String(nombre || '').toUpperCase();
+        // Excluir cuentas de balance / ingresos / impuestos
+        if (/^PROVEEDORES|^CLIENTES|^BANREGIO|^BANCO|^ALMACEN|^IVA|^ISR|^COSTO DE VENTAS|^VENTAS|^DEVOLUC|^CAJA|^INVERSION/.test(n)) return null;
+        if (/SALARIO|SUELDO|NOMINA|HONORARIO|COMISION(?!ES BANCARIA)|BONO|VACACION|AGUINALDO|PTU|IMSS|INFONAVIT|AFORE|PREST.* SOCIAL|GRATIFICAC|INCENTIVO|FINIQUITO/.test(n)) return 'CO_A3'; // personal
+        if (/PUBLICIDAD|PROPAGANDA|PROMOC|MERCADOTECNIA|MARKETING|EVENTO|EXHIBIC/.test(n)) return 'CO_A1'; // ventas
+        if (/FLETE|ENVIO|PAQUETE|TRANSPORT|MENSAJERIA|AUTOPISTA|GASOLIN|COMBUSTIBLE/.test(n)) return 'CO_A2'; // distrib/operacion
+        if (/RENT|ARRENDAMIENTO|MANTEN|LIMPIEZA|UNIFORME|AGUA|LUZ|TELEFONO|INTERNET|SERVICIO.*PUBLIC/.test(n)) return 'CO_A2'; // operación
+        if (/PAPELER|OFICIN|LEGAL|CONTABLE|AUDITOR|ASESOR|CAPACITAC|VIATIC|VIAJE|HOSPED/.test(n)) return 'CO_A3'; // admin
+        if (/SEGURO|FIANZA|IMPUEST|DERECHO|MULTAS|RECARG/.test(n)) return 'CO_A3';
+        if (/COMISION.*BANCAR|INTERES|FINANC|CAMBIARI|CREDIT/.test(n)) return 'CO_B1'; // financieros
+        if (/DEPRECIAC|AMORTIZAC|EXTRAORD|OTROS GASTOS/.test(n)) return 'CO_C1';
+        if (/GASTOS VARIOS|VARIOS/.test(n)) return 'CO_A1'; // cajón genérico
+        return null;
+      };
+
+      for (const g of gastos) {
+        const cuenta_id = g.CUENTA_ID || g.cuenta_id;
+        const nombre = g.nombre_cuenta || g.NOMBRE_CUENTA || g.NOMBRE || g.nombre || g.concepto || '';
+        // saldo_neto = cargos - abonos (positivo = gasto, negativo = ingreso/balance)
+        const saldo = _pickNum(g, 'saldo_neto', 'SALDO_NETO', 'saldo', 'SALDO', 'IMPORTE', 'importe', 'IMP', 'imp', 'MONTO', 'monto', 'TOTAL', 'total');
+        if (!nombre || saldo <= 0) continue;
+        const bucket = clasificarPorNombre(nombre);
+        if (!bucket) continue;
+        row[bucket] = (row[bucket] || 0) + saldo;
+
+        const etiqueta = nombre;
+        if (!subconceptos[bucket]) subconceptos[bucket] = {};
+        const mkey = `${anio}-${String(mes).padStart(2, '0')}`;
+        if (!subconceptos[bucket][etiqueta]) subconceptos[bucket][etiqueta] = { etiqueta, total: 0, meses: {} };
+        subconceptos[bucket][etiqueta].total += saldo;
+        subconceptos[bucket][etiqueta].meses[mkey] = (subconceptos[bucket][etiqueta].meses[mkey] || 0) + saldo;
+      }
+    }
+
+    // Recalcula margen bruto por si costo/ventas cambiaron con el merge
+    if (row.VENTAS_NETAS > 0) {
+      row.MARGEN_BRUTO_PCT = Math.round((row.UTILIDAD_BRUTA / row.VENTAS_NETAS) * 1000) / 10;
+    }
+
+    // ¿tiene gastos operativos en este mes?
+    const sumGastos = ['CO_A1','CO_A2','CO_A3','CO_A4','CO_A5','CO_A6',
+      'CO_B1','CO_B2','CO_B3','CO_B4','CO_B5',
+      'CO_C1','CO_C2','CO_C3','CO_C4','CO_C5','CO_C6']
+      .reduce((s, k) => s + (row[k] || 0), 0);
+    if (sumGastos > 0.01) tieneGastosCoAny = true;
+
+    gastosRangos[`${anio}-${String(mes).padStart(2, '0')}`] = sumGastos;
+    meses.push(row);
+  }
+
+  // subconceptos: convertir a arrays ordenados por total desc
+  const subconceptosOut = {};
+  for (const k of Object.keys(subconceptos)) {
+    subconceptosOut[k] = Object.values(subconceptos[k])
+      .filter(x => (x.total || 0) > 0.005)
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 10);
+  }
+
+  const totales = pnlTotalesDesdeMeses(meses);
+  const tiene_costo = totales.COSTO_VENTAS > 0.01;
+
+  return {
+    meses,
+    totales,
+    tiene_costo,
+    tiene_gastos_co: tieneGastosCoAny,
+    prefijos_labels,
+    subconceptos: subconceptosOut,
+    gastos_estimados: false,
+    gastos_estimados_desde: null,
+  };
+}
+
 app.get('/api/resultados/pnl', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
-    const { anio, mes } = yearMonthFromReq(req);
-    const [pnl, op] = await Promise.all([
-      api.runQuery(unidad, 'pnl_resumen', { anio, mes }).catch(() => []),
-      api.runQuery(unidad, 'pnl_operativo', { anio, mes }).catch(() => []),
-    ]);
-    res.json({ ok: true, pnl_contable: pnl, pnl_operativo: op });
+    const ventana = resolverVentanaMeses(req);
+    const payload = await construirPnlPayload(unidad, ventana);
+    res.json(payload);
   } catch (e) { return wrapError(res, e, 'resultados/pnl'); }
 });
 
@@ -1426,25 +2105,129 @@ app.get('/api/resultados/estado-sr', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
     const { anio, mes } = yearMonthFromReq(req);
-    const [op, mesRows, gastos] = await Promise.all([
-      api.runQuery(unidad, 'pnl_operativo', { anio, mes }).catch(() => []),
-      api.runQuery(unidad, 'ventas_resumen_mes', { anio, mes }).catch(() => []),
-      api.runQuery(unidad, 'gastos_detalle', { anio, mes }).catch(() => []),
-    ]);
+    // Usamos construirPnlPayload para obtener el mismo payload normalizado
+    // del P&L y de ahí derivar los campos que el HTML lee (srVentas,
+    // srCosto, srBruta, srUai, etc.). Evita divergencias de redondeo.
+    const payload = await construirPnlPayload(unidad, [{ anio, mes }]);
+    const t = payload.totales || {};
+    const gv = t.CO_A1 || 0;
+    const go = t.CO_A2 || 0;
+    const ga = t.CO_A3 || 0;
+    const totOp = gv + go + ga;
+    const og = t.CO_C1 || 0;
+    const gf = t.CO_B1 || 0;
+    const uai = (t.UTILIDAD_BRUTA || 0) - totOp - og - gf;
+
+    // cuentas_muestra: top subconceptos operativos, ya agregados por construirPnlPayload
+    const cuentasMuestra = [];
+    for (const bucket of ['CO_A1', 'CO_A2', 'CO_A3', 'CO_B1', 'CO_C1']) {
+      const subs = (payload.subconceptos && payload.subconceptos[bucket]) || [];
+      for (const s of subs) {
+        cuentasMuestra.push({
+          CUENTA_PT: bucket,
+          NOMBRE: s.etiqueta,
+          IMP: s.total,
+        });
+      }
+    }
+
     res.json({
       ok: true,
-      ingresos: mesRows[0] || {},
-      utilidad_bruta: op[0] || {},
-      gastos,
+      periodo: { ANIO: anio, MES: mes },
+      estado: {
+        ventas_netas: t.VENTAS_NETAS || 0,
+        costo_ventas: t.COSTO_VENTAS || 0,
+        utilidad_bruta: t.UTILIDAD_BRUTA || 0,
+        gastos_venta: gv,
+        gastos_operacion: go,
+        gastos_administracion: ga,
+        total_gastos_operativos: totOp,
+        otros_gastos: og,
+        gastos_financieros: gf,
+        utilidad_antes_impuestos: uai,
+      },
+      cuentas_muestra: cuentasMuestra,
+      // Legacy: campos antiguos por si algún consumidor los usaba
+      ingresos: payload.meses[0] || {},
+      utilidad_bruta: { utilidad_bruta: t.UTILIDAD_BRUTA || 0 },
+      gastos: cuentasMuestra,
     });
   } catch (e) { return wrapError(res, e, 'resultados/estado-sr'); }
 });
 
 app.get('/api/resultados/pnl-universe', async (req, res) => {
   try {
-    const { anio, mes } = yearMonthFromReq(req);
-    const rows = await api.runQuery('grupo', 'pnl_operativo', { anio, mes }).catch(() => []);
-    res.json({ ok: true, unidades: rows });
+    const ventana = resolverVentanaMeses(req);
+    const concurrency = Math.max(1, Math.min(6, Number(req.query.concurrency) || 2));
+
+    // Unidades reales (sin "grupo": ese es el consolidado sintético).
+    const UNIDADES = ['parker', 'medico', 'maderas', 'empaque', 'agua', 'reciclaje'];
+
+    // Procesar con concurrencia limitada para no saturar upstream (429).
+    const empresas = new Array(UNIDADES.length);
+    let idx = 0;
+    async function worker() {
+      while (true) {
+        const i = idx++;
+        if (i >= UNIDADES.length) return;
+        const id = UNIDADES[i];
+        try {
+          const payload = await construirPnlPayload(id, ventana);
+          empresas[i] = {
+            ok: true,
+            id,
+            label: id,
+            tiene_costo: payload.tiene_costo,
+            tiene_gastos_co: payload.tiene_gastos_co,
+            totales: payload.totales,
+            meses: payload.meses,
+          };
+        } catch (err) {
+          empresas[i] = {
+            ok: false,
+            id,
+            label: id,
+            error: (err && err.message) || 'error',
+            totales: {},
+            meses: [],
+          };
+        }
+      }
+    }
+    const workers = [];
+    for (let k = 0; k < concurrency; k++) workers.push(worker());
+    await Promise.all(workers);
+
+    // Consolidado: suma de las que respondieron ok
+    const oks = empresas.filter(e => e && e.ok);
+    const mesesByKey = new Map();
+    for (const e of oks) {
+      for (const m of (e.meses || [])) {
+        const k = `${m.ANIO}-${String(m.MES).padStart(2, '0')}`;
+        if (!mesesByKey.has(k)) mesesByKey.set(k, { ANIO: m.ANIO, MES: m.MES });
+        const agg = mesesByKey.get(k);
+        for (const col of Object.keys(m)) {
+          if (col === 'ANIO' || col === 'MES' || col === 'MARGEN_BRUTO_PCT') continue;
+          agg[col] = (agg[col] || 0) + (Number(m[col]) || 0);
+        }
+      }
+    }
+    const consolidadoMeses = Array.from(mesesByKey.values()).sort((a, b) => {
+      if (a.ANIO !== b.ANIO) return a.ANIO - b.ANIO;
+      return a.MES - b.MES;
+    }).map(m => {
+      m.MARGEN_BRUTO_PCT = m.VENTAS_NETAS > 0
+        ? Math.round((m.UTILIDAD_BRUTA / m.VENTAS_NETAS) * 1000) / 10 : 0;
+      return m;
+    });
+    const consolidado = {
+      ...pnlTotalesDesdeMeses(consolidadoMeses),
+      tiene_costo: oks.some(e => e.tiene_costo),
+      tiene_gastos_co: oks.some(e => e.tiene_gastos_co),
+      meses: consolidadoMeses,
+    };
+
+    res.json({ empresas, consolidado, concurrency });
   } catch (e) { return wrapError(res, e, 'resultados/pnl-universe'); }
 });
 
@@ -1508,8 +2291,49 @@ app.get('/api/compare/temporal', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
     const { anio, mes } = yearMonthFromReq(req);
-    const rows = await api.runQuery(unidad, 'ventas_comparativo', { anio, mes });
-    res.json({ ok: true, rows });
+    // yoy-badges.js pide /api/compare/temporal?metrics=ventas_mes,cxc_total,…
+    // y lee data.metrics[nombre] = {actual, mes_pasado, anio_pasado}
+    const requested = String(req.query.metrics || req.query.metric || '')
+      .split(',').map(s => s.trim()).filter(Boolean);
+    const wanted = requested.length ? new Set(requested) : new Set(['ventas_mes', 'cxc_total']);
+
+    const [vComp, scoreRows, cxcSaldo] = await Promise.all([
+      api.runQuery(unidad, 'ventas_comparativo', { anio, mes }).catch(() => []),
+      api.runQuery(unidad, 'scorecard', {}).catch(() => []),
+      api.runQuery(unidad, 'cxc_saldo_total', {}).catch(() => []),
+    ]);
+
+    const vRow = (vComp || [])[0] || {};
+    const sRow = (scoreRows || [])[0] || {};
+    const cxcRow = (cxcSaldo || [])[0] || {};
+
+    const ventasActual = num(vRow.total_actual, num(sRow.ventas_mes_actual));
+    const ventasMesAnt = num(sRow.ventas_mes_anterior);
+    const ventasAnioAnt = num(vRow.total_anterior, num(sRow.ventas_anio_anterior));
+    const cxcActual = num(cxcRow.saldo);
+
+    const metrics = {};
+    if (wanted.has('ventas_mes')) {
+      metrics.ventas_mes = {
+        actual: ventasActual,
+        mes_pasado: ventasMesAnt || null,
+        anio_pasado: ventasAnioAnt || null,
+      };
+    }
+    if (wanted.has('cxc_total')) {
+      metrics.cxc_total = {
+        actual: cxcActual,
+        mes_pasado: null,  // no expuesto en API
+        anio_pasado: null, // no expuesto en API
+      };
+    }
+
+    res.json({
+      ok: true,
+      metrics,
+      rows: vComp,                 // compat con consumidores antiguos
+      periodo: { ANIO: anio, MES: mes },
+    });
   } catch (e) { return wrapError(res, e, 'compare/temporal'); }
 });
 
@@ -1595,11 +2419,36 @@ app.post('/api/capital/semana', (req, res) => {
 app.get('/api/capital/snapshot', async (req, res) => {
   try {
     const unidad = unidadFromReq(req);
-    const [cap, saldoCxc] = await Promise.all([
+    const [cap, saldoCxc, cxpSaldo, invRows, pruebaRows] = await Promise.all([
       api.runQuery(unidad, 'capital_trabajo', {}).catch(() => []),
       api.runQuery(unidad, 'cxc_saldo_total', {}).catch(() => []),
+      api.runQuery(unidad, 'cxp_saldo_total', {}).catch(() => []),
+      api.runQuery(unidad, 'inventario_resumen_marca', {}).catch(() => []),
+      api.runQuery(unidad, 'prueba_acida', {}).catch(() => []),
     ]);
-    res.json({ ok: true, capital: cap[0] || {}, saldo_cxc: num((saldoCxc[0] || {}).saldo) });
+    const capRow = cap[0] || {};
+    const pruebaRow = pruebaRows[0] || {};
+    const cxc = num((saldoCxc[0] || {}).saldo, num(capRow.cxc));
+    const cxp = num((cxpSaldo[0] || {}).saldo, num(capRow.cxp));
+    const inventario = num(capRow.inventario) ||
+      (Array.isArray(invRows) ? invRows.reduce((s, r) => s + num(r.valor_total), 0) : 0);
+    const bancos = num(capRow.bancos);
+    // Respuesta shape: plano en root para que `capital.html` lea
+    // `snap.cxc`, `snap.inventario`, etc. Mantengo capital/saldo_cxc como
+    // legacy por si algún consumidor los usaba.
+    res.json({
+      ok: true,
+      unidad,
+      cxc,
+      cxp,
+      inventario,
+      bancos,
+      capital_trabajo: num(capRow.capital_trabajo, cxc + inventario + bancos - cxp),
+      ratio_circulante: num(capRow.ratio_circulante),
+      prueba_acida: num(pruebaRow.prueba_acida),
+      capital: capRow,
+      saldo_cxc: cxc,
+    });
   } catch (e) { return wrapError(res, e, 'capital/snapshot'); }
 });
 
