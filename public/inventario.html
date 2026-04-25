@@ -535,8 +535,10 @@ function invPeriodLabel() {
   } catch (e) {}
   return '';
 }
-const fmt  = n => isNaN(+n)||n==null?'&mdash;':'$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
-const fmtK = n => { if(isNaN(+n)||n==null) return '&mdash;'; n=+n; return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2}); };
+// '\u2014' (em-dash) en vez de '&mdash;' porque setText() usa textContent y mostraría
+// el literal "&mdash;" en pantalla en lugar del guión largo.
+const fmt  = n => isNaN(+n)||n==null?'\u2014':'$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
+const fmtK = n => { if(isNaN(+n)||n==null) return '\u2014'; n=+n; return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2}); };
 const setText = (id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
 
 setInterval(()=>{ document.getElementById('clock').textContent=new Date().toLocaleTimeString('es-MX'); },1000);

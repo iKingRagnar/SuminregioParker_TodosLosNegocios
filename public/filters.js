@@ -214,8 +214,11 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     return base.replace(/\.fdb$/i, '');
   }
 
-  const ALLOWED_DB_TERMS = ['suminregio', 'agua', 'medicos', 'madera', 'carton', 'especial', 'reciclaje'];
-  const DB_DISPLAY_STRIP_TERMS = ['suminregio', 'parker', 'grupo', 'suministros'];
+  /* Unidades reales del API externo (UNIDADES_VALIDAS en api-client.js): parker, medico,
+     maderas, empaque, agua, reciclaje, grupo. Mantenemos los términos legacy (suminregio,
+     medicos, madera, carton, especial) para compat hacia atrás con snapshots viejos. */
+  const ALLOWED_DB_TERMS = ['parker', 'medico', 'medicos', 'maderas', 'madera', 'empaque', 'carton', 'agua', 'reciclaje', 'grupo', 'suminregio', 'especial', 'default'];
+  const DB_DISPLAY_STRIP_TERMS = ['suminregio', 'suministros'];
   const DB_ALLOWED_SET = ALLOWED_DB_TERMS.reduce(function (acc, t) { acc[t] = 1; return acc; }, {});
   function isSnapshotOrTempDb(e) {
     const pool = normDbText([
@@ -300,11 +303,17 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     (list || []).forEach(function (e) {
       const id = String(e.id || '');
       const fname = fdbBasename(e.database);
-      const main = cleanDbDisplayName(fname || id);
-      const idClean = String(id).replace(/\.fdb$/i, '');
+      // Preferimos la etiqueta amigable (e.label = "Parker", "Médicos", "Grupo
+      // Total"...) sobre el nombre crudo de la base. Si no hay label se cae al
+      // limpiado del filename/id como antes.
       const labelClean = cleanDbDisplayName(String(e.label || '').replace(/\.fdb$/i, ''));
+      const fnameClean = cleanDbDisplayName(fname || id);
+      const idClean = String(id).replace(/\.fdb$/i, '');
       const idPretty = cleanDbDisplayName(idClean);
-      const sub = (labelClean && labelClean !== main && labelClean !== idPretty) ? labelClean : idPretty;
+      const main = labelClean || fnameClean;
+      // El subtítulo solo aparece cuando aporta info distinta al main; con la
+      // nueva API (database===id) normalmente se omite.
+      const sub = (labelClean && labelClean !== main && fnameClean !== main) ? fnameClean : idPretty;
       const subHtml = dbChipSubRedundant(main, sub)
         ? ''
         : '<span class="db-chip-sub">' + escChip(sub) + '</span>';

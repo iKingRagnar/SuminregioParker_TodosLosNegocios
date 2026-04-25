@@ -1233,7 +1233,7 @@ function renderVendedoresList(rows) {
     const rank = i < 3 ? `<span style="font-size:1rem;line-height:1">${MEDALS[i]}</span>` : `<span class="rank-num">${i+1}</span>`;
     const col = COLORS[i % COLORS.length];
     const metaPct = r.META_MES && +r.META_MES > 0 ? Math.min(200, (venta / +r.META_MES * 100)).toFixed(0) : null;
-    const metaBadge = metaPct ? `<span style="font-family:'DM Mono',monospace;font-size:.57rem;padding:.15rem .38rem;border-radius:5px;margin-left:.3rem;background:${+metaPct>=100?'rgba(0,229,160,.12)':'rgba(255,184,0,.1)'};color:${+metaPct>=100?'var(--green)':'var(--yellow)';}">${metaPct}%▸meta</span>` : '';
+    const metaBadge = metaPct ? `<span style="font-family:'DM Mono',monospace;font-size:.57rem;padding:.15rem .38rem;border-radius:5px;margin-left:.3rem;background:${+metaPct>=100?'rgba(0,229,160,.12)':'rgba(255,184,0,.1)'};color:${+metaPct>=100?'var(--green)':'var(--yellow)'}">${metaPct}%▸meta</span>` : '';
     return `<div class="vendor-item" data-name="${(r.VENDEDOR||'').toLowerCase()}">
       <div class="vendor-head">
         <span class="vendor-name">${rank}&nbsp;${sanitizeLabel(r.VENDEDOR)}${metaBadge}</span>

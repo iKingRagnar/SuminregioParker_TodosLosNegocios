@@ -1,166 +1,63 @@
 /**
- * sw.js — Service Worker de Suminregio (offline-first)
+ * sw.js — KILL SWITCH SERVICE WORKER
  * ──────────────────────────────────────────────────────────────────────────────
- * Estrategia:
- *   · Shell (HTML, CSS, JS, fonts): cache-first con update on revalidate
- *     → Abre instantáneo incluso sin red. Actualiza en background.
- *   · API (/api/*): network-first con fallback a cache de última respuesta
- *     → Datos siempre frescos cuando hay red; al menos vista stale cuando no.
- *   · Excepción: /api/admin/*, /api/ai/* → solo red (nunca cache, son sensibles)
+ * Este SW reemplaza al anterior (sumi-v3 / sumi-v4 con offline-first cache) que
+ * estaba sirviendo nav.js / filters.js viejos desde caché incluso tras los
+ * deploys. La estrategia stale-while-revalidate guardaba JS del shell por
+ * encima del Cache-Control: no-store que manda el servidor, así que los fixes
+ * a la barra de "Unidad de negocio" no llegaban al usuario.
+ *
+ * Funcionamiento:
+ *   · install   → skipWaiting() para tomar el control inmediato.
+ *   · activate  → borra TODOS los caches sumi-* y luego se autodesregistra.
+ *   · message   → responde a CLEAR_CACHE manualmente.
+ *   · fetch     → NO se intercepta nada. Todas las requests van directo al
+ *                 servidor (que ya tiene Cache-Control: no-store en .html/.js).
+ *
+ * Resultado: tras el primer reload el SW limpia su propio rastro y deja la app
+ * sin cache layer. Se pierde la capacidad offline pero se gana que cada reload
+ * siempre traiga el código real del deploy.
+ *
+ * Para volver a habilitar offline cuando esto se estabilice, reemplazar este
+ * archivo por una estrategia network-first (no stale-while-revalidate) y
+ * versión bumpeable, no por la vieja v3.
  */
-const CACHE_VERSION = 'sumi-v3';
-const SHELL_CACHE   = CACHE_VERSION + '-shell';
-const API_CACHE     = CACHE_VERSION + '-api';
-
-const SHELL_PRECACHE = [
-  '/',
-  '/index.html',
-  '/ventas.html',
-  '/cxc.html',
-  '/inventario.html',
-  '/resultados.html',
-  '/consumos.html',
-  '/vendedores.html',
-  '/clientes.html',
-  '/margen-producto.html',
-  '/director.html',
-  '/nav.js',
-  '/filters.js',
-  '/data-cache.js',
-  '/visual-polish.css',
-  '/cxc-redesign.css',
-  '/module-polish.css',
-  '/mobile-enhance.css',
-  '/export-utils.js',
-  '/global-search.js',
-  '/keyboard-shortcuts.js',
-  '/yoy-badges.js',
-  '/kpi-notes.js',
-  '/presentation-mode.js',
-  '/tour-guide.js',
-  '/push-client.js',
-  '/xlsx-export.js',
-  '/comparar.html',
-  '/aurora-background.js',
-  '/app-ui.css',
-  '/app-ui-boot.js',
-  '/design-upgrade.css',
-  '/mobile.css',
-  '/favicon.svg',
-  '/manifest.webmanifest',
-];
-
-// Rutas API que NO deben cachear (sensibles/admin/IA en tiempo real)
-const API_NO_CACHE = [/^\/api\/admin\//, /^\/api\/ai\//, /^\/api\/cache\//];
-
-self.addEventListener('install', (event) => {
+self.addEventListener('install', () => {
   self.skipWaiting();
-  event.waitUntil(
-    caches.open(SHELL_CACHE).then((cache) =>
-      cache.addAll(SHELL_PRECACHE).catch((err) => {
-        console.warn('[SW] precache parcial:', err);
-      })
-    )
-  );
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((k) => k.startsWith('sumi-') && !k.startsWith(CACHE_VERSION))
-          .map((k) => caches.delete(k))
-      )
-    ).then(() => self.clients.claim())
-  );
+  event.waitUntil((async () => {
+    // 1. Borra todos los caches viejos (sumi-v3-*, sumi-v4-*, etc.)
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.filter(k => k.startsWith('sumi-')).map(k => caches.delete(k)));
+    } catch (_) { /* no-op */ }
+
+    // 2. Toma control de las pestañas abiertas (necesario antes de navigate()).
+    try { await self.clients.claim(); } catch (_) { /* no-op */ }
+
+    // 3. Recarga las pestañas activas para que descarten el nav.js/filters.js
+    //    viejo que ya tienen en memoria. Esto pasa ANTES del unregister porque
+    //    Client.navigate() solo funciona mientras el SW controle al cliente.
+    try {
+      const wins = await self.clients.matchAll({ type: 'window' });
+      wins.forEach(c => { try { c.navigate(c.url); } catch (_) {} });
+    } catch (_) { /* no-op */ }
+
+    // 4. Auto-desregistro: a partir de aquí ya no hay SW controlando la app.
+    //    Los reload subsiguientes van directo al servidor.
+    try {
+      const reg = await self.registration;
+      if (reg) await reg.unregister();
+    } catch (_) { /* no-op */ }
+  })());
 });
 
-self.addEventListener('fetch', (event) => {
-  const req = event.request;
-  if (req.method !== 'GET') return;
+// Sin handler de fetch → todas las requests pasan directo al servidor.
 
-  const url = new URL(req.url);
-  // Solo same-origin
-  if (url.origin !== self.location.origin) return;
-
-  // API sensible: siempre red, sin cache
-  if (API_NO_CACHE.some((rx) => rx.test(url.pathname))) return;
-
-  // API normal: network-first, cache fallback
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(networkFirst(req));
-    return;
-  }
-
-  // Shell: cache-first, revalidate en background
-  event.respondWith(staleWhileRevalidate(req));
-});
-
-async function networkFirst(req) {
-  try {
-    const res = await fetch(req);
-    if (res && res.status === 200) {
-      const clone = res.clone();
-      caches.open(API_CACHE).then((c) => c.put(req, clone)).catch(() => {});
-    }
-    return res;
-  } catch (err) {
-    const cached = await caches.match(req);
-    if (cached) {
-      // Marcamos respuesta como stale para que el frontend pueda detectarlo
-      const h = new Headers(cached.headers);
-      h.set('X-From-SW-Cache', 'stale');
-      return new Response(await cached.blob(), { status: cached.status, headers: h });
-    }
-    throw err;
-  }
-}
-
-async function staleWhileRevalidate(req) {
-  const cache = await caches.open(SHELL_CACHE);
-  const cached = await cache.match(req);
-  const fetchPromise = fetch(req)
-    .then((res) => {
-      if (res && res.status === 200) cache.put(req, res.clone()).catch(() => {});
-      return res;
-    })
-    .catch(() => cached);
-  return cached || fetchPromise;
-}
-
-// ── Push notifications ─────────────────────────────────────────────────────
-self.addEventListener('push', (event) => {
-  let data = {};
-  try { data = event.data ? event.data.json() : {}; } catch (_) {
-    data = { title: 'Suminregio', body: event.data ? event.data.text() : '' };
-  }
-  event.waitUntil(
-    self.registration.showNotification(data.title || 'Suminregio', {
-      body: data.body || '',
-      icon: '/favicon.svg',
-      badge: '/favicon.svg',
-      tag: data.tag || 'sumi-notif',
-      data: { url: data.url || '/' },
-    })
-  );
-});
-
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  const url = (event.notification.data && event.notification.data.url) || '/';
-  event.waitUntil(
-    clients.matchAll({ type: 'window' }).then((wins) => {
-      for (const c of wins) { if (c.url.includes(url) && 'focus' in c) return c.focus(); }
-      return clients.openWindow(url);
-    })
-  );
-});
-
-// Permite al frontend pedir un flush manual
 self.addEventListener('message', (event) => {
   if (!event.data) return;
-  if (event.data.type === 'SKIP_WAITING') self.skipWaiting();
   if (event.data.type === 'CLEAR_CACHE') {
     caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))));
   }
