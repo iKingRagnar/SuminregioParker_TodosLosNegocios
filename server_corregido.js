@@ -3547,6 +3547,11 @@ get('/api/ventas/top-clientes', async (req) => {
 get('/api/ventas/por-vendedor', async (req) => {
   const f = buildFiltros(req, 'd');
   const tipo = getTipo(req);
+  // BUG histórico: el SQL traía `WHERE EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE)`,
+  // que se intersectaba con el filtro de la barra (anio/mes). Si pedías otro mes (p.ej. feb cuando hoy
+  // es abril), la intersección era vacía y la card "Por Vendedor" salía sin datos. Ahora confiamos solo
+  // en `f.sql` (buildFiltros) para acotar el periodo y dejamos VENTAS_HOY/FACTURAS_HOY como 0 cuando el
+  // periodo elegido no incluye hoy.
   const run = async (dbo) => query(`
     SELECT
       COALESCE(d.VENDEDOR_ID, 0) AS VENDEDOR_ID,
@@ -3555,14 +3560,14 @@ get('/api/ventas/por-vendedor', async (req) => {
         ELSE COALESCE(v.NOMBRE, 'Vendedor ' || CAST(d.VENDEDOR_ID AS VARCHAR(10)))
       END AS VENDEDOR,
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END) AS VENTAS_HOY,
-      SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE) THEN d.IMPORTE_NETO ELSE 0 END) AS VENTAS_MES,
-      SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE) AND d.TIPO_SRC = 'VE' THEN d.IMPORTE_NETO ELSE 0 END) AS VENTAS_MES_VE,
-      SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE) AND d.TIPO_SRC = 'PV' THEN d.IMPORTE_NETO ELSE 0 END) AS VENTAS_MES_PV,
+      SUM(d.IMPORTE_NETO) AS VENTAS_MES,
+      SUM(CASE WHEN d.TIPO_SRC = 'VE' THEN d.IMPORTE_NETO ELSE 0 END) AS VENTAS_MES_VE,
+      SUM(CASE WHEN d.TIPO_SRC = 'PV' THEN d.IMPORTE_NETO ELSE 0 END) AS VENTAS_MES_PV,
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN 1 ELSE 0 END) AS FACTURAS_HOY,
-      SUM(CASE WHEN EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE) THEN 1 ELSE 0 END) AS FACTURAS_MES
+      COUNT(*) AS FACTURAS_MES
     FROM ${ventasSub(tipo)} d
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = d.VENDEDOR_ID
-    WHERE EXTRACT(YEAR FROM d.FECHA) = EXTRACT(YEAR FROM CURRENT_DATE) AND EXTRACT(MONTH FROM d.FECHA) = EXTRACT(MONTH FROM CURRENT_DATE) ${f.sql}
+    WHERE 1=1 ${f.sql}
     GROUP BY
       COALESCE(d.VENDEDOR_ID, 0),
       CASE
@@ -3737,6 +3742,9 @@ get('/api/ventas/cobradas', async (req) => {
     req.query.anio = now.getFullYear();
     req.query.mes = now.getMonth() + 1;
   }
+  // Mismo helper que /api/ventas/resumen y /api/resultados/pnl, para alinear el header
+  // "Total facturado (base cobros)" con la fuente contable (SALDOS_CO 4*) cuando aplica.
+  const { desdeStr: cobDesde, hastaStr: cobHasta } = resolveDateRangeFromQuery(req.query || {});
   const vendedorReq = req.query.vendedor ? parseInt(req.query.vendedor, 10) : NaN;
   const reqNoVend = { ...req, query: { ...(req.query || {}) } };
   delete reqNoVend.query.vendedor;
@@ -3770,7 +3778,7 @@ get('/api/ventas/cobradas', async (req) => {
     LEFT JOIN VENDEDORES v ON v.VENDEDOR_ID = ${vendedorAtribExpr}
     WHERE i.TIPO_IMPTE = 'R' AND COALESCE(i.CANCELADO, 'N') = 'N' ${tipoFac} ${fiAll.sql}`;
 
-  const [rows, cobroPorVend, cobrosRow, cobroLinkedRows] = await Promise.all([
+  const [rows, cobroPorVend, cobrosRow, cobroLinkedRows, ventasContaCob] = await Promise.all([
     query(`
       SELECT d.VENDEDOR_ID, v.NOMBRE AS VENDEDOR, COUNT(DISTINCT d.FOLIO) AS NUM_FACTURAS, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL_VENTA
       FROM ${ventasSub(tipo)} d
@@ -3794,6 +3802,11 @@ get('/api/ventas/cobradas', async (req) => {
       SELECT COALESCE(SUM(CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END), 0) AS TOTAL_COBRADO
       ${cobroSqlAtrib}
     `, fiAll.params, 12000, dbo).catch(() => [{ TOTAL_COBRADO: 0 }]),
+    // Ventas netas contables (SALDOS_CO 4*) — solo cuando NO hay filtros que el contable no
+    // puede partir (tipo VE/PV o vendedor específico).
+    (tipo === '' && !(vendedorReq > 0))
+      ? getVentasNetasContaForPeriod(dbo, cobDesde, cobHasta, 15000).catch(() => 0)
+      : Promise.resolve(0),
   ]);
 
   const totalCobradoReal = +(cobrosRow && cobrosRow[0] && cobrosRow[0].TOTAL_COBRADO) || 0;
@@ -3860,7 +3873,19 @@ get('/api/ventas/cobradas', async (req) => {
   }
   const outFacturado = out.reduce((s, r) => s + (+r.TOTAL_VENTA || 0), 0);
   const outCobrado = out.reduce((s, r) => s + (+r.TOTAL_COBRADO || 0), 0);
-  return { vendedores: out, totalFacturado: outFacturado, totalCobrado: outCobrado };
+  // Si hay saldo contable y NO hay filtro vendedor/tipo, lo preferimos para el header
+  // (alineado con resultados.html / ventas.html). El desglose por vendedor sigue en docs
+  // (la contabilidad no se parte por vendedor).
+  const useContaCob = (tipo === '' && !(vendedorReq > 0)) && (+ventasContaCob || 0) > 0.01;
+  const totalFacturadoOut = useContaCob ? +ventasContaCob : outFacturado;
+  return {
+    vendedores: out,
+    totalFacturado: totalFacturadoOut,
+    totalFacturadoDocs: outFacturado,
+    totalFacturadoConta: +ventasContaCob || 0,
+    totalCobrado: outCobrado,
+    fuenteVentas: useContaCob ? 'CONTABLE_SALDOS_CO_4' : 'DOCS_VE_PV',
+  };
 });
 
 // Líneas de cobro (tipo R): fecha del movimiento en IMPORTES_DOCTOS_CC; vendedor/cliente vía CC aplicado.
