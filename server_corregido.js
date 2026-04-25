@@ -7827,6 +7827,12 @@ async function resultadosPnlCore(req, dbOpts) {
     const c = String(cuenta || '').trim();
     const n = String(nombre || '').trim();
     if (!c) return '';
+    // Microsip "Estado de Resultados-SR" EXCLUYE estas cuentas del reporte oficial:
+    // 1) Provisión de aguinaldos (estimación contable, no afecta el resultado real del periodo)
+    if (isNameLike(n, /PROVISI[ÓO]N.*AGUINALDO/)) return '';
+    // 2) 5201.48 "Otros Gastos" (la cuenta 5201 no tiene partida extraordinaria; el "Otros Gastos"
+    //    válido para el reporte es solo el 5203.48)
+    if (c.startsWith('5201') && isNameLike(n, /^OTROS\s+GAST/)) return '';
     if (isNameLike(n, /FINAN/)) return 'CO_B1'; // gastos financieros
     if (isNameLike(n, /OTROS?\s+GAST/)) return 'CO_C1'; // partidas extraordinarias
     if (c.startsWith('5201')) return 'CO_A1'; // total gastos de venta
@@ -8813,6 +8819,12 @@ get('/api/resultados/estado-sr', async (req) => {
     const cuenta = String(r.CUENTA_PT || '').trim();
     const imp = +r.IMP || 0;
     if (imp <= 0) return;
+    // Microsip "Estado de Resultados-SR" EXCLUYE estas cuentas del reporte oficial:
+    // 1) Provisión de aguinaldos (estimación contable, no afecta el resultado real del periodo)
+    if (isName(r, /PROVISI[ÓO]N.*AGUINALDO/)) return;
+    // 2) 5201.48 "Otros Gastos" (la cuenta 5201 no tiene partida extraordinaria; el "Otros Gastos"
+    //    válido para el reporte es solo el 5203.48)
+    if (cuenta.startsWith('5201') && isName(r, /^OTROS\s+GAST/)) return;
     if (isName(r, /FINAN/)) {
       gastosFinancieros += imp;
       return;
