@@ -539,6 +539,16 @@ app.get('/api/cache/stats', (_req, res) => {
   res.json({ count: _resCache.size, max: RES_CACHE_MAX, entries: entries.slice(0, 50) });
 });
 
+// Stats del daily-cache (Firebird → cache 1× al día a las 23:00 CDMX).
+// Útil para verificar desde fuera que el snapshot diario está activo.
+app.get('/api/cache/daily', (_req, res) => {
+  try {
+    res.json({ ok: true, cacheMode: CACHE_MODE, ...dailyCache.stats() });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: (e && e.message) || String(e) });
+  }
+});
+
 // ── Performance-boost: /health, ETag, prefetch, keep-alive, shutdown ──────────
 // Se instala antes del endpoint legacy /api/admin/snapshot/upload para que el
 // nuevo (con validación pre-swap) tenga precedencia sobre el legacy.
