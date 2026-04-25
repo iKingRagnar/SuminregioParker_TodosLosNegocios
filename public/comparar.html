@@ -287,7 +287,12 @@
     var venc  = Number(item.cxc_vencido) || 0;
     var total = Number(item.cxc_saldo)   || 0;
     var ventas = Number(item.ventas_mes) || 0;
-    if (total === 0 && ventas === 0) return { cls: 'none', txt: 'Sin datos' };
+    var facturas = Number(item.facturas_mes) || 0;
+    var coti = Number(item.cotiz_importe_mes) || 0;
+    // "Sin datos" SOLO si verdaderamente todo está en cero (empresa inactiva).
+    // Antes: solo miraba ventas+cxc → si CXC fallaba en pipeline pero había ventas, decía "Sin CXC" en vez de mostrar el estado real.
+    if (total === 0 && ventas === 0 && facturas === 0 && coti === 0) return { cls: 'none', txt: 'Sin actividad' };
+    if (total === 0 && ventas > 0) return { cls: 'ok', txt: 'Activa · Sin CXC' };
     if (total === 0) return { cls: 'ok', txt: 'Sin CXC' };
     var pct = (venc / total) * 100;
     if (pct >= 30) return { cls: 'danger', txt: 'Crítico' };
