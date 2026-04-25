@@ -984,31 +984,23 @@ let invPeriodMeses = 6;
 
 async function loadInvTendencias(meses) {
   invPeriodMeses = meses || 6;
-  const qs = (typeof filterBuildQS === 'function' && filterBuildQS()) ? '?' + filterBuildQS() : '';
+  // /api/ventas/mensuales acepta `meses=N` como query — pedimos 14 para cubrir YoY (12+2 buffer).
+  const baseQs = (typeof filterBuildQS === 'function' && filterBuildQS()) ? filterBuildQS() : '';
+  const qs = '?' + (baseQs ? baseQs + '&' : '') + 'meses=14';
   try {
-    // Usar el endpoint de consumo mensual del servidor
-    const resp = await fetch(`${API}/api/inv/consumo${qs}`);
+    // Time-series mensual: usamos /api/ventas/mensuales como proxy de consumo de inventario
+    // (TOTAL ventas ≈ flujo de mercancía saliendo). El endpoint /api/inv/consumo NO devuelve
+    // time-series sino lista de artículos por consumo en periodo, por eso no servía aquí.
+    const resp = await fetch(`${API}/api/ventas/mensuales${qs}`);
     if (!resp.ok) throw new Error('no data');
     const data = await resp.json();
-
-    // data puede ser array de {ANIO, MES, CONSUMO_COSTO, CONSUMO_UNIDADES} o similar
-    // Si no hay endpoint de consumo mensual, usar ventas mensuales como proxy
-    let rows = Array.isArray(data) ? data : (data.rows || data.meses || []);
-
-    if (!rows.length) {
-      // Fallback: cargar ventas mensuales como proxy de movimiento
-      const vResp = await fetch(`${API}/api/ventas/mensuales${qs}`);
-      if (vResp.ok) {
-        const vData = await vResp.json();
-        rows = (Array.isArray(vData) ? vData : (vData.rows || [])).map(r => ({
-          ANIO: r.ANIO || r.anio,
-          MES: r.MES || r.mes,
-          CONSUMO_COSTO: r.COSTO_VENTAS || r.COSTO || r.TOTAL_VENTA || 0,
-          CONSUMO_UNIDADES: r.UNIDADES || 0,
-          VENTAS: r.TOTAL_VENTA || r.VENTAS || 0,
-        }));
-      }
-    }
+    let rows = (Array.isArray(data) ? data : (data.rows || [])).map(r => ({
+      ANIO: r.ANIO || r.anio,
+      MES: r.MES || r.mes,
+      CONSUMO_COSTO: +(r.COSTO_VENTAS || r.COSTO || r.TOTAL || r.TOTAL_VENTA || 0),
+      CONSUMO_UNIDADES: +(r.UNIDADES || 0),
+      VENTAS: +(r.TOTAL || r.TOTAL_VENTA || r.VENTAS || 0),
+    })).filter(r => r.ANIO && r.MES);
 
     if (!rows.length) return;
 
@@ -1160,8 +1152,45 @@ async function loadInvTendencias(meses) {
       badge2.textContent = `YoY acumulado: ${yoyTotal >= 0 ? '+' : ''}${yoyTotal}%`;
     }
 
-    // Días de inventario y rotación (si hay datos de valor actual)
-    const invResumenEl = document.querySelector('[data-kpi="valor-inventario"]') || document.getElementById('kpiValorInv');
+    // Días de inventario y rotación
+    // Días = (Valor inventario actual / consumo promedio mensual) × 30
+    // Rotación = consumo último mes / valor inventario actual
+    try {
+      let valorInv = 0;
+      const invResumenEl = document.querySelector('[data-kpi="valor-inventario"]') || document.getElementById('kpiValorInv');
+      const txt = invResumenEl ? (invResumenEl.textContent || invResumenEl.innerText || '') : '';
+      // Parsear "$15.7M" / "$15,731,308.10"
+      const mMatch = txt.match(/\$?\s*([\d.,]+)\s*([MK]?)/i);
+      if (mMatch) {
+        let n = parseFloat(mMatch[1].replace(/,/g, ''));
+        const sfx = (mMatch[2] || '').toUpperCase();
+        if (sfx === 'M') n *= 1e6;
+        else if (sfx === 'K') n *= 1e3;
+        if (isFinite(n) && n > 0) valorInv = n;
+      }
+      // Fallback: pegarle directo a /api/inv/resumen (siempre fresco)
+      if (!valorInv) {
+        const r = await fetch(`${API}/api/inv/resumen${baseQs ? '?' + baseQs : ''}`);
+        if (r.ok) {
+          const j = await r.json();
+          valorInv = +(j.VALOR_INVENTARIO || 0);
+        }
+      }
+      if (valorInv > 0 && consumos.length) {
+        // promedio mensual (últimos N meses con datos > 0)
+        const validos = consumos.filter(v => v > 0);
+        const promMensual = validos.length ? validos.reduce((a, b) => a + b, 0) / validos.length : 0;
+        const ultimoMes = consumos[consumos.length - 1] || promMensual;
+        const dias = promMensual > 0 ? (valorInv / promMensual) * 30 : 0;
+        const rot  = valorInv > 0 ? (ultimoMes / valorInv) : 0;
+        const diasEl = document.getElementById('invDiasInv');
+        const rotEl  = document.getElementById('invRotMes');
+        if (diasEl && dias > 0 && isFinite(dias)) diasEl.textContent = Math.round(dias) + ' d';
+        if (rotEl && rot >= 0 && isFinite(rot))   rotEl.textContent  = rot.toFixed(2) + 'x';
+      }
+    } catch (calcErr) {
+      console.warn('[invTendencias:calcDias]', calcErr.message);
+    }
 
   } catch(e) {
     console.warn('[invTendencias]', e.message);
