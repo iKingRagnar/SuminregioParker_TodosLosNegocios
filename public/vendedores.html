@@ -444,12 +444,14 @@ async function loadData(){
   clearVendedoresFilterLoadingUI();
   var heroSub = document.getElementById('heroSub');
   try{
-    const [cumplData, metas, diario, cotiVends, cxcTop] = await Promise.all([
+    // resumen también, para el headline "Total Equipo Mes" alineado con P&L (contable)
+    const [cumplData, metas, diario, cotiVends, cxcTop, resumen] = await Promise.all([
       fwt(buildApiUrl('/api/ventas/cumplimiento'),[],25000),
       fwt(API+'/api/config/metas',{},15000),
       fwt(buildApiUrl('/api/ventas/diarias','dias=30'),[],20000),
       fwt(buildApiUrl('/api/ventas/por-vendedor/cotizaciones'),[],30000),
       fwt(buildApiUrl('/api/cxc/top-deudores','limit=50'),[],20000),
+      fwt(buildApiUrl('/api/ventas/resumen'),{},25000),
     ]);
     const vends = Array.isArray(cumplData) ? cumplData : [];
 
@@ -466,6 +468,10 @@ async function loadData(){
     }));
 
     lastMetasForChart = metas && typeof metas === 'object' ? metas : {};
+    // Total contable (SALDOS_CO 4*) = misma fuente que P&L / ventas.html headline.
+    // Si el endpoint reporta un MES_ACTUAL mayor que la suma per-vendedor (docs), lo usamos.
+    window.__VEND_TOTAL_MES_CONTA = +(resumen && resumen.MES_ACTUAL || 0);
+    window.__VEND_FUENTE_VENTAS = String(resumen && resumen.FUENTE_VENTAS || '').toUpperCase();
     renderAll(vendsEnriched, metas);
     const dias = Array.isArray(diario) ? diario : (diario?.dias||[]);
     renderChartDiario(dias.length ? dias : null, lastMetasForChart);
@@ -579,7 +585,12 @@ function renderAll(vends, metas){
   const metaDia  = +metas.META_TOTAL_DIARIA||(+metas.META_DIARIA_POR_VENDEDOR||5650)*vends.length;
   const metaMes  = metaDia * (vends[0]?.DIAS_TRANSCURRIDOS||22);
   const totalHoy = vends.reduce((s,r)=>s+(+r.VENTA_HOY||0),0);
-  const totalMes = vends.reduce((s,r)=>s+(+r.VENTA_MES||0),0);
+  const totalMesDocs = vends.reduce((s,r)=>s+(+r.VENTA_MES||0),0);
+  // Headline = contable (SALDOS_CO 4*) cuando lo reporta /api/ventas/resumen y es mayor.
+  // Igual que en ventas.html y resultados.html. La suma per-vendedor (docs) puede diferir
+  // por cruces/timing que el contable captura pero que no atribuyen a un vendedor.
+  const totalMesConta = +(window.__VEND_TOTAL_MES_CONTA || 0);
+  const totalMes = (totalMesConta > totalMesDocs) ? totalMesConta : totalMesDocs;
   const enMetaHoy = vends.filter(r => (+r.META_DIA || 0) > 0 && (+r.VENTA_HOY || 0) >= (+r.META_DIA || 0)).length;
   const enMetaMes = vends.filter(r=>r.STATUS_MES==='OK').length;
   const bestHoy  = [...vends].sort((a,b)=>(+b.VENTA_HOY||0)-(+a.VENTA_HOY||0))[0];
