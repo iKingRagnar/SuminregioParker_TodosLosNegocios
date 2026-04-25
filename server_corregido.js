@@ -1097,17 +1097,30 @@ function isAllDbs(req) {
 
 /** Suma resúmenes de ventas de varias bases (db=__all__). */
 function mergeVentasResumen(outs) {
-  return outs.reduce(
-    (acc, out) => ({
-      HOY: acc.HOY + (+out.HOY || 0),
-      MES_ACTUAL: acc.MES_ACTUAL + (+out.MES_ACTUAL || 0),
-      FACTURAS_MES: acc.FACTURAS_MES + (+out.FACTURAS_MES || 0),
-      HASTA_AYER_MES: acc.HASTA_AYER_MES + (+out.HASTA_AYER_MES || 0),
-      REMISIONES_HOY: acc.REMISIONES_HOY + (+out.REMISIONES_HOY || 0),
-      REMISIONES_MES: acc.REMISIONES_MES + (+out.REMISIONES_MES || 0),
-    }),
-    { HOY: 0, MES_ACTUAL: 0, FACTURAS_MES: 0, HASTA_AYER_MES: 0, REMISIONES_HOY: 0, REMISIONES_MES: 0 },
+  // Para ventas: si CUALQUIER empresa devuelve fuente CONTABLE_SALDOS_CO_4, marca el merged
+  // como mixto contable-docs (al menos una empresa tiene saldo en cuentas 4*); de lo contrario,
+  // todas usaron documentos.
+  const acc = outs.reduce(
+    (a, out) => {
+      const fuente = String(out.FUENTE_VENTAS || '').toUpperCase();
+      if (fuente === 'CONTABLE_SALDOS_CO_4') a._anyConta = true;
+      return {
+        HOY: a.HOY + (+out.HOY || 0),
+        MES_ACTUAL: a.MES_ACTUAL + (+out.MES_ACTUAL || 0),
+        MES_ACTUAL_DOCS: a.MES_ACTUAL_DOCS + (+out.MES_ACTUAL_DOCS || 0),
+        MES_ACTUAL_CONTA: a.MES_ACTUAL_CONTA + (+out.MES_ACTUAL_CONTA || 0),
+        FACTURAS_MES: a.FACTURAS_MES + (+out.FACTURAS_MES || 0),
+        HASTA_AYER_MES: a.HASTA_AYER_MES + (+out.HASTA_AYER_MES || 0),
+        REMISIONES_HOY: a.REMISIONES_HOY + (+out.REMISIONES_HOY || 0),
+        REMISIONES_MES: a.REMISIONES_MES + (+out.REMISIONES_MES || 0),
+        _anyConta: a._anyConta,
+      };
+    },
+    { HOY: 0, MES_ACTUAL: 0, MES_ACTUAL_DOCS: 0, MES_ACTUAL_CONTA: 0, FACTURAS_MES: 0, HASTA_AYER_MES: 0, REMISIONES_HOY: 0, REMISIONES_MES: 0, _anyConta: false },
   );
+  acc.FUENTE_VENTAS = acc._anyConta ? 'CONTABLE_SALDOS_CO_4' : 'DOCS_VE_PV';
+  delete acc._anyConta;
+  return acc;
 }
 
 /** Número desde fila Firebird / driver (string con coma, distintas mayúsculas en alias). */
@@ -1372,6 +1385,9 @@ function mergeDirectorResumenSnapshots(parts) {
   const ventas = {
     HOY: 0,
     MES_ACTUAL: 0,
+    MES_ACTUAL_DOCS: 0,
+    MES_ACTUAL_CONTA: 0,
+    FUENTE_VENTAS: 'DOCS_VE_PV',
     FACTURAS_MES: 0,
     MES_VE: 0,
     MES_PV: 0,
@@ -1391,11 +1407,15 @@ function mergeDirectorResumenSnapshots(parts) {
     IMPORTE_COTI_MES: 0,
     COTI_MES: 0,
   };
+  let anyConta = false;
   for (const p of parts || []) {
     if (!p) continue;
     const v = p.ventas || {};
+    if (String(v.FUENTE_VENTAS || '').toUpperCase() === 'CONTABLE_SALDOS_CO_4') anyConta = true;
     ventas.HOY += +v.HOY || 0;
     ventas.MES_ACTUAL += +v.MES_ACTUAL || 0;
+    ventas.MES_ACTUAL_DOCS += +v.MES_ACTUAL_DOCS || 0;
+    ventas.MES_ACTUAL_CONTA += +v.MES_ACTUAL_CONTA || 0;
     ventas.FACTURAS_MES += +v.FACTURAS_MES || 0;
     ventas.MES_VE += +v.MES_VE || 0;
     ventas.MES_PV += +v.MES_PV || 0;
@@ -1413,6 +1433,7 @@ function mergeDirectorResumenSnapshots(parts) {
     cotizaciones.IMPORTE_COTI_MES += +co.IMPORTE_COTI_MES || 0;
     cotizaciones.COTI_MES += +co.COTI_MES || 0;
   }
+  ventas.FUENTE_VENTAS = anyConta ? 'CONTABLE_SALDOS_CO_4' : 'DOCS_VE_PV';
   const r2 = (x) => Math.round(x * 100) / 100;
   cxc.SALDO_TOTAL = r2(cxc.SALDO_TOTAL);
   cxc.VENCIDO = r2(cxc.VENCIDO);
@@ -1421,6 +1442,8 @@ function mergeDirectorResumenSnapshots(parts) {
   cotizaciones.IMPORTE_COTI_MES = r2(cotizaciones.IMPORTE_COTI_MES);
   ventas.HOY = r2(ventas.HOY);
   ventas.MES_ACTUAL = r2(ventas.MES_ACTUAL);
+  ventas.MES_ACTUAL_DOCS = r2(ventas.MES_ACTUAL_DOCS);
+  ventas.MES_ACTUAL_CONTA = r2(ventas.MES_ACTUAL_CONTA);
   ventas.MES_VE = r2(ventas.MES_VE);
   ventas.MES_PV = r2(ventas.MES_PV);
   ventas.REMISIONES_HOY = r2(ventas.REMISIONES_HOY);
@@ -2169,6 +2192,50 @@ function remisionesSub(tipo = '') {
   if (tipo === 'VE') return `(${ve})`;
   if (tipo === 'PV') return `(${pv})`;
   return `(${ve} UNION ALL ${pv})`;
+}
+
+/**
+ * Ventas netas contables (SALDOS_CO cuentas 4*) — alineado con resultadosPnlCore.
+ *
+ * El P&L usa SALDOS_CO 4* (ABONOS-CARGOS) como ventas netas oficiales cuando hay saldo,
+ * porque incluye cruces/timing que la suma VE+PV (TIPO F) no captura. Eso explica el ~2% de
+ * diferencia entre ventas.html y resultados.html. Esta función devuelve el mismo número.
+ *
+ * SALDOS_CO es mensual: el rango se traduce a (sy,sm) ↔ (ey,em) y se suman los meses
+ * que caen completos dentro del rango. Periodos parciales (p.ej. "1-15 de Feb") devuelven
+ * el saldo del mes entero — misma limitación que el P&L.
+ *
+ * @returns 0 si la base no tiene SALDOS_CO o no hay saldo en cuentas 4*.
+ */
+async function getVentasNetasContaForPeriod(dbOpts, desdeStr, hastaStr, perQueryMs = 15000) {
+  try {
+    const salCols = await getTableColumns('SALDOS_CO', dbOpts).catch(() => new Set());
+    if (!salCols || salCols.size === 0) return 0;
+    const salAnoCol   = firstExistingColumn(salCols, ['ANO', 'ANIO', 'EJERCICIO']) || 'ANO';
+    const salMesCol   = firstExistingColumn(salCols, ['MES', 'PERIODO', 'NUM_MES']) || 'MES';
+    const salCargoCol = firstExistingColumn(salCols, ['CARGOS', 'CARGO', 'DEBE']) || 'CARGOS';
+    const salAbonoCol = firstExistingColumn(salCols, ['ABONOS', 'ABONO', 'HABER']) || 'ABONOS';
+    const sy = parseInt(String(desdeStr || '').slice(0, 4), 10);
+    const sm = parseInt(String(desdeStr || '').slice(5, 7), 10);
+    const ey = parseInt(String(hastaStr || '').slice(0, 4), 10);
+    const em = parseInt(String(hastaStr || '').slice(5, 7), 10);
+    if (!Number.isFinite(sy) || !Number.isFinite(sm) || !Number.isFinite(ey) || !Number.isFinite(em)) return 0;
+    const rows = await query(`
+      SELECT s.${salAnoCol} AS ANIO, s.${salMesCol} AS MES,
+        COALESCE(SUM(CASE WHEN cu.CUENTA_PT STARTING WITH '4'
+                          THEN (COALESCE(s.${salAbonoCol},0) - COALESCE(s.${salCargoCol},0))
+                          ELSE 0 END), 0) AS V
+      FROM SALDOS_CO s
+      JOIN CUENTAS_CO cu ON cu.CUENTA_ID = s.CUENTA_ID
+      WHERE s.${salAnoCol} >= ? AND s.${salAnoCol} <= ?
+        AND NOT (s.${salAnoCol} = ? AND s.${salMesCol} < ?)
+        AND NOT (s.${salAnoCol} = ? AND s.${salMesCol} > ?)
+      GROUP BY s.${salAnoCol}, s.${salMesCol}
+    `, [sy, ey, sy, sm, ey, em], perQueryMs, dbOpts).catch(() => []);
+    return (rows || []).reduce((s, r) => s + (+r.V || 0), 0);
+  } catch (_) {
+    return 0;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -3124,10 +3191,13 @@ get('/api/ventas/resumen', async (req) => {
     req.query.anio = now.getFullYear();
     req.query.mes = now.getMonth() + 1;
   }
+  // Rango efectivo del filtro (mismo helper que /api/resultados/pnl) para alinear
+  // ventas netas con el P&L vía SALDOS_CO 4*.
+  const { desdeStr, hastaStr } = resolveDateRangeFromQuery(req.query || {});
   const run = async (dbo) => {
     const f = buildFiltros(req, 'd');
     const tipo = getTipo(req);
-    const [rows, remRows] = await Promise.all([
+    const [rows, remRows, ventasConta] = await Promise.all([
       query(`
     SELECT
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE
@@ -3146,10 +3216,20 @@ get('/api/ventas/resumen', async (req) => {
     FROM ${remisionesSub(tipo)} d
     WHERE 1=1 ${f.sql}
   `, f.params, 30000, dbo).catch(() => []),
+      // Solo consulta SALDOS_CO 4* cuando NO hay filtro VE/PV: el desglose tipo no existe
+      // en contabilidad, así que con tipo=VE/PV seguimos sirviendo la suma de docs (mantiene VE+PV=total).
+      tipo === '' ? getVentasNetasContaForPeriod(dbo, desdeStr, hastaStr, 15000) : Promise.resolve(0),
     ]);
+    const docsTotal = +((rows[0] && rows[0].MES_ACTUAL) || 0);
+    const useConta = tipo === '' && (+ventasConta || 0) > 0.01;
     const out = {
       HOY: +((rows[0] && rows[0].HOY) || 0),
-      MES_ACTUAL: +((rows[0] && rows[0].MES_ACTUAL) || 0),
+      // MES_ACTUAL = mismo número que el P&L (resultados.html). Si no hay saldo contable,
+      // fallback al sum docs como antes (no rompe vistas con tipo=VE/PV).
+      MES_ACTUAL: useConta ? +ventasConta : docsTotal,
+      MES_ACTUAL_DOCS: docsTotal,
+      MES_ACTUAL_CONTA: +ventasConta || 0,
+      FUENTE_VENTAS: useConta ? 'CONTABLE_SALDOS_CO_4' : 'DOCS_VE_PV',
       FACTURAS_MES: +((rows[0] && rows[0].FACTURAS_MES) || 0),
       HASTA_AYER_MES: +((rows[0] && rows[0].HASTA_AYER_MES) || 0),
     };
@@ -3163,7 +3243,7 @@ get('/api/ventas/resumen', async (req) => {
       try {
         return await run(entry.options);
       } catch (e) {
-        return { HOY: 0, MES_ACTUAL: 0, FACTURAS_MES: 0, HASTA_AYER_MES: 0, REMISIONES_HOY: 0, REMISIONES_MES: 0 };
+        return { HOY: 0, MES_ACTUAL: 0, MES_ACTUAL_DOCS: 0, MES_ACTUAL_CONTA: 0, FUENTE_VENTAS: 'DOCS_VE_PV', FACTURAS_MES: 0, HASTA_AYER_MES: 0, REMISIONES_HOY: 0, REMISIONES_MES: 0 };
       }
     });
     return mergeVentasResumen(outs);
@@ -4259,7 +4339,9 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
   const cotiOpts = await cotizacionSqlOpts(dbOpts);
   const cotiSub = cotizacionesSub(getCotizacionesTipo(rq), cotiOpts);
   const omitCxc = String((req && req.query && req.query.omitCxc) || '').trim() === '1';
-  const [vRow, remRow, cxcSnap, coRow] = await Promise.all([
+  // Mismo rango efectivo que /api/resultados/pnl, para alinear ventas netas con SALDOS_CO 4*.
+  const { desdeStr: dirDesde, hastaStr: dirHasta } = resolveDateRangeFromQuery(rq.query || {});
+  const [vRow, remRow, cxcSnap, coRow, ventasConta] = await Promise.all([
     query(`
       SELECT
         SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE THEN d.IMPORTE_NETO ELSE 0 END) AS HOY,
@@ -4289,12 +4371,28 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
       FROM ${cotiSub} d
       WHERE 1=1 ${f.sql}
     `, f.params, qms, dbOpts).catch(() => [{}]),
+    // Ventas netas contables (SALDOS_CO cuentas 4*) alineadas con resultados/pnl.
+    getVentasNetasContaForPeriod(dbOpts, dirDesde, dirHasta, Math.min(qms, 15000)).catch(() => 0),
   ]);
   const v = vRow[0] || {};
   const rem = remRow[0] || {};
   const co = coRow[0] || {};
+  const docsTotal = +(v.MES_ACTUAL || 0);
+  const useConta = (+ventasConta || 0) > 0.01;
   const out = {
-    ventas: { HOY: +(v.HOY||0), MES_ACTUAL: +(v.MES_ACTUAL||0), FACTURAS_MES: +(v.FACTURAS_MES||0), MES_VE: +(v.MES_VE||0), MES_PV: +(v.MES_PV||0), REMISIONES_HOY: +(rem.REMISIONES_HOY||0), REMISIONES_MES: +(rem.REMISIONES_MES||0) },
+    ventas: {
+      HOY: +(v.HOY||0),
+      // Alinear con P&L: usa contable cuando hay saldo en cuentas 4*, si no fallback a docs.
+      MES_ACTUAL: useConta ? +ventasConta : docsTotal,
+      MES_ACTUAL_DOCS: docsTotal,
+      MES_ACTUAL_CONTA: +ventasConta || 0,
+      FUENTE_VENTAS: useConta ? 'CONTABLE_SALDOS_CO_4' : 'DOCS_VE_PV',
+      FACTURAS_MES: +(v.FACTURAS_MES||0),
+      MES_VE: +(v.MES_VE||0),
+      MES_PV: +(v.MES_PV||0),
+      REMISIONES_HOY: +(rem.REMISIONES_HOY||0),
+      REMISIONES_MES: +(rem.REMISIONES_MES||0),
+    },
     cotizaciones: { COTI_HOY: +(co.COTI_HOY||0), IMPORTE_COTI_HOY: +(co.IMPORTE_COTI_HOY||0), IMPORTE_COTI_MES: +(co.IMPORTE_COTI_MES||0), COTI_MES: +(co.COTI_MES||0) },
   };
   if (!omitCxc) {

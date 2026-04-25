@@ -1230,17 +1230,28 @@ async function loadResumen() {
 
 async function loadSplit() {
   try {
-    const [dVE,dPV] = await Promise.all([
+    // Pedimos VE, PV y total (sin tipo). El total puede venir de contable (SALDOS_CO 4*),
+    // que es la fuente alineada con resultados.html / P&L. VE+PV (docs) puede ser ~2% menor
+    // por cruces/timing; usamos el total contable como cifra "oficial" y VE/PV solo para %.
+    const [dVE,dPV,dAll] = await Promise.all([
       fwt(buildApiUrl('/api/ventas/resumen', 'tipo=VE'), {}),
       fwt(buildApiUrl('/api/ventas/resumen', 'tipo=PV'), {}),
+      fwt(buildApiUrl('/api/ventas/resumen'), {}),
     ]);
-    const ve=+(dVE.MES_ACTUAL||0), pv=+(dPV.MES_ACTUAL||0), total=ve+pv;
+    const ve=+(dVE.MES_ACTUAL||0), pv=+(dPV.MES_ACTUAL||0);
+    const docsTotal = ve + pv;
+    const allTotal = +(dAll.MES_ACTUAL||0);
+    // Si /api/ventas/resumen reporta contable (FUENTE_VENTAS=CONTABLE_SALDOS_CO_4) o un total
+    // mayor, lo preferimos. Sino caemos al docsTotal.
+    const total = (allTotal > docsTotal) ? allTotal : docsTotal;
     setText('split-ve-amt', fmt(ve));
     setText('split-pv-amt', fmt(pv));
     setText('split-total', fmt(total));
     setText('split-badge', `Total: ${fmt(total)}`);
     if(total>0){
-      const vp=(ve/total*100), pp=(pv/total*100);
+      // Porcentajes derivados de docs (VE+PV) — única forma fiable de partir el total.
+      const baseForPct = docsTotal > 0 ? docsTotal : total;
+      const vp=(ve/baseForPct*100), pp=(pv/baseForPct*100);
       setWid('split-bar-ve', vp); setWid('split-bar-pv', pp);
       setText('split-ve-pct', `VE ${vp.toFixed(0)}%`);
       setText('split-pv-pct', `PV ${pp.toFixed(0)}%`);
