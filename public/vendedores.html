@@ -453,30 +453,17 @@ async function loadData(){
     ]);
     const vends = Array.isArray(cumplData) ? cumplData : [];
 
-    // Merge cotizaciones por vendedor — clave dual: VENDEDOR_ID (preferido) y NOMBRE en lower-case.
-    // El upstream a veces no manda VENDEDOR_ID en cotizaciones_activas, así que indexamos por ambos.
-    const cotiById = {};
-    const cotiByName = {};
-    (Array.isArray(cotiVends)?cotiVends:[]).forEach(c => {
-      const id = +c.VENDEDOR_ID || 0;
-      if (id > 0) cotiById[id] = c;
-      const nm = String(c.NOMBRE || c.VENDEDOR || '').trim().toLowerCase();
-      if (nm) cotiByName[nm] = c;
-    });
+    // Merge cotizaciones por vendedor
+    const cotiMap = {};
+    (Array.isArray(cotiVends)?cotiVends:[]).forEach(c=>{ cotiMap[c.VENDEDOR_ID]=c; });
 
     // Merge CxC: mapear por nombre (no hay VENDEDOR_ID en top-deudores directamente)
-    const vendsEnriched = vends.map(v => {
-      const nm = String(v.NOMBRE || v.VENDEDOR || '').trim().toLowerCase();
-      const c  = cotiById[+v.VENDEDOR_ID] || cotiByName[nm] || {};
-      const cotiMes    = +(c.COTIZACIONES_MES != null ? c.COTIZACIONES_MES : c.TOTAL || 0);
-      const numCotiMes = +(c.NUM_COTI_MES    != null ? c.NUM_COTI_MES    : c.NUM   || 0);
-      return {
-        ...v,
-        COTI_MES    : cotiMes,
-        NUM_COTI_MES: numCotiMes,
-        TICKET_PROM : v.FACTURAS_MES > 0 ? Math.round(v.VENTA_MES / v.FACTURAS_MES) : 0,
-      };
-    });
+    const vendsEnriched = vends.map(v => ({
+      ...v,
+      COTI_MES    : +(cotiMap[v.VENDEDOR_ID]?.COTIZACIONES_MES||0),
+      NUM_COTI_MES: +(cotiMap[v.VENDEDOR_ID]?.NUM_COTI_MES||0),
+      TICKET_PROM : v.FACTURAS_MES>0 ? Math.round(v.VENTA_MES/v.FACTURAS_MES) : 0,
+    }));
 
     lastMetasForChart = metas && typeof metas === 'object' ? metas : {};
     renderAll(vendsEnriched, metas);

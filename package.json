@@ -1,32 +1,21 @@
 {
   "name": "microsip-api",
-  "version": "2.0.0",
-  "description": "Suminregio Parker dashboard — consume el API externo https://api.suminregio.com/api/external (ya no conecta Firebird directo)",
-  "main": "server_api.js",
+  "version": "1.0.0",
+  "main": "server.js",
   "scripts": {
-    "start": "node server_api.js",
-    "server": "node server_api.js",
-    "start:legacy": "node archive/server_corregido.legacy.js",
-    "smoke": "node scripts/smoke_api.js",
+    "start": "node server_corregido.js",
+    "server": "node server_corregido.js",
     "test": "node --test tests/*.test.js",
     "pm2:api": "pm2 start ecosystem.config.cjs",
     "pm2:ngrok": "pm2 start ecosystem-ngrok.config.cjs",
     "pm2:save": "pm2 save"
   },
-  "engines": {
-    "node": "20.x"
-  },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.80.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
-    "express": "^4.18.2",
-    "express-basic-auth": "^1.2.1",
-    "express-rate-limit": "^7.5.1",
-    "helmet": "^8.1.0"
-  },
-  "optionalDependencies": {
-    "@anthropic-ai/sdk": "^0.80.0",
     "duckdb": "^1.0.0",
+    "express": "^4.18.2",
     "node-cron": "^4.2.1",
     "node-firebird": "^1.1.5",
     "nodemailer": "^8.0.3",

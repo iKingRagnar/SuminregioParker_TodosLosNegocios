@@ -5,26 +5,17 @@ services:
     region: oregon
     plan: starter
     branch: main
-    buildCommand: npm install
-    startCommand: node server_api.js
+    buildCommand: npm ci
+    startCommand: node server_corregido.js
     healthCheckPath: /health
+    disk:
+      name: daily-cache
+      mountPath: /var/data/cache
+      sizeGB: 1
     envVars:
-      - key: NODE_ENV
-        value: production
+      - key: CACHE_MODE
+        value: "1"
+      - key: CACHE_DIR
+        value: /var/data/cache
       - key: NODE_VERSION
         value: "20"
-      # API externa centralizada: https://api.suminregio.com/api/external
-      # La key real se configura desde el dashboard de Render (no se committea).
-      - key: SUMINREGIO_API_KEY
-        sync: false
-      - key: SUMINREGIO_API_URL
-        value: https://api.suminregio.com/api/external
-      - key: DEFAULT_UNIDAD
-        value: parker
-      - key: CORS_ORIGIN
-        value: "*"
-      # Para activar basic auth en el dashboard:
-      #   - key: AUTH_USERS
-      #     sync: false   # valor: "guillermo:passSecreto;omar:otroPass"
-      - key: RATE_LIMIT_MAX
-        value: "300"

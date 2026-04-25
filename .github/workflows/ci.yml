@@ -23,7 +23,7 @@ jobs:
 
       - name: Syntax check
         run: |
-          node -c server_api.js
+          node -c server_corregido.js
           node -c performance-boost.js
           node -c ai-tools.js
           node -c ai-chat-v2.js

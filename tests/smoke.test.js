@@ -48,8 +48,8 @@ function waitForReady(retries = 40) {
 }
 
 before(async () => {
-  server = spawn('node', [path.join(__dirname, '..', 'server_api.js')], {
-    env: { ...process.env, PORT: String(PORT), DUCK_ONLY_MODE: '1', LOG_LEVEL: 'warn', SUMINREGIO_API_KEY: 'sk_ext_ci_dummy' },
+  server = spawn('node', [path.join(__dirname, '..', 'server_corregido.js')], {
+    env: { ...process.env, PORT: String(PORT), DUCK_ONLY_MODE: '1', LOG_LEVEL: 'warn' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   server.stderr.on('data', () => {});
@@ -67,29 +67,31 @@ test('/health responde 200', async () => {
   assert.equal(r.json.ok, true);
 });
 
-test('/api/admin/mode reporta modo external_api', async () => {
+test('/api/admin/mode reporta duckOnlyMode', async () => {
   const r = await get('/api/admin/mode');
   assert.equal(r.status, 200);
-  assert.equal(r.json.ok, true);
-  assert.equal(r.json.mode, 'external_api');
-  assert.ok(typeof r.json.upstream === 'string' && r.json.upstream.length > 0);
+  assert.equal(r.json.duckOnlyMode, true);
+  assert.ok(Array.isArray(r.json.snapshots));
 });
 
-test('/api/admin/sync/status requiere auth (401 sin cookie)', async () => {
+test('/api/admin/sync/status retorna arreglo de snapshots', async () => {
   const r = await get('/api/admin/sync/status');
-  assert.equal(r.status, 401);
+  assert.equal(r.status, 200);
+  assert.ok(Array.isArray(r.json.snapshots));
+  assert.ok('totalLoaded' in r.json);
 });
 
-test('/api/ventas/resumen requiere auth (401 sin cookie)', async () => {
+test('/api/ventas/resumen devuelve ceros sin snapshot (no 500, no hang)', async () => {
   const r = await get('/api/ventas/resumen');
-  assert.equal(r.status, 401);
+  assert.equal(r.status, 200);
+  assert.ok(r.json);
 });
 
-test('/api/ping responde ok + timestamp', async () => {
+test('/api/ping reporta uptime + memory', async () => {
   const r = await get('/api/ping');
   assert.equal(r.status, 200);
-  assert.equal(r.json.ok, true);
-  assert.ok(r.json.ts, 'ping debe incluir timestamp');
+  assert.ok(r.json.uptime);
+  assert.ok(r.json.memory);
 });
 
 test('ETag repetido responde 304', async () => {
