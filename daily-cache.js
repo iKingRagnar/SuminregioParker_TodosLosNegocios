@@ -30,6 +30,11 @@ const CACHE_DIR = process.env.CACHE_DIR || (
 
 try { fs.mkdirSync(CACHE_DIR, { recursive: true }); } catch (_) { /* ignore */ }
 
+// Diagnóstico: registramos el último error de write para sacarlo en /api/cache/daily.
+let _lastWriteError = null;
+let _writeOkCount = 0;
+let _writeFailCount = 0;
+
 const REGISTRY_FILE = path.join(CACHE_DIR, '_registry.json');
 
 let _registry = {};
@@ -85,7 +90,16 @@ function readCache(key) {
 function writeCache(key, rows) {
   try {
     fs.writeFileSync(cachePath(key), JSON.stringify({ ts: Date.now(), rows }), 'utf8');
+    _writeOkCount++;
   } catch (e) {
+    _writeFailCount++;
+    _lastWriteError = {
+      ts: new Date().toISOString(),
+      code: e && e.code,
+      errno: e && e.errno,
+      msg: (e && e.message) || String(e),
+      path: cachePath(key),
+    };
     console.warn('[daily-cache] writeCache failed:', e && e.message);
   }
 }
@@ -159,6 +173,17 @@ function stats() {
     }
   } catch {}
   const delay = msUntilNext23Mx();
+  // Probe: ¿el dir es escribible? Útil cuando files=0 pese a registry > 0.
+  let writable = null, writeProbeError = null;
+  try {
+    const probe = path.join(CACHE_DIR, '_probe.tmp');
+    fs.writeFileSync(probe, 'ok', 'utf8');
+    fs.unlinkSync(probe);
+    writable = true;
+  } catch (e) {
+    writable = false;
+    writeProbeError = { code: e && e.code, msg: (e && e.message) || String(e) };
+  }
   return {
     dir: CACHE_DIR,
     files,
@@ -166,6 +191,11 @@ function stats() {
     registeredQueries: Object.keys(_registry).length,
     nextRefreshInMs: delay,
     nextRefreshAt: new Date(Date.now() + delay).toISOString(),
+    writable,
+    writeProbeError,
+    writeOkCount: _writeOkCount,
+    writeFailCount: _writeFailCount,
+    lastWriteError: _lastWriteError,
     policy: 'Firebird se consulta UNA vez al día a las 23:00 México. Resto del día: cache.',
   };
 }
