@@ -21,14 +21,38 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const CACHE_DIR = process.env.CACHE_DIR || (
-  (() => {
-    try { return fs.existsSync('/var/data') ? '/var/data/cache' : '/tmp/cache'; }
-    catch { return '/tmp/cache'; }
-  })()
-);
+// Resuelve un dir de cache que sea ESCRIBIBLE. Probamos en orden:
+//   1) process.env.CACHE_DIR (si está)
+//   2) /var/data/cache (si /var/data existe — disco persistente Render)
+//   3) /tmp/cache (siempre disponible)
+// Antes solo asumíamos que el primero servía y los writes fallaban silenciosamente.
+function _resolveWritableCacheDir() {
+  const candidates = [];
+  if (process.env.CACHE_DIR) candidates.push(process.env.CACHE_DIR);
+  try { if (fs.existsSync('/var/data')) candidates.push('/var/data/cache'); } catch (_) {}
+  candidates.push('/tmp/cache');
 
-try { fs.mkdirSync(CACHE_DIR, { recursive: true }); } catch (_) { /* ignore */ }
+  for (const dir of candidates) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      const probe = path.join(dir, '_probe.tmp');
+      fs.writeFileSync(probe, 'ok', 'utf8');
+      fs.unlinkSync(probe);
+      if (process.env.CACHE_DIR && dir !== process.env.CACHE_DIR) {
+        console.warn(`[daily-cache] CACHE_DIR=${process.env.CACHE_DIR} no es escribible, cayendo a ${dir}`);
+      } else {
+        console.log(`[daily-cache] usando ${dir} (escribible)`);
+      }
+      return dir;
+    } catch (e) {
+      console.warn(`[daily-cache] ${dir} no es escribible (${e.code || e.message}), probando siguiente`);
+    }
+  }
+  // Last resort — devuelve /tmp/cache aunque haya fallado, para no romper requires.
+  return '/tmp/cache';
+}
+
+const CACHE_DIR = _resolveWritableCacheDir();
 
 // Diagnóstico: registramos el último error de write para sacarlo en /api/cache/daily.
 let _lastWriteError = null;

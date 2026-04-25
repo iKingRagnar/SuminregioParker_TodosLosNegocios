@@ -1243,12 +1243,14 @@ async function fetchCxcContadoDelta(queryMs) {
 async function apiFetch(pathWithQuery, opts){
   const skipDb=opts&&opts.skipDb;
   const ms=(opts&&opts.timeout)||20000;
-  const basePath=skipDb?pathWithQuery:withDbParam(pathWithQuery);
-  const path=basePath+(basePath.indexOf('?')>=0?'&':'?')+'_ts='+Date.now();
+  // Quitamos el cache-buster `_ts=Date.now()`: con daily-cache (refresh 23:00 CDMX)
+  // los datos solo cambian una vez al día, así que cada navegación entre tabs/pestañas
+  // re-usa el cache del servidor en lugar de pegarle a Firebird de nuevo.
+  const path=skipDb?pathWithQuery:withDbParam(pathWithQuery);
   const ctrl=new AbortController();
   const tid=setTimeout(()=>ctrl.abort(),ms);
   try{
-    const r=await fetch(API+path,{signal:ctrl.signal,cache:'no-store',headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}});
+    const r=await fetch(API+path,{signal:ctrl.signal});
 
     if(!r.ok) throw new Error('HTTP '+r.status);
     const data=await r.json();
