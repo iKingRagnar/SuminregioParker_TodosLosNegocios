@@ -23,10 +23,45 @@
   }
   .page-head {
     display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between;
-    gap: 12px; margin-bottom: 20px;
+    gap: 12px; margin-bottom: 16px;
   }
   .page-head h1 { font-size: clamp(1.4rem, 2.2vw, 1.9rem); font-weight: 700; letter-spacing: -.028em; }
   .page-head p { color: #64748B; font-size: .85rem; margin-top: 4px; }
+  .filter-bar {
+    display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end;
+    background: rgba(255, 255, 255, .94); border: 1px solid rgba(15, 23, 42, .08);
+    padding: 14px 18px; border-radius: 14px; margin-bottom: 16px;
+    box-shadow: 0 4px 12px -4px rgba(15, 23, 42, .05);
+  }
+  .filter-group { display: flex; flex-direction: column; gap: 4px; min-width: 130px; }
+  .filter-group label {
+    font-size: .65rem; text-transform: uppercase; letter-spacing: .06em;
+    color: #64748B; font-weight: 700;
+  }
+  .filter-group select, .filter-group input {
+    background: white; border: 1px solid rgba(15, 23, 42, .15);
+    border-radius: 8px; padding: 7px 10px; font-size: .85rem; font-weight: 500;
+    color: #0F172A; cursor: pointer; transition: border-color .15s, box-shadow .15s;
+    font-family: inherit;
+  }
+  .filter-group select:focus, .filter-group input:focus {
+    outline: none; border-color: #E6A800;
+    box-shadow: 0 0 0 3px rgba(230, 168, 0, .15);
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #F5C33C, #E6A800, #B8860B);
+    color: #1A1200; border: none; padding: 8px 18px; border-radius: 8px;
+    font-size: .85rem; font-weight: 700; cursor: pointer; transition: all .18s;
+    box-shadow: 0 2px 8px -2px rgba(230, 168, 0, .5);
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 14px -2px rgba(230, 168, 0, .65); }
+  .btn-primary:disabled { opacity: .55; cursor: progress; transform: none; }
+  .btn-ghost {
+    background: transparent; color: #475569; border: 1px solid rgba(15, 23, 42, .12);
+    padding: 7px 14px; border-radius: 8px; font-size: .8rem; font-weight: 600;
+    cursor: pointer; transition: all .15s;
+  }
+  .btn-ghost:hover { background: rgba(230, 168, 0, .08); color: #B8860B; border-color: rgba(230, 168, 0, .35); }
   .toolbar {
     display: inline-flex; gap: 8px; flex-wrap: wrap; align-items: center;
     background: rgba(255, 255, 255, .92); border: 1px solid rgba(15, 23, 42, .08);
@@ -55,6 +90,7 @@
     border-color: rgba(230, 168, 0, .55);
     box-shadow: 0 14px 32px -12px rgba(15, 23, 42, .14), 0 0 20px -4px rgba(230, 168, 0, .3);
   }
+  .biz-card.err { border-color: rgba(239, 68, 68, .35); }
   .biz-name { font-size: 1.05rem; font-weight: 700; color: #0F172A; margin-bottom: 2px; }
   .biz-id { font-size: .68rem; color: #94A3B8; font-family: 'DM Mono', monospace; margin-bottom: 14px; }
   .kpi-row {
@@ -76,12 +112,19 @@
   .biz-status {
     display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px;
     border-radius: 999px; font-size: .68rem; font-weight: 600; text-transform: uppercase;
-    letter-spacing: .04em;
+    letter-spacing: .04em; white-space: nowrap;
   }
   .biz-status.ok { background: rgba(34, 197, 94, .12); color: #15803D; border: 1px solid rgba(34, 197, 94, .3); }
   .biz-status.warn { background: rgba(245, 158, 11, .12); color: #B45309; border: 1px solid rgba(245, 158, 11, .3); }
   .biz-status.danger { background: rgba(239, 68, 68, .12); color: #B91C1C; border: 1px solid rgba(239, 68, 68, .3); }
   .biz-status.none { background: rgba(100, 116, 139, .1); color: #64748B; border: 1px solid rgba(100, 116, 139, .2); }
+  .biz-status.err { background: rgba(239, 68, 68, .12); color: #B91C1C; border: 1px solid rgba(239, 68, 68, .3); }
+  .err-msg {
+    font-size: .72rem; color: #B91C1C; background: rgba(239, 68, 68, .06);
+    border: 1px dashed rgba(239, 68, 68, .25); border-radius: 8px;
+    padding: 8px 10px; margin-top: 4px; font-family: 'DM Mono', monospace;
+    word-break: break-word;
+  }
   .loading {
     display: grid; place-items: center; padding: 80px 20px; color: #64748B; font-size: .9rem;
   }
@@ -99,6 +142,13 @@
   .summary-item { display: flex; flex-direction: column; gap: 2px; }
   .summary-item span:first-child { font-size: .65rem; text-transform: uppercase; color: #64748B; letter-spacing: .06em; font-weight: 700; }
   .summary-item span:last-child { font-size: 1.1rem; font-weight: 700; color: #0F172A; font-variant-numeric: tabular-nums; }
+  .pill-period {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(230, 168, 0, .12); color: #B8860B;
+    border: 1px solid rgba(230, 168, 0, .35); border-radius: 999px;
+    padding: 3px 12px; font-size: .72rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .05em;
+  }
 </style>
 </head>
 <body>
@@ -113,15 +163,46 @@
       <button data-sort="ventas" class="active" role="tab">Ventas mes</button>
       <button data-sort="vencido" role="tab">CXC vencida</button>
       <button data-sort="total" role="tab">CXC total</button>
+      <button data-sort="cotiz" role="tab">Cotizaciones</button>
       <button data-sort="nombre" role="tab">Nombre</button>
     </div>
+  </div>
+
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label for="f-anio">Año</label>
+      <select id="f-anio"></select>
+    </div>
+    <div class="filter-group">
+      <label for="f-mes">Mes</label>
+      <select id="f-mes">
+        <option value="1">Enero</option>
+        <option value="2">Febrero</option>
+        <option value="3">Marzo</option>
+        <option value="4">Abril</option>
+        <option value="5">Mayo</option>
+        <option value="6">Junio</option>
+        <option value="7">Julio</option>
+        <option value="8">Agosto</option>
+        <option value="9">Septiembre</option>
+        <option value="10">Octubre</option>
+        <option value="11">Noviembre</option>
+        <option value="12">Diciembre</option>
+      </select>
+    </div>
+    <button class="btn-primary" id="btn-aplicar">Aplicar</button>
+    <button class="btn-ghost" id="btn-mes-actual">Mes actual</button>
+    <span style="flex:1"></span>
+    <span class="pill-period" id="period-pill">Periodo —</span>
   </div>
 
   <div class="summary-bar" id="summary">
     <div class="summary-item"><span>Empresas</span><span id="s-count">—</span></div>
     <div class="summary-item"><span>Ventas mes (total)</span><span id="s-ventas">—</span></div>
+    <div class="summary-item"><span>Facturas mes (total)</span><span id="s-facts">—</span></div>
     <div class="summary-item"><span>CXC total</span><span id="s-cxc">—</span></div>
     <div class="summary-item"><span>CXC vencida</span><span id="s-venc">—</span></div>
+    <div class="summary-item"><span>Cotizaciones (total)</span><span id="s-coti">—</span></div>
     <div class="summary-item"><span>Última actualización</span><span id="s-updated">—</span></div>
   </div>
 
@@ -133,6 +214,9 @@
 <script>
 (function () {
   'use strict';
+  var STORAGE_KEY = 'comparar:filters:v1';
+  var MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
   var fmtM = function (n) {
     if (n == null || !isFinite(n)) return '—';
     if (Math.abs(n) >= 1e6) return '$' + (n / 1e6).toFixed(2) + 'M';
@@ -140,14 +224,71 @@
     return '$' + Math.round(n).toLocaleString('es-MX');
   };
   var fmtN = function (n) { return (n == null || !isFinite(n)) ? '—' : Math.round(n).toLocaleString('es-MX'); };
+  var fmtPct = function (n) { return (n == null || !isFinite(n)) ? '—' : Math.round(n * 10) / 10 + '%'; };
 
-  var state = { data: [], sort: 'ventas' };
+  // Estado actual: año/mes seleccionados + último resultado
+  var state = {
+    anio: null,
+    mes: null,
+    sort: 'ventas',
+    data: [],
+    consolidado: null,
+    loading: false,
+  };
 
+  // ── Filtros: poblar selects de año
+  function buildAnioOptions() {
+    var sel = document.getElementById('f-anio');
+    var nowY = new Date().getFullYear();
+    sel.innerHTML = '';
+    for (var y = nowY; y >= nowY - 5; y--) {
+      var opt = document.createElement('option');
+      opt.value = String(y); opt.textContent = String(y);
+      sel.appendChild(opt);
+    }
+  }
+
+  function loadFiltersFromStorage() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      if (!parsed) return null;
+      var y = parseInt(parsed.anio, 10), m = parseInt(parsed.mes, 10);
+      if (!isFinite(y) || !isFinite(m)) return null;
+      if (m < 1 || m > 12) return null;
+      return { anio: y, mes: m };
+    } catch (_) { return null; }
+  }
+
+  function saveFiltersToStorage() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ anio: state.anio, mes: state.mes })); }
+    catch (_) {}
+  }
+
+  function applyFiltersToUI() {
+    document.getElementById('f-anio').value = String(state.anio);
+    document.getElementById('f-mes').value = String(state.mes);
+    var pill = document.getElementById('period-pill');
+    pill.textContent = 'Periodo: ' + MESES[state.mes - 1] + ' ' + state.anio;
+  }
+
+  function readFiltersFromUI() {
+    var y = parseInt(document.getElementById('f-anio').value, 10);
+    var m = parseInt(document.getElementById('f-mes').value, 10);
+    if (!isFinite(y) || !isFinite(m)) return false;
+    state.anio = y; state.mes = m;
+    return true;
+  }
+
+  // ── Status visual basado en CXC vencida vs total
   function statusFor(item) {
-    if (!item || item.snapshot === false) return { cls: 'none', txt: 'Sin snapshot' };
-    var venc = Number(item.cxc && item.cxc.vencido) || 0;
-    var total = Number(item.cxc && item.cxc.total) || 0;
-    if (total === 0) return { cls: 'none', txt: 'Sin datos' };
+    if (item && item.error) return { cls: 'err', txt: 'Error' };
+    var venc  = Number(item.cxc_vencido) || 0;
+    var total = Number(item.cxc_saldo)   || 0;
+    var ventas = Number(item.ventas_mes) || 0;
+    if (total === 0 && ventas === 0) return { cls: 'none', txt: 'Sin datos' };
+    if (total === 0) return { cls: 'ok', txt: 'Sin CXC' };
     var pct = (venc / total) * 100;
     if (pct >= 30) return { cls: 'danger', txt: 'Crítico' };
     if (pct >= 15) return { cls: 'warn', txt: 'Atento' };
@@ -158,83 +299,173 @@
     var grid = document.getElementById('grid');
     grid.innerHTML = '';
 
-    var arr = state.data.slice();
+    var arr = (state.data || []).slice();
     arr.sort(function (a, b) {
       if (state.sort === 'nombre') return (a.label || '').localeCompare(b.label || '');
-      var ka = state.sort === 'ventas' ? (a.ventas && a.ventas.mes) :
-               state.sort === 'vencido' ? (a.cxc && a.cxc.vencido) :
-               state.sort === 'total' ? (a.cxc && a.cxc.total) : 0;
-      var kb = state.sort === 'ventas' ? (b.ventas && b.ventas.mes) :
-               state.sort === 'vencido' ? (b.cxc && b.cxc.vencido) :
-               state.sort === 'total' ? (b.cxc && b.cxc.total) : 0;
+      var ka = state.sort === 'ventas'  ? a.ventas_mes        :
+               state.sort === 'vencido' ? a.cxc_vencido       :
+               state.sort === 'total'   ? a.cxc_saldo         :
+               state.sort === 'cotiz'   ? a.cotiz_importe_mes : 0;
+      var kb = state.sort === 'ventas'  ? b.ventas_mes        :
+               state.sort === 'vencido' ? b.cxc_vencido       :
+               state.sort === 'total'   ? b.cxc_saldo         :
+               state.sort === 'cotiz'   ? b.cotiz_importe_mes : 0;
       return (Number(kb) || 0) - (Number(ka) || 0);
     });
 
     if (!arr.length) {
-      grid.innerHTML = '<div class="empty">Sin empresas con snapshot cargado. Corre <code>sync_duckdb.py</code> para poblar datos.</div>';
+      grid.innerHTML = '<div class="empty">Sin empresas. Verifica el endpoint <code>/api/universe/scorecard</code>.</div>';
       return;
     }
 
     arr.forEach(function (item) {
-      var st = statusFor(item);
+      var st  = statusFor(item);
       var card = document.createElement('div');
-      card.className = 'biz-card';
-      card.innerHTML =
+      card.className = 'biz-card' + (item.error ? ' err' : '');
+      var inner =
         '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px">' +
           '<div>' +
             '<div class="biz-name">' + (item.label || item.id) + '</div>' +
             '<div class="biz-id">' + item.id + '</div>' +
           '</div>' +
           '<span class="biz-status ' + st.cls + '">' + st.txt + '</span>' +
-        '</div>' +
-        '<div class="kpi-row">' +
-          '<div class="kpi-block">' +
-            '<div class="kpi-lbl">Ventas mes</div>' +
-            '<div class="kpi-val">' + fmtM(item.ventas && item.ventas.mes) + '</div>' +
-            '<div class="kpi-sub">Hoy: ' + fmtM(item.ventas && item.ventas.hoy) + '</div>' +
-          '</div>' +
-          '<div class="kpi-block">' +
-            '<div class="kpi-lbl">CXC total</div>' +
-            '<div class="kpi-val">' + fmtM(item.cxc && item.cxc.total) + '</div>' +
-            '<div class="kpi-sub">Vencido: ' + fmtM(item.cxc && item.cxc.vencido) + '</div>' +
-          '</div>' +
-          '<div class="kpi-block">' +
-            '<div class="kpi-lbl">Inventario</div>' +
-            '<div class="kpi-val">' + fmtM(item.inv && item.inv.valor) + '</div>' +
-            '<div class="kpi-sub">' + fmtN(item.inv && item.inv.articulos) + ' artículos</div>' +
-          '</div>' +
-          '<div class="kpi-block">' +
-            '<div class="kpi-lbl">Clientes</div>' +
-            '<div class="kpi-val">' + fmtN(item.clientes && item.clientes.activos) + '</div>' +
-            '<div class="kpi-sub">' + fmtN(item.clientes && item.clientes.total) + ' total</div>' +
-          '</div>' +
         '</div>';
+
+      if (item.error) {
+        inner += '<div class="err-msg">' + item.error + '</div>';
+      } else {
+        inner +=
+          '<div class="kpi-row">' +
+            '<div class="kpi-block">' +
+              '<div class="kpi-lbl">Ventas mes</div>' +
+              '<div class="kpi-val">' + fmtM(item.ventas_mes) + '</div>' +
+              '<div class="kpi-sub">Hoy: ' + fmtM(item.ventas_hoy) + '</div>' +
+            '</div>' +
+            '<div class="kpi-block">' +
+              '<div class="kpi-lbl">Facturas mes</div>' +
+              '<div class="kpi-val">' + fmtN(item.facturas_mes) + '</div>' +
+              '<div class="kpi-sub">en el periodo</div>' +
+            '</div>' +
+            '<div class="kpi-block">' +
+              '<div class="kpi-lbl">CXC total</div>' +
+              '<div class="kpi-val">' + fmtM(item.cxc_saldo) + '</div>' +
+              '<div class="kpi-sub">Vencido: ' + fmtM(item.cxc_vencido) + ' · ' + fmtPct(item.cxc_pct_vencido) + '</div>' +
+            '</div>' +
+            '<div class="kpi-block">' +
+              '<div class="kpi-lbl">Cotizaciones</div>' +
+              '<div class="kpi-val">' + fmtM(item.cotiz_importe_mes) + '</div>' +
+              '<div class="kpi-sub">importe en el periodo</div>' +
+            '</div>' +
+          '</div>';
+      }
+      card.innerHTML = inner;
       grid.appendChild(card);
     });
 
     // Summary bar
-    var totalVentas = arr.reduce(function (s, x) { return s + (Number(x.ventas && x.ventas.mes) || 0); }, 0);
-    var totalCxc    = arr.reduce(function (s, x) { return s + (Number(x.cxc && x.cxc.total) || 0); }, 0);
-    var totalVenc   = arr.reduce(function (s, x) { return s + (Number(x.cxc && x.cxc.vencido) || 0); }, 0);
-    document.getElementById('s-count').textContent = arr.length;
-    document.getElementById('s-ventas').textContent = fmtM(totalVentas);
-    document.getElementById('s-cxc').textContent = fmtM(totalCxc);
-    document.getElementById('s-venc').textContent = fmtM(totalVenc);
+    var c = state.consolidado || {};
+    var ok = arr.filter(function (x) { return !x.error; });
+    var totVentas = c.ventas_mes_sum != null
+      ? c.ventas_mes_sum
+      : ok.reduce(function (s, x) { return s + (Number(x.ventas_mes)  || 0); }, 0);
+    var totFacts  = c.facturas_mes_sum != null
+      ? c.facturas_mes_sum
+      : ok.reduce(function (s, x) { return s + (Number(x.facturas_mes) || 0); }, 0);
+    var totCxc    = c.cxc_saldo_sum != null
+      ? c.cxc_saldo_sum
+      : ok.reduce(function (s, x) { return s + (Number(x.cxc_saldo)    || 0); }, 0);
+    var totVenc   = ok.reduce(function (s, x) { return s + (Number(x.cxc_vencido) || 0); }, 0);
+    var totCoti   = c.cotiz_mes_sum != null
+      ? c.cotiz_mes_sum
+      : ok.reduce(function (s, x) { return s + (Number(x.cotiz_importe_mes) || 0); }, 0);
+
+    document.getElementById('s-count').textContent   = arr.length;
+    document.getElementById('s-ventas').textContent  = fmtM(totVentas);
+    document.getElementById('s-facts').textContent   = fmtN(totFacts);
+    document.getElementById('s-cxc').textContent     = fmtM(totCxc);
+    document.getElementById('s-venc').textContent    = fmtM(totVenc);
+    document.getElementById('s-coti').textContent    = fmtM(totCoti);
     document.getElementById('s-updated').textContent = new Date().toLocaleTimeString('es-MX');
   }
 
+  function setLoading(on) {
+    state.loading = !!on;
+    var btn = document.getElementById('btn-aplicar');
+    btn.disabled = !!on;
+    btn.textContent = on ? 'Cargando…' : 'Aplicar';
+  }
+
   function load() {
-    fetch('/api/universe/scorecard')
-      .then(function (r) { return r.json(); })
+    if (!isFinite(state.anio) || !isFinite(state.mes)) return;
+    setLoading(true);
+    var grid = document.getElementById('grid');
+    grid.innerHTML = '<div class="loading">Cargando ' + MESES[state.mes - 1] + ' ' + state.anio + ' (consultando ' + 'Microsip por empresa)…</div>';
+
+    var url = '/api/universe/scorecard?anio=' + encodeURIComponent(state.anio) + '&mes=' + encodeURIComponent(state.mes);
+    fetch(url)
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
       .then(function (data) {
-        state.data = Array.isArray(data) ? data : (data.items || data.empresas || []);
+        // Soporta dos formas: {empresas, consolidado} (actual) y array plano (legacy).
+        if (Array.isArray(data)) {
+          state.data = data;
+          state.consolidado = null;
+        } else {
+          state.data = Array.isArray(data.empresas)
+            ? data.empresas
+            : (Array.isArray(data.items) ? data.items : []);
+          state.consolidado = data.consolidado || null;
+        }
         render();
       })
       .catch(function (e) {
         document.getElementById('grid').innerHTML =
-          '<div class="empty">Error al cargar: ' + e.message + '</div>';
-      });
+          '<div class="empty">Error al cargar: ' + (e && e.message ? e.message : e) + '</div>';
+      })
+      .finally(function () { setLoading(false); });
   }
+
+  // ── Init
+  buildAnioOptions();
+  var stored = loadFiltersFromStorage();
+  if (stored) {
+    state.anio = stored.anio; state.mes = stored.mes;
+  } else {
+    var now = new Date();
+    state.anio = now.getFullYear();
+    state.mes  = now.getMonth() + 1;
+  }
+  applyFiltersToUI();
+
+  // ── Eventos
+  document.getElementById('btn-aplicar').addEventListener('click', function () {
+    if (!readFiltersFromUI()) return;
+    saveFiltersToStorage();
+    applyFiltersToUI();
+    load();
+  });
+
+  document.getElementById('btn-mes-actual').addEventListener('click', function () {
+    var now = new Date();
+    state.anio = now.getFullYear();
+    state.mes  = now.getMonth() + 1;
+    saveFiltersToStorage();
+    applyFiltersToUI();
+    load();
+  });
+
+  // Cambio inmediato al cambiar año o mes (sin esperar Aplicar) — opcional, mejora UX.
+  // Si prefieres requerir clic en Aplicar, comenta este bloque.
+  document.getElementById('f-anio').addEventListener('change', function () {
+    if (!readFiltersFromUI()) return;
+    saveFiltersToStorage(); applyFiltersToUI(); load();
+  });
+  document.getElementById('f-mes').addEventListener('change', function () {
+    if (!readFiltersFromUI()) return;
+    saveFiltersToStorage(); applyFiltersToUI(); load();
+  });
 
   document.querySelectorAll('.toolbar button[data-sort]').forEach(function (btn) {
     btn.addEventListener('click', function () {
@@ -245,9 +476,13 @@
     });
   });
 
+  // Carga inicial
   load();
-  // Refresh cada 5 min
-  setInterval(load, 5 * 60 * 1000);
+
+  // Refresh ligero cada 5 min — solo re-fetcha si la pestaña sigue visible
+  setInterval(function () {
+    if (document.visibilityState === 'visible' && !state.loading) load();
+  }, 5 * 60 * 1000);
 })();
 </script>
 </body>
