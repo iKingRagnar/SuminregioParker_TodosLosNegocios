@@ -5,10 +5,10 @@
  */
 
 (function loadAuthGuard() {
-  if (typeof window === 'undefined' || window.__SUMINREGIO_AUTH_GUARD_V4__) return;
+  if (typeof window === 'undefined' || window.__SUMINREGIO_AUTH_GUARD_V5__) return;
   try {
     var g = document.createElement('script');
-    g.src = '/auth-guard.js?v=4';
+    g.src = '/auth-guard.js?v=5';
     g.async = false;
     (document.head || document.documentElement).appendChild(g);
   } catch (_) {}

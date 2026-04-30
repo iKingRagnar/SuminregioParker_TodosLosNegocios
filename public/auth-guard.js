@@ -1,12 +1,11 @@
 /**
- * auth-guard.js — Redirige al login cuando:
- *  - AUTH_PROVIDER=session y no hay usuario, o
- *  - modo dummy (usuario anónimo) en un host que no es localhost (despliegue mal configurado).
+ * auth-guard.js — Redirige al login cuando no hay sesión válida o el servidor está en dummy en hosting.
+ * Si /api/auth/me falla en producción, redirige al login (no se muestra el panel a ciegas).
  */
 (function () {
   'use strict';
-  if (window.__SUMINREGIO_AUTH_GUARD_V4__) return;
-  window.__SUMINREGIO_AUTH_GUARD_V4__ = true;
+  if (window.__SUMINREGIO_AUTH_GUARD_V5__) return;
+  window.__SUMINREGIO_AUTH_GUARD_V5__ = true;
 
   if (typeof location === 'undefined' || location.protocol === 'file:') return;
   var path = location.pathname || '';
@@ -27,6 +26,11 @@
     return false;
   }
 
+  function goLogin(qs) {
+    var nextQ = encodeURIComponent(location.pathname + location.search + location.hash || '');
+    location.replace('/login.html?next=' + nextQ + (qs ? '&' + qs : ''));
+  }
+
   try {
     var st = document.createElement('style');
     st.textContent = 'html.suminregio-auth-pending body{visibility:hidden}';
@@ -41,21 +45,53 @@
   }
 
   var base = (typeof window.__API_BASE === 'string' && window.__API_BASE) ? window.__API_BASE : (location.origin || '');
+  var isLocal = isLocalDevHost();
+
+  var watchdog = setTimeout(function () {
+    if (!isLocal) goLogin('gate=timeout');
+    else release();
+  }, 12000);
+
+  function done() {
+    try {
+      clearTimeout(watchdog);
+    } catch (_) {}
+  }
 
   fetch(base + '/api/auth/me', { credentials: 'same-origin' })
-    .then(function (r) { return r.json(); })
-    .then(function (d) {
-      var prov = String((d && d.provider) || '').toLowerCase();
-      var nextQ = encodeURIComponent(location.pathname + location.search + location.hash || '');
-      if (prov === 'session' && (!d || !d.user)) {
-        location.replace('/login.html?next=' + nextQ);
+    .then(function (r) {
+      return r.text().then(function (text) {
+        var d = null;
+        try {
+          d = text ? JSON.parse(text) : null;
+        } catch (_) {
+          d = { _badJson: true };
+        }
+        return { ok: r.ok, status: r.status, d: d };
+      });
+    })
+    .then(function (pack) {
+      done();
+      if (!pack.ok || !pack.d || pack.d._badJson) {
+        if (!isLocal) goLogin('gate=me');
+        else release();
         return;
       }
-      if (!isLocalDevHost() && isAnonDummyUser(d)) {
-        location.replace('/login.html?next=' + nextQ + '&misconfigured=1');
+      var d = pack.d;
+      var prov = String((d && d.provider) || '').toLowerCase();
+      if (prov === 'session' && (!d || !d.user)) {
+        goLogin();
+        return;
+      }
+      if (!isLocal && isAnonDummyUser(d)) {
+        goLogin('misconfigured=1');
         return;
       }
       release();
     })
-    .catch(function () { release(); });
+    .catch(function () {
+      done();
+      if (!isLocal) goLogin('gate=net');
+      else release();
+    });
 })();

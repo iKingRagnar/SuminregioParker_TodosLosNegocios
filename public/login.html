@@ -34,10 +34,13 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
   }
+  /* En móvil: primero el formulario (como en tu referencia), la marca debajo */
   @media (max-width: 960px) {
     .shell { grid-template-columns: 1fr; }
-    .hero { min-height: 42vh; }
-    .hero-inner { padding: 1.75rem 1.5rem 2rem; }
+    .hero { order: 2; min-height: auto; padding-bottom: 1.5rem; }
+    .panel-wrap { order: 1; min-height: min(70vh, 640px); padding: 1.25rem 1rem 1.5rem; }
+    .hero-inner { padding: 1.75rem 1.5rem 1rem; }
+    .role-row { padding: 0 1.5rem 1.25rem; }
     .sign-accent { display: none; }
   }
   .hero {
@@ -292,6 +295,17 @@
   }
   .mis-banner strong { display: block; margin-bottom: 0.35rem; font-size: 0.82rem; }
   .mis-banner code { font-family: 'DM Mono', ui-monospace, monospace; font-size: 0.72rem; color: #fde047; }
+  .gate-banner {
+    display: none;
+    margin: 0 0 1rem;
+    padding: 0.7rem 0.85rem;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    background: rgba(59, 130, 246, 0.12);
+    border: 1px solid rgba(96, 165, 250, 0.35);
+    border-radius: 10px;
+    color: #bfdbfe;
+  }
   .access-foot {
     margin-top: 1.35rem;
     padding-top: 1.2rem;
@@ -373,6 +387,7 @@
           <h1>Iniciar sesión</h1>
           <p>Introduce las credenciales de tu cuenta para continuar al panel.</p>
         </div>
+        <div id="gateerr" class="gate-banner" role="status"></div>
         <div id="misconfigured" class="mis-banner" role="alert">
           <strong>Servidor en modo demo (sin login real)</strong>
           El sitio estaba respondiendo como desarrollo: cualquiera veía el panel con datos en cero.
@@ -423,6 +438,21 @@
   var next = params.get('next') || '/index.html';
   var err = document.getElementById('err');
   var mis = document.getElementById('misconfigured');
+  var gateEl = document.getElementById('gateerr');
+  var gate = params.get('gate');
+  if (gateEl) {
+    if (gate === 'me' || gate === 'net' || gate === 'timeout') {
+      gateEl.style.display = 'block';
+      var msgs = {
+        me: 'No se pudo validar la sesión. Si ya configuraste AUTH_PROVIDER=session, revisa que el servicio esté en marcha y vuelve a entrar.',
+        net: 'Error de red al contactar el servidor. Comprueba conexión o que la URL sea la del backend (mismo sitio).',
+        timeout: 'El servidor tardó en responder. Recarga o inténtalo en unos segundos.'
+      };
+      gateEl.textContent = msgs[gate] || '';
+    } else {
+      gateEl.style.display = 'none';
+    }
+  }
   if (mis && params.get('misconfigured') !== '1') mis.style.display = 'none';
   if (mis && params.get('misconfigured') === '1') mis.style.display = 'block';
   var pw = document.getElementById('pw');
