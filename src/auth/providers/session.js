@@ -3,6 +3,7 @@
 /**
  * Autenticación por sesión (cookie httpOnly) + formulario login.
  * Credenciales en AUTH_USERS: "email:password:rol;email2:pass2:rol2"
+ * También acepta "usuario:contraseña" (un solo :) → rol admin.
  * Roles: admin | gerente | vendedor (coma para varios: admin,gerente)
  *
  * Contraseñas no deben contener ":" ni ";" (separadores del formato).
@@ -21,15 +22,25 @@ function parseUsers() {
     const t = (entry || '').trim();
     if (!t) return;
     const idx = t.indexOf(':');
+    if (idx <= 0) return;
     const idx2 = t.indexOf(':', idx + 1);
-    if (idx <= 0 || idx2 <= idx) return;
-    const email = t.slice(0, idx).trim().toLowerCase();
-    const password = t.slice(idx + 1, idx2).trim();
-    const r = t.slice(idx2 + 1).trim();
+    let email;
+    let password;
+    let r;
+    if (idx2 <= idx) {
+      // usuario:contraseña (sin rol → admin) — compatible con envs de 2 segmentos
+      email = t.slice(0, idx).trim().toLowerCase();
+      password = t.slice(idx + 1).trim();
+      r = 'admin';
+    } else {
+      email = t.slice(0, idx).trim().toLowerCase();
+      password = t.slice(idx + 1, idx2).trim();
+      r = t.slice(idx2 + 1).trim();
+    }
     if (email && password) {
       map.set(email, {
         password,
-        roles: (r || 'user').split(',').map((x) => x.trim()).filter(Boolean),
+        roles: (r || 'admin').split(',').map((x) => x.trim()).filter(Boolean),
       });
     }
   });
@@ -37,6 +48,10 @@ function parseUsers() {
 }
 
 const USERS = parseUsers();
+
+if (String(process.env.AUTH_PROVIDER || '').toLowerCase() === 'session' && USERS.size === 0) {
+  console.warn('[auth/session] AUTH_USERS no tiene entradas válidas. Usa correo:contraseña:rol o correo:contraseña (→ admin).');
+}
 
 /** SHA-256 comparación en tiempo constante (evita leak por longitud). */
 function passwordsMatch(given, expected) {
