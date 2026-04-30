@@ -1,29 +1,15 @@
 /**
- * sw.js — Service Worker de Suminregio (offline-first)
- * ──────────────────────────────────────────────────────────────────────────────
- * Estrategia:
- *   · Shell (HTML, CSS, JS, fonts): cache-first con update on revalidate
- *     → Abre instantáneo incluso sin red. Actualiza en background.
- *   · API (/api/*): network-first con fallback a cache de última respuesta
- *     → Datos siempre frescos cuando hay red; al menos vista stale cuando no.
- *   · Excepción: /api/admin/*, /api/ai/* → solo red (nunca cache, son sensibles)
+ * sw.js — Service Worker de Suminregio
+ * HTML del panel: siempre red (no cache-first) para respetar login en servidor.
+ * Assets + login/portal: cache con revalidate.
  */
-const CACHE_VERSION = 'sumi-v3';
-const SHELL_CACHE   = CACHE_VERSION + '-shell';
+const CACHE_VERSION = 'sumi-v5-auth';const SHELL_CACHE   = CACHE_VERSION + '-shell';
 const API_CACHE     = CACHE_VERSION + '-api';
 
 const SHELL_PRECACHE = [
-  '/',
-  '/index.html',
-  '/ventas.html',
-  '/cxc.html',
-  '/inventario.html',
-  '/resultados.html',
-  '/consumos.html',
-  '/vendedores.html',
-  '/clientes.html',
-  '/margen-producto.html',
-  '/director.html',
+  // No precargar páginas de negocio: deben pasar siempre por red (sesión en servidor).
+  '/login.html',
+  '/portal.html',
   '/nav.js',
   '/filters.js',
   '/data-cache.js',
@@ -40,7 +26,6 @@ const SHELL_PRECACHE = [
   '/tour-guide.js',
   '/push-client.js',
   '/xlsx-export.js',
-  '/comparar.html',
   '/aurora-background.js',
   '/app-ui.css',
   '/app-ui-boot.js',
@@ -93,9 +78,25 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Shell: cache-first, revalidate en background
+  // HTML del panel y navegación principal: nunca servir desde caché shell (rompe login).
+  if (isProtectedDocument(url.pathname, req)) {
+    event.respondWith(fetch(req));
+    return;
+  }
+
+  // Shell estático (login/portal, assets): cache-first, revalidate en background
   event.respondWith(staleWhileRevalidate(req));
 });
+
+/** Rutas HTML o navegación que deben ir al servidor (cookies, redirects a login). */
+function isProtectedDocument(pathname, req) {
+  if (pathname.endsWith('.html')) {
+    if (pathname === '/login.html' || pathname === '/portal.html') return false;
+    return true;
+  }
+  if (req.mode === 'navigate' && (pathname === '/' || pathname === '')) return true;
+  return false;
+}
 
 async function networkFirst(req) {
   try {
