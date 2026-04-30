@@ -5,7 +5,11 @@
  * salvo rutas públicas (login, health, upload snapshot con token, etc.).
  */
 
-const { isGerenteOnly } = require('./gerente-gate');
+const {
+  isFinanceRestricted,
+  isVendedorTier,
+  VENDEDOR_DOCUMENT_DENY,
+} = require('./gerente-gate');
 
 function publicApiPath(path) {
   if (path.startsWith('/api/auth/')) return true;
@@ -36,15 +40,16 @@ function install(app) {
 
     const hasUser = req.user && (req.user.email || req.user.id);
     if (hasUser) {
-      const docPath = path.split('?')[0];
+      if (isVendedorTier(req) && VENDEDOR_DOCUMENT_DENY.has(path)) {
+        res.setHeader('Cache-Control', 'no-store');
+        return res.redirect(302, '/ventas.html');
+      }
       if (
-        docPath === '/resultados.html' ||
-        docPath === '/margen-producto.html'
+        (path === '/resultados.html' || path === '/margen-producto.html') &&
+        isFinanceRestricted(req)
       ) {
-        if (isGerenteOnly(req)) {
-          res.setHeader('Cache-Control', 'no-store');
-          return res.redirect(302, '/ventas.html');
-        }
+        res.setHeader('Cache-Control', 'no-store');
+        return res.redirect(302, '/ventas.html');
       }
       return next();
     }

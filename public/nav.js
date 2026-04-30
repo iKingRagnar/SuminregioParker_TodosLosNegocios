@@ -419,7 +419,7 @@
     var clockId = 'nav-clock-' + Date.now();
     hdr.innerHTML =
       '<div class="nav-hi">' +
-        '<a class="nav-logo" href="index.html">' +
+        '<a class="nav-logo" href="' + ((user && user.roles && user.roles.indexOf('vendedor') >= 0 && user.roles.indexOf('gerente') < 0 && user.roles.indexOf('admin') < 0) ? 'ventas.html' : 'index.html') + '">' +
           '<div class="nav-logo-icon">' +
             '<svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>' +
           '</div>' +
@@ -452,14 +452,35 @@
     ensureChatWidget();
   }
 
-  function filterLinksForGerente(user) {
+  /** admin: todo · gerente: sin Resultados/Margen · solo vendedor: ventas operativas. */
+  function filterNavLinksForRole(user) {
     var base = NAV_LINKS;
     if (!user || !user.roles) return base;
-    if (user.roles.indexOf('admin') >= 0) return base;
-    if (user.roles.indexOf('gerente') < 0) return base;
-    return base.filter(function (nl) {
-      return nl.href !== 'resultados.html' && nl.href !== 'margen-producto.html';
-    });
+    var roles = user.roles || [];
+    if (roles.indexOf('admin') >= 0) return base;
+
+    var isGerente = roles.indexOf('gerente') >= 0;
+    var isVendedor = roles.indexOf('vendedor') >= 0;
+
+    if (isVendedor && !isGerente) {
+      var allow = {
+        'ventas.html': true,
+        'cobradas.html': true,
+        'clientes.html': true,
+        'vendedores.html': true,
+      };
+      return base.filter(function (nl) {
+        return allow[nl.href] === true;
+      });
+    }
+
+    if (isGerente) {
+      return base.filter(function (nl) {
+        return nl.href !== 'resultados.html' && nl.href !== 'margen-producto.html';
+      });
+    }
+
+    return base;
   }
 
   function init() {
@@ -467,7 +488,7 @@
       .then(function (r) { return r.json(); })
       .then(function (data) {
         var user = data && data.user;
-        mountHeader(filterLinksForGerente(user), user);
+        mountHeader(filterNavLinksForRole(user), user);
       })
       .catch(function () {
         mountHeader(NAV_LINKS, null);
