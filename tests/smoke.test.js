@@ -54,6 +54,9 @@ before(async () => {
       PORT: String(PORT),
       DUCK_ONLY_MODE: '1',
       LOG_LEVEL: 'warn',
+      NODE_ENV: 'test',
+      RENDER: '',
+      RENDER_EXTERNAL_URL: '',
       // Evitar que el .env local con session bloquee /api/* en CI o máquinas de dev
       AUTH_PROVIDER: 'dummy',
     },

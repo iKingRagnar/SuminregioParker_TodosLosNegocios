@@ -101,6 +101,31 @@ function sqlVentaImporteResultadosExpr(alias = 'd') {
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 const IS_SESSION_AUTH = String(process.env.AUTH_PROVIDER || '').toLowerCase() === 'session';
+
+/**
+ * En hosting de producción, AUTH_PROVIDER=dummy asigna anon@suminregio.local como admin a todos
+ * (sin login). Evita arrancar así salvo ALLOW_INSECURE_DUMMY_AUTH=1 (solo emergencias).
+ */
+(function blockInsecureDummyInProduction() {
+  const authProv = String(process.env.AUTH_PROVIDER || 'dummy').toLowerCase();
+  const allowDummy = String(process.env.ALLOW_INSECURE_DUMMY_AUTH || '').trim() === '1';
+  const onProdHost =
+    String(process.env.NODE_ENV || '').toLowerCase() === 'production' ||
+    String(process.env.RENDER || '').toLowerCase() === 'true' ||
+    Boolean((process.env.RENDER_EXTERNAL_URL || '').trim());
+  if (allowDummy || !onProdHost || authProv !== 'dummy') return;
+  console.error('');
+  console.error('[auth] =======================================================================');
+  console.error('[auth] BLOQUEO: En producción no se permite AUTH_PROVIDER=dummy.');
+  console.error('[auth] Ese modo crea anon@suminregio.local con rol admin sin contraseña.');
+  console.error('[auth] En Render define: AUTH_PROVIDER=session, SESSION_SECRET, AUTH_USERS');
+  console.error('[auth] (y opcionalmente CORS_ORIGIN con tu URL si aplica).');
+  console.error('[auth] Emergencia explícita: ALLOW_INSECURE_DUMMY_AUTH=1');
+  console.error('[auth] =======================================================================');
+  console.error('');
+  process.exit(1);
+})();
+
 const _corsOrigin = process.env.CORS_ORIGIN || '*';
 app.use(cors({
   origin: IS_SESSION_AUTH && _corsOrigin === '*'
