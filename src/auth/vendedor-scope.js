@@ -12,6 +12,12 @@ const { isVendedorTier } = require('./gerente-gate');
 const { publicApiPath } = require('./session-gate');
 
 /**
+ * Rutas API permitidas aunque falte fila en AUTH_VENDEDOR_MAP (usuario autenticado sí existe).
+ * Sin esto, POST /api/usage/track recibe 403 y las métricas de uso solo muestran login/logout.
+ */
+const VENDEDOR_ALLOW_WITHOUT_MAP = new Set(['/api/usage/track']);
+
+/**
  * @returns {Map<string, number>}
  */
 function parseVendedorMap() {
@@ -45,7 +51,11 @@ function install(app) {
     const vid = MAP.get(email);
 
     if (!vid) {
-      if (req.path.startsWith('/api/') && !publicApiPath(req.path)) {
+      if (
+        req.path.startsWith('/api/') &&
+        !publicApiPath(req.path) &&
+        !VENDEDOR_ALLOW_WITHOUT_MAP.has(req.path)
+      ) {
         return res.status(403).json({
           error:
             'Tu cuenta de vendedor debe tener VENDEDOR_ID en AUTH_VENDEDOR_MAP (formato: correo@empresa.com:123). Contacta al administrador.',
