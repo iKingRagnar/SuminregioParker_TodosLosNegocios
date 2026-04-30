@@ -150,6 +150,24 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 /* Parentheses for negative values */
 .paren-neg{color:var(--red)}
 
+/* Estado de resultados — análisis vertical (libro: % sobre ventas netas) */
+.table-av-libro{width:100%;border-collapse:collapse;font-size:.8rem}
+.table-av-libro thead th{background:var(--s2);border-bottom:1px solid var(--border2);font-family:'DM Mono',monospace;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;padding:.5rem .55rem;text-align:center}
+.table-av-libro thead th.av-concepto{text-align:left;vertical-align:bottom;padding-left:1.1rem;text-transform:none;letter-spacing:0;font-size:.72rem;color:var(--text2)}
+.table-av-libro thead tr:last-child th{font-size:.58rem;padding:.35rem .45rem}
+.table-av-libro th.av-num,.table-av-libro td.av-num{text-align:right;font-variant-numeric:tabular-nums}
+.table-av-libro th.av-pct,.table-av-libro td.av-pct{text-align:right;font-variant-numeric:tabular-nums;color:var(--text2);min-width:3.2rem}
+.table-av-libro tbody td{padding:.52rem .55rem;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:middle}
+.table-av-libro tbody td:first-child{text-align:left;font-weight:600;color:var(--text);padding-left:1.1rem;padding-right:.75rem}
+.table-av-libro tbody tr:nth-child(even) td{background:rgba(255,255,255,.024)}
+.table-av-libro tbody tr.av-subtotal td{background:var(--s2);font-weight:700}
+.table-av-libro tbody tr.av-subtotal td:first-child{font-size:.82rem}
+.table-av-libro tbody tr.av-foot td{background:rgba(106,133,166,.14);font-family:'DM Mono',monospace;font-size:.78rem}
+.table-av-libro .av-na{color:var(--muted);font-weight:500}
+.table-av-libro tbody tr.av-muted td:first-child{font-weight:500;color:var(--text2)}
+html[data-theme=light] .table-av-libro tbody tr:nth-child(even) td{background:rgba(0,0,0,.03)}
+html[data-theme=light] .table-av-libro tbody tr.av-foot td{background:rgba(100,116,139,.12)}
+
 /* Gastos notice */
 .gastos-notice{background:rgba(255,184,0,.06);border:1px solid rgba(255,184,0,.2);border-radius:10px;padding:.85rem 1.1rem;margin-bottom:1.2rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--yellow-ink);line-height:1.65}
 .gastos-notice strong{font-weight:700;color:var(--yellow-ink)}
@@ -581,6 +599,26 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
     </div>
   </div>
 
+  <div class="sd"><div class="sd-label">Estado de resultados · an&#225;lisis vertical</div><div class="sd-line"></div></div>
+  <div class="notice" style="margin-bottom:1rem" id="avLibroNotice">
+    Distribuci&#243;n sobre <strong>ventas netas = 100%</strong> (mismo criterio que texto de finanzas). ISR, dividendos y partidas no cargadas en P&amp;L aparecen como &#8212; hasta integrar cuentas en Microsip. La fila inferior <strong>Compras</strong> usa <em>costo de ventas</em> como referencia operativa.
+  </div>
+  <div class="card" style="margin-bottom:2rem" id="avLibroCard">
+    <div class="card-head">
+      <div class="card-title">
+        <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h5M8 16h3"/></svg>
+        Cuadro estado de resultados (% sobre ventas netas)
+      </div>
+      <div class="card-badge" id="avLibroBadge">alineado a P&amp;L</div>
+    </div>
+    <div class="card-body" style="overflow-x:auto;padding-top:0">
+      <table class="table-av-libro" aria-label="Análisis vertical estado de resultados">
+        <thead id="avLibroHead"></thead>
+        <tbody id="avLibroBody"><tr><td colspan="99" style="text-align:center;padding:1.5rem;color:var(--muted)">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
   <div class="sd"><div class="sd-label">Balance General (resumen contable)</div><div class="sd-line"></div></div>
   <div class="card" style="margin-bottom:2rem">
     <div class="card-head">
@@ -926,6 +964,7 @@ const fmtM=v=>{
 };
 const fmtMNeg=v=>fmtM(v);
 const fmtPct=v=>isNaN(+v)?'—':(+v).toFixed(1)+'%';
+const fmtPct2=v=>(v===null||v===undefined||isNaN(+v))?'—':(+v).toFixed(2)+'%';
 function escHtml(s){
   return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
 }
@@ -1673,6 +1712,8 @@ function clearResultadosUI(){
   }
   const foot=document.getElementById('pnlFoot'); if(foot)foot.innerHTML='';
   const body=document.getElementById('pnlBody'); if(body)body.innerHTML='<tr><td colspan="99" style="text-align:center;padding:1rem;color:var(--muted)">Cargando...</td></tr>';
+  const avH=document.getElementById('avLibroHead'); if(avH)avH.innerHTML='';
+  const avB=document.getElementById('avLibroBody'); if(avB)avB.innerHTML='<tr><td colspan="99" style="text-align:center;padding:1rem;color:var(--muted)">Cargando...</td></tr>';
 }
 
 
@@ -1786,6 +1827,10 @@ async function loadData(){
       const foot=document.getElementById('pnlFoot');
       if(note)note.innerHTML='<tr><td colspan="99" style="text-align:center;padding:2rem;font-family:DM Mono,monospace;font-size:.78rem;color:var(--muted)">Selecciona una <strong>empresa</strong> arriba para ver el estado de resultados <strong>mes a mes</strong> y las gráficas de tendencia.</td></tr>';
       if(foot)foot.innerHTML='';
+      const avC=document.getElementById('avLibroCard');
+      const avN=document.getElementById('avLibroNotice');
+      if(avC)avC.style.display='none';
+      if(avN)avN.style.display='none';
       const costNotice=document.getElementById('costNotice');
       if(costNotice)costNotice.style.display=hasCosto?'none':'block';
       const gastosNotice=document.getElementById('gastosNotice');
@@ -1796,6 +1841,10 @@ async function loadData(){
 
     document.getElementById('chartsNormal')&&(document.getElementById('chartsNormal').style.display='grid');
     document.getElementById('plScoreStrip')&&(document.getElementById('plScoreStrip').style.display='none');
+    const avC2=document.getElementById('avLibroCard');
+    const avN2=document.getElementById('avLibroNotice');
+    if(avC2)avC2.style.display='';
+    if(avN2)avN2.style.display='';
 
     const explicitParts=getExplicitPnlQueryParts();
     url = explicitParts.length
@@ -1911,6 +1960,7 @@ async function loadData(){
       const pe=document.getElementById('pnlBody');
       if(pe) pe.innerHTML='<tr><td colspan="99" style="text-align:center;padding:1.25rem;color:var(--red);font-size:.8rem">No se pudo dibujar la tabla P&amp;L. '+String(e&&e.message||e)+'</td></tr>';
     }
+    try{ renderTablaAnalisisVertical(mesesVista,totVista,hasCosto,tablaTieneGastos); }catch(e){ console.warn('renderTablaAnalisisVertical',e); }
     const costNotice=document.getElementById('costNotice');
     if(costNotice)costNotice.style.display=hasCosto?'none':'block';
     const gastosNotice=document.getElementById('gastosNotice');
@@ -1944,6 +1994,7 @@ async function loadData(){
     if(heroEl)heroEl.textContent='Error: '+e.message+'. Revisar consola (F12).';
     renderKPIs({},[],false);
     try{ renderTabla([],{},false,false); }catch(_){ const pe=document.getElementById('pnlBody'); if(pe) pe.innerHTML='<tr><td colspan="99" style="text-align:center;padding:1rem;color:var(--red)">Error al cargar P&amp;L</td></tr>'; }
+    try{ renderTablaAnalisisVertical([],{},false,false); }catch(_){}
   }
 }
 
@@ -2265,6 +2316,171 @@ function coLbl(k,fallback){
   if(txt&&code)return code+' · '+txt;
   if(code)return code+' · Sin etiqueta en CUENTAS_CO';
   return txt||k;
+}
+
+/** Estado de resultados tipo libro: cada columna = periodo (mes) con importe y % sobre ventas netas del mismo periodo. */
+function renderTablaAnalisisVertical(meses,tot,hasCosto,tieneGastosCo){
+  const headEl=document.getElementById('avLibroHead');
+  const bodyEl=document.getElementById('avLibroBody');
+  const badgeEl=document.getElementById('avLibroBadge');
+  if(!headEl||!bodyEl)return;
+  const mesesOrd=sortMesesByPeriodo(Array.isArray(meses)?meses:[]);
+  const tg=tieneGastosCo===true;
+  const totSafe=tot&&typeof tot==='object'?tot:{};
+
+  function uaiSrc(src){
+    const ub=+src.UTILIDAD_BRUTA||0;
+    const op=sumGastoKeys(src,_GAS_OPEX);
+    const gf=+src.CO_B1||0;
+    const ex=+src.CO_C1||0;
+    if(!tg)return ub-gf-ex;
+    return ub-op-gf-ex;
+  }
+
+  function pctVentas(ventas,val){
+    const V=+ventas||0;
+    if(V<=0)return null;
+    return(+val/V)*100;
+  }
+
+  function twoCells(ventas,moneyVal,pctVal){
+    const V=+ventas||0;
+    if(V<=0){
+      const m=isNaN(+moneyVal)?'—':fmtM(moneyVal);
+      return'<td class="av-num">'+m+'</td><td class="av-pct">—</td>';
+    }
+    const p=pctVal==null||isNaN(+pctVal)?null:+pctVal;
+    return'<td class="av-num">'+fmtM(moneyVal)+'</td><td class="av-pct">'+(p==null?'—':fmtPct2(p))+'</td>';
+  }
+
+  function rowNA(label,cls){
+    let r='<tr'+(cls?(' class="'+escHtml(cls)+'"'):'')+'><td>'+escHtml(label)+'</td>';
+    for(let i=0;i<mesesOrd.length+1;i++)r+='<td class="av-num av-na">—</td><td class="av-pct av-na">—</td>';
+    return r+'</tr>';
+  }
+
+  if(!mesesOrd.length){
+    headEl.innerHTML='';
+    bodyEl.innerHTML='<tr><td colspan="99" style="text-align:center;padding:1.5rem;color:var(--muted)">Sin periodos para an&#225;lisis vertical.</td></tr>';
+    if(badgeEl)badgeEl.textContent='sin datos';
+    return;
+  }
+
+  let h1='<tr><th rowspan="2" class="av-concepto">Concepto</th>';
+  mesesOrd.forEach(m=>{h1+='<th colspan="2">'+escHtml(mesLabel(m))+'</th>';});
+  h1+='<th colspan="2">Total periodo</th></tr><tr>';
+  for(let i=0;i<mesesOrd.length+1;i++)h1+='<th class="av-num">$</th><th class="av-pct">%</th>';
+  h1+='</tr>';
+  headEl.innerHTML=h1;
+
+  const Vtot=+totSafe.VENTAS_NETAS||0;
+  let html='';
+
+  html+='<tr><td>Ventas netas</td>';
+  mesesOrd.forEach(m=>{
+    const V=+m.VENTAS_NETAS||0;
+    html+='<td class="av-num">'+fmtM(V)+'</td><td class="av-pct">'+(V>0?fmtPct2(100):'—')+'</td>';
+  });
+  html+='<td class="av-num">'+fmtM(Vtot)+'</td><td class="av-pct">'+(Vtot>0?fmtPct2(100):'—')+'</td></tr>';
+
+  html+='<tr><td>Costo de los bienes vendidos</td>';
+  mesesOrd.forEach(m=>{
+    const V=+m.VENTAS_NETAS||0;
+    const C=+m.COSTO_VENTAS||0;
+    if(!hasCosto)html+='<td class="av-num">—</td><td class="av-pct">—</td>';
+    else html+=twoCells(V,C,pctVentas(V,C));
+  });
+  const CT=+totSafe.COSTO_VENTAS||0;
+  if(!hasCosto)html+='<td class="av-num">—</td><td class="av-pct">—</td></tr>';
+  else html+=twoCells(Vtot,CT,pctVentas(Vtot,CT))+'</tr>';
+
+  html+='<tr class="av-subtotal"><td>Utilidad bruta</td>';
+  mesesOrd.forEach(m=>{
+    const V=+m.VENTAS_NETAS||0;
+    const U=hasCosto?(+m.UTILIDAD_BRUTA||0):(+m.VENTAS_NETAS||0);
+    html+=twoCells(V,U,pctVentas(V,U));
+  });
+  const Ut=hasCosto?(+totSafe.UTILIDAD_BRUTA||0):(+totSafe.VENTAS_NETAS||0);
+  html+=twoCells(Vtot,Ut,pctVentas(Vtot,Ut))+'</tr>';
+
+  html+='<tr><td>Gastos de operaci&#243;n</td>';
+  mesesOrd.forEach(m=>{
+    const V=+m.VENTAS_NETAS||0;
+    const G=tg?sumGastoKeys(m,_GAS_OPEX):0;
+    if(!tg)html+='<td class="av-num">—</td><td class="av-pct">—</td>';
+    else html+=twoCells(V,G,pctVentas(V,G));
+  });
+  const Gt=tg?sumGastoKeys(totSafe,_GAS_OPEX):0;
+  if(!tg)html+='<td class="av-num">—</td><td class="av-pct">—</td></tr>';
+  else html+=twoCells(Vtot,Gt,pctVentas(Vtot,Gt))+'</tr>';
+
+  html+='<tr><td>Intereses</td>';
+  mesesOrd.forEach(m=>{
+    const V=+m.VENTAS_NETAS||0;
+    const I=+m.CO_B1||0;
+    html+=twoCells(V,I,pctVentas(V,I));
+  });
+  const It=+totSafe.CO_B1||0;
+  html+=twoCells(Vtot,It,pctVentas(Vtot,It))+'</tr>';
+
+  html+='<tr><td>Descuentos por compras <span style="font-size:.62rem;font-weight:500;color:var(--muted)">(devol./dto. seg&#250;n ERP)</span></td>';
+  mesesOrd.forEach(m=>{
+    const V=+m.VENTAS_NETAS||0;
+    const d=+m.DESCUENTOS_DEV||0;
+    if(d<=0.005)html+='<td class="av-num av-na">—</td><td class="av-pct av-na">—</td>';
+    else{
+      const neg=-Math.abs(d);
+      html+='<td class="av-num">'+fmtM(neg)+'</td><td class="av-pct">'+fmtPct2(pctVentas(V,neg))+'</td>';
+    }
+  });
+  const Dt=+totSafe.DESCUENTOS_DEV||0;
+  if(Dt<=0.005)html+='<td class="av-num av-na">—</td><td class="av-pct av-na">—</td></tr>';
+  else{
+    const negT=-Math.abs(Dt);
+    html+='<td class="av-num">'+fmtM(negT)+'</td><td class="av-pct">'+fmtPct2(pctVentas(Vtot,negT))+'</td></tr>';
+  }
+
+  html+='<tr class="av-subtotal"><td>Utilidad antes de ISR</td>';
+  mesesOrd.forEach(m=>{
+    const V=+m.VENTAS_NETAS||0;
+    const u=uaiSrc(m);
+    html+=twoCells(V,u,pctVentas(V,u));
+  });
+  const ut=uaiSrc(totSafe);
+  html+=twoCells(Vtot,ut,pctVentas(Vtot,ut))+'</tr>';
+
+  html+=rowNA('ISR (Impuesto sobre la renta)','av-muted');
+
+  html+='<tr class="av-subtotal"><td title="Sin desglose de ISR en P&amp;L; coincide con utilidad antes de ISR">Utilidad neta</td>';
+  mesesOrd.forEach(m=>{
+    const V=+m.VENTAS_NETAS||0;
+    const u=uaiSrc(m);
+    html+=twoCells(V,u,pctVentas(V,u));
+  });
+  html+=twoCells(Vtot,ut,pctVentas(Vtot,ut))+'</tr>';
+
+  html+=rowNA('Dividendos pagados','av-muted');
+
+  html+='<tr class="av-subtotal av-muted"><td title="Sin dividendos en datos; igual a utilidad neta hasta integrar flujo de reparto">Utilidades retenidas</td>';
+  mesesOrd.forEach(m=>{
+    const V=+m.VENTAS_NETAS||0;
+    const u=uaiSrc(m);
+    html+=twoCells(V,u,pctVentas(V,u));
+  });
+  html+=twoCells(Vtot,ut,pctVentas(Vtot,ut))+'</tr>';
+
+  html+='<tr class="av-foot"><td>Compras <span style="font-size:.62rem;font-weight:500;opacity:.9">(referencia: costo de ventas)</span></td>';
+  mesesOrd.forEach(m=>{
+    const V=+m.VENTAS_NETAS||0;
+    const c=+m.COSTO_VENTAS||0;
+    if(!hasCosto)html+='<td class="av-num">—</td><td class="av-pct av-na">—</td>';
+    else html+=twoCells(V,c,pctVentas(V,c));
+  });
+  if(!hasCosto)html+='<td class="av-num">—</td><td class="av-pct av-na">—</td></tr>';
+  else html+=twoCells(Vtot,CT,pctVentas(Vtot,CT))+'</tr>';
+
+  bodyEl.innerHTML=html;
+  if(badgeEl)badgeEl.textContent=mesesOrd.length+' periodo(s) · vertical';
 }
 
 // ── P&L Table — columnas por mes + fila de concepto ──────────────────────────
