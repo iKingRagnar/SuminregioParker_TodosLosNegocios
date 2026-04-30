@@ -203,6 +203,127 @@
   }
 
   code.path-chip { font-family: 'DM Mono', monospace; font-size: .7rem; }
+
+  /* Selector de usuario (top 5 + más usuarios) */
+  .user-picker {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 12px 14px;
+    margin-bottom: 22px;
+    padding: 16px 18px;
+    background: #fff;
+    border: 1px solid rgba(230, 168, 0, 0.28);
+    border-radius: 16px;
+    box-shadow: 0 4px 18px rgba(15, 23, 42, .05);
+  }
+  .user-picker-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+    align-items: center;
+  }
+  .user-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px 8px 8px;
+    border-radius: 12px;
+    border: 2px solid rgba(148, 163, 184, .38);
+    background: #F8FAFC;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+    max-width: 100%;
+  }
+  .user-chip:hover {
+    border-color: rgba(230, 168, 0, .55);
+    background: #fff;
+  }
+  .user-chip:focus {
+    outline: 2px solid rgba(230, 168, 0, .5);
+    outline-offset: 2px;
+  }
+  .user-chip.is-active {
+    border-color: #E6A800;
+    background: linear-gradient(180deg, #FFFBF0, #fff);
+    box-shadow: 0 2px 12px rgba(230, 168, 0, .22);
+  }
+  .user-chip-av {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: .95rem;
+    color: #fff;
+    background: linear-gradient(145deg, #475569, #334155);
+    flex-shrink: 0;
+  }
+  .user-chip.is-active .user-chip-av {
+    background: linear-gradient(145deg, #CA8A04, #A16207);
+  }
+  .user-chip-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .user-chip-email {
+    font-weight: 600;
+    font-size: .82rem;
+    color: #0F172A;
+    word-break: break-all;
+    line-height: 1.25;
+  }
+  .user-chip-meta {
+    font-size: .68rem;
+    color: #64748B;
+    font-family: 'DM Mono', monospace;
+  }
+  .user-chip--dropdown { padding: 8px 12px; }
+  .more-users {
+    flex-shrink: 0;
+    min-width: 160px;
+    border: 2px solid rgba(148, 163, 184, .35);
+    border-radius: 12px;
+    background: #F8FAFC;
+    padding: 0;
+    overflow: hidden;
+  }
+  .more-users summary {
+    list-style: none;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: .82rem;
+    color: #334155;
+    padding: 10px 14px;
+    user-select: none;
+  }
+  .more-users summary::-webkit-details-marker { display: none; }
+  .more-users summary::after {
+    content: ' ▼';
+    font-size: .65rem;
+    opacity: .7;
+  }
+  .more-users[open] summary::after { content: ' ▲'; }
+  .more-users-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 0 10px 12px;
+    border-top: 1px solid #E2E8F0;
+    padding-top: 10px;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+  .picker-hint {
+    width: 100%;
+    font-size: .75rem;
+    color: #64748B;
+    margin: -6px 0 0;
+    padding: 0 2px;
+  }
 </style>
 </head>
 <body>
@@ -227,7 +348,11 @@
   </div>
 
   <div id="error" class="err" style="display:none"></div>
-  <div id="summary" class="usage-users"></div>
+  <div id="summary" class="usage-users">
+    <div id="userPicker" class="user-picker"></div>
+    <p id="pickerHint" class="picker-hint" style="display:none"></p>
+    <div id="userDetail"></div>
+  </div>
 
   <h2 class="section-title">Historial de eventos <span id="eventCount"></span></h2>
   <div class="events-wrap">
@@ -252,6 +377,8 @@
 <script>
 (function () {
   var base = (typeof window.__API_BASE === 'string' && window.__API_BASE) ? window.__API_BASE.replace(/\/+$/, '') : '';
+  var lastPayload = null;
+  var selectedEmail = null;
 
   var BAR_COLORS = ['#14B8A6', '#3B82F6', '#8B5CF6', '#D97706', '#78350F', '#DC2626', '#06B6D4', '#E11D48', '#059669', '#6366F1'];
 
@@ -359,6 +486,35 @@
     return '<div class="rank-medal rank-medal--n">' + esc(letter) + '</div>';
   }
 
+  function sortUserKeys(byUser) {
+    return Object.keys(byUser || {}).sort(function (a, b) {
+      var ua = byUser[a], ub = byUser[b];
+      var ta = (ua && ua.totalActiveMs) || 0;
+      var tb = (ub && ub.totalActiveMs) || 0;
+      if (tb !== ta) return tb - ta;
+      var la = (ua && ua.lastLoginAt) || 0;
+      var lb = (ub && ub.lastLoginAt) || 0;
+      return lb - la;
+    });
+  }
+
+  function chipButtonHtml(emailKey, u, isActive, extraClass) {
+    var email = (u && u.email) || emailKey;
+    var short = String(email).split('@')[0] || email;
+    var av = initialFromEmail(email);
+    var meta = fmtDur((u && u.totalActiveMs) || 0) + ' activo';
+    var cls = 'user-chip' + (extraClass || '') + (isActive ? ' is-active' : '');
+    return (
+      '<button type="button" class="' + cls + '" data-email="' + esc(emailKey) + '" title="' + esc(email) + '">' +
+        '<span class="user-chip-av">' + esc(av) + '</span>' +
+        '<span class="user-chip-text">' +
+          '<span class="user-chip-email">' + esc(short) + '</span>' +
+          '<span class="user-chip-meta">' + esc(meta) + '</span>' +
+        '</span>' +
+      '</button>'
+    );
+  }
+
   function renderUserBlock(emailKey, u, days) {
     var email = u.email || emailKey;
     var roles = Array.isArray(u.roles) ? u.roles : [];
@@ -431,6 +587,104 @@
     return wrap;
   }
 
+  function wirePickerClicks(container) {
+    if (!container) return;
+    container.querySelectorAll('[data-email]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var em = btn.getAttribute('data-email');
+        if (em) {
+          selectedEmail = em;
+          applySelection();
+        }
+        var det = btn.closest('details');
+        if (det) det.open = false;
+      });
+    });
+  }
+
+  function renderPicker(keys, byUser) {
+    var pickerEl = document.getElementById('userPicker');
+    var hintEl = document.getElementById('pickerHint');
+    pickerEl.innerHTML = '';
+    if (!keys.length) {
+      hintEl.style.display = 'none';
+      return;
+    }
+    var top = keys.slice(0, 5);
+    var rest = keys.slice(5);
+    var html = '<div class="user-picker-chips">';
+    top.forEach(function (k) {
+      html += chipButtonHtml(k, byUser[k], k === selectedEmail, '');
+    });
+    html += '</div>';
+    if (rest.length) {
+      html += '<details class="more-users">';
+      html += '<summary>Más usuarios (' + rest.length + ')</summary>';
+      html += '<div class="more-users-grid">';
+      rest.forEach(function (k) {
+        html += chipButtonHtml(k, byUser[k], k === selectedEmail, ' user-chip--dropdown');
+      });
+      html += '</div></details>';
+    }
+    pickerEl.innerHTML = html;
+    wirePickerClicks(pickerEl);
+    hintEl.textContent = 'Elige un usuario para ver su ranking y el historial solo de esa persona.';
+    hintEl.style.display = keys.length > 1 ? 'block' : 'none';
+  }
+
+  function renderUserDetail(emailKey, u, days) {
+    var detailEl = document.getElementById('userDetail');
+    detailEl.innerHTML = '';
+    var wrap = renderUserBlock(emailKey, u, days);
+    while (wrap.firstChild) detailEl.appendChild(wrap.firstChild);
+  }
+
+  function fillEventsTable(events, emailFilter) {
+    var norm = String(emailFilter || '').toLowerCase();
+    var filtered = norm
+      ? events.filter(function (e) { return String(e.email || '').toLowerCase() === norm; })
+      : events.slice();
+    document.getElementById('eventCount').textContent =
+      filtered.length ? String(filtered.length) + ' eventos' : '0 eventos';
+    var tbody = document.getElementById('tbody');
+    tbody.innerHTML = '';
+    filtered.forEach(function (e) {
+      var tr = document.createElement('tr');
+      var rawPath = e.path != null && e.path !== '' ? String(e.path) : '';
+      var tipo = String(e.type || '');
+      var label = pathLabelForEvent(rawPath || '—', tipo);
+      var durHtml = tipo === 'page_leave'
+        ? '<span class="ev-dur">' + esc(fmtDur(e.durationMs)) + '</span>'
+        : '<span class="ev-dur-muted">—</span>';
+      var tip = rawPath ? esc(rawPath) : '';
+      tr.innerHTML =
+        '<td>' + esc(fmtTs(e._ts)) + '</td>' +
+        '<td>' + eventBadge(tipo) + '</td>' +
+        '<td>' + esc(String(e.email || '—')) + '</td>' +
+        '<td title="' + tip + '"><div class="ev-path-label">' + esc(label) + '</div></td>' +
+        '<td>' + durHtml + '</td>';
+      tbody.appendChild(tr);
+    });
+  }
+
+  function applySelection() {
+    if (!lastPayload) return;
+    var byUser = (lastPayload.summary && lastPayload.summary.byUser) || {};
+    var keys = sortUserKeys(byUser);
+    if (!keys.length) {
+      document.getElementById('userPicker').innerHTML = '';
+      document.getElementById('pickerHint').style.display = 'none';
+      document.getElementById('userDetail').innerHTML =
+        '<p class="ranking-empty" style="background:#fff;border-radius:16px;border:1px dashed #CBD5E1;padding:24px">No hay datos en este periodo. Navega el portal con sesión iniciada para generar eventos.</p>';
+      fillEventsTable(lastPayload.events || [], null);
+      return;
+    }
+    if (!selectedEmail || keys.indexOf(selectedEmail) < 0) selectedEmail = keys[0];
+    renderPicker(keys, byUser);
+    renderUserDetail(selectedEmail, byUser[selectedEmail], lastPayload.days);
+    fillEventsTable(lastPayload.events || [], selectedEmail);
+  }
+
   function load() {
     var errEl = document.getElementById('error');
     var days = document.getElementById('days').value;
@@ -445,39 +699,21 @@
         return r.json();
       })
       .then(function (data) {
-        var root = document.getElementById('summary');
-        root.innerHTML = '';
+        var d = parseInt(days, 10) || 7;
+        lastPayload = {
+          summary: data.summary,
+          events: data.events || [],
+          days: d,
+        };
+        var prev = selectedEmail;
         var byUser = (data.summary && data.summary.byUser) || {};
-        var keys = Object.keys(byUser).sort();
-        keys.forEach(function (emailKey) {
-          root.appendChild(renderUserBlock(emailKey, byUser[emailKey], parseInt(days, 10) || 7));
-        });
-        if (!keys.length) {
-          root.innerHTML = '<p class="ranking-empty" style="background:#fff;border-radius:16px;border:1px dashed #CBD5E1">No hay datos en este periodo. Navega el portal con sesión iniciada para generar eventos.</p>';
+        var keys = sortUserKeys(byUser);
+        if (prev && keys.indexOf(prev) >= 0) {
+          selectedEmail = prev;
+        } else {
+          selectedEmail = keys[0] || null;
         }
-
-        var events = data.events || [];
-        document.getElementById('eventCount').textContent = events.length ? String(events.length) + ' eventos' : '0 eventos';
-
-        var tbody = document.getElementById('tbody');
-        tbody.innerHTML = '';
-        events.forEach(function (e) {
-          var tr = document.createElement('tr');
-          var rawPath = e.path != null && e.path !== '' ? String(e.path) : '';
-          var tipo = String(e.type || '');
-          var label = pathLabelForEvent(rawPath || '—', tipo);
-          var durHtml = tipo === 'page_leave'
-            ? '<span class="ev-dur">' + esc(fmtDur(e.durationMs)) + '</span>'
-            : '<span class="ev-dur-muted">—</span>';
-          var tip = rawPath ? esc(rawPath) : '';
-          tr.innerHTML =
-            '<td>' + esc(fmtTs(e._ts)) + '</td>' +
-            '<td>' + eventBadge(tipo) + '</td>' +
-            '<td>' + esc(String(e.email || '—')) + '</td>' +
-            '<td title="' + tip + '"><div class="ev-path-label">' + esc(label) + '</div></td>' +
-            '<td>' + durHtml + '</td>';
-          tbody.appendChild(tr);
-        });
+        applySelection();
       })
       .catch(function (e) {
         errEl.textContent = e.message || String(e);
