@@ -11,5 +11,8 @@ Thumbs.db
 ngrok.exe
 backup/
 .claude/
+
+# Métricas de uso (pueden contener IPs / rutas sensibles)
+data/usage-metrics.jsonl
 microsip-api_Beto/
 sistema-cotizacion-web/

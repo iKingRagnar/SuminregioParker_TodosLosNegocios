@@ -117,6 +117,7 @@
     { href: 'margen-producto.html', label: 'Margen',     icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93V18h-2v1.93c-3.94-.49-7-3.86-7-7.93s3.05-7.44 7-7.93V6h2V4.07c3.94.49 7 3.86 7 7.93s-3.05 7.44-7 7.93zM12.31 11.14c-1.77-.45-2.34-.94-2.34-1.67 0-.84.79-1.43 2.1-1.43 1.38 0 1.9.66 1.94 1.64h1.71c-.05-1.34-.87-2.57-2.49-2.97V5h-2.34v1.71c-1.51.33-2.72 1.31-2.72 2.81 0 1.79 1.49 2.69 3.66 3.21 1.95.46 2.34 1.15 2.34 1.87 0 .53-.39 1.39-2.1 1.39-1.6 0-2.23-.72-2.32-1.64H8.04c.1 1.7 1.36 2.66 2.86 2.97V19h2.34v-1.67c1.52-.29 2.72-1.16 2.73-2.77-.01-2.2-1.9-2.96-3.66-3.42z' },
     { href: 'resultados.html',      label: 'Finanzas', icon: 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z' },
     { href: 'comparar.html',        label: 'Comparar',   icon: 'M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z' },
+    { href: 'usage-metrics.html', label: 'Uso',         icon: 'M11 3.055A9.001 9.001 0 1020.945 13H11V3.055zM20.488 9H15V3.512A9.025 9.025 0 0120.488 9z' },
     { href: 'admin.html',           label: 'Admin',      icon: 'M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1.06 13.54L7.4 11l1.41-1.41 2.12 2.12 4.24-4.24 1.41 1.41-5.64 5.66z' },
     { href: 'capital.html',    label: 'Capital',      icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93V18h-2v1.93c-3.94-.49-7-3.86-7-7.93s3.05-7.44 7-7.93V6h2V4.07c3.94.49 7 3.86 7 7.93s-3.05 7.44-7 7.93zM11 9h2v4h-2zm0 6h2v2h-2z' },
   ];
@@ -498,9 +499,15 @@
   /** admin: todo · gerente: sin Finanzas/Margen · solo vendedor: ventas operativas. */
   function filterNavLinksForRole(user) {
     var base = NAV_LINKS;
-    if (!user || !user.roles) return base;
+    function stripUsageOnlyAdmin(list) {
+      return list.filter(function (nl) {
+        return nl.href !== 'usage-metrics.html';
+      });
+    }
+    if (!user || !user.roles) return stripUsageOnlyAdmin(base);
     var roles = user.roles || [];
     if (roles.indexOf('admin') >= 0) return base;
+    base = stripUsageOnlyAdmin(base);
 
     var isGerente = roles.indexOf('gerente') >= 0;
     var isVendedor = roles.indexOf('vendedor') >= 0;

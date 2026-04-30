@@ -11,6 +11,11 @@ const {
   VENDEDOR_DOCUMENT_DENY,
 } = require('./gerente-gate');
 
+function isAdminUser(req) {
+  const r = (req.user && req.user.roles) || [];
+  return r.includes('admin');
+}
+
 function publicApiPath(path) {
   if (path.startsWith('/api/auth/')) return true;
   if (path === '/api/health') return true;
@@ -55,6 +60,11 @@ function install(app) {
 
     const hasUser = req.user && (req.user.email || req.user.id);
     if (hasUser) {
+      if (path === '/usage-metrics.html' && !isAdminUser(req)) {
+        res.setHeader('Cache-Control', 'no-store');
+        if (isVendedorTier(req)) return res.redirect(302, '/ventas.html');
+        return res.redirect(302, '/index.html');
+      }
       if (isVendedorTier(req) && VENDEDOR_DOCUMENT_DENY.has(path)) {
         res.setHeader('Cache-Control', 'no-store');
         return res.redirect(302, '/ventas.html');

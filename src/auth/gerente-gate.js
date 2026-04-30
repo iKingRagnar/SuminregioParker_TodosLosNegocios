@@ -125,6 +125,7 @@ const VENDEDOR_DOCUMENT_DENY = new Set([
   '/margen-producto.html',
   '/clientes.html',
   '/docs.html',
+  '/usage-metrics.html',
 ]);
 
 module.exports = {

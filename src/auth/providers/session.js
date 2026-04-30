@@ -105,6 +105,11 @@ module.exports = {
   routes(app) {
     app.post('/api/auth/login', expressJsonLogin);
     app.post('/api/auth/logout', (req, res) => {
+      try {
+        require('../../usage/usage-metrics').recordLogout(req);
+      } catch (_) {
+        /* opcional */
+      }
       if (req.session) {
         req.session.destroy(() => {
           res.clearCookie('suminregio.sid', { path: '/', sameSite: 'lax' });
@@ -164,6 +169,11 @@ function expressJsonLogin(req, res) {
       if (err) {
         console.error('[auth/session] save:', err.message);
         return res.status(500).json({ error: 'No se pudo iniciar sesión' });
+      }
+      try {
+        require('../../usage/usage-metrics').recordLogin(req, user);
+      } catch (_) {
+        /* opcional */
       }
       res.json({
         ok: true,

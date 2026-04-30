@@ -32,6 +32,35 @@ function get(p) {
   });
 }
 
+function postJson(p, payload) {
+  const data = JSON.stringify(payload);
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      {
+        hostname: '127.0.0.1',
+        port: PORT,
+        path: p,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(data, 'utf8'),
+        },
+      },
+      (res) => {
+        let body = '';
+        res.on('data', (c) => (body += c));
+        res.on('end', () => {
+          try { resolve({ status: res.statusCode, json: body ? JSON.parse(body) : null }); }
+          catch (_) { resolve({ status: res.statusCode, json: null, raw: body }); }
+        });
+      }
+    );
+    req.on('error', reject);
+    req.write(data);
+    req.end();
+  });
+}
+
 function waitForReady(retries = 40) {
   return new Promise((resolve, reject) => {
     const attempt = (n) => {
@@ -102,6 +131,25 @@ test('/api/ping reporta uptime + memory', async () => {
   assert.equal(r.status, 200);
   assert.ok(r.json.uptime);
   assert.ok(r.json.memory);
+});
+
+test('/api/usage/track acepta page_enter (dummy auth)', async () => {
+  const r = await postJson('/api/usage/track', { type: 'page_enter', path: '/smoke-test.html' });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.ok, true);
+});
+
+test('/api/usage/track rechaza type inválido', async () => {
+  const r = await postJson('/api/usage/track', { type: 'hack', path: '/' });
+  assert.equal(r.status, 400);
+});
+
+test('/api/admin/usage-metrics solo admin (dummy = admin)', async () => {
+  const r = await get('/api/admin/usage-metrics?days=1');
+  assert.equal(r.status, 200);
+  assert.ok(r.json.summary);
+  assert.ok(r.json.summary.byUser);
+  assert.ok(Array.isArray(r.json.events));
 });
 
 test('ETag repetido responde 304', async () => {

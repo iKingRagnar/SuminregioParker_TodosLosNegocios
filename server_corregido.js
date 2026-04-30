@@ -223,6 +223,12 @@ try {
   console.warn('[auth/gates]', e.message);
 }
 
+try {
+  require('./src/usage/usage-routes').install(app);
+} catch (e) {
+  console.warn('[usage-routes]', e.message);
+}
+
 // Patch global res.json para que tolere BigInt (DuckDB BIGINT → BigInt nativo).
 app.use(function bigintSafeJson(req, res, next) {
   const orig = res.json.bind(res);

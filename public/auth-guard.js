@@ -92,6 +92,16 @@
         return;
       }
       release();
+      try {
+        if (!document.getElementById('suminregio-usage-tracker')) {
+          var s = document.createElement('script');
+          s.id = 'suminregio-usage-tracker';
+          var origin = (base || '').replace(/\/+$/, '') || (location.origin || '');
+          s.src = origin + '/usage-tracker.js?v=1';
+          s.defer = true;
+          (document.head || document.documentElement).appendChild(s);
+        }
+      } catch (_) {}
     })
     .catch(function () {
       done();

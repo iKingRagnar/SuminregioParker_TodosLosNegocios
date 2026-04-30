@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es" class="theme-premium-light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Uso del portal — Suminregio</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#E6A800">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="/auth-guard.js?v=6"></script>
+<script src="nav.js" defer></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Inter, system-ui, sans-serif; background: #F1F5F9; color: #0F172A; min-height: 100vh; }
+  main { max-width: 1400px; margin: 0 auto; padding: 24px; }
+  h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 6px; }
+  .sub { color: #64748B; font-size: .88rem; margin-bottom: 20px; }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 20px; }
+  .toolbar label { font-size: .8rem; font-weight: 600; color: #475569; }
+  .toolbar select { padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(15,23,42,.12); font-family: inherit; }
+  .toolbar button {
+    padding: 8px 18px; border-radius: 8px; border: none; cursor: pointer;
+    font-weight: 600; font-family: inherit;
+    background: linear-gradient(135deg,#E6A800,#B8860B); color: #1A1200;
+  }
+  .toolbar button:disabled { opacity: .5; cursor: not-allowed; }
+  .err { background: #FEF2F2; color: #991B1B; padding: 12px 14px; border-radius: 10px; margin-bottom: 16px; font-size: .88rem; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .card {
+    background: #fff; border: 1px solid rgba(230,168,0,.25); border-radius: 14px; padding: 16px;
+    box-shadow: 0 2px 8px rgba(15,23,42,.04);
+  }
+  .card h3 { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: #64748B; margin-bottom: 8px; }
+  .card .em { font-weight: 700; font-size: 1rem; word-break: break-all; }
+  .card .roles { font-size: .75rem; color: #475569; margin-top: 6px; }
+  .card .stat { font-size: .8rem; margin-top: 8px; color: #334155; }
+  .card ul { list-style: none; margin-top: 10px; max-height: 180px; overflow: auto; font-size: .78rem; }
+  .card li { padding: 4px 0; border-bottom: 1px solid #F1F5F9; display: flex; justify-content: space-between; gap: 8px; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden;
+    box-shadow: 0 2px 8px rgba(15,23,42,.04); font-size: .8rem; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #E2E8F0; }
+  th { background: rgba(230,168,0,.12); font-size: .68rem; text-transform: uppercase; letter-spacing: .04em; color: #475569; }
+  tbody tr:hover { background: #F8FAFC; }
+  .muted { color: #94A3B8; font-size: .75rem; margin-top: 12px; }
+  code { font-family: 'DM Mono', monospace; font-size: .78rem; }
+</style>
+</head>
+<body>
+<header id="app-header"></header>
+<main>
+  <h1>Métricas de uso del portal</h1>
+  <p class="sub">Inicios de sesión, páginas vistas y tiempo activo (pestaña visible). Solo administradores.</p>
+
+  <div class="toolbar">
+    <label>Periodo
+      <select id="days">
+        <option value="1">Último día</option>
+        <option value="7" selected>Últimos 7 días</option>
+        <option value="30">Últimos 30 días</option>
+        <option value="90">Últimos 90 días</option>
+      </select>
+    </label>
+    <button type="button" id="reload">Actualizar</button>
+  </div>
+
+  <div id="error" class="err" style="display:none"></div>
+  <div id="summary" class="grid"></div>
+  <h2 style="font-size:1rem;margin:20px 0 10px">Eventos recientes</h2>
+  <div style="overflow:auto">
+    <table>
+      <thead>
+        <tr>
+          <th>Hora</th>
+          <th>Tipo</th>
+          <th>Usuario</th>
+          <th>Ruta</th>
+          <th>Tiempo activo</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+  <p class="muted">Tiempo activo: solo cuenta segundos con la pestaña visible. Cambiar de pestaña pausa el contador.</p>
+</main>
+<script>
+(function () {
+  var base = (typeof window.__API_BASE === 'string' && window.__API_BASE) ? window.__API_BASE.replace(/\/+$/, '') : '';
+
+  function fmtTs(ts) {
+    if (!ts) return '—';
+    try {
+      return new Date(ts).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'medium' });
+    } catch (e) { return String(ts); }
+  }
+
+  function fmtDur(ms) {
+    if (ms == null || ms === '' || ms === 0) return '—';
+    var s = Math.round(ms / 1000);
+    if (s < 60) return s + ' s';
+    var m = Math.floor(s / 60);
+    var r = s % 60;
+    return m + ' min ' + r + ' s';
+  }
+
+  function load() {
+    var errEl = document.getElementById('error');
+    var days = document.getElementById('days').value;
+    errEl.style.display = 'none';
+    fetch(base + '/api/admin/usage-metrics?days=' + encodeURIComponent(days), {
+      credentials: 'same-origin',
+      cache: 'no-store',
+    })
+      .then(function (r) {
+        if (r.status === 403) throw new Error('Sin permiso (solo admin).');
+        if (!r.ok) throw new Error('Error ' + r.status);
+        return r.json();
+      })
+      .then(function (data) {
+        var byUser = (data.summary && data.summary.byUser) || {};
+        var grid = document.getElementById('summary');
+        grid.innerHTML = '';
+        Object.keys(byUser).sort().forEach(function (email) {
+          var u = byUser[email];
+          var pages = u.pages || {};
+          var pageLines = Object.keys(pages).map(function (path) {
+            var p = pages[path];
+            var sec = Math.round((p.activeMs || 0) / 1000);
+            return '<li><span><code>' + path.replace(/</g,'&lt;') + '</code></span><span>' + sec + ' s / ' + (p.enters || 0) + ' ent.</span></li>';
+          }).join('');
+          var card = document.createElement('div');
+          card.className = 'card';
+          card.innerHTML =
+            '<h3>Usuario</h3><div class="em">' + (u.email || email).replace(/</g,'&lt;') + '</div>' +
+            '<div class="roles">Roles: ' + (Array.isArray(u.roles) ? u.roles.join(', ') : '—') + '</div>' +
+            '<div class="stat">Inicios de sesión: <strong>' + (u.logins || 0) + '</strong> · Cierres: <strong>' + (u.logouts || 0) + '</strong>' +
+            (u.lastLoginAt ? '<br>Último login: ' + fmtTs(u.lastLoginAt) : '') + '</div>' +
+            (pageLines ? '<ul>' + pageLines + '</ul>' : '<p class="stat">Sin vistas registradas en el periodo.</p>');
+          grid.appendChild(card);
+        });
+        if (!Object.keys(byUser).length) {
+          grid.innerHTML = '<p class="muted">No hay datos en este periodo. Navega el portal con sesión para generar eventos.</p>';
+        }
+
+        var tbody = document.getElementById('tbody');
+        tbody.innerHTML = '';
+        (data.events || []).forEach(function (e) {
+          var tr = document.createElement('tr');
+          tr.innerHTML =
+            '<td>' + fmtTs(e._ts) + '</td>' +
+            '<td>' + String(e.type || '').replace(/</g,'&lt;') + '</td>' +
+            '<td>' + String(e.email || '—').replace(/</g,'&lt;') + '</td>' +
+            '<td><code>' + String(e.path || '—').replace(/</g,'&lt;') + '</code></td>' +
+            '<td>' + (e.type === 'page_leave' ? fmtDur(e.durationMs) : '—') + '</td>';
+          tbody.appendChild(tr);
+        });
+      })
+      .catch(function (e) {
+        errEl.textContent = e.message || String(e);
+        errEl.style.display = 'block';
+      });
+  }
+
+  document.getElementById('reload').addEventListener('click', load);
+  document.getElementById('days').addEventListener('change', load);
+  load();
+})();
+</script>
+</body>
+</html>
