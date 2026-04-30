@@ -72,7 +72,7 @@ function install(app) {
     }
 
     res.setHeader('Cache-Control', 'no-store');
-    return res.status(401).send('Unauthorized');
+    return res.status(401).send('No autorizado');
   });
 }
 

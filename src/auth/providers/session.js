@@ -92,10 +92,11 @@ module.exports = {
     app.post('/api/auth/logout', (req, res) => {
       if (req.session) {
         req.session.destroy(() => {
-          res.clearCookie('connect.sid', { path: '/' });
+          res.clearCookie('suminregio.sid', { path: '/', sameSite: 'lax' });
           res.json({ ok: true });
         });
       } else {
+        res.clearCookie('suminregio.sid', { path: '/', sameSite: 'lax' });
         res.json({ ok: true });
       }
     });

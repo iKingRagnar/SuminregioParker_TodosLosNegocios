@@ -33,7 +33,7 @@
       <div class="logo">SP</div>
       <div>
         <h1>Suminregio Parker</h1>
-        <div class="sub">Dashboard ejecutivo — acceso seguro</div>
+        <div class="sub">Panel ejecutivo — acceso seguro</div>
       </div>
     </div>
     <form id="f" autocomplete="username">
@@ -72,7 +72,7 @@
     }).then(function(x){
       btn.disabled=false;
       if(!x.ok){
-        err.textContent=(x.j&&x.j.error)||('Error '+x.status);
+        err.textContent=(x.j&&x.j.error)||('Error del servidor (código '+x.status+')');
         err.style.display='block';
         return;
       }
