@@ -2,9 +2,10 @@
 
 /**
  * Restricciones por rol (sin admin):
- * - gerente + vendedor: sin P&L, márgenes/costos por producto vía API listada.
- * - solo vendedor (sin gerente): además sin CxC, inventario, consumos, director, capital,
- *   admin sync/snapshot, IA, métricas internas, scorecard global, etc.
+ * - gerente + vendedor: sin P&L ni /api/ventas/margen (márgenes agregados por vendedor/mes).
+ * - solo vendedor (sin gerente): además sin CxC, inventario, clientes consolidados, consumos, director, capital,
+ *   admin sync/snapshot, IA, métricas internas, scorecard global, y sin APIs de costo/margen por producto;
+ *   datos de ventas acotados a su VENDEDOR_ID (AUTH_VENDEDOR_MAP + req.query.vendedor forzado).
  */
 
 const FINANCE_PREFIX_DENY = [
@@ -35,9 +36,12 @@ const VENDEDOR_PREFIX_DENY = [
   '/api/email/',
   '/api/boot/',
   '/api/universe/scorecard',
-  '/api/clientes/resumen-riesgo',
+  '/api/clientes/',
   '/api/sec/',
 ];
+
+/** Costo por línea / por artículo (no aplica a gerente: solo vendedor puro). */
+const VENDEDOR_COST_DENY = ['/api/ventas/margen-lineas', '/api/ventas/margen-articulos'];
 
 function rolesOf(req) {
   return (req.user && req.user.roles) || [];
@@ -96,6 +100,13 @@ function install(app) {
       });
     }
 
+    if (isVendedorTier(req) && pathMatchesDeny(req.path, VENDEDOR_COST_DENY)) {
+      return res.status(403).json({
+        error: 'Tu cuenta de vendedor no tiene acceso a márgenes ni costos por producto.',
+        code: 'ROLE_VENDEDOR_COST_DENIED',
+      });
+    }
+
     next();
   });
 }
@@ -112,6 +123,7 @@ const VENDEDOR_DOCUMENT_DENY = new Set([
   '/comparar.html',
   '/resultados.html',
   '/margen-producto.html',
+  '/clientes.html',
   '/docs.html',
 ]);
 
@@ -122,5 +134,6 @@ module.exports = {
   isFinanceRestricted,
   FINANCE_PREFIX_DENY,
   VENDEDOR_PREFIX_DENY,
+  VENDEDOR_COST_DENY,
   VENDEDOR_DOCUMENT_DENY,
 };

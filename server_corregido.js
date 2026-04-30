@@ -218,6 +218,7 @@ try {
     require('./src/auth/session-gate').install(app);
   }
   require('./src/auth/gerente-gate').install(app);
+  require('./src/auth/vendedor-scope').install(app);
 } catch (e) {
   console.warn('[auth/gates]', e.message);
 }
@@ -2543,7 +2544,9 @@ function normalizeCotizacionResumenRow(row) {
  *   3. Agregar por mes en JavaScript
  * Reducción: de ~900 queries de 1 fila a ~10-15 queries de 200 filas = ~50x menos round-trips.
  */
-async function getCotizMensualesBatch(dbo, desdeStr, timeoutMs = 55000) {
+async function getCotizMensualesBatch(dbo, desdeStr, timeoutMs = 55000, vendedorId = 0) {
+  const vid = parseInt(String(vendedorId || 0), 10) || 0;
+  const vendClause = vid > 0 ? ` AND h.VENDEDOR_ID = ${vid}` : '';
   const tipos = (parseCotizacionTipos() || []).filter(Boolean);
   const escT = (t) => `'${String(t).replace(/'/g, "''")}'`;
   const tiposIn = tipos.length ? tipos.map(escT).join(',') : "'C'";
@@ -2556,7 +2559,7 @@ async function getCotizMensualesBatch(dbo, desdeStr, timeoutMs = 55000) {
   // Paso 1: primer ID del rango via IE1 (FECHA, TIPO_DOCTO) — rápido, usa índice
   const startRows = await query(
     `SELECT FIRST 1 h.DOCTO_VE_ID FROM DOCTOS_VE h
-     WHERE h.TIPO_DOCTO IN (${tiposIn}) AND h.FECHA >= '${desdeStr}'
+     WHERE h.TIPO_DOCTO IN (${tiposIn}) AND h.FECHA >= '${desdeStr}'${vendClause}
      ORDER BY h.DOCTO_VE_ID`,
     [], Math.min(12000, timeoutMs), dbo
   ).catch(() => []);
@@ -2573,7 +2576,7 @@ async function getCotizMensualesBatch(dbo, desdeStr, timeoutMs = 55000) {
        FROM DOCTOS_VE h
        WHERE h.TIPO_DOCTO IN (${tiposIn})
          AND h.DOCTO_VE_ID > ${lastId}
-         AND (h.ESTATUS IS NULL OR h.ESTATUS NOT IN ('C', 'D'))
+         AND (h.ESTATUS IS NULL OR h.ESTATUS NOT IN ('C', 'D'))${vendClause}
        ORDER BY h.DOCTO_VE_ID`,
       [], Math.min(14000, rem), dbo
     ).catch(() => null);
@@ -2603,7 +2606,9 @@ async function getCotizMensualesBatch(dbo, desdeStr, timeoutMs = 55000) {
   return Object.values(byMonth).sort((a, b) => a.ANIO !== b.ANIO ? a.ANIO - b.ANIO : a.MES - b.MES);
 }
 
-async function getCotizacionesByPeriodCursor(dbo, desde, hasta, timeoutMs = 80000) {
+async function getCotizacionesByPeriodCursor(dbo, desde, hasta, timeoutMs = 80000, vendedorId = 0) {
+  const vid = parseInt(String(vendedorId || 0), 10) || 0;
+  const vendClause = vid > 0 ? ` AND h.VENDEDOR_ID = ${vid}` : '';
   const tipos = (parseCotizacionTipos() || []).filter(Boolean);
   const esc = (t) => `'${String(t).replace(/'/g, "''")}'`;
   const tiposIn = tipos.map(esc).join(',');
@@ -2622,7 +2627,7 @@ async function getCotizacionesByPeriodCursor(dbo, desde, hasta, timeoutMs = 8000
   const firstRows = await query(
     `SELECT FIRST 1 h.DOCTO_VE_ID, h.IMPORTE_NETO, h.FECHA, h.VENDEDOR_ID, h.TIPO_DOCTO
      FROM DOCTOS_VE h
-     WHERE h.TIPO_DOCTO IN (${tiposIn}) AND h.FECHA >= '${desde}'
+     WHERE h.TIPO_DOCTO IN (${tiposIn}) AND h.FECHA >= '${desde}'${vendClause}
      ORDER BY h.DOCTO_VE_ID`,
     [], Math.min(10000, timeoutMs), dbo
   ).catch(() => []);
@@ -2645,7 +2650,7 @@ async function getCotizacionesByPeriodCursor(dbo, desde, hasta, timeoutMs = 8000
     const [next] = await query(
       `SELECT FIRST 1 h.DOCTO_VE_ID, h.IMPORTE_NETO, h.FECHA, h.VENDEDOR_ID, h.TIPO_DOCTO
        FROM DOCTOS_VE h
-       WHERE h.TIPO_DOCTO IN (${tiposIn}) AND h.DOCTO_VE_ID > ${lastId} AND h.FECHA < '${hasta}'
+       WHERE h.TIPO_DOCTO IN (${tiposIn}) AND h.DOCTO_VE_ID > ${lastId} AND h.FECHA < '${hasta}'${vendClause}
        ORDER BY h.DOCTO_VE_ID`,
       [], Math.min(8000, remaining), dbo
     ).catch(() => []);
@@ -3404,7 +3409,8 @@ get('/api/ventas/cotizaciones/resumen', async (req) => {
     const desde = bounds.desde;
     const hasta = bounds.hasta;
     if (!desde || !hasta) return normalizeCotizacionResumenRow({});
-    const result = await getCotizacionesByPeriodCursor(dbo, desde, hasta, 85000);
+    const vid = req.query.vendedor ? parseInt(String(req.query.vendedor), 10) : 0;
+    const result = await getCotizacionesByPeriodCursor(dbo, desde, hasta, 85000, vid);
     return {
       HOY: result.HOY,
       MES_ACTUAL: result.MES_ACTUAL,
@@ -3432,6 +3438,8 @@ get('/api/ventas/diarias', async (req) => {
   const desde = new Date();
   desde.setDate(desde.getDate() - dias);
   const desdeStr = desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-' + String(desde.getDate()).padStart(2, '0');
+  const vid = req.query.vendedor ? parseInt(String(req.query.vendedor), 10) : 0;
+  const vendSql = vid > 0 ? ` AND d.VENDEDOR_ID = ${vid}` : '';
   const sql = tipo === ''
     ? `
     SELECT CAST(d.FECHA AS DATE) AS DIA,
@@ -3439,13 +3447,13 @@ get('/api/ventas/diarias', async (req) => {
       COALESCE(SUM(CASE WHEN d.TIPO_SRC = 'PV' THEN d.IMPORTE_NETO ELSE 0 END), 0) AS VENTAS_PV,
       COALESCE(SUM(d.IMPORTE_NETO), 0) AS TOTAL_VENTAS
     FROM ${ventasSub()} d
-    WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
+    WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)${vendSql}
     GROUP BY CAST(d.FECHA AS DATE) ORDER BY 1
   `
     : `
     SELECT CAST(d.FECHA AS DATE) AS DIA, COUNT(*) AS FACTURAS, COALESCE(SUM(d.IMPORTE_NETO), 0) AS TOTAL_VENTAS
     FROM ${ventasSub(tipo)} d
-    WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
+    WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)${vendSql}
     GROUP BY CAST(d.FECHA AS DATE) ORDER BY 1
     `;
   const run = async (dbo) => {
@@ -3555,6 +3563,8 @@ get('/api/ventas/cotizaciones/diarias', async (req) => {
   const desdeDate = new Date();
   desdeDate.setDate(desdeDate.getDate() - dias);
   const desdeStr = desdeDate.getFullYear() + '-' + String(desdeDate.getMonth() + 1).padStart(2, '0') + '-' + String(desdeDate.getDate()).padStart(2, '0');
+  const vid = req.query.vendedor ? parseInt(String(req.query.vendedor), 10) : 0;
+  const vendSql = vid > 0 ? ` AND d.VENDEDOR_ID = ${vid}` : '';
   const run = async (dbo) => {
     const cotiOpts = await cotizacionSqlOpts(dbo);
     // innerBounds: limita el escaneo al rango de días solicitados
@@ -3563,7 +3573,7 @@ get('/api/ventas/cotizaciones/diarias', async (req) => {
     const rows = await query(`
     SELECT CAST(d.FECHA AS DATE) AS DIA, COUNT(*) AS COTIZACIONES, COALESCE(SUM(d.IMPORTE_NETO),0) AS TOTAL_COTIZACIONES
     FROM ${cotiSub} d
-    WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
+    WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)${vendSql}
     GROUP BY CAST(d.FECHA AS DATE) ORDER BY 1
   `, [desdeStr], 60000, dbo).catch((err) => {
       console.error('[cotizaciones/diarias]', err && (err.message || err));
@@ -3717,7 +3727,8 @@ get('/api/ventas/por-vendedor/cotizaciones', async (req) => {
     const hasta = bounds.hasta;
     if (!desde || !hasta) return [];
     // Cursor iteration — evita full scan en Firebird remoto
-    const result = await getCotizacionesByPeriodCursor(dbo, desde, hasta, 85000);
+    const vid = req.query.vendedor ? parseInt(String(req.query.vendedor), 10) : 0;
+    const result = await getCotizacionesByPeriodCursor(dbo, desde, hasta, 85000, vid);
     const byVendedor = result.byVendedor || {};
     // Obtener nombres de vendedores en una sola query rápida
     const vendedorIds = Object.keys(byVendedor).map(Number).filter((id) => id > 0);
@@ -3789,25 +3800,27 @@ get('/api/ventas/vs-cotizaciones', async (req) => {
   desde.setMonth(desde.getMonth() - mesesN);
   const desdeStr = desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-01';
   const tipoVentas = getTipo(req);
+  const vid = req.query.vendedor ? parseInt(String(req.query.vendedor), 10) : 0;
+  const vendSql = vid > 0 ? ' AND d.VENDEDOR_ID = ?' : '';
+  const ventasParams = vid > 0 ? [desdeStr, vid] : [desdeStr];
   const run = async (dbo) => {
     // Misma lógica que ventas. Cotizaciones = DOCTOS_VE con TIPO_DOCTO='C'.
     // CRÍTICO: fecha sin CAST para que Firebird use el índice IE1 (FECHA, TIPO_DOCTO).
     // CAST(d.FECHA AS DATE) en el WHERE bloquea el índice → full scan → timeout WAN.
-    const imp = sqlVentaImporteBaseExpr('d');
     const [ventasMes, cotizMes] = await Promise.all([
       query(`
         SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES,
           CAST(COALESCE(SUM(d.IMPORTE_NETO), 0) AS DOUBLE PRECISION) AS TOTAL_VENTAS, COUNT(*) AS NUM_DOCS
         FROM ${ventasSub(tipoVentas)} d
-        WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)
+        WHERE CAST(d.FECHA AS DATE) >= CAST(? AS DATE)${vendSql}
         GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA) ORDER BY 1, 2
-      `, [desdeStr], 60000, dbo).catch((err) => {
+      `, ventasParams, 60000, dbo).catch((err) => {
         console.error('[vs-cotizaciones ventas]', err && (err.message || err));
         return [];
       }),
       // Cotizaciones: batch por PK — evita full-scan GROUP BY EXTRACT sobre WAN (timeout >60s).
       // Itera lotes de 200 filas por PK. Agrega por mes en JS. ~10-15 queries vs 900.
-      getCotizMensualesBatch(dbo, desdeStr, 55000).catch((err) => {
+      getCotizMensualesBatch(dbo, desdeStr, 55000, vid).catch((err) => {
         console.error('[vs-cotizaciones cotiz batch]', err && (err.message || err));
         return [];
       }),
@@ -4331,6 +4344,17 @@ get('/api/ventas/cotizaciones', async (req) => {
 });
 
 get('/api/ventas/vendedores', async (req) => {
+  const scoped = req.vendedorScopeId != null ? parseInt(String(req.vendedorScopeId), 10) : 0;
+  if (scoped > 0) {
+    const dbo = getReqDbOpts(req);
+    const rows = await query(
+      `SELECT VENDEDOR_ID, NOMBRE FROM VENDEDORES WHERE VENDEDOR_ID = ? AND COALESCE(ESTATUS,'A') NOT IN ('I','B','0','N')`,
+      [scoped],
+      12000,
+      dbo
+    ).catch(() => []);
+    return rows;
+  }
   const run = async (dbo) => query(`SELECT VENDEDOR_ID, NOMBRE FROM VENDEDORES WHERE COALESCE(ESTATUS,'A') NOT IN ('I','B','0','N') ORDER BY NOMBRE`, [], 12000, dbo).catch(() => []);
   if (isAllDbs(req)) {
     const lists = await mapPoolLimit(DATABASE_REGISTRY, 3, async (entry) => {

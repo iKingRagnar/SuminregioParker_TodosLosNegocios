@@ -509,7 +509,6 @@
       var allow = {
         'ventas.html': true,
         'cobradas.html': true,
-        'clientes.html': true,
         'vendedores.html': true,
       };
       return base.filter(function (nl) {
