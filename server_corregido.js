@@ -178,9 +178,12 @@ app.use((_req, res, next) => {
 if (IS_SESSION_AUTH) {
   app.set('trust proxy', 1);
   const session = require('express-session');
-  const sessSecret = process.env.SESSION_SECRET || 'DEV_ONLY_CAMBIA_ESTO';
+  const sessSecret =
+    process.env.SESSION_SECRET ||
+    process.env.AUTH_SESSION_SECRET ||
+    'DEV_ONLY_CAMBIA_ESTO';
   if (sessSecret === 'DEV_ONLY_CAMBIA_ESTO' && process.env.NODE_ENV === 'production') {
-    console.warn('[auth] SESSION_SECRET por defecto en producción — define SESSION_SECRET en Render.');
+    console.warn('[auth] SESSION_SECRET por defecto en producción — define SESSION_SECRET (o AUTH_SESSION_SECRET) en Render.');
   }
   app.use(session({
     secret: sessSecret,
