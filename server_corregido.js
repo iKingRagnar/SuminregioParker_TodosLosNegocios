@@ -126,6 +126,32 @@ const IS_SESSION_AUTH = String(process.env.AUTH_PROVIDER || '').toLowerCase() ==
   process.exit(1);
 })();
 
+/**
+ * En Render, dummy (+ ALLOW_INSECURE_DUMMY_AUTH) hace que NO se instale session-gate:
+ * todos reciben anon@suminregio.local y el panel (p. ej. index.html) queda público.
+ * Solo se permite sin login si declaras ALLOW_PUBLIC_DASHBOARD_ON_RENDER=1 (emergencias).
+ */
+(function blockOpenDashboardOnRender() {
+  const onRender = String(process.env.RENDER || '').toLowerCase() === 'true';
+  if (!onRender) return;
+  const allowPublic = String(process.env.ALLOW_PUBLIC_DASHBOARD_ON_RENDER || '').trim() === '1';
+  if (allowPublic) {
+    console.warn('[auth] ALLOW_PUBLIC_DASHBOARD_ON_RENDER=1 — el panel es accesible sin iniciar sesión.');
+    return;
+  }
+  const ap = String(process.env.AUTH_PROVIDER || 'dummy').toLowerCase();
+  if (ap === 'session') return;
+  console.error('');
+  console.error('[auth] =======================================================================');
+  console.error('[auth] En Render hace falta AUTH_PROVIDER=session para exigir usuario y contraseña.');
+  console.error('[auth] Modo dummy (o ALLOW_INSECURE_DUMMY_AUTH) deja el sitio como antes sin login.');
+  console.error('[auth] Define en el servicio web: AUTH_PROVIDER=session, SESSION_SECRET, AUTH_USERS');
+  console.error('[auth] Emergencia explícita sin login: ALLOW_PUBLIC_DASHBOARD_ON_RENDER=1');
+  console.error('[auth] =======================================================================');
+  console.error('');
+  process.exit(1);
+})();
+
 const _corsOrigin = process.env.CORS_ORIGIN || '*';
 app.use(cors({
   origin: IS_SESSION_AUTH && _corsOrigin === '*'

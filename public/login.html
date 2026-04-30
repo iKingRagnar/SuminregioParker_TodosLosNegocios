@@ -4,62 +4,115 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Suminregio — Iniciar sesión</title>
+<title>Suminregio — Acceso</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:radial-gradient(1200px 800px at 20% 0%,#0f172a 0%,#020617 55%,#000 100%);color:#e2e8f0;padding:1.5rem}
-  .card{width:100%;max-width:420px;background:rgba(15,23,42,.88);border:1px solid rgba(230,168,0,.25);border-radius:16px;padding:2rem;box-shadow:0 24px 80px rgba(0,0,0,.45)}
-  .brand{display:flex;align-items:center;gap:.75rem;margin-bottom:1.5rem}
-  .logo{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#E6A800,#ea580c);display:grid;place-items:center;font-weight:800;color:#fff;font-size:1.1rem}
-  h1{font-size:1.35rem;font-weight:800;letter-spacing:-.02em;color:#f8fafc}
-  .sub{font-size:.8rem;color:#94a3b8;margin-top:.2rem}
-  .label-row{display:flex;align-items:baseline;justify-content:space-between;gap:.5rem;flex-wrap:wrap;margin-top:.9rem;margin-bottom:.35rem}
-  .label-row label{margin:0;display:inline;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8}
-  .label-hint{font-size:.68rem;text-transform:none;letter-spacing:0;color:#64748b;font-weight:400}
-  label.pw-label{display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin:.9rem 0 .35rem}
-  input{width:100%;padding:.7rem .85rem;border-radius:10px;border:1px solid rgba(148,163,184,.35);background:#020617;color:#f1f5f9;font-size:.95rem}
-  input:focus{outline:2px solid rgba(230,168,0,.45);border-color:#E6A800}
-  button{margin-top:1.25rem;width:100%;padding:.85rem;border:none;border-radius:10px;font-weight:700;font-size:.95rem;cursor:pointer;background:linear-gradient(135deg,#E6A800,#ca8a04);color:#0f172a}
-  button:disabled{opacity:.55;cursor:not-allowed}
-  .err,.hint{margin-top:.85rem;font-size:.82rem;border-radius:8px;padding:.6rem .75rem;display:none}
-  .err{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);color:#fecaca}
-  .hint{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);color:#bfdbfe}
-  .foot{margin-top:1.25rem;text-align:center;font-size:.8rem;color:#64748b}
-  .foot a{color:#E6A800;text-decoration:none}
-  .foot a:hover{text-decoration:underline}
+  html,body{min-height:100%;height:100%}
+  body{
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    background:#fff;
+    color:#111;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:1.25rem;
+  }
+  .box{
+    width:100%;
+    max-width:380px;
+    border:1px solid #ddd;
+    border-radius:8px;
+    padding:2rem 2rem 1.75rem;
+    box-shadow:0 4px 24px rgba(0,0,0,.06);
+  }
+  .brand{
+    text-align:center;
+    margin-bottom:1.75rem;
+  }
+  .brand h1{
+    font-size:1.5rem;
+    font-weight:700;
+    letter-spacing:-.02em;
+  }
+  .brand p{
+    margin-top:.35rem;
+    font-size:.875rem;
+    color:#555;
+  }
+  label{
+    display:block;
+    font-size:.8125rem;
+    font-weight:600;
+    margin-bottom:.35rem;
+    color:#333;
+  }
+  .hint{font-weight:400;font-size:.75rem;color:#666;margin-top:.15rem}
+  input{
+    width:100%;
+    padding:.6rem .65rem;
+    font-size:1rem;
+    border:1px solid #ccc;
+    border-radius:4px;
+    margin-bottom:1rem;
+  }
+  input:focus{
+    outline:none;
+    border-color:#333;
+    box-shadow:0 0 0 2px rgba(0,0,0,.08);
+  }
+  button{
+    width:100%;
+    margin-top:.25rem;
+    padding:.7rem;
+    font-size:1rem;
+    font-weight:600;
+    border:none;
+    border-radius:4px;
+    background:#111;
+    color:#fff;
+    cursor:pointer;
+  }
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .err{
+    display:none;
+    margin:.75rem 0 0;
+    padding:.5rem .6rem;
+    font-size:.8125rem;
+    background:#fef2f2;
+    border:1px solid #fecaca;
+    border-radius:4px;
+    color:#991b1b;
+  }
+  .foot{
+    margin-top:1.25rem;
+    text-align:center;
+    font-size:.75rem;
+    color:#888;
+  }
 </style>
 </head>
 <body>
-  <div class="card">
+  <div class="box">
     <div class="brand">
-      <div class="logo" aria-hidden="true">S</div>
-      <div>
-        <h1>Suminregio</h1>
-        <div class="sub">Parker · Acceso al panel (usuario y contraseña)</div>
-      </div>
+      <h1>Suminregio</h1>
+      <p>Iniciar sesión</p>
     </div>
-    <form id="f" autocomplete="username">
-      <div class="label-row">
-        <label for="email">Usuario</label>
-        <span class="label-hint">tu cuenta es tu correo corporativo</span>
-      </div>
-      <input id="email" name="email" type="email" inputmode="email" required placeholder="ej. nombre.apellido@suminregio.com" autocomplete="username" autocapitalize="none" spellcheck="false">
-      <label class="pw-label" for="pw">Contraseña</label>
+    <form id="f" autocomplete="on">
+      <label for="email">Usuario</label>
+      <span class="hint">Correo de tu cuenta</span>
+      <input id="email" name="email" type="email" inputmode="email" required placeholder="correo@suminregio.com" autocomplete="username" autocapitalize="none" spellcheck="false">
+      <label for="pw">Contraseña</label>
       <input id="pw" name="password" type="password" required autocomplete="current-password">
       <div id="err" class="err"></div>
-      <div id="hint" class="hint">Tras iniciar sesión podrás acceder a los módulos autorizados para tu cuenta.</div>
-      <button type="submit" id="btn">Entrar</button>
+      <button type="submit" id="btn">Iniciar sesión</button>
     </form>
-    <p class="foot"><a href="/portal.html">← Volver a la portada</a></p>
   </div>
 <script>
 (function(){
   var params=new URLSearchParams(location.search);
   var next=params.get('next')||'/index.html';
   var err=document.getElementById('err');
-  var hint=document.getElementById('hint');
-  hint.style.display='block';
   document.getElementById('f').addEventListener('submit',function(ev){
     ev.preventDefault();
     err.style.display='none';
@@ -78,14 +131,14 @@
     }).then(function(x){
       btn.disabled=false;
       if(!x.ok){
-        err.textContent=(x.j&&x.j.error)||('Error del servidor (código '+x.status+')');
+        err.textContent=(x.j&&x.j.error)||('Error (código '+x.status+')');
         err.style.display='block';
         return;
       }
       location.href=next.indexOf('/')===0?next:'/index.html';
     }).catch(function(){
       btn.disabled=false;
-      err.textContent='No se pudo conectar. Revisa tu red o vuelve a intentar.';
+      err.textContent='No se pudo conectar.';
       err.style.display='block';
     });
   });
