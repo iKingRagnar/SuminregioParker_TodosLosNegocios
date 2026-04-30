@@ -178,6 +178,18 @@ app.use((_req, res, next) => {
 if (IS_SESSION_AUTH) {
   app.set('trust proxy', 1);
   const session = require('express-session');
+  let sessionStore = null;
+  try {
+    sessionStore = require('./src/auth/redis-session-store').tryCreateRedisStore();
+  } catch (e) {
+    console.warn('[auth] redis session store:', e.message);
+  }
+  if (!sessionStore && String(process.env.RENDER || '').toLowerCase() === 'true') {
+    console.warn(
+      '[auth] Sesiones en MEMORIA. Si al iniciar sesión ves otro correo en la barra, ' +
+        'crea un Redis en Render y define REDIS_URL (sesiones compartidas entre instancias).'
+    );
+  }
   const sessSecret =
     process.env.SESSION_SECRET ||
     process.env.AUTH_SESSION_SECRET ||
@@ -190,6 +202,7 @@ if (IS_SESSION_AUTH) {
     resave: false,
     saveUninitialized: false,
     name: 'suminregio.sid',
+    store: sessionStore || undefined,
     cookie: {
       httpOnly: true,
       secure: process.env.SESSION_COOKIE_SECURE === '1' || process.env.NODE_ENV === 'production',
