@@ -41,6 +41,8 @@ function install(app) {
 
   // Endpoint universal: estado del usuario actual
   app.get('/api/auth/me', (req, res) => {
+    res.setHeader('Cache-Control', 'private, no-store, no-cache, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
     res.json({ user: req.user || null, provider: process.env.AUTH_PROVIDER || 'dummy' });
   });
 

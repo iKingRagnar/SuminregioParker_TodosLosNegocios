@@ -151,15 +151,24 @@ function expressJsonLogin(req, res) {
     name: email,
     roles: entry.roles,
   };
-  req.session.user = user;
-  req.session.save((err) => {
-    if (err) {
-      console.error('[auth/session] save:', err.message);
+
+  // Nueva sesión en cada login: evita arrastrar datos/cookie de otro usuario
+  // y reduce fijación de sesión (session fixation).
+  req.session.regenerate((regenErr) => {
+    if (regenErr) {
+      console.error('[auth/session] regenerate:', regenErr.message);
       return res.status(500).json({ error: 'No se pudo iniciar sesión' });
     }
-    res.json({
-      ok: true,
-      user: { email: user.email, roles: user.roles },
+    req.session.user = user;
+    req.session.save((err) => {
+      if (err) {
+        console.error('[auth/session] save:', err.message);
+        return res.status(500).json({ error: 'No se pudo iniciar sesión' });
+      }
+      res.json({
+        ok: true,
+        user: { email: user.email, roles: user.roles },
+      });
     });
   });
 }

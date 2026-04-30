@@ -492,8 +492,24 @@
     return base;
   }
 
+  function refreshSessionLabel() {
+    fetch(API_ORIGIN + '/api/auth/me', { credentials: 'same-origin', cache: 'no-store' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var user = data && data.user;
+        var el = document.querySelector('.nav-user');
+        if (!user || !user.email || !el) return;
+        var em = String(user.email);
+        if (el.textContent !== em) {
+          el.textContent = em;
+          el.setAttribute('title', em);
+        }
+      })
+      .catch(function () {});
+  }
+
   function init() {
-    fetch(API_ORIGIN + '/api/auth/me', { credentials: 'same-origin' })
+    fetch(API_ORIGIN + '/api/auth/me', { credentials: 'same-origin', cache: 'no-store' })
       .then(function (r) { return r.json(); })
       .then(function (data) {
         var user = data && data.user;
@@ -588,4 +604,8 @@
   } else {
     init();
   }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') refreshSessionLabel();
+  });
 })();
