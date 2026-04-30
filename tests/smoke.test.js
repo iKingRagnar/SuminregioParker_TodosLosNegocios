@@ -49,7 +49,14 @@ function waitForReady(retries = 40) {
 
 before(async () => {
   server = spawn('node', [path.join(__dirname, '..', 'server_corregido.js')], {
-    env: { ...process.env, PORT: String(PORT), DUCK_ONLY_MODE: '1', LOG_LEVEL: 'warn' },
+    env: {
+      ...process.env,
+      PORT: String(PORT),
+      DUCK_ONLY_MODE: '1',
+      LOG_LEVEL: 'warn',
+      // Evitar que el .env local con session bloquee /api/* en CI o máquinas de dev
+      AUTH_PROVIDER: 'dummy',
+    },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   server.stderr.on('data', () => {});

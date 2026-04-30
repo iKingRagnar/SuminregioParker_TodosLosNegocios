@@ -112,10 +112,10 @@
     { href: 'capital.html',    label: 'Capital',      icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93V18h-2v1.93c-3.94-.49-7-3.86-7-7.93s3.05-7.44 7-7.93V6h2V4.07c3.94.49 7 3.86 7 7.93s-3.05 7.44-7 7.93zM11 9h2v4h-2zm0 6h2v2h-2z' },
   ];
 
-  var API_BASE = (function () {
+  var API_ORIGIN = (function () {
     try {
-      var m = location.origin.match(/localhost|127\.0\.0\.1/);
-      return m ? 'http://localhost:3000' : location.origin;
+      if (location.protocol === 'file:') return 'http://localhost:7000';
+      return location.origin || '';
     } catch (_) { return ''; }
   })();
 
@@ -163,9 +163,10 @@
     return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
   }
 
-  function buildNav() {
+  function buildNav(linkList) {
+    var list = linkList || NAV_LINKS;
     var cur = currentPage();
-    return NAV_LINKS.map(function (nl) {
+    return list.map(function (nl) {
       var active = (nl.href === cur || (cur === '' && nl.href === 'index.html')) ? ' active' : '';
       return '<a class="nav-link' + active + '" href="' + nl.href + '">' +
         '<svg viewBox="0 0 24 24"><path d="' + nl.icon + '"/></svg>' +
@@ -245,7 +246,7 @@
     if (!cont) return;
 
     // Mostrar siempre si hay al menos 1 DB — usuario necesita saber qué negocio ve.
-    fetch(API_BASE + '/api/universe/databases')
+    fetch(API_ORIGIN + '/api/universe/databases')
       .then(function (r) { return r.json(); })
       .then(function (dbs) {
         if (!Array.isArray(dbs) || dbs.length < 1) return;
@@ -304,6 +305,12 @@
       '@keyframes navPulse{0%,100%{opacity:1}50%{opacity:.35}}',
       '.nav-clock{font-family:"DM Mono",monospace;font-size:.72rem;',
       'color:#6A85A6;letter-spacing:.04em;min-width:6.5rem;}',
+      '.nav-session-slot{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}',
+      '.nav-user{max-width:10rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;',
+      'font-size:.65rem;color:#94a3b8;}',
+      '.nav-logout-btn{font-size:.65rem;padding:.35rem .6rem;border-radius:8px;',
+      'border:1px solid rgba(230,168,0,.35);background:rgba(230,168,0,.08);',
+      'color:#E6A800;cursor:pointer;font-weight:600;font-family:inherit;}',
 
       /* ── DB Selector ── */
       '.nav-db-wrap{position:relative;flex-shrink:0;}',
@@ -377,11 +384,28 @@
 
   // ── Init ─────────────────────────────────────────────────────────────────────
 
-  function init() {
+  function injectLogout(btnId, user) {
+    var el = document.getElementById(btnId);
+    if (!el || !user || !user.email) return;
+    el.innerHTML =
+      '<span class="nav-user" title="' + String(user.email).replace(/"/g, '&quot;') + '">' +
+      String(user.email).replace(/</g, '&lt;') +
+      '</span>' +
+      '<button type="button" class="nav-logout-btn" id="navLogoutBtn">Salir</button>';
+    var btn = document.getElementById('navLogoutBtn');
+    if (btn) {
+      btn.addEventListener('click', function () {
+        fetch(API_ORIGIN + '/api/auth/logout', { method: 'POST', credentials: 'same-origin' })
+          .finally(function () {
+            location.href = '/login.html';
+          });
+      });
+    }
+  }
+
+  function mountHeader(links, user) {
     injectStyles();
 
-    // Buscar/crear header y garantizar reemplazo limpio (algunos HTML tienen
-    // <header><div class="hd">…</div></header> hardcodeado que competía con este).
     var hdr = document.getElementById('app-header') || document.querySelector('header');
     if (!hdr) {
       hdr = document.createElement('header');
@@ -404,9 +428,10 @@
             '<div class="nav-logo-sub">ERP SCORECARD</div>' +
           '</div>' +
         '</a>' +
-        '<nav id="main-nav">' + buildNav() + '</nav>' +
+        '<nav id="main-nav">' + buildNav(links) + '</nav>' +
         '<div class="nav-right">' +
           '<div id="navDbContainer"></div>' +
+          '<div id="navSessionSlot" class="nav-session-slot"></div>' +
           '<div class="nav-live">' +
             '<div class="nav-live-dot"></div>LIVE' +
           '</div>' +
@@ -414,22 +439,39 @@
         '</div>' +
       '</div>';
 
-    // Live clock
+    injectLogout('navSessionSlot', user);
+
     var clockEl = document.getElementById(clockId);
     if (clockEl) {
       clockEl.textContent = fmtTime(new Date());
       setInterval(function () { clockEl.textContent = fmtTime(new Date()); }, 1000);
     }
 
-    // DB selector (loads asynchronously, only shows if >1 DB registered)
     loadDbSelector('navDbContainer');
-
-    // Barra horizontal de chips de negocios (como en index.html) — en TODAS las páginas
     injectBizContextBar(hdr);
-
-    // ── Chatbot flotante: auto-inyectar en toda página si no está ya cargado ──
-    // (algunas páginas no tenían <script src="/chat-widget.js">, quedaban sin bot)
     ensureChatWidget();
+  }
+
+  function filterLinksForGerente(user) {
+    var base = NAV_LINKS;
+    if (!user || !user.roles) return base;
+    if (user.roles.indexOf('admin') >= 0) return base;
+    if (user.roles.indexOf('gerente') < 0) return base;
+    return base.filter(function (nl) {
+      return nl.href !== 'resultados.html' && nl.href !== 'margen-producto.html';
+    });
+  }
+
+  function init() {
+    fetch(API_ORIGIN + '/api/auth/me', { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var user = data && data.user;
+        mountHeader(filterLinksForGerente(user), user);
+      })
+      .catch(function () {
+        mountHeader(NAV_LINKS, null);
+      });
   }
 
   function injectBizContextBar(hdr) {
@@ -453,7 +495,7 @@
       document.body.insertBefore(bar, document.body.firstChild);
     }
 
-    fetch(API_BASE + '/api/universe/databases')
+    fetch(API_ORIGIN + '/api/universe/databases')
       .then(function (r) { return r.json(); })
       .then(function (dbs) {
         if (!Array.isArray(dbs) || dbs.length < 1) return;

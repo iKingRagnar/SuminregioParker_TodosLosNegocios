@@ -1,0 +1,3 @@
+# Rastreadores: aplicación privada; no indexar.
+User-agent: *
+Disallow: /

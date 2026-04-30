@@ -7,6 +7,7 @@
  *   · 'dummy' (default)     → sin auth; todos son admin anónimo (modo dev)
  *   · 'clerk'               → Clerk (requires CLERK_SECRET_KEY, CLERK_PUBLISHABLE_KEY)
  *   · 'basic'               → HTTP Basic Auth con users en AUTH_USERS env
+ *   · 'session'             → Login por formulario (cookie httpOnly) + AUTH_USERS
  *
  * Uso:
  *   const auth = require('./src/auth');
@@ -18,6 +19,7 @@ const providers = {
   dummy: require('./providers/dummy'),
   basic: require('./providers/basic'),
   clerk: require('./providers/clerk'),
+  session: require('./providers/session'),
 };
 
 function getProvider() {

@@ -1,0 +1,74 @@
+'use strict';
+
+/**
+ * Candado previo a estáticos: con AUTH_PROVIDER=session exige cookie de sesión
+ * salvo rutas públicas (login, health, upload snapshot con token, etc.).
+ */
+
+const { isGerenteOnly } = require('./gerente-gate');
+
+function publicApiPath(path) {
+  if (path.startsWith('/api/auth/')) return true;
+  if (path === '/api/health') return true;
+  // Snapshot nocturno / automatización (autorización por X-Snapshot-Token en el handler)
+  if (path === '/api/admin/snapshot/upload') return true;
+  return false;
+}
+
+function publicDocumentPath(path) {
+  if (path === '/login.html' || path === '/portal.html') return true;
+  if (path === '/favicon.svg' || path === '/favicon.ico') return true;
+  if (path === '/manifest.webmanifest') return true;
+  if (path === '/robots.txt') return true;
+  return false;
+}
+
+function publicHealthPath(path) {
+  return path === '/health' || path === '/healthz';
+}
+
+function install(app) {
+  app.use((req, res, next) => {
+    const path = (req.path || '').split('?')[0];
+    if (publicHealthPath(path)) return next();
+    if (publicDocumentPath(path)) return next();
+    if (publicApiPath(path)) return next();
+
+    const hasUser = req.user && (req.user.email || req.user.id);
+    if (hasUser) {
+      const docPath = path.split('?')[0];
+      if (
+        docPath === '/resultados.html' ||
+        docPath === '/margen-producto.html'
+      ) {
+        if (isGerenteOnly(req)) {
+          res.setHeader('Cache-Control', 'no-store');
+          return res.redirect(302, '/ventas.html');
+        }
+      }
+      return next();
+    }
+
+    if (path.startsWith('/api/')) {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(401).json({
+        error: 'Sesión requerida. Inicia sesión en /login.html',
+        code: 'AUTH_REQUIRED',
+      });
+    }
+
+    if (req.method === 'GET' || req.method === 'HEAD') {
+      const accepts = req.headers.accept || '';
+      if (accepts.includes('text/html') || accepts.includes('*/*') || !accepts) {
+        const nextUrl = encodeURIComponent(req.originalUrl || '/index.html');
+        res.setHeader('Cache-Control', 'no-store');
+        return res.redirect(302, `/login.html?next=${nextUrl}`);
+      }
+    }
+
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(401).send('Unauthorized');
+  });
+}
+
+module.exports = { install, publicApiPath, publicDocumentPath, publicHealthPath };

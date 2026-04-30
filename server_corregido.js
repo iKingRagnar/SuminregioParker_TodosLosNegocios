@@ -100,8 +100,55 @@ function sqlVentaImporteResultadosExpr(alias = 'd') {
 }
 
 // ── Middleware ────────────────────────────────────────────────────────────────
-app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
+const IS_SESSION_AUTH = String(process.env.AUTH_PROVIDER || '').toLowerCase() === 'session';
+const _corsOrigin = process.env.CORS_ORIGIN || '*';
+app.use(cors({
+  origin: IS_SESSION_AUTH && _corsOrigin === '*'
+    ? true
+    : _corsOrigin,
+  credentials: IS_SESSION_AUTH,
+}));
 app.use(express.json());
+
+// Headers mínimos anti-abuso (no sustituyen autenticación).
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
+
+if (IS_SESSION_AUTH) {
+  app.set('trust proxy', 1);
+  const session = require('express-session');
+  const sessSecret = process.env.SESSION_SECRET || 'DEV_ONLY_CAMBIA_ESTO';
+  if (sessSecret === 'DEV_ONLY_CAMBIA_ESTO' && process.env.NODE_ENV === 'production') {
+    console.warn('[auth] SESSION_SECRET por defecto en producción — define SESSION_SECRET en Render.');
+  }
+  app.use(session({
+    secret: sessSecret,
+    resave: false,
+    saveUninitialized: false,
+    name: 'suminregio.sid',
+    cookie: {
+      httpOnly: true,
+      secure: process.env.SESSION_COOKIE_SECURE === '1' || process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: parseInt(process.env.SESSION_MAX_AGE_MS || String(7 * 24 * 60 * 60 * 1000), 10),
+    },
+  }));
+}
+
+try {
+  require('./src/auth').install(app);
+  if (IS_SESSION_AUTH) {
+    require('./src/auth/session-gate').install(app);
+  }
+  require('./src/auth/gerente-gate').install(app);
+} catch (e) {
+  console.warn('[auth/gates]', e.message);
+}
 
 // Patch global res.json para que tolere BigInt (DuckDB BIGINT → BigInt nativo).
 app.use(function bigintSafeJson(req, res, next) {
@@ -626,10 +673,7 @@ try {
   require('./integrations').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
 } catch (e) { console.warn('[integrations] no instalado:', e.message); }
 
-// Auth pluggable (dummy | basic | clerk)
-try {
-  require('./src/auth').install(app);
-} catch (e) { console.warn('[auth] no instalado:', e.message); }
+// Auth + candados: se instala al inicio (tras session), ver bloque "auth/gates".
 
 // Ejemplo de route extraído del monolito (solo si USE_NEW_VENTAS=1)
 if (process.env.USE_NEW_VENTAS === '1') {
