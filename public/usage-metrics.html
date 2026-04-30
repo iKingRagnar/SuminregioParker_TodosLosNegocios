@@ -237,7 +237,7 @@
           <th>Fecha y hora</th>
           <th>Evento</th>
           <th>Usuario</th>
-          <th>Pestaña / ruta</th>
+          <th>Pestaña del portal</th>
           <th>Tiempo en pestaña</th>
         </tr>
       </thead>
@@ -275,18 +275,43 @@
     'login.html': 'Login',
   };
 
+  /** Ruta sin query (solo path). */
+  function pathOnly(path) {
+    return String(path || '').split('?')[0].trim();
+  }
+
+  /**
+   * Último segmento tipo archivo (p.ej. ventas.html). La raíz del sitio `/` o `/?db=…`
+   * se trata como index → «Inicio» (mismo criterio que el menú superior).
+   */
   function pathFile(path) {
-    if (!path) return '';
-    var s = String(path).split('?')[0].trim();
+    var s = pathOnly(path);
+    if (!s || s === '/') return 'index.html';
     var parts = s.split('/').filter(Boolean);
-    return parts.length ? parts[parts.length - 1] : s;
+    if (!parts.length) return 'index.html';
+    return parts[parts.length - 1];
   }
 
   function pathLabel(path) {
     var f = pathFile(path).toLowerCase();
     if (PATH_LABELS[f]) return PATH_LABELS[f];
-    if (f && f.indexOf('.') < 0) return f;
-    return f.replace(/\.html$/i, '') || '—';
+    if (f && f.indexOf('.') < 0) {
+      if (f === '—' || f === '-') return '—';
+      return f.charAt(0).toUpperCase() + f.slice(1);
+    }
+    var base = f.replace(/\.html$/i, '').replace(/[-_]/g, ' ');
+    return base ? base.charAt(0).toUpperCase() + base.slice(1) : '—';
+  }
+
+  /** Eventos sin path (login/logout) o rutas crudas: etiqueta para personas, no para código. */
+  function pathLabelForEvent(rawPath, type) {
+    var p = String(rawPath == null ? '' : rawPath).trim();
+    if (!p || p === '—') {
+      if (type === 'login') return 'Inicio de sesión';
+      if (type === 'logout') return 'Cierre de sesión';
+      return '—';
+    }
+    return pathLabel(p);
   }
 
   function esc(s) {
@@ -318,10 +343,10 @@
 
   function eventBadge(type) {
     var t = String(type || '');
-    if (t === 'login') return '<span class="ev-badge ev-badge--login">Entrada</span>';
-    if (t === 'logout') return '<span class="ev-badge ev-badge--logout">Salida</span>';
-    if (t === 'page_enter') return '<span class="ev-badge ev-badge--enter">Entró a pestaña</span>';
-    if (t === 'page_leave') return '<span class="ev-badge ev-badge--leave">Salió de pestaña</span>';
+    if (t === 'login') return '<span class="ev-badge ev-badge--login">Inicio de sesión</span>';
+    if (t === 'logout') return '<span class="ev-badge ev-badge--logout">Cierre de sesión</span>';
+    if (t === 'page_enter') return '<span class="ev-badge ev-badge--enter">Abrió una pestaña</span>';
+    if (t === 'page_leave') return '<span class="ev-badge ev-badge--leave">Salió de una pestaña</span>';
     return '<span class="ev-badge ev-badge--other">' + esc(t || '—') + '</span>';
   }
 
@@ -370,12 +395,17 @@
         var label = pathLabel(p.path);
         var last = p.lastEventAt ? fmtTs(p.lastEventAt) : '—';
         var sub = (p.enters || 0) + ' visita' + ((p.enters || 0) !== 1 ? 's' : '') + ' · última actividad ' + last;
+        var po = pathOnly(p.path);
+        var hintHtml = '';
+        if (!po || po === '/') {
+          hintHtml = '<div class="rank-path" title="' + esc(String(p.path || '')) + '">Página principal: en la barra de navegación es la pestaña «Inicio» (a veces la URL aparece como / o /?db=…).</div>';
+        }
         rowsHtml +=
           '<div class="rank-row">' +
             medalHtml(rank, label) +
             '<div class="rank-label-block">' +
               '<div class="rank-label">' + esc(label) + '</div>' +
-              '<div class="rank-path" title="' + esc(p.path) + '">' + esc(p.path) + '</div>' +
+              hintHtml +
               '<div class="rank-sub">' + esc(sub) + '</div>' +
             '</div>' +
             '<div class="rank-bar-wrap"><div class="rank-bar" style="width:' + pct + '%;background:' + color + '"></div></div>' +
@@ -433,17 +463,18 @@
         tbody.innerHTML = '';
         events.forEach(function (e) {
           var tr = document.createElement('tr');
-          var path = String(e.path || '—');
-          var label = pathLabel(path);
+          var rawPath = e.path != null && e.path !== '' ? String(e.path) : '';
           var tipo = String(e.type || '');
+          var label = pathLabelForEvent(rawPath || '—', tipo);
           var durHtml = tipo === 'page_leave'
             ? '<span class="ev-dur">' + esc(fmtDur(e.durationMs)) + '</span>'
             : '<span class="ev-dur-muted">—</span>';
+          var tip = rawPath ? esc(rawPath) : '';
           tr.innerHTML =
             '<td>' + esc(fmtTs(e._ts)) + '</td>' +
             '<td>' + eventBadge(tipo) + '</td>' +
             '<td>' + esc(String(e.email || '—')) + '</td>' +
-            '<td><div class="ev-path-label">' + esc(label) + '</div><div class="ev-path">' + esc(path) + '</div></td>' +
+            '<td title="' + tip + '"><div class="ev-path-label">' + esc(label) + '</div></td>' +
             '<td>' + durHtml + '</td>';
           tbody.appendChild(tr);
         });
