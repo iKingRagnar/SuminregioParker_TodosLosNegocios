@@ -7,50 +7,212 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#E6A800">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="/auth-guard.js?v=6"></script>
 <script src="nav.js" defer></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Inter, system-ui, sans-serif; background: #F1F5F9; color: #0F172A; min-height: 100vh; }
-  main { max-width: 1400px; margin: 0 auto; padding: 24px; }
-  h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 6px; }
-  .sub { color: #64748B; font-size: .88rem; margin-bottom: 20px; }
-  .toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 20px; }
-  .toolbar label { font-size: .8rem; font-weight: 600; color: #475569; }
-  .toolbar select { padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(15,23,42,.12); font-family: inherit; }
+  body {
+    font-family: Inter, system-ui, sans-serif;
+    background: linear-gradient(180deg, #EEF2F7 0%, #F8FAFC 40%, #F1F5F9 100%);
+    color: #0F172A;
+    min-height: 100vh;
+  }
+  main { max-width: 1180px; margin: 0 auto; padding: 28px 22px 48px; }
+  h1 { font-size: 1.55rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 6px; }
+  .sub { color: #64748B; font-size: .9rem; margin-bottom: 22px; max-width: 640px; line-height: 1.45; }
+
+  .toolbar {
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 26px;
+  }
+  .toolbar label { font-size: .78rem; font-weight: 600; color: #475569; display: flex; flex-direction: column; gap: 6px; }
+  .toolbar select {
+    padding: 9px 14px; border-radius: 10px; border: 1px solid rgba(15,23,42,.12);
+    font-family: inherit; background: #fff; min-width: 160px;
+  }
   .toolbar button {
-    padding: 8px 18px; border-radius: 8px; border: none; cursor: pointer;
+    padding: 10px 20px; border-radius: 10px; border: none; cursor: pointer;
     font-weight: 600; font-family: inherit;
-    background: linear-gradient(135deg,#E6A800,#B8860B); color: #1A1200;
+    background: linear-gradient(135deg,#E6A800,#C99400); color: #1A1200;
+    box-shadow: 0 2px 10px rgba(230,168,0,.28);
   }
   .toolbar button:disabled { opacity: .5; cursor: not-allowed; }
-  .err { background: #FEF2F2; color: #991B1B; padding: 12px 14px; border-radius: 10px; margin-bottom: 16px; font-size: .88rem; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-bottom: 24px; }
-  .card {
-    background: #fff; border: 1px solid rgba(230,168,0,.25); border-radius: 14px; padding: 16px;
-    box-shadow: 0 2px 8px rgba(15,23,42,.04);
+
+  .err {
+    background: #FEF2F2; color: #991B1B; padding: 12px 16px; border-radius: 12px;
+    margin-bottom: 18px; font-size: .88rem; border: 1px solid #FECACA;
   }
-  .card h3 { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: #64748B; margin-bottom: 8px; }
-  .card .em { font-weight: 700; font-size: 1rem; word-break: break-all; }
-  .card .roles { font-size: .75rem; color: #475569; margin-top: 6px; }
-  .card .stat { font-size: .8rem; margin-top: 8px; color: #334155; }
-  .card ul { list-style: none; margin-top: 10px; max-height: 180px; overflow: auto; font-size: .78rem; }
-  .card li { padding: 4px 0; border-bottom: 1px solid #F1F5F9; display: flex; justify-content: space-between; gap: 8px; }
-  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden;
-    box-shadow: 0 2px 8px rgba(15,23,42,.04); font-size: .8rem; }
-  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #E2E8F0; }
-  th { background: rgba(230,168,0,.12); font-size: .68rem; text-transform: uppercase; letter-spacing: .04em; color: #475569; }
-  tbody tr:hover { background: #F8FAFC; }
-  .muted { color: #94A3B8; font-size: .75rem; margin-top: 12px; }
-  code { font-family: 'DM Mono', monospace; font-size: .78rem; }
+
+  /* —— User blocks —— */
+  .usage-users { display: flex; flex-direction: column; gap: 28px; margin-bottom: 36px; }
+
+  .usage-user-head {
+    display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px 20px;
+    margin-bottom: 14px;
+  }
+  .usage-avatar {
+    width: 48px; height: 48px; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 1.1rem; color: #fff;
+    background: linear-gradient(145deg, #475569, #334155);
+    box-shadow: 0 4px 14px rgba(15,23,42,.2);
+  }
+  .usage-identity { flex: 1; min-width: 200px; }
+  .usage-email { font-weight: 700; font-size: 1.02rem; word-break: break-all; color: #0F172A; }
+  .usage-roles {
+    display: inline-flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;
+  }
+  .usage-role-pill {
+    font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
+    padding: 4px 10px; border-radius: 999px;
+    background: rgba(230,168,0,.18); color: #92400E; border: 1px solid rgba(230,168,0,.35);
+  }
+  .usage-meta-line {
+    font-size: .82rem; color: #64748B; margin-top: 6px; line-height: 1.5;
+  }
+  .usage-meta-line strong { color: #334155; }
+
+  /* Ranking card (inspired by vendedores ranking) */
+  .ranking-card {
+    background: #fff;
+    border: 1px solid rgba(230, 168, 0, 0.32);
+    border-radius: 18px;
+    box-shadow: 0 4px 24px rgba(15, 23, 42, .06);
+    overflow: hidden;
+  }
+  .ranking-card__head {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 16px 18px 12px;
+    border-bottom: 1px solid rgba(148, 163, 184, .2);
+    background: linear-gradient(180deg, rgba(255,255,255,.96), #FAFBFC);
+  }
+  .ranking-card__title {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: .82rem; font-weight: 600; color: #334155;
+    padding: 6px 14px; border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, .35); background: #fff;
+  }
+  .ranking-card__title svg { width: 18px; height: 18px; opacity: .75; }
+  .ranking-card__badge {
+    font-size: .75rem; font-weight: 600; color: #475569;
+    padding: 6px 14px; border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, .35); background: #F8FAFC;
+    font-family: 'DM Mono', monospace;
+  }
+  .ranking-rows { padding: 8px 16px 18px; }
+  .rank-row {
+    display: grid;
+    grid-template-columns: 40px minmax(120px, 1.1fr) minmax(80px, 1fr) auto;
+    gap: 10px 14px; align-items: center;
+    padding: 12px 4px; border-bottom: 1px solid #F1F5F9;
+  }
+  .rank-row:last-child { border-bottom: none; }
+  @media (max-width: 720px) {
+    .rank-row {
+      grid-template-columns: 36px 1fr;
+      grid-template-rows: auto auto;
+    }
+    .rank-row .rank-bar-wrap { grid-column: 1 / -1; }
+    .rank-row .rank-value { grid-column: 2 / -1; justify-self: end; margin-top: -4px; }
+  }
+
+  .rank-medal {
+    width: 34px; height: 34px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: .85rem; color: #fff;
+  }
+  .rank-medal--1 { background: linear-gradient(145deg, #EAB308, #CA8A04); box-shadow: 0 2px 8px rgba(234,179,8,.4); }
+  .rank-medal--2 { background: linear-gradient(145deg, #94A3B8, #64748B); }
+  .rank-medal--3 { background: linear-gradient(145deg, #B45309, #92400E); }
+  .rank-medal--n {
+    background: #F1F5F9; color: #475569; font-size: .72rem;
+    border: 1px solid #E2E8F0;
+  }
+
+  .rank-label-block { min-width: 0; }
+  .rank-label {
+    font-size: .88rem; font-weight: 600; color: #1E293B;
+    text-transform: uppercase; letter-spacing: .03em; line-height: 1.25;
+  }
+  .rank-path {
+    font-family: 'DM Mono', monospace; font-size: .68rem; color: #94A3B8;
+    margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .rank-sub {
+    font-size: .72rem; color: #64748B; margin-top: 4px;
+  }
+
+  .rank-bar-wrap {
+    height: 10px; background: #EEF2F7; border-radius: 999px; overflow: hidden;
+    min-width: 60px;
+  }
+  .rank-bar {
+    height: 100%; border-radius: 999px; min-width: 4px;
+    transition: width .35s ease;
+  }
+  .rank-value {
+    font-family: 'DM Mono', monospace; font-size: .8rem; font-weight: 600;
+    text-align: right; white-space: nowrap;
+  }
+
+  .ranking-empty {
+    padding: 28px 18px; text-align: center; color: #94A3B8; font-size: .88rem;
+  }
+
+  /* Eventos */
+  h2.section-title {
+    font-size: 1.05rem; font-weight: 700; margin: 8px 0 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  h2.section-title span {
+    font-size: .72rem; font-weight: 600; color: #64748B;
+    padding: 4px 12px; border-radius: 999px; background: #E2E8F0;
+  }
+
+  .events-wrap {
+    background: #fff; border-radius: 16px; border: 1px solid rgba(230,168,0,.22);
+    box-shadow: 0 4px 20px rgba(15,23,42,.05); overflow: hidden;
+  }
+  table.events { width: 100%; border-collapse: collapse; font-size: .78rem; }
+  table.events th {
+    text-align: left; padding: 12px 14px;
+    background: rgba(230,168,0,.1);
+    font-size: .65rem; text-transform: uppercase; letter-spacing: .08em; color: #475569;
+    font-weight: 700; border-bottom: 1px solid #E2E8F0;
+  }
+  table.events td { padding: 11px 14px; border-bottom: 1px solid #F1F5F9; vertical-align: top; }
+  table.events tbody tr:hover { background: #FAFBFC; }
+
+  .ev-badge {
+    display: inline-block; padding: 3px 9px; border-radius: 999px;
+    font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  }
+  .ev-badge--login { background: rgba(16,185,129,.18); color: #047857; }
+  .ev-badge--logout { background: rgba(148,163,184,.25); color: #475569; }
+  .ev-badge--enter { background: rgba(59,130,246,.18); color: #1D4ED8; }
+  .ev-badge--leave { background: rgba(139,92,246,.18); color: #6D28D9; }
+  .ev-badge--other { background: #F1F5F9; color: #64748B; }
+
+  .ev-path { font-family: 'DM Mono', monospace; font-size: .72rem; color: #334155; word-break: break-all; }
+  .ev-path-label { font-weight: 600; color: #0F172A; font-size: .78rem; margin-bottom: 2px; }
+  .ev-dur { font-family: 'DM Mono', monospace; font-weight: 600; color: #0F172A; }
+  .ev-dur-muted { color: #CBD5E1; }
+
+  .footnote {
+    color: #94A3B8; font-size: .78rem; margin-top: 14px; line-height: 1.45;
+  }
+
+  code.path-chip { font-family: 'DM Mono', monospace; font-size: .7rem; }
 </style>
 </head>
 <body>
 <header id="app-header"></header>
 <main>
   <h1>Métricas de uso del portal</h1>
-  <p class="sub">Inicios de sesión, páginas vistas y tiempo activo (pestaña visible). Solo administradores.</p>
+  <p class="sub">
+    Tiempo activo por <strong>pestaña</strong> (solo con la ventana visible), visitas y última actividad.
+    Diseño tipo ranking para comparar de un vistazo qué módulos usó cada persona. Solo administradores.
+  </p>
 
   <div class="toolbar">
     <label>Periodo
@@ -65,27 +227,71 @@
   </div>
 
   <div id="error" class="err" style="display:none"></div>
-  <div id="summary" class="grid"></div>
-  <h2 style="font-size:1rem;margin:20px 0 10px">Eventos recientes</h2>
-  <div style="overflow:auto">
-    <table>
+  <div id="summary" class="usage-users"></div>
+
+  <h2 class="section-title">Historial de eventos <span id="eventCount"></span></h2>
+  <div class="events-wrap">
+    <table class="events">
       <thead>
         <tr>
-          <th>Hora</th>
-          <th>Tipo</th>
+          <th>Fecha y hora</th>
+          <th>Evento</th>
           <th>Usuario</th>
-          <th>Ruta</th>
-          <th>Tiempo activo</th>
+          <th>Pestaña / ruta</th>
+          <th>Tiempo en pestaña</th>
         </tr>
       </thead>
       <tbody id="tbody"></tbody>
     </table>
   </div>
-  <p class="muted">Tiempo activo: solo cuenta segundos con la pestaña visible. Cambiar de pestaña pausa el contador.</p>
+  <p class="footnote">
+    El tiempo en pestaña solo acumula segundos con la pestaña <strong>visible</strong>; al cambiar de pestaña del navegador el contador se pausa.
+    Las salidas muy breves (&lt; 0,5 s) no se registran.
+  </p>
 </main>
 <script>
 (function () {
   var base = (typeof window.__API_BASE === 'string' && window.__API_BASE) ? window.__API_BASE.replace(/\/+$/, '') : '';
+
+  var BAR_COLORS = ['#14B8A6', '#3B82F6', '#8B5CF6', '#D97706', '#78350F', '#DC2626', '#06B6D4', '#E11D48', '#059669', '#6366F1'];
+
+  var PATH_LABELS = {
+    'index.html': 'Inicio',
+    'ventas.html': 'Ventas',
+    'cobradas.html': 'Cobradas',
+    'vendedores.html': 'Vendedores',
+    'cxc.html': 'CxC',
+    'clientes.html': 'Clientes',
+    'director.html': 'Director',
+    'inventario.html': 'Inventario',
+    'consumos.html': 'Consumos',
+    'margen-producto.html': 'Margen',
+    'resultados.html': 'Finanzas',
+    'comparar.html': 'Comparar',
+    'usage-metrics.html': 'Uso',
+    'admin.html': 'Admin',
+    'capital.html': 'Capital',
+    'portal.html': 'Portal',
+    'login.html': 'Login',
+  };
+
+  function pathFile(path) {
+    if (!path) return '';
+    var s = String(path).split('?')[0].trim();
+    var parts = s.split('/').filter(Boolean);
+    return parts.length ? parts[parts.length - 1] : s;
+  }
+
+  function pathLabel(path) {
+    var f = pathFile(path).toLowerCase();
+    if (PATH_LABELS[f]) return PATH_LABELS[f];
+    if (f && f.indexOf('.') < 0) return f;
+    return f.replace(/\.html$/i, '') || '—';
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  }
 
   function fmtTs(ts) {
     if (!ts) return '—';
@@ -103,6 +309,98 @@
     return m + ' min ' + r + ' s';
   }
 
+  function initialFromEmail(email) {
+    var e = String(email || '').trim();
+    if (!e) return '?';
+    var ch = e.charAt(0).toUpperCase();
+    return /[A-ZÁÉÍÓÚÑ]/i.test(ch) ? ch : '•';
+  }
+
+  function eventBadge(type) {
+    var t = String(type || '');
+    if (t === 'login') return '<span class="ev-badge ev-badge--login">Entrada</span>';
+    if (t === 'logout') return '<span class="ev-badge ev-badge--logout">Salida</span>';
+    if (t === 'page_enter') return '<span class="ev-badge ev-badge--enter">Entró a pestaña</span>';
+    if (t === 'page_leave') return '<span class="ev-badge ev-badge--leave">Salió de pestaña</span>';
+    return '<span class="ev-badge ev-badge--other">' + esc(t || '—') + '</span>';
+  }
+
+  function medalHtml(rank, tabLabel) {
+    if (rank === 1) return '<div class="rank-medal rank-medal--1">1</div>';
+    if (rank === 2) return '<div class="rank-medal rank-medal--2">2</div>';
+    if (rank === 3) return '<div class="rank-medal rank-medal--3">3</div>';
+    var letter = String(tabLabel || '?').trim().charAt(0).toUpperCase();
+    if (!letter || !/[A-ZÁÉÍÓÚÑ0-9]/i.test(letter)) letter = '•';
+    return '<div class="rank-medal rank-medal--n">' + esc(letter) + '</div>';
+  }
+
+  function renderUserBlock(emailKey, u, days) {
+    var email = u.email || emailKey;
+    var roles = Array.isArray(u.roles) ? u.roles : [];
+    var ranking = Array.isArray(u.pageRanking) ? u.pageRanking : [];
+    var maxMs = 0;
+    ranking.forEach(function (p) { if ((p.activeMs || 0) > maxMs) maxMs = p.activeMs || 0; });
+
+    var head =
+      '<div class="usage-user-head">' +
+        '<div class="usage-avatar">' + esc(initialFromEmail(email)) + '</div>' +
+        '<div class="usage-identity">' +
+          '<div class="usage-email">' + esc(email) + '</div>' +
+          '<div class="usage-roles">' +
+            (roles.length ? roles.map(function (r) { return '<span class="usage-role-pill">' + esc(r) + '</span>'; }).join('') : '<span class="usage-role-pill">sin rol</span>') +
+          '</div>' +
+          '<div class="usage-meta-line">' +
+            'Sesiones: <strong>' + (u.logins || 0) + '</strong> inicios · <strong>' + (u.logouts || 0) + '</strong> cierres' +
+            (u.lastLoginAt ? ' · Último login <strong>' + fmtTs(u.lastLoginAt) + '</strong>' : '') +
+            ' · Tiempo activo total <strong>' + fmtDur(u.totalActiveMs || 0) + '</strong>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    var periodLabel = days === 1 ? 'Último día' : 'Últimos ' + days + ' días';
+
+    var rowsHtml = '';
+    if (!ranking.length) {
+      rowsHtml = '<div class="ranking-empty">Sin pestañas registradas en este periodo (o visitas demasiado breves).</div>';
+    } else {
+      ranking.forEach(function (p, i) {
+        var rank = i + 1;
+        var pct = maxMs > 0 ? Math.max(90 * ((p.activeMs || 0) / maxMs), (p.activeMs || 0) > 0 ? 8 : 0) : 0;
+        var color = BAR_COLORS[i % BAR_COLORS.length];
+        var label = pathLabel(p.path);
+        var last = p.lastEventAt ? fmtTs(p.lastEventAt) : '—';
+        var sub = (p.enters || 0) + ' visita' + ((p.enters || 0) !== 1 ? 's' : '') + ' · última actividad ' + last;
+        rowsHtml +=
+          '<div class="rank-row">' +
+            medalHtml(rank, label) +
+            '<div class="rank-label-block">' +
+              '<div class="rank-label">' + esc(label) + '</div>' +
+              '<div class="rank-path" title="' + esc(p.path) + '">' + esc(p.path) + '</div>' +
+              '<div class="rank-sub">' + esc(sub) + '</div>' +
+            '</div>' +
+            '<div class="rank-bar-wrap"><div class="rank-bar" style="width:' + pct + '%;background:' + color + '"></div></div>' +
+            '<div class="rank-value" style="color:' + color + '">' + fmtDur(p.activeMs || 0) + '</div>' +
+          '</div>';
+      });
+    }
+
+    var card =
+      '<div class="ranking-card">' +
+        '<div class="ranking-card__head">' +
+          '<div class="ranking-card__title">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>' +
+            ' Ranking de pestañas' +
+          '</div>' +
+          '<div class="ranking-card__badge">' + esc(periodLabel) + '</div>' +
+        '</div>' +
+        '<div class="ranking-rows">' + rowsHtml + '</div>' +
+      '</div>';
+
+    var wrap = document.createElement('div');
+    wrap.innerHTML = head + card;
+    return wrap;
+  }
+
   function load() {
     var errEl = document.getElementById('error');
     var days = document.getElementById('days').value;
@@ -117,41 +415,36 @@
         return r.json();
       })
       .then(function (data) {
+        var root = document.getElementById('summary');
+        root.innerHTML = '';
         var byUser = (data.summary && data.summary.byUser) || {};
-        var grid = document.getElementById('summary');
-        grid.innerHTML = '';
-        Object.keys(byUser).sort().forEach(function (email) {
-          var u = byUser[email];
-          var pages = u.pages || {};
-          var pageLines = Object.keys(pages).map(function (path) {
-            var p = pages[path];
-            var sec = Math.round((p.activeMs || 0) / 1000);
-            return '<li><span><code>' + path.replace(/</g,'&lt;') + '</code></span><span>' + sec + ' s / ' + (p.enters || 0) + ' ent.</span></li>';
-          }).join('');
-          var card = document.createElement('div');
-          card.className = 'card';
-          card.innerHTML =
-            '<h3>Usuario</h3><div class="em">' + (u.email || email).replace(/</g,'&lt;') + '</div>' +
-            '<div class="roles">Roles: ' + (Array.isArray(u.roles) ? u.roles.join(', ') : '—') + '</div>' +
-            '<div class="stat">Inicios de sesión: <strong>' + (u.logins || 0) + '</strong> · Cierres: <strong>' + (u.logouts || 0) + '</strong>' +
-            (u.lastLoginAt ? '<br>Último login: ' + fmtTs(u.lastLoginAt) : '') + '</div>' +
-            (pageLines ? '<ul>' + pageLines + '</ul>' : '<p class="stat">Sin vistas registradas en el periodo.</p>');
-          grid.appendChild(card);
+        var keys = Object.keys(byUser).sort();
+        keys.forEach(function (emailKey) {
+          root.appendChild(renderUserBlock(emailKey, byUser[emailKey], parseInt(days, 10) || 7));
         });
-        if (!Object.keys(byUser).length) {
-          grid.innerHTML = '<p class="muted">No hay datos en este periodo. Navega el portal con sesión para generar eventos.</p>';
+        if (!keys.length) {
+          root.innerHTML = '<p class="ranking-empty" style="background:#fff;border-radius:16px;border:1px dashed #CBD5E1">No hay datos en este periodo. Navega el portal con sesión iniciada para generar eventos.</p>';
         }
+
+        var events = data.events || [];
+        document.getElementById('eventCount').textContent = events.length ? String(events.length) + ' eventos' : '0 eventos';
 
         var tbody = document.getElementById('tbody');
         tbody.innerHTML = '';
-        (data.events || []).forEach(function (e) {
+        events.forEach(function (e) {
           var tr = document.createElement('tr');
+          var path = String(e.path || '—');
+          var label = pathLabel(path);
+          var tipo = String(e.type || '');
+          var durHtml = tipo === 'page_leave'
+            ? '<span class="ev-dur">' + esc(fmtDur(e.durationMs)) + '</span>'
+            : '<span class="ev-dur-muted">—</span>';
           tr.innerHTML =
-            '<td>' + fmtTs(e._ts) + '</td>' +
-            '<td>' + String(e.type || '').replace(/</g,'&lt;') + '</td>' +
-            '<td>' + String(e.email || '—').replace(/</g,'&lt;') + '</td>' +
-            '<td><code>' + String(e.path || '—').replace(/</g,'&lt;') + '</code></td>' +
-            '<td>' + (e.type === 'page_leave' ? fmtDur(e.durationMs) : '—') + '</td>';
+            '<td>' + esc(fmtTs(e._ts)) + '</td>' +
+            '<td>' + eventBadge(tipo) + '</td>' +
+            '<td>' + esc(String(e.email || '—')) + '</td>' +
+            '<td><div class="ev-path-label">' + esc(label) + '</div><div class="ev-path">' + esc(path) + '</div></td>' +
+            '<td>' + durHtml + '</td>';
           tbody.appendChild(tr);
         });
       })

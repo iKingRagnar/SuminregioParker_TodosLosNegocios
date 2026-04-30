@@ -149,17 +149,39 @@ function buildSummary(events) {
     }
     if (e.type === 'logout') row.logouts += 1;
 
+    const ts = e._ts || 0;
     if (e.type === 'page_enter' && e.path) {
       const p = String(e.path).split('?')[0].slice(0, 200);
-      if (!row.pages[p]) row.pages[p] = { enters: 0, leaves: 0, activeMs: 0 };
+      if (!row.pages[p]) row.pages[p] = { enters: 0, leaves: 0, activeMs: 0, lastEventAt: 0 };
       row.pages[p].enters += 1;
+      if (ts > (row.pages[p].lastEventAt || 0)) row.pages[p].lastEventAt = ts;
     }
-    if (e.type === 'page_leave' && e.path && Number.isFinite(e.durationMs) && e.durationMs > 0) {
+    if (e.type === 'page_leave' && e.path) {
       const p = String(e.path).split('?')[0].slice(0, 200);
-      if (!row.pages[p]) row.pages[p] = { enters: 0, leaves: 0, activeMs: 0 };
-      row.pages[p].leaves += 1;
-      row.pages[p].activeMs += e.durationMs;
+      if (!row.pages[p]) row.pages[p] = { enters: 0, leaves: 0, activeMs: 0, lastEventAt: 0 };
+      if (Number.isFinite(e.durationMs) && e.durationMs > 0) {
+        row.pages[p].leaves += 1;
+        row.pages[p].activeMs += e.durationMs;
+      }
+      if (ts > (row.pages[p].lastEventAt || 0)) row.pages[p].lastEventAt = ts;
     }
+  }
+  for (const em of Object.keys(byUser)) {
+    const row = byUser[em];
+    const pages = row.pages || {};
+    row.pageRanking = Object.keys(pages)
+      .map((path) => {
+        const x = pages[path];
+        return {
+          path,
+          enters: x.enters || 0,
+          leaves: x.leaves || 0,
+          activeMs: x.activeMs || 0,
+          lastEventAt: x.lastEventAt || null,
+        };
+      })
+      .sort((a, b) => (b.activeMs || 0) - (a.activeMs || 0));
+    row.totalActiveMs = row.pageRanking.reduce((s, p) => s + (p.activeMs || 0), 0);
   }
   return { byUser };
 }
