@@ -517,30 +517,9 @@
       .then(function (r) { return r.json(); })
       .then(function (data) {
         var user = data && data.user;
-        var probe = null;
         try {
-          var raw = sessionStorage.getItem('suminregio_login_ok');
-          probe = raw ? JSON.parse(raw) : null;
+          sessionStorage.removeItem('suminregio_login_ok');
         } catch (_) {}
-        if (
-          probe && probe.email && user && user.email &&
-          (Date.now() - (probe.t || 0)) < 25000 &&
-          String(user.email).toLowerCase() !== probe.email
-        ) {
-          try { sessionStorage.removeItem('suminregio_login_ok'); } catch (_) {}
-          console.warn('[nav] sesión ≠ login reciente; probable sesión en memoria por instancia. Define REDIS_URL o usa una sola instancia.');
-          fetch(API_ORIGIN + '/api/auth/logout', { method: 'POST', credentials: 'same-origin', cache: 'no-store' })
-            .finally(function () {
-              var n = '/login.html?gate=session_store&next=' + encodeURIComponent(
-                (location.pathname || '/') + (location.search || '') + (location.hash || '')
-              );
-              location.replace(n);
-            });
-          return;
-        }
-        if (probe) {
-          try { sessionStorage.removeItem('suminregio_login_ok'); } catch (_) {}
-        }
         mountHeader(filterNavLinksForRole(user), user);
       })
       .catch(function () {

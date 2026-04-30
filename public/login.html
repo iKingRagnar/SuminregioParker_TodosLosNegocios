@@ -426,16 +426,17 @@
   var gateEl = document.getElementById('gateerr');
   var gate = params.get('gate');
   if (gateEl) {
-    if (gate === 'me' || gate === 'net' || gate === 'timeout' || gate === 'session_store') {
+    if (gate === 'me' || gate === 'net' || gate === 'timeout') {
       gateEl.style.display = 'block';
       var msgs = {
         me: 'No se pudo validar la sesión. Si ya configuraste AUTH_PROVIDER=session, revisa que el servicio esté en marcha y vuelve a entrar.',
         net: 'Error de red al contactar el servidor. Comprueba conexión o que la URL sea la del backend (mismo sitio).',
-        timeout: 'El servidor tardó en responder. Recarga o inténtalo en unos segundos.',
-        session_store:
-          'Tu sesión no coincidía con el usuario con el que acabas de entrar. En Render con varias instancias hace falta Redis: Key Value (Redis) en Render, copia la URL interna y añade REDIS_URL al servicio web, luego despliega.'
+        timeout: 'El servidor tardó en responder. Recarga o inténtalo en unos segundos.'
       };
       gateEl.textContent = msgs[gate] || '';
+    } else if (gate === 'session_store') {
+      gateEl.style.display = 'block';
+      gateEl.textContent = 'Enlace de aviso antiguo. Vuelve a iniciar sesión con tu usuario y contraseña.';
     } else {
       gateEl.style.display = 'none';
     }
@@ -471,14 +472,6 @@
         err.style.display = 'block';
         return;
       }
-      try {
-        if (x.j && x.j.user && x.j.user.email) {
-          sessionStorage.setItem(
-            'suminregio_login_ok',
-            JSON.stringify({ email: String(x.j.user.email).toLowerCase(), t: Date.now() })
-          );
-        }
-      } catch (_) {}
       var dest = next.indexOf('/') === 0 ? next : '/index.html';
       location.href = dest;
     }).catch(function () {
