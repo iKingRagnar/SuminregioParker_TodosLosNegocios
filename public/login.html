@@ -437,6 +437,11 @@
     } else if (gate === 'session_store') {
       gateEl.style.display = 'block';
       gateEl.textContent = 'Enlace de aviso antiguo. Vuelve a iniciar sesión con tu usuario y contraseña.';
+    } else if (gate === 'session_mismatch') {
+      gateEl.style.display = 'block';
+      gateEl.textContent =
+        'El servidor respondió con otra cuenta distinta a la que acabas de usar para entrar. ' +
+        'En Render con más de una instancia, crea un Redis (Key Value), asigna su URL interna como REDIS_URL en el servicio web y vuelve a desplegar.';
     } else {
       gateEl.style.display = 'none';
     }
@@ -472,8 +477,17 @@
         err.style.display = 'block';
         return;
       }
+      try {
+        if (x.j && x.j.user && x.j.user.email) {
+          sessionStorage.setItem(
+            'suminregio_last_login_email',
+            String(x.j.user.email).trim().toLowerCase()
+          );
+          sessionStorage.setItem('suminregio_last_login_at', String(Date.now()));
+        }
+      } catch (_) {}
       var dest = next.indexOf('/') === 0 ? next : '/index.html';
-      location.href = dest;
+      location.replace(dest);
     }).catch(function () {
       btn.disabled = false;
       err.textContent = 'No se pudo conectar.';

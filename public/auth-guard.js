@@ -4,8 +4,8 @@
  */
 (function () {
   'use strict';
-  if (window.__SUMINREGIO_AUTH_GUARD_V5__) return;
-  window.__SUMINREGIO_AUTH_GUARD_V5__ = true;
+  if (window.__SUMINREGIO_AUTH_GUARD_V6__) return;
+  window.__SUMINREGIO_AUTH_GUARD_V6__ = true;
 
   if (typeof location === 'undefined' || location.protocol === 'file:') return;
   var path = location.pathname || '';
@@ -58,7 +58,11 @@
     } catch (_) {}
   }
 
-  fetch(base + '/api/auth/me', { credentials: 'same-origin' })
+  fetch(base + '/api/auth/me?_=' + Date.now(), {
+    credentials: 'same-origin',
+    cache: 'no-store',
+    headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+  })
     .then(function (r) {
       return r.text().then(function (text) {
         var d = null;

@@ -6,10 +6,10 @@
 (function () {
   'use strict';
 
-  if (!window.__SUMINREGIO_AUTH_GUARD_V5__) {
+  if (!window.__SUMINREGIO_AUTH_GUARD_V6__) {
     try {
       var g = document.createElement('script');
-      g.src = '/auth-guard.js?v=5';
+      g.src = '/auth-guard.js?v=6';
       g.async = false;
       (document.head || document.documentElement).appendChild(g);
     } catch (_) {}
@@ -131,6 +131,36 @@
       return location.origin || '';
     } catch (_) { return ''; }
   })();
+
+  var ME_RETRY_MAX = 6;
+  var ME_BACKOFF_MS = 140;
+
+  function clearLoginSessionHints() {
+    try {
+      sessionStorage.removeItem('suminregio_last_login_email');
+      sessionStorage.removeItem('suminregio_last_login_at');
+      sessionStorage.removeItem('suminregio_me_reload_count');
+    } catch (_) {}
+  }
+
+  function authMeFetch() {
+    var url =
+      API_ORIGIN +
+      '/api/auth/me?_=' +
+      Date.now() +
+      '&r=' +
+      encodeURIComponent(Math.random().toString(36).slice(2, 10));
+    return fetch(url, {
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache',
+      },
+    }).then(function (r) {
+      return r.json();
+    });
+  }
 
   // ── DB helpers ──────────────────────────────────────────────────────────────
 
@@ -497,8 +527,7 @@
   }
 
   function refreshSessionLabel() {
-    fetch(API_ORIGIN + '/api/auth/me', { credentials: 'same-origin', cache: 'no-store' })
-      .then(function (r) { return r.json(); })
+    authMeFetch()
       .then(function (data) {
         var user = data && data.user;
         var el = document.querySelector('.nav-user');
@@ -513,18 +542,65 @@
   }
 
   function init() {
-    fetch(API_ORIGIN + '/api/auth/me', { credentials: 'same-origin', cache: 'no-store' })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        var user = data && data.user;
+    var lastLogin = '';
+    try {
+      var at = parseInt(sessionStorage.getItem('suminregio_last_login_at') || '0', 10) || 0;
+      if (at && Date.now() - at < 120000) {
+        lastLogin = (
+          sessionStorage.getItem('suminregio_last_login_email') || ''
+        ).trim().toLowerCase();
+      } else {
         try {
-          sessionStorage.removeItem('suminregio_login_ok');
+          sessionStorage.removeItem('suminregio_last_login_email');
+          sessionStorage.removeItem('suminregio_last_login_at');
         } catch (_) {}
-        mountHeader(filterNavLinksForRole(user), user);
-      })
-      .catch(function () {
-        mountHeader(NAV_LINKS, null);
-      });
+      }
+    } catch (_) {}
+
+    function finishWithUser(data) {
+      var user = data && data.user;
+      try {
+        sessionStorage.removeItem('suminregio_login_ok');
+      } catch (_) {}
+      clearLoginSessionHints();
+      mountHeader(filterNavLinksForRole(user), user);
+    }
+
+    function attemptFetch(attempt) {
+      authMeFetch()
+        .then(function (data) {
+          var user = data && data.user;
+          var em = user && user.email ? String(user.email).trim().toLowerCase() : '';
+          if (lastLogin && em && lastLogin !== em) {
+            if (attempt < ME_RETRY_MAX) {
+              setTimeout(function () {
+                attemptFetch(attempt + 1);
+              }, ME_BACKOFF_MS * (attempt + 1));
+              return;
+            }
+            try {
+              var rc = parseInt(sessionStorage.getItem('suminregio_me_reload_count') || '0', 10) || 0;
+              if (rc < 1) {
+                sessionStorage.setItem('suminregio_me_reload_count', '1');
+                location.reload();
+                return;
+              }
+            } catch (_) {}
+            clearLoginSessionHints();
+            fetch(API_ORIGIN + '/api/auth/logout', { method: 'POST', credentials: 'same-origin' })
+              .finally(function () {
+                location.replace('/login.html?gate=session_mismatch');
+              });
+            return;
+          }
+          finishWithUser(data);
+        })
+        .catch(function () {
+          mountHeader(NAV_LINKS, null);
+        });
+    }
+
+    attemptFetch(0);
   }
 
   function injectBizContextBar(hdr) {
