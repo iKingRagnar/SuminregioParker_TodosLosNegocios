@@ -6,6 +6,15 @@
 (function () {
   'use strict';
 
+  if (!window.__SUMINREGIO_AUTH_GUARD_V3__) {
+    try {
+      var g = document.createElement('script');
+      g.src = '/auth-guard.js?v=3';
+      g.async = false;
+      (document.head || document.documentElement).appendChild(g);
+    } catch (_) {}
+  }
+
   // Forzar SIEMPRE light mode — nunca dark. Al inicio para evitar FOUC.
   (function forceLightTheme() {
     try {

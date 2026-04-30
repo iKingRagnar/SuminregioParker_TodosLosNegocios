@@ -4,6 +4,16 @@
  * v2 — Debug telemetry eliminado. Cursor glow + sparkle multicapa añadidos.
  */
 
+(function loadAuthGuard() {
+  if (typeof window === 'undefined' || window.__SUMINREGIO_AUTH_GUARD_V3__) return;
+  try {
+    var g = document.createElement('script');
+    g.src = '/auth-guard.js?v=3';
+    g.async = false;
+    (document.head || document.documentElement).appendChild(g);
+  } catch (_) {}
+})();
+
 // ── Inyectar data-cache.js antes que cualquier otra lógica ───────────────────
 (function injectDataCache() {
   if (typeof window.__sumiCache !== 'undefined') return;
