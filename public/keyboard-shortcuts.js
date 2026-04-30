@@ -50,7 +50,7 @@
         '<kbd style="font-family:DM Mono,monospace;background:#F8FAFC;border:1px solid #E2E8F0;border-bottom-width:2px;border-radius:4px;padding:2px 8px;color:#475569">g v</kbd><span>Ventas</span>' +
         '<kbd style="font-family:DM Mono,monospace;background:#F8FAFC;border:1px solid #E2E8F0;border-bottom-width:2px;border-radius:4px;padding:2px 8px;color:#475569">g c</kbd><span>CxC</span>' +
         '<kbd style="font-family:DM Mono,monospace;background:#F8FAFC;border:1px solid #E2E8F0;border-bottom-width:2px;border-radius:4px;padding:2px 8px;color:#475569">g i</kbd><span>Inventario</span>' +
-        '<kbd style="font-family:DM Mono,monospace;background:#F8FAFC;border:1px solid #E2E8F0;border-bottom-width:2px;border-radius:4px;padding:2px 8px;color:#475569">g r</kbd><span>Resultados</span>' +
+        '<kbd style="font-family:DM Mono,monospace;background:#F8FAFC;border:1px solid #E2E8F0;border-bottom-width:2px;border-radius:4px;padding:2px 8px;color:#475569">g r</kbd><span>Finanzas</span>' +
         '<kbd style="font-family:DM Mono,monospace;background:#F8FAFC;border:1px solid #E2E8F0;border-bottom-width:2px;border-radius:4px;padding:2px 8px;color:#475569">g p</kbd><span>Comparar empresas</span>' +
         '<kbd style="font-family:DM Mono,monospace;background:#F8FAFC;border:1px solid #E2E8F0;border-bottom-width:2px;border-radius:4px;padding:2px 8px;color:#475569">r</kbd><span>Recargar datos</span>' +
         '<kbd style="font-family:DM Mono,monospace;background:#F8FAFC;border:1px solid #E2E8F0;border-bottom-width:2px;border-radius:4px;padding:2px 8px;color:#475569">?</kbd><span>Esta ayuda</span>' +

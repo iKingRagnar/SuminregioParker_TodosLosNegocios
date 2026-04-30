@@ -23,6 +23,6 @@
     { "name": "Ventas",       "url": "/ventas.html" },
     { "name": "CxC",          "url": "/cxc.html" },
     { "name": "Inventario",   "url": "/inventario.html" },
-    { "name": "Resultados",   "url": "/resultados.html" }
+    { "name": "Finanzas",   "url": "/resultados.html" }
   ]
 }

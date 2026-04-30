@@ -10706,7 +10706,7 @@ Si el usuario pregunta por una empresa que no sea la actualmente seleccionada, d
 • CXC: aging buckets (0-30, 31-60, 61-90, +90d), DSO, cartera vencida %, cobranza efectiva
 • Inventario: quiebres, ABC, rotación, días de inventario, punto de reorden, cobertura
 • Consumos: ritmo diario, pareto artículos, quiebres abastecimiento, punto de restock
-• Resultados P&L: margen bruto, costo de ventas, utilidad operativa, tendencia
+• Finanzas (P&L): margen bruto, costo de ventas, utilidad operativa, tendencia
 • Scorecard: cumplimiento por vendedor, ranking, análisis 4D Boostrategy
 • Estadística: correlación, CV, forecast regresión lineal, detección outliers Z-score`;
 
@@ -10722,7 +10722,7 @@ Puedo ayudarte a **interpretar** ventas, cotizaciones, cuentas por cobrar, inven
 • 🎯 Metas — cumplimiento por vendedor hoy y en el mes
 • 👥 Vendedores — ranking, % vs meta, quién va arriba o abajo
 • 📦 Inventario — alertas de quiebre, artículos sin existencia
-• 📊 Resultados P&L — márgenes, gastos, comparativo meses
+• 📊 Finanzas (P&L) — márgenes, gastos, comparativo meses
 • 🔔 Alertas — resumen ejecutivo de todo lo que necesita atención
 
 Ejemplos: "¿Quién va por debajo de la meta hoy?" · "¿Cuántas cotizaciones van este mes?" · "¿Qué artículos están en quiebre?" · "Dame el resumen ejecutivo del día" · "¿Cuál es el margen bruto este mes?"`;
@@ -11198,7 +11198,7 @@ async function aiRunContextTool(toolId, aiReq, dbOpts, ctx = {}) {
 
       return {
         toolId,
-        block: `\n\n**Resultados / P&L (herramienta):**
+        block: `\n\n**Finanzas / P&L (herramienta):**
 - Ventas netas: $${Number(tot.VENTAS_NETAS || 0).toFixed(2)}.
 - Costo de ventas: $${Number(tot.COSTO_VENTAS || 0).toFixed(2)}.
 - Utilidad bruta: $${Number(tot.UTILIDAD_BRUTA || 0).toFixed(2)} (${Number(tot.MARGEN_BRUTO_PCT || 0).toFixed(2)}%).

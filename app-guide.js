@@ -59,7 +59,7 @@
     },
     {
       href: 'resultados.html',
-      title: 'Resultados',
+      title: 'Finanzas',
       body: 'Estado de resultados y métricas financieras del periodo.'
     }
   ];

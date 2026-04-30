@@ -963,7 +963,7 @@
     { href:'clientes.html',   label:'Clientes',     desc:'Top clientes · concentración',               icon:'🏢', color:'#4DA6FF' },
     { href:'director.html',   label:'Director',     desc:'Panel ejecutivo · ventas + cartera + equipo', icon:'📊', color:'#E6A800' },
     { href:'inventario.html', label:'Inventario',   desc:'Existencias · mínimos · artículos sin stock', icon:'📦', color:'#FF8C42' },
-    { href:'resultados.html', label:'Resultados',   desc:'Estado de resultados · PnL · margen bruto',  icon:'📋', color:'#00E5A0' },
+    { href:'resultados.html', label:'Finanzas',   desc:'Estado de resultados · PnL · margen bruto',  icon:'📋', color:'#00E5A0' },
   ];
 
   var _CMD_ACTIONS = [

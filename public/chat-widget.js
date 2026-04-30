@@ -643,7 +643,7 @@
           ${kpiRow('Clientes', c.NUM_CLIENTES)}
         </div>
         <div class="cw-kpi-card">
-          <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:6px;text-transform:uppercase">📈 Resultados</div>
+          <div style="font-size:10px;color:#64748b;font-weight:600;margin-bottom:6px;text-transform:uppercase">📈 Finanzas</div>
           ${kpiRow('Ventas netas (3m)', fmtM(p.VENTAS_NETAS))}
           ${kpiRow('Costo ventas', fmtM(p.COSTO_VENTAS))}
           ${kpiRow('Utilidad bruta', fmtM(p.UTILIDAD_BRUTA))}
@@ -819,7 +819,7 @@
         const data = await resp.json().catch(() => ({}));
         const ttot = (data && data.totales) || {};
         if (resp.ok && Object.keys(ttot).length) {
-          return `Resultados (fallback rápido):\n- Ventas netas: ${fmtMoneyFull(ttot.VENTAS_NETAS)}\n- Costo de ventas: ${fmtMoneyFull(ttot.COSTO_VENTAS)}\n- Utilidad bruta: ${fmtMoneyFull(ttot.UTILIDAD_BRUTA)}\n- Margen bruto: ${Number(ttot.MARGEN_BRUTO_PCT || 0).toFixed(2)}%`;
+          return `Finanzas (fallback rápido):\n- Ventas netas: ${fmtMoneyFull(ttot.VENTAS_NETAS)}\n- Costo de ventas: ${fmtMoneyFull(ttot.COSTO_VENTAS)}\n- Utilidad bruta: ${fmtMoneyFull(ttot.UTILIDAD_BRUTA)}\n- Margen bruto: ${Number(ttot.MARGEN_BRUTO_PCT || 0).toFixed(2)}%`;
         }
       }
     } catch (_) {

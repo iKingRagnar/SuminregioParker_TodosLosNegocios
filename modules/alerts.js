@@ -76,7 +76,7 @@ async function checkKpis(db) {
   const hasCosto = pnl?.totales?.COSTO_VENTAS > 0;
   if (hasCosto && margen < UMBRAL_MARGEN_MIN) {
     alertas.push({
-      modulo: 'Resultados',
+      modulo: 'Finanzas',
       descripcion: `Margen bruto por debajo del objetivo (${UMBRAL_MARGEN_MIN}%)`,
       nivel: margen < 15 ? 'CRÍTICO' : 'ALERTA',
       valor: fmtPct(margen),
