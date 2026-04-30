@@ -3514,7 +3514,9 @@ get('/api/ventas/mensuales', async (req) => {
   const desde = new Date();
   desde.setMonth(desde.getMonth() - mesesN);
   const desdeStr = desde.getFullYear() + '-' + String(desde.getMonth() + 1).padStart(2, '0') + '-01';
-  const f = { sql: ' AND CAST(d.FECHA AS DATE) >= CAST(? AS DATE)', params: [desdeStr] };
+  const vidM = req.query.vendedor ? parseInt(String(req.query.vendedor), 10) : 0;
+  const vendSqlM = vidM > 0 ? ` AND d.VENDEDOR_ID = ${vidM}` : '';
+  const f = { sql: ` AND CAST(d.FECHA AS DATE) >= CAST(? AS DATE)${vendSqlM}`, params: [desdeStr] };
   const tipo = getTipo(req);
   const run = async (dbo) => {
     if (tipo === '') {
@@ -4006,6 +4008,26 @@ get('/api/ventas/cobradas', async (req) => {
   if (!isNaN(vendedorReq) && vendedorReq > 0) {
     out = mapped.filter(r => (+r.VENDEDOR_ID || 0) === vendedorReq);
   }
+  // Cuenta solo-vendedor: si no hay facturas/cobros atribuibles en el periodo, el filtro deja
+  // `out` vacío y la pestaña Cobradas parece "rota". Devolver una fila en cero con nombre.
+  if (!isNaN(vendedorReq) && vendedorReq > 0 && out.length === 0) {
+    const nvRows = await query(
+      'SELECT FIRST 1 NOMBRE FROM VENDEDORES WHERE VENDEDOR_ID = ?',
+      [vendedorReq],
+      5000,
+      dbo
+    ).catch(() => []);
+    const nombre = (nvRows[0] && nvRows[0].NOMBRE) ? nvRows[0].NOMBRE : ('Vendedor ' + vendedorReq);
+    out = [{
+      VENDEDOR_ID: vendedorReq,
+      VENDEDOR: nombre,
+      NOMBRE: nombre,
+      NUM_FACTURAS: 0,
+      FACTURAS_COBRADAS: 0,
+      TOTAL_VENTA: 0,
+      TOTAL_COBRADO: 0,
+    }];
+  }
   const outFacturado = out.reduce((s, r) => s + (+r.TOTAL_VENTA || 0), 0);
   const outCobrado = out.reduce((s, r) => s + (+r.TOTAL_COBRADO || 0), 0);
   // Si hay saldo contable y NO hay filtro vendedor/tipo, lo preferimos para el header
@@ -4466,6 +4488,27 @@ get('/api/ventas/cumplimiento', async (req) => {
       FACTURAS_MES: +d.FACTURAS_MES || 0,
     };
   }).sort((a, b) => b.VENTA_MES - a.VENTA_MES);
+
+  // Solo-vendedor (o filtro por ID): sin ventas en el periodo → filas DISTINCT vacías.
+  // La UI interpretaba [] como "sin vendedores"; mostramos una fila en cero con nombre real.
+  if (vendedorQ != null && vendedorQ > 0 && rowsMapped.length === 0) {
+    const nvRows = await query(
+      'SELECT FIRST 1 NOMBRE FROM VENDEDORES WHERE VENDEDOR_ID = ?',
+      [vendedorQ],
+      5000,
+      dbo
+    ).catch(() => []);
+    const nombre = (nvRows[0] && nvRows[0].NOMBRE) ? nvRows[0].NOMBRE : ('Vendedor ' + vendedorQ);
+    rowsMapped.push({
+      NOMBRE: nombre,
+      VENDEDOR_ID: vendedorQ,
+      VENTA_HOY: 0,
+      VENTA_MES: 0,
+      VENTA_YTD: 0,
+      FACTURAS_HOY: 0,
+      FACTURAS_MES: 0,
+    });
+  }
 
   return rowsMapped.map(r => {
     const sinMeta = (+r.VENDEDOR_ID || 0) <= 0;
