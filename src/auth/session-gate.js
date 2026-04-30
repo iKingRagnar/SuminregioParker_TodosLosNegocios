@@ -24,6 +24,19 @@ function publicDocumentPath(path) {
   if (path === '/favicon.svg' || path === '/favicon.ico') return true;
   if (path === '/manifest.webmanifest') return true;
   if (path === '/robots.txt') return true;
+  // SW y guard del cliente deben servirse sin sesión (Accept */* no es navegación HTML).
+  if (path === '/sw.js' || path === '/auth-guard.js') return true;
+  return false;
+}
+
+/** Solo redirigir al login cuando la petición es navegación a documento HTML (no scripts, imágenes, etc.). */
+function wantsHtmlPageNavigation(req) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return false;
+  const dest = req.headers['sec-fetch-dest'];
+  if (dest === 'document' || dest === 'iframe') return true;
+  const acc = req.headers.accept || '';
+  if (/text\/html/i.test(acc)) return true;
+  if (!dest && !acc) return true;
   return false;
 }
 
@@ -62,13 +75,10 @@ function install(app) {
       });
     }
 
-    if (req.method === 'GET' || req.method === 'HEAD') {
-      const accepts = req.headers.accept || '';
-      if (accepts.includes('text/html') || accepts.includes('*/*') || !accepts) {
-        const nextUrl = encodeURIComponent(req.originalUrl || '/index.html');
-        res.setHeader('Cache-Control', 'no-store');
-        return res.redirect(302, `/login.html?next=${nextUrl}`);
-      }
+    if (wantsHtmlPageNavigation(req)) {
+      const nextUrl = encodeURIComponent(req.originalUrl || '/index.html');
+      res.setHeader('Cache-Control', 'no-store');
+      return res.redirect(302, `/login.html?next=${nextUrl}`);
     }
 
     res.setHeader('Cache-Control', 'no-store');
@@ -76,4 +86,10 @@ function install(app) {
   });
 }
 
-module.exports = { install, publicApiPath, publicDocumentPath, publicHealthPath };
+module.exports = {
+  install,
+  publicApiPath,
+  publicDocumentPath,
+  publicHealthPath,
+  wantsHtmlPageNavigation,
+};
