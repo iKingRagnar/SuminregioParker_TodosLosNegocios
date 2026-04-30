@@ -29,9 +29,11 @@ function publicDocumentPath(path) {
   return false;
 }
 
-/** Solo redirigir al login cuando la petición es navegación a documento HTML (no scripts, imágenes, etc.). */
-function wantsHtmlPageNavigation(req) {
+/** Peticiones que típicamente cargan un documento HTML (navegador o enlaces directos). */
+function wantsHtmlPageNavigation(req, docPath) {
   if (req.method !== 'GET' && req.method !== 'HEAD') return false;
+  const p = docPath || '';
+  if (p === '/' || p === '' || /\.html$/i.test(p)) return true;
   const dest = req.headers['sec-fetch-dest'];
   if (dest === 'document' || dest === 'iframe') return true;
   const acc = req.headers.accept || '';
@@ -75,7 +77,7 @@ function install(app) {
       });
     }
 
-    if (wantsHtmlPageNavigation(req)) {
+    if (wantsHtmlPageNavigation(req, path)) {
       const nextUrl = encodeURIComponent(req.originalUrl || '/index.html');
       res.setHeader('Cache-Control', 'no-store');
       return res.redirect(302, `/login.html?next=${nextUrl}`);

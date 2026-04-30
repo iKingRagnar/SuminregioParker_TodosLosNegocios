@@ -1,16 +1,31 @@
 /**
- * auth-guard.js — Si el servidor usa sesión (AUTH_PROVIDER=session) y no hay usuario,
- * redirige al login aunque el HTML llegue desde caché del navegador o Service Worker viejo.
+ * auth-guard.js — Redirige al login cuando:
+ *  - AUTH_PROVIDER=session y no hay usuario, o
+ *  - modo dummy (usuario anónimo) en un host que no es localhost (despliegue mal configurado).
  */
 (function () {
   'use strict';
-  if (window.__SUMINREGIO_AUTH_GUARD_V3__) return;
-  window.__SUMINREGIO_AUTH_GUARD_V3__ = true;
+  if (window.__SUMINREGIO_AUTH_GUARD_V4__) return;
+  window.__SUMINREGIO_AUTH_GUARD_V4__ = true;
 
   if (typeof location === 'undefined' || location.protocol === 'file:') return;
   var path = location.pathname || '';
   if (/login\.html$/i.test(path) || /portal\.html$/i.test(path)) return;
   if (path.indexOf('/2bi/') !== -1 || /2bi\.html$/i.test(path)) return;
+
+  function isLocalDevHost() {
+    var h = (location.hostname || '').toLowerCase();
+    return h === 'localhost' || h === '127.0.0.1' || h === '' || h === '[::1]';
+  }
+
+  function isAnonDummyUser(d) {
+    if (!d || !d.user) return false;
+    if (String(d.provider || '').toLowerCase() !== 'dummy') return false;
+    var u = d.user;
+    if (u.id === 'anon') return true;
+    if (String(u.email || '').toLowerCase() === 'anon@suminregio.local') return true;
+    return false;
+  }
 
   try {
     var st = document.createElement('style');
@@ -31,9 +46,13 @@
     .then(function (r) { return r.json(); })
     .then(function (d) {
       var prov = String((d && d.provider) || '').toLowerCase();
+      var nextQ = encodeURIComponent(location.pathname + location.search + location.hash || '');
       if (prov === 'session' && (!d || !d.user)) {
-        var n = encodeURIComponent(location.pathname + location.search + location.hash || '');
-        location.replace('/login.html?next=' + n);
+        location.replace('/login.html?next=' + nextQ);
+        return;
+      }
+      if (!isLocalDevHost() && isAnonDummyUser(d)) {
+        location.replace('/login.html?next=' + nextQ + '&misconfigured=1');
         return;
       }
       release();

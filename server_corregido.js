@@ -101,6 +101,11 @@ function sqlVentaImporteResultadosExpr(alias = 'd') {
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 const IS_SESSION_AUTH = String(process.env.AUTH_PROVIDER || '').toLowerCase() === 'session';
+console.log(
+  '[auth] AUTH_PROVIDER=%s session-gate=%s',
+  process.env.AUTH_PROVIDER || '(unset→dummy)',
+  IS_SESSION_AUTH ? 'ON' : 'OFF'
+);
 
 /**
  * En hosting de producción, AUTH_PROVIDER=dummy asigna anon@suminregio.local como admin a todos
