@@ -8,103 +8,158 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
+  /* Paleta alineada a Dashboard Ventas / Power BI — Suminregio Industrial */
   :root {
-    --page: #ffffff;
-    --text: #0f172a;
-    --text-soft: #334155;
-    --muted: #64748b;
-    --border: #e2e8f0;
-    --input-bg: #f8fafc;
-    --gold: #c2410c;
-    --gold-bright: #ea580c;
-    --gold-muted: rgba(234, 88, 12, 0.15);
+    --bg: #060E1A;
+    --card: #0C1B29;
+    --card2: #0F2030;
+    --text: #E8EFF8;
+    --text-soft: rgba(232, 239, 248, 0.82);
+    --muted: rgba(232, 239, 248, 0.45);
+    --border: rgba(255, 255, 255, 0.08);
+    --border2: rgba(255, 255, 255, 0.14);
+    --gold: #E6A800;
+    --gold-dim: rgba(230, 168, 0, 0.18);
+    --blue: #4DA6FF;
+    --blue-dim: rgba(77, 166, 255, 0.12);
+    --green: #00E5A0;
+    --input-bg: rgba(15, 32, 48, 0.85);
+    --font-title: 'Syne', system-ui, sans-serif;
+    --font-mono: 'DM Mono', ui-monospace, monospace;
   }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { min-height: 100%; height: 100%; }
   body {
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: var(--font-title);
     color: var(--text);
     line-height: 1.45;
     overflow-x: hidden;
-    background: var(--page);
+    background: var(--bg);
+  }
+  .bg-orbs {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+  .bg-orbs span {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    opacity: 0.22;
+    animation: orb-drift 22s ease-in-out infinite alternate;
+  }
+  .bg-orbs span:nth-child(1) {
+    width: 520px;
+    height: 520px;
+    background: var(--blue);
+    top: -140px;
+    left: -100px;
+  }
+  .bg-orbs span:nth-child(2) {
+    width: 420px;
+    height: 420px;
+    background: var(--gold);
+    bottom: -80px;
+    left: 10%;
+    animation-delay: -6s;
+    opacity: 0.15;
+  }
+  .bg-orbs span:nth-child(3) {
+    width: 320px;
+    height: 320px;
+    background: var(--green);
+    top: 35%;
+    right: -40px;
+    animation-delay: -10s;
+    opacity: 0.1;
+  }
+  @keyframes orb-drift {
+    from { transform: translate(0, 0) scale(1); }
+    to { transform: translate(24px, 20px) scale(1.05); }
   }
   .shell {
+    position: relative;
+    z-index: 1;
     min-height: 100vh;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    background: var(--page);
   }
   @media (max-width: 960px) {
     .shell { grid-template-columns: 1fr; }
-    .hero { order: 2; min-height: auto; padding-bottom: 1.5rem; border-left: none; }
-    .panel-wrap { order: 1; min-height: min(70vh, 640px); padding: 1.25rem 1rem 1.5rem; }
+    .hero { order: 1; min-height: auto; padding-bottom: 1.5rem; border-right: none; border-bottom: 1px solid var(--border); }
+    .panel-wrap { order: 2; min-height: min(70vh, 640px); padding: 1.25rem 1rem 1.5rem; }
     .hero-inner { padding: 1.75rem 1.5rem 1rem; }
     .role-row { padding: 0 1.5rem 1.25rem; }
     .sign-accent { display: none; }
   }
   .hero {
     position: relative;
-    background: var(--page);
-    border-right: 1px solid var(--border);
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    border-right: 1px solid var(--border);
+    background: linear-gradient(165deg, rgba(12, 27, 41, 0.5) 0%, transparent 55%);
   }
-  .hero-inner { position: relative; z-index: 1; padding: 2.5rem 2.75rem; max-width: 520px; }
-  .logo-frame {
+  .hero-inner { position: relative; z-index: 1; padding: 2.5rem 2.75rem; max-width: 540px; }
+  .brand-lockup {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    padding: 0.45rem 1rem;
-    border: 2px solid var(--text);
-    border-radius: 10px;
-    background: var(--page);
-    box-shadow: 0 1px 0 rgba(15, 23, 42, 0.06);
+    gap: 0;
+    text-decoration: none;
+    color: inherit;
   }
-  .logo-frame span {
-    font-weight: 800;
-    font-size: clamp(1.15rem, 2.5vw, 1.45rem);
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--text);
+  .brand-lockup img {
+    height: clamp(44px, 8vw, 52px);
+    width: auto;
+    display: block;
+    filter: drop-shadow(0 4px 20px rgba(230, 168, 0, 0.25));
   }
   .hero h2 {
-    margin-top: 1.75rem;
-    font-size: clamp(1.5rem, 3vw, 2rem);
-    font-weight: 700;
+    margin-top: 1.65rem;
+    font-size: clamp(1.55rem, 3.2vw, 2.05rem);
+    font-weight: 800;
     letter-spacing: -0.03em;
-    line-height: 1.15;
+    line-height: 1.12;
     color: var(--text);
+    background: linear-gradient(135deg, var(--text) 0%, rgba(232, 239, 248, 0.75) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
   .hero .lead {
-    margin-top: 0.65rem;
-    font-size: 0.95rem;
-    color: var(--text-soft);
-    max-width: 34em;
+    margin-top: 0.7rem;
+    font-size: 0.92rem;
+    font-family: var(--font-mono);
+    color: var(--muted);
+    max-width: 36em;
+    line-height: 1.65;
   }
   .features {
     margin-top: 1.85rem;
     list-style: none;
     display: flex;
     flex-direction: column;
-    gap: 0.85rem;
+    gap: 0.9rem;
   }
   .features li {
     display: flex;
     align-items: flex-start;
-    gap: 0.65rem;
-    font-size: 0.9rem;
+    gap: 0.7rem;
+    font-size: 0.88rem;
+    font-weight: 500;
     color: var(--text-soft);
   }
   .features svg {
     flex-shrink: 0;
     width: 20px;
     height: 20px;
-    margin-top: 1px;
+    margin-top: 2px;
     color: var(--gold);
-    opacity: 1;
+    filter: drop-shadow(0 0 8px rgba(230, 168, 0, 0.35));
   }
   .role-row {
     position: relative;
@@ -115,29 +170,33 @@
     padding: 1.25rem 2.75rem 2rem;
   }
   .pill {
-    font-size: 0.7rem;
-    font-weight: 600;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    padding: 0.35rem 0.7rem;
+    letter-spacing: 0.1em;
+    padding: 0.4rem 0.75rem;
     border-radius: 999px;
-    border: 1px solid var(--border);
-    background: #f1f5f9;
-    color: var(--muted);
+    border: 1px solid var(--border2);
+    background: var(--blue-dim);
+    color: var(--blue);
   }
   .panel-wrap {
-    background: var(--page);
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 1.5rem;
     position: relative;
+    background: linear-gradient(200deg, rgba(6, 14, 26, 0.4) 0%, rgba(12, 27, 41, 0.25) 100%);
   }
   .sign-accent {
     position: absolute;
     top: 1rem;
     right: 1.5rem;
-    font-size: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
     color: var(--muted);
   }
   .card {
@@ -145,9 +204,11 @@
     max-width: 420px;
     padding: 2rem 2rem 1.75rem;
     border-radius: 18px;
-    background: var(--page);
-    border: 1px solid var(--border);
-    box-shadow: 0 10px 40px rgba(15, 23, 42, 0.06);
+    background: rgba(12, 27, 41, 0.88);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border2);
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(230, 168, 0, 0.06);
   }
   .card-head {
     text-align: center;
@@ -161,26 +222,29 @@
     align-items: center;
     justify-content: center;
     border-radius: 12px;
-    background: var(--gold-muted);
-    border: 1px solid rgba(234, 88, 12, 0.25);
-    color: var(--gold-bright);
+    background: var(--gold-dim);
+    border: 1px solid rgba(230, 168, 0, 0.35);
+    color: var(--gold);
+    box-shadow: 0 0 20px rgba(230, 168, 0, 0.15);
   }
   .card-head h1 {
-    font-size: 1.35rem;
-    font-weight: 700;
+    font-size: 1.32rem;
+    font-weight: 800;
     letter-spacing: -0.02em;
     color: var(--text);
   }
   .card-head p {
-    margin-top: 0.35rem;
-    font-size: 0.85rem;
+    margin-top: 0.4rem;
+    font-size: 0.82rem;
+    font-family: var(--font-mono);
     color: var(--muted);
+    line-height: 1.5;
   }
   label {
     display: flex;
     align-items: center;
     gap: 0.4rem;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     font-weight: 600;
     margin-bottom: 0.4rem;
     color: var(--text-soft);
@@ -189,7 +253,8 @@
   .hint {
     display: block;
     font-weight: 400;
-    font-size: 0.72rem;
+    font-size: 0.7rem;
+    font-family: var(--font-mono);
     color: var(--muted);
     margin: -0.15rem 0 0.55rem;
   }
@@ -203,20 +268,20 @@
   input[type="password"] {
     width: 100%;
     padding: 0.72rem 0.85rem;
-    font-size: 0.95rem;
-    font-family: inherit;
+    font-size: 0.92rem;
+    font-family: var(--font-mono);
     border: 1px solid var(--border);
     border-radius: 10px;
     background: var(--input-bg);
     color: var(--text);
     transition: border-color 0.15s, box-shadow 0.15s;
   }
-  input::placeholder { color: #94a3b8; }
+  input::placeholder { color: rgba(232, 239, 248, 0.35); }
   input:focus {
     outline: none;
-    border-color: var(--gold-bright);
-    box-shadow: 0 0 0 3px var(--gold-muted);
-    background: #fff;
+    border-color: rgba(230, 168, 0, 0.55);
+    box-shadow: 0 0 0 3px var(--gold-dim);
+    background: rgba(15, 32, 48, 0.95);
   }
   .toggle-pw {
     position: absolute;
@@ -233,63 +298,66 @@
     align-items: center;
     justify-content: center;
   }
-  .toggle-pw:hover { color: var(--text); background: rgba(15, 23, 42, 0.06); }
-  .toggle-pw:focus-visible { outline: 2px solid var(--gold-bright); outline-offset: 1px; }
+  .toggle-pw:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+  .toggle-pw:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
   button[type="submit"] {
     width: 100%;
     margin-top: 0.35rem;
-    padding: 0.82rem 1rem;
-    font-size: 0.95rem;
-    font-weight: 600;
-    font-family: inherit;
+    padding: 0.85rem 1rem;
+    font-size: 0.92rem;
+    font-weight: 700;
+    font-family: var(--font-title);
     border: none;
-    border-radius: 10px;
+    border-radius: 12px;
     cursor: pointer;
-    color: #fff;
-    background: linear-gradient(180deg, var(--gold-bright), var(--gold));
-    box-shadow: 0 4px 14px rgba(234, 88, 12, 0.35);
+    color: #060E1A;
+    background: linear-gradient(135deg, #f0c030 0%, var(--gold) 45%, #c78a00 100%);
+    box-shadow: 0 6px 24px rgba(230, 168, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.12) inset;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
     transition: filter 0.15s, transform 0.1s;
   }
-  button[type="submit"]:hover { filter: brightness(1.06); }
+  button[type="submit"]:hover { filter: brightness(1.08); }
   button[type="submit"]:active { transform: translateY(1px); }
   button[type="submit"]:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
   .err {
     display: none;
     margin: 0 0 0.75rem;
-    padding: 0.55rem 0.7rem;
-    font-size: 0.8rem;
-    background: #fef2f2;
-    border: 1px solid #fecaca;
-    border-radius: 8px;
-    color: #991b1b;
+    padding: 0.55rem 0.75rem;
+    font-size: 0.78rem;
+    font-family: var(--font-mono);
+    background: rgba(255, 69, 102, 0.12);
+    border: 1px solid rgba(255, 69, 102, 0.35);
+    border-radius: 10px;
+    color: #fda4af;
   }
   .mis-banner {
     display: none;
     margin: 0 0 1rem;
     padding: 0.7rem 0.85rem;
-    font-size: 0.78rem;
-    line-height: 1.45;
-    background: #fffbeb;
-    border: 1px solid #fde68a;
+    font-size: 0.76rem;
+    font-family: var(--font-mono);
+    line-height: 1.5;
+    background: rgba(230, 168, 0, 0.1);
+    border: 1px solid rgba(230, 168, 0, 0.3);
     border-radius: 10px;
-    color: #854d0e;
+    color: #fde68a;
   }
-  .mis-banner strong { display: block; margin-bottom: 0.35rem; font-size: 0.82rem; color: #713f12; }
-  .mis-banner code { font-family: ui-monospace, monospace; font-size: 0.72rem; color: #a16207; }
+  .mis-banner strong { display: block; margin-bottom: 0.35rem; font-size: 0.8rem; color: var(--gold); font-family: var(--font-title); }
+  .mis-banner code { font-family: var(--font-mono); font-size: 0.7rem; color: rgba(253, 230, 138, 0.85); }
   .gate-banner {
     display: none;
     margin: 0 0 1rem;
     padding: 0.7rem 0.85rem;
-    font-size: 0.78rem;
-    line-height: 1.45;
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
+    font-size: 0.76rem;
+    font-family: var(--font-mono);
+    line-height: 1.5;
+    background: rgba(77, 166, 255, 0.1);
+    border: 1px solid rgba(77, 166, 255, 0.28);
     border-radius: 10px;
-    color: #1e40af;
+    color: #93c5fd;
   }
   .access-foot {
     margin-top: 1.35rem;
@@ -297,10 +365,11 @@
     border-top: 1px solid var(--border);
   }
   .access-foot h3 {
-    font-size: 0.72rem;
-    font-weight: 600;
+    font-size: 0.68rem;
+    font-weight: 700;
+    font-family: var(--font-mono);
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.12em;
     color: var(--muted);
     text-align: center;
     margin-bottom: 0.75rem;
@@ -314,27 +383,33 @@
     .access-grid { grid-template-columns: 1fr; }
   }
   .access-grid article {
-    padding: 0.55rem 0.5rem;
+    padding: 0.55rem 0.45rem;
     border-radius: 10px;
-    background: #f8fafc;
+    background: var(--card2);
     border: 1px solid var(--border);
-    font-size: 0.68rem;
+    font-size: 0.65rem;
+    font-family: var(--font-mono);
     color: var(--muted);
     text-align: center;
   }
   .access-grid strong {
     display: block;
-    font-size: 0.72rem;
+    font-size: 0.68rem;
+    font-family: var(--font-title);
+    font-weight: 700;
     color: var(--text-soft);
-    margin-bottom: 0.2rem;
+    margin-bottom: 0.25rem;
   }
 </style>
 </head>
 <body>
+  <div class="bg-orbs" aria-hidden="true"><span></span><span></span><span></span></div>
   <div class="shell">
     <section class="hero" aria-label="Marca">
       <div class="hero-inner">
-        <div class="logo-frame"><span>Suminregio</span></div>
+        <a class="brand-lockup" href="/" aria-label="Suminregio Industrial — inicio">
+          <img src="/logo-suminregio-industrial.svg" width="220" height="48" alt="Suminregio Industrial">
+        </a>
         <h2>Panel ejecutivo Parker</h2>
         <p class="lead">Scorecard, KPIs, ventas y operación en una sola plataforma con acceso seguro por roles.</p>
         <ul class="features">
