@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 240" role="img" aria-label="Suminregio Industrial">
+  <!-- Placa blanca tipo Cover Page Ventas (Power BI) -->
+  <rect width="360" height="240" fill="#ffffff" rx="10"/>
+  <!-- Marca geométrica: S con piezas negras (#1A1A1A) y amarillas (#F2C200) -->
+  <g transform="translate(180,88)" aria-hidden="true">
+    <g transform="translate(-50,-50)">
+      <path fill="#1a1a1a" d="M10 6 L50 6 L42 32 L10 30 Z"/>
+      <path fill="#F2C200" d="M50 6 L90 6 L90 32 L46 32 Z"/>
+      <path fill="#F2C200" d="M10 36 L44 36 L52 62 L10 58 Z"/>
+      <path fill="#1a1a1a" d="M44 36 L90 36 L90 62 L48 62 Z"/>
+    </g>
+  </g>
+  <text x="180" y="168" text-anchor="middle" font-family="Arial Black, Helvetica Neue, sans-serif" font-size="23" font-weight="800" fill="#1a1a1a">SUMINREGIO</text>
+  <text x="180" y="198" text-anchor="middle" font-family="Arial, Helvetica Neue, sans-serif" font-size="11.5" font-weight="600" fill="#1a1a1a" letter-spacing="0.45em">INDUSTRIAL</text>
+</svg>

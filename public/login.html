@@ -8,269 +8,188 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
-  /* Paleta alineada a Dashboard Ventas / Power BI — Suminregio Industrial */
+  /* Portada alineada a pestaña Cover Page — reporte Ventas (Power BI): amarillo + negro + placa blanca */
   :root {
-    --bg: #060E1A;
-    --card: #0C1B29;
-    --card2: #0F2030;
-    --text: #E8EFF8;
-    --text-soft: rgba(232, 239, 248, 0.82);
-    --muted: rgba(232, 239, 248, 0.45);
-    --border: rgba(255, 255, 255, 0.08);
-    --border2: rgba(255, 255, 255, 0.14);
-    --gold: #E6A800;
-    --gold-dim: rgba(230, 168, 0, 0.18);
-    --blue: #4DA6FF;
-    --blue-dim: rgba(77, 166, 255, 0.12);
-    --green: #00E5A0;
-    --input-bg: rgba(15, 32, 48, 0.85);
-    --font-title: 'Syne', system-ui, sans-serif;
-    --font-mono: 'DM Mono', ui-monospace, monospace;
+    --pb-yellow: #F2C200;
+    --pb-yellow-deep: #d9ae00;
+    --pb-black: #1a1a1a;
+    --pb-white: #ffffff;
+    --pb-muted: rgba(255, 255, 255, 0.78);
+    --font-serif: "Libre Baskerville", Georgia, "Times New Roman", serif;
+    --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
   }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { min-height: 100%; height: 100%; }
+  html, body { min-height: 100%; }
   body {
-    font-family: var(--font-title);
-    color: var(--text);
+    font-family: var(--font-sans);
+    color: var(--pb-white);
     line-height: 1.45;
-    overflow-x: hidden;
-    background: var(--bg);
+    background: var(--pb-black);
   }
   .page {
-    position: relative;
-    z-index: 1;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
   }
-  .site-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 1rem 2rem 0.9rem;
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-    background: linear-gradient(180deg, rgba(6, 14, 26, 0.92) 0%, rgba(6, 14, 26, 0.4) 100%);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-  }
-  .brand-top {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.65rem;
-    text-decoration: none;
-    color: var(--text);
-  }
-  .brand-mark {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    background: radial-gradient(circle at 32% 28%, #5dffc4 0%, var(--green) 42%, #009272 100%);
-    box-shadow: 0 0 28px rgba(0, 229, 160, 0.38);
-  }
-  /* Sustituir .brand-mark por <img class="brand-mark" src="/suminregio-logo.png"> cuando exportes el logo desde Ventas.pbix */
-  .brand-text {
-    font-weight: 800;
-    font-size: clamp(0.94rem, 2.2vw, 1.06rem);
-    letter-spacing: -0.02em;
-    line-height: 1.15;
-  }
-  .brand-sub {
-    font-weight: 700;
-    opacity: 0.88;
-  }
-  .site-tag {
-    font-family: var(--font-mono);
-    font-size: 0.65rem;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
-  .bg-orbs {
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-    overflow: hidden;
-  }
-  .bg-orbs span {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(100px);
-    opacity: 0.22;
-    animation: orb-drift 22s ease-in-out infinite alternate;
-  }
-  .bg-orbs span:nth-child(1) {
-    width: 520px;
-    height: 520px;
-    background: var(--blue);
-    top: -140px;
-    left: -100px;
-  }
-  .bg-orbs span:nth-child(2) {
-    width: 420px;
-    height: 420px;
-    background: var(--gold);
-    bottom: -80px;
-    left: 10%;
-    animation-delay: -6s;
-    opacity: 0.15;
-  }
-  .bg-orbs span:nth-child(3) {
-    width: 320px;
-    height: 320px;
-    background: var(--green);
-    top: 35%;
-    right: -40px;
-    animation-delay: -10s;
-    opacity: 0.1;
-  }
-  @keyframes orb-drift {
-    from { transform: translate(0, 0) scale(1); }
-    to { transform: translate(24px, 20px) scale(1.05); }
-  }
   .shell {
     flex: 1;
-    min-height: 0;
-    position: relative;
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.15fr);
+    min-height: 0;
   }
-  @media (max-width: 960px) {
-    .site-header { padding: 0.85rem 1rem; flex-wrap: wrap; }
-    .site-tag { margin-left: auto; }
+  @media (max-width: 900px) {
     .shell { grid-template-columns: 1fr; }
-    .hero { order: 1; min-height: auto; padding-bottom: 1.5rem; border-right: none; border-bottom: 1px solid var(--border); }
-    .panel-wrap { order: 2; min-height: min(70vh, 640px); padding: 1.25rem 1rem 1.5rem; }
-    .hero-inner { padding: 1.75rem 1.5rem 1rem; }
-    .role-row { padding: 0 1.5rem 1.25rem; }
+    .cover-left { min-height: 220px; padding: 1.5rem 1rem; }
+    .cover-right-inner { padding: 1.25rem 1rem 2rem; }
   }
-  .hero {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    border-right: 1px solid var(--border);
-    background: linear-gradient(165deg, rgba(12, 27, 41, 0.5) 0%, transparent 55%);
-  }
-  .hero-inner { position: relative; z-index: 1; padding: 2.5rem 2.75rem; max-width: 540px; }
-  .hero h2 {
-    margin-top: 0.15rem;
-    font-size: clamp(1.55rem, 3.2vw, 2.05rem);
-    font-weight: 800;
-    letter-spacing: -0.03em;
-    line-height: 1.12;
-    color: var(--text);
-    background: linear-gradient(135deg, var(--text) 0%, rgba(232, 239, 248, 0.75) 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  .hero .lead {
-    margin-top: 0.7rem;
-    font-size: 0.92rem;
-    font-family: var(--font-mono);
-    color: var(--muted);
-    max-width: 36em;
-    line-height: 1.65;
-  }
-  .features {
-    margin-top: 1.85rem;
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 0.9rem;
-  }
-  .features li {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.7rem;
-    font-size: 0.88rem;
-    font-weight: 500;
-    color: var(--text-soft);
-  }
-  .features svg {
-    flex-shrink: 0;
-    width: 20px;
-    height: 20px;
-    margin-top: 2px;
-    color: var(--gold);
-    filter: drop-shadow(0 0 8px rgba(230, 168, 0, 0.35));
-  }
-  .role-row {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    padding: 1.25rem 2.75rem 2rem;
-  }
-  .pill {
-    font-family: var(--font-mono);
-    font-size: 0.65rem;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    padding: 0.4rem 0.75rem;
-    border-radius: 999px;
-    border: 1px solid rgba(77, 166, 255, 0.5);
-    background: rgba(77, 166, 255, 0.08);
-    color: var(--text-soft);
-  }
-  .panel-wrap {
+  .cover-left {
+    background: var(--pb-yellow);
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 1.5rem;
-    position: relative;
-    background: linear-gradient(200deg, rgba(6, 14, 26, 0.4) 0%, rgba(12, 27, 41, 0.25) 100%);
+    padding: 2rem 1.5rem;
+  }
+  .logo-plate {
+    background: var(--pb-white);
+    border-radius: 10px;
+    padding: 1.35rem 1.75rem 1.5rem;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+    max-width: min(360px, 92vw);
+  }
+  .logo-plate img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-width: 320px;
+    margin: 0 auto;
+  }
+  .cover-right {
+    background: var(--pb-black);
+    min-height: 0;
+    overflow: auto;
+  }
+  .cover-right-inner {
+    padding: 1.75rem 2.25rem 2rem;
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  .cover-deco-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+  .deco-chart {
+    width: 56px;
+    height: 56px;
+    color: var(--pb-white);
+    opacity: 0.95;
+  }
+  .deco-arrow {
+    font-size: 2.75rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--pb-yellow);
+    user-select: none;
+  }
+  .cover-title {
+    font-family: var(--font-serif);
+    font-size: clamp(1.65rem, 4vw, 2.35rem);
+    font-weight: 700;
+    font-style: italic;
+    color: var(--pb-white);
+    letter-spacing: 0.02em;
+    margin-bottom: 0.35rem;
+  }
+  .cover-sub {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--pb-muted);
+    margin-bottom: 1.25rem;
+  }
+  .nota-box {
+    border-left: 4px solid var(--pb-yellow);
+    padding: 0.85rem 1rem 1rem;
+    margin-bottom: 1.5rem;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 0 8px 8px 0;
+  }
+  .nota-box h2 {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--pb-yellow);
+    margin-bottom: 0.6rem;
+  }
+  .nota-box p, .nota-box li {
+    font-size: 0.8rem;
+    color: var(--pb-muted);
+    line-height: 1.55;
+  }
+  .nota-box ul {
+    margin-top: 0.5rem;
+    padding-left: 1.1rem;
+  }
+  .role-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin-bottom: 1.25rem;
+  }
+  .pill {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0.35rem 0.65rem;
+    border-radius: 999px;
+    border: 1px solid var(--pb-yellow);
+    color: var(--pb-yellow);
+    background: transparent;
+  }
+  .panel-wrap {
+    display: block;
   }
   .card {
     width: 100%;
-    max-width: 420px;
-    padding: 2rem 2rem 1.75rem;
-    border-radius: 18px;
-    background: rgba(12, 27, 41, 0.88);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid var(--border2);
-    box-shadow:
-      0 0 0 1px rgba(230, 168, 0, 0.12),
-      0 24px 64px rgba(0, 0, 0, 0.45),
-      0 0 72px rgba(230, 168, 0, 0.08);
+    padding: 1.75rem 1.75rem 1.5rem;
+    border-radius: 14px;
+    background: var(--pb-white);
+    color: var(--pb-black);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(0, 0, 0, 0.06);
   }
   .card-head {
     text-align: center;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.35rem;
   }
   .card-head .lock {
     width: 44px;
     height: 44px;
-    margin: 0 auto 0.75rem;
+    margin: 0 auto 0.65rem;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 8px;
-    background: linear-gradient(145deg, rgba(230, 168, 0, 0.35), var(--gold-dim));
-    border: 1px solid rgba(230, 168, 0, 0.45);
-    color: var(--gold);
-    box-shadow: 0 0 22px rgba(230, 168, 0, 0.2);
+    background: var(--pb-yellow);
+    border: 2px solid var(--pb-black);
+    color: var(--pb-black);
   }
   .card-head h1 {
-    font-size: 1.32rem;
+    font-size: 1.28rem;
     font-weight: 800;
     letter-spacing: -0.02em;
-    color: var(--text);
+    color: var(--pb-black);
+    font-family: var(--font-sans);
   }
   .card-head p {
-    margin-top: 0.4rem;
+    margin-top: 0.35rem;
     font-size: 0.82rem;
-    font-family: var(--font-mono);
-    color: var(--muted);
+    color: #475569;
     line-height: 1.5;
   }
   label {
@@ -279,54 +198,41 @@
     gap: 0.4rem;
     font-size: 0.78rem;
     font-weight: 600;
-    margin-bottom: 0.4rem;
-    color: var(--text-soft);
+    margin-bottom: 0.35rem;
+    color: #334155;
   }
-  label svg { opacity: 0.85; flex-shrink: 0; color: var(--muted); }
+  label svg { opacity: 0.85; flex-shrink: 0; color: #64748b; }
   .hint {
     display: block;
     font-weight: 400;
-    font-size: 0.7rem;
-    font-family: var(--font-mono);
-    color: var(--muted);
-    margin: -0.15rem 0 0.55rem;
+    font-size: 0.68rem;
+    color: #64748b;
+    margin: -0.1rem 0 0.5rem;
   }
-  .field { margin-bottom: 1rem; }
+  .field { margin-bottom: 0.95rem; }
   .input-wrap {
     position: relative;
     display: flex;
     align-items: center;
   }
-  input[type="text"],
-  input[type="password"] {
+  .card input[type="text"],
+  .card input[type="password"] {
     width: 100%;
     padding: 0.72rem 0.85rem;
     font-size: 0.92rem;
-    font-family: var(--font-mono);
-    border: 1px solid var(--border);
+    font-family: var(--font-sans);
+    border: 1px solid #cbd5e1;
     border-radius: 10px;
-    background: var(--input-bg);
-    color: var(--text);
+    background: #f8fafc;
+    color: var(--pb-black);
     transition: border-color 0.15s, box-shadow 0.15s;
   }
-  .card input[type="text"],
-  .card input[type="password"] {
-    background: #ffffff;
-    color: #0f172a;
-    border: 1px solid rgba(15, 23, 42, 0.14);
-  }
-  input::placeholder { color: rgba(232, 239, 248, 0.35); }
-  .card input::placeholder { color: #64748b; }
-  input:focus {
-    outline: none;
-    border-color: rgba(230, 168, 0, 0.55);
-    box-shadow: 0 0 0 3px var(--gold-dim);
-    background: rgba(15, 32, 48, 0.95);
-  }
+  .card input::placeholder { color: #94a3b8; }
   .card input:focus {
-    border-color: rgba(230, 168, 0, 0.65);
-    box-shadow: 0 0 0 3px var(--gold-dim);
-    background: #ffffff;
+    outline: none;
+    border-color: var(--pb-yellow-deep);
+    box-shadow: 0 0 0 3px rgba(242, 194, 0, 0.35);
+    background: #fff;
   }
   .toggle-pw {
     position: absolute;
@@ -337,214 +243,228 @@
     background: transparent;
     padding: 0.35rem 0.5rem;
     cursor: pointer;
-    color: var(--muted);
+    color: #64748b;
     border-radius: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
   }
-  .toggle-pw:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
-  .card .toggle-pw { color: #64748b; }
-  .card .toggle-pw:hover { color: #0f172a; background: rgba(15, 23, 42, 0.06); }
-  .toggle-pw:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
+  .toggle-pw:hover { color: var(--pb-black); background: rgba(15, 23, 42, 0.06); }
+  .toggle-pw:focus-visible { outline: 2px solid var(--pb-yellow); outline-offset: 1px; }
   button[type="submit"] {
     width: 100%;
     margin-top: 0.35rem;
     padding: 0.85rem 1rem;
-    font-size: 0.92rem;
-    font-weight: 700;
-    font-family: var(--font-title);
-    border: none;
+    font-size: 0.95rem;
+    font-weight: 800;
+    font-family: var(--font-sans);
+    border: 2px solid var(--pb-black);
     border-radius: 12px;
     cursor: pointer;
-    color: #060E1A;
-    background: linear-gradient(135deg, #f0c030 0%, var(--gold) 45%, #c78a00 100%);
-    box-shadow: 0 6px 24px rgba(230, 168, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.12) inset;
+    color: var(--pb-black);
+    background: var(--pb-yellow);
+    box-shadow: 0 4px 0 var(--pb-black);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
     transition: filter 0.15s, transform 0.1s;
   }
-  button[type="submit"]:hover { filter: brightness(1.08); }
-  button[type="submit"]:active { transform: translateY(1px); }
-  button[type="submit"]:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+  button[type="submit"]:hover { filter: brightness(1.05); }
+  button[type="submit"]:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--pb-black); }
+  button[type="submit"]:disabled { opacity: 0.55; cursor: not-allowed; transform: none; box-shadow: 0 4px 0 var(--pb-black); }
   .err {
     display: none;
     margin: 0 0 0.75rem;
     padding: 0.55rem 0.75rem;
     font-size: 0.78rem;
-    font-family: var(--font-mono);
-    background: rgba(255, 69, 102, 0.12);
-    border: 1px solid rgba(255, 69, 102, 0.35);
+    background: #fef2f2;
+    border: 1px solid #fecaca;
     border-radius: 10px;
-    color: #fda4af;
+    color: #991b1b;
   }
   .mis-banner {
     display: none;
     margin: 0 0 1rem;
-    padding: 0.7rem 0.85rem;
-    font-size: 0.76rem;
-    font-family: var(--font-mono);
+    padding: 0.65rem 0.8rem;
+    font-size: 0.74rem;
     line-height: 1.5;
-    background: rgba(230, 168, 0, 0.1);
-    border: 1px solid rgba(230, 168, 0, 0.3);
+    background: #fffbeb;
+    border: 1px solid #fde68a;
     border-radius: 10px;
-    color: #fde68a;
+    color: #854d0e;
   }
-  .mis-banner strong { display: block; margin-bottom: 0.35rem; font-size: 0.8rem; color: var(--gold); font-family: var(--font-title); }
-  .mis-banner code { font-family: var(--font-mono); font-size: 0.7rem; color: rgba(253, 230, 138, 0.85); }
+  .mis-banner strong { display: block; margin-bottom: 0.35rem; font-size: 0.8rem; color: #713f12; }
+  .mis-banner code { font-family: ui-monospace, monospace; font-size: 0.68rem; color: #a16207; }
   .gate-banner {
     display: none;
     margin: 0 0 1rem;
-    padding: 0.7rem 0.85rem;
-    font-size: 0.76rem;
-    font-family: var(--font-mono);
+    padding: 0.65rem 0.8rem;
+    font-size: 0.74rem;
     line-height: 1.5;
-    background: rgba(77, 166, 255, 0.1);
-    border: 1px solid rgba(77, 166, 255, 0.28);
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
     border-radius: 10px;
-    color: #93c5fd;
+    color: #1e40af;
   }
   .access-foot {
-    margin-top: 1.35rem;
-    padding-top: 1.2rem;
-    border-top: 1px solid var(--border);
+    margin-top: 1.25rem;
+    padding-top: 1.1rem;
+    border-top: 1px solid #e2e8f0;
   }
   .access-foot h3 {
-    font-size: 0.68rem;
-    font-weight: 700;
-    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.12em;
-    color: var(--muted);
+    color: #64748b;
     text-align: center;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.65rem;
   }
   .access-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 0.5rem;
+    gap: 0.45rem;
   }
   @media (max-width: 400px) {
     .access-grid { grid-template-columns: 1fr; }
   }
   .access-grid article {
-    padding: 0.55rem 0.45rem;
-    border-radius: 10px;
-    background: var(--card2);
-    border: 1px solid var(--border);
-    font-size: 0.65rem;
-    font-family: var(--font-mono);
-    color: var(--muted);
+    padding: 0.5rem 0.4rem;
+    border-radius: 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    font-size: 0.62rem;
+    color: #64748b;
     text-align: center;
   }
   .access-grid strong {
     display: block;
-    font-size: 0.68rem;
-    font-family: var(--font-title);
+    font-size: 0.66rem;
     font-weight: 700;
-    color: var(--text-soft);
-    margin-bottom: 0.25rem;
+    color: #334155;
+    margin-bottom: 0.2rem;
+  }
+  .pb-footer {
+    flex-shrink: 0;
+    background: var(--pb-yellow);
+    color: var(--pb-black);
+    padding: 0.45rem 1.25rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-align: center;
+    border-top: 2px solid var(--pb-black);
   }
 </style>
 </head>
 <body>
-  <div class="bg-orbs" aria-hidden="true"><span></span><span></span><span></span></div>
   <div class="page">
-  <header class="site-header">
-    <a class="brand-top" href="/" aria-label="Suminregio Industrial — inicio">
-      <span class="brand-mark" aria-hidden="true"></span>
-      <span class="brand-text">Suminregio <span class="brand-sub">Industrial</span></span>
-    </a>
-    <span class="site-tag">Industrial — BI</span>
-  </header>
-  <div class="shell">
-    <section class="hero" aria-label="Marca">
-      <div class="hero-inner">
-        <h2>Panel ejecutivo Parker</h2>
-        <p class="lead">Scorecard, KPIs, ventas y operación en una sola plataforma con acceso seguro por roles.</p>
-        <ul class="features">
-          <li>
-            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"/></svg>
-            Acceso seguro por roles (admin, gerente, vendedor)
-          </li>
-          <li>
-            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/></svg>
-            Dashboards y scorecard en tiempo casi real
-          </li>
-          <li>
-            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.78 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m0-10.5H21"/></svg>
-            Ventas, clientes y módulos según tu perfil
-          </li>
-          <li>
-            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/></svg>
-            Separación de datos sensibles (P&L, inventario) por permisos
-          </li>
-        </ul>
-      </div>
-      <div class="role-row" aria-label="Roles en la plataforma">
-        <span class="pill">Admin</span>
-        <span class="pill">Gerente</span>
-        <span class="pill">Vendedor</span>
-      </div>
-    </section>
-    <div class="panel-wrap">
-      <div class="card">
-        <div class="card-head">
-          <div class="lock" aria-hidden="true">
-            <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>
-          </div>
-          <h1>Iniciar sesión</h1>
-          <p>Introduce las credenciales de tu cuenta para continuar al panel.</p>
+    <div class="shell">
+      <section class="cover-left" aria-label="Marca Suminregio">
+        <div class="logo-plate">
+          <img src="/logo-suminregio-cover.svg" width="360" height="240" alt="Suminregio Industrial" decoding="async">
         </div>
-        <div id="gateerr" class="gate-banner" role="status"></div>
-        <div id="misconfigured" class="mis-banner" role="alert">
-          <strong>Servidor en modo demo (sin login real)</strong>
-          El sitio estaba respondiendo como desarrollo: cualquiera veía el panel con datos en cero.
-          En Render u otro hosting define <code>AUTH_PROVIDER=session</code>, <code>SESSION_SECRET</code> y <code>AUTH_USERS</code>.
-          Mientras el servidor no use sesión, este formulario puede devolver error al iniciar sesión.
-        </div>
-        <form id="f" autocomplete="on" novalidate>
-          <div id="err" class="err" role="alert"></div>
-          <div class="field">
-            <label for="email">
-              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"/></svg>
-              Usuario
-            </label>
-            <span class="hint">Correo o identificador configurado en el servidor</span>
-            <input id="email" name="email" type="text" required placeholder="correo@empresa.com o usuario" autocomplete="username" autocapitalize="none" spellcheck="false">
+      </section>
+      <section class="cover-right" aria-label="Acceso al panel">
+        <div class="cover-right-inner">
+          <div class="cover-deco-row">
+            <svg class="deco-chart" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+              <rect x="8" y="36" width="10" height="20" rx="1" fill="currentColor"/>
+              <rect x="22" y="28" width="10" height="28" rx="1" fill="currentColor"/>
+              <rect x="36" y="20" width="10" height="36" rx="1" fill="currentColor"/>
+              <rect x="50" y="32" width="10" height="24" rx="1" fill="currentColor"/>
+              <path d="M12 18 L28 10 L44 14 L54 8" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M46 8 L54 8 L54 16" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="50" cy="48" r="9" fill="#1a1a1a" stroke="currentColor" stroke-width="1.5"/>
+              <text x="50" y="52" text-anchor="middle" font-size="11" font-weight="700" fill="#F2C200" font-family="sans-serif">$</text>
+            </svg>
+            <span class="deco-arrow" aria-hidden="true">→</span>
           </div>
-          <div class="field">
-            <label for="pw">
-              <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>
-              Contraseña
-            </label>
-            <div class="input-wrap">
-              <input id="pw" name="password" type="password" required autocomplete="current-password" style="padding-right:3rem">
-              <button type="button" class="toggle-pw" id="togglePw" aria-label="Mostrar u ocultar contraseña" aria-pressed="false">
-                <svg id="icon-eye" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
-              </button>
+          <h1 class="cover-title">Gestión de Ventas</h1>
+          <p class="cover-sub">Panel ejecutivo Parker · scorecard, KPIs y operación con acceso por roles</p>
+          <div class="nota-box">
+            <h2>Nota de metas y desempeño comercial</h2>
+            <p>
+              Las metas comerciales del tablero se interpretan frente a bases operativas definidas en el reporte Ventas.
+              Incluyen meta ideal (incremento del orden del 10&nbsp;% cuando aplique) y seguimiento de margen aproximado de ventas (~8&nbsp;% según definición del modelo).
+            </p>
+            <ul>
+              <li>Meta base de ventas: $5,650 diarios</li>
+              <li>Meta base de cotizaciones: $10,000 diarios</li>
+            </ul>
+          </div>
+          <div class="role-row" aria-label="Roles">
+            <span class="pill">Admin</span>
+            <span class="pill">Gerente</span>
+            <span class="pill">Vendedor</span>
+          </div>
+          <div class="panel-wrap">
+            <div class="card">
+              <div class="card-head">
+                <div class="lock" aria-hidden="true">
+                  <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>
+                </div>
+                <h1>Iniciar sesión</h1>
+                <p>Introduce las credenciales de tu cuenta para continuar al panel.</p>
+              </div>
+              <div id="gateerr" class="gate-banner" role="status"></div>
+              <div id="misconfigured" class="mis-banner" role="alert">
+                <strong>Servidor en modo demo (sin login real)</strong>
+                El sitio estaba respondiendo como desarrollo: cualquiera veía el panel con datos en cero.
+                En Render u otro hosting define <code>AUTH_PROVIDER=session</code>, <code>SESSION_SECRET</code> y <code>AUTH_USERS</code>.
+                Mientras el servidor no use sesión, este formulario puede devolver error al iniciar sesión.
+              </div>
+              <form id="f" autocomplete="on" novalidate>
+                <div id="err" class="err" role="alert"></div>
+                <div class="field">
+                  <label for="email">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"/></svg>
+                    Usuario
+                  </label>
+                  <span class="hint">Correo o identificador configurado en el servidor</span>
+                  <input id="email" name="email" type="text" required placeholder="correo@empresa.com o usuario" autocomplete="username" autocapitalize="none" spellcheck="false">
+                </div>
+                <div class="field">
+                  <label for="pw">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>
+                    Contraseña
+                  </label>
+                  <div class="input-wrap">
+                    <input id="pw" name="password" type="password" required autocomplete="current-password" style="padding-right:3rem">
+                    <button type="button" class="toggle-pw" id="togglePw" aria-label="Mostrar u ocultar contraseña" aria-pressed="false">
+                      <svg id="icon-eye" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+                    </button>
+                  </div>
+                </div>
+                <button type="submit" id="btn">
+                  <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l3 3m0 0-3 3m3-3H2.25"/></svg>
+                  Entrar al sistema
+                </button>
+              </form>
+              <div class="access-foot">
+                <h3>Niveles de acceso</h3>
+                <div class="access-grid">
+                  <article><strong>Administrador</strong>Panel completo, administración y sincronización.</article>
+                  <article><strong>Gerente</strong>Scorecard y operación; sin partidas financieras sensibles.</article>
+                  <article><strong>Vendedor</strong>Enfoque ventas y cliente; vistas acotadas.</article>
+                </div>
+              </div>
             </div>
           </div>
-          <button type="submit" id="btn">
-            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l3 3m0 0-3 3m3-3H2.25"/></svg>
-            Entrar al sistema
-          </button>
-        </form>
-        <div class="access-foot">
-          <h3>Niveles de acceso</h3>
-          <div class="access-grid">
-            <article><strong>Administrador</strong>Panel completo, administración y sincronización.</article>
-            <article><strong>Gerente</strong>Scorecard y operación; sin partidas financieras sensibles.</article>
-            <article><strong>Vendedor</strong>Enfoque ventas y cliente; vistas acotadas.</article>
-          </div>
         </div>
-      </div>
+      </section>
     </div>
-  </div>
+    <footer class="pb-footer">
+      Última actualización: <span id="pb-updated">—</span>
+    </footer>
   </div>
 <script>
+(function(){
+  var u = document.getElementById('pb-updated');
+  if (u) {
+    u.textContent = new Date().toLocaleString('es-MX', { dateStyle: 'long', timeStyle: 'medium' });
+  }
+})();
 (function(){
   var params = new URLSearchParams(location.search);
   var next = params.get('next') || '/index.html';
