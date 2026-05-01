@@ -38,6 +38,58 @@
     overflow-x: hidden;
     background: var(--bg);
   }
+  .page {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .site-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 2rem 0.9rem;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    background: linear-gradient(180deg, rgba(6, 14, 26, 0.92) 0%, rgba(6, 14, 26, 0.4) 100%);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .brand-top {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.65rem;
+    text-decoration: none;
+    color: var(--text);
+  }
+  .brand-mark {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: radial-gradient(circle at 32% 28%, #5dffc4 0%, var(--green) 42%, #009272 100%);
+    box-shadow: 0 0 28px rgba(0, 229, 160, 0.38);
+  }
+  /* Sustituir .brand-mark por <img class="brand-mark" src="/suminregio-logo.png"> cuando exportes el logo desde Ventas.pbix */
+  .brand-text {
+    font-weight: 800;
+    font-size: clamp(0.94rem, 2.2vw, 1.06rem);
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+  .brand-sub {
+    font-weight: 700;
+    opacity: 0.88;
+  }
+  .site-tag {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
   .bg-orbs {
     position: fixed;
     inset: 0;
@@ -82,19 +134,20 @@
     to { transform: translate(24px, 20px) scale(1.05); }
   }
   .shell {
+    flex: 1;
+    min-height: 0;
     position: relative;
-    z-index: 1;
-    min-height: 100vh;
     display: grid;
     grid-template-columns: 1fr 1fr;
   }
   @media (max-width: 960px) {
+    .site-header { padding: 0.85rem 1rem; flex-wrap: wrap; }
+    .site-tag { margin-left: auto; }
     .shell { grid-template-columns: 1fr; }
     .hero { order: 1; min-height: auto; padding-bottom: 1.5rem; border-right: none; border-bottom: 1px solid var(--border); }
     .panel-wrap { order: 2; min-height: min(70vh, 640px); padding: 1.25rem 1rem 1.5rem; }
     .hero-inner { padding: 1.75rem 1.5rem 1rem; }
     .role-row { padding: 0 1.5rem 1.25rem; }
-    .sign-accent { display: none; }
   }
   .hero {
     position: relative;
@@ -105,21 +158,8 @@
     background: linear-gradient(165deg, rgba(12, 27, 41, 0.5) 0%, transparent 55%);
   }
   .hero-inner { position: relative; z-index: 1; padding: 2.5rem 2.75rem; max-width: 540px; }
-  .brand-lockup {
-    display: inline-flex;
-    align-items: center;
-    gap: 0;
-    text-decoration: none;
-    color: inherit;
-  }
-  .brand-lockup img {
-    height: clamp(44px, 8vw, 52px);
-    width: auto;
-    display: block;
-    filter: drop-shadow(0 4px 20px rgba(230, 168, 0, 0.25));
-  }
   .hero h2 {
-    margin-top: 1.65rem;
+    margin-top: 0.15rem;
     font-size: clamp(1.55rem, 3.2vw, 2.05rem);
     font-weight: 800;
     letter-spacing: -0.03em;
@@ -177,9 +217,9 @@
     letter-spacing: 0.1em;
     padding: 0.4rem 0.75rem;
     border-radius: 999px;
-    border: 1px solid var(--border2);
-    background: var(--blue-dim);
-    color: var(--blue);
+    border: 1px solid rgba(77, 166, 255, 0.5);
+    background: rgba(77, 166, 255, 0.08);
+    color: var(--text-soft);
   }
   .panel-wrap {
     display: flex;
@@ -188,16 +228,6 @@
     padding: 1.5rem;
     position: relative;
     background: linear-gradient(200deg, rgba(6, 14, 26, 0.4) 0%, rgba(12, 27, 41, 0.25) 100%);
-  }
-  .sign-accent {
-    position: absolute;
-    top: 1rem;
-    right: 1.5rem;
-    font-family: var(--font-mono);
-    font-size: 0.68rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--muted);
   }
   .card {
     width: 100%;
@@ -208,7 +238,10 @@
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid var(--border2);
-    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(230, 168, 0, 0.06);
+    box-shadow:
+      0 0 0 1px rgba(230, 168, 0, 0.12),
+      0 24px 64px rgba(0, 0, 0, 0.45),
+      0 0 72px rgba(230, 168, 0, 0.08);
   }
   .card-head {
     text-align: center;
@@ -221,11 +254,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 12px;
-    background: var(--gold-dim);
-    border: 1px solid rgba(230, 168, 0, 0.35);
+    border-radius: 8px;
+    background: linear-gradient(145deg, rgba(230, 168, 0, 0.35), var(--gold-dim));
+    border: 1px solid rgba(230, 168, 0, 0.45);
     color: var(--gold);
-    box-shadow: 0 0 20px rgba(230, 168, 0, 0.15);
+    box-shadow: 0 0 22px rgba(230, 168, 0, 0.2);
   }
   .card-head h1 {
     font-size: 1.32rem;
@@ -276,12 +309,24 @@
     color: var(--text);
     transition: border-color 0.15s, box-shadow 0.15s;
   }
+  .card input[type="text"],
+  .card input[type="password"] {
+    background: #ffffff;
+    color: #0f172a;
+    border: 1px solid rgba(15, 23, 42, 0.14);
+  }
   input::placeholder { color: rgba(232, 239, 248, 0.35); }
+  .card input::placeholder { color: #64748b; }
   input:focus {
     outline: none;
     border-color: rgba(230, 168, 0, 0.55);
     box-shadow: 0 0 0 3px var(--gold-dim);
     background: rgba(15, 32, 48, 0.95);
+  }
+  .card input:focus {
+    border-color: rgba(230, 168, 0, 0.65);
+    box-shadow: 0 0 0 3px var(--gold-dim);
+    background: #ffffff;
   }
   .toggle-pw {
     position: absolute;
@@ -299,6 +344,8 @@
     justify-content: center;
   }
   .toggle-pw:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+  .card .toggle-pw { color: #64748b; }
+  .card .toggle-pw:hover { color: #0f172a; background: rgba(15, 23, 42, 0.06); }
   .toggle-pw:focus-visible { outline: 2px solid var(--gold); outline-offset: 1px; }
   button[type="submit"] {
     width: 100%;
@@ -404,12 +451,17 @@
 </head>
 <body>
   <div class="bg-orbs" aria-hidden="true"><span></span><span></span><span></span></div>
+  <div class="page">
+  <header class="site-header">
+    <a class="brand-top" href="/" aria-label="Suminregio Industrial — inicio">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-text">Suminregio <span class="brand-sub">Industrial</span></span>
+    </a>
+    <span class="site-tag">Industrial — BI</span>
+  </header>
   <div class="shell">
     <section class="hero" aria-label="Marca">
       <div class="hero-inner">
-        <a class="brand-lockup" href="/" aria-label="Suminregio Industrial — inicio">
-          <img src="/logo-suminregio-industrial.svg" width="220" height="48" alt="Suminregio Industrial">
-        </a>
         <h2>Panel ejecutivo Parker</h2>
         <p class="lead">Scorecard, KPIs, ventas y operación en una sola plataforma con acceso seguro por roles.</p>
         <ul class="features">
@@ -438,7 +490,6 @@
       </div>
     </section>
     <div class="panel-wrap">
-      <span class="sign-accent" aria-hidden="true">Industrial · BI</span>
       <div class="card">
         <div class="card-head">
           <div class="lock" aria-hidden="true">
@@ -491,6 +542,7 @@
         </div>
       </div>
     </div>
+  </div>
   </div>
 <script>
 (function(){
