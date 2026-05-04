@@ -1304,6 +1304,8 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
   window.renderDbChipsInto        = renderDbChipsInto;
   window.apiPathWithDb            = apiPathWithDb;
   window.initGlobalDbBarAfterNav  = initGlobalDbBarAfterNav;
+  /** Para nav.js u otras páginas sin initFilters: asegura estilos .biz-context-bar / .biz-chip. */
+  window.__filtersInjectCss       = injectCSS;
   window.filterSyncFiltersToUrl   = syncFiltersToUrl;
   window.mergeCxcKpiWithDirector  = mergeCxcKpiWithDirector;
   window.reconcileCxcResumenWithAging = reconcileCxcResumenWithAging;

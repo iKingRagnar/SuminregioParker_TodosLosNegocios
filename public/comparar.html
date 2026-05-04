@@ -9,6 +9,8 @@
 <meta name="theme-color" content="#E6A800">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="/auth-guard.js?v=6"></script>
+<script>window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');</script>
+<script src="filters.js"></script>
 <script src="nav.js" defer></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -169,7 +171,7 @@
     </div>
   </div>
 
-  <div class="filter-bar">
+  <div id="filter-bar" class="filter-bar">
     <div class="filter-group">
       <label for="f-anio">Año</label>
       <select id="f-anio"></select>
