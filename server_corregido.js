@@ -11987,7 +11987,10 @@ app.post('/api/ai/chat', aiChatRateLimit, async (req, res) => {
     const empresaActual = dbResolved.label || 'Suminregio Parker (default)';
     const empresaSeleccionadaUI = dbSelected.label || 'Suminregio Parker (default)';
     const empresaCtx = dbWasOverridden
-      ? `\n\nEmpresa actual de esta consulta: **${empresaActual}** (id: ${dbResolved.id || 'default'}). El usuario tiene seleccionado **${empresaSeleccionadaUI}** en el chip pero detectamos en su mensaje que pregunta por **${empresaActual}** — los datos cargados a continuación son de **${empresaActual}**. Responde con esa empresa y aclara al inicio: "Datos de ${empresaActual}".`
+      ? `\n\n════ ⚠️ EMPRESA DE ESTA CONSULTA (OVERRIDE AUTOMÁTICO) ════\n` +
+        `EL SISTEMA YA CAMBIÓ LA BASE DE DATOS. Los bloques de datos a continuación PROVIENEN DE:\n` +
+        `   ► **${empresaActual}** (id: ${dbResolved.id || 'default'})\n\n` +
+        `El usuario tiene **${empresaSeleccionadaUI}** seleccionado visualmente en el chip, pero su mensaje menciona **${empresaActual}**, así que el servidor enrutó automáticamente la consulta a esa base. NO le digas "no tengo datos" ni "selecciona X en el dashboard" — los datos abajo SÍ son de ${empresaActual}. Empieza tu respuesta con: "📊 Datos de **${empresaActual}**:" y responde normalmente con los números cargados.`
       : `\n\nEmpresa seleccionada en el panel: **${empresaActual}** (id: ${dbResolved.id || 'default'}).`;
 
     // Lista de empresas que el usuario PUEDE consultar — la IA puede decirle al
@@ -12013,8 +12016,12 @@ Si el usuario pregunta por una empresa, NO le digas "cambia el selector". Respon
     let systemContent = AI_SYSTEM_BASE_MICROSIP + empresaCtx + routingNote;
     const pageCtx = body && body.context && body.context.page ? String(body.context.page) : '';
     const pageUrl  = body && body.context && body.context.url  ? String(body.context.url)  : '';
-    // pageKpis viene del cliente — sanitizar y delimitar para mitigar prompt injection
-    const pageKpis = _sanitizeUserContext(body && body.context && body.context.pageKpis, 1200);
+    // pageKpis viene del cliente — sanitizar y delimitar para mitigar prompt injection.
+    // CRÍTICO: si el routing override-eó la empresa (usuario pregunta por otra empresa
+    // distinta a la que ve en el dashboard), los KPIs del DOM son de la empresa
+    // INCORRECTA y confunden a la IA. Los descartamos en ese caso.
+    const pageKpisRaw = body && body.context && body.context.pageKpis;
+    const pageKpis = dbWasOverridden ? '' : _sanitizeUserContext(pageKpisRaw, 1200);
     const q = (aiReq && aiReq.query) || {};
     const filtrosCtx = [
       q.preset ? `preset=${q.preset}` : '',
