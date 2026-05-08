@@ -10802,6 +10802,54 @@ function aiResolveDbOpts(req) {
   return { opts: hit.options, id: hit.id, label: hit.label };
 }
 
+// ── Auto-routing de empresa por mención en el mensaje del usuario ─────────────
+// Permite preguntas tipo "¿cuánto hay de cxc para suministros médicos?" sin que
+// el usuario tenga que cambiar el chip de empresa en la UI. El servidor detecta
+// el alias de la empresa, resuelve la base correspondiente y ejecuta las tools
+// contra ESA base, no contra la empresa actualmente seleccionada.
+//
+// Importante: las menciones se evalúan por orden de especificidad para evitar
+// que "parker mfg" matchee primero "parker". El orden es: alias largo > corto.
+const AI_DB_ALIASES = [
+  // Cada entrada: { id, patterns: [string|RegExp...] }
+  // patterns más específicos primero
+  { id: 'suminregio_suministros_medicos', patterns: [/\bsuministros?\s+m[eé]dic[ao]s?\b/i, /\bm[eé]dic[ao]s?\b/i] },
+  { id: 'suminregio_reciclaje',           patterns: [/\breciclaje\b/i] },
+  { id: 'suminregio_empaque',             patterns: [/\bempaques?\b(?!\s+hamer)/i] },
+  { id: 'suminregio_especial',            patterns: [/\bespecial(?:es)?\b/i] },
+  { id: 'suminregio_carton',              patterns: [/\bcart[oó]n\b/i, /\bcarton\b/i] },
+  { id: 'suminregio_maderas',             patterns: [/\bmaderas?\b/i] },
+  { id: 'suminregio_agua',                patterns: [/\bsuminregio\s+agua\b/i, /\bunidad\s+de\s+agua\b/i, /\bdivisi[oó]n\s+agua\b/i] },
+  { id: 'grupo_suminregio',               patterns: [/\bgrupo\s+suminregio\b/i, /\bconsolidado\b/i, /\bholding\b/i] },
+  { id: 'hamer_empaques',                 patterns: [/\bhamer\b/i] },
+  { id: 'parker_mfg',                     patterns: [/\bparker\s*mfg\b/i, /\bparker\s+manufactur/i] },
+  { id: 'lagor',                          patterns: [/\blagor\b/i] },
+  { id: 'mafra',                          patterns: [/\bmafra\b/i] },
+  { id: 'nortex',                         patterns: [/\bnortex\b/i] },
+  { id: 'sp_paso',                        patterns: [/\bsp\s+paso\b/i] },
+  { id: 'paso',                           patterns: [/\bpaso\b(?!\s*$)/i] },
+  { id: 'roberto_gzz',                    patterns: [/\broberto\s+gzz\b/i, /\broberto\s+gonz[aá]lez\b/i] },
+  { id: 'robin',                          patterns: [/\brobin\b/i] },
+  { id: 'elige',                          patterns: [/\belige\b/i] },
+  // "default" (Parker) lo dejamos al final como fallback explícito
+  { id: 'default',                        patterns: [/\bparker\b/i, /\bsuminregio\s+parker\b/i] },
+];
+
+function aiResolveDbFromMessage(text) {
+  if (!text) return null;
+  const t = ' ' + String(text).toLowerCase() + ' ';
+  for (const entry of AI_DB_ALIASES) {
+    for (const pat of entry.patterns) {
+      const re = pat instanceof RegExp ? pat : new RegExp('\\b' + pat + '\\b', 'i');
+      if (re.test(t)) {
+        const hit = DATABASE_REGISTRY.find(d => String(d.id).toLowerCase() === entry.id);
+        if (hit) return { id: hit.id, label: hit.label, opts: hit.options };
+      }
+    }
+  }
+  return null;
+}
+
 function aiReqFromBody(body, req) {
   const out = { query: {} };
   const src = body && typeof body === 'object' ? body : {};
@@ -10852,7 +10900,7 @@ Tu objetivo: dar insights accionables, detectar anomalías y guiar decisiones co
 
 ════ REGLAS CRÍTICAS ════
 1. DATOS: Si el contexto trae cifras (ventas, CXC, cobradas, resultados, pronóstico) → úsalas exactamente. NUNCA inventes números. Si no hay datos di "no tengo datos para esa consulta en el contexto actual".
-2. EMPRESA: Si el contexto indica empresa seleccionada, céntrate en ella. Si el usuario pregunta por otra empresa, dile qué ID usar (ver catálogo abajo).
+2. EMPRESA: El sistema enruta automáticamente la consulta según el nombre de empresa que el usuario mencione. Si el bloque de contexto dice "Empresa actual de esta consulta: X", los datos cargados son de X — responde con esa empresa, NO le pidas al usuario que cambie ningún selector.
 3. SOLO LECTURA: Los dashboards no modifican Microsip. Para cambios, el usuario usa Microsip directamente.
 4. SEMÁFOROS: Siempre incluye un semáforo de riesgo: 🟢 Verde · 🟡 Ámbar · 🔴 Rojo con umbral justificado.
 5. FORMATO: Para análisis responde con: **Resumen ejecutivo** → **Métricas clave** → **Interpretación** → **3 acciones recomendadas**.
@@ -10886,7 +10934,7 @@ Todas están en C:\\Microsip datos\\ en el servidor Windows. Para cambiar de emp
 
 Respaldos (no usar para análisis operativo): suminregio_parker_ant, suminregio_parker_ant_temp, suminregio_parker_23jun, suminregio_parker_320, suminregio_parkerpaso.
 
-Si el usuario pregunta por una empresa que no sea la actualmente seleccionada, dile: "Para ver datos de [empresa], selecciona **[Label]** en el selector de empresa del dashboard (arriba a la derecha)."
+El sistema enruta automáticamente la consulta a la empresa que el usuario mencione por nombre — no le pidas que cambie el chip. Si la empresa actual de la consulta (ver bloque "Empresa actual de esta consulta") es distinta a la seleccionada en UI, simplemente abre la respuesta con "Datos de [empresa]" para que quede claro de cuál estás hablando.
 
 ════ ÁREAS QUE DOMINAS ════
 • Ventas: VE (industrial) / PV (mostrador), remisiones, cotizaciones, cumplimiento vs meta, ticket promedio
@@ -11913,17 +11961,56 @@ app.post('/api/ai/chat', aiChatRateLimit, async (req, res) => {
       return res.status(400).json({ error: 'Falta el mensaje (message) o una imagen (imageBase64)' });
     }
 
-    const dbResolved = aiResolveDbOpts(req);
-    if (dbResolved.error) {
-      return res.status(400).json({ error: dbResolved.error });
+    const dbSelected = aiResolveDbOpts(req);
+    if (dbSelected.error) {
+      return res.status(400).json({ error: dbSelected.error });
+    }
+
+    // ── AUTO-ROUTING POR MENCIÓN DE EMPRESA ─────────────────────────────────
+    // Si el usuario menciona en el mensaje una empresa distinta a la
+    // seleccionada, ejecutamos las tools contra ESA empresa (mejor UX que
+    // pedirle que cambie el chip). Solo aplicamos al MENSAJE NUEVO, no a
+    // historial — para que el contexto cambie cuando el usuario cambia de
+    // tema en una misma conversación.
+    const dbFromMsg = aiResolveDbFromMessage(text);
+    let dbResolved = dbSelected;
+    let dbWasOverridden = false;
+    if (dbFromMsg && dbFromMsg.id !== (dbSelected.id || 'default')) {
+      // Solo override si el chip seleccionado es distinto del que pide el mensaje.
+      // Si el usuario pregunta "¿y de cartón?" estando en Parker, queremos cartón.
+      dbResolved = dbFromMsg;
+      dbWasOverridden = true;
     }
     const dbOpts = dbResolved.opts;
     const aiReq = aiReqFromBody(body, req);
-    const empresaCtx = dbResolved.label
-      ? `\n\nEmpresa seleccionada en el panel: **${dbResolved.label}** (id: ${dbResolved.id}).`
-      : '\n\nEmpresa: base por defecto del servidor (una sola .fdb o la principal).';
 
-    let systemContent = AI_SYSTEM_BASE_MICROSIP + empresaCtx;
+    const empresaActual = dbResolved.label || 'Suminregio Parker (default)';
+    const empresaSeleccionadaUI = dbSelected.label || 'Suminregio Parker (default)';
+    const empresaCtx = dbWasOverridden
+      ? `\n\nEmpresa actual de esta consulta: **${empresaActual}** (id: ${dbResolved.id || 'default'}). El usuario tiene seleccionado **${empresaSeleccionadaUI}** en el chip pero detectamos en su mensaje que pregunta por **${empresaActual}** — los datos cargados a continuación son de **${empresaActual}**. Responde con esa empresa y aclara al inicio: "Datos de ${empresaActual}".`
+      : `\n\nEmpresa seleccionada en el panel: **${empresaActual}** (id: ${dbResolved.id || 'default'}).`;
+
+    // Lista de empresas que el usuario PUEDE consultar — la IA puede decirle al
+    // usuario nombres específicos sin tener que mostrar la tabla completa.
+    const empresasDisponibles = DATABASE_REGISTRY
+      .filter(d => !/_(ant|temp|23jun|320|paso)\b|_ant_temp/i.test(d.id))
+      .map(d => `  • ${d.label} (id: ${d.id})`)
+      .join('\n');
+    const routingNote = `\n\n════ ENRUTAMIENTO AUTOMÁTICO POR EMPRESA ════
+El sistema detecta el nombre de la empresa en cada mensaje y enruta automáticamente la consulta a su base. El usuario NO necesita cambiar el chip — solo debe mencionar la empresa por nombre.
+
+Ejemplos:
+- "¿cuánto hay de cxc para suministros médicos?" → cargo CxC de Médicos
+- "¿y de cartón?" → cargo CxC de Cartón
+- "ventas de maderas hoy" → cargo ventas de Maderas
+- "compara reciclaje vs agua" → cargo ambas
+
+Empresas que puedes consultar (cualquier nombre dispara el routing):
+${empresasDisponibles}
+
+Si el usuario pregunta por una empresa, NO le digas "cambia el selector". Responde directamente con los datos — el sistema ya hizo el routing por ti.`;
+
+    let systemContent = AI_SYSTEM_BASE_MICROSIP + empresaCtx + routingNote;
     const pageCtx = body && body.context && body.context.page ? String(body.context.page) : '';
     const pageUrl  = body && body.context && body.context.url  ? String(body.context.url)  : '';
     // pageKpis viene del cliente — sanitizar y delimitar para mitigar prompt injection
