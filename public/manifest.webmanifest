@@ -16,13 +16,20 @@
       "src": "/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
     }
   ],
   "shortcuts": [
+    { "name": "Sumi IA",      "url": "/ia.html" },
     { "name": "Ventas",       "url": "/ventas.html" },
     { "name": "CxC",          "url": "/cxc.html" },
     { "name": "Inventario",   "url": "/inventario.html" },
-    { "name": "Finanzas",   "url": "/resultados.html" }
+    { "name": "Finanzas",     "url": "/resultados.html" }
   ]
 }

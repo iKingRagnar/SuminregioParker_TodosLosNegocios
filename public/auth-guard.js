@@ -2,6 +2,57 @@
  * auth-guard.js — Redirige al login cuando no hay sesión válida o el servidor está en dummy en hosting.
  * Si /api/auth/me falla en producción, redirige al login (no se muestra el panel a ciegas).
  */
+// ── Global JS error tracking ──────────────────────────────────────────────
+// Captura errores no manejados y rejections de promesas para que no se pierdan
+// en silencio (especialmente útil en Safari modo privado donde sessionStorage
+// lanza). En vez de un fetch a un endpoint inexistente, agregamos un buffer
+// que el helper de logging del servidor puede leer cuando exista.
+(function () {
+  'use strict';
+  if (window.__SUMI_GLOBAL_ERR__) return;
+  window.__SUMI_GLOBAL_ERR__ = true;
+  var buf = window.__SUMI_ERR_BUFFER__ = [];
+  function record(kind, payload) {
+    try {
+      var entry = {
+        kind: kind,
+        ts: Date.now(),
+        url: location.pathname,
+        msg: String(payload && (payload.message || payload.reason || payload) || '').slice(0, 500),
+        stack: payload && payload.stack ? String(payload.stack).slice(0, 1500) : ''
+      };
+      if (buf.length < 50) buf.push(entry);
+      if (window.console) console.warn('[sumi-err]', kind, entry.msg);
+    } catch (_e) { /* never throw from error handler */ }
+  }
+  window.addEventListener('error', function (ev) {
+    record('error', ev && (ev.error || ev));
+  });
+  window.addEventListener('unhandledrejection', function (ev) {
+    record('promise', ev && (ev.reason || ev));
+  });
+
+  // Flush periódico al endpoint del servidor — best-effort, ignora fallos.
+  function flush() {
+    if (!buf.length) return;
+    var entries = buf.splice(0, buf.length);
+    try {
+      var blob = new Blob([JSON.stringify({ entries: entries })], { type: 'application/json' });
+      if (navigator.sendBeacon && navigator.sendBeacon('/api/log/client-error', blob)) return;
+      fetch('/api/log/client-error', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entries: entries }),
+        keepalive: true
+      }).catch(function (e) { if (window.console) console.warn('[err-flush]', e && e.message); });
+    } catch (e) { if (window.console) console.warn('[err-flush]', e && e.message); }
+  }
+  setInterval(flush, 30000);
+  window.addEventListener('pagehide', flush);
+  window.addEventListener('beforeunload', flush);
+})();
+
 (function () {
   'use strict';
   if (window.__SUMINREGIO_AUTH_GUARD_V6__) return;
@@ -36,12 +87,12 @@
     st.textContent = 'html.suminregio-auth-pending body{visibility:hidden}';
     (document.head || document.documentElement).appendChild(st);
     document.documentElement.classList.add('suminregio-auth-pending');
-  } catch (_) {}
+  } catch (e) { if (window.console) console.warn('[auth-guard]', e && e.message || e); }
 
   function release() {
     try {
       document.documentElement.classList.remove('suminregio-auth-pending');
-    } catch (_) {}
+    } catch (e) { if (window.console) console.warn('[auth-guard]', e && e.message || e); }
   }
 
   var base = (typeof window.__API_BASE === 'string' && window.__API_BASE) ? window.__API_BASE : (location.origin || '');
@@ -55,7 +106,7 @@
   function done() {
     try {
       clearTimeout(watchdog);
-    } catch (_) {}
+    } catch (e) { if (window.console) console.warn('[auth-guard]', e && e.message || e); }
   }
 
   fetch(base + '/api/auth/me?_=' + Date.now(), {
@@ -101,7 +152,7 @@
           s.defer = true;
           (document.head || document.documentElement).appendChild(s);
         }
-      } catch (_) {}
+      } catch (e) { if (window.console) console.warn('[auth-guard]', e && e.message || e); }
     })
     .catch(function () {
       done();
