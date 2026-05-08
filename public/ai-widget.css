@@ -666,6 +666,168 @@
   transition: opacity 0.28s, transform 0.28s;
 }
 
+/* ── Markdown rendering inside bot messages ────────────────────────────── */
+
+.ai-msg-bot {
+  position: relative;
+  white-space: normal;
+}
+
+.ai-msg-bot strong {
+  color: var(--text, #f0f6ff);
+  font-weight: 700;
+}
+
+.ai-msg-bot em {
+  font-style: italic;
+  color: var(--ai-gold);
+}
+
+.ai-msg-bot .ai-md-h {
+  margin: 0.5rem 0 0.25rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text, #f0f6ff);
+  letter-spacing: -0.01em;
+}
+
+.ai-msg-bot .ai-md-h:first-child {
+  margin-top: 0;
+}
+
+.ai-msg-bot .ai-md-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.4rem 0;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.ai-msg-bot .ai-md-table th {
+  text-align: left;
+  padding: 0.3rem 0.5rem;
+  background: rgba(13, 148, 136, 0.15);
+  color: var(--text, #f0f6ff);
+  font-weight: 700;
+  font-size: 0.78rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  white-space: nowrap;
+}
+
+.ai-msg-bot .ai-md-table td {
+  padding: 0.25rem 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--text2, #c8d8ec);
+}
+
+.ai-msg-bot .ai-md-table tr:last-child td {
+  border-bottom: none;
+}
+
+.ai-msg-bot .ai-md-table tr:hover td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.ai-msg-bot .ai-md-pre {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  margin: 0.4rem 0;
+  overflow-x: auto;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.ai-msg-bot .ai-md-code {
+  font-family: 'DM Mono', 'Fira Code', monospace;
+  color: #a5d6ff;
+  white-space: pre;
+}
+
+.ai-msg-bot .ai-md-inline {
+  font-family: 'DM Mono', 'Fira Code', monospace;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.82em;
+  color: #ffd580;
+}
+
+.ai-msg-bot .ai-md-list {
+  margin: 0.3rem 0;
+  padding-left: 1.2rem;
+}
+
+.ai-msg-bot .ai-md-list li {
+  margin-bottom: 0.15rem;
+  line-height: 1.4;
+}
+
+.ai-msg-bot .ai-md-hr {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  margin: 0.5rem 0;
+}
+
+/* ── Copy button ───────────────────────────────────────────────────────── */
+
+.ai-copy-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted, #6a85a6);
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+}
+
+.ai-msg-bot:hover .ai-copy-btn {
+  opacity: 1;
+}
+
+.ai-copy-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--text, #f0f6ff);
+}
+
+/* ── Streaming cursor ──────────────────────────────────────────────────── */
+
+.ai-stream-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--ai-teal);
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  animation: aiStreamBlink 0.6s ease-in-out infinite;
+}
+
+@keyframes aiStreamBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.15; }
+}
+
+.ai-msg-streaming {
+  border-color: rgba(13, 148, 136, 0.3);
+  box-shadow: 0 0 0 1px rgba(13, 148, 136, 0.1);
+}
+
+/* ── User message styling ──────────────────────────────────────────────── */
+
+.ai-msg-user {
+  white-space: pre-wrap;
+}
+
 @media print {
   #ai-widget-wrap,
   #ai-toast-root {
