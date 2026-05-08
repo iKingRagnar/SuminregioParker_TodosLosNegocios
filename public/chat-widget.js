@@ -562,7 +562,8 @@
     panel.innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;font-size:12px">🔄 Verificando KPIs…</div>';
 
     try {
-      const resp = await fetch(API + '/api/alerts/check' + (DB_PARAM ? '?db=' + DB_PARAM : ''), {
+      const _db = currentDb();
+      const resp = await fetch(API + '/api/alerts/check' + (_db ? '?db=' + encodeURIComponent(_db) : ''), {
         signal: AbortSignal.timeout(45000),
       });
       const data = await resp.json();
@@ -620,7 +621,8 @@
       }
 
       // Usar alertsCache si ya fue cargado
-      const data = alertsCache || await fetch(API + '/api/alerts/check' + (DB_PARAM ? '?db=' + DB_PARAM : ''), { signal: AbortSignal.timeout(30000) })
+      const _db2 = currentDb();
+      const data = alertsCache || await fetch(API + '/api/alerts/check' + (_db2 ? '?db=' + encodeURIComponent(_db2) : ''), { signal: AbortSignal.timeout(30000) })
         .then(r => r.json());
       const { ventas, cxc, pnl, metas } = data.kpis || {};
       const v = ventas || {}; const c = cxc || {}; const p = pnl?.totales || {};
@@ -672,7 +674,7 @@
       const resp = await fetch(API + '/api/alerts/send', {
         method : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body   : JSON.stringify({ channels, db: DB_PARAM || undefined, captureScreenshots: true }),
+        body   : JSON.stringify({ channels, db: currentDb() || undefined, captureScreenshots: true }),
         signal : AbortSignal.timeout(90000),
       });
       const data = await resp.json();
@@ -775,7 +777,8 @@
     const isResultados = /\b(resultados?|pnl|estado\s+de\s+resultados|margen|utilidad)\b/i.test(t);
     if (!isVentas && !isCxc && !isResultados) return null;
 
-    const qs = DB_PARAM ? `?db=${encodeURIComponent(DB_PARAM)}` : '';
+    const _dbq = currentDb();
+    const qs = _dbq ? `?db=${encodeURIComponent(_dbq)}` : '';
     try {
       if (isVentas) {
         const resp = await fetch(API + '/api/ventas/resumen' + qs, { signal: AbortSignal.timeout(20000) });
@@ -886,7 +889,8 @@
         renderSuggestions();
         showQuickActions();
         // Verificar estado de alertas en background
-        fetch(API + '/api/alerts/check' + (DB_PARAM ? '?db=' + DB_PARAM : ''), { signal: AbortSignal.timeout(30000) })
+        const _dbBg1 = currentDb();
+        fetch(API + '/api/alerts/check' + (_dbBg1 ? '?db=' + encodeURIComponent(_dbBg1) : ''), { signal: AbortSignal.timeout(30000) })
           .then(r => r.json())
           .then(data => {
             alertsCache = data;
@@ -915,7 +919,8 @@
       else if (activeTab === 'kpis') loadKpis();
       else {
         addMessage('ai', '🔄 Actualizando datos en tiempo real…');
-        fetch(API + '/api/alerts/check' + (DB_PARAM ? '?db=' + DB_PARAM : ''), { signal: AbortSignal.timeout(30000) })
+        const _dbBg2 = currentDb();
+        fetch(API + '/api/alerts/check' + (_dbBg2 ? '?db=' + encodeURIComponent(_dbBg2) : ''), { signal: AbortSignal.timeout(30000) })
           .then(r => r.json())
           .then(data => {
             alertsCache = data;
