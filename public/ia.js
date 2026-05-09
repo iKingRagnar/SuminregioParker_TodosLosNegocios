@@ -43,8 +43,9 @@
     return '';
   }
 
-  // ── Conversation persistence (localStorage) ───────────────────────────────
+  // ── Conversation persistence (server + localStorage fallback) ──────────────
   var STORAGE_KEY = 'sumi_ia_conversations_v1';
+  var serverConvAvailable = false;
 
   function loadConversations() {
     try {
@@ -62,6 +63,69 @@
     } catch (e) { if (window.console) console.warn('[ia]', e && e.message || e); }
   }
 
+  function syncToServer(conv) {
+    if (!conv) return;
+    var payload = { title: conv.title, dbId: conv.dbId || currentDb(), messages: conv.messages };
+    if (conv.serverId) {
+      fetch(API + '/api/ia/conversations/' + conv.serverId, {
+        method: 'PUT', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }).catch(function () {});
+    } else {
+      fetch(API + '/api/ia/conversations', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }).then(function (r) { return r.json(); }).then(function (d) {
+        if (d && d.ok && d.conversation) {
+          conv.serverId = d.conversation.id;
+          saveConversations();
+        }
+      }).catch(function () {});
+    }
+  }
+
+  function loadServerConversations() {
+    fetch(API + '/api/ia/conversations', { credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d || !d.ok || !Array.isArray(d.conversations)) return;
+        serverConvAvailable = true;
+        var localServerIds = {};
+        conversations.forEach(function (c) { if (c.serverId) localServerIds[c.serverId] = true; });
+        var migrateCount = 0;
+        conversations.forEach(function (c) {
+          if (!c.serverId && c.messages && c.messages.length > 0) {
+            syncToServer(c);
+            migrateCount++;
+          }
+        });
+        if (migrateCount > 0 && window.console) console.info('[ia] migrated', migrateCount, 'conversations to server');
+        var pullCount = 0;
+        d.conversations.forEach(function (sc) {
+          if (!localServerIds[sc.id]) {
+            conversations.push({
+              id: 'srv_' + sc.id,
+              serverId: sc.id,
+              title: sc.title || 'Sin título',
+              dbId: sc.dbId || '',
+              messages: [],
+              createdAt: new Date(sc.createdAt).getTime() || Date.now(),
+              updatedAt: new Date(sc.updatedAt || sc.createdAt).getTime() || Date.now(),
+              msgCount: sc.msgCount || 0,
+            });
+            pullCount++;
+          }
+        });
+        if (pullCount > 0) {
+          saveConversations();
+          renderSidebar();
+        }
+      })
+      .catch(function () {});
+  }
+
   function getConv(id) {
     return conversations.find(function (c) { return c.id === id; }) || null;
   }
@@ -70,16 +134,22 @@
     var conv = {
       id: 'conv_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
       title: 'Nueva conversación',
+      dbId: currentDb(),
       messages: [],
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
     conversations.push(conv);
     saveConversations();
+    syncToServer(conv);
     return conv;
   }
 
   function deleteConversation(id) {
+    var conv = getConv(id);
+    if (conv && conv.serverId) {
+      fetch(API + '/api/ia/conversations/' + conv.serverId, { method: 'DELETE', credentials: 'same-origin' }).catch(function () {});
+    }
     conversations = conversations.filter(function (c) { return c.id !== id; });
     saveConversations();
     if (activeConvId === id) {
@@ -96,6 +166,7 @@
     var text = typeof firstUser.content === 'string' ? firstUser.content : '';
     conv.title = text.slice(0, 50) + (text.length > 50 ? '...' : '');
     saveConversations();
+    syncToServer(conv);
     renderSidebar();
   }
 
@@ -293,27 +364,21 @@
       sorted = sorted.filter(function (c) { return c.title.toLowerCase().indexOf(filterLower) !== -1; });
     }
 
-    var groups = {};
-    var now = new Date();
+    var dbGroups = {};
     sorted.forEach(function (c) {
-      var d = new Date(c.updatedAt);
-      var key;
-      var diffDays = Math.floor((now - d) / 86400000);
-      if (diffDays === 0) key = 'Hoy';
-      else if (diffDays === 1) key = 'Ayer';
-      else if (diffDays < 7) key = 'Esta semana';
-      else if (diffDays < 30) key = 'Este mes';
-      else key = 'Anteriores';
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(c);
+      var key = c.dbId || 'General';
+      if (!dbGroups[key]) dbGroups[key] = [];
+      dbGroups[key].push(c);
     });
 
     var html = '';
-    var order = ['Hoy', 'Ayer', 'Esta semana', 'Este mes', 'Anteriores'];
-    order.forEach(function (label) {
-      var items = groups[label];
-      if (!items || !items.length) return;
-      html += '<div class="conv-date-group">' + label + '</div>';
+    var dbKeys = Object.keys(dbGroups).sort();
+    dbKeys.forEach(function (dbKey) {
+      var items = dbGroups[dbKey];
+      var label = String(dbKey).replace(/\.fdb$/i, '').replace(/_/g, ' ');
+      label = label.charAt(0).toUpperCase() + label.slice(1);
+      var count = items.length;
+      html += '<div class="conv-date-group" style="display:flex;justify-content:space-between;align-items:center"><span>' + escapeHtml(label) + '</span><span style="font-size:.65rem;background:rgba(15,23,42,.06);padding:1px 6px;border-radius:8px">' + count + '</span></div>';
       items.forEach(function (c) {
         var isActive = c.id === activeConvId;
         html += '<div class="conv-item' + (isActive ? ' active' : '') + '" data-id="' + c.id + '">' +
@@ -581,6 +646,7 @@
       conv.messages.push({ role: 'assistant', content: reply });
       conv.updatedAt = Date.now();
       saveConversations();
+      syncToServer(conv);
 
       var contentEl = appendAiMessage(reply);
       applySmartTdToElement(contentEl);
@@ -875,10 +941,60 @@
   // El listener JS anterior caminaba el árbol DOM en cada touchmove (jank en
   // móviles low-end) y rompía scroll en <select> nativos.
 
+  // ── Landing headline ────────────────────────────────────────────────────
+  var $landingHeadline = document.getElementById('landing-headline');
+  if ($landingHeadline) {
+    $landingHeadline.innerHTML = '¿Qué quieres <em>consultar</em> hoy?';
+  }
+
+  // ── Business-unit cards in landing ─────────────────────────────────────
+  var $bizUnits = document.getElementById('landing-biz-units');
+
+  function renderBizUnits() {
+    if (!$bizUnits) return;
+    fetch(API + '/api/universe/databases')
+      .then(function (r) { return r.json(); })
+      .then(function (list) {
+        if (!Array.isArray(list) || !list.length) return;
+        var selectedDb = currentDb();
+        var colors = ['#3B82F6','#10B981','#F59E0B','#EF4444','#8B5CF6','#EC4899','#06B6D4','#F97316'];
+        var html = '';
+        list.forEach(function (db, i) {
+          var id = String(db.id || '');
+          var name = String(db.label || db.id || '').replace(/\.fdb$/i, '').replace(/_/g, ' ');
+          name = name.charAt(0).toUpperCase() + name.slice(1);
+          var isActive = (selectedDb === id);
+          var color = colors[i % colors.length];
+          html += '<button class="biz-unit-card' + (isActive ? ' active' : '') + '" data-db="' + escapeHtml(id) + '">' +
+            '<div class="biz-unit-name"><span class="biz-dot" style="background:' + color + '"></span>' + escapeHtml(name) + '</div>' +
+            '<div class="biz-unit-desc">' + escapeHtml(String(db.host || 'ERP Microsip')) + '</div>' +
+            '</button>';
+        });
+        $bizUnits.innerHTML = html;
+        $bizUnits.addEventListener('click', function (e) {
+          var card = e.target.closest('.biz-unit-card');
+          if (!card) return;
+          var dbId = card.getAttribute('data-db');
+          if (!dbId) return;
+          try { sessionStorage.setItem('microsip_erp_db', dbId); } catch (_) {}
+          try {
+            var u = new URL(window.location.href);
+            u.searchParams.set('db', dbId);
+            history.replaceState({}, '', u);
+          } catch (_) {}
+          $bizUnits.querySelectorAll('.biz-unit-card').forEach(function (c) { c.classList.remove('active'); });
+          card.classList.add('active');
+        });
+      })
+      .catch(function () {});
+  }
+
   // ── Init ──────────────────────────────────────────────────────────────────
   renderSuggestions();
+  renderBizUnits();
   renderSidebar();
   showLanding();
+  loadServerConversations();
 
   // Focus only on desktop (avoids keyboard popup on mobile load)
   if (window.innerWidth > 768) $input.focus();

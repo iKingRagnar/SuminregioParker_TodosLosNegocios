@@ -157,6 +157,7 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 .table-av-libro thead tr:last-child th{font-size:.58rem;padding:.35rem .45rem}
 .table-av-libro th.av-num,.table-av-libro td.av-num{text-align:right;font-variant-numeric:tabular-nums}
 .table-av-libro th.av-pct,.table-av-libro td.av-pct{text-align:right;font-variant-numeric:tabular-nums;color:var(--text2);min-width:3.2rem}
+.pnl-structured td.av-pct{text-align:right;font-variant-numeric:tabular-nums;color:var(--text2);min-width:3rem;font-size:.75rem}
 .table-av-libro tbody td{padding:.52rem .55rem;border-bottom:1px solid rgba(255,255,255,.06);vertical-align:middle}
 .table-av-libro tbody td:first-child{text-align:left;font-weight:600;color:var(--text);padding-left:1.1rem;padding-right:.75rem}
 .table-av-libro tbody tr:nth-child(even) td{background:rgba(255,255,255,.024)}
@@ -1707,8 +1708,8 @@ function clearResultadosUI(){
   el('kpiCobros');el('kpiCobrosSub');el('kpiCobrosEfic');
   const insightEl=document.getElementById('insightText'); if(insightEl)insightEl.textContent='Cargando...';
   const headRow=document.getElementById('pnlHeadRow');
-  if(headRow){
-    headRow.innerHTML='<th style="width:22%">Concepto / Mes</th><th id="thMeses" colspan="99">— cargando —</th>';
+  if(headRow&&headRow.parentElement){
+    headRow.parentElement.innerHTML='<tr id="pnlHeadRow"><th style="width:22%">Concepto / Mes</th><th id="thMeses" colspan="99">— cargando —</th></tr>';
   }
   const foot=document.getElementById('pnlFoot'); if(foot)foot.innerHTML='';
   const body=document.getElementById('pnlBody'); if(body)body.innerHTML='<tr><td colspan="99" style="text-align:center;padding:1rem;color:var(--muted)">Cargando...</td></tr>';
@@ -2498,120 +2499,97 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
     if(pnlFootEl)pnlFootEl.innerHTML='';
     return;
   }
-  // Build column headers (resistente a recargas sucesivas)
-  if(thRowEl){
-    let thHtml=mesesOrd.map((m,i)=>{
-      let mom='';
-      if(i>0){
-        const pct=momPct(+m.VENTAS_NETAS||0,+mesesOrd[i-1].VENTAS_NETAS||1);
-        if(pct!==null){const cls=pct>=0?'mom-positive':'mom-negative';const arr=pct>=0?'↑':'↓';mom=` <span class="${cls}">${arr}${Math.abs(pct)}%</span>`;}
-      }
-      return`<th>${mesLabel(m)}${mom}</th>`;
+  const Vtot=+tot.VENTAS_NETAS||0;
+  function valPct(val,ventas,sty){var v=+val||0,V=+ventas||0,p=V>0?(v/V*100):null;return'<td'+(sty?' style="'+sty+'"':'')+'>'+ fmtM(v)+'</td><td class="av-pct">'+(p!==null&&!isNaN(p)?fmtPct2(p):'—')+'</td>';}
+
+  // Build column headers (two-row: month + $/%)
+  if(thRowEl&&thRowEl.parentElement){
+    var _thead=thRowEl.parentElement;
+    var _h1='<tr id="pnlHeadRow"><th rowspan="2" style="width:22%">Concepto / Mes</th>';
+    _h1+=mesesOrd.map(function(m,i){
+      var mom='';
+      if(i>0){var pct=momPct(+m.VENTAS_NETAS||0,+mesesOrd[i-1].VENTAS_NETAS||1);if(pct!==null){var cls=pct>=0?'mom-positive':'mom-negative';var arr=pct>=0?'↑':'↓';mom=' <span class="'+cls+'">'+arr+Math.abs(pct)+'%</span>';}}
+      return'<th colspan="2">'+mesLabel(m)+mom+'</th>';
     }).join('');
-    thRowEl.innerHTML=`<th style="width:22%">Concepto / Mes</th>${thHtml}<th>Total</th>`;
-  }else if(thEl){
-    let thHtml=mesesOrd.map((m,i)=>{
-      let mom='';
-      if(i>0){
-        const pct=momPct(+m.VENTAS_NETAS||0,+mesesOrd[i-1].VENTAS_NETAS||1);
-        if(pct!==null){const cls=pct>=0?'mom-positive':'mom-negative';const arr=pct>=0?'↑':'↓';mom=` <span class="${cls}">${arr}${Math.abs(pct)}%</span>`;}
-      }
-      return`<th>${mesLabel(m)}${mom}</th>`;
-    }).join('');
-    thEl.outerHTML=`${thHtml}<th>Total</th>`;
+    _h1+='<th colspan="2">Total</th></tr>';
+    var _h2='<tr>';for(var _ci=0;_ci<mesesOrd.length+1;_ci++)_h2+='<th style="font-size:.68rem;color:var(--muted)">$</th><th style="font-size:.68rem;color:var(--muted)">%</th>';
+    _h2+='</tr>';
+    _thead.innerHTML=_h1+_h2;
   }
 
 
-  // Rows
-  const sumOf=key=>mesesOrd.reduce((s,m)=>s+(+m[key]||0),0);
-  function tdGasto(m,k){
-    if(!tg)return`<td style="color:var(--text2)">${fmtM(0)}</td>`;
-    const v=+m[k]||0;
-    if(v<=0)return`<td style="color:var(--text2)">${fmtM(0)}</td>`;
-    return`<td style="color:var(--red)">(${fmtM(v)})</td>`;
-  }
-  function footGasto(k){
-    if(!tg)return'—';
-    const v=+tot[k]||0;
-    return v>0?`(${fmtM(v)})`:fmtM(0);
-  }
-  function tdGastoSum(m,keys){
-    if(!tg)return`<td style="color:var(--text2)">${fmtM(0)}</td>`;
-    const v=sumGastoKeys(m,keys);
-    if(v<=0)return`<td style="color:var(--text2)">${fmtM(0)}</td>`;
-    return`<td style="color:var(--red)">(${fmtM(v)})</td>`;
-  }
-  function footGastoSum(keys){
-    if(!tg)return'—';
-    const v=sumGastoKeys(tot,keys);
-    return v>0?`(${fmtM(v)})`:fmtM(0);
-  }
   // ── helpers de formato ──────────────────────────────────────────────────────
   function fmtNeg(v){v=+v;if(isNaN(v))return'—';if(v<0)return'<span class="paren-neg">('+fmtM(-v)+')</span>';return fmtM(v);}
   function fmtParens(v){v=+v;if(isNaN(v)||v<=0)return'—';return'<span class="paren-neg">('+fmtM(v)+')</span>';}
 
-  // ── sub-rows (drilldown, hidden by default) ──────────────────────────────
+  // ── sub-rows (drilldown) with % ─────────────────────────────────────────
   const renderSubRows=(bucket,bid)=>{
     const arr=(subData[bucket]&&Array.isArray(subData[bucket]))?subData[bucket]:[];
     if(!arr.length)return'';
     return arr.map(r=>{
       const rtot=+r.total||0;
-      if(rtot<=0.005)return''; // skip zero
-      return`<tr class="gasto-sub" data-bid="${bid}" style="display:none"><td>· ${escHtml(r.etiqueta||'Sin etiqueta')}</td>${mesesOrd.map(m=>{const mk=monthKey(m);const v=+((r.meses&&r.meses[mk])||0);return v>0.005?`<td>${fmtParens(v)}</td>`:'<td>—</td>';}).join('')}<td>${fmtParens(rtot)}</td></tr>`;
+      if(rtot<=0.005)return'';
+      var tPct=Vtot>0?(rtot/Vtot*100):null;
+      return'<tr class="gasto-sub" data-bid="'+bid+'" style="display:none"><td>· '+escHtml(r.etiqueta||'Sin etiqueta')+'</td>'+
+        mesesOrd.map(m=>{const mk=monthKey(m);const v=+((r.meses&&r.meses[mk])||0);const V=+m.VENTAS_NETAS||0;var p=V>0?(v/V*100):null;
+          return v>0.005?'<td>'+fmtParens(v)+'</td><td class="av-pct">'+(p!==null?fmtPct2(p):'—')+'</td>':'<td>—</td><td class="av-pct">—</td>';}).join('')+
+        '<td>'+fmtParens(rtot)+'</td><td class="av-pct">'+(tPct!==null?fmtPct2(tPct):'—')+'</td></tr>';
     }).join('');
   };
 
-  // ── bucket row (expandable header A/B/C/D) ──────────────────────────────
+  // ── bucket row (A/B/C/D) with % ────────────────────────────────────────
   const rowGastoBucket=(bucket,letter,label)=>{
-    if(!tg)return''; // no accounting data at all
+    if(!tg)return'';
     const fv=sumGastoKeys(tot,[bucket]);
-    if(fv<=0.005)return''; // skip zero buckets
+    if(fv<=0.005)return'';
     const bid='bkt'+bucket;
     const lbl=label||CO_PREFIX_LABELS[bucket]||bucket;
     const subs=renderSubRows(bucket,bid);
     const hasSubs=subs.length>0;
     const caret=hasSubs?'<span class="bkt-caret">&#9654;</span>':'  ';
     const clickAttr=hasSubs?` onclick="toggleBucketRow(this,'${bid}')" class="data-row gasto-bucket-hdr"`:' class="data-row gasto-bucket-hdr"';
-    return`<tr${clickAttr}><td>${caret}${letter}. ${escHtml(lbl)}</td>${mesesOrd.map(m=>{const v=sumGastoKeys(m,[bucket]);return v>0.005?`<td style="color:var(--red)">${fmtParens(v)}</td>`:'<td style="color:var(--muted)">—</td>';}).join('')}<td style="color:var(--red)">${fmtParens(fv)}</td></tr>${subs}`;
+    var tPct=Vtot>0?(fv/Vtot*100):null;
+    return'<tr'+clickAttr+'><td>'+caret+(letter?letter+'. ':'')+escHtml(lbl)+'</td>'+
+      mesesOrd.map(m=>{const v=sumGastoKeys(m,[bucket]);const V=+m.VENTAS_NETAS||0;var p=V>0?(v/V*100):null;
+        return v>0.005?'<td style="color:var(--red)">'+fmtParens(v)+'</td><td class="av-pct">'+(p!==null?fmtPct2(p):'—')+'</td>':'<td style="color:var(--muted)">—</td><td class="av-pct">—</td>';}).join('')+
+      '<td style="color:var(--red)">'+fmtParens(fv)+'</td><td class="av-pct">'+(tPct!==null?fmtPct2(tPct):'—')+'</td></tr>'+subs;
   };
 
   // ── Totals for footer ────────────────────────────────────────────────────
   const utilBrutaTot=hasCosto?(+tot.UTILIDAD_BRUTA||0):(+tot.VENTAS_NETAS||0);
   const opexTot=tg?sumGastoKeys(tot,_GAS_OPEX):0;
   const utilOpTot=utilBrutaTot-opexTot;
-  const gasB1Tot=tg?(+tot.CO_B1||0):0;
-  const gasC1Tot=tg?(+tot.CO_C1||0):0;
   const mgTotCol=(+tot.MARGEN_BRUTO_PCT||0)>=30?'var(--green)':(+tot.MARGEN_BRUTO_PCT||0)>=15?'var(--yellow-ink)':'var(--red)';
-  const nc=mesesOrd.length+2;
+  const nc=mesesOrd.length*2+3;
 
   const pnl=`
   <tr class="pnl-section-header" data-section="ingresos"><td colspan="${nc}">INGRESOS</td></tr>
   <tr class="data-row">
     <td>Venta Industrial (VE) neta</td>
-    ${mesesOrd.map(m=>`<td style="color:var(--text2)">${fmtM(+m.VENTAS_VE||0)}</td>`).join('')}
-    <td style="color:var(--text2)">${fmtM(+tot.VENTAS_VE||0)}</td>
+    ${mesesOrd.map(m=>valPct(+m.VENTAS_VE||0,+m.VENTAS_NETAS||0,'color:var(--text2)')).join('')}
+    ${valPct(+tot.VENTAS_VE||0,Vtot,'color:var(--text2)')}
   </tr>
   <tr class="data-row">
     <td>Venta Mostrador (PV) neta</td>
-    ${mesesOrd.map(m=>`<td style="color:var(--text2)">${fmtM(+m.VENTAS_PV||0)}</td>`).join('')}
-    <td style="color:var(--text2)">${fmtM(+tot.VENTAS_PV||0)}</td>
+    ${mesesOrd.map(m=>valPct(+m.VENTAS_PV||0,+m.VENTAS_NETAS||0,'color:var(--text2)')).join('')}
+    ${valPct(+tot.VENTAS_PV||0,Vtot,'color:var(--text2)')}
   </tr>
   <tr class="subtotal-row">
     <td>&#9654; Total Ventas Netas</td>
-    ${mesesOrd.map(m=>`<td style="color:var(--blue)">${fmtM(+m.VENTAS_NETAS||0)}</td>`).join('')}
-    <td style="color:var(--blue)">${fmtM(+tot.VENTAS_NETAS||0)}</td>
+    ${mesesOrd.map(m=>{var V=+m.VENTAS_NETAS||0;return'<td style="color:var(--blue)">'+fmtM(V)+'</td><td class="av-pct">'+(V>0?fmtPct2(100):'—')+'</td>';}).join('')}
+    <td style="color:var(--blue)">${fmtM(Vtot)}</td><td class="av-pct">${Vtot>0?fmtPct2(100):'—'}</td>
   </tr>
 
   <tr class="pnl-section-header" data-section="costo"><td colspan="${nc}">COSTO DE LOS BIENES VENDIDOS</td></tr>
   <tr class="data-row">
     <td>Costo de Ventas</td>
-    ${mesesOrd.map(m=>`<td style="color:var(--orange)">${hasCosto?fmtM(+m.COSTO_VENTAS||0):'—'}</td>`).join('')}
-    <td style="color:var(--orange)">${hasCosto?fmtM(+tot.COSTO_VENTAS||0):'—'}</td>
+    ${mesesOrd.map(m=>{if(!hasCosto)return'<td style="color:var(--orange)">—</td><td class="av-pct">—</td>';return valPct(+m.COSTO_VENTAS||0,+m.VENTAS_NETAS||0,'color:var(--orange)');}).join('')}
+    ${hasCosto?valPct(+tot.COSTO_VENTAS||0,Vtot,'color:var(--orange)'):'<td style="color:var(--orange)">—</td><td class="av-pct">—</td>'}
   </tr>
   <tr class="subtotal-row">
     <td>&#9654; Utilidad Bruta</td>
-    ${mesesOrd.map(m=>{const u=hasCosto?(+m.UTILIDAD_BRUTA||0):(+m.VENTAS_NETAS||0);const mg=+m.MARGEN_BRUTO_PCT||0;const col=mg>=30?'var(--green)':mg>=15?'var(--yellow-ink)':'var(--red)';return`<td style="color:${col}">${fmtM(u)}</td>`;}).join('')}
-    <td style="color:${mgTotCol}">${hasCosto?fmtM(+tot.UTILIDAD_BRUTA||0):fmtM(+tot.VENTAS_NETAS||0)}</td>
+    ${mesesOrd.map(m=>{var u=hasCosto?(+m.UTILIDAD_BRUTA||0):(+m.VENTAS_NETAS||0);var V=+m.VENTAS_NETAS||0;var mg=+m.MARGEN_BRUTO_PCT||0;var col=mg>=30?'var(--green)':mg>=15?'var(--yellow-ink)':'var(--red)';var p=V>0?(u/V*100):null;return'<td style="color:'+col+'">'+fmtM(u)+'</td><td class="av-pct">'+(p!==null?fmtPct2(p):'—')+'</td>';}).join('')}
+    ${(function(){var u=hasCosto?(+tot.UTILIDAD_BRUTA||0):(+tot.VENTAS_NETAS||0);var p=Vtot>0?(u/Vtot*100):null;return'<td style="color:'+mgTotCol+'">'+fmtM(u)+'</td><td class="av-pct">'+(p!==null?fmtPct2(p):'—')+'</td>';})()}
   </tr>
 
   <tr class="pnl-section-header" data-section="gastos"><td colspan="${nc}">GASTOS DE OPERACI&#211;N</td></tr>
@@ -2621,8 +2599,8 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   ${!tg?`<tr class="data-row"><td style="color:var(--muted);font-size:.75rem;padding:.6rem 1.2rem" colspan="${nc}">&#9888;&#xFE0F; Sin datos contables (cuentas 52*/53*/54*). Capturar movimientos en Microsip Contabilidad.</td></tr>`:''}
   <tr class="subtotal-row">
     <td>&#9654; Utilidad de Operaci&#243;n</td>
-    ${mesesOrd.map(m=>{const ub=hasCosto?(+m.UTILIDAD_BRUTA||0):(+m.VENTAS_NETAS||0);const op=tg?sumGastoKeys(m,_GAS_OPEX):0;const uop=ub-op;return`<td style="color:${uop>=0?'var(--green)':'var(--red)'}">${fmtNeg(uop)}</td>`;}).join('')}
-    <td style="color:${utilOpTot>=0?'var(--green)':'var(--red)'}">${fmtNeg(utilOpTot)}</td>
+    ${mesesOrd.map(m=>{var ub=hasCosto?(+m.UTILIDAD_BRUTA||0):(+m.VENTAS_NETAS||0);var op=tg?sumGastoKeys(m,_GAS_OPEX):0;var uop=ub-op;var V=+m.VENTAS_NETAS||0;var p=V>0?(uop/V*100):null;return'<td style="color:'+(uop>=0?'var(--green)':'var(--red)')+'">'+fmtNeg(uop)+'</td><td class="av-pct">'+(p!==null?fmtPct2(p):'—')+'</td>';}).join('')}
+    ${(function(){var p=Vtot>0?(utilOpTot/Vtot*100):null;return'<td style="color:'+(utilOpTot>=0?'var(--green)':'var(--red)')+'">'+fmtNeg(utilOpTot)+'</td><td class="av-pct">'+(p!==null?fmtPct2(p):'—')+'</td>';})()}
   </tr>
 
   ${rowGastoBucket('CO_B1','','Gastos financieros')}
@@ -2646,8 +2624,8 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   if(pnlFootEl)pnlFootEl.innerHTML=`
   <tr class="total-final">
     <td>${isYtdView?'UTILIDAD ANTES DE IMPUESTOS ACUMULADA':'UTILIDAD ANTES DE IMPUESTOS (PERIODO)'}</td>
-    ${mesesOrd.map(m=>`<td style="color:${uaiForMes(m)>=0?'var(--green)':'var(--red)'}">${fmtNeg(uaiForMes(m))}</td>`).join('')}
-    <td style="color:${uaiTotal>=0?'var(--green)':'var(--red)'}">${fmtNeg(uaiTotal)}</td>
+    ${mesesOrd.map(m=>{var uai=uaiForMes(m);var V=+m.VENTAS_NETAS||0;var p=V>0?(uai/V*100):null;return'<td style="color:'+(uai>=0?'var(--green)':'var(--red)')+'">'+fmtNeg(uai)+'</td><td class="av-pct">'+(p!==null?fmtPct2(p):'—')+'</td>';}).join('')}
+    ${(function(){var p=Vtot>0?(uaiTotal/Vtot*100):null;return'<td style="color:'+(uaiTotal>=0?'var(--green)':'var(--red)')+'">'+fmtNeg(uaiTotal)+'</td><td class="av-pct">'+(p!==null?fmtPct2(p):'—')+'</td>';})()}
   </tr>`;
 }
 

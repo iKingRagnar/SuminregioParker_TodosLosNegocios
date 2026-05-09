@@ -159,3 +159,59 @@ html.theme-premium-light * {
     padding-bottom: env(safe-area-inset-bottom);
   }
 }
+
+/* ── Smooth pull-to-refresh feel ─────────────────────────────────────────── */
+html.theme-premium-light { overscroll-behavior-y: contain; }
+
+/* ── Mobile nav slide-in animation ───────────────────────────────────────── */
+@keyframes meSlideDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (max-width: 760px) {
+  html.theme-premium-light #app-header nav.mobile-open {
+    animation: meSlideDown .25s cubic-bezier(.22,1,.36,1) both;
+  }
+  html.theme-premium-light #app-header nav.mobile-open .nav-link {
+    border-radius: 10px;
+    transition: background .15s ease;
+  }
+  html.theme-premium-light #app-header nav.mobile-open .nav-link:active {
+    background: rgba(230, 168, 0, .12) !important;
+  }
+  html.theme-premium-light #app-header nav.mobile-open .nav-link.active {
+    background: linear-gradient(135deg, rgba(230,168,0,.15), rgba(230,168,0,.06)) !important;
+    color: #92400e !important;
+    font-weight: 600;
+  }
+
+  /* Card press feedback */
+  html.theme-premium-light .kpi-card:active,
+  html.theme-premium-light .kpi:active,
+  html.theme-premium-light .sc-card:active,
+  html.theme-premium-light .card:active {
+    transform: scale(0.98) !important;
+    transition-duration: .08s !important;
+  }
+
+  /* Horizontal scroll indicators for tables */
+  html.theme-premium-light main table {
+    position: relative;
+    border-radius: 10px;
+    border: 1px solid rgba(230, 168, 0, .12);
+  }
+
+  /* Compact spacing for stat pills */
+  html.theme-premium-light .stat-pill,
+  html.theme-premium-light [class*="stat-"] {
+    font-size: .68rem !important;
+  }
+
+  /* Better modal / bottom sheet on mobile */
+  html.theme-premium-light dialog,
+  html.theme-premium-light .ms-modal {
+    border-radius: 20px 20px 0 0 !important;
+    margin-top: auto !important;
+    max-height: 85vh;
+  }
+}

@@ -295,10 +295,203 @@ hr, .divider {
   }
 }
 
+/* ── Página: transición suave al entrar ──────────────────────────────────── */
+@keyframes vpPageIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+html.theme-premium-light body { animation: vpPageIn .35s var(--vp-ease) both; }
+
+/* ── KPI cards: gold accent stripe en top ────────────────────────────────── */
+.kpi-card::before, .ms-kpi::before, .card-kpi::before, .metric-card::before,
+.sc-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 12px; right: 12px;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: var(--vp-gradient-gold);
+  opacity: 0;
+  transition: opacity .3s var(--vp-ease);
+}
+.kpi-card:hover::before, .ms-kpi:hover::before, .card-kpi:hover::before,
+.metric-card:hover::before, .sc-card:hover::before {
+  opacity: 1;
+}
+
+/* ── Semáforo badges: vibrancia ──────────────────────────────────────────── */
+[class*="badge"], [class*="tag"], [class*="pill"], .semaforo {
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+.badge-green, [class*="badge-ok"], [class*="tag-green"], .semaforo-verde {
+  background: rgba(22, 163, 74, .12) !important;
+  color: #15803d !important;
+  border: 1px solid rgba(22, 163, 74, .25) !important;
+}
+.badge-yellow, [class*="badge-warn"], [class*="tag-yellow"], .semaforo-amarillo {
+  background: rgba(234, 179, 8, .12) !important;
+  color: #a16207 !important;
+  border: 1px solid rgba(234, 179, 8, .3) !important;
+}
+.badge-red, [class*="badge-danger"], [class*="tag-red"], .semaforo-rojo {
+  background: rgba(220, 38, 38, .1) !important;
+  color: #b91c1c !important;
+  border: 1px solid rgba(220, 38, 38, .25) !important;
+}
+
+/* ── Tablas: rayas alternadas sutiles + bordes refinados ──────────────────── */
+table tbody tr:nth-child(even) {
+  background: rgba(248, 250, 252, .6);
+}
+table th {
+  border-bottom: 2px solid var(--vp-stroke-gold) !important;
+  padding: .65rem .75rem;
+}
+table td {
+  padding: .55rem .75rem;
+  border-bottom: 1px solid rgba(15, 23, 42, .04);
+}
+
+/* ── Nav: indicador activo con underline dorada ──────────────────────────── */
+nav a.active::after, .nav-link.active::after {
+  content: '';
+  position: absolute;
+  bottom: 2px; left: 20%; right: 20%;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--vp-gold);
+}
+
+/* ── Tooltips ────────────────────────────────────────────────────────────── */
+[title], [data-tooltip] {
+  position: relative;
+}
+
+/* ── Section headings: divider con gradiente dorado ──────────────────────── */
+.section-title, .chart-title {
+  padding-bottom: .5rem;
+  border-bottom: 1px solid rgba(230, 168, 0, .15);
+  margin-bottom: .75rem;
+}
+
+/* ── Biz chips: refinamiento ─────────────────────────────────────────────── */
+html.theme-premium-light .biz-chip {
+  border-radius: 10px;
+  font-weight: 500;
+  transition: all .2s var(--vp-ease);
+}
+html.theme-premium-light .biz-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px -2px rgba(230, 168, 0, .2);
+}
+html.theme-premium-light .biz-chip.active {
+  background: linear-gradient(135deg, rgba(230, 168, 0, .18), rgba(230, 168, 0, .08)) !important;
+  font-weight: 600;
+  box-shadow: 0 2px 8px -2px rgba(230, 168, 0, .3);
+}
+
+/* ── Filter bar: sombra premium ──────────────────────────────────────────── */
+html.theme-premium-light .biz-context-bar,
+html.theme-premium-light .fb-bar,
+html.theme-premium-light [class*="filter-bar"] {
+  background: rgba(255, 255, 255, .92) !important;
+  border: 1px solid rgba(230, 168, 0, .15) !important;
+  box-shadow: 0 4px 20px -4px rgba(15, 23, 42, .06), 0 1px 3px rgba(15, 23, 42, .04);
+  border-radius: var(--vp-r-lg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* ── Live pill: glow sutil ───────────────────────────────────────────────── */
+html.theme-premium-light .live-pill {
+  background: rgba(22, 163, 74, .08) !important;
+  border: 1px solid rgba(22, 163, 74, .2) !important;
+  color: #15803d !important;
+}
+html.theme-premium-light .live-dot {
+  background: #16a34a !important;
+  box-shadow: 0 0 6px rgba(22, 163, 74, .6) !important;
+}
+
+/* ── Chart containers: bordes y sombras coherentes ───────────────────────── */
+html.theme-premium-light .chart-container,
+html.theme-premium-light .ms-chart-wrapper,
+html.theme-premium-light [class*="chart-wrap"] {
+  border: 1px solid rgba(230, 168, 0, .12) !important;
+  border-radius: var(--vp-r-lg) !important;
+  box-shadow: var(--vp-shadow-sm);
+  overflow: hidden;
+}
+
+/* ── Bottom nav (móvil): glassmorphism refinado ──────────────────────────── */
+html.theme-premium-light .bottom-nav,
+html.theme-premium-light [class*="bottom-bar"],
+html.theme-premium-light [class*="tab-bar"] {
+  background: rgba(255, 255, 255, .88) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-top: 1px solid rgba(230, 168, 0, .12) !important;
+  box-shadow: 0 -4px 20px rgba(15, 23, 42, .06);
+}
+
+/* ── Staggered card entrance (más items) ─────────────────────────────────── */
+main > *:nth-child(6), .grid > *:nth-child(6) { animation-delay: .22s; }
+main > *:nth-child(7), .grid > *:nth-child(7) { animation-delay: .26s; }
+main > *:nth-child(8), .grid > *:nth-child(8) { animation-delay: .30s; }
+main > *:nth-child(9), .grid > *:nth-child(9) { animation-delay: .34s; }
+main > *:nth-child(10), .grid > *:nth-child(10) { animation-delay: .38s; }
+
+/* ── Números KPI: tamaño fluido y tracking mejorado ──────────────────────── */
+.kpi-value, .ms-kpi-value, .kpi-val, .kpi .value {
+  font-size: clamp(1.5rem, 3vw, 2rem) !important;
+  line-height: 1.1;
+}
+
+/* ── Refresh bar: más elegante ───────────────────────────────────────────── */
+html.theme-premium-light .ms-refresh-bar,
+html.theme-premium-light [class*="refresh"] {
+  border-radius: 99px !important;
+  font-size: .72rem;
+}
+
 /* ── Móvil ───────────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
   .kpi-card, .ms-kpi, .card-kpi, .metric-card, .kpi, .sc-card, .card {
     border-radius: var(--vp-r-md) !important;
   }
   h1, .page-title { font-size: clamp(1.4rem, 5vw, 1.8rem); }
+
+  .page, main { padding-left: 14px !important; padding-right: 14px !important; }
+
+  table { font-size: .78rem; }
+  table th { font-size: .65rem; padding: .5rem .5rem; }
+  table td { padding: .45rem .5rem; }
+
+  .section-title, .chart-title { font-size: clamp(.9rem, 3.5vw, 1.1rem); }
+
+  html.theme-premium-light .biz-context-bar,
+  html.theme-premium-light .fb-bar {
+    padding: .55rem .75rem !important;
+    border-radius: var(--vp-r-md);
+    gap: .5rem !important;
+  }
+
+  html.theme-premium-light .biz-chip {
+    font-size: .72rem !important;
+    padding: .4rem .75rem !important;
+    min-height: 36px;
+  }
+}
+
+/* ── Tablet landscape ───────────────────────────────────────────────────── */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .page, main { padding-left: 20px !important; padding-right: 20px !important; }
+}
+
+/* ── Print ───────────────────────────────────────────────────────────────── */
+@media print {
+  body { background: white !important; }
+  header, .bottom-nav, [class*="tab-bar"], [class*="refresh"], .ai-btn { display: none !important; }
+  .kpi-card, .sc-card, .card { break-inside: avoid; box-shadow: none !important; border: 1px solid #ddd !important; }
 }

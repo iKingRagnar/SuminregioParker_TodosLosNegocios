@@ -968,3 +968,217 @@ body.keyboard-open #btn-toggle-sidebar { display: none !important; }
   text-transform: uppercase;
   letter-spacing: .04em;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SUPERPULIDA — Visual upgrade v2
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Sidebar brand header ──────────────────────────────────────────────── */
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 16px 10px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  margin-bottom: 4px;
+}
+.sidebar-brand-icon {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, #E6A800, #B8860B);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .85rem;
+  font-weight: 800;
+  color: #fff;
+  flex-shrink: 0;
+}
+.sidebar-brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.sidebar-brand-text strong {
+  font-size: .88rem;
+  font-weight: 700;
+  color: #F1F5F9;
+  letter-spacing: -.01em;
+}
+.sidebar-brand-text span {
+  font-size: .68rem;
+  color: #64748B;
+}
+
+/* ── Sidebar section label ─────────────────────────────────────────────── */
+.sidebar-section-label {
+  padding: 12px 16px 6px;
+  font-size: .6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: #475569;
+}
+
+/* ── Landing headline (dynamic) ────────────────────────────────────────── */
+.landing-headline {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -.03em;
+  color: #0F172A;
+  margin: 8px 0 4px;
+  line-height: 1.2;
+}
+.landing-headline em {
+  font-style: italic;
+  background: linear-gradient(135deg, #E6A800, #B8860B);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Business unit cards in landing ────────────────────────────────────── */
+.landing-biz-units {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+  gap: 10px;
+  margin: 24px 0 16px;
+  text-align: left;
+}
+.biz-unit-card {
+  background: #fff;
+  border: 1.5px solid rgba(15,23,42,.08);
+  border-radius: 12px;
+  padding: 14px;
+  cursor: pointer;
+  transition: all .18s ease;
+  position: relative;
+}
+.biz-unit-card:hover {
+  border-color: rgba(230,168,0,.35);
+  box-shadow: 0 4px 16px -4px rgba(230,168,0,.12);
+  transform: translateY(-1px);
+}
+.biz-unit-card.active {
+  border-color: rgba(59,130,246,.5);
+  background: rgba(59,130,246,.04);
+  box-shadow: 0 0 0 3px rgba(59,130,246,.1);
+}
+.biz-unit-card.active::after {
+  content: '\2713';
+  position: absolute;
+  top: 8px; right: 10px;
+  font-size: .75rem;
+  font-weight: 700;
+  color: #3B82F6;
+}
+.biz-unit-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .82rem;
+  font-weight: 700;
+  color: #0F172A;
+  margin-bottom: 4px;
+}
+.biz-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.biz-unit-desc {
+  font-size: .7rem;
+  color: #64748B;
+  line-height: 1.4;
+}
+
+/* ── Suggestion chips refinados ────────────────────────────────────────── */
+.suggest-chip {
+  background: rgba(255,255,255,.9);
+  border: 1.5px solid rgba(15,23,42,.08);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(15,23,42,.04);
+}
+.suggest-chip:hover {
+  border-color: rgba(230,168,0,.4);
+  box-shadow: 0 4px 12px -4px rgba(230,168,0,.12);
+}
+
+/* ── Sidebar conversation items polish ─────────────────────────────────── */
+.conv-item {
+  border-radius: 10px;
+  transition: all .15s ease;
+}
+.conv-item.active {
+  background: rgba(230,168,0,.12);
+  border-left: 3px solid #E6A800;
+}
+
+/* ── Input area premium polish ─────────────────────────────────────────── */
+#ia-form {
+  border: 1.5px solid rgba(15,23,42,.1);
+  border-radius: 18px;
+  box-shadow: 0 2px 16px -4px rgba(15,23,42,.06), 0 0 0 1px rgba(255,255,255,.8) inset;
+}
+#ia-form:focus-within {
+  border-color: rgba(230,168,0,.45);
+  box-shadow: 0 4px 24px -6px rgba(230,168,0,.12), 0 0 0 3px rgba(230,168,0,.08);
+}
+
+/* ── User message bubble polish ────────────────────────────────────────── */
+.msg-user .msg-bubble {
+  background: linear-gradient(135deg, #1E293B, #0F172A);
+  color: #F1F5F9;
+  border-radius: 20px 20px 4px 20px;
+  box-shadow: 0 4px 16px -4px rgba(15,23,42,.2);
+}
+
+/* ── AI message avatar glow ────────────────────────────────────────────── */
+.msg-ai-avatar {
+  box-shadow: 0 2px 8px -2px rgba(230,168,0,.3);
+}
+
+/* ── Timestamp on messages ─────────────────────────────────────────────── */
+.msg-time {
+  font-size: .62rem;
+  color: #94A3B8;
+  margin-top: 4px;
+}
+
+/* ── Section divider between landing sections ──────────────────────────── */
+.landing-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0 12px;
+  font-size: .62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: #94A3B8;
+}
+.landing-divider::before, .landing-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(15,23,42,.06);
+}
+
+/* ── Landing responsive adjustments ────────────────────────────────────── */
+@media (max-width: 768px) {
+  .landing-headline { font-size: 1.3rem; }
+  .landing-biz-units { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .biz-unit-card { padding: 10px 12px; }
+  .biz-unit-name { font-size: .78rem; }
+  .biz-unit-desc { font-size: .66rem; }
+  .sidebar-brand { padding: 14px 12px 8px; }
+}
+@media (max-width: 480px) {
+  .landing-headline { font-size: 1.15rem; }
+  .landing-biz-units { grid-template-columns: 1fr 1fr; gap: 6px; }
+  .biz-unit-card { padding: 10px; }
+  .sidebar-brand-text strong { font-size: .82rem; }
+}
+@media (max-width: 360px) {
+  .landing-biz-units { grid-template-columns: 1fr; }
+}

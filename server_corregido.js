@@ -817,6 +817,11 @@ try {
   require('./email-reports').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
 } catch (e) { console.warn('[email-reports] no instalado:', e.message); }
 
+// Conversaciones IA persistentes por usuario (sumi-db)
+try {
+  require('./ia-conversations').install(app);
+} catch (e) { console.warn('[ia-conversations] no instalado:', e.message); }
+
 // AI conversacional v2 con memoria (Anthropic SDK)
 try {
   require('./ai-chat-v2').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
