@@ -8530,27 +8530,8 @@ async function resultadosPnlCore(req, dbOpts) {
   try {
     subconceptos_rows = await q(`
       SELECT
-        CASE
-          WHEN cu.CUENTA_PT STARTING WITH '5201' THEN 'CO_A1'
-          WHEN cu.CUENTA_PT STARTING WITH '5202' THEN 'CO_A2'
-          WHEN cu.CUENTA_PT STARTING WITH '5203' AND ${sqlCoNombreUp} = 'OTROS GASTOS' THEN 'CO_C1'
-          WHEN cu.CUENTA_PT STARTING WITH '5203' THEN 'CO_A3'
-          WHEN cu.CUENTA_PT STARTING WITH '5204' THEN 'CO_A4'
-          WHEN cu.CUENTA_PT STARTING WITH '5205' THEN 'CO_A5'
-          WHEN cu.CUENTA_PT STARTING WITH '52' THEN 'CO_A6'
-          WHEN cu.CUENTA_PT STARTING WITH '5301' THEN 'CO_B1'
-          WHEN cu.CUENTA_PT STARTING WITH '5302' THEN 'CO_B2'
-          WHEN cu.CUENTA_PT STARTING WITH '5303' THEN 'CO_B3'
-          WHEN cu.CUENTA_PT STARTING WITH '5304' THEN 'CO_B4'
-          WHEN cu.CUENTA_PT STARTING WITH '53' THEN 'CO_B5'
-          WHEN cu.CUENTA_PT STARTING WITH '5401' THEN 'CO_C1'
-          WHEN cu.CUENTA_PT STARTING WITH '5402' THEN 'CO_C2'
-          WHEN cu.CUENTA_PT STARTING WITH '5403' THEN 'CO_C3'
-          WHEN cu.CUENTA_PT STARTING WITH '5404' THEN 'CO_C4'
-          WHEN cu.CUENTA_PT STARTING WITH '5405' THEN 'CO_C5'
-          WHEN cu.CUENTA_PT STARTING WITH '54' THEN 'CO_C6'
-          ELSE NULL
-        END AS BUCKET,
+        TRIM(COALESCE(cu.CUENTA_PT, '')) AS CUENTA_PT,
+        TRIM(COALESCE(cu.NOMBRE, '')) AS NOMBRE_RAW,
         TRIM(COALESCE(NULLIF(cu.NOMBRE, ''), NULLIF(cu.CUENTA_JT, ''), cu.CUENTA_PT)) AS ETIQUETA,
         ${salYearExpr} AS ANIO,
         ${salMonthExpr} AS MES,
@@ -8561,8 +8542,8 @@ async function resultadosPnlCore(req, dbOpts) {
         AND ${salYearExpr} >= ? AND ${salYearExpr} <= ?
         AND NOT (${salYearExpr} = ? AND ${salMonthExpr} < ?)
         AND NOT (${salYearExpr} = ? AND ${salMonthExpr} > ?)
-      GROUP BY 1, 2, 3, 4
-      ORDER BY 1, 2, 3, 4
+      GROUP BY cu.CUENTA_PT, cu.NOMBRE, cu.CUENTA_JT, ${salYearExpr}, ${salMonthExpr}
+      ORDER BY cu.CUENTA_PT, ${salYearExpr}, ${salMonthExpr}
     `, [sy, ey, sy, sm, ey, em], 15000);
   } catch (_) {
     subconceptos_rows = [];
@@ -8592,7 +8573,9 @@ async function resultadosPnlCore(req, dbOpts) {
   prefijos_labels.CO_C1 = 'Otros gastos (partidas extraordinarias)';
   const subTmp = {};
   for (const r of (subconceptos_rows || [])) {
-    const b = String(r.BUCKET || '').trim();
+    const cp = String(r.CUENTA_PT || '').trim();
+    const nm = String(r.NOMBRE_RAW || '').trim();
+    const b = gastoBucket(cp, nm);
     if (!b) continue;
     const et = String(r.ETIQUETA || '').trim() || 'Sin etiqueta';
     const an = +r.ANIO || 0;
