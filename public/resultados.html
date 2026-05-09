@@ -2597,6 +2597,11 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   ${rowGastoBucket('CO_A2','B')}
   ${rowGastoBucket('CO_A3','C')}
   ${!tg?`<tr class="data-row"><td style="color:var(--muted);font-size:.75rem;padding:.6rem 1.2rem" colspan="${nc}">&#9888;&#xFE0F; Sin datos contables (cuentas 52*/53*/54*). Capturar movimientos en Microsip Contabilidad.</td></tr>`:''}
+  ${tg?`<tr class="subtotal-row" style="background:rgba(239,68,68,.06)">
+    <td>&Sigma; Total Gastos de Operaci&#243;n</td>
+    ${mesesOrd.map(m=>{var op=sumGastoKeys(m,_GAS_OPEX);var V=+m.VENTAS_NETAS||0;var p=V>0?(op/V*100):null;return'<td style="color:var(--red)">'+fmtParens(op)+'</td><td class="av-pct">'+(p!==null?fmtPct2(p):'—')+'</td>';}).join('')}
+    ${(function(){var p=Vtot>0?(opexTot/Vtot*100):null;return'<td style="color:var(--red)">'+fmtParens(opexTot)+'</td><td class="av-pct">'+(p!==null?fmtPct2(p):'—')+'</td>';})()}
+  </tr>`:''}
   <tr class="subtotal-row">
     <td>&#9654; Utilidad de Operaci&#243;n</td>
     ${mesesOrd.map(m=>{var ub=hasCosto?(+m.UTILIDAD_BRUTA||0):(+m.VENTAS_NETAS||0);var op=tg?sumGastoKeys(m,_GAS_OPEX):0;var uop=ub-op;var V=+m.VENTAS_NETAS||0;var p=V>0?(uop/V*100):null;return'<td style="color:'+(uop>=0?'var(--green)':'var(--red)')+'">'+fmtNeg(uop)+'</td><td class="av-pct">'+(p!==null?fmtPct2(p):'—')+'</td>';}).join('')}
