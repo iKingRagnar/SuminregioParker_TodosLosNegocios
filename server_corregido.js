@@ -8384,12 +8384,7 @@ async function resultadosPnlCore(req, dbOpts) {
     const cobros = cobMap[key(r.ANIO, r.MES)] || 0;
     const util = ventas - costo;
     const margenPct = ventas > 0 ? Math.round((util / ventas) * 1000) / 10 : 0;
-    // Forzar uso de gastosClasifMap (que usa gastoBucket()) para que los
-    // totales del bucket cuadren exactamente con la suma de subconceptos.
-    // El fallback a gasMap (SQL CASE WHEN puro) introducía discrepancias
-    // porque clasifica algunas cuentas distinto (p.ej. 5301* sin nombre FINAN
-    // iría a CO_B1 en gasMap pero CO_A3 en gastoBucket vía catch-all).
-    const g = gastosClasifMap[kmKey] || {};
+    const g = gastosClasifMap[kmKey] || gasMap[kmKey] || {};
     return {
       ANIO: r.ANIO,
       MES: r.MES,
