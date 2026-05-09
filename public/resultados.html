@@ -2526,9 +2526,12 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   const renderSubRows=(bucket,bid)=>{
     const arr=(subData[bucket]&&Array.isArray(subData[bucket]))?subData[bucket]:[];
     if(!arr.length)return'';
+    const bucketTot=sumGastoKeys(tot,[bucket]);
+    const tolerance=Math.max(bucketTot*0.001,0.5);
     return arr.map(r=>{
       const rtot=+r.total||0;
       if(rtot<=0.005)return'';
+      if(bucketTot>0 && rtot > bucketTot + tolerance) return '';
       var tPct=Vtot>0?(rtot/Vtot*100):null;
       return'<tr class="gasto-sub" data-bid="'+bid+'" style="display:none"><td>· '+escHtml(r.etiqueta||'Sin etiqueta')+'</td>'+
         mesesOrd.map(m=>{const mk=monthKey(m);const v=+((r.meses&&r.meses[mk])||0);const V=+m.VENTAS_NETAS||0;var p=V>0?(v/V*100):null;
