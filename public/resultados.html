@@ -2523,31 +2523,18 @@ function renderTabla(meses,tot,hasCosto,tieneGastosCo){
   function fmtParens(v){v=+v;if(isNaN(v)||v<=0)return'—';return'<span class="paren-neg">('+fmtM(v)+')</span>';}
 
   // ── sub-rows (drilldown) with % ─────────────────────────────────────────
-  // Normaliza: filtra sub-items imposibles (>bucket) y escala proporcionalmente
-  // para que la suma de sub-items = total del bucket (cascada perfecta).
   const renderSubRows=(bucket,bid)=>{
     const arr=(subData[bucket]&&Array.isArray(subData[bucket]))?subData[bucket]:[];
     if(!arr.length)return'';
     const bucketTot=sumGastoKeys(tot,[bucket]);
     const tolerance=Math.max(bucketTot*0.001,0.5);
-    const filtered=arr.filter(r=>{
+    return arr.map(r=>{
       const rtot=+r.total||0;
-      return rtot>0.005 && (bucketTot<=0 || rtot<=bucketTot+tolerance);
-    });
-    const subSum=filtered.reduce((s,r)=>s+(+r.total||0),0);
-    const totScale=(bucketTot>0 && subSum>0.005 && Math.abs(subSum-bucketTot)>tolerance) ? (bucketTot/subSum) : 1;
-    const monthScale={};
-    mesesOrd.forEach(m=>{
-      const mk=monthKey(m);
-      const mb=sumGastoKeys(m,[bucket]);
-      const ms=filtered.reduce((s,r)=>s+(+(r.meses&&r.meses[mk])||0),0);
-      monthScale[mk]=(mb>0 && ms>0.005 && Math.abs(ms-mb)>Math.max(mb*0.001,0.5)) ? (mb/ms) : 1;
-    });
-    return filtered.map(r=>{
-      const rtot=(+r.total||0)*totScale;
+      if(rtot<=0.005)return'';
+      if(bucketTot>0 && rtot > bucketTot + tolerance) return '';
       var tPct=Vtot>0?(rtot/Vtot*100):null;
       return'<tr class="gasto-sub" data-bid="'+bid+'" style="display:none"><td>· '+escHtml(r.etiqueta||'Sin etiqueta')+'</td>'+
-        mesesOrd.map(m=>{const mk=monthKey(m);const v=(+((r.meses&&r.meses[mk])||0))*(monthScale[mk]||1);const V=+m.VENTAS_NETAS||0;var p=V>0?(v/V*100):null;
+        mesesOrd.map(m=>{const mk=monthKey(m);const v=+((r.meses&&r.meses[mk])||0);const V=+m.VENTAS_NETAS||0;var p=V>0?(v/V*100):null;
           return v>0.005?'<td>'+fmtParens(v)+'</td><td class="av-pct">'+(p!==null?fmtPct2(p):'—')+'</td>':'<td>—</td><td class="av-pct">—</td>';}).join('')+
         '<td>'+fmtParens(rtot)+'</td><td class="av-pct">'+(tPct!==null?fmtPct2(tPct):'—')+'</td></tr>';
     }).join('');
