@@ -858,6 +858,61 @@ try {
   require('./integrations').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
 } catch (e) { console.warn('[integrations] no instalado:', e.message); }
 
+// Detector de churn (RFM accionable + alertas proactivas)
+try {
+  require('./churn-detector').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[churn-detector] no instalado:', e.message); }
+
+// Lista priorizada de compras + cron lunes
+try {
+  require('./compras-semanal').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[compras-semanal] no instalado:', e.message); }
+
+// Clasificación ABC × XYZ de inventario
+try {
+  require('./abc-xyz').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[abc-xyz] no instalado:', e.message); }
+
+// WhatsApp inbound (webhook Twilio → AI chat + comandos directos)
+try {
+  require('./wa-inbound').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[wa-inbound] no instalado:', e.message); }
+
+// Lead scoring (probabilidad de cierre por cotización)
+try {
+  require('./lead-scoring').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[lead-scoring] no instalado:', e.message); }
+
+// Cross-sell (recomendador market basket por cliente y por SKU)
+try {
+  require('./cross-sell').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[cross-sell] no instalado:', e.message); }
+
+// Probabilidad de pago (score por cliente)
+try {
+  require('./prob-pago').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[prob-pago] no instalado:', e.message); }
+
+// Reorden dinámico (stock de seguridad estadístico + EOQ)
+try {
+  require('./reorden-dinamico').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[reorden-dinamico] no instalado:', e.message); }
+
+// Forecast por SKU con estacionalidad
+try {
+  require('./forecast-sku').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[forecast-sku] no instalado:', e.message); }
+
+// Limpieza de catálogos (duplicados, precios inconsistentes, sin RFC)
+try {
+  require('./catalog-cleanup').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[catalog-cleanup] no instalado:', e.message); }
+
+// SAT / DIOT (pre-DIOT desde compras Microsip + validaciones)
+try {
+  require('./sat-diot').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[sat-diot] no instalado:', e.message); }
+
 // Auth + candados: se instala al inicio (tras session), ver bloque "auth/gates".
 
 // Ejemplo de route extraído del monolito (solo si USE_NEW_VENTAS=1)

@@ -30,6 +30,17 @@ jobs:
           node -c analytics-deep.js
           node -c email-reports.js
           node -c safe-catch.js
+          node -c churn-detector.js
+          node -c compras-semanal.js
+          node -c abc-xyz.js
+          node -c wa-inbound.js
+          node -c lead-scoring.js
+          node -c cross-sell.js
+          node -c prob-pago.js
+          node -c reorden-dinamico.js
+          node -c forecast-sku.js
+          node -c catalog-cleanup.js
+          node -c sat-diot.js
 
       - name: Run tests
         env:
