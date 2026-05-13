@@ -197,10 +197,12 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()');
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
   res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
   res.setHeader('X-DNS-Prefetch-Control', 'off');
+  res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+  res.setHeader('X-Download-Options', 'noopen');
   // Vary: las respuestas pueden cambiar según Origin (CORS) o Cookie (auth gate).
   // append en lugar de set para no pisar Vary que ya añade gzip middleware.
   const prev = res.getHeader('Vary');
@@ -210,7 +212,8 @@ app.use((req, res, next) => {
     res.setHeader('Content-Security-Policy', _CSP_VALUE);
   }
   if (_IS_PROD) {
-    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    // 2 años + preload + subdomains — listo para hstspreload.org si aplica
+    res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
   }
   next();
 });
@@ -849,6 +852,40 @@ try {
 try {
   require('./ai-chat-v2').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
 } catch (e) { console.warn('[ai-chat-v2] no instalado:', e.message); }
+
+// AI v3 con Opus 4.7 + tool use + caching + thinking + streaming + vision
+try {
+  require('./ai-chat-v3').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[ai-chat-v3] no instalado:', e.message); }
+
+// Prometheus metrics — formato estándar para Grafana / Datadog / etc.
+try {
+  const prom = require('./lib/prometheus').create();
+  const httpRequests = prom.counter('suminregio_http_requests_total', 'Total HTTP requests');
+  const httpErrors = prom.counter('suminregio_http_errors_total', 'Total HTTP error responses (>=500)');
+  const httpDuration = prom.histogram('suminregio_http_duration_ms', 'HTTP duration in ms', [25, 50, 100, 250, 500, 1000, 2500, 5000, 10000]);
+  const snapsLoaded = prom.gauge('suminregio_snapshots_loaded', 'DuckDB snapshots currently loaded');
+
+  app.use((req, res, next) => {
+    if (!req.path.startsWith('/api/')) return next();
+    const start = Date.now();
+    httpRequests.inc(1);
+    res.on('finish', () => {
+      const dur = Date.now() - start;
+      httpDuration.observe(dur);
+      if (res.statusCode >= 500) httpErrors.inc(1);
+    });
+    next();
+  });
+
+  app.get('/api/metrics', (_req, res) => {
+    snapsLoaded.set(_duckSnaps.size);
+    res.setHeader('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
+    res.end(prom.expose());
+  });
+
+  _boostLog && _boostLog.info && _boostLog.info('prometheus', '✅ /api/metrics (formato Prometheus)');
+} catch (e) { console.warn('[prometheus] no instalado:', e.message); }
 
 // Business intelligence específico Microsip (pipeline, cashflow, comisiones, margen, rotación, conciliación)
 try {

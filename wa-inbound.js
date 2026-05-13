@@ -192,8 +192,12 @@ function install(app, { duckSnaps, log }) {
         return res.send(twiml('🧠 Memoria reiniciada.'));
       }
 
-      // Pregunta libre → AI
-      const ai = await postLocal('/api/ai/chat-v2', { sessionId, db: dbId, message: body });
+      // Pregunta libre → AI v3 (Opus 4.7 + tools), con fallback a v2 si v3 falla
+      let ai = await postLocal('/api/ai/chat-v3', { sessionId, db: dbId, message: body, effort: 'medium' });
+      if (!ai || (!ai.reply && !ai.ok)) {
+        log && log.info && log.info('wa-inbound', 'v3 sin respuesta, fallback a v2');
+        ai = await postLocal('/api/ai/chat-v2', { sessionId, db: dbId, message: body });
+      }
       let reply = (ai && ai.reply) ? String(ai.reply) : '';
       if (!reply) {
         reply = (ai && ai.error) ? `AI sin respuesta: ${ai.error}. Usa /help para comandos directos.` : 'No pude responder. Usa /help.';
