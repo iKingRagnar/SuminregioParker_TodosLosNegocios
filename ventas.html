@@ -11,6 +11,7 @@
 // API = mismo origen que la página. Si abres por file:// se usa localhost:7000. filters.js aplica el fix para ngrok.
 window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');
 </script>
+<script src="safe-dom.js"></script>
 <script src="filters.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -1340,7 +1341,7 @@ async function loadVendedores() {
       const pct = max>0?((+(r.VENTAS_MES||0))/max*100).toFixed(0):0;
       return `<div class="vendor-item">
         <div class="vendor-head">
-          <span class="vendor-name"><span class="rank-num">${i+1}</span>${r.VENDEDOR}</span>
+          <span class="vendor-name"><span class="rank-num">${i+1}</span>${escHtml(r.VENDEDOR)}</span>
           <span><span class="vendor-amount">${fmtK(r.VENTAS_MES)}</span><span class="vendor-pct">${pct}%</span></span>
         </div>
         <div class="vendor-bar-bg"><div class="vendor-bar-fill" style="width:${pct}%"></div></div>
