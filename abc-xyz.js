@@ -25,6 +25,7 @@ function install(app, { duckSnaps, log }) {
   // ABC-XYZ cruza window functions + variabilidad por semana sobre todo el snapshot.
   // Resultado solo cambia cuando hay snapshot nuevo (1×/día). TTL 15 min.
   const memo = memoLib.create({ ttlMs: 15 * 60 * 1000, max: 50 });
+  try { require('./lib/events').on('snapshot.loaded', () => memo.clear()); } catch (_) {}
 
   app.get('/api/inv/abc-xyz', async (req, res) => {
     const snap = getSnap(req);

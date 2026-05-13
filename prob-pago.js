@@ -20,6 +20,7 @@ function install(app, { duckSnaps, log }) {
   const { getSnap, all } = makeHelpers(duckSnaps);
   // prob-pago: 4 CTEs sobre histórico de pagos. TTL 15 min.
   const memo = memoLib.create({ ttlMs: 15 * 60 * 1000, max: 50 });
+  try { require('./lib/events').on('snapshot.loaded', () => memo.clear()); } catch (_) {}
 
   async function computeScores(snap, minSaldo) {
     // Agregamos historia 12m + posición actual por cliente.

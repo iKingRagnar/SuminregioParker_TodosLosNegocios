@@ -641,6 +641,8 @@ function loadDuckSnapshot(dbId, filePath) {
       ) : null;
       _duckSnaps.set(dbId, { db, conn, meta, path: filePath, loadingAt: null });
       console.log(`[DuckDB][${dbId}] Cargado: ${filePath} | filas=${meta && meta.TOTAL_ROWS} | corte=${meta && meta.CUTOFF_DATE}`);
+      // Emit evento global — módulos con memo cache pueden suscribirse y limpiar.
+      try { require('./lib/events').emit('snapshot.loaded', { dbId, meta, path: filePath }); } catch (_) {}
     });
   } catch (e) {
     console.warn(`[DuckDB][${dbId}] Error cargando snapshot: ${e.message}`);
