@@ -157,14 +157,30 @@ console.log(
   process.exit(1);
 })();
 
-const _corsOrigin = process.env.CORS_ORIGIN || '*';
+let _corsOrigin = process.env.CORS_ORIGIN || '*';
 // En producción no permitir CORS '*' — exige un origen explícito para evitar
 // que cualquier sitio externo invoque nuestros endpoints (incluidos los de IA
 // que pegan contra Anthropic con costo).
+//
+// Auto-recuperación: si CORS_ORIGIN='*' pero RENDER_EXTERNAL_URL está definida
+// (lo cual Render hace por default), usamos ese URL como origen — evita
+// derribar el server cuando el operador no ha actualizado la env var todavía.
+// Para opt-out explícito: ALLOW_INSECURE_CORS=1 (acepta '*' bajo tu propio riesgo).
 if ((process.env.NODE_ENV === 'production' || process.env.RENDER) && _corsOrigin === '*') {
-  console.error('[FATAL] CORS_ORIGIN=* en producción. Define CORS_ORIGIN=https://tu-dominio.com');
-  console.error('         (separa múltiples con coma: CORS_ORIGIN=https://a.com,https://b.com)');
-  process.exit(1);
+  if (process.env.RENDER_EXTERNAL_URL) {
+    console.warn(`[WARN] CORS_ORIGIN=* en producción; auto-derivando a ${process.env.RENDER_EXTERNAL_URL}`);
+    console.warn('       Para configurar explícito: define CORS_ORIGIN en las env vars de Render.');
+    _corsOrigin = process.env.RENDER_EXTERNAL_URL.replace(/\/$/, '');
+  } else if (process.env.ALLOW_INSECURE_CORS === '1') {
+    console.warn('[WARN] CORS_ORIGIN=* en producción ACEPTADO porque ALLOW_INSECURE_CORS=1.');
+    console.warn('       Esto deja la API abierta a cualquier origen. NO recomendado.');
+  } else {
+    console.error('[FATAL] CORS_ORIGIN=* en producción. Define CORS_ORIGIN=https://tu-dominio.com');
+    console.error('         (separa múltiples con coma: CORS_ORIGIN=https://a.com,https://b.com)');
+    console.error('         O define RENDER_EXTERNAL_URL para auto-derivar.');
+    console.error('         O ALLOW_INSECURE_CORS=1 si entiendes el riesgo.');
+    process.exit(1);
+  }
 }
 // Soportar múltiples orígenes separados por coma
 const _corsOrigins = _corsOrigin === '*' ? '*' : _corsOrigin.split(',').map((s) => s.trim()).filter(Boolean);
