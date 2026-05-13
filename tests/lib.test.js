@@ -213,35 +213,39 @@ test('logger.create() respeta LOG_LEVEL', () => {
   process.env.LOG_LEVEL = oldLevel;
 });
 
-test('logger redacta automáticamente headers sensibles', () => {
-  // Capturamos stdout/stderr para ver qué emite
+// Helper para capturar stdout/stderr en pruebas del logger.
+// Restaura AMBOS streams en finally — antes solo restauraba stdout y dejaba
+// stderr monkey-patched globalmente.
+function captureStdio(fn) {
   const lines = [];
-  const origWrite = process.stdout.write.bind(process.stdout);
+  const origOut = process.stdout.write.bind(process.stdout);
+  const origErr = process.stderr.write.bind(process.stderr);
   process.stdout.write = (s) => { lines.push(String(s)); return true; };
   process.stderr.write = (s) => { lines.push(String(s)); return true; };
-  try {
+  try { fn(); }
+  finally {
+    process.stdout.write = origOut;
+    process.stderr.write = origErr;
+  }
+  return lines.join('');
+}
+
+test('logger redacta automáticamente headers sensibles', () => {
+  // opts.level: 'debug' debe ganarle a process.env.LOG_LEVEL=warn que pone CI.
+  const joined = captureStdio(() => {
     const log = loggerLib.create({ level: 'debug' });
     log.info('test', 'msg', { authorization: 'Bearer secret', body: 'ok', cookie: 'x=y' });
-  } finally {
-    process.stdout.write = origWrite;
-  }
-  const joined = lines.join('');
+  });
   assert.ok(joined.includes('***'), 'debe redactar valor');
   assert.ok(!joined.includes('Bearer secret'), 'no debe filtrar token');
   assert.ok(!joined.includes('x=y'), 'no debe filtrar cookie');
 });
 
 test('logger trunca strings gigantes', () => {
-  const lines = [];
-  const origWrite = process.stdout.write.bind(process.stdout);
-  process.stdout.write = (s) => { lines.push(String(s)); return true; };
-  try {
+  const joined = captureStdio(() => {
     const log = loggerLib.create({ level: 'debug' });
     log.info('test', 'msg', { big: 'a'.repeat(5000) });
-  } finally {
-    process.stdout.write = origWrite;
-  }
-  const joined = lines.join('');
+  });
   assert.ok(joined.includes('…'), 'debe incluir indicador de truncado');
   assert.ok(joined.length < 5000, 'salida total acotada');
 });
