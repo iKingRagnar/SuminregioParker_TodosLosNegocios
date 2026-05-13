@@ -201,6 +201,57 @@ test('/api/bi/comisiones rechaza mes inválido (fix SQL injection)', async () =>
   assert.equal(r.status, 400, 'debe rechazar formato inválido tras el fix');
 });
 
+// ════════ AI v3 ════════
+test('/api/ai/chat-v3/tools devuelve catalog sin requerir auth', async () => {
+  const r = await get('/api/ai/chat-v3/tools');
+  assert.equal(r.status, 200);
+  assert.ok(r.json.tools && r.json.tools.length >= 15, 'debe haber >=15 tools registradas');
+});
+
+test('/api/ai/chat-v3/stats devuelve métricas', async () => {
+  const r = await get('/api/ai/chat-v3/stats');
+  assert.equal(r.status, 200);
+  assert.ok('requests' in r.json && 'tokens' in r.json);
+});
+
+test('/api/ai/chat-v3/sessions devuelve lista (vacía o no)', async () => {
+  const r = await get('/api/ai/chat-v3/sessions');
+  assert.equal(r.status, 200);
+  assert.ok(Array.isArray(r.json.sessions));
+});
+
+test('/api/ai/chat-v3 responde 400 sin mensaje', async () => {
+  const r = await postJson('/api/ai/chat-v3', { sessionId: 'test' });
+  assert.ok([400, 503].includes(r.status), 'sin message → 400; sin API key → 503');
+});
+
+// ════════ Prometheus metrics ════════
+test('/api/metrics expone formato prometheus', async () => {
+  // Hacer una request primero para que el contador se incremente
+  await get('/api/admin/mode');
+  const r = await get('/api/metrics');
+  assert.equal(r.status, 200);
+  // Devuelve text, no JSON
+  const text = r.raw || (r.json ? JSON.stringify(r.json) : '');
+  assert.ok(text.includes('# HELP') || text.includes('suminregio_'), 'debe ser formato prometheus');
+});
+
+// ════════ Security headers ════════
+test('respuestas tienen security headers', async () => {
+  const r = await get('/api/admin/mode');
+  // El test ya no expone headers en .json/.raw, hacemos una request HTTP raw
+  const headers = await new Promise((resolve) => {
+    http.get(`http://127.0.0.1:${PORT}/api/admin/mode`, (resp) => {
+      resolve(resp.headers);
+      resp.resume();
+    });
+  });
+  assert.equal(headers['x-content-type-options'], 'nosniff');
+  assert.equal(headers['x-frame-options'], 'SAMEORIGIN');
+  assert.ok(headers['referrer-policy']);
+  assert.ok(headers['permissions-policy']);
+});
+
 test('/api/bi/comisiones acepta mes válido YYYY-MM', async () => {
   const r = await get('/api/bi/comisiones?mes=2026-01');
   assert.ok(r.status === 200 || r.status === 500); // 500 acceptable sin snapshot

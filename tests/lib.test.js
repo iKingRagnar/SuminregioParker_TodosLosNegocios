@@ -199,3 +199,92 @@ test('scheduler.listJobs() devuelve metadata de jobs registrados', () => {
   assert.deepEqual(list[1].days, [1, 2]);
   scheduler.stop();
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// lib/logger.js
+// ═══════════════════════════════════════════════════════════════════════════
+const loggerLib = require('../lib/logger');
+
+test('logger.create() respeta LOG_LEVEL', () => {
+  const oldLevel = process.env.LOG_LEVEL;
+  process.env.LOG_LEVEL = 'warn';
+  const log = loggerLib.create();
+  assert.equal(log.level, 'warn');
+  process.env.LOG_LEVEL = oldLevel;
+});
+
+test('logger redacta automáticamente headers sensibles', () => {
+  // Capturamos stdout/stderr para ver qué emite
+  const lines = [];
+  const origWrite = process.stdout.write.bind(process.stdout);
+  process.stdout.write = (s) => { lines.push(String(s)); return true; };
+  process.stderr.write = (s) => { lines.push(String(s)); return true; };
+  try {
+    const log = loggerLib.create({ level: 'debug' });
+    log.info('test', 'msg', { authorization: 'Bearer secret', body: 'ok', cookie: 'x=y' });
+  } finally {
+    process.stdout.write = origWrite;
+  }
+  const joined = lines.join('');
+  assert.ok(joined.includes('***'), 'debe redactar valor');
+  assert.ok(!joined.includes('Bearer secret'), 'no debe filtrar token');
+  assert.ok(!joined.includes('x=y'), 'no debe filtrar cookie');
+});
+
+test('logger trunca strings gigantes', () => {
+  const lines = [];
+  const origWrite = process.stdout.write.bind(process.stdout);
+  process.stdout.write = (s) => { lines.push(String(s)); return true; };
+  try {
+    const log = loggerLib.create({ level: 'debug' });
+    log.info('test', 'msg', { big: 'a'.repeat(5000) });
+  } finally {
+    process.stdout.write = origWrite;
+  }
+  const joined = lines.join('');
+  assert.ok(joined.includes('…'), 'debe incluir indicador de truncado');
+  assert.ok(joined.length < 5000, 'salida total acotada');
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// lib/prometheus.js
+// ═══════════════════════════════════════════════════════════════════════════
+const promLib = require('../lib/prometheus');
+
+test('prometheus counter incrementa', () => {
+  const p = promLib.create();
+  const c = p.counter('test_total', 'Test counter');
+  c.inc();
+  c.inc(5);
+  assert.equal(c.value(), 6);
+});
+
+test('prometheus gauge set/inc/dec', () => {
+  const p = promLib.create();
+  const g = p.gauge('test_gauge', 'Test gauge');
+  g.set(10);
+  g.inc(5);
+  g.dec(2);
+  assert.equal(g.value(), 13);
+});
+
+test('prometheus histogram observa y suma', () => {
+  const p = promLib.create();
+  const h = p.histogram('test_dur', 'Test duration', [10, 100, 1000]);
+  h.observe(50);
+  h.observe(500);
+  h.observe(50);
+  const out = p.expose();
+  assert.ok(out.includes('test_dur_bucket{le="100"} 2'), 'le=100 cuenta 2 (50, 50)');
+  assert.ok(out.includes('test_dur_count 3'));
+  assert.ok(out.includes('test_dur_sum 600'));
+});
+
+test('prometheus expose() formato válido', () => {
+  const p = promLib.create();
+  p.counter('req', 'Requests', { route: '/api/x' }).inc(3);
+  const out = p.expose();
+  assert.ok(out.includes('# HELP req Requests'));
+  assert.ok(out.includes('# TYPE req counter'));
+  assert.ok(out.includes('req{route="/api/x"} 3'));
+});
