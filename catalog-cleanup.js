@@ -13,8 +13,14 @@
 
 const { makeHelpers } = require('./lib/snap-helper');
 
+let requireRole = (_role) => (_req, _res, next) => next();
+try { requireRole = require('./src/auth').requireRole; } catch (_) {}
+
 function install(app, { duckSnaps, log }) {
   const { getSnap, all } = makeHelpers(duckSnaps);
+  // Catálogos expone nombres completos + RFC de clientes/proveedores: dato sensible.
+  // Solo admin/director/gerente (no vendedor).
+  const auth = requireRole(['admin', 'director', 'gerente']);
 
   // Normaliza nombre: mayúsculas, sin acentos, sin caracteres especiales, sin números intermedios
   function norm(s) {
@@ -27,7 +33,7 @@ function install(app, { duckSnaps, log }) {
   }
 
   // ═══════════════════ Duplicados de artículos ═══════════════════════════════
-  app.get('/api/catalogos/duplicados/articulos', async (req, res) => {
+  app.get('/api/catalogos/duplicados/articulos', auth, async (req, res) => {
     const snap = getSnap(req);
     if (!snap) return res.json({ ok: false, reason: 'Sin snapshot' });
     try {
@@ -67,7 +73,7 @@ function install(app, { duckSnaps, log }) {
   });
 
   // ═══════════════════ Duplicados de clientes ════════════════════════════════
-  app.get('/api/catalogos/duplicados/clientes', async (req, res) => {
+  app.get('/api/catalogos/duplicados/clientes', auth, async (req, res) => {
     const snap = getSnap(req);
     if (!snap) return res.json({ ok: false, reason: 'Sin snapshot' });
     try {
@@ -116,7 +122,7 @@ function install(app, { duckSnaps, log }) {
   });
 
   // ═══════════════════ Precios inconsistentes ════════════════════════════════
-  app.get('/api/catalogos/precios-inconsistentes', async (req, res) => {
+  app.get('/api/catalogos/precios-inconsistentes', auth, async (req, res) => {
     const snap = getSnap(req);
     if (!snap) return res.json({ ok: false, reason: 'Sin snapshot' });
     try {
@@ -151,7 +157,7 @@ function install(app, { duckSnaps, log }) {
   });
 
   // ═══════════════════ Artículos sin venta ═══════════════════════════════════
-  app.get('/api/catalogos/articulos-sin-venta', async (req, res) => {
+  app.get('/api/catalogos/articulos-sin-venta', auth, async (req, res) => {
     const snap = getSnap(req);
     if (!snap) return res.json({ ok: false, reason: 'Sin snapshot' });
     const dias = Math.min(720, Math.max(30, parseInt(req.query.dias, 10) || 180));
@@ -181,7 +187,7 @@ function install(app, { duckSnaps, log }) {
   });
 
   // ═══════════════════ Clientes sin RFC válido ═══════════════════════════════
-  app.get('/api/catalogos/clientes-sin-rfc', async (req, res) => {
+  app.get('/api/catalogos/clientes-sin-rfc', auth, async (req, res) => {
     const snap = getSnap(req);
     if (!snap) return res.json({ ok: false, reason: 'Sin snapshot' });
     try {

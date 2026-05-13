@@ -24,8 +24,15 @@
 
 const { makeHelpers } = require('./lib/snap-helper');
 
+// Auth: opcional (si dummy provider devuelve admin, no bloquea).
+// En prod con session provider, requireRole asegura que datos fiscales
+// no se expongan a roles "vendedor" o anónimos.
+let requireRole = (_role) => (_req, _res, next) => next();
+try { requireRole = require('./src/auth').requireRole; } catch (_) {}
+
 function install(app, { duckSnaps, log }) {
   const { getSnap, all } = makeHelpers(duckSnaps);
+  const fiscalRoles = requireRole(['admin', 'director', 'gerente']);
 
   const SAT_RX = /^[A-Z&Ñ]{3,4}[0-9]{6}[A-Z0-9]{2,3}$/;
 
@@ -102,7 +109,7 @@ function install(app, { duckSnaps, log }) {
   }
 
   // ═══════════════════ DIOT JSON ═════════════════════════════════════════════
-  app.get('/api/sat/diot', async (req, res) => {
+  app.get('/api/sat/diot', fiscalRoles, async (req, res) => {
     const snap = getSnap(req);
     if (!snap) return res.json({ ok: false, reason: 'Sin snapshot' });
     const mes = validateMes(req.query.mes);
@@ -145,7 +152,7 @@ function install(app, { duckSnaps, log }) {
   });
 
   // ═══════════════════ DIOT TXT (pipe-delimited) ═════════════════════════════
-  app.get('/api/sat/diot/txt', async (req, res) => {
+  app.get('/api/sat/diot/txt', fiscalRoles, async (req, res) => {
     const snap = getSnap(req);
     if (!snap) return res.status(503).send('Sin snapshot');
     const mes = validateMes(req.query.mes);
@@ -182,7 +189,7 @@ function install(app, { duckSnaps, log }) {
   });
 
   // ═══════════════════ Proveedores con RFC inválido ══════════════════════════
-  app.get('/api/sat/proveedores-rfc-invalido', async (req, res) => {
+  app.get('/api/sat/proveedores-rfc-invalido', fiscalRoles, async (req, res) => {
     const snap = getSnap(req);
     if (!snap) return res.json({ ok: false, reason: 'Sin snapshot' });
     try {
@@ -208,7 +215,7 @@ function install(app, { duckSnaps, log }) {
   });
 
   // ═══════════════════ Resumen CFDIs emitidos (ventas) ═══════════════════════
-  app.get('/api/sat/cfdi-emitidos', async (req, res) => {
+  app.get('/api/sat/cfdi-emitidos', fiscalRoles, async (req, res) => {
     const snap = getSnap(req);
     if (!snap) return res.json({ ok: false, reason: 'Sin snapshot' });
     const mes = validateMes(req.query.mes);

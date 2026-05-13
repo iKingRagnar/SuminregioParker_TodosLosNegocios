@@ -158,10 +158,20 @@ console.log(
 })();
 
 const _corsOrigin = process.env.CORS_ORIGIN || '*';
+// En producción no permitir CORS '*' — exige un origen explícito para evitar
+// que cualquier sitio externo invoque nuestros endpoints (incluidos los de IA
+// que pegan contra Anthropic con costo).
+if ((process.env.NODE_ENV === 'production' || process.env.RENDER) && _corsOrigin === '*') {
+  console.error('[FATAL] CORS_ORIGIN=* en producción. Define CORS_ORIGIN=https://tu-dominio.com');
+  console.error('         (separa múltiples con coma: CORS_ORIGIN=https://a.com,https://b.com)');
+  process.exit(1);
+}
+// Soportar múltiples orígenes separados por coma
+const _corsOrigins = _corsOrigin === '*' ? '*' : _corsOrigin.split(',').map((s) => s.trim()).filter(Boolean);
 app.use(cors({
   origin: IS_SESSION_AUTH && _corsOrigin === '*'
     ? true
-    : _corsOrigin,
+    : _corsOrigins,
   credentials: IS_SESSION_AUTH,
 }));
 // Body limit: el endpoint de IA acepta imageBase64 (~10MB cliente). 15MB es buffer.
