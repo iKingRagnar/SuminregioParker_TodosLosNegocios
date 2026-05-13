@@ -1,0 +1,17 @@
+{
+  "name": "Suminregio Parker — Dashboard",
+  "short_name": "Suminregio",
+  "description": "Dashboard ejecutivo BI multi-empresa sobre Microsip",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0B1220",
+  "theme_color": "#E6A800",
+  "icons": [
+    { "src": "favicon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any" },
+    { "src": "favicon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "maskable" }
+  ],
+  "categories": ["business", "productivity", "finance"],
+  "lang": "es-MX"
+}
