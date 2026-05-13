@@ -183,20 +183,17 @@ function install(app, { duckSnaps, log }) {
   const leadDefault = isFinite(leadEnv) ? leadEnv : 15;
 
   if (cronEnabled && recipients.length && process.env.SMTP_HOST) {
-    let lastSent = null;
-    setInterval(async () => {
-      const now = new Date();
-      const today = now.toISOString().slice(0, 10);
-      if (lastSent === today) return;
-      // Lunes (getDay() === 1)
-      if (now.getDay() !== 1) return;
-      if (now.getHours() !== hour || now.getMinutes() >= 5) return;
-      lastSent = today;
-      const snap = duckSnaps.get(dbId);
-      if (!snap || !snap.conn) return;
-      const transport = getTransport();
-      if (!transport) return;
-      try {
+    const scheduler = require('./lib/scheduler');
+    if (log) scheduler.setLogger(log);
+    scheduler.schedule({
+      name: 'compras-lunes',
+      hour,
+      days: [1], // lunes
+      run: async () => {
+        const snap = duckSnaps.get(dbId);
+        if (!snap || !snap.conn) return;
+        const transport = getTransport();
+        if (!transport) return;
         const html = await buildHTML(snap, leadDefault);
         await transport.sendMail({
           from: process.env.SMTP_FROM || process.env.SMTP_USER,
@@ -205,9 +202,8 @@ function install(app, { duckSnaps, log }) {
           html,
         });
         log && log.info && log.info('compras-cron', 'enviado lunes → ' + recipients.length);
-      } catch (e) { log && log.error && log.error('compras-cron', e.message); }
-    }, 60_000);
-    log && log.info && log.info('compras-cron', `programado lunes ${hour}:00 → ${recipients.length} destinatarios (lead=${leadDefault}d)`);
+      },
+    });
   }
 
   log && log.info && log.info('compras-semanal', '✅ /api/compras/{lista,preview,send}');

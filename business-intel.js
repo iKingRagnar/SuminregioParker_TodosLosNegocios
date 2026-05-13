@@ -10,15 +10,10 @@
  *   POST /api/bi/conciliacion-bancaria         → recibe movimientos bancarios, matchea con cobros
  */
 
+const { makeHelpers } = require('./lib/snap-helper');
+
 function install(app, { duckSnaps, log }) {
-  function getSnap(req) {
-    const id = String((req.query && req.query.db) || (req.body && req.body.db) || 'default');
-    const s = duckSnaps.get(id);
-    return (s && s.conn) ? s : null;
-  }
-  function all(snap, sql, params) {
-    return new Promise((res, rej) => snap.conn.all(sql, ...(params || []), (err, rows) => err ? rej(err) : res(rows || [])));
-  }
+  const { getSnap, all } = makeHelpers(duckSnaps);
 
   // ═══════════════════ Pipeline de cotizaciones (funnel) ══════════════════════
   app.get('/api/bi/pipeline-cotizaciones', async (req, res) => {

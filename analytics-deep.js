@@ -10,27 +10,24 @@
  *   POST /api/anomalies/check                    → ejecuta anomaly detection
  */
 
+const memoLib = require('./lib/memo');
+const { makeHelpers } = require('./lib/snap-helper');
+
 function install(app, { duckSnaps, log }) {
-  function getSnap(req) {
-    var id = String(req.query.db || 'default');
-    var s = duckSnaps.get(id);
-    return (s && s.conn) ? s : null;
-  }
-  function all(snap, sql, params) {
-    return new Promise(function (res, rej) {
-      snap.conn.all(sql, ...(params || []), function (err, rows) {
-        err ? rej(err) : res(rows || []);
-      });
-    });
-  }
+  const { getSnap, all } = makeHelpers(duckSnaps);
+  // RFM/Pareto/CLV son cálculos pesados sobre todo el snapshot — cacheamos 10 min.
+  // El snapshot solo se refresca 1x/día, así que 10 min es seguro.
+  const memo = memoLib.create({ ttlMs: 10 * 60 * 1000, max: 100 });
 
   // ═══════════════════ RFM ═══════════════════════════════════════════════════
   app.get('/api/analytics/rfm', async function (req, res) {
     var snap = getSnap(req);
     if (!snap) return res.json({ ok: false, reason: 'Sin snapshot' });
+    const memoKey = 'rfm:' + (req.query.db || 'default');
 
     try {
-      var rows = await all(snap, `
+      const cached = await memo.wrap(memoKey, async () => {
+        return await all(snap, `
         WITH ventas_cli AS (
           SELECT
             CLIENTE_ID,
@@ -69,20 +66,27 @@ function install(app, { duckSnaps, log }) {
         FROM scored
         ORDER BY rfm_total DESC
         LIMIT 500`);
+      });
 
       var segCount = {};
-      rows.forEach(function (r) { segCount[r.segmento] = (segCount[r.segmento] || 0) + 1; });
+      cached.forEach(function (r) { segCount[r.segmento] = (segCount[r.segmento] || 0) + 1; });
 
+      res.set('X-Cache', memo.stats().hits > 0 ? 'MAYBE-HIT' : 'MISS');
       res.json({
         ok: true,
-        total: rows.length,
+        total: cached.length,
         segmentos: segCount,
-        clientes: rows,
+        clientes: cached,
         generado_en: new Date().toISOString(),
       });
     } catch (e) {
       res.status(500).json({ error: e.message });
     }
+  });
+
+  // Endpoint para inspeccionar el cache (útil para debugging)
+  app.get('/api/analytics/cache/stats', function (_req, res) {
+    res.json({ ok: true, ...memo.stats() });
   });
 
   // ═══════════════════ Pareto 80/20 ═══════════════════════════════════════════

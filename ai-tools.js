@@ -12,20 +12,10 @@
  * Sin dependencias externas. Usa window functions de DuckDB para cálculos.
  */
 
-function installAiTools(app, { duckSnaps, dbOptsToId, log }) {
-  function getSnapFor(req) {
-    try {
-      const id = String(req.query.db || 'default');
-      const snap = duckSnaps.get(id);
-      return (snap && snap.conn) ? snap : null;
-    } catch (_) { return null; }
-  }
+const { makeHelpers } = require('./lib/snap-helper');
 
-  function duckAll(snap, sql, params = []) {
-    return new Promise((resolve, reject) => {
-      snap.conn.all(sql, ...params, (err, rows) => err ? reject(err) : resolve(rows || []));
-    });
-  }
+function installAiTools(app, { duckSnaps, dbOptsToId, log }) {
+  const { getSnap: getSnapFor, all: duckAll } = makeHelpers(duckSnaps);
 
   // ── Tool-calling rudimentario — patrones NL a SQL ────────────────────────────
   app.post('/api/ai/ask', require('express').json(), async (req, res) => {

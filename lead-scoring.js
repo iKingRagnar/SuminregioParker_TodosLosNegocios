@@ -17,9 +17,12 @@
  */
 
 const { makeHelpers } = require('./lib/snap-helper');
+const memoLib = require('./lib/memo');
 
 function install(app, { duckSnaps, log }) {
   const { getSnap, all } = makeHelpers(duckSnaps);
+  // Lead scoring corre 2-3 queries pesadas + lookup por vendedor. TTL 10 min.
+  const memo = memoLib.create({ ttlMs: 10 * 60 * 1000, max: 100 });
 
   /**
    * Calcula tasa histórica de cierre por vendedor:
@@ -81,9 +84,10 @@ function install(app, { duckSnaps, log }) {
     const snap = getSnap(req);
     if (!snap) return res.json({ ok: false, reason: 'Sin snapshot' });
     const dias = Math.min(180, Math.max(7, parseInt(req.query.dias, 10) || 60));
+    const memoKey = `scoring:${req.query.db || 'default'}:${dias}`;
 
     try {
-      const [vendRates, cicloProm, cotizaciones] = await Promise.all([
+      const cached = await memo.wrap(memoKey, () => Promise.all([
         getVendedorRates(snap),
         getCicloPromedio(snap),
         all(snap, `
@@ -125,7 +129,8 @@ function install(app, { duckSnaps, log }) {
           WHERE NOT a.facturada
           ORDER BY a.IMPORTE_NETO DESC
           LIMIT 500`),
-      ]);
+      ]));
+      const [vendRates, cicloProm, cotizaciones] = cached;
 
       // Tasa global como fallback
       let tg = 0, tc = 0;

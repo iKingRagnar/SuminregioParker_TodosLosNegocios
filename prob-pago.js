@@ -14,9 +14,12 @@
  */
 
 const { makeHelpers } = require('./lib/snap-helper');
+const memoLib = require('./lib/memo');
 
 function install(app, { duckSnaps, log }) {
   const { getSnap, all } = makeHelpers(duckSnaps);
+  // prob-pago: 4 CTEs sobre histórico de pagos. TTL 15 min.
+  const memo = memoLib.create({ ttlMs: 15 * 60 * 1000, max: 50 });
 
   async function computeScores(snap, minSaldo) {
     // Agregamos historia 12m + posición actual por cliente.
@@ -146,8 +149,9 @@ function install(app, { duckSnaps, log }) {
     const snap = getSnap(req);
     if (!snap) return res.json({ ok: false, reason: 'Sin snapshot' });
     const minSaldo = Math.max(0, parseFloat(req.query.min) || 0);
+    const memoKey = `prob-pago:${req.query.db || 'default'}:${minSaldo}`;
     try {
-      const rows = await computeScores(snap, minSaldo);
+      const rows = await memo.wrap(memoKey, () => computeScores(snap, minSaldo));
       const items = rows.map((r) => ({ ...r, ...scoreRow(r) }));
       const resumen = { A: 0, B: 0, C: 0, D: 0 };
       let saldoTotal = 0, saldoRiesgo = 0;

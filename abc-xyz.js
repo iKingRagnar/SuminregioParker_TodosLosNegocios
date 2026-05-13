@@ -18,17 +18,22 @@
  */
 
 const { makeHelpers } = require('./lib/snap-helper');
+const memoLib = require('./lib/memo');
 
 function install(app, { duckSnaps, log }) {
   const { getSnap, all } = makeHelpers(duckSnaps);
+  // ABC-XYZ cruza window functions + variabilidad por semana sobre todo el snapshot.
+  // Resultado solo cambia cuando hay snapshot nuevo (1×/día). TTL 15 min.
+  const memo = memoLib.create({ ttlMs: 15 * 60 * 1000, max: 50 });
 
   app.get('/api/inv/abc-xyz', async (req, res) => {
     const snap = getSnap(req);
     if (!snap) return res.json({ ok: false, reason: 'Sin snapshot' });
     const dias = Math.min(730, Math.max(60, parseInt(req.query.dias, 10) || 180));
+    const memoKey = `abcxyz:${req.query.db || 'default'}:${dias}`;
 
     try {
-      const rows = await all(snap, `
+      const rows = await memo.wrap(memoKey, () => all(snap, `
         WITH ventas_sku AS (
           SELECT d.ARTICULO_ID,
                  SUM(d.PRECIO_TOTAL_NETO) AS valor_total,
@@ -73,7 +78,7 @@ function install(app, { duckSnaps, log }) {
                (c.valor_acumulado * 100.0 / c.gran_total) AS pct_acum
         FROM clasif c
         LEFT JOIN ARTICULOS a ON a.ARTICULO_ID = c.ARTICULO_ID
-        ORDER BY c.valor_total DESC`);
+        ORDER BY c.valor_total DESC`));
 
       const items = rows.map((r) => {
         const pct = Number(r.pct_acum) || 0;

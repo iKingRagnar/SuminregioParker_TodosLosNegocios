@@ -14,19 +14,12 @@
  * Sin credenciales SMTP el cron no corre — los endpoints preview y send manual sí.
  */
 
+var { makeHelpers } = require('./lib/snap-helper');
+
 function install(app, { duckSnaps, log }) {
   var nodemailer;
   try { nodemailer = require('nodemailer'); } catch (_) { nodemailer = null; }
-
-  function getSnap(id) {
-    var s = duckSnaps.get(id);
-    return (s && s.conn) ? s : null;
-  }
-  function all(snap, sql) {
-    return new Promise(function (res, rej) {
-      snap.conn.all(sql, function (err, rows) { err ? rej(err) : res(rows || []); });
-    });
-  }
+  var { getSnap, all } = makeHelpers(duckSnaps);
 
   function fmt(n) {
     if (n == null || isNaN(+n)) return '—';
@@ -209,18 +202,15 @@ function install(app, { duckSnaps, log }) {
   var dbs = (process.env.REPORT_DBS || 'default').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
 
   if (recipients.length && process.env.SMTP_HOST) {
-    // Cron simple: cada minuto chequea si es la hora
-    var lastSent = null;
-    setInterval(async function () {
-      var now = new Date();
-      var today = now.toISOString().slice(0, 10);
-      if (lastSent === today) return;
-      if (now.getHours() !== hour || now.getMinutes() >= 5) return;
-      lastSent = today;
-      var transport = getTransport();
-      if (!transport) return;
-      var primaryDb = dbs[0] || 'default';
-      try {
+    var scheduler = require('./lib/scheduler');
+    if (log) scheduler.setLogger(log);
+    scheduler.schedule({
+      name: 'email-diario',
+      hour: hour,
+      run: async function () {
+        var transport = getTransport();
+        if (!transport) return;
+        var primaryDb = dbs[0] || 'default';
         var html = await buildReportHTML(primaryDb);
         var dateLabel = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
         await transport.sendMail({
@@ -230,11 +220,8 @@ function install(app, { duckSnaps, log }) {
           html,
         });
         log.info('email-cron', 'enviado reporte grupo → ' + recipients.length + ' destinatarios');
-      } catch (e) {
-        log.error('email-cron', 'fallo en reporte grupo', e.message);
-      }
-    }, 60_000);
-    log.info('email-cron', `programado diario ${hour}:00 → ${recipients.length} destinatarios, ${dbs.length} bases`);
+      },
+    });
   } else {
     log.info('email', 'cron deshabilitado (SMTP_HOST/REPORT_TO no configurados)');
   }

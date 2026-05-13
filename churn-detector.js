@@ -167,16 +167,14 @@ function install(app, { duckSnaps, log }) {
   if (process.env.CHURN_ALERT_CRON === '1') {
     const hour = parseInt(process.env.CHURN_ALERT_HOUR, 10);
     const hh = isFinite(hour) && hour >= 0 && hour < 24 ? hour : 8;
-    let lastSent = null;
-    setInterval(async () => {
-      const now = new Date();
-      const today = now.toISOString().slice(0, 10);
-      if (lastSent === today) return;
-      if (now.getHours() !== hh || now.getMinutes() >= 5) return;
-      lastSent = today;
-      const snap = duckSnaps.get('default');
-      if (!snap || !snap.conn) return;
-      try {
+    const scheduler = require('./lib/scheduler');
+    if (log) scheduler.setLogger(log);
+    scheduler.schedule({
+      name: 'churn-alert',
+      hour: hh,
+      run: async () => {
+        const snap = duckSnaps.get('default');
+        if (!snap || !snap.conn) return;
         const clientes = await computeAtRisk(snap, 45, 500);
         const top = clientes.slice().sort((a, b) => b.churn_score - a.churn_score).slice(0, 10);
         if (!top.length) return;
@@ -185,7 +183,6 @@ function install(app, { duckSnaps, log }) {
           return `${i + 1}. ${r.cliente || '—'} · ${r.dias_sin_comprar}d · ${monto}/año · score ${r.churn_score}`;
         });
         const message = `🚨 Churn diario — clientes en riesgo:\n${lines.join('\n')}`;
-        log && log.info && log.info('churn-cron', 'enviando alerta diaria', { top: top.length });
         const to = process.env.ALERT_WA_TO || process.env.ALERT_WHATSAPP_TO;
         if (to) {
           const http = require('http');
@@ -198,9 +195,9 @@ function install(app, { duckSnaps, log }) {
           rq.on('error', () => {});
           rq.write(data); rq.end();
         }
-      } catch (e) { log && log.warn && log.warn('churn-cron', e.message); }
-    }, 60_000);
-    log && log.info && log.info('churn-cron', `programado diario ${hh}:00`);
+        log && log.info && log.info('churn-cron', 'enviado', { top: top.length });
+      },
+    });
   }
 
   log && log.info && log.info('churn-detector', '✅ /api/churn/{at-risk,summary,notify}');
