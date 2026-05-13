@@ -1,0 +1,53 @@
+{
+  "root": true,
+  "env": {
+    "node": true,
+    "es2022": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2022,
+    "sourceType": "script"
+  },
+  "rules": {
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_" }],
+    "no-undef": "error",
+    "no-redeclare": "error",
+    "no-var": "warn",
+    "prefer-const": "warn",
+    "eqeqeq": ["warn", "smart"],
+    "no-console": "off",
+    "semi": ["warn", "always"],
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "no-new-func": "error",
+    "no-script-url": "error",
+    "no-throw-literal": "warn",
+    "no-with": "error"
+  },
+  "overrides": [
+    {
+      "files": ["public/**/*.js", "*.html", "safe-dom.js", "pwa-register.js", "sw.js"],
+      "env": {
+        "browser": true,
+        "node": false,
+        "serviceworker": true
+      }
+    },
+    {
+      "files": ["tests/**/*.js"],
+      "env": {
+        "node": true,
+        "mocha": true
+      }
+    }
+  ],
+  "ignorePatterns": [
+    "node_modules/",
+    "Backups_handoff_*/",
+    "Asistente AI/",
+    "sistema-cotizacion/",
+    "data/",
+    "*.min.js",
+    "public/Dashboard_*.html"
+  ]
+}

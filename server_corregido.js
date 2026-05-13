@@ -178,6 +178,13 @@ app.use(cors({
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: false, limit: '256kb' }));
 
+// Tracing: cada request obtiene un X-Request-Id propagado en respuesta y en
+// AsyncLocalStorage. Permite buscar todos los logs de un mismo request.
+try {
+  const tracing = require('./lib/tracing').create({});
+  app.use(tracing.middleware());
+} catch (e) { console.warn('[tracing] no instalado:', e.message); }
+
 // Headers mínimos anti-abuso (no sustituyen autenticación).
 const _IS_PROD = process.env.NODE_ENV === 'production';
 const _CSP_VALUE = [
@@ -197,10 +204,12 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()');
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
   res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
   res.setHeader('X-DNS-Prefetch-Control', 'off');
+  res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+  res.setHeader('X-Download-Options', 'noopen');
   // Vary: las respuestas pueden cambiar según Origin (CORS) o Cookie (auth gate).
   // append en lugar de set para no pisar Vary que ya añade gzip middleware.
   const prev = res.getHeader('Vary');
@@ -210,7 +219,8 @@ app.use((req, res, next) => {
     res.setHeader('Content-Security-Policy', _CSP_VALUE);
   }
   if (_IS_PROD) {
-    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    // 2 años + preload + subdomains — listo para hstspreload.org si aplica
+    res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
   }
   next();
 });
@@ -849,6 +859,114 @@ try {
 try {
   require('./ai-chat-v2').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
 } catch (e) { console.warn('[ai-chat-v2] no instalado:', e.message); }
+
+// AI v3 con Opus 4.7 + tool use + caching + thinking + streaming + vision
+try {
+  require('./ai-chat-v3').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[ai-chat-v3] no instalado:', e.message); }
+
+// Health profundo + cron status (versionado, AI status, snapshots, disco)
+try {
+  require('./health-deep').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[health-deep] no instalado:', e.message); }
+
+// Backup/listado de snapshots (descarga binario .duckdb)
+try {
+  require('./snapshot-backup').install(app, {
+    snapshotDir: DUCK_SNAPSHOT_DIR,
+    snapshotToken: SNAPSHOT_TOKEN,
+    log: _boostLog,
+    audit: app._auditLog,
+  });
+} catch (e) { console.warn('[snapshot-backup] no instalado:', e.message); }
+
+// Audit log persistente para acciones admin
+try {
+  const audit = require('./lib/audit-log').create();
+  app._auditLog = audit; // expuesto para que otros módulos puedan registrar
+
+  app.get('/api/admin/audit', (req, res) => {
+    const limit = parseInt(req.query.limit, 10) || 100;
+    const action = req.query.action;
+    const user = req.query.user;
+    const sinceMin = parseInt(req.query.sinceMin, 10);
+    const sinceMs = isFinite(sinceMin) ? Date.now() - sinceMin * 60_000 : 0;
+    res.json({ ok: true, ...audit.stats(), entries: audit.list({ limit, action, user, sinceMs }) });
+  });
+
+  _boostLog && _boostLog.info && _boostLog.info('audit-log', '✅ /api/admin/audit con persistencia en sumi-db');
+} catch (e) { console.warn('[audit-log] no instalado:', e.message); }
+
+// Error tracker tipo Sentry-lite (dedup por fingerprint)
+try {
+  const errorTracker = require('./lib/error-tracker').create({ max: 200 });
+
+  // Captura errores no atrapados a nivel proceso (last-resort)
+  process.on('uncaughtException', (e) => {
+    errorTracker.capture(e, { route: 'uncaughtException' });
+    _boostLog && _boostLog.error && _boostLog.error('uncaughtException', e.message);
+  });
+  process.on('unhandledRejection', (reason) => {
+    const err = reason instanceof Error ? reason : new Error(String(reason));
+    errorTracker.capture(err, { route: 'unhandledRejection' });
+    _boostLog && _boostLog.error && _boostLog.error('unhandledRejection', err.message);
+  });
+
+  // Middleware Express error handler — captura los errores que llegan al next(err).
+  app.use((err, req, res, next) => {
+    if (!err) return next();
+    errorTracker.capture(err, {
+      route: req.path,
+      method: req.method,
+      trace_id: req.traceId,
+    });
+    if (res.headersSent) return next(err);
+    res.status(500).json({ error: 'Internal error', trace_id: req.traceId });
+  });
+
+  app.get('/api/admin/issues', (req, res) => {
+    const minCount = parseInt(req.query.minCount, 10) || 0;
+    const sinceMin = parseInt(req.query.sinceMin, 10);
+    const since = isFinite(sinceMin) ? Date.now() - sinceMin * 60_000 : 0;
+    res.json({ ok: true, ...errorTracker.stats(), issues: errorTracker.list({ minCount, since }) });
+  });
+  app.get('/api/admin/issues/:fp', (req, res) => {
+    const issue = errorTracker.get(req.params.fp);
+    if (!issue) return res.status(404).json({ error: 'Not found' });
+    res.json({ ok: true, ...issue, routes: [...issue.routes] });
+  });
+
+  _boostLog && _boostLog.info && _boostLog.info('error-tracker', '✅ /api/admin/issues con dedup por fingerprint');
+} catch (e) { console.warn('[error-tracker] no instalado:', e.message); }
+
+// Prometheus metrics — formato estándar para Grafana / Datadog / etc.
+try {
+  const prom = require('./lib/prometheus').create();
+  const httpRequests = prom.counter('suminregio_http_requests_total', 'Total HTTP requests');
+  const httpErrors = prom.counter('suminregio_http_errors_total', 'Total HTTP error responses (>=500)');
+  const httpDuration = prom.histogram('suminregio_http_duration_ms', 'HTTP duration in ms', [25, 50, 100, 250, 500, 1000, 2500, 5000, 10000]);
+  const snapsLoaded = prom.gauge('suminregio_snapshots_loaded', 'DuckDB snapshots currently loaded');
+
+  app.use((req, res, next) => {
+    if (!req.path.startsWith('/api/')) return next();
+    const start = Date.now();
+    httpRequests.inc(1);
+    res.on('finish', () => {
+      const dur = Date.now() - start;
+      httpDuration.observe(dur);
+      if (res.statusCode >= 500) httpErrors.inc(1);
+    });
+    next();
+  });
+
+  app.get('/api/metrics', (_req, res) => {
+    snapsLoaded.set(_duckSnaps.size);
+    res.setHeader('Content-Type', 'text/plain; version=0.0.4; charset=utf-8');
+    res.end(prom.expose());
+  });
+
+  _boostLog && _boostLog.info && _boostLog.info('prometheus', '✅ /api/metrics (formato Prometheus)');
+} catch (e) { console.warn('[prometheus] no instalado:', e.message); }
 
 // Business intelligence específico Microsip (pipeline, cashflow, comisiones, margen, rotación, conciliación)
 try {

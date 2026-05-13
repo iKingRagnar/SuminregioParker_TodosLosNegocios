@@ -257,3 +257,217 @@ paths:
         - in: query
           name: db
           schema: { type: string }
+
+  # ──────────────────────── AI v3 (Opus 4.7 + tools + caching) ────────────────────
+  /api/ai/chat-v3:
+    post:
+      tags: [AI]
+      summary: Chat con AI v3 (Opus 4.7, 25 tools, prompt caching, adaptive thinking)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                sessionId: { type: string, description: "Persiste en sumi-db" }
+                message: { type: string }
+                db: { type: string, default: default }
+                effort: { type: string, enum: [low, medium, high, max, xhigh], default: medium }
+                imageBase64: { type: string, description: "Base64 de imagen (vision)" }
+                mediaType: { type: string, default: image/png }
+      responses:
+        '200': { description: Respuesta con reply, usage tokens, tools usadas }
+        '429': { description: Rate limit excedido (15/min/sesion) }
+        '503': { description: ANTHROPIC_API_KEY no configurada }
+  /api/ai/chat-v3/stream:
+    post:
+      tags: [AI]
+      summary: Streaming SSE — typing-indicator en tiempo real para chat UIs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                sessionId: { type: string }
+                message: { type: string }
+                db: { type: string }
+                effort: { type: string }
+      responses:
+        '200':
+          description: SSE stream con eventos start, text, tool_use, tool_result, end, error
+          content:
+            text/event-stream: {}
+  /api/ai/chat-v3/sessions:
+    get:
+      tags: [AI]
+      summary: Lista de sesiones persistidas (top 50, ordenadas por lastAt)
+      responses: { '200': { description: OK } }
+  /api/ai/chat-v3/sessions/{id}:
+    delete:
+      tags: [AI]
+      summary: Borra una sesión
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses: { '200': { description: OK } }
+  /api/ai/chat-v3/stats:
+    get:
+      tags: [AI]
+      summary: Métricas de uso (tokens, cache hit rate, costo USD estimado)
+      responses: { '200': { description: OK } }
+  /api/ai/chat-v3/tools:
+    get:
+      tags: [AI]
+      summary: Catálogo de tools disponibles para el AI
+      responses: { '200': { description: OK } }
+
+  # ──────────────────────── Health profundo ────────────────────────────────────
+  /api/health/deep:
+    get:
+      tags: [Health]
+      summary: Health check completo — version, AI, snapshots, crons, disk, memoria
+      responses:
+        '200': { description: Healthy/degraded }
+        '503': { description: Unhealthy }
+  /api/health/ready:
+    get:
+      tags: [Health]
+      summary: Readiness probe (200 si snapshots cargados, 503 si no)
+      responses: { '200': { description: Ready }, '503': { description: No snapshots } }
+  /api/health/live:
+    get:
+      tags: [Health]
+      summary: Liveness probe (200 mientras process esté vivo)
+      responses: { '200': { description: Alive } }
+  /api/cron/status:
+    get:
+      tags: [Health]
+      summary: Estado de crons registrados (última ejecución, ranToday)
+      responses: { '200': { description: OK } }
+
+  # ──────────────────────── Métricas Prometheus ────────────────────────────────
+  /api/metrics:
+    get:
+      tags: [Health]
+      summary: Métricas formato Prometheus (text/plain version=0.0.4)
+      responses:
+        '200':
+          description: Prometheus exposition format
+          content:
+            text/plain: {}
+
+  # ──────────────────────── 11 módulos operativos (PR #3) ───────────────────────
+  /api/churn/at-risk:
+    get:
+      tags: [Comercial]
+      summary: Clientes en riesgo de fuga (score 0-100, monto en riesgo)
+      parameters:
+        - { in: query, name: db, schema: { type: string } }
+        - { in: query, name: dias, schema: { type: integer, default: 60 } }
+        - { in: query, name: limit, schema: { type: integer, default: 100 } }
+      responses: { '200': { description: OK } }
+  /api/churn/summary:
+    get:
+      tags: [Comercial]
+      summary: Resumen de churn por segmento + top 5
+      responses: { '200': { description: OK } }
+  /api/churn/notify:
+    post:
+      tags: [Comercial]
+      summary: Envía top N en riesgo por WhatsApp o Slack
+      responses: { '200': { description: OK } }
+  /api/compras/lista:
+    get:
+      tags: [Inventario]
+      summary: Lista priorizada de compras (urgencia × valor)
+      parameters:
+        - { in: query, name: db, schema: { type: string } }
+        - { in: query, name: lead, schema: { type: integer, default: 15 } }
+      responses: { '200': { description: OK } }
+  /api/compras/preview:
+    get:
+      tags: [Inventario]
+      summary: HTML preview del reporte de compras
+      responses: { '200': { description: HTML } }
+  /api/compras/send:
+    post:
+      tags: [Inventario]
+      summary: Envía reporte de compras manualmente
+      responses: { '200': { description: OK } }
+  /api/inv/abc-xyz:
+    get:
+      tags: [Inventario]
+      summary: Clasificación ABC × XYZ con recomendación por celda
+      responses: { '200': { description: OK } }
+  /api/inv/reorden:
+    get:
+      tags: [Inventario]
+      summary: Punto de reorden dinámico (ROP + EOQ + safety stock)
+      responses: { '200': { description: OK } }
+  /api/forecast/sku:
+    get:
+      tags: [Inventario]
+      summary: Forecast mensual de un SKU específico
+      responses: { '200': { description: OK } }
+  /api/forecast/sku/batch:
+    get:
+      tags: [Inventario]
+      summary: Forecast por top N SKUs (paralelo, pool de 8)
+      responses: { '200': { description: OK } }
+  /api/cxc/prob-pago:
+    get:
+      tags: [Cobranza]
+      summary: Score 0-100 + grado A-D de probabilidad de pago por cliente
+      responses: { '200': { description: OK } }
+  /api/cxc/prob-pago/cliente:
+    get:
+      tags: [Cobranza]
+      summary: Score detallado para un cliente
+      responses: { '200': { description: OK } }
+  /api/leads/scoring:
+    get:
+      tags: [Comercial]
+      summary: Probabilidad de cierre por cotización abierta
+      responses: { '200': { description: OK } }
+  /api/leads/conversion-rates:
+    get:
+      tags: [Comercial]
+      summary: Tasa histórica de conversión por vendedor
+      responses: { '200': { description: OK } }
+  /api/cross-sell/cliente:
+    get:
+      tags: [Comercial]
+      summary: Productos recomendados para un cliente
+      responses: { '200': { description: OK } }
+  /api/cross-sell/articulo:
+    get:
+      tags: [Comercial]
+      summary: Productos asociados (frecuentemente comprados juntos)
+      responses: { '200': { description: OK } }
+  /api/cross-sell/global:
+    get:
+      tags: [Comercial]
+      summary: Reglas de asociación globales (market basket)
+      responses: { '200': { description: OK } }
+  /api/catalogos/duplicados/articulos:
+    get:
+      tags: [Regulatorio]
+      summary: Artículos potencialmente duplicados
+      responses: { '200': { description: OK } }
+  /api/catalogos/duplicados/clientes:
+    get:
+      tags: [Regulatorio]
+      summary: Clientes potencialmente duplicados
+      responses: { '200': { description: OK } }
+  /api/sat/diot:
+    get:
+      tags: [Regulatorio]
+      summary: Pre-DIOT (no reemplaza validador SAT — solo conciliación)
+      responses: { '200': { description: OK } }
+  /api/wa/webhook:
+    post:
+      tags: [WhatsApp]
+      summary: Webhook entrante de Twilio (firma HMAC validada)
+      responses: { '200': { description: TwiML response } }

@@ -310,12 +310,48 @@ function installSafeSnapshotUpload(app, opts) {
     '/api/admin/snapshot/upload',
     express.raw({ type: 'application/octet-stream', limit: '600mb', inflate: true }),
     async (req, res) => {
+      // Auth (timing-safe — antes era string compare directo, vulnerable a timing).
       const tok = req.headers['x-snapshot-token'];
-      if (tok !== snapshotToken) return res.status(401).json({ error: 'Unauthorized' });
+      const expected = Buffer.from(snapshotToken || '');
+      const provided = Buffer.from(tok || '');
+      const authOk = expected.length === provided.length
+        && expected.length > 0
+        && crypto.timingSafeEqual(expected, provided);
+      if (!authOk) return res.status(401).json({ error: 'Unauthorized' });
+
       if (!req.body || !Buffer.isBuffer(req.body) || req.body.length < 64) {
         return res.status(400).json({ error: 'Body vacío o muy pequeño' });
       }
+
+      // SHA-256 integrity check: el cliente puede enviar X-Snapshot-Sha256
+      // (hex 64 chars). Si no coincide, rechazar — evita corrupción silenciosa
+      // por gzip a medias o bug en sync_duckdb.py.
+      const expectedSha = String(req.headers['x-snapshot-sha256'] || '').toLowerCase().trim();
+      if (expectedSha) {
+        if (!/^[a-f0-9]{64}$/.test(expectedSha)) {
+          return res.status(400).json({ error: 'X-Snapshot-Sha256 inválido (debe ser hex 64 chars)' });
+        }
+        const actualSha = crypto.createHash('sha256').update(req.body).digest('hex');
+        if (actualSha !== expectedSha) {
+          log.warn('safe-upload', 'SHA-256 mismatch', {
+            expected: expectedSha.slice(0, 12) + '…',
+            actual: actualSha.slice(0, 12) + '…',
+            bytes: req.body.length,
+          });
+          return res.status(422).json({
+            error: 'Checksum SHA-256 no coincide — upload corrupto, reintenta',
+            expected: expectedSha,
+            actual: actualSha,
+          });
+        }
+      }
+
       const dbId = String(req.headers['x-db-id'] || 'default').trim();
+      // Sanitizar dbId: solo letras/números/guion bajo/guion. Previene path
+      // traversal aunque el atacante ya tenga el token.
+      if (!/^[a-zA-Z0-9_-]+$/.test(dbId)) {
+        return res.status(400).json({ error: 'x-db-id inválido (solo [a-zA-Z0-9_-])' });
+      }
       const snapFile = path.join(snapshotDir, `snapshot_${dbId}.duckdb`);
       const tmpFile = snapFile + '.uploading.' + Date.now();
 
