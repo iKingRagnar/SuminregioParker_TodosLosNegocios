@@ -858,6 +858,11 @@ try {
   require('./ai-chat-v3').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
 } catch (e) { console.warn('[ai-chat-v3] no instalado:', e.message); }
 
+// Health profundo + cron status (versionado, AI status, snapshots, disco)
+try {
+  require('./health-deep').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[health-deep] no instalado:', e.message); }
+
 // Prometheus metrics — formato estándar para Grafana / Datadog / etc.
 try {
   const prom = require('./lib/prometheus').create();

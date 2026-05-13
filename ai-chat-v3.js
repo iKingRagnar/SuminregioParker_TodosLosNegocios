@@ -272,6 +272,84 @@ function install(app, { duckSnaps, log }) {
         },
       },
     },
+    {
+      name: 'buscar_cliente',
+      description: 'Busca clientes por nombre parcial. Para "buscar cliente X", "encuéntrame al cliente que se llama Y", "tengo a un Pérez como cliente?".',
+      input_schema: {
+        type: 'object',
+        properties: {
+          db: { type: 'string' },
+          q: { type: 'string', description: 'término de búsqueda (nombre parcial)' },
+        },
+        required: ['q'],
+      },
+    },
+    {
+      name: 'buscar_articulo',
+      description: 'Busca artículos por nombre o clave parcial. Para "buscar artículo", "tenemos válvulas de X pulgada?", "qué tornillería hay".',
+      input_schema: {
+        type: 'object',
+        properties: {
+          db: { type: 'string' },
+          q: { type: 'string', description: 'nombre o clave parcial' },
+        },
+        required: ['q'],
+      },
+    },
+    {
+      name: 'get_ventas_diarias',
+      description: 'Serie de ventas diarias de los últimos N días para detectar tendencias o anomalías. Para "cómo va la semana", "ventas día a día", "tendencia".',
+      input_schema: {
+        type: 'object',
+        properties: {
+          db: { type: 'string' },
+          dias: { type: 'integer', description: '7-180 (default 30)' },
+        },
+      },
+    },
+    {
+      name: 'get_anomalias',
+      description: 'Detección de anomalías en ventas (z-score vs promedio 30d): días con ventas muy altas o muy bajas. Para "algo raro?", "anomalías", "qué día fue malo".',
+      input_schema: {
+        type: 'object',
+        properties: { db: { type: 'string' } },
+      },
+    },
+    {
+      name: 'get_reorden_dinamico',
+      description: 'Punto de reorden estadístico (ROP = D̄·L + Z·σ·√L) y EOQ por SKU. Para "cuánto pedir", "punto de reorden", "stock de seguridad".',
+      input_schema: {
+        type: 'object',
+        properties: {
+          db: { type: 'string' },
+          dias: { type: 'integer', description: 'horizonte de análisis (default 90)' },
+        },
+      },
+    },
+    {
+      name: 'get_forecast_sku',
+      description: 'Pronóstico mensual por SKU con estacionalidad. Para "qué voy a vender de X el próximo mes", "forecast por producto".',
+      input_schema: {
+        type: 'object',
+        properties: {
+          db: { type: 'string' },
+          topN: { type: 'integer', description: 'top SKUs a pronosticar (default 50)' },
+          meses: { type: 'integer', description: 'meses a futuro (default 3)' },
+        },
+      },
+    },
+    {
+      name: 'get_catalogos_duplicados',
+      description: 'Detecta duplicados en catálogos de artículos o clientes. Para "limpiar catálogo", "duplicados", "lo mismo dos veces".',
+      input_schema: {
+        type: 'object',
+        properties: {
+          db: { type: 'string' },
+          dim: { type: 'string', enum: ['articulos', 'clientes'], description: 'qué catálogo' },
+        },
+        required: ['dim'],
+      },
+    },
   ];
 
   // ─── Ruteo de tool → endpoint ──────────────────────────────────────────────
@@ -323,6 +401,29 @@ function install(app, { duckSnaps, log }) {
         return await callLocal('GET', `/api/resultados/pnl${dbq}`);
       case 'get_cashflow_proyectado':
         return await callLocal('GET', `/api/bi/cashflow${dbq}&dias=${input.dias || 60}`);
+      case 'buscar_cliente':
+      case 'buscar_articulo': {
+        const q = String(input.q || '').trim();
+        if (!q) return { ok: false, error: 'q vacío' };
+        const r = await callLocal('GET', `/api/search/global${dbq}&q=${encodeURIComponent(q)}`);
+        // Filtramos al tipo correcto
+        if (r && r.results) {
+          const targetType = name === 'buscar_cliente' ? 'Cliente' : 'Artículo';
+          r.results = r.results.filter((x) => x.type === targetType).slice(0, 20);
+        }
+        return r;
+      }
+      case 'get_ventas_diarias':
+        return await callLocal('GET', `/api/ventas/diarias${dbq}&dias=${input.dias || 30}`);
+      case 'get_anomalias':
+        return await callLocal('GET', `/api/anomalies/check${dbq}`);
+      case 'get_reorden_dinamico':
+        return await callLocal('GET', `/api/inv/reorden${dbq}&dias=${input.dias || 90}`);
+      case 'get_forecast_sku':
+        return await callLocal('GET', `/api/forecast/sku/batch${dbq}&topN=${input.topN || 50}&meses=${input.meses || 3}`);
+      case 'get_catalogos_duplicados':
+        if (input.dim === 'clientes') return await callLocal('GET', `/api/catalogos/duplicados/clientes${dbq}`);
+        return await callLocal('GET', `/api/catalogos/duplicados/articulos${dbq}`);
       default:
         return { ok: false, error: `Tool desconocida: ${name}` };
     }
@@ -757,8 +858,33 @@ NUNCA:
     });
   });
 
+  // ─── Auto-cleanup de sesiones viejas (>30 días sin uso) ───────────────────
+  // Se registra en el scheduler central — corre 1×/día a las 3am.
+  try {
+    const scheduler = require('./lib/scheduler');
+    if (log) scheduler.setLogger(log);
+    scheduler.schedule({
+      name: 'ai-v3-cleanup',
+      hour: 3,
+      run: async () => {
+        const cutoff = Date.now() - 30 * 24 * 3600 * 1000;
+        const rows = store.readAll(SESSION_TABLE);
+        let removed = 0;
+        for (const r of rows) {
+          if ((r.lastAt || r.createdAt || 0) < cutoff) {
+            store.remove(SESSION_TABLE, r.id);
+            removed++;
+          }
+        }
+        if (removed > 0) {
+          log && log.info && log.info('ai-v3-cleanup', `purgadas ${removed} sesiones viejas`);
+        }
+      },
+    });
+  } catch (e) { log && log.warn && log.warn('ai-v3-cleanup', 'no se pudo registrar: ' + e.message); }
+
   log && log.info && log.info('ai-chat-v3', client
-    ? `✅ ${MODEL} + ${TOOLS.length} tools + caching + thinking`
+    ? `✅ ${MODEL} + ${TOOLS.length} tools + caching + thinking + auto-cleanup`
     : '⚠️ sin ANTHROPIC_API_KEY (503)'
   );
 }

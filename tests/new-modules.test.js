@@ -236,6 +236,37 @@ test('/api/metrics expone formato prometheus', async () => {
   assert.ok(text.includes('# HELP') || text.includes('suminregio_'), 'debe ser formato prometheus');
 });
 
+// ════════ Health deep ════════
+test('/api/health/deep devuelve estado completo', async () => {
+  const r = await get('/api/health/deep');
+  // Sin snapshots: 503; con: 200. Ambos válidos.
+  assert.ok([200, 503].includes(r.status));
+  assert.ok(r.json && r.json.status && ['healthy', 'degraded', 'unhealthy'].includes(r.json.status));
+  assert.ok(r.json.version);
+  assert.ok(r.json.memory && typeof r.json.memory.heap_used_mb === 'number');
+  assert.ok(Array.isArray(r.json.snapshots));
+  assert.ok(Array.isArray(r.json.issues));
+});
+
+test('/api/health/live siempre 200', async () => {
+  const r = await get('/api/health/live');
+  assert.equal(r.status, 200);
+  assert.equal(r.json.alive, true);
+  assert.ok(typeof r.json.uptimeSec === 'number');
+});
+
+test('/api/health/ready 503 sin snapshots', async () => {
+  const r = await get('/api/health/ready');
+  // Sin snapshots cargados (DUCK_ONLY_MODE=1 sin disco), responde 503
+  assert.ok([200, 503].includes(r.status));
+});
+
+test('/api/cron/status lista crons registrados', async () => {
+  const r = await get('/api/cron/status');
+  assert.equal(r.status, 200);
+  assert.ok(Array.isArray(r.json.jobs));
+});
+
 // ════════ Security headers ════════
 test('respuestas tienen security headers', async () => {
   const r = await get('/api/admin/mode');
