@@ -9,26 +9,14 @@
  * Cron: lunes a las COMPRAS_HOUR (default 7) si SMTP_HOST y COMPRAS_TO están configurados.
  */
 
+const { makeHelpers } = require('./lib/snap-helper');
+const { fmt, fmtUnits } = require('./lib/format');
+
 function install(app, { duckSnaps, log }) {
   let nodemailer;
   try { nodemailer = require('nodemailer'); } catch (_) { nodemailer = null; }
 
-  function getSnap(req) {
-    const id = String((req.query && req.query.db) || (req.body && req.body.db) || 'default');
-    const s = duckSnaps.get(id);
-    return (s && s.conn) ? s : null;
-  }
-  function all(snap, sql) {
-    return new Promise((res, rej) => snap.conn.all(sql, (err, rows) => err ? rej(err) : res(rows || [])));
-  }
-  function fmt(n) {
-    if (n == null || isNaN(+n)) return '—';
-    return '$' + Math.round(+n).toLocaleString('es-MX');
-  }
-  function fmtUnits(n) {
-    if (n == null || isNaN(+n)) return '—';
-    return (+n).toLocaleString('es-MX', { maximumFractionDigits: 2 });
-  }
+  const { getSnap, all } = makeHelpers(duckSnaps);
 
   async function computeLista(snap, leadDays, limit) {
     // Hace match con la lógica de "/api/inv/consumo" del monolito pero más simple

@@ -17,15 +17,10 @@
  *   CX = mantén stock bajo, alta rotación esperada
  */
 
+const { makeHelpers } = require('./lib/snap-helper');
+
 function install(app, { duckSnaps, log }) {
-  function getSnap(req) {
-    const id = String((req.query && req.query.db) || 'default');
-    const s = duckSnaps.get(id);
-    return (s && s.conn) ? s : null;
-  }
-  function all(snap, sql) {
-    return new Promise((res, rej) => snap.conn.all(sql, (err, rows) => err ? rej(err) : res(rows || [])));
-  }
+  const { getSnap, all } = makeHelpers(duckSnaps);
 
   app.get('/api/inv/abc-xyz', async (req, res) => {
     const snap = getSnap(req);

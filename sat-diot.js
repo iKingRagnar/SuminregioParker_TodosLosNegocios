@@ -22,15 +22,10 @@
  *   TIPO_TERCERO | TIPO_OPERACION | RFC | NOMBRE | TASA_16_BASE | IVA_TRASLADADO | TASA_0_BASE | EXENTO
  */
 
+const { makeHelpers } = require('./lib/snap-helper');
+
 function install(app, { duckSnaps, log }) {
-  function getSnap(req) {
-    const id = String((req.query && req.query.db) || 'default');
-    const s = duckSnaps.get(id);
-    return (s && s.conn) ? s : null;
-  }
-  function all(snap, sql, params) {
-    return new Promise((res, rej) => snap.conn.all(sql, ...(params || []), (err, rows) => err ? rej(err) : res(rows || [])));
-  }
+  const { getSnap, all } = makeHelpers(duckSnaps);
 
   const SAT_RX = /^[A-Z&Ñ]{3,4}[0-9]{6}[A-Z0-9]{2,3}$/;
 

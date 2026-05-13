@@ -12,15 +12,10 @@
  *   - Para artículo A: pares (A,B) que aparecen en el mismo docto. Ordena por lift.
  */
 
+const { makeHelpers } = require('./lib/snap-helper');
+
 function install(app, { duckSnaps, log }) {
-  function getSnap(req) {
-    const id = String((req.query && req.query.db) || 'default');
-    const s = duckSnaps.get(id);
-    return (s && s.conn) ? s : null;
-  }
-  function all(snap, sql, params) {
-    return new Promise((res, rej) => snap.conn.all(sql, ...(params || []), (err, rows) => err ? rej(err) : res(rows || [])));
-  }
+  const { getSnap, all } = makeHelpers(duckSnaps);
 
   // ═══════════════════ Recomendaciones por cliente ═══════════════════════════
   app.get('/api/cross-sell/cliente', async (req, res) => {
