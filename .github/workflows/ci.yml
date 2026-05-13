@@ -38,6 +38,9 @@ jobs:
           node --check safe-dom.js
           node --check pwa-register.js
 
+      - name: Performance budget check
+        run: bash scripts/check-budget.sh
+
       - name: Audit deps (no high vulnerabilities)
         run: npm audit --omit=dev --audit-level=high || true
 

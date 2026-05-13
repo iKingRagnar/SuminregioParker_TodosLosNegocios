@@ -513,19 +513,32 @@ async function reloadAll(){
   const vRes = await apiFetch(`/api/ventas/resumen?${dbQ}&${q}`, {}, 90000);
   {
     const hoy   = +(vRes.HOY||vRes.IMPORTE_HOY||0);
-    const mes   = +(vRes.MES_ACTUAL||vRes.IMPORTE_MES||0);
+    // PRIORIDAD: MES_ACTUAL_FACTURADO (suma sin filtro APLICADO, coincide con Microsip
+    // módulo Ventas → Facturación). Fallback a MES_ACTUAL_DOCS y luego MES_ACTUAL para
+    // backwards-compat con APIs viejas que no devuelven el campo nuevo.
+    const facturado = +(vRes.MES_ACTUAL_FACTURADO || 0);
+    const aplicado  = +(vRes.MES_ACTUAL_DOCS || 0);
+    const mes  = facturado > 0 ? facturado : +(vRes.MES_ACTUAL || vRes.IMPORTE_MES || 0);
     const meta  = +(vRes.META_MES||0);
-    const docs  = +(vRes.NUM_FACTURAS_MES||vRes.NUM_DOCS||0);
+    const docsAplicados = +(vRes.FACTURAS_MES||vRes.NUM_DOCS||0);
+    const docsFacturados = +(vRes.FACTURAS_MES_FACTURADO || docsAplicados);
+    const docsSinAplicar = +(vRes.FACTURAS_SIN_APLICAR || 0);
+    const montoSinAplicar = +(vRes.MONTO_SIN_APLICAR || 0);
     const docsH = +(vRes.NUM_FACTURAS_HOY||0);
     const diasH = +(vRes.DIAS_HABILES_MES||vRes.DIAS_TRANSCURRIDOS||20);
     const prom  = diasH>0?(mes/diasH):0;
-    const cumpl = meta>0?Math.min(hoy/meta*100,999):0; // vs meta prorrata
     const cumplMes = meta>0?Math.min(mes/meta*100,999):0;
 
     setText('kv-hoy', fmt$(hoy));
     setText('kv-hoy-docs', docsH+' facturas hoy');
     setText('kv-mes', fmt$(mes));
-    setText('kv-mes-docs', docs+' documentos');
+    // Anota cuántas facturas y, si hay docs sin aplicar contablemente, lo muestra
+    // para que el director sepa por qué Microsip facturación cuadra con este número.
+    var subMes = docsFacturados + ' facturas · cuadra con Microsip Ventas';
+    if (montoSinAplicar > 0.5) {
+      subMes += ' · ' + docsSinAplicar + ' sin aplicar contablemente (' + fmt$(montoSinAplicar) + ')';
+    }
+    setText('kv-mes-docs', subMes);
     setText('kv-meta', meta>0?fmt$(meta):'Sin meta');
     setText('kv-cumpl', fmtPct(cumplMes));
     setText('kv-cumpl-sub', 'vs. meta mensual');

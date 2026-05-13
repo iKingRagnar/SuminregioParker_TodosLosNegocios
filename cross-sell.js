@@ -19,6 +19,7 @@ function install(app, { duckSnaps, log }) {
   const { getSnap, all } = makeHelpers(duckSnaps);
   // Cross-sell: market basket sobre 12 meses, pesado. TTL 10 min.
   const memo = memoLib.create({ ttlMs: 10 * 60 * 1000, max: 200 });
+  try { require('./lib/events').on('snapshot.loaded', () => memo.clear()); } catch (_) {}
 
   // ═══════════════════ Recomendaciones por cliente ═══════════════════════════
   app.get('/api/cross-sell/cliente', async (req, res) => {

@@ -157,14 +157,30 @@ console.log(
   process.exit(1);
 })();
 
-const _corsOrigin = process.env.CORS_ORIGIN || '*';
+let _corsOrigin = process.env.CORS_ORIGIN || '*';
 // En producción no permitir CORS '*' — exige un origen explícito para evitar
 // que cualquier sitio externo invoque nuestros endpoints (incluidos los de IA
 // que pegan contra Anthropic con costo).
+//
+// Auto-recuperación: si CORS_ORIGIN='*' pero RENDER_EXTERNAL_URL está definida
+// (lo cual Render hace por default), usamos ese URL como origen — evita
+// derribar el server cuando el operador no ha actualizado la env var todavía.
+// Para opt-out explícito: ALLOW_INSECURE_CORS=1 (acepta '*' bajo tu propio riesgo).
 if ((process.env.NODE_ENV === 'production' || process.env.RENDER) && _corsOrigin === '*') {
-  console.error('[FATAL] CORS_ORIGIN=* en producción. Define CORS_ORIGIN=https://tu-dominio.com');
-  console.error('         (separa múltiples con coma: CORS_ORIGIN=https://a.com,https://b.com)');
-  process.exit(1);
+  if (process.env.RENDER_EXTERNAL_URL) {
+    console.warn(`[WARN] CORS_ORIGIN=* en producción; auto-derivando a ${process.env.RENDER_EXTERNAL_URL}`);
+    console.warn('       Para configurar explícito: define CORS_ORIGIN en las env vars de Render.');
+    _corsOrigin = process.env.RENDER_EXTERNAL_URL.replace(/\/$/, '');
+  } else if (process.env.ALLOW_INSECURE_CORS === '1') {
+    console.warn('[WARN] CORS_ORIGIN=* en producción ACEPTADO porque ALLOW_INSECURE_CORS=1.');
+    console.warn('       Esto deja la API abierta a cualquier origen. NO recomendado.');
+  } else {
+    console.error('[FATAL] CORS_ORIGIN=* en producción. Define CORS_ORIGIN=https://tu-dominio.com');
+    console.error('         (separa múltiples con coma: CORS_ORIGIN=https://a.com,https://b.com)');
+    console.error('         O define RENDER_EXTERNAL_URL para auto-derivar.');
+    console.error('         O ALLOW_INSECURE_CORS=1 si entiendes el riesgo.');
+    process.exit(1);
+  }
 }
 // Soportar múltiples orígenes separados por coma
 const _corsOrigins = _corsOrigin === '*' ? '*' : _corsOrigin.split(',').map((s) => s.trim()).filter(Boolean);
@@ -641,6 +657,8 @@ function loadDuckSnapshot(dbId, filePath) {
       ) : null;
       _duckSnaps.set(dbId, { db, conn, meta, path: filePath, loadingAt: null });
       console.log(`[DuckDB][${dbId}] Cargado: ${filePath} | filas=${meta && meta.TOTAL_ROWS} | corte=${meta && meta.CUTOFF_DATE}`);
+      // Emit evento global — módulos con memo cache pueden suscribirse y limpiar.
+      try { require('./lib/events').emit('snapshot.loaded', { dbId, meta, path: filePath }); } catch (_) {}
     });
   } catch (e) {
     console.warn(`[DuckDB][${dbId}] Error cargando snapshot: ${e.message}`);
@@ -1534,14 +1552,18 @@ function mergeVentasResumen(outs) {
         MES_ACTUAL: a.MES_ACTUAL + (+out.MES_ACTUAL || 0),
         MES_ACTUAL_DOCS: a.MES_ACTUAL_DOCS + (+out.MES_ACTUAL_DOCS || 0),
         MES_ACTUAL_CONTA: a.MES_ACTUAL_CONTA + (+out.MES_ACTUAL_CONTA || 0),
+        MES_ACTUAL_FACTURADO: a.MES_ACTUAL_FACTURADO + (+out.MES_ACTUAL_FACTURADO || 0),
         FACTURAS_MES: a.FACTURAS_MES + (+out.FACTURAS_MES || 0),
+        FACTURAS_MES_FACTURADO: a.FACTURAS_MES_FACTURADO + (+out.FACTURAS_MES_FACTURADO || 0),
+        FACTURAS_SIN_APLICAR: a.FACTURAS_SIN_APLICAR + (+out.FACTURAS_SIN_APLICAR || 0),
+        MONTO_SIN_APLICAR: a.MONTO_SIN_APLICAR + (+out.MONTO_SIN_APLICAR || 0),
         HASTA_AYER_MES: a.HASTA_AYER_MES + (+out.HASTA_AYER_MES || 0),
         REMISIONES_HOY: a.REMISIONES_HOY + (+out.REMISIONES_HOY || 0),
         REMISIONES_MES: a.REMISIONES_MES + (+out.REMISIONES_MES || 0),
         _anyConta: a._anyConta,
       };
     },
-    { HOY: 0, MES_ACTUAL: 0, MES_ACTUAL_DOCS: 0, MES_ACTUAL_CONTA: 0, FACTURAS_MES: 0, HASTA_AYER_MES: 0, REMISIONES_HOY: 0, REMISIONES_MES: 0, _anyConta: false },
+    { HOY: 0, MES_ACTUAL: 0, MES_ACTUAL_DOCS: 0, MES_ACTUAL_CONTA: 0, MES_ACTUAL_FACTURADO: 0, FACTURAS_MES: 0, FACTURAS_MES_FACTURADO: 0, FACTURAS_SIN_APLICAR: 0, MONTO_SIN_APLICAR: 0, HASTA_AYER_MES: 0, REMISIONES_HOY: 0, REMISIONES_MES: 0, _anyConta: false },
   );
   acc.FUENTE_VENTAS = acc._anyConta ? 'CONTABLE_SALDOS_CO_4' : 'DOCS_VE_PV';
   delete acc._anyConta;
@@ -2523,6 +2545,12 @@ function consumosVendedorClienteSql(req, alias = 'd') {
 function ventasSub(tipo = '', opts = {}) {
   const includeRemisiones = !!(opts && opts.includeRemisiones);
   const doctosVenta = includeRemisiones ? "('V', 'F')" : "('F')";
+  // requireAplicado=true (default) es el comportamiento histórico: solo documentos
+  // marcados como APLICADO='S' en Microsip. Esos son los que contabilidad ya
+  // procesó. Pasar requireAplicado=false reproduce la suma del módulo Ventas
+  // de Microsip (que cuenta toda la facturación emitida, esté aplicada o no).
+  const requireAplicado = opts && opts.requireAplicado === false ? false : true;
+  const aplicadoFilter = requireAplicado ? "\n      AND COALESCE(d.APLICADO, 'N') = 'S'" : '';
   const imp = sqlVentaImporteBaseExpr('d');
   const ve = `
     SELECT
@@ -2539,8 +2567,7 @@ function ventasSub(tipo = '', opts = {}) {
     FROM DOCTOS_VE d
     WHERE (
       d.TIPO_DOCTO IN ${doctosVenta}
-      AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
-      AND COALESCE(d.APLICADO, 'N') = 'S'
+      AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')${aplicadoFilter}
     )`;
 
   const pv = `
@@ -2567,8 +2594,7 @@ function ventasSub(tipo = '', opts = {}) {
     FROM DOCTOS_PV d
     WHERE (
       d.TIPO_DOCTO IN ${doctosVenta}
-      AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
-      AND COALESCE(d.APLICADO, 'N') = 'S'
+      AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')${aplicadoFilter}
     )`;
 
   if (tipo === 'VE') return `(${ve})`;
@@ -3626,7 +3652,7 @@ get('/api/ventas/resumen', async (req) => {
   const run = async (dbo) => {
     const f = buildFiltros(req, 'd');
     const tipo = getTipo(req);
-    const [rows, remRows, ventasConta] = await Promise.all([
+    const [rows, remRows, ventasConta, rowsFacturado] = await Promise.all([
       query(`
     SELECT
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE
@@ -3648,8 +3674,18 @@ get('/api/ventas/resumen', async (req) => {
       // Solo consulta SALDOS_CO 4* cuando NO hay filtro VE/PV: el desglose tipo no existe
       // en contabilidad, así que con tipo=VE/PV seguimos sirviendo la suma de docs (mantiene VE+PV=total).
       tipo === '' ? getVentasNetasContaForPeriod(dbo, desdeStr, hastaStr, 15000) : Promise.resolve(0),
+      // NUEVO: facturación SIN filtro APLICADO — para alinear con Microsip módulo Ventas
+      // (Microsip cuenta TODAS las facturas emitidas, no solo las contabilizadas).
+      query(`
+    SELECT
+      COALESCE(SUM(d.IMPORTE_NETO), 0) AS MES_ACTUAL_FACTURADO,
+      COUNT(*) AS FACTURAS_MES_FACTURADO
+    FROM ${ventasSub(tipo, { requireAplicado: false })} d
+    WHERE 1=1 ${f.sql}
+  `, f.params, 30000, dbo).catch(() => []),
     ]);
     const docsTotal = +((rows[0] && rows[0].MES_ACTUAL) || 0);
+    const facturadoTotal = +((rowsFacturado[0] && rowsFacturado[0].MES_ACTUAL_FACTURADO) || 0);
     const useConta = tipo === '' && (+ventasConta || 0) > 0.01;
     const out = {
       HOY: +((rows[0] && rows[0].HOY) || 0),
@@ -3658,6 +3694,13 @@ get('/api/ventas/resumen', async (req) => {
       MES_ACTUAL: useConta ? +ventasConta : docsTotal,
       MES_ACTUAL_DOCS: docsTotal,
       MES_ACTUAL_CONTA: +ventasConta || 0,
+      // Suma SIN filtro APLICADO — debe coincidir con Microsip módulo Ventas → Facturación.
+      // Si MES_ACTUAL < MES_ACTUAL_FACTURADO, significa que hay facturas emitidas pero
+      // no contabilizadas (APLICADO='N'). La diferencia es expected lag contable.
+      MES_ACTUAL_FACTURADO: facturadoTotal,
+      FACTURAS_MES_FACTURADO: +((rowsFacturado[0] && rowsFacturado[0].FACTURAS_MES_FACTURADO) || 0),
+      FACTURAS_SIN_APLICAR: Math.max(0, +((rowsFacturado[0] && rowsFacturado[0].FACTURAS_MES_FACTURADO) || 0) - +((rows[0] && rows[0].FACTURAS_MES) || 0)),
+      MONTO_SIN_APLICAR: Math.max(0, facturadoTotal - docsTotal),
       FUENTE_VENTAS: useConta ? 'CONTABLE_SALDOS_CO_4' : 'DOCS_VE_PV',
       FACTURAS_MES: +((rows[0] && rows[0].FACTURAS_MES) || 0),
       HASTA_AYER_MES: +((rows[0] && rows[0].HASTA_AYER_MES) || 0),
@@ -3672,7 +3715,7 @@ get('/api/ventas/resumen', async (req) => {
       try {
         return await run(entry.options);
       } catch (e) {
-        return { HOY: 0, MES_ACTUAL: 0, MES_ACTUAL_DOCS: 0, MES_ACTUAL_CONTA: 0, FUENTE_VENTAS: 'DOCS_VE_PV', FACTURAS_MES: 0, HASTA_AYER_MES: 0, REMISIONES_HOY: 0, REMISIONES_MES: 0 };
+        return { HOY: 0, MES_ACTUAL: 0, MES_ACTUAL_DOCS: 0, MES_ACTUAL_CONTA: 0, MES_ACTUAL_FACTURADO: 0, FACTURAS_MES_FACTURADO: 0, FACTURAS_SIN_APLICAR: 0, MONTO_SIN_APLICAR: 0, FUENTE_VENTAS: 'DOCS_VE_PV', FACTURAS_MES: 0, HASTA_AYER_MES: 0, REMISIONES_HOY: 0, REMISIONES_MES: 0 };
       }
     });
     return mergeVentasResumen(outs);

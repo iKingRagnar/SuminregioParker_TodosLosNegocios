@@ -18,6 +18,9 @@ function install(app, { duckSnaps, log }) {
   // RFM/Pareto/CLV son cálculos pesados sobre todo el snapshot — cacheamos 10 min.
   // El snapshot solo se refresca 1x/día, así que 10 min es seguro.
   const memo = memoLib.create({ ttlMs: 10 * 60 * 1000, max: 100 });
+  // Invalidación reactiva: cuando llega snapshot nuevo, limpiamos memo para
+  // que la siguiente request consulte datos frescos (en vez de esperar TTL).
+  try { require('./lib/events').on('snapshot.loaded', () => memo.clear()); } catch (_) {}
 
   // ═══════════════════ RFM ═══════════════════════════════════════════════════
   app.get('/api/analytics/rfm', async function (req, res) {

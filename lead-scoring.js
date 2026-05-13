@@ -23,6 +23,7 @@ function install(app, { duckSnaps, log }) {
   const { getSnap, all } = makeHelpers(duckSnaps);
   // Lead scoring corre 2-3 queries pesadas + lookup por vendedor. TTL 10 min.
   const memo = memoLib.create({ ttlMs: 10 * 60 * 1000, max: 100 });
+  try { require('./lib/events').on('snapshot.loaded', () => memo.clear()); } catch (_) {}
 
   /**
    * Calcula tasa histórica de cierre por vendedor:

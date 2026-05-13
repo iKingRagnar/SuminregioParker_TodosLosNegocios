@@ -411,3 +411,77 @@ test('error-tracker preserva hasta N samples', () => {
   const issues = tracker.list();
   assert.equal(issues[0].sampleCount, 3);
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// lib/events.js
+// ═══════════════════════════════════════════════════════════════════════════
+
+test('lib/events es singleton (mismas listeners en require múltiples)', () => {
+  // Cache de require — el segundo require devuelve el mismo módulo.
+  delete require.cache[require.resolve('../lib/events')];
+  const bus1 = require('../lib/events');
+  const bus2 = require('../lib/events');
+  assert.strictEqual(bus1, bus2);
+});
+
+test('lib/events propaga emisiones a todos los listeners', () => {
+  delete require.cache[require.resolve('../lib/events')];
+  const bus = require('../lib/events');
+  bus.removeAllListeners('test.event');
+  const received = [];
+  bus.on('test.event', (data) => received.push(['a', data]));
+  bus.on('test.event', (data) => received.push(['b', data]));
+  bus.emit('test.event', { foo: 1 });
+  assert.equal(received.length, 2);
+  assert.deepEqual(received[0], ['a', { foo: 1 }]);
+  assert.deepEqual(received[1], ['b', { foo: 1 }]);
+  bus.removeAllListeners('test.event');
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// lib/audit-log.js
+// ═══════════════════════════════════════════════════════════════════════════
+const auditLib = require('../lib/audit-log');
+
+test('audit-log registra entry con metadata del request', () => {
+  const audit = auditLib.create({ table: 'audit_test_' + Date.now() });
+  const fakeReq = {
+    user: { email: 'admin@test.com', roles: ['admin'] },
+    headers: { 'x-forwarded-for': '203.0.113.1' },
+    socket: { remoteAddress: '127.0.0.1' },
+    method: 'POST',
+    path: '/api/admin/x',
+    traceId: 'abc123',
+  };
+  const entry = audit.log(fakeReq, 'test.action', { key: 'value' });
+  assert.equal(entry.action, 'test.action');
+  assert.equal(entry.user_email, 'admin@test.com');
+  assert.equal(entry.ip, '203.0.113.1');
+  assert.equal(entry.method, 'POST');
+  assert.equal(entry.trace_id, 'abc123');
+  assert.deepEqual(entry.details, { key: 'value' });
+});
+
+test('audit-log filtra por action en list()', () => {
+  const audit = auditLib.create({ table: 'audit_test_' + Date.now() });
+  audit.log({ user: null }, 'action.a');
+  audit.log({ user: null }, 'action.b');
+  audit.log({ user: null }, 'action.a');
+  const aOnly = audit.list({ action: 'action.a' });
+  assert.equal(aOnly.length, 2);
+  const bOnly = audit.list({ action: 'action.b' });
+  assert.equal(bOnly.length, 1);
+});
+
+test('audit-log stats agrega por action y user', () => {
+  const audit = auditLib.create({ table: 'audit_test_' + Date.now() });
+  audit.log({ user: { email: 'a@x.com' } }, 'login');
+  audit.log({ user: { email: 'a@x.com' } }, 'login');
+  audit.log({ user: { email: 'b@x.com' } }, 'login');
+  audit.log({ user: { email: 'a@x.com' } }, 'logout');
+  const s = audit.stats();
+  assert.equal(s.byAction.login, 3);
+  assert.equal(s.byAction.logout, 1);
+  assert.equal(s.byUser['a@x.com'], 3);
+  assert.equal(s.byUser['b@x.com'], 1);
+});
