@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suminregio · Performance Dashboard</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="safe-dom.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F6F8FB;color:#0F172A;padding:24px;max-width:1280px;margin:0 auto;line-height:1.5}
+h1{font-family:Syne,sans-serif;font-size:1.4rem;margin-bottom:6px}
+h1 .ver{font-size:.75rem;color:#64748B;font-weight:400;margin-left:8px}
+.sub{color:#64748B;font-size:.85rem;margin-bottom:24px}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-bottom:24px}
+.card{background:#fff;border:1px solid rgba(15,23,42,.08);border-radius:14px;padding:18px;box-shadow:0 1px 3px rgba(15,23,42,.04)}
+.card h3{font-size:.74rem;text-transform:uppercase;color:#64748B;letter-spacing:.06em;font-weight:700;margin-bottom:8px}
+.card .v{font-family:'JetBrains Mono',monospace;font-size:1.7rem;font-weight:600;color:#0F172A}
+.card .v.green{color:#16A34A}
+.card .v.red{color:#DC2626}
+.card .v.yellow{color:#CA8A04}
+.card .sub{font-size:.72rem;color:#94A3B8;margin-top:4px}
+.section{margin-bottom:32px}
+.section h2{font-size:.95rem;color:#0F172A;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.section h2 .dot{width:8px;height:8px;border-radius:50%;background:#E6A800}
+table{width:100%;border-collapse:collapse;font-size:.85rem}
+th{text-align:left;padding:10px 12px;background:#1E293B;color:#fff;font-size:.7rem;text-transform:uppercase;font-weight:700;letter-spacing:.05em}
+th.r,td.r{text-align:right}
+td{padding:10px 12px;border-bottom:1px solid rgba(15,23,42,.06);font-family:'JetBrains Mono',monospace;font-size:.82rem}
+td.l{font-family:inherit}
+.pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:.68rem;font-weight:700}
+.pill.ok{background:rgba(22,163,74,.1);color:#16A34A}
+.pill.warn{background:rgba(202,138,4,.1);color:#CA8A04}
+.pill.err{background:rgba(220,38,38,.1);color:#DC2626}
+.refresh{position:fixed;top:24px;right:24px;background:#0F172A;color:#fff;border:none;padding:8px 14px;border-radius:8px;font-size:.78rem;cursor:pointer;font-weight:600}
+.refresh:hover{background:#1E293B}
+.muted{color:#94A3B8;font-size:.75rem;font-style:italic}
+.bar-wrap{background:rgba(15,23,42,.05);border-radius:6px;overflow:hidden;height:6px;margin-top:4px}
+.bar-fill{height:100%;background:linear-gradient(90deg,#E6A800,#D97706);border-radius:6px;transition:width .3s}
+</style>
+</head>
+<body>
+<button class="refresh" onclick="refresh()" id="refreshBtn">↻ Refresh</button>
+<h1>Performance Dashboard <span class="ver" id="version">…</span></h1>
+<div class="sub">Métricas en tiempo real de tu instancia: health, AI usage, requests, errores. Actualiza cada 30s.</div>
+
+<div class="section">
+  <h2><span class="dot"></span>Health</h2>
+  <div class="row" id="healthRow"></div>
+</div>
+
+<div class="section">
+  <h2><span class="dot" style="background:#16A34A"></span>Snapshots</h2>
+  <table>
+    <thead><tr><th>Empresa</th><th class="r">Rows</th><th>Cutoff</th><th>Generado</th><th class="r">Edad</th><th>Status</th></tr></thead>
+    <tbody id="snapsBody"><tr><td colspan="6" class="muted">Cargando…</td></tr></tbody>
+  </table>
+</div>
+
+<div class="section">
+  <h2><span class="dot" style="background:#7C3AED"></span>AI v3 (Opus 4.7)</h2>
+  <div class="row" id="aiRow"></div>
+</div>
+
+<div class="section">
+  <h2><span class="dot" style="background:#DC2626"></span>Issues (errores con dedup)</h2>
+  <table>
+    <thead><tr><th>Mensaje</th><th class="r">Conteo</th><th>Primer visto</th><th>Último</th><th>Rutas</th></tr></thead>
+    <tbody id="issuesBody"><tr><td colspan="5" class="muted">Cargando…</td></tr></tbody>
+  </table>
+</div>
+
+<div class="section">
+  <h2><span class="dot" style="background:#0EA5E9"></span>Crons</h2>
+  <table>
+    <thead><tr><th>Job</th><th class="r">Hora</th><th>Días</th><th>Última ejecución</th><th>¿Hoy?</th></tr></thead>
+    <tbody id="cronsBody"><tr><td colspan="5" class="muted">Cargando…</td></tr></tbody>
+  </table>
+</div>
+
+<script>
+const API = window.location.origin;
+function fmt(n) { return Number(n || 0).toLocaleString('es-MX'); }
+function fmtMxn(n) { return '$' + Number(n || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 4 }); }
+
+function card(title, value, opts) {
+  const cls = opts && opts.cls ? opts.cls : '';
+  const sub = opts && opts.sub ? `<div class="sub">${escHtml(opts.sub)}</div>` : '';
+  return `<div class="card"><h3>${escHtml(title)}</h3><div class="v ${cls}">${escHtml(String(value))}</div>${sub}</div>`;
+}
+
+async function fetchJson(path) {
+  try {
+    const r = await fetch(API + path);
+    if (!r.ok) return { __status: r.status };
+    return await r.json();
+  } catch (e) { return { __error: e.message }; }
+}
+
+async function refresh() {
+  const btn = document.getElementById('refreshBtn');
+  btn.textContent = '⟳ Cargando…';
+  btn.disabled = true;
+
+  const [health, stats, issues, crons] = await Promise.all([
+    fetchJson('/api/health/deep'),
+    fetchJson('/api/ai/chat-v3/stats'),
+    fetchJson('/api/admin/issues?minCount=1'),
+    fetchJson('/api/cron/status'),
+  ]);
+
+  // ── Health top-row ──
+  if (health.version) document.getElementById('version').textContent = '· build ' + health.version;
+  const healthRow = document.getElementById('healthRow');
+  healthRow.innerHTML = '';
+  if (health.__error) {
+    healthRow.innerHTML = `<div class="card"><h3>Error</h3><div class="v red">${escHtml(health.__error)}</div></div>`;
+  } else {
+    const statusClass = health.status === 'healthy' ? 'green' : health.status === 'degraded' ? 'yellow' : 'red';
+    healthRow.innerHTML = [
+      card('Status', String(health.status).toUpperCase(), { cls: statusClass, sub: health.issues && health.issues.length ? health.issues.join(', ') : 'todo OK' }),
+      card('Uptime', Math.round(health.uptimeSec / 60) + ' min', { sub: 'PID ' + health.pid }),
+      card('Node', health.nodeVersion, { sub: 'env: ' + health.env }),
+      card('Memoria heap', (health.memory && health.memory.heap_used_mb) + ' MB', { sub: 'RSS ' + (health.memory && health.memory.rss_mb) + ' MB' }),
+      card('Snapshots', health.snapshots ? health.snapshots.length : 0, { sub: 'cargados' }),
+      card('AI configurado', health.ai && health.ai.v2_configured ? 'SÍ' : 'NO', { cls: health.ai && health.ai.v2_configured ? 'green' : 'red' }),
+    ].join('');
+  }
+
+  // ── Snapshots ──
+  const snapsBody = document.getElementById('snapsBody');
+  if (health.snapshots && health.snapshots.length) {
+    snapsBody.innerHTML = health.snapshots.map((s) => {
+      const status = s.fresh ? '<span class="pill ok">FRESH</span>' : '<span class="pill warn">STALE</span>';
+      return `<tr><td class="l">${escHtml(s.id)}</td><td class="r">${fmt(s.rows)}</td><td>${escHtml(s.cutoff || '—')}</td><td>${escHtml(s.createdAt || '—')}</td><td class="r">${s.ageHours != null ? s.ageHours + 'h' : '—'}</td><td>${status}</td></tr>`;
+    }).join('');
+  } else {
+    snapsBody.innerHTML = '<tr><td colspan="6" class="muted">Sin snapshots cargados — corre sync_duckdb.py</td></tr>';
+  }
+
+  // ── AI v3 stats ──
+  const aiRow = document.getElementById('aiRow');
+  if (stats.__error || stats.__status) {
+    aiRow.innerHTML = `<div class="card"><h3>AI v3</h3><div class="v">N/D</div></div>`;
+  } else {
+    const hitRate = stats.cache_hit_rate_pct;
+    aiRow.innerHTML = [
+      card('Requests', fmt(stats.requests)),
+      card('Tool calls', fmt(stats.tool_calls)),
+      card('Errores', fmt(stats.errors), { cls: stats.errors > 0 ? 'red' : 'green' }),
+      card('Cache hit rate', hitRate != null ? hitRate + '%' : '—', { cls: hitRate > 70 ? 'green' : hitRate > 40 ? 'yellow' : 'red' }),
+      card('Tokens output', fmt(stats.tokens && stats.tokens.output)),
+      card('Costo USD est.', fmtMxn(stats.cost_usd_estimated || 0)),
+    ].join('');
+  }
+
+  // ── Issues ──
+  const issuesBody = document.getElementById('issuesBody');
+  if (issues.issues && issues.issues.length) {
+    issuesBody.innerHTML = issues.issues.slice(0, 20).map((i) => {
+      const routesTxt = (i.routes || []).slice(0, 3).join(', ') || '—';
+      return `<tr><td class="l">${escHtml(i.message)}</td><td class="r">${fmt(i.count)}</td><td>${escHtml(i.firstSeen)}</td><td>${escHtml(i.lastSeen)}</td><td>${escHtml(routesTxt)}</td></tr>`;
+    }).join('');
+  } else {
+    issuesBody.innerHTML = '<tr><td colspan="5" class="muted">Sin issues registrados — todo bien 🎉</td></tr>';
+  }
+
+  // ── Crons ──
+  const cronsBody = document.getElementById('cronsBody');
+  if (crons.jobs && crons.jobs.length) {
+    cronsBody.innerHTML = crons.jobs.map((j) => {
+      const status = j.ranToday ? '<span class="pill ok">✓ corrió hoy</span>' : '<span class="pill warn">pendiente</span>';
+      return `<tr><td class="l">${escHtml(j.name)}</td><td class="r">${String(j.hour).padStart(2, '0')}:00</td><td>${escHtml(Array.isArray(j.days) ? j.days.join(',') : j.days)}</td><td>${escHtml(j.lastRunKey || '—')}</td><td>${status}</td></tr>`;
+    }).join('');
+  } else {
+    cronsBody.innerHTML = '<tr><td colspan="5" class="muted">Sin crons registrados</td></tr>';
+  }
+
+  btn.textContent = '↻ Refresh';
+  btn.disabled = false;
+}
+
+refresh();
+setInterval(refresh, 30_000);
+</script>
+</body>
+</html>

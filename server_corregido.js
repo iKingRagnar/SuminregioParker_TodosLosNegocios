@@ -178,6 +178,13 @@ app.use(cors({
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: false, limit: '256kb' }));
 
+// Tracing: cada request obtiene un X-Request-Id propagado en respuesta y en
+// AsyncLocalStorage. Permite buscar todos los logs de un mismo request.
+try {
+  const tracing = require('./lib/tracing').create({});
+  app.use(tracing.middleware());
+} catch (e) { console.warn('[tracing] no instalado:', e.message); }
+
 // Headers mínimos anti-abuso (no sustituyen autenticación).
 const _IS_PROD = process.env.NODE_ENV === 'production';
 const _CSP_VALUE = [
@@ -862,6 +869,48 @@ try {
 try {
   require('./health-deep').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
 } catch (e) { console.warn('[health-deep] no instalado:', e.message); }
+
+// Error tracker tipo Sentry-lite (dedup por fingerprint)
+try {
+  const errorTracker = require('./lib/error-tracker').create({ max: 200 });
+
+  // Captura errores no atrapados a nivel proceso (last-resort)
+  process.on('uncaughtException', (e) => {
+    errorTracker.capture(e, { route: 'uncaughtException' });
+    _boostLog && _boostLog.error && _boostLog.error('uncaughtException', e.message);
+  });
+  process.on('unhandledRejection', (reason) => {
+    const err = reason instanceof Error ? reason : new Error(String(reason));
+    errorTracker.capture(err, { route: 'unhandledRejection' });
+    _boostLog && _boostLog.error && _boostLog.error('unhandledRejection', err.message);
+  });
+
+  // Middleware Express error handler — captura los errores que llegan al next(err).
+  app.use((err, req, res, next) => {
+    if (!err) return next();
+    errorTracker.capture(err, {
+      route: req.path,
+      method: req.method,
+      trace_id: req.traceId,
+    });
+    if (res.headersSent) return next(err);
+    res.status(500).json({ error: 'Internal error', trace_id: req.traceId });
+  });
+
+  app.get('/api/admin/issues', (req, res) => {
+    const minCount = parseInt(req.query.minCount, 10) || 0;
+    const sinceMin = parseInt(req.query.sinceMin, 10);
+    const since = isFinite(sinceMin) ? Date.now() - sinceMin * 60_000 : 0;
+    res.json({ ok: true, ...errorTracker.stats(), issues: errorTracker.list({ minCount, since }) });
+  });
+  app.get('/api/admin/issues/:fp', (req, res) => {
+    const issue = errorTracker.get(req.params.fp);
+    if (!issue) return res.status(404).json({ error: 'Not found' });
+    res.json({ ok: true, ...issue, routes: [...issue.routes] });
+  });
+
+  _boostLog && _boostLog.info && _boostLog.info('error-tracker', '✅ /api/admin/issues con dedup por fingerprint');
+} catch (e) { console.warn('[error-tracker] no instalado:', e.message); }
 
 // Prometheus metrics — formato estándar para Grafana / Datadog / etc.
 try {

@@ -292,3 +292,122 @@ test('prometheus expose() formato válido', () => {
   assert.ok(out.includes('# TYPE req counter'));
   assert.ok(out.includes('req{route="/api/x"} 3'));
 });
+
+// ═══════════════════════════════════════════════════════════════════════════
+// lib/tracing.js
+// ═══════════════════════════════════════════════════════════════════════════
+const tracingLib = require('../lib/tracing');
+
+test('tracing.newId() genera IDs únicos hex', () => {
+  const t = tracingLib.create({});
+  const a = t.newId();
+  const b = t.newId();
+  assert.ok(/^[a-f0-9]{16}$/.test(a), 'hex 16 chars');
+  assert.notEqual(a, b);
+});
+
+test('tracing middleware setea X-Request-Id en response', () => {
+  const t = tracingLib.create({});
+  const mw = t.middleware();
+  let headerSet = null;
+  const req = { headers: {}, method: 'GET' };
+  const res = { setHeader: (k, v) => { if (k === 'X-Request-Id') headerSet = v; } };
+  mw(req, res, () => {});
+  assert.ok(headerSet && /^[a-f0-9]{16}$/.test(headerSet));
+  assert.equal(req.traceId, headerSet);
+});
+
+test('tracing middleware reusa X-Request-Id del cliente si es válido', () => {
+  const t = tracingLib.create({});
+  const mw = t.middleware();
+  const req = { headers: { 'x-request-id': 'client-abc-123' }, method: 'GET' };
+  let headerSet = null;
+  const res = { setHeader: (k, v) => { if (k === 'X-Request-Id') headerSet = v; } };
+  mw(req, res, () => {});
+  assert.equal(headerSet, 'client-abc-123');
+});
+
+test('tracing middleware genera nuevo si el id del cliente es inválido', () => {
+  const t = tracingLib.create({});
+  const mw = t.middleware();
+  const req = { headers: { 'x-request-id': 'has spaces!' }, method: 'GET' };
+  let headerSet = null;
+  const res = { setHeader: (k, v) => { if (k === 'X-Request-Id') headerSet = v; } };
+  mw(req, res, () => {});
+  assert.notEqual(headerSet, 'has spaces!');
+  assert.ok(/^[a-f0-9]{16}$/.test(headerSet));
+});
+
+test('tracing.currentTraceId() devuelve el id dentro del contexto', (t, done) => {
+  const tracing = tracingLib.create({});
+  const mw = tracing.middleware();
+  const req = { headers: {}, method: 'GET' };
+  const res = { setHeader: () => {} };
+  mw(req, res, () => {
+    const id = tracing.currentTraceId();
+    assert.equal(id, req.traceId);
+    done();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// lib/error-tracker.js
+// ═══════════════════════════════════════════════════════════════════════════
+const trackerLib = require('../lib/error-tracker');
+
+test('error-tracker dedup: mismo error 5× → 1 issue, count=5', () => {
+  const tracker = trackerLib.create({});
+  for (let i = 0; i < 5; i++) {
+    tracker.capture(new Error('User not found'), { route: '/api/x' });
+  }
+  const issues = tracker.list();
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].count, 5);
+});
+
+test('error-tracker dedup: normaliza números/UUIDs en el msg', () => {
+  const tracker = trackerLib.create({});
+  tracker.capture(new Error('User 42 not found'), { route: '/api/x' });
+  tracker.capture(new Error('User 99 not found'), { route: '/api/x' });
+  tracker.capture(new Error('User 1234567 not found'), { route: '/api/x' });
+  const issues = tracker.list();
+  assert.equal(issues.length, 1, 'IDs diferentes deben colapsar en 1 issue');
+  assert.equal(issues[0].count, 3);
+});
+
+test('error-tracker separa por tipo de error', () => {
+  const tracker = trackerLib.create({});
+  tracker.capture(new Error('foo'));
+  tracker.capture(new TypeError('bar'));
+  const issues = tracker.list();
+  assert.equal(issues.length, 2);
+});
+
+test('error-tracker.stats() devuelve resumen', () => {
+  const tracker = trackerLib.create({});
+  tracker.capture(new Error('a'));
+  tracker.capture(new Error('a'));
+  tracker.capture(new Error('b'));
+  const s = tracker.stats();
+  assert.equal(s.uniqueIssues, 2);
+  assert.equal(s.totalOccurrences, 3);
+  assert.equal(s.uniqueIssues_24h, 2);
+});
+
+test('error-tracker eviction LRU cuando excede max', () => {
+  const tracker = trackerLib.create({ max: 3 });
+  tracker.capture(new Error('a'));
+  tracker.capture(new Error('b'));
+  tracker.capture(new Error('c'));
+  tracker.capture(new Error('d'));
+  tracker.capture(new Error('e'));
+  const s = tracker.stats();
+  assert.ok(s.uniqueIssues <= 3, 'no debe exceder max');
+});
+
+test('error-tracker preserva hasta N samples', () => {
+  const tracker = trackerLib.create({ maxSamples: 3 });
+  for (let i = 0; i < 10; i++) tracker.capture(new Error('same'));
+  const issues = tracker.list();
+  assert.equal(issues[0].sampleCount, 3);
+});
