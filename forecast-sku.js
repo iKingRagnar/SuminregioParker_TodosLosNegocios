@@ -14,15 +14,10 @@
  * Output: forecast mensual + intervalos de confianza (±1.96·σ).
  */
 
+const { makeHelpers } = require('./lib/snap-helper');
+
 function install(app, { duckSnaps, log }) {
-  function getSnap(req) {
-    const id = String((req.query && req.query.db) || 'default');
-    const s = duckSnaps.get(id);
-    return (s && s.conn) ? s : null;
-  }
-  function all(snap, sql, params) {
-    return new Promise((res, rej) => snap.conn.all(sql, ...(params || []), (err, rows) => err ? rej(err) : res(rows || [])));
-  }
+  const { getSnap, all } = makeHelpers(duckSnaps);
 
   /** Devuelve { mes: 'YYYY-MM', unidades, importe }. */
   function getMonthlySeries(snap, articuloId) {
@@ -136,26 +131,35 @@ function install(app, { duckSnaps, log }) {
         ORDER BY valor_12m DESC
         LIMIT ${topN}`);
 
-      const out = [];
-      // Secuencial: forecast es barato pero los queries por SKU se acumulan.
-      for (const sku of topSkus) {
-        try {
-          const serie = await getMonthlySeries(snap, sku.ARTICULO_ID);
-          const r = forecastSerie(serie, meses);
-          const total = r.forecast.reduce((s, x) => s + (x.estimado || 0), 0);
-          out.push({
-            articulo_id: sku.ARTICULO_ID,
-            articulo: sku.NOMBRE,
-            clave: sku.CLAVE,
-            valor_12m: sku.valor_12m,
-            modelo: r.modelo,
-            forecast_total_unidades: total,
-            forecast_proximos_meses: r.forecast.map((x) => x.estimado),
-            ic_proximos_meses: r.forecast.map((x) => [x.ic_bajo, x.ic_alto]),
-          });
-        } catch (_) {}
+      // Paralelizado con pool de 8 — evita saturar DuckDB pero ~8× más rápido
+      // que el for-await serial original.
+      const POOL = 8;
+      const out = new Array(topSkus.length);
+      let cursor = 0;
+      async function worker() {
+        while (true) {
+          const i = cursor++;
+          if (i >= topSkus.length) return;
+          const sku = topSkus[i];
+          try {
+            const serie = await getMonthlySeries(snap, sku.ARTICULO_ID);
+            const r = forecastSerie(serie, meses);
+            const total = r.forecast.reduce((s, x) => s + (x.estimado || 0), 0);
+            out[i] = {
+              articulo_id: sku.ARTICULO_ID,
+              articulo: sku.NOMBRE,
+              clave: sku.CLAVE,
+              valor_12m: sku.valor_12m,
+              modelo: r.modelo,
+              forecast_total_unidades: total,
+              forecast_proximos_meses: r.forecast.map((x) => x.estimado),
+              ic_proximos_meses: r.forecast.map((x) => [x.ic_bajo, x.ic_alto]),
+            };
+          } catch (_) { out[i] = null; }
+        }
       }
-      res.json({ ok: true, top: topN, meses, items: out });
+      await Promise.all(Array.from({ length: Math.min(POOL, topSkus.length) }, worker));
+      res.json({ ok: true, top: topN, meses, items: out.filter(Boolean) });
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 

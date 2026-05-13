@@ -13,15 +13,10 @@
  *   - Antigüedad como cliente              (clientes viejos confiables → bonus)
  */
 
+const { makeHelpers } = require('./lib/snap-helper');
+
 function install(app, { duckSnaps, log }) {
-  function getSnap(req) {
-    const id = String((req.query && req.query.db) || 'default');
-    const s = duckSnaps.get(id);
-    return (s && s.conn) ? s : null;
-  }
-  function all(snap, sql, params) {
-    return new Promise((res, rej) => snap.conn.all(sql, ...(params || []), (err, rows) => err ? rej(err) : res(rows || [])));
-  }
+  const { getSnap, all } = makeHelpers(duckSnaps);
 
   async function computeScores(snap, minSaldo) {
     // Agregamos historia 12m + posición actual por cliente.
@@ -60,11 +55,14 @@ function install(app, { duckSnaps, log }) {
         GROUP BY CLIENTE_ID
       ),
       saldo_actual AS (
+        -- WHERE FECHA acota el scan: facturas con saldo abierto >365 días son ya
+        -- castigos contables; no aportan al score y disparaban FULL SCAN.
         SELECT CLIENTE_ID,
                SUM(IMPORTE) AS saldo_abierto,
                MAX(CASE WHEN IMPORTE > 0 THEN DATE_DIFF('day', FECHA, CURRENT_DATE) END) AS max_edad,
                AVG(CASE WHEN IMPORTE > 0 THEN DATE_DIFF('day', FECHA, CURRENT_DATE) END) AS edad_promedio
         FROM IMPORTES_DOCTOS_CC
+        WHERE FECHA >= CURRENT_DATE - INTERVAL 730 DAY
         GROUP BY CLIENTE_ID
         HAVING SUM(IMPORTE) >= ${minSaldo}
       ),

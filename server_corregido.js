@@ -307,31 +307,11 @@ app.use(function bigintSafeJson(req, res, next) {
 
 // ── Gzip compression (inline, no external dep) ────────────────────────────────
 // Comprime respuestas JSON de la API (/api/*) cuando el cliente acepta gzip.
-// DuckDB devuelve BIGINT como BigInt nativo; JSON.stringify lo rechaza.
-const _bigintReplacer = (_k, v) => {
-  if (typeof v !== 'bigint') return v;
-  return v <= Number.MAX_SAFE_INTEGER && v >= -Number.MAX_SAFE_INTEGER ? Number(v) : v.toString();
-};
-app.use(function gzipMiddleware(req, res, next) {
-  const ae = req.headers['accept-encoding'] || '';
-  if (!ae.includes('gzip') || !req.path.startsWith('/api/')) return next();
-  const origJson = res.json.bind(res);
-  res.json = function(data) {
-    let body;
-    try { body = JSON.stringify(data, _bigintReplacer); }
-    catch (e) { return origJson(data); }
-    if (!body || body.length < 860) { return origJson(data); } // no comprimir payloads pequeños
-    res.setHeader('Content-Encoding', 'gzip');
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.setHeader('Vary', 'Accept-Encoding');
-    zlib.gzip(Buffer.from(body, 'utf8'), { level: 6 }, function(err, compressed) {
-      if (err) { res.removeHeader('Content-Encoding'); return origJson(data); }
-      res.setHeader('Content-Length', compressed.length);
-      res.end(compressed);
-    });
-  };
-  next();
-});
+// NOTA: el middleware de compresión vive en performance-boost.js (compressionMiddleware).
+// Soporta brotli (15-25% más chico que gzip para JSON) con fallback a gzip.
+// El antiguo gzipMiddleware inline corría ANTES y monkey-patcheaba res.json, evitando
+// que brotli se aplicara. Removido en audit 2026-05. El bigintReplacer también vive
+// dentro de performance-boost.js.
 
 // Servir archivos estáticos — public/ primero: si hay mismo nombre en raíz y en public/, gana public/
 // (evita que index.html viejo en la raíz opaque public/index.html).
@@ -540,7 +520,12 @@ const DUCK_SNAPSHOT_DIR = process.env.DUCK_SNAPSHOT_DIR || (
   (() => { try { return require('fs').existsSync('/var/data') ? '/var/data/duck_snaps' : '/tmp/duck_snaps'; } catch { return '/tmp/duck_snaps'; } })()
 );
 const DUCK_SNAPSHOT_PATH = process.env.DUCK_SNAPSHOT_PATH || null; // compatibilidad legacy
-const SNAPSHOT_TOKEN     = process.env.SNAPSHOT_TOKEN     || 'suminregio-snap-2026';
+const SNAPSHOT_TOKEN     = process.env.SNAPSHOT_TOKEN;
+if (!SNAPSHOT_TOKEN || SNAPSHOT_TOKEN === 'suminregio-snap-2026' || SNAPSHOT_TOKEN.length < 16) {
+  console.error('[FATAL] SNAPSHOT_TOKEN no definido o demasiado corto (>=16 chars). Genera con: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
+  if (process.env.NODE_ENV === 'production' || process.env.RENDER) process.exit(1);
+  console.warn('[WARN] Usando SNAPSHOT_TOKEN inseguro en modo no-producción. NO usar así en prod.');
+}
 
 // Map<dbId, { db, conn, meta, path, loadingAt }>
 const _duckSnaps = new Map();
@@ -11875,7 +11860,7 @@ get('/api/ai/welcome', async () => ({ message: AI_WELCOME_MICROSIP }));
 
 get('/api/ai/tools/catalog', async () => ({ tools: AI_TOOL_CATALOG }));
 
-app.post('/api/ai/tools/run', async (req, res) => {
+app.post('/api/ai/tools/run', aiChatRateLimit, async (req, res) => {
   try {
     const body = req.body || {};
     const dbResolved = aiResolveDbOpts(req);
@@ -11898,7 +11883,7 @@ app.post('/api/ai/tools/run', async (req, res) => {
   }
 });
 
-app.post('/api/ai/visuals/render', async (req, res) => {
+app.post('/api/ai/visuals/render', aiChatRateLimit, async (req, res) => {
   try {
     const body = req.body || {};
     const dbResolved = aiResolveDbOpts(req);
@@ -11918,7 +11903,7 @@ app.post('/api/ai/visuals/render', async (req, res) => {
   }
 });
 
-app.post('/api/ai/visuals/screenshot', async (req, res) => {
+app.post('/api/ai/visuals/screenshot', aiChatRateLimit, async (req, res) => {
   try {
     const body = req.body || {};
     const dbResolved = aiResolveDbOpts(req);

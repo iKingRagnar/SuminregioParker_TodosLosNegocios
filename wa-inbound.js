@@ -25,6 +25,7 @@
  */
 
 const http = require('http');
+const crypto = require('crypto');
 
 function install(app, { duckSnaps, log }) {
   const express = require('express');
@@ -34,6 +35,34 @@ function install(app, { duckSnaps, log }) {
 
   function normalizeNumber(s) {
     return String(s || '').replace(/^whatsapp:/i, '').replace(/\s/g, '');
+  }
+
+  /**
+   * Valida firma X-Twilio-Signature según spec oficial de Twilio:
+   * HMAC-SHA1(authToken, URL + sorted(key+value pairs)) → base64
+   * https://www.twilio.com/docs/usage/webhooks/webhooks-security
+   */
+  function verifyTwilioSignature(req) {
+    const token = process.env.TWILIO_AUTH_TOKEN || process.env.TWILIO_TOKEN;
+    if (!token) return { ok: false, reason: 'TWILIO_AUTH_TOKEN no configurado' };
+    const signature = req.get('X-Twilio-Signature');
+    if (!signature) return { ok: false, reason: 'falta X-Twilio-Signature' };
+    const proto = req.get('X-Forwarded-Proto') || req.protocol || 'https';
+    const host = req.get('X-Forwarded-Host') || req.get('Host');
+    const url = `${proto}://${host}${req.originalUrl || req.url}`;
+    const params = req.body || {};
+    const keys = Object.keys(params).sort();
+    let data = url;
+    for (const k of keys) data += k + String(params[k]);
+    const expected = crypto.createHmac('sha1', token).update(data).digest('base64');
+    try {
+      const a = Buffer.from(signature);
+      const b = Buffer.from(expected);
+      if (a.length !== b.length) return { ok: false, reason: 'firma no coincide' };
+      return crypto.timingSafeEqual(a, b)
+        ? { ok: true }
+        : { ok: false, reason: 'firma no coincide' };
+    } catch (_) { return { ok: false, reason: 'firma inválida' }; }
   }
   function twiml(text) {
     const safe = String(text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -125,7 +154,17 @@ function install(app, { duckSnaps, log }) {
   }
 
   // ── Webhook (form-urlencoded de Twilio) ────────────────────────────────────
+  // Verificación de firma habilitada por default. Para desactivar SOLO en dev:
+  //   WA_SKIP_SIGNATURE=1
   app.post('/api/wa/webhook', express.urlencoded({ extended: false }), async (req, res) => {
+    if (String(process.env.WA_SKIP_SIGNATURE) !== '1') {
+      const sig = verifyTwilioSignature(req);
+      if (!sig.ok) {
+        log && log.warn && log.warn('wa-inbound', 'firma inválida', { reason: sig.reason });
+        return res.status(403).type('text/xml').send(twiml('Acceso denegado.'));
+      }
+    }
+
     const from = normalizeNumber(req.body && req.body.From);
     const body = String((req.body && req.body.Body) || '').trim();
     log && log.info && log.info('wa-inbound', 'msg', { from: from.replace(/.(?=.{4})/g, '*'), len: body.length });

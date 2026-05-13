@@ -185,29 +185,31 @@ function install(app, { duckSnaps, log }) {
     var metrics = String(req.query.metrics || 'ventas_mes').split(',').map(function (s) { return s.trim(); });
 
     try {
-      var out = {};
-      for (const m of metrics) {
-        var sql;
+      // Build SQL plan
+      const plan = metrics.map(function (m) {
         if (m === 'ventas_mes') {
-          sql = `
+          return { m: m, sql: `
             WITH cur AS (SELECT SUM(IMPORTE_NETO) AS v FROM DOCTOS_VE WHERE date_trunc('month', FECHA) = date_trunc('month', CURRENT_DATE) AND (ESTATUS IS NULL OR ESTATUS <> 'C')),
                  prev_m AS (SELECT SUM(IMPORTE_NETO) AS v FROM DOCTOS_VE WHERE date_trunc('month', FECHA) = date_trunc('month', CURRENT_DATE - INTERVAL 1 MONTH) AND (ESTATUS IS NULL OR ESTATUS <> 'C')),
                  prev_y AS (SELECT SUM(IMPORTE_NETO) AS v FROM DOCTOS_VE WHERE date_trunc('month', FECHA) = date_trunc('month', CURRENT_DATE - INTERVAL 1 YEAR) AND (ESTATUS IS NULL OR ESTATUS <> 'C'))
-            SELECT cur.v AS actual, prev_m.v AS mes_pasado, prev_y.v AS anio_pasado FROM cur, prev_m, prev_y`;
-        } else if (m === 'cxc_total') {
-          sql = `
-            WITH cur AS (SELECT SUM(IMPORTE) AS v FROM IMPORTES_DOCTOS_CC WHERE IMPORTE > 0),
-                 prev AS (SELECT SUM(IMPORTE) AS v FROM IMPORTES_DOCTOS_CC WHERE FECHA <= CURRENT_DATE - INTERVAL 30 DAY AND IMPORTE > 0)
-            SELECT cur.v AS actual, prev.v AS mes_pasado, NULL::DOUBLE AS anio_pasado FROM cur, prev`;
-        } else {
-          out[m] = null;
-          continue;
+            SELECT cur.v AS actual, prev_m.v AS mes_pasado, prev_y.v AS anio_pasado FROM cur, prev_m, prev_y` };
         }
-        try {
-          var rows = await all(snap, sql);
-          out[m] = rows[0] || null;
-        } catch (_) { out[m] = null; }
-      }
+        if (m === 'cxc_total') {
+          return { m: m, sql: `
+            WITH cur AS (SELECT SUM(IMPORTE) AS v FROM IMPORTES_DOCTOS_CC WHERE IMPORTE > 0 AND FECHA >= CURRENT_DATE - INTERVAL 730 DAY),
+                 prev AS (SELECT SUM(IMPORTE) AS v FROM IMPORTES_DOCTOS_CC WHERE FECHA <= CURRENT_DATE - INTERVAL 30 DAY AND FECHA >= CURRENT_DATE - INTERVAL 730 DAY AND IMPORTE > 0)
+            SELECT cur.v AS actual, prev.v AS mes_pasado, NULL::DOUBLE AS anio_pasado FROM cur, prev` };
+        }
+        return { m: m, sql: null };
+      });
+
+      // Ejecutar todas las queries en paralelo
+      const results = await Promise.all(plan.map(function (p) {
+        if (!p.sql) return Promise.resolve(null);
+        return all(snap, p.sql).then(function (rows) { return rows[0] || null; }).catch(function () { return null; });
+      }));
+      const out = {};
+      plan.forEach(function (p, i) { out[p.m] = results[i]; });
 
       res.json({ ok: true, metrics: out });
     } catch (e) {
