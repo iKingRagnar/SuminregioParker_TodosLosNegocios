@@ -8,8 +8,11 @@
  *  - Versionado por CACHE_NAME — bump al deployar para invalidar.
  */
 
-const CACHE_NAME = 'suminregio-v2';
-const ASSET_CACHE = 'suminregio-assets-v2';
+// __CACHE_VERSION__ es reemplazado por el server con el hash del commit actual.
+// Si server lo sirve "as-is" (file:// o desarrollo), usamos 'dev' como fallback.
+const CACHE_VERSION = '__CACHE_VERSION__' === ('__CACHE_VERSION' + '__') ? 'dev' : '__CACHE_VERSION__';
+const CACHE_NAME = 'suminregio-api-' + CACHE_VERSION;
+const ASSET_CACHE = 'suminregio-assets-' + CACHE_VERSION;
 
 const PRECACHE = [
   '/',

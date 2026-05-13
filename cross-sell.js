@@ -102,9 +102,10 @@ function install(app, { duckSnaps, log }) {
     if (!isFinite(articuloId)) return res.status(400).json({ error: 'Falta ?id=articuloId' });
     const dias = Math.min(730, Math.max(60, parseInt(req.query.dias, 10) || 365));
     const topK = Math.min(50, Math.max(3, parseInt(req.query.top, 10) || 10));
+    const memoKey = `xsell-art:${req.query.db || 'default'}:${articuloId}:${dias}:${topK}`;
 
     try {
-      const rows = await all(snap, `
+      const rows = await memo.wrap(memoKey, () => all(snap, `
         WITH doctos_con_target AS (
           SELECT DISTINCT h.DOCTO_VE_ID
           FROM DOCTOS_VE h
@@ -153,7 +154,7 @@ function install(app, { duckSnaps, log }) {
         CROSS JOIN univ u
         WHERE t.apariciones > 0
         ORDER BY lift DESC, co.coocurrencias DESC
-        LIMIT ${topK}`, [articuloId, articuloId]);
+        LIMIT ${topK}`, [articuloId, articuloId]));
 
       const articulo = await all(snap, `SELECT NOMBRE, CLAVE FROM ARTICULOS WHERE ARTICULO_ID = ?`, [articuloId]);
       res.json({
@@ -175,9 +176,10 @@ function install(app, { duckSnaps, log }) {
     const snap = getSnap(req);
     if (!snap) return res.json({ ok: false, reason: 'Sin snapshot' });
     const minSoporte = Math.max(5, parseInt(req.query.min_soporte, 10) || 10);
+    const memoKey = `xsell-global:${req.query.db || 'default'}:${minSoporte}`;
 
     try {
-      const rows = await all(snap, `
+      const rows = await memo.wrap(memoKey, () => all(snap, `
         WITH pares AS (
           SELECT LEAST(a.ARTICULO_ID, b.ARTICULO_ID) AS a_id,
                  GREATEST(a.ARTICULO_ID, b.ARTICULO_ID) AS b_id,
@@ -199,7 +201,7 @@ function install(app, { duckSnaps, log }) {
         LEFT JOIN ARTICULOS b  ON b.ARTICULO_ID = p.b_id
         LEFT JOIN ARTICULOS br ON br.ARTICULO_ID = p.b_id
         ORDER BY p.n DESC
-        LIMIT 100`);
+        LIMIT 100`));
       res.json({ ok: true, min_soporte: minSoporte, pares: rows });
     } catch (e) { res.status(500).json({ error: e.message }); }
   });

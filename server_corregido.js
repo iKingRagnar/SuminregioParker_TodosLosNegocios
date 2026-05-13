@@ -352,6 +352,34 @@ const staticOpts = {
     }
   }
 };
+// Service Worker: lo servimos dinámicamente reemplazando __CACHE_VERSION__
+// con el hash del commit actual o un timestamp de inicio. Esto invalida el cache
+// del SW en cada deploy SIN tocar manualmente sw.js.
+const _SW_VERSION = (() => {
+  try {
+    const head = require('fs').readFileSync(path.join(__dirname, '.git/HEAD'), 'utf8').trim();
+    if (head.startsWith('ref: ')) {
+      const ref = head.slice(5);
+      const sha = require('fs').readFileSync(path.join(__dirname, '.git', ref), 'utf8').trim();
+      return sha.slice(0, 8);
+    }
+    return head.slice(0, 8);
+  } catch (_) {
+    return 't' + Date.now().toString(36); // fallback: timestamp de boot
+  }
+})();
+app.get('/sw.js', (_req, res) => {
+  try {
+    const fs = require('fs');
+    let src = fs.readFileSync(path.join(__dirname, 'sw.js'), 'utf8');
+    src = src.split('__CACHE_VERSION__').join(_SW_VERSION);
+    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    res.setHeader('Service-Worker-Allowed', '/');
+    res.setHeader('Cache-Control', 'no-cache'); // el SW siempre se valida
+    res.send(src);
+  } catch (e) { res.status(500).send('// sw error: ' + e.message); }
+});
+
 app.use(express.static(path.join(__dirname, 'public'), staticOpts));
 // Los HTML duplicados en la raíz del repo enlazan public/app-ui.css y public/app-ui-boot.js; el siguiente static(__dirname) sirve /public/* desde disco.
 app.use(express.static(__dirname, staticOpts));
