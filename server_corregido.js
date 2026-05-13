@@ -870,6 +870,33 @@ try {
   require('./health-deep').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
 } catch (e) { console.warn('[health-deep] no instalado:', e.message); }
 
+// Backup/listado de snapshots (descarga binario .duckdb)
+try {
+  require('./snapshot-backup').install(app, {
+    snapshotDir: DUCK_SNAPSHOT_DIR,
+    snapshotToken: SNAPSHOT_TOKEN,
+    log: _boostLog,
+    audit: app._auditLog,
+  });
+} catch (e) { console.warn('[snapshot-backup] no instalado:', e.message); }
+
+// Audit log persistente para acciones admin
+try {
+  const audit = require('./lib/audit-log').create();
+  app._auditLog = audit; // expuesto para que otros módulos puedan registrar
+
+  app.get('/api/admin/audit', (req, res) => {
+    const limit = parseInt(req.query.limit, 10) || 100;
+    const action = req.query.action;
+    const user = req.query.user;
+    const sinceMin = parseInt(req.query.sinceMin, 10);
+    const sinceMs = isFinite(sinceMin) ? Date.now() - sinceMin * 60_000 : 0;
+    res.json({ ok: true, ...audit.stats(), entries: audit.list({ limit, action, user, sinceMs }) });
+  });
+
+  _boostLog && _boostLog.info && _boostLog.info('audit-log', '✅ /api/admin/audit con persistencia en sumi-db');
+} catch (e) { console.warn('[audit-log] no instalado:', e.message); }
+
 // Error tracker tipo Sentry-lite (dedup por fingerprint)
 try {
   const errorTracker = require('./lib/error-tracker').create({ max: 200 });

@@ -1,0 +1,113 @@
+{
+  "annotations": { "list": [] },
+  "description": "Dashboard Grafana para Suminregio backend — consume /api/metrics (formato Prometheus). Importar y ajustar el datasource a tu Prometheus.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "panels": [
+    {
+      "id": 1,
+      "title": "HTTP requests/sec",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "expr": "rate(suminregio_http_requests_total[5m])", "legendFormat": "requests/s", "refId": "A" }
+      ],
+      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 6 }
+    },
+    {
+      "id": 2,
+      "title": "HTTP errors/sec (≥500)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "expr": "rate(suminregio_http_errors_total[5m])", "legendFormat": "errors/s", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 0.01 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "x": 8, "y": 0, "w": 8, "h": 6 }
+    },
+    {
+      "id": 3,
+      "title": "HTTP duration p50/p95/p99",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "expr": "histogram_quantile(0.50, rate(suminregio_http_duration_ms_bucket[5m]))", "legendFormat": "p50", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, rate(suminregio_http_duration_ms_bucket[5m]))", "legendFormat": "p95", "refId": "B" },
+        { "expr": "histogram_quantile(0.99, rate(suminregio_http_duration_ms_bucket[5m]))", "legendFormat": "p99", "refId": "C" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ms" } },
+      "gridPos": { "x": 16, "y": 0, "w": 8, "h": 6 }
+    },
+    {
+      "id": 4,
+      "title": "Snapshots cargados",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "expr": "suminregio_snapshots_loaded", "refId": "A" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "x": 0, "y": 6, "w": 6, "h": 4 }
+    },
+    {
+      "id": 5,
+      "title": "Total requests acumuladas",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "expr": "suminregio_http_requests_total", "refId": "A" }
+      ],
+      "gridPos": { "x": 6, "y": 6, "w": 6, "h": 4 }
+    },
+    {
+      "id": 6,
+      "title": "HTTP duration histograma",
+      "type": "heatmap",
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        { "expr": "rate(suminregio_http_duration_ms_bucket[5m])", "format": "heatmap", "refId": "A" }
+      ],
+      "gridPos": { "x": 12, "y": 6, "w": 12, "h": 8 }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "tags": ["suminregio", "backend", "node"],
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROMETHEUS",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": { "selected": false, "text": "Prometheus", "value": "Prometheus" }
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "America/Mexico_City",
+  "title": "Suminregio · Backend",
+  "uid": "suminregio-backend",
+  "version": 1,
+  "weekStart": ""
+}
