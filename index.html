@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <script>window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');</script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="safe-dom.js"></script>
 <script src="filters.js?v=cxcfix-20260410-venc2"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -375,7 +376,10 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
 </style>
 <link rel="stylesheet" href="public/app-ui.css">
 <link rel="stylesheet" href="public/app-responsive.css">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#E6A800">
 <script src="public/app-ui-boot.js" defer></script>
+<script src="/pwa-register.js" defer></script>
 </head>
 <body>
 <div class="bg-orbs" aria-hidden="true">
@@ -1126,8 +1130,13 @@ function setBar(barId,pctId,pct,{invert=false}={}){
 }
 
 // -- Universo multi-FDB — panel BI (tarjetas + tabla; respeta filtros de periodo del scorecard) --
-function escHtml(s){
-  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+// escHtml/escAttr vienen de /safe-dom.js (cargado en <head>). Si por algún motivo
+// no llegó (file://, fallo de carga), definimos un fallback minimalista para
+// evitar romper la página.
+if (typeof window.escHtml !== 'function') {
+  window.escHtml = function(s){
+    return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  };
 }
 function dbPathForId(id){
   const hit=(indexDbList||[]).find(e=>String(e.id)===String(id));
@@ -1814,13 +1823,14 @@ function renderVendedores(vends){
     const venta=+vd.VENTAS_MES||+vd.VENTA_MES||0;
     const p=Math.round(venta/maxV*100);
     const nombre=(vd.VENDEDOR||vd.NOMBRE||'Vendedor '+(i+1)).split(' ').slice(0,2).join(' ');
-    const inicial=nombre.charAt(0).toUpperCase();
+    const nombreEsc=escHtml(nombre);
+    const inicial=escHtml(nombre.charAt(0).toUpperCase());
     const rankCls=i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'';
     const col=cols[i%cols.length];
     const avatarStyle=rankCls?`class="vend-avatar ${rankCls}"`:`class="vend-avatar" style="color:${col}"`;
     html+=`<div class="vendedor-row">
       <div ${avatarStyle}>${i<3?(i+1):inicial}</div>
-      <div class="vend-name" title="${nombre}">${nombre}</div>
+      <div class="vend-name" title="${nombreEsc}">${nombreEsc}</div>
       <div class="vend-bar-wrap"><div class="vend-bar-bg"><div class="vend-bar-fill" style="width:${p}%;background:${col}"></div></div></div>
       <div class="vend-pct" style="color:${col}">${fmtM(venta)}</div>
     </div>`;

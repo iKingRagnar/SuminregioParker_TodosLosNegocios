@@ -1,11 +1,12 @@
 {
   "name": "microsip-api",
   "version": "1.0.0",
-  "main": "server.js",
+  "main": "server_corregido.js",
   "scripts": {
     "start": "node server_corregido.js",
     "server": "node server_corregido.js",
     "test": "node --test tests/*.test.js",
+    "lint:syntax": "for f in *.js lib/*.js; do node --check \"$f\" || exit 1; done && echo OK",
     "pm2:api": "pm2 start ecosystem.config.cjs",
     "pm2:ngrok": "pm2 start ecosystem-ngrok.config.cjs",
     "pm2:save": "pm2 save"

@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="public/app-responsive.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="public/app-ui-boot.js" defer></script>
+<script src="safe-dom.js"></script>
 <script>
 window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');
 if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/i.test(window.location.hostname)) {
@@ -714,14 +715,14 @@ function renderComercial(data){
   }
   const rows = data.map(r=>{
     return `<tr>
-      <td style="padding:.65rem .75rem;color:var(--text);font-weight:600">${r.NOMBRE||'--'}</td>
+      <td style="padding:.65rem .75rem;color:var(--text);font-weight:600">${escHtml(r.NOMBRE||'--')}</td>
       <td style="padding:.65rem .75rem"><span class="badge badge-riesgo">ATRASO</span></td>
       <td class="num" style="color:var(--orange)">${+r.DIAS_SIN_COMPRA||0} d&iacute;as</td>
-      <td class="num" style="color:var(--text2)">${fmtD(r.ULTIMA_COMPRA)}</td>
-      <td class="num" style="color:var(--blue)">${fmtM(+r.TOTAL_COMPRADO_HISTORIAL||0)}</td>
-      <td class="num" style="color:var(--green)">${fmtM(+r.TICKET_PROMEDIO_MES||0)}</td>
-      <td style="padding:.65rem .75rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--muted)">${r.REACTIVACION||'--'}</td>
-      <td style="padding:.65rem .75rem;font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted)">${r.CONDICION_PAGO||'--'}</td>
+      <td class="num" style="color:var(--text2)">${escHtml(fmtD(r.ULTIMA_COMPRA))}</td>
+      <td class="num" style="color:var(--blue)">${escHtml(fmtM(+r.TOTAL_COMPRADO_HISTORIAL||0))}</td>
+      <td class="num" style="color:var(--green)">${escHtml(fmtM(+r.TICKET_PROMEDIO_MES||0))}</td>
+      <td style="padding:.65rem .75rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--muted)">${escHtml(r.REACTIVACION||'--')}</td>
+      <td style="padding:.65rem .75rem;font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted)">${escHtml(r.CONDICION_PAGO||'--')}</td>
     </tr>`;
   }).join('');
   tb.innerHTML = rows;
@@ -734,14 +735,14 @@ function renderInactivos(data){
     const badgeClass = nivel==='MUY_INACTIVO'?'badge-muy':nivel==='INACTIVO'?'badge-inactivo':'badge-riesgo';
     const nivelTxt = nivel==='MUY_INACTIVO'?'MUY INACTIVO':nivel;
     return `<tr>
-      <td style="padding:.65rem .75rem;color:var(--text);font-weight:600">${r.NOMBRE||'--'}</td>
-      <td style="padding:.65rem .75rem"><span class="badge ${badgeClass}">${nivelTxt}</span></td>
+      <td style="padding:.65rem .75rem;color:var(--text);font-weight:600">${escHtml(r.NOMBRE||'--')}</td>
+      <td style="padding:.65rem .75rem"><span class="badge ${badgeClass}">${escHtml(nivelTxt)}</span></td>
       <td class="num" style="color:var(--orange)">${+r.DIAS_SIN_COMPRA||0} d&iacute;as</td>
-      <td class="num" style="color:var(--text2)">${fmtD(r.ULTIMA_COMPRA)}</td>
-      <td class="num" style="color:var(--blue)">${fmtM(+r.TOTAL_COMPRADO_HISTORIAL||0)}</td>
-      <td class="num" style="color:var(--green)">${fmtM(+r.TICKET_PROMEDIO_MES||0)}</td>
-      <td style="padding:.65rem .75rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--green)">${r.REACTIVACION||'--'}</td>
-      <td style="padding:.65rem .75rem;font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted)">${r.CONDICION_PAGO||'--'}</td>
+      <td class="num" style="color:var(--text2)">${escHtml(fmtD(r.ULTIMA_COMPRA))}</td>
+      <td class="num" style="color:var(--blue)">${escHtml(fmtM(+r.TOTAL_COMPRADO_HISTORIAL||0))}</td>
+      <td class="num" style="color:var(--green)">${escHtml(fmtM(+r.TICKET_PROMEDIO_MES||0))}</td>
+      <td style="padding:.65rem .75rem;font-family:'DM Mono',monospace;font-size:.68rem;color:var(--green)">${escHtml(r.REACTIVACION||'--')}</td>
+      <td style="padding:.65rem .75rem;font-family:'DM Mono',monospace;font-size:.72rem;color:var(--muted)">${escHtml(r.CONDICION_PAGO||'--')}</td>
     </tr>`;
   }).join('');
   document.getElementById('inactivosBody').innerHTML = rows || `<tr><td colspan="8" class="empty">Sin clientes inactivos &#127881;</td></tr>`;

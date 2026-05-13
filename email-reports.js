@@ -14,19 +14,12 @@
  * Sin credenciales SMTP el cron no corre — los endpoints preview y send manual sí.
  */
 
+var { makeHelpers } = require('./lib/snap-helper');
+
 function install(app, { duckSnaps, log }) {
   var nodemailer;
   try { nodemailer = require('nodemailer'); } catch (_) { nodemailer = null; }
-
-  function getSnap(id) {
-    var s = duckSnaps.get(id);
-    return (s && s.conn) ? s : null;
-  }
-  function all(snap, sql) {
-    return new Promise(function (res, rej) {
-      snap.conn.all(sql, function (err, rows) { err ? rej(err) : res(rows || []); });
-    });
-  }
+  var { getSnap, all } = makeHelpers(duckSnaps);
 
   function fmt(n) {
     if (n == null || isNaN(+n)) return '—';
@@ -43,11 +36,13 @@ function install(app, { duckSnaps, log }) {
   var tdL = 'padding:8px 10px;border-bottom:1px solid rgba(15,23,42,.08);font-weight:600;font-size:.88rem';
 
   async function queryUnit(snap) {
-    var ventasMes = await all(snap, "SELECT SUM(IMPORTE_NETO) AS total FROM DOCTOS_VE WHERE date_trunc('month', FECHA) = date_trunc('month', CURRENT_DATE) AND (ESTATUS IS NULL OR ESTATUS <> 'C')");
-    var ventasPrev = await all(snap, "SELECT SUM(IMPORTE_NETO) AS total FROM DOCTOS_VE WHERE date_trunc('month', FECHA) = date_trunc('month', CURRENT_DATE - INTERVAL 1 MONTH) AND (ESTATUS IS NULL OR ESTATUS <> 'C')");
-    var cxc = await all(snap, "SELECT SUM(CASE WHEN IMPORTE > 0 THEN IMPORTE ELSE 0 END) AS total FROM IMPORTES_DOCTOS_CC");
-    var cxp = [];
-    try { cxp = await all(snap, "SELECT SUM(CASE WHEN IMPORTE > 0 THEN IMPORTE ELSE 0 END) AS total FROM IMPORTES_DOCTOS_CP"); } catch (_) {}
+    // Paralelizado: las 4 queries son independientes y se hacían seriales.
+    var [ventasMes, ventasPrev, cxc, cxp] = await Promise.all([
+      all(snap, "SELECT SUM(IMPORTE_NETO) AS total FROM DOCTOS_VE WHERE date_trunc('month', FECHA) = date_trunc('month', CURRENT_DATE) AND (ESTATUS IS NULL OR ESTATUS <> 'C')").catch(function () { return [{}]; }),
+      all(snap, "SELECT SUM(IMPORTE_NETO) AS total FROM DOCTOS_VE WHERE date_trunc('month', FECHA) = date_trunc('month', CURRENT_DATE - INTERVAL 1 MONTH) AND (ESTATUS IS NULL OR ESTATUS <> 'C')").catch(function () { return [{}]; }),
+      all(snap, "SELECT SUM(CASE WHEN IMPORTE > 0 THEN IMPORTE ELSE 0 END) AS total FROM IMPORTES_DOCTOS_CC WHERE FECHA >= CURRENT_DATE - INTERVAL 730 DAY").catch(function () { return [{}]; }),
+      all(snap, "SELECT SUM(CASE WHEN IMPORTE > 0 THEN IMPORTE ELSE 0 END) AS total FROM IMPORTES_DOCTOS_CP WHERE FECHA >= CURRENT_DATE - INTERVAL 730 DAY").catch(function () { return [{}]; }),
+    ]);
     return {
       ventasMes: (ventasMes[0] && +ventasMes[0].total) || 0,
       ventasPrev: (ventasPrev[0] && +ventasPrev[0].total) || 0,
@@ -62,26 +57,27 @@ function install(app, { duckSnaps, log }) {
       return '<h2>Sin snapshot para ' + dbId + '</h2><p>Corre sync_duckdb.py para poblar datos.</p>';
     }
     try {
-      var ventas    = await all(snap, "SELECT SUM(IMPORTE_NETO) AS total, COUNT(*) AS docs FROM DOCTOS_VE WHERE FECHA = CURRENT_DATE - INTERVAL 1 DAY AND (ESTATUS IS NULL OR ESTATUS <> 'C')");
-      var ventasMes = await all(snap, "SELECT SUM(IMPORTE_NETO) AS total FROM DOCTOS_VE WHERE date_trunc('month', FECHA) = date_trunc('month', CURRENT_DATE) AND (ESTATUS IS NULL OR ESTATUS <> 'C')");
-      var cxc       = await all(snap, "SELECT SUM(CASE WHEN IMPORTE > 0 THEN IMPORTE ELSE 0 END) AS total FROM IMPORTES_DOCTOS_CC");
-      var topCli    = await all(snap, "SELECT c.NOMBRE, SUM(d.IMPORTE_NETO) AS t FROM DOCTOS_VE d LEFT JOIN CLIENTES c ON c.CLIENTE_ID=d.CLIENTE_ID WHERE d.FECHA>=CURRENT_DATE-INTERVAL 30 DAY GROUP BY c.NOMBRE ORDER BY t DESC LIMIT 5");
+      // 4 queries para el snapshot principal en paralelo (antes seriales)
+      var [ventas, ventasMes, cxc, topCli] = await Promise.all([
+        all(snap, "SELECT SUM(IMPORTE_NETO) AS total, COUNT(*) AS docs FROM DOCTOS_VE WHERE FECHA = CURRENT_DATE - INTERVAL 1 DAY AND (ESTATUS IS NULL OR ESTATUS <> 'C')"),
+        all(snap, "SELECT SUM(IMPORTE_NETO) AS total FROM DOCTOS_VE WHERE date_trunc('month', FECHA) = date_trunc('month', CURRENT_DATE) AND (ESTATUS IS NULL OR ESTATUS <> 'C')"),
+        all(snap, "SELECT SUM(CASE WHEN IMPORTE > 0 THEN IMPORTE ELSE 0 END) AS total FROM IMPORTES_DOCTOS_CC WHERE FECHA >= CURRENT_DATE - INTERVAL 730 DAY"),
+        all(snap, "SELECT c.NOMBRE, SUM(d.IMPORTE_NETO) AS t FROM DOCTOS_VE d LEFT JOIN CLIENTES c ON c.CLIENTE_ID=d.CLIENTE_ID WHERE d.FECHA>=CURRENT_DATE-INTERVAL 30 DAY GROUP BY c.NOMBRE ORDER BY t DESC LIMIT 5"),
+      ]);
 
-      // Multi-unit comparison
-      var unitRows = [];
-      var totalGrupo = 0;
+      // Multi-unit comparison: cada queryUnit ya internamente es paralelo,
+      // así que ejecutarlas en paralelo entre sí es seguro y reduce N empresas
+      // de O(N) seriales a 1 batch.
       var allDbIds = Array.from(duckSnaps.keys());
-      for (var i = 0; i < allDbIds.length; i++) {
-        var uid = allDbIds[i];
+      var unitResults = await Promise.all(allDbIds.map(function (uid) {
         var usnap = getSnap(uid);
-        if (!usnap) continue;
-        try {
-          var ud = await queryUnit(usnap);
-          var label = String(uid).replace(/\.fdb$/i, '').replace(/_/g, ' ');
-          unitRows.push({ label: label, mes: ud.ventasMes, prev: ud.ventasPrev, cxc: ud.cxc, cxp: ud.cxp });
-          totalGrupo += ud.ventasMes;
-        } catch (_) {}
-      }
+        if (!usnap) return null;
+        return queryUnit(usnap).then(function (ud) {
+          return { label: String(uid).replace(/\.fdb$/i, '').replace(/_/g, ' '), mes: ud.ventasMes, prev: ud.ventasPrev, cxc: ud.cxc, cxp: ud.cxp };
+        }).catch(function () { return null; });
+      }));
+      var unitRows = unitResults.filter(Boolean);
+      var totalGrupo = unitRows.reduce(function (s, u) { return s + (u.mes || 0); }, 0);
 
       var dateStr = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
       var mesNombre = new Date().toLocaleDateString('es-MX', { month: 'long' });
@@ -206,18 +202,15 @@ function install(app, { duckSnaps, log }) {
   var dbs = (process.env.REPORT_DBS || 'default').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
 
   if (recipients.length && process.env.SMTP_HOST) {
-    // Cron simple: cada minuto chequea si es la hora
-    var lastSent = null;
-    setInterval(async function () {
-      var now = new Date();
-      var today = now.toISOString().slice(0, 10);
-      if (lastSent === today) return;
-      if (now.getHours() !== hour || now.getMinutes() >= 5) return;
-      lastSent = today;
-      var transport = getTransport();
-      if (!transport) return;
-      var primaryDb = dbs[0] || 'default';
-      try {
+    var scheduler = require('./lib/scheduler');
+    if (log) scheduler.setLogger(log);
+    scheduler.schedule({
+      name: 'email-diario',
+      hour: hour,
+      run: async function () {
+        var transport = getTransport();
+        if (!transport) return;
+        var primaryDb = dbs[0] || 'default';
         var html = await buildReportHTML(primaryDb);
         var dateLabel = new Date().toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
         await transport.sendMail({
@@ -227,11 +220,8 @@ function install(app, { duckSnaps, log }) {
           html,
         });
         log.info('email-cron', 'enviado reporte grupo → ' + recipients.length + ' destinatarios');
-      } catch (e) {
-        log.error('email-cron', 'fallo en reporte grupo', e.message);
-      }
-    }, 60_000);
-    log.info('email-cron', `programado diario ${hour}:00 → ${recipients.length} destinatarios, ${dbs.length} bases`);
+      },
+    });
   } else {
     log.info('email', 'cron deshabilitado (SMTP_HOST/REPORT_TO no configurados)');
   }

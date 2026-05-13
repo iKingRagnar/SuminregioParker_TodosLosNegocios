@@ -10,15 +10,10 @@
  *   POST /api/bi/conciliacion-bancaria         → recibe movimientos bancarios, matchea con cobros
  */
 
+const { makeHelpers } = require('./lib/snap-helper');
+
 function install(app, { duckSnaps, log }) {
-  function getSnap(req) {
-    const id = String((req.query && req.query.db) || (req.body && req.body.db) || 'default');
-    const s = duckSnaps.get(id);
-    return (s && s.conn) ? s : null;
-  }
-  function all(snap, sql, params) {
-    return new Promise((res, rej) => snap.conn.all(sql, ...(params || []), (err, rows) => err ? rej(err) : res(rows || [])));
-  }
+  const { getSnap, all } = makeHelpers(duckSnaps);
 
   // ═══════════════════ Pipeline de cotizaciones (funnel) ══════════════════════
   app.get('/api/bi/pipeline-cotizaciones', async (req, res) => {
@@ -121,14 +116,18 @@ function install(app, { duckSnaps, log }) {
 
   // ═══════════════════ Comisiones por vendedor ════════════════════════════════
   app.get('/api/bi/comisiones', async (req, res) => {
+    // Validar input ANTES de chequear snap — bloquea inyección incluso sin snapshot.
+    const mesRaw = String(req.query.mes || '').trim();
+    if (mesRaw && !/^\d{4}-\d{2}$/.test(mesRaw)) {
+      return res.status(400).json({ error: 'mes inválido, formato YYYY-MM' });
+    }
     const snap = getSnap(req);
     if (!snap) return res.json({ ok: false });
 
     try {
-      const mesParam = String(req.query.mes || '').trim(); // YYYY-MM o vacío=mes actual
       const pct = Math.min(20, Math.max(0, parseFloat(req.query.pct) || 2.5)); // % comisión default 2.5%
-      const mesSql = mesParam
-        ? `DATE '${mesParam}-01'`
+      const mesSql = mesRaw
+        ? `DATE '${mesRaw}-01'`
         : `date_trunc('month', CURRENT_DATE)`;
 
       const rows = await all(snap, `
@@ -278,25 +277,39 @@ function install(app, { duckSnaps, log }) {
         WHERE IMPORTE < 0
           AND FECHA >= CURRENT_DATE - INTERVAL 90 DAY`);
 
-      // Match por monto y fecha ± 2 días
+      // Match por monto (redondeado a peso) + fecha ± 2 días.
+      // Antes: O(n×m) con splice — con 1000×1000 ≈ 1M ops y memcopy.
+      // Ahora: index por monto → O(n + m) lookup constante.
+      const byMonto = new Map();
+      for (const c of cobros) {
+        const key = Math.round(Number(c.monto));
+        const arr = byMonto.get(key);
+        if (arr) arr.push(c); else byMonto.set(key, [c]);
+      }
       const matched = [];
       const unmatchedBank = [];
-      const unmatchedMicrosip = [...cobros];
+      const TOL_MS = 2 * 86400_000;
 
       movs.forEach((mov) => {
         const fMov = new Date(mov.fecha).getTime();
-        const idx = unmatchedMicrosip.findIndex((c) => {
-          if (Math.abs(Number(c.monto) - Number(mov.monto)) > 0.5) return false;
-          const fC = new Date(c.fecha).getTime();
-          return Math.abs(fC - fMov) <= 2 * 86400_000;
-        });
-        if (idx >= 0) {
-          matched.push({ banco: mov, microsip: unmatchedMicrosip[idx] });
-          unmatchedMicrosip.splice(idx, 1);
+        const montoKey = Math.round(Number(mov.monto));
+        const candidates = byMonto.get(montoKey) || [];
+        let hitIdx = -1;
+        for (let i = 0; i < candidates.length; i++) {
+          if (Math.abs(Number(candidates[i].monto) - Number(mov.monto)) > 0.5) continue;
+          if (Math.abs(new Date(candidates[i].fecha).getTime() - fMov) > TOL_MS) continue;
+          hitIdx = i; break;
+        }
+        if (hitIdx >= 0) {
+          matched.push({ banco: mov, microsip: candidates[hitIdx] });
+          candidates.splice(hitIdx, 1);
+          if (!candidates.length) byMonto.delete(montoKey);
         } else {
           unmatchedBank.push(mov);
         }
       });
+      const unmatchedMicrosip = [];
+      for (const arr of byMonto.values()) for (const c of arr) unmatchedMicrosip.push(c);
 
       res.json({
         ok: true,

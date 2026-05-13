@@ -311,6 +311,14 @@ Revisa `MICROSIP_CXC_*` env vars y `/api/debug/cxc`.
 
 ---
 
+## Documentación adicional
+
+- [docs/](docs/README.md) — índice completo (deploy, operaciones, changelog)
+- [ARCHITECTURE.md](ARCHITECTURE.md) — arquitectura del sistema
+- [AGENTS.md](AGENTS.md) — convenciones para agentes/contribuidores
+
+---
+
 ## Contacto / Soporte
 
 Proyecto de Guillermo Ragnar · [@iKingRagnar](https://github.com/iKingRagnar) · guillermorc44@gmail.com

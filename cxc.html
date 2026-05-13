@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');</script>
+<script src="safe-dom.js"></script>
 <script src="filters.js?v=cxcfix-20260411-docneto"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -1554,10 +1555,10 @@ async function loadVencidas() {
       const estatusCl = d<=30?'c1':d<=60?'c2':'c4';
       const dSp = +(r.TIEMPO_SIN_PAGAR_DIAS != null ? r.TIEMPO_SIN_PAGAR_DIAS : r.DIAS_ATRASO) || 0;
       return `<tr>
-      <td style="color:var(--acc2)">${r.FOLIO||'\u2014'}</td>
-      <td style="color:var(--txt)">${(r.CLIENTE||'').substring(0,28)}</td>
-      <td style="color:var(--txt3)">${r.CONDICION_PAGO||'S/D'}</td>
-      <td><span class="aging-lbl estatus-bkt ${estatusCl}">${estatus}</span></td>
+      <td style="color:var(--acc2)">${escHtml(r.FOLIO||'\u2014')}</td>
+      <td style="color:var(--txt)">${escHtml((r.CLIENTE||'').substring(0,28))}</td>
+      <td style="color:var(--txt3)">${escHtml(r.CONDICION_PAGO||'S/D')}</td>
+      <td><span class="aging-lbl estatus-bkt ${estatusCl}">${escHtml(estatus)}</span></td>
       <td style="color:var(--red)">${fmtSaldoDoc(cxcRowSaldo(r))}</td>
       <td style="color:var(--txt3);font-size:11px">${fmtDay(r.FECHA_VENTA)}</td>
       <td style="color:var(--txt3);font-size:11px">${fmtDay(r.FECHA_VENC_PLAZO)}</td>
@@ -1839,7 +1840,7 @@ async function loadBuro() {
         : saldoTot>1
           ? '<span style="background:rgba(245,158,11,.15);color:var(--ylw);padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700">Vigente</span>'
           : '<span style="background:rgba(34,197,94,.15);color:var(--grn);padding:2px 7px;border-radius:5px;font-size:10px;font-weight:700">Al corriente</span>';
-      html+='<tr><td><span class="buro-name" title="'+cl.nombre+'">'+cl.nombre+'</span></td>'
+      html+='<tr><td><span class="buro-name" title="'+escAttr(cl.nombre)+'">'+escHtml(cl.nombre)+'</span></td>'
            +cells
            +'<td style="color:'+sColor+';font-family:var(--mono);text-align:right">'+fmtK(saldoTot)+'</td>'
            +'<td>'+tag+'</td>'

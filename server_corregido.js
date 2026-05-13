@@ -158,10 +158,20 @@ console.log(
 })();
 
 const _corsOrigin = process.env.CORS_ORIGIN || '*';
+// En producción no permitir CORS '*' — exige un origen explícito para evitar
+// que cualquier sitio externo invoque nuestros endpoints (incluidos los de IA
+// que pegan contra Anthropic con costo).
+if ((process.env.NODE_ENV === 'production' || process.env.RENDER) && _corsOrigin === '*') {
+  console.error('[FATAL] CORS_ORIGIN=* en producción. Define CORS_ORIGIN=https://tu-dominio.com');
+  console.error('         (separa múltiples con coma: CORS_ORIGIN=https://a.com,https://b.com)');
+  process.exit(1);
+}
+// Soportar múltiples orígenes separados por coma
+const _corsOrigins = _corsOrigin === '*' ? '*' : _corsOrigin.split(',').map((s) => s.trim()).filter(Boolean);
 app.use(cors({
   origin: IS_SESSION_AUTH && _corsOrigin === '*'
     ? true
-    : _corsOrigin,
+    : _corsOrigins,
   credentials: IS_SESSION_AUTH,
 }));
 // Body limit: el endpoint de IA acepta imageBase64 (~10MB cliente). 15MB es buffer.
@@ -307,31 +317,11 @@ app.use(function bigintSafeJson(req, res, next) {
 
 // ── Gzip compression (inline, no external dep) ────────────────────────────────
 // Comprime respuestas JSON de la API (/api/*) cuando el cliente acepta gzip.
-// DuckDB devuelve BIGINT como BigInt nativo; JSON.stringify lo rechaza.
-const _bigintReplacer = (_k, v) => {
-  if (typeof v !== 'bigint') return v;
-  return v <= Number.MAX_SAFE_INTEGER && v >= -Number.MAX_SAFE_INTEGER ? Number(v) : v.toString();
-};
-app.use(function gzipMiddleware(req, res, next) {
-  const ae = req.headers['accept-encoding'] || '';
-  if (!ae.includes('gzip') || !req.path.startsWith('/api/')) return next();
-  const origJson = res.json.bind(res);
-  res.json = function(data) {
-    let body;
-    try { body = JSON.stringify(data, _bigintReplacer); }
-    catch (e) { return origJson(data); }
-    if (!body || body.length < 860) { return origJson(data); } // no comprimir payloads pequeños
-    res.setHeader('Content-Encoding', 'gzip');
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
-    res.setHeader('Vary', 'Accept-Encoding');
-    zlib.gzip(Buffer.from(body, 'utf8'), { level: 6 }, function(err, compressed) {
-      if (err) { res.removeHeader('Content-Encoding'); return origJson(data); }
-      res.setHeader('Content-Length', compressed.length);
-      res.end(compressed);
-    });
-  };
-  next();
-});
+// NOTA: el middleware de compresión vive en performance-boost.js (compressionMiddleware).
+// Soporta brotli (15-25% más chico que gzip para JSON) con fallback a gzip.
+// El antiguo gzipMiddleware inline corría ANTES y monkey-patcheaba res.json, evitando
+// que brotli se aplicara. Removido en audit 2026-05. El bigintReplacer también vive
+// dentro de performance-boost.js.
 
 // Servir archivos estáticos — public/ primero: si hay mismo nombre en raíz y en public/, gana public/
 // (evita que index.html viejo en la raíz opaque public/index.html).
@@ -362,6 +352,34 @@ const staticOpts = {
     }
   }
 };
+// Service Worker: lo servimos dinámicamente reemplazando __CACHE_VERSION__
+// con el hash del commit actual o un timestamp de inicio. Esto invalida el cache
+// del SW en cada deploy SIN tocar manualmente sw.js.
+const _SW_VERSION = (() => {
+  try {
+    const head = require('fs').readFileSync(path.join(__dirname, '.git/HEAD'), 'utf8').trim();
+    if (head.startsWith('ref: ')) {
+      const ref = head.slice(5);
+      const sha = require('fs').readFileSync(path.join(__dirname, '.git', ref), 'utf8').trim();
+      return sha.slice(0, 8);
+    }
+    return head.slice(0, 8);
+  } catch (_) {
+    return 't' + Date.now().toString(36); // fallback: timestamp de boot
+  }
+})();
+app.get('/sw.js', (_req, res) => {
+  try {
+    const fs = require('fs');
+    let src = fs.readFileSync(path.join(__dirname, 'sw.js'), 'utf8');
+    src = src.split('__CACHE_VERSION__').join(_SW_VERSION);
+    res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+    res.setHeader('Service-Worker-Allowed', '/');
+    res.setHeader('Cache-Control', 'no-cache'); // el SW siempre se valida
+    res.send(src);
+  } catch (e) { res.status(500).send('// sw error: ' + e.message); }
+});
+
 app.use(express.static(path.join(__dirname, 'public'), staticOpts));
 // Los HTML duplicados en la raíz del repo enlazan public/app-ui.css y public/app-ui-boot.js; el siguiente static(__dirname) sirve /public/* desde disco.
 app.use(express.static(__dirname, staticOpts));
@@ -540,7 +558,12 @@ const DUCK_SNAPSHOT_DIR = process.env.DUCK_SNAPSHOT_DIR || (
   (() => { try { return require('fs').existsSync('/var/data') ? '/var/data/duck_snaps' : '/tmp/duck_snaps'; } catch { return '/tmp/duck_snaps'; } })()
 );
 const DUCK_SNAPSHOT_PATH = process.env.DUCK_SNAPSHOT_PATH || null; // compatibilidad legacy
-const SNAPSHOT_TOKEN     = process.env.SNAPSHOT_TOKEN     || 'suminregio-snap-2026';
+const SNAPSHOT_TOKEN     = process.env.SNAPSHOT_TOKEN;
+if (!SNAPSHOT_TOKEN || SNAPSHOT_TOKEN === 'suminregio-snap-2026' || SNAPSHOT_TOKEN.length < 16) {
+  console.error('[FATAL] SNAPSHOT_TOKEN no definido o demasiado corto (>=16 chars). Genera con: node -e "console.log(require(\'crypto\').randomBytes(32).toString(\'hex\'))"');
+  if (process.env.NODE_ENV === 'production' || process.env.RENDER) process.exit(1);
+  console.warn('[WARN] Usando SNAPSHOT_TOKEN inseguro en modo no-producción. NO usar así en prod.');
+}
 
 // Map<dbId, { db, conn, meta, path, loadingAt }>
 const _duckSnaps = new Map();
@@ -857,6 +880,61 @@ try {
 try {
   require('./integrations').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
 } catch (e) { console.warn('[integrations] no instalado:', e.message); }
+
+// Detector de churn (RFM accionable + alertas proactivas)
+try {
+  require('./churn-detector').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[churn-detector] no instalado:', e.message); }
+
+// Lista priorizada de compras + cron lunes
+try {
+  require('./compras-semanal').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[compras-semanal] no instalado:', e.message); }
+
+// Clasificación ABC × XYZ de inventario
+try {
+  require('./abc-xyz').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[abc-xyz] no instalado:', e.message); }
+
+// WhatsApp inbound (webhook Twilio → AI chat + comandos directos)
+try {
+  require('./wa-inbound').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[wa-inbound] no instalado:', e.message); }
+
+// Lead scoring (probabilidad de cierre por cotización)
+try {
+  require('./lead-scoring').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[lead-scoring] no instalado:', e.message); }
+
+// Cross-sell (recomendador market basket por cliente y por SKU)
+try {
+  require('./cross-sell').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[cross-sell] no instalado:', e.message); }
+
+// Probabilidad de pago (score por cliente)
+try {
+  require('./prob-pago').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[prob-pago] no instalado:', e.message); }
+
+// Reorden dinámico (stock de seguridad estadístico + EOQ)
+try {
+  require('./reorden-dinamico').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[reorden-dinamico] no instalado:', e.message); }
+
+// Forecast por SKU con estacionalidad
+try {
+  require('./forecast-sku').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[forecast-sku] no instalado:', e.message); }
+
+// Limpieza de catálogos (duplicados, precios inconsistentes, sin RFC)
+try {
+  require('./catalog-cleanup').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[catalog-cleanup] no instalado:', e.message); }
+
+// SAT / DIOT (pre-DIOT desde compras Microsip + validaciones)
+try {
+  require('./sat-diot').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[sat-diot] no instalado:', e.message); }
 
 // Auth + candados: se instala al inicio (tras session), ver bloque "auth/gates".
 
@@ -11820,7 +11898,7 @@ get('/api/ai/welcome', async () => ({ message: AI_WELCOME_MICROSIP }));
 
 get('/api/ai/tools/catalog', async () => ({ tools: AI_TOOL_CATALOG }));
 
-app.post('/api/ai/tools/run', async (req, res) => {
+app.post('/api/ai/tools/run', aiChatRateLimit, async (req, res) => {
   try {
     const body = req.body || {};
     const dbResolved = aiResolveDbOpts(req);
@@ -11843,7 +11921,7 @@ app.post('/api/ai/tools/run', async (req, res) => {
   }
 });
 
-app.post('/api/ai/visuals/render', async (req, res) => {
+app.post('/api/ai/visuals/render', aiChatRateLimit, async (req, res) => {
   try {
     const body = req.body || {};
     const dbResolved = aiResolveDbOpts(req);
@@ -11863,7 +11941,7 @@ app.post('/api/ai/visuals/render', async (req, res) => {
   }
 });
 
-app.post('/api/ai/visuals/screenshot', async (req, res) => {
+app.post('/api/ai/visuals/screenshot', aiChatRateLimit, async (req, res) => {
   try {
     const body = req.body || {};
     const dbResolved = aiResolveDbOpts(req);

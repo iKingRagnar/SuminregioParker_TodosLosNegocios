@@ -16,3 +16,19 @@ backup/
 data/usage-metrics.jsonl
 microsip-api_Beto/
 sistema-cotizacion-web/
+
+# Archivos temporales / de sesión que no deben commitearse
+tmp_*
+*.tmp
+CODIGO_PARA_CLAUDE*.txt
+PASTE_PARA_CLAUDE*.md
+*.bak
+*~
+*.swp
+leer_demo.py
+ver-estatus*.js
+
+# Backups históricos en repo (ya migrados a Backups_handoff_*)
+*.LOCAL_VENTAS_*.js
+*_resto.js
+server_cumplimiento_*.js

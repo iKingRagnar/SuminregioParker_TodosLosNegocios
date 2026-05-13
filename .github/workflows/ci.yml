@@ -22,14 +22,7 @@ jobs:
         run: npm ci || npm install
 
       - name: Syntax check
-        run: |
-          node -c server_corregido.js
-          node -c performance-boost.js
-          node -c ai-tools.js
-          node -c ai-chat-v2.js
-          node -c analytics-deep.js
-          node -c email-reports.js
-          node -c safe-catch.js
+        run: npm run lint:syntax
 
       - name: Run tests
         env:
@@ -37,9 +30,16 @@ jobs:
           LOG_LEVEL: 'warn'
         run: npm test
 
-      - name: Validate manifests
+      - name: Validate manifest + service worker
         run: |
-          python3 -c "import json; json.load(open('public/manifest.webmanifest'))"
+          python3 -c "import json; json.load(open('manifest.webmanifest'))"
+          if [ -f public/manifest.webmanifest ]; then python3 -c "import json; json.load(open('public/manifest.webmanifest'))"; fi
+          node --check sw.js
+          node --check safe-dom.js
+          node --check pwa-register.js
+
+      - name: Audit deps (no high vulnerabilities)
+        run: npm audit --omit=dev --audit-level=high || true
 
   lint-yaml:
     runs-on: ubuntu-latest

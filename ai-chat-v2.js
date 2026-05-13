@@ -28,6 +28,31 @@ function install(app, { duckSnaps, log }) {
   var MAX_SESSIONS = 20;
   var MAX_MSGS = 30;
 
+  // Rate limit local — 20 req/min por sesión (o IP fallback). Crítico: este endpoint
+  // pega contra Anthropic ($) y no estaba detrás del rate-limit del monolito.
+  var _rateMap = new Map();
+  function chatV2RateLimit(req, res, next) {
+    var sid = (req.body && req.body.sessionId) || (req.session && req.session.user && req.session.user.email) || null;
+    var ip = (req.headers['x-forwarded-for'] || (req.socket && req.socket.remoteAddress) || 'unknown').split(',')[0].trim();
+    var key = sid ? 's:' + sid : 'ip:' + ip;
+    var now = Date.now();
+    var WINDOW = 60 * 1000;
+    var MAX = parseInt(process.env.AI_CHAT_V2_RATE_MAX || '20', 10);
+    var e = _rateMap.get(key);
+    if (!e || (now - e.windowStart) > WINDOW) e = { count: 0, windowStart: now };
+    e.count++;
+    _rateMap.set(key, e);
+    if (_rateMap.size > 500) {
+      for (var [k, v] of _rateMap) if ((now - v.windowStart) > WINDOW * 2) _rateMap.delete(k);
+    }
+    if (e.count > MAX) {
+      var retry = Math.ceil((WINDOW - (now - e.windowStart)) / 1000);
+      res.set('Retry-After', retry);
+      return res.status(429).json({ error: 'Too many AI requests', retryAfter: retry });
+    }
+    next();
+  }
+
   function getSnap(id) {
     var s = duckSnaps.get(id);
     return (s && s.conn) ? s : null;
@@ -62,7 +87,7 @@ function install(app, { duckSnaps, log }) {
   }
 
   // ── Endpoint principal ──────────────────────────────────────────────────────
-  app.post('/api/ai/chat-v2', require('express').json({ limit: '200kb' }), async function (req, res) {
+  app.post('/api/ai/chat-v2', require('express').json({ limit: '200kb' }), chatV2RateLimit, async function (req, res) {
     if (!client) {
       return res.status(503).json({
         error: 'AI no configurado',
