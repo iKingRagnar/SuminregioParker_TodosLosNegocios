@@ -1130,8 +1130,13 @@ function setBar(barId,pctId,pct,{invert=false}={}){
 }
 
 // -- Universo multi-FDB — panel BI (tarjetas + tabla; respeta filtros de periodo del scorecard) --
-function escHtml(s){
-  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+// escHtml/escAttr vienen de /safe-dom.js (cargado en <head>). Si por algún motivo
+// no llegó (file://, fallo de carga), definimos un fallback minimalista para
+// evitar romper la página.
+if (typeof window.escHtml !== 'function') {
+  window.escHtml = function(s){
+    return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  };
 }
 function dbPathForId(id){
   const hit=(indexDbList||[]).find(e=>String(e.id)===String(id));
