@@ -434,15 +434,9 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
   <!-- Barra de filtros + Mes/Año (filters.js) -->
   <div id="filter-bar"></div>
 
-  <!-- Multi-empresa: mismo pill-bar que ventas/cxc/inventario (inyectado por initGlobalDbBarAfterNav) -->
-  <!-- #bizContextBar y #bizSelect se mantienen ocultos para compatibilidad con el JS existente -->
+  <!-- #bizContextBar oculto — el pill-bar lo inyecta initGlobalDbBarAfterNav (nav global, igual que ventas/cxc) -->
   <div id="bizContextBar" style="display:none">
     <select id="bizSelect" aria-label="Vista consolidada o empresa" style="display:none"></select>
-  </div>
-  <!-- Pill bar igual al resto de páginas -->
-  <div id="finanzasDbBar" class="biz-context-bar" style="display:none;margin-bottom:14px">
-    <span class="biz-context-label">Unidad de negocio</span>
-    <div class="biz-chips" id="finanzasDbChips"></div>
   </div>
   <div id="plScoreStrip" style="display:none">
     <div class="pl-score-grid" id="plScoreGrid"></div>
@@ -1579,12 +1573,9 @@ function selectBusiness(id){
 }
 
 function renderBizChips(empresas){
-  const bar=document.getElementById('finanzasDbBar');
-  const chips=document.getElementById('finanzasDbChips');
-  if(!bar||!chips)return;
+  // El pill-bar lo maneja el nav global (initGlobalDbBarAfterNav en filters.js).
+  // Solo sincronizamos selectedBizId para que loadData use el correcto.
   const ok=(empresas||[]).filter(e=>e.ok);
-  if(ok.length<=1){ bar.style.display='none'; return; }
-  // Determinar selecci\u00f3n actual
   if(!selectedBizId||selectedBizId===''){
     try{
       const saved=(sessionStorage.getItem('microsip_erp_db')||'').trim();
@@ -1592,11 +1583,6 @@ function renderBizChips(empresas){
       else selectedBizId='__all__';
     }catch(_){ selectedBizId='__all__'; }
   }
-  // Usar renderDbChipsInto de filters.js (misma funci\u00f3n que ventas/cxc/inventario)
-  if(typeof window.renderDbChipsInto==='function'){
-    window.renderDbChipsInto(chips, ok, function(id){ selectBusiness(id); });
-  }
-  bar.style.display='flex';
 }
 
 function renderPlScoreFromTotals(tot, hasCosto, label){
