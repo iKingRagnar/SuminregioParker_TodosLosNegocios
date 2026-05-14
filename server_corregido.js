@@ -39,6 +39,9 @@
  *  • Cotizaciones: misma macro que ventas (UNION DOCTOS_VE + DOCTOS_PV), mismo IMPORTE_NETO (sqlVentaImporteBaseExpr),
  *            TIPO_DOCTO en MICROSIP_COTIZACION_TIPOS (por defecto C); ESTATUS <> cancelada; ?tipo=VE|PV igual que ventas.
  *            MICROSIP_COTIZACION_REQUIERE_APLICADO=1 para exigir APLICADO='S' como facturas (por defecto no se filtra APLICADO).
+ *  • Mostrador (DOCTOS_PV): MICROSIP_PV_REQUIERE_APLICADO=0 desactiva filtro APLICADO='S' (ventas contado=no tienen S).
+ *                            MICROSIP_PV_TIPOS_DOCTO=F,T,V lista de tipos aceptados (default F).
+ *                            /api/debug/pv ahora muestra distribución TIPO_DOCTO, APLICADO, ESTATUS.
  *  • Nuevos endpoints:
  *      /api/ventas/cobradas         Facturas cobradas por vendedor
  *      /api/ventas/margen           Margen por vendedor/mes (precio venta)
@@ -92,6 +95,17 @@ function sqlVentaImporteBaseExpr(alias = 'd') {
   }
   return `(COALESCE(${a}.IMPORTE_NETO, 0) / CAST(${VENTAS_SIN_IVA_DIVISOR} AS DOUBLE PRECISION))`;
 }
+
+/**
+ * MICROSIP_PV_REQUIERE_APLICADO=0  → elimina el filtro APLICADO='S' para DOCTOS_PV (mostrador/caja).
+ * Las ventas de mostrador en Microsip frecuentemente tienen APLICADO=NULL o 'N' porque son contado.
+ * Por defecto vale '1' (mantiene filtro estricto) para no romper instalaciones que sí lo usan.
+ * MICROSIP_PV_TIPOS_DOCTO=F,T,V  → lista de TIPO_DOCTO aceptados en DOCTOS_PV (default 'F').
+ */
+const PV_REQUIERE_APLICADO = !(process.env.MICROSIP_PV_REQUIERE_APLICADO || '1').match(/^(0|false|no)$/i);
+const _pvTipos = (process.env.MICROSIP_PV_TIPOS_DOCTO || 'F')
+  .split(',').map(t => t.trim().toUpperCase()).filter(Boolean);
+const PV_TIPOS_DOCTO_SQL = _pvTipos.map(t => `'${t}'`).join(', ');  // e.g. "'F', 'T'"
 
 // Estado de resultados (formato Microsip/PBI): usar IMPORTE_NETO tal cual (sin divisor global).
 function sqlVentaImporteResultadosExpr(alias = 'd') {
@@ -2522,7 +2536,12 @@ function consumosVendedorClienteSql(req, alias = 'd') {
  */
 function ventasSub(tipo = '', opts = {}) {
   const includeRemisiones = !!(opts && opts.includeRemisiones);
+  // VE: solo facturas (o +remisiones). PV: tipos configurables via MICROSIP_PV_TIPOS_DOCTO
   const doctosVenta = includeRemisiones ? "('V', 'F')" : "('F')";
+  const doctosPV    = includeRemisiones
+    ? `(${[...new Set([..._pvTipos, 'V'])].map(t => `'${t}'`).join(', ')})`
+    : `(${PV_TIPOS_DOCTO_SQL})`;
+  const pvAplicadoFilter = PV_REQUIERE_APLICADO ? `\n      AND COALESCE(d.APLICADO, 'N') = 'S'` : '';
   const imp = sqlVentaImporteBaseExpr('d');
   const ve = `
     SELECT
@@ -2566,9 +2585,8 @@ function ventasSub(tipo = '', opts = {}) {
       'PV' AS TIPO_SRC
     FROM DOCTOS_PV d
     WHERE (
-      d.TIPO_DOCTO IN ${doctosVenta}
-      AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
-      AND COALESCE(d.APLICADO, 'N') = 'S'
+      d.TIPO_DOCTO IN ${doctosPV}
+      AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')${pvAplicadoFilter}
     )`;
 
   if (tipo === 'VE') return `(${ve})`;
@@ -9851,8 +9869,27 @@ get('/api/debug/ventas', async () => {
 });
 
 get('/api/debug/pv', async () => {
-  const rows = await query(`SELECT COUNT(*) AS N FROM DOCTOS_PV`).catch(() => [{ N: 0 }]);
-  return { doctos_pv: rows[0].N };
+  const [total, porTipo, porAplicado, porEstatus, conImporte] = await Promise.all([
+    query(`SELECT COUNT(*) AS N FROM DOCTOS_PV`).catch(() => [{ N: 0 }]),
+    query(`SELECT TIPO_DOCTO, COUNT(*) AS N FROM DOCTOS_PV GROUP BY TIPO_DOCTO ORDER BY 2 DESC`).catch(() => []),
+    query(`SELECT COALESCE(APLICADO,'NULL') AS APLICADO, COUNT(*) AS N FROM DOCTOS_PV GROUP BY 1 ORDER BY 2 DESC`).catch(() => []),
+    query(`SELECT COALESCE(ESTATUS,'NULL') AS ESTATUS, COUNT(*) AS N FROM DOCTOS_PV GROUP BY 1 ORDER BY 2 DESC`).catch(() => []),
+    query(`SELECT COUNT(*) AS N, SUM(IMPORTE_NETO) AS TOTAL FROM DOCTOS_PV WHERE TIPO_DOCTO IN (${PV_TIPOS_DOCTO_SQL}) AND COALESCE(ESTATUS,'N') NOT IN ('C','D','S')${PV_REQUIERE_APLICADO ? " AND COALESCE(APLICADO,'N')='S'" : ''}`).catch(() => [{ N: 0, TOTAL: 0 }]),
+  ]);
+  return {
+    doctos_pv_total: total[0].N,
+    por_tipo_docto: porTipo,
+    por_aplicado: porAplicado,
+    por_estatus: porEstatus,
+    config_actual: {
+      PV_TIPOS_DOCTO: _pvTipos,
+      PV_REQUIERE_APLICADO: PV_REQUIERE_APLICADO,
+      env_MICROSIP_PV_TIPOS_DOCTO: process.env.MICROSIP_PV_TIPOS_DOCTO || '(default F)',
+      env_MICROSIP_PV_REQUIERE_APLICADO: process.env.MICROSIP_PV_REQUIERE_APLICADO || '(default 1)',
+    },
+    con_config_actual_suma: conImporte[0],
+    instrucciones: 'Si por_aplicado muestra N o NULL para la mayoría: set MICROSIP_PV_REQUIERE_APLICADO=0 en Render. Si por_tipo_docto muestra T o V: set MICROSIP_PV_TIPOS_DOCTO=F,T,V en Render.',
+  };
 });
 
 get('/api/debug/cumplimiento', async () => {
