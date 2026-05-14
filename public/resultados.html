@@ -434,8 +434,8 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
   <!-- Barra de filtros + Mes/Año (filters.js) -->
   <div id="filter-bar"></div>
 
-  <!-- #bizContextBar oculto — el pill-bar lo inyecta initGlobalDbBarAfterNav (nav global, igual que ventas/cxc) -->
-  <div id="bizContextBar" style="display:none">
+  <!-- selector legacy oculto — renombrado para que nav.js inyecte el pill-bar igual que ventas/cxc -->
+  <div id="bizContextBarLegacy" style="display:none">
     <select id="bizSelect" aria-label="Vista consolidada o empresa" style="display:none"></select>
   </div>
   <div id="plScoreStrip" style="display:none">
@@ -1748,7 +1748,7 @@ async function loadData(){
 
 
     if(!multi){
-      document.getElementById('bizContextBar')&&(document.getElementById('bizContextBar').style.display='none');
+      document.getElementById('bizContextBarLegacy')&&(document.getElementById('bizContextBarLegacy').style.display='none');
       document.getElementById('plScoreStrip')&&(document.getElementById('plScoreStrip').style.display='none');
       document.getElementById('plMiniTableWrap')&&(document.getElementById('plMiniTableWrap').style.display='none');
       if(pinnedDb){
