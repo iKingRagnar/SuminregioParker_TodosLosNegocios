@@ -1592,29 +1592,9 @@ function renderBizChips(empresas){
       else selectedBizId='__all__';
     }catch(_){ selectedBizId='__all__'; }
   }
-  // Usar filterRenderDbChipsInto de filters.js si est\u00e1 disponible
-  if(typeof window.filterRenderDbChipsInto==='function'){
-    window.filterRenderDbChipsInto(chips, ok, function(id){ selectBusiness(id); });
-  } else {
-    // Fallback manual con mismo arte visual que filters.js
-    const isAll=(selectedBizId==='__all__'||selectedBizId==='__ALL__');
-    let html='<button type="button" class="biz-chip db-chip'+(isAll?' active':'')+'" data-db="__all__">'+
-      '<span class="db-chip-main">Todos los Negocios</span><span class="db-chip-sub">Suma de negocios en barra</span></button>';
-    ok.forEach(function(e){
-      const id=String(e.id||'');
-      const lbl=String(e.label||e.id||'').replace(/\.fdb$/i,'').replace(/_/g,' ');
-      const active=(!isAll&&selectedBizId===id)?' active':'';
-      html+='<button type="button" class="biz-chip db-chip'+active+'" data-db="'+id+'">'+
-        '<span class="db-chip-main">'+lbl+'</span></button>';
-    });
-    chips.innerHTML=html;
-    chips.querySelectorAll('.biz-chip').forEach(function(btn){
-      btn.addEventListener('click',function(){
-        chips.querySelectorAll('.biz-chip').forEach(function(b){b.classList.remove('active');});
-        btn.classList.add('active');
-        selectBusiness(btn.getAttribute('data-db'));
-      });
-    });
+  // Usar renderDbChipsInto de filters.js (misma funci\u00f3n que ventas/cxc/inventario)
+  if(typeof window.renderDbChipsInto==='function'){
+    window.renderDbChipsInto(chips, ok, function(id){ selectBusiness(id); });
   }
   bar.style.display='flex';
 }
