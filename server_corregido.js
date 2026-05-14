@@ -82,10 +82,12 @@ const BUILD_FINGERPRINT = (process.env.RENDER_GIT_COMMIT && String(process.env.R
 
 /**
  * Ajuste de IVA sobre IMPORTE_NETO:
- * MICROSIP_VENTAS_IVA_FACTOR=1.16  → multiplica por 1.16 (muestra con IVA, igual que Microsip UI).
- * MICROSIP_VENTAS_IVA_FACTOR=1     → sin ajuste (IMPORTE_NETO tal cual, default).
- * Legacy: MICROSIP_VENTAS_SIN_IVA_DIVISOR aún funciona (divide). Si ambos están, IVA_FACTOR tiene prioridad.
+ * MICROSIP_VENTAS_INCLUIR_IMPUESTOS=1 → usa IMPORTE_NETO + TOTAL_IMPUESTOS (IVA real por factura, igual que Microsip UI).
+ * MICROSIP_VENTAS_IVA_FACTOR=1.16     → multiplica por factor fijo (menos preciso, evitar).
+ * MICROSIP_VENTAS_SIN_IVA_DIVISOR=1   → sin ajuste (IMPORTE_NETO tal cual, default).
+ * Prioridad: INCLUIR_IMPUESTOS > IVA_FACTOR > SIN_IVA_DIVISOR.
  */
+const VENTAS_INCLUIR_IMPUESTOS = !!(process.env.MICROSIP_VENTAS_INCLUIR_IMPUESTOS || '').match(/^(1|true|yes)$/i);
 const _ivaFactor = parseFloat(process.env.MICROSIP_VENTAS_IVA_FACTOR);
 const _ivaDiv = parseFloat(process.env.MICROSIP_VENTAS_SIN_IVA_DIVISOR);
 const VENTAS_IVA_FACTOR = Number.isFinite(_ivaFactor) && _ivaFactor >= 0.0001 ? _ivaFactor : null;
@@ -94,6 +96,10 @@ const VENTAS_SIN_IVA_DIVISOR = Number.isFinite(_ivaDiv) && _ivaDiv >= 0.0001 ? _
 function sqlVentaImporteBaseExpr(alias = 'd') {
   const a = alias;
   const base = `COALESCE(${a}.IMPORTE_NETO, 0)`;
+  if (VENTAS_INCLUIR_IMPUESTOS) {
+    // Suma el IVA real de cada documento — resultado idéntico a Microsip UI
+    return `(${base} + COALESCE(${a}.TOTAL_IMPUESTOS, 0))`;
+  }
   if (VENTAS_IVA_FACTOR !== null && Math.abs(VENTAS_IVA_FACTOR - 1) > 0.00001) {
     return `(${base} * CAST(${VENTAS_IVA_FACTOR} AS DOUBLE PRECISION))`;
   }
