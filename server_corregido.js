@@ -81,19 +81,26 @@ const BUILD_FINGERPRINT = (process.env.RENDER_GIT_COMMIT && String(process.env.R
   : 'dev-local';
 
 /**
- * Power BI / reportes suelen usar importe base sin IVA; en cabecera DOCTOS_VE/PV el campo
- * IMPORTE_NETO a veces viene con IVA acumulado. Por defecto se divide entre 1.16.
- * En .env: MICROSIP_VENTAS_SIN_IVA_DIVISOR=1 desactiva la división (IMPORTE_NETO tal cual).
+ * Ajuste de IVA sobre IMPORTE_NETO:
+ * MICROSIP_VENTAS_IVA_FACTOR=1.16  → multiplica por 1.16 (muestra con IVA, igual que Microsip UI).
+ * MICROSIP_VENTAS_IVA_FACTOR=1     → sin ajuste (IMPORTE_NETO tal cual, default).
+ * Legacy: MICROSIP_VENTAS_SIN_IVA_DIVISOR aún funciona (divide). Si ambos están, IVA_FACTOR tiene prioridad.
  */
+const _ivaFactor = parseFloat(process.env.MICROSIP_VENTAS_IVA_FACTOR);
 const _ivaDiv = parseFloat(process.env.MICROSIP_VENTAS_SIN_IVA_DIVISOR);
-const VENTAS_SIN_IVA_DIVISOR = Number.isFinite(_ivaDiv) && _ivaDiv >= 0.0001 ? _ivaDiv : 1.16;
+const VENTAS_IVA_FACTOR = Number.isFinite(_ivaFactor) && _ivaFactor >= 0.0001 ? _ivaFactor : null;
+const VENTAS_SIN_IVA_DIVISOR = Number.isFinite(_ivaDiv) && _ivaDiv >= 0.0001 ? _ivaDiv : 1.0;
 
 function sqlVentaImporteBaseExpr(alias = 'd') {
   const a = alias;
-  if (VENTAS_SIN_IVA_DIVISOR <= 1.00001) {
-    return `COALESCE(${a}.IMPORTE_NETO, 0)`;
+  const base = `COALESCE(${a}.IMPORTE_NETO, 0)`;
+  if (VENTAS_IVA_FACTOR !== null && Math.abs(VENTAS_IVA_FACTOR - 1) > 0.00001) {
+    return `(${base} * CAST(${VENTAS_IVA_FACTOR} AS DOUBLE PRECISION))`;
   }
-  return `(COALESCE(${a}.IMPORTE_NETO, 0) / CAST(${VENTAS_SIN_IVA_DIVISOR} AS DOUBLE PRECISION))`;
+  if (VENTAS_SIN_IVA_DIVISOR > 1.00001) {
+    return `(${base} / CAST(${VENTAS_SIN_IVA_DIVISOR} AS DOUBLE PRECISION))`;
+  }
+  return base;
 }
 
 /**
