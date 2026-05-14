@@ -1099,8 +1099,10 @@ function allowEmpresa(e){
   if(pool.includes('hamer')) return false;
   if(pool.includes('empaque')) return false;
   if(pool.includes('especial')) return false;
-  if(pool.includes('suminregio')&&!pool.includes('parker')&&!pool.includes('grupo')) return false;
-  return DB_ALLOW_TERMS.some(t=>pool.includes(t));
+  // Solo excluir 'suminregio' genérico si NO tiene ningún sub-negocio permitido
+  const hasAllowedTerm=DB_ALLOW_TERMS.some(t=>pool.includes(t));
+  if(pool.includes('suminregio')&&!pool.includes('parker')&&!pool.includes('grupo')&&!hasAllowedTerm) return false;
+  return hasAllowedTerm;
 }
 
 function setMeses(m,btn){
