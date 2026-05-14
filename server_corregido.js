@@ -10565,6 +10565,21 @@ get('/api/debug/costo', async () => {
 });
 
 // Ver columnas reales de DOCTOS_VE_DET en tu BD (para saber cómo se llama el costo)
+get('/api/debug/ve-schema', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const q = (sql, p) => query(sql, p || [], 10000, dbo).catch(() => []);
+  const [cols, ivaSum] = await Promise.all([
+    q(`SELECT FIRST 1 * FROM DOCTOS_VE`).then(r => r && r[0] ? Object.keys(r[0]).filter(c => /IVA|TOTAL|IMPORTE/i.test(c)).sort() : []),
+    q(`SELECT FIRST 5 d.FOLIO, d.IMPORTE_NETO,
+        COALESCE(d.IVA, 0) AS IVA,
+        COALESCE(d.IMPORTE_NETO,0) + COALESCE(d.IVA,0) AS NETO_MAS_IVA
+       FROM DOCTOS_VE d
+       WHERE d.TIPO_DOCTO='F' AND COALESCE(d.APLICADO,'N')='S'
+       ORDER BY d.FECHA DESC`),
+  ]);
+  return { campos_IVA_TOTAL_IMPORTE: cols, muestra_iva: ivaSum };
+});
+
 get('/api/debug/ve-det-schema', async () => {
   const row = await query(`
     SELECT FIRST 1 * FROM DOCTOS_VE_DET
