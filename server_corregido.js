@@ -106,6 +106,11 @@ const PV_REQUIERE_APLICADO = !(process.env.MICROSIP_PV_REQUIERE_APLICADO || '1')
 const _pvTipos = (process.env.MICROSIP_PV_TIPOS_DOCTO || 'F')
   .split(',').map(t => t.trim().toUpperCase()).filter(Boolean);
 const PV_TIPOS_DOCTO_SQL = _pvTipos.map(t => `'${t}'`).join(', ');  // e.g. "'F', 'T'"
+// En DOCTOS_PV, ESTATUS='S' significa "Surtida" (venta completada válida), no suspendida como en VE.
+// MICROSIP_PV_ESTATUS_EXCLUIR=C,D  → por defecto solo excluye Canceladas y Devueltas en PV.
+const _pvEstatusExcluir = (process.env.MICROSIP_PV_ESTATUS_EXCLUIR || 'C,D')
+  .split(',').map(t => t.trim().toUpperCase()).filter(Boolean);
+const PV_ESTATUS_EXCLUIR_SQL = _pvEstatusExcluir.map(t => `'${t}'`).join(', ');
 
 // Estado de resultados (formato Microsip/PBI): usar IMPORTE_NETO tal cual (sin divisor global).
 function sqlVentaImporteResultadosExpr(alias = 'd') {
@@ -2586,7 +2591,7 @@ function ventasSub(tipo = '', opts = {}) {
     FROM DOCTOS_PV d
     WHERE (
       d.TIPO_DOCTO IN ${doctosPV}
-      AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')${pvAplicadoFilter}
+      AND COALESCE(d.ESTATUS, 'N') NOT IN (${PV_ESTATUS_EXCLUIR_SQL})${pvAplicadoFilter}
     )`;
 
   if (tipo === 'VE') return `(${ve})`;
@@ -9874,7 +9879,7 @@ get('/api/debug/pv', async () => {
     query(`SELECT TIPO_DOCTO, COUNT(*) AS N FROM DOCTOS_PV GROUP BY TIPO_DOCTO ORDER BY 2 DESC`).catch(() => []),
     query(`SELECT COALESCE(APLICADO,'NULL') AS APLICADO, COUNT(*) AS N FROM DOCTOS_PV GROUP BY 1 ORDER BY 2 DESC`).catch(() => []),
     query(`SELECT COALESCE(ESTATUS,'NULL') AS ESTATUS, COUNT(*) AS N FROM DOCTOS_PV GROUP BY 1 ORDER BY 2 DESC`).catch(() => []),
-    query(`SELECT COUNT(*) AS N, SUM(IMPORTE_NETO) AS TOTAL FROM DOCTOS_PV WHERE TIPO_DOCTO IN (${PV_TIPOS_DOCTO_SQL}) AND COALESCE(ESTATUS,'N') NOT IN ('C','D','S')${PV_REQUIERE_APLICADO ? " AND COALESCE(APLICADO,'N')='S'" : ''}`).catch(() => [{ N: 0, TOTAL: 0 }]),
+    query(`SELECT COUNT(*) AS N, SUM(IMPORTE_NETO) AS TOTAL FROM DOCTOS_PV WHERE TIPO_DOCTO IN (${PV_TIPOS_DOCTO_SQL}) AND COALESCE(ESTATUS,'N') NOT IN (${PV_ESTATUS_EXCLUIR_SQL})${PV_REQUIERE_APLICADO ? " AND COALESCE(APLICADO,'N')='S'" : ''}`).catch(() => [{ N: 0, TOTAL: 0 }]),
   ]);
   return {
     doctos_pv_total: total[0].N,
