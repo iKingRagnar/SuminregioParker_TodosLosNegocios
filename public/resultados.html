@@ -434,15 +434,15 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
   <!-- Barra de filtros + Mes/Año (filters.js) -->
   <div id="filter-bar"></div>
 
-  <!-- Multi-empresa: chips + scorecard (inspirado en complemento MTD/YTD; aquí periodo = filtros + meses) -->
-  <div id="bizContextBar" class="biz-context-bar biz-context-bar--compact" style="display:none">
-    <div class="biz-toolbar-row">
-      <span class="biz-context-label">Negocio</span>
-      <div class="biz-select-wrap">
-        <select id="bizSelect" class="biz-select" aria-label="Vista consolidada o empresa"></select>
-      </div>
-    </div>
-    <p class="biz-context-hint biz-context-hint--compact" id="bizHint">Consolidado suma el P&amp;L del periodo de cada base registrada. Elige una empresa para el detalle mes a mes y gr&aacute;ficas.</p>
+  <!-- Multi-empresa: mismo pill-bar que ventas/cxc/inventario (inyectado por initGlobalDbBarAfterNav) -->
+  <!-- #bizContextBar y #bizSelect se mantienen ocultos para compatibilidad con el JS existente -->
+  <div id="bizContextBar" style="display:none">
+    <select id="bizSelect" aria-label="Vista consolidada o empresa" style="display:none"></select>
+  </div>
+  <!-- Pill bar igual al resto de páginas -->
+  <div id="finanzasDbBar" class="biz-context-bar" style="display:none;margin-bottom:14px">
+    <span class="biz-context-label">Unidad de negocio</span>
+    <div class="biz-chips" id="finanzasDbChips"></div>
   </div>
   <div id="plScoreStrip" style="display:none">
     <div class="pl-score-grid" id="plScoreGrid"></div>
@@ -1579,32 +1579,44 @@ function selectBusiness(id){
 }
 
 function renderBizChips(empresas){
-  const bar=document.getElementById('bizContextBar');
-  const sel=document.getElementById('bizSelect');
-  if(!bar||!sel)return;
+  const bar=document.getElementById('finanzasDbBar');
+  const chips=document.getElementById('finanzasDbChips');
+  if(!bar||!chips)return;
   const ok=(empresas||[]).filter(e=>e.ok);
   if(ok.length<=1){ bar.style.display='none'; return; }
-  bar.style.display='flex';
+  // Determinar selecci\u00f3n actual
   if(!selectedBizId||selectedBizId===''){
     try{
       const saved=(sessionStorage.getItem('microsip_erp_db')||'').trim();
       if(saved&&ok.some(e=>String(e.id)===String(saved)))selectedBizId=saved;
-      else selectedBizId='__ALL__';
-    }catch(_){ selectedBizId='__ALL__'; }
+      else selectedBizId='__all__';
+    }catch(_){ selectedBizId='__all__'; }
   }
-  sel.replaceChildren();
-  const optAll=document.createElement('option');
-  optAll.value='__ALL__';
-  optAll.textContent='Grupo consolidado (\u03a3 todas las empresas)';
-  sel.appendChild(optAll);
-  ok.forEach(e=>{
-    const o=document.createElement('option');
-    o.value=String(e.id);
-    o.textContent=String(e.label||e.id);
-    sel.appendChild(o);
-  });
-  sel.value=[...sel.options].some(o=>o.value===selectedBizId)?selectedBizId:'__ALL__';
-  sel.onchange=function(){ selectBusiness(sel.value); };
+  // Usar filterRenderDbChipsInto de filters.js si est\u00e1 disponible
+  if(typeof window.filterRenderDbChipsInto==='function'){
+    window.filterRenderDbChipsInto(chips, ok, function(id){ selectBusiness(id); });
+  } else {
+    // Fallback manual con mismo arte visual que filters.js
+    const isAll=(selectedBizId==='__all__'||selectedBizId==='__ALL__');
+    let html='<button type="button" class="biz-chip db-chip'+(isAll?' active':'')+'" data-db="__all__">'+
+      '<span class="db-chip-main">Todos los Negocios</span><span class="db-chip-sub">Suma de negocios en barra</span></button>';
+    ok.forEach(function(e){
+      const id=String(e.id||'');
+      const lbl=String(e.label||e.id||'').replace(/\.fdb$/i,'').replace(/_/g,' ');
+      const active=(!isAll&&selectedBizId===id)?' active':'';
+      html+='<button type="button" class="biz-chip db-chip'+active+'" data-db="'+id+'">'+
+        '<span class="db-chip-main">'+lbl+'</span></button>';
+    });
+    chips.innerHTML=html;
+    chips.querySelectorAll('.biz-chip').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        chips.querySelectorAll('.biz-chip').forEach(function(b){b.classList.remove('active');});
+        btn.classList.add('active');
+        selectBusiness(btn.getAttribute('data-db'));
+      });
+    });
+  }
+  bar.style.display='flex';
 }
 
 function renderPlScoreFromTotals(tot, hasCosto, label){
