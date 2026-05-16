@@ -324,7 +324,7 @@
       '.nav-logo-icon svg{width:20px;height:20px;fill:white;}',
       '.nav-logo-txt{font-size:.9rem;font-weight:800;color:#F0F6FF;}',
       '.nav-logo-sub{font-size:.57rem;font-family:"DM Mono",monospace;',
-      'color:#6A85A6;letter-spacing:.12em;text-transform:uppercase;}',
+      'color:rgba(240,246,255,.75);letter-spacing:.12em;text-transform:uppercase;}',
 
       '#app-header nav{display:flex;align-items:center;gap:.12rem;flex-wrap:wrap;}',
 

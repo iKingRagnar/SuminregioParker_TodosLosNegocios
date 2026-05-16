@@ -810,7 +810,7 @@ async function loadConversion(){
     const ctx = document.getElementById('chartConversion');
     if(ctx){
       if(chartConvInst) chartConvInst.destroy();
-      const legCol=cssVar('--text2','#94a3b8');
+      const legCol=cssVar('--text2','#374151');
       chartConvInst = new Chart(ctx, {
         data:{labels,datasets:[
           {type:'bar',label:'Cotizaciones',data:cotiVals,backgroundColor:cyFill(),borderColor:cy(),borderWidth:1.5,borderRadius:4},
@@ -822,8 +822,8 @@ async function loadConversion(){
             tooltip:{backgroundColor:'#112233',borderColor:'rgba(255,255,255,.1)',borderWidth:1,titleColor:'#EDF4FF',bodyColor:'#93B4CC',
               callbacks:{label:c=>c.dataset.label+': '+(c.datasetIndex===2?c.raw+'%':fmtK(c.raw))}}},
           scales:{
-            x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:legCol,font:{size:10,family:"'DM Mono'"}}},
-            y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:legCol,font:{size:10,family:"'DM Mono'"},callback:v=>fmtK(v)}},
+            x:{grid:{color:'rgba(15,23,42,.08)'},ticks:{color:legCol,font:{size:10,family:"'DM Mono'"}}},
+            y:{grid:{color:'rgba(15,23,42,.08)'},ticks:{color:legCol,font:{size:10,family:"'DM Mono'"},callback:v=>fmtK(v)}},
             y2:{position:'right',min:0,max:120,grid:{display:false},ticks:{color:'#F57C00',font:{size:10,family:"'DM Mono'"},callback:v=>v+'%'}}
           }}
       });
@@ -1055,12 +1055,12 @@ const tipoQ = () => currentTipo ? `&tipo=${currentTipo}` : '';
 const chartDefaults = () => ({
   responsive:true, maintainAspectRatio:false,
   interaction:{ mode:'index', intersect:false },
-  plugins:{ legend:{ display:true, labels:{ color:'#CBD5E1', font:{size:10}, boxWidth:10 } },
+  plugins:{ legend:{ display:true, labels:{ color:'#374151', font:{size:10}, boxWidth:10 } },
     tooltip:{ mode:'index', intersect:false, backgroundColor:'#0D1D35', borderColor:'rgba(255,255,255,.1)', borderWidth:1,
       callbacks:{ label: ctx => ' '+ctx.dataset.label+': '+fmt(ctx.raw) } } },
   scales:{
-    x:{ grid:{color:'rgba(255,255,255,.04)'}, ticks:{color:'#94A3B8',font:{size:9}} },
-    y:{ grid:{color:'rgba(255,255,255,.04)'}, ticks:{color:'#94A3B8',font:{size:9},callback:v=>fmtK(v)} }
+    x:{ grid:{color:'rgba(15,23,42,.08)'}, ticks:{color:'#374151',font:{size:9}} },
+    y:{ grid:{color:'rgba(15,23,42,.08)'}, ticks:{color:'#374151',font:{size:9},callback:v=>fmtK(v)} }
   }
 });
 
