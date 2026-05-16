@@ -58,6 +58,12 @@ function install(app) {
     if (publicDocumentPath(path)) return next();
     if (publicApiPath(path)) return next();
 
+    // Peticiones internas del propio servidor (ai-chat-v3 callLocal, etc.)
+    const remoteIp = req.socket && req.socket.remoteAddress;
+    if (remoteIp === '127.0.0.1' || remoteIp === '::1' || remoteIp === '::ffff:127.0.0.1') {
+      return next();
+    }
+
     const hasUser = req.user && (req.user.email || req.user.id);
     if (hasUser) {
       if (path === '/usage-metrics.html' && !isAdminUser(req)) {
