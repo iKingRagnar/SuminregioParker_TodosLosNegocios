@@ -13127,6 +13127,59 @@ app.get('/api/briefing/diario', async (req, res) => {
   });
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MÓDULO HOSPITAL SNTE — Facturas CFDI emitidas a SNT391220717
+// Datos extraídos de los CFDIs PDF (auditoría mayo 2026). No están en Microsip.
+// ─────────────────────────────────────────────────────────────────────────────
+const HOSPITAL_FACTURAS = [
+  { folio:'SM14', fecha:'2026-04-10', pedido:'PEDIDO 16', subtotal:569370.82, iva:86594.47, total:655965.29,
+    uuid:'C84C6DDE-333B-9748-8075-DE376E5D30B3', metodo_pago:'PPD', forma_pago:'99' },
+  { folio:'SM15', fecha:'2026-04-10', pedido:'PEDIDO 16', subtotal:14482.26,  iva:2317.16,  total:16799.42,
+    uuid:'A530E7B2-AB34-0743-80F1-52C6E7782AAE', metodo_pago:'PPD', forma_pago:'99' },
+  { folio:'SM18', fecha:'2026-04-24', pedido:'PEDIDO 18', subtotal:545803.42, iva:87328.55, total:633131.97,
+    uuid:'28B11D25-5F33-0549-B824-61D0892CAD04', metodo_pago:'PPD', forma_pago:'99' },
+  { folio:'SM19', fecha:'2026-04-27', pedido:'PEDIDO 17', subtotal:586299.96, iva:87372.51, total:673672.47,
+    uuid:'40B3A78C-A1D6-5F4D-9903-61BAE30E08A2', metodo_pago:'PPD', forma_pago:'99' },
+  { folio:'SM20', fecha:'2026-04-30', pedido:'PEDIDO 17', subtotal:75771.00,  iva:12123.36, total:87894.36,
+    uuid:'FA58C7FD-E102-3B41-80DF-54B5E5310AAD', metodo_pago:'PPD', forma_pago:'99' },
+  { folio:'SM21', fecha:'2026-04-30', pedido:'PEDIDO 19', subtotal:534170.09, iva:85467.21, total:619637.30,
+    uuid:'F81B7BEC-1638-C842-A071-B87E4E9FD79F', metodo_pago:'PPD', forma_pago:'99' },
+];
+const HOSPITAL_COMPRAS = {
+  'PEDIDO 16': { compras:290445.70, proveedores:['PAGG620224MM0','COP920224682','GULC930521TC5','FPA200505LN8'] },
+  'PEDIDO 17': { compras:336805.71, proveedores:['GULC930521TC5','EEE830909BM4','PAGG620224MM0','FPA200505LN8'] },
+  'PEDIDO 18': { compras:300595.67, proveedores:['GULC930521TC5','EEE830909BM4','PAGG620224MM0','FPA200505LN8'] },
+  'PEDIDO 19': { compras:174990.02, proveedores:['GULC930521TC5','FPA200505LN8','PAGG620224MM0'] },
+};
+
+app.get('/api/hospital/ventas', (_req, res) => {
+  const byPedido = {};
+  for (const f of HOSPITAL_FACTURAS) {
+    if (!byPedido[f.pedido]) byPedido[f.pedido] = { pedido: f.pedido, facturas: [], venta: 0, compra: 0 };
+    byPedido[f.pedido].facturas.push(f);
+    byPedido[f.pedido].venta += f.total;
+  }
+  for (const [ped, c] of Object.entries(HOSPITAL_COMPRAS)) {
+    if (!byPedido[ped]) byPedido[ped] = { pedido: ped, facturas: [], venta: 0, compra: 0 };
+    byPedido[ped].compra = c.compras;
+    byPedido[ped].proveedores = c.proveedores;
+  }
+  const pedidos = Object.values(byPedido).sort((a,b) => a.pedido.localeCompare(b.pedido));
+  const totalVenta  = HOSPITAL_FACTURAS.reduce((s,f) => s + f.total, 0);
+  const totalCompra = Object.values(HOSPITAL_COMPRAS).reduce((s,c) => s + c.compras, 0);
+  res.json({
+    cliente: { nombre: 'SINDICATO NACIONAL DE TRABAJADORES DE LA EDUCACION SECCION 50', rfc: 'SNT391220717' },
+    emisor:  { nombre: 'SUMINREGIO', rfc: 'SUM1906278Q5' },
+    alerta_microsip: true,
+    total_venta:  totalVenta,
+    total_compra: totalCompra,
+    margen_bruto: totalVenta - totalCompra,
+    margen_pct:   totalVenta > 0 ? ((totalVenta - totalCompra) / totalVenta * 100) : 0,
+    facturas: HOSPITAL_FACTURAS,
+    pedidos,
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`Suminregio API escuchando en http://localhost:${PORT} · build=${BUILD_FINGERPRINT}`);
   if (CACHE_MODE) {
