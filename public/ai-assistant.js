@@ -494,7 +494,7 @@
       }
 
       try {
-        const data = await fetchJson(API + '/api/ai/chat', {
+        const data = await fetchJson(API + '/api/ai/chat-v3', {
           method: 'POST',
           body: JSON.stringify(body),
         });

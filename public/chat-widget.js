@@ -499,7 +499,7 @@
         body.imageMimeType  = 'image/png';
       }
 
-      const resp = await fetch(API + '/api/ai/chat', {
+      const resp = await fetch(API + '/api/ai/chat-v3', {
         method : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body   : JSON.stringify(body),

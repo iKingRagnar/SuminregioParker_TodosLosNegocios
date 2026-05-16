@@ -4327,15 +4327,23 @@ get('/api/ventas/cobradas', async (req) => {
       r.TOTAL_COBRADO = Math.round((+r.TOTAL_COBRADO + rem * ((+r.TOTAL_VENTA || 0) / totalFacturado)) * 100) / 100;
     });
   } else if (rem > 0.02) {
-    mapped.push({
-      VENDEDOR_ID: 0,
-      VENDEDOR: 'Sin asignar',
-      NOMBRE: 'Sin asignar',
-      NUM_FACTURAS: 0,
-      FACTURAS_COBRADAS: 0,
-      TOTAL_VENTA: 0,
-      TOTAL_COBRADO: rem,
-    });
+    // Si hay vendedores identificados, distribuir el remanente proporcional a su cobro ya atribuido.
+    // Esto evita la fila fantasma "Sin asignar" que aparece cuando los cobros son de facturas
+    // emitidas en un periodo distinto al filtro de ventas (cobros de periodo cruzado).
+    if (mapped.length > 0) {
+      const sumMapped = mapped.reduce((s, r) => s + (+r.TOTAL_COBRADO || 0), 0);
+      if (sumMapped > 0) {
+        mapped.forEach(r => {
+          r.TOTAL_COBRADO = Math.round((+r.TOTAL_COBRADO + rem * ((+r.TOTAL_COBRADO || 0) / sumMapped)) * 100) / 100;
+        });
+      } else {
+        // Si todos tienen cobro 0, repartir equitativamente
+        mapped.forEach(r => {
+          r.TOTAL_COBRADO = Math.round((+r.TOTAL_COBRADO + rem / mapped.length) * 100) / 100;
+        });
+      }
+    }
+    // Si mapped está vacío: ignorar rem — son cobros de facturas fuera del rango de fechas seleccionado
   }
   mapped.sort((a, b) => {
     const dc = (+b.TOTAL_COBRADO || 0) - (+a.TOTAL_COBRADO || 0);
