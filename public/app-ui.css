@@ -1151,3 +1151,19 @@ html[data-theme="light"] :where(table.ms-table-glass .ms-sortable-th[data-ms-sor
 html[data-theme="light"] :where(table.ms-table-glass .ms-sortable-th[data-ms-sort-dir="desc"]) {
   color: #334155 !important;
 }
+
+/* ── Tarjetas KPI: fondo blanco puro en modo claro (todas las páginas) ── */
+html[data-theme="light"] .kpi-card,
+html.theme-premium-light .kpi-card,
+html[data-theme="light"] .kpi,
+html.theme-premium-light .kpi {
+  background: #ffffff !important;
+  border-color: rgba(15,23,42,.08) !important;
+}
+
+/* Eliminar el tinte ámbar del body en modo claro */
+html[data-theme="light"] body,
+html.theme-premium-light body {
+  background-image: none !important;
+  background-color: #f0f5fa !important;
+}
