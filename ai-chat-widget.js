@@ -169,6 +169,7 @@
         var resp = await fetch('/api/ai/chat-v3/stream', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ sessionId: getSessionId(), db: DB, message: text, effort: EFFORT }),
         });
 

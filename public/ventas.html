@@ -25,7 +25,7 @@ window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7
   --red:#FF4566;--red-dim:rgba(255,69,102,.12);
   --blue:#4DA6FF;--blue-dim:rgba(77,166,255,.1);
   --purple:#9B6DFF;--purple-dim:rgba(155,109,255,.1);
-  --text:#E8EFF8;--text2:#B0BECE;--muted:#5A7090;--dim:#243348;
+  --text:#E8EFF8;--text2:#CBD5E1;--muted:#94A3B8;--dim:#243348;
   --suminregio:#E6A800;--suminregio-dim:rgba(230,168,0,.15);--accent:var(--suminregio);
 }
 html[data-theme=light]{
@@ -1055,12 +1055,12 @@ const tipoQ = () => currentTipo ? `&tipo=${currentTipo}` : '';
 const chartDefaults = () => ({
   responsive:true, maintainAspectRatio:false,
   interaction:{ mode:'index', intersect:false },
-  plugins:{ legend:{ display:true, labels:{ color:'#B0BECE', font:{size:10}, boxWidth:10 } },
+  plugins:{ legend:{ display:true, labels:{ color:'#CBD5E1', font:{size:10}, boxWidth:10 } },
     tooltip:{ mode:'index', intersect:false, backgroundColor:'#0D1D35', borderColor:'rgba(255,255,255,.1)', borderWidth:1,
       callbacks:{ label: ctx => ' '+ctx.dataset.label+': '+fmt(ctx.raw) } } },
   scales:{
-    x:{ grid:{color:'rgba(255,255,255,.04)'}, ticks:{color:'#5A7090',font:{size:9}} },
-    y:{ grid:{color:'rgba(255,255,255,.04)'}, ticks:{color:'#5A7090',font:{size:9},callback:v=>fmtK(v)} }
+    x:{ grid:{color:'rgba(255,255,255,.04)'}, ticks:{color:'#94A3B8',font:{size:9}} },
+    y:{ grid:{color:'rgba(255,255,255,.04)'}, ticks:{color:'#94A3B8',font:{size:9},callback:v=>fmtK(v)} }
   }
 });
 
@@ -1414,7 +1414,7 @@ async function loadVendedores() {
         <div class="vendor-split" style="display:flex;gap:10px;font-size:.62rem;margin-top:3px;flex-wrap:wrap">
           <span style="color:var(--blue)">VE: ${fmtK(ve)}</span>
           <span style="color:var(--purple)">PV: ${fmtK(pv)}</span>
-          ${docs > 0 ? `<span style="color:var(--muted)">${docs} docs</span>` : ''}
+          ${docs > 0 ? `<span style="color:var(--text2)">${docs} docs</span>` : ''}
         </div>
       </div>`;
     }).join('')}</div>` : '<div class="ms-empty" role="status">Sin datos para este filtro o periodo.</div>';
@@ -1694,7 +1694,7 @@ async function loadRecientes() {
       const src = r.TIPO_SRC==='PV'?'<span class="tipo-badge tipo-pv">PV</span>':'<span class="tipo-badge tipo-ve">VE</span>';
       const tipo = r.TIPO_DOCTO==='F'?'<span class="tag ok">Factura</span>':'<span class="tag warn">Venta</span>';
       const fecha = r.FECHA ? new Date(r.FECHA).toLocaleDateString('es-MX') : '?';
-      return `<tr><td class="lbl" style="font-family:'DM Mono',monospace">${r.FOLIO||'?'}</td><td>${tipo}</td><td>${src}</td><td>${r.CLIENTE||'?'}</td><td style="color:var(--muted)">${r.VENDEDOR||'?'}</td><td class="num">${fmt(r.TOTAL!=null?r.TOTAL:r.IMPORTE_NETO)}</td><td style="color:var(--muted);font-family:'DM Mono',monospace;font-size:.72rem">${fecha}</td></tr>`;
+      return `<tr><td class="lbl" style="font-family:'DM Mono',monospace">${r.FOLIO||'?'}</td><td>${tipo}</td><td>${src}</td><td>${r.CLIENTE||'?'}</td><td style="color:var(--text2)">${r.VENDEDOR||'?'}</td><td class="num">${fmt(r.TOTAL!=null?r.TOTAL:r.IMPORTE_NETO)}</td><td style="color:var(--text2);font-family:'DM Mono',monospace;font-size:.72rem">${fecha}</td></tr>`;
     }).join('') || '<tr><td colspan="7" class="ms-empty" style="border:none">Sin datos</td></tr>';
     setText('rec-badge', `${rows.length} documentos`);
   } catch(e){}

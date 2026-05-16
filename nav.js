@@ -153,7 +153,7 @@
   --yellow-dim:var(--amber-dim);
   --text:#EDF4FF;
   --text2:#93B4CC;
-  --muted:#4D6E8A;
+  --muted:#94A3B8;
   --dim:#1A2F44;
 }
 

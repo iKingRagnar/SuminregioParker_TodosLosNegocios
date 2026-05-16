@@ -502,6 +502,7 @@
       const resp = await fetch(API + '/api/ai/chat-v3', {
         method : 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body   : JSON.stringify(body),
         signal : AbortSignal.timeout(90000),
       });
@@ -564,6 +565,7 @@
     try {
       const _db = currentDb();
       const resp = await fetch(API + '/api/alerts/check' + (_db ? '?db=' + encodeURIComponent(_db) : ''), {
+        credentials: 'include',
         signal: AbortSignal.timeout(45000),
       });
       const data = await resp.json();
@@ -622,7 +624,7 @@
 
       // Usar alertsCache si ya fue cargado
       const _db2 = currentDb();
-      const data = alertsCache || await fetch(API + '/api/alerts/check' + (_db2 ? '?db=' + encodeURIComponent(_db2) : ''), { signal: AbortSignal.timeout(30000) })
+      const data = alertsCache || await fetch(API + '/api/alerts/check' + (_db2 ? '?db=' + encodeURIComponent(_db2) : ''), { credentials: 'include', signal: AbortSignal.timeout(30000) })
         .then(r => r.json());
       const { ventas, cxc, pnl, metas } = data.kpis || {};
       const v = ventas || {}; const c = cxc || {}; const p = pnl?.totales || {};
@@ -674,6 +676,7 @@
       const resp = await fetch(API + '/api/alerts/send', {
         method : 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body   : JSON.stringify({ channels, db: currentDb() || undefined, captureScreenshots: true }),
         signal : AbortSignal.timeout(90000),
       });
@@ -781,7 +784,7 @@
     const qs = _dbq ? `?db=${encodeURIComponent(_dbq)}` : '';
     try {
       if (isVentas) {
-        const resp = await fetch(API + '/api/ventas/resumen' + qs, { signal: AbortSignal.timeout(20000) });
+        const resp = await fetch(API + '/api/ventas/resumen' + qs, { credentials: 'include', signal: AbortSignal.timeout(20000) });
         const data = await resp.json().catch(() => ({}));
         if (resp.ok && data) {
           const hoy = Number(data.TOTAL_HOY || data.VENTA_HOY || 0);
@@ -791,7 +794,7 @@
         }
       }
       if (isCxc) {
-        const resp = await fetch(API + '/api/cxc/resumen-aging' + qs, { signal: AbortSignal.timeout(20000) });
+        const resp = await fetch(API + '/api/cxc/resumen-aging' + qs, { credentials: 'include', signal: AbortSignal.timeout(20000) });
         const snap = await resp.json().catch(() => ({}));
         if (resp.ok && snap && (snap.resumen || snap.SALDO_TOTAL != null)) {
           let data = snap.resumen && typeof snap.resumen === 'object' ? { ...snap.resumen } : { ...snap };
@@ -818,7 +821,7 @@
         }
       }
       if (isResultados) {
-        const resp = await fetch(API + '/api/resultados/pnl' + qs, { signal: AbortSignal.timeout(25000) });
+        const resp = await fetch(API + '/api/resultados/pnl' + qs, { credentials: 'include', signal: AbortSignal.timeout(25000) });
         const data = await resp.json().catch(() => ({}));
         const ttot = (data && data.totales) || {};
         if (resp.ok && Object.keys(ttot).length) {
@@ -890,7 +893,7 @@
         showQuickActions();
         // Verificar estado de alertas en background
         const _dbBg1 = currentDb();
-        fetch(API + '/api/alerts/check' + (_dbBg1 ? '?db=' + encodeURIComponent(_dbBg1) : ''), { signal: AbortSignal.timeout(30000) })
+        fetch(API + '/api/alerts/check' + (_dbBg1 ? '?db=' + encodeURIComponent(_dbBg1) : ''), { credentials: 'include', signal: AbortSignal.timeout(30000) })
           .then(r => r.json())
           .then(data => {
             alertsCache = data;
@@ -920,7 +923,7 @@
       else {
         addMessage('ai', '🔄 Actualizando datos en tiempo real…');
         const _dbBg2 = currentDb();
-        fetch(API + '/api/alerts/check' + (_dbBg2 ? '?db=' + encodeURIComponent(_dbBg2) : ''), { signal: AbortSignal.timeout(30000) })
+        fetch(API + '/api/alerts/check' + (_dbBg2 ? '?db=' + encodeURIComponent(_dbBg2) : ''), { credentials: 'include', signal: AbortSignal.timeout(30000) })
           .then(r => r.json())
           .then(data => {
             alertsCache = data;
