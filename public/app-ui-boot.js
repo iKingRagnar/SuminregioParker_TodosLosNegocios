@@ -1895,8 +1895,22 @@
     setTimeout(patchRefreshStatus, 1500);
   }
 
+  function forceWhiteCards() {
+    var de = document.documentElement;
+    if (de.getAttribute('data-theme') !== 'light' && !de.classList.contains('theme-premium-light')) return;
+    var sel = '.kpi-card,.kpi,.card,.sc-card,.aging-bkt,.intel-bar,.exec-score-wrap,.insight-box,.pl-sc-card,.pl-mini-wrap,.module-card,.uni-entity-card,.biz-card,.kpi-block,.ranking-card,.events-wrap,.bg-kpi,.bg-box,.bg-viz-card,.bg-classic,.bg-ratio,.live-preview,.ccard,.tcard';
+    document.querySelectorAll(sel).forEach(function(el) {
+      el.style.setProperty('background','#ffffff','important');
+      el.style.setProperty('backdrop-filter','none','important');
+      el.style.setProperty('-webkit-backdrop-filter','none','important');
+    });
+  }
+
   function bootAll() {
     bootApiCache();       // ← PRIMERO: intercepta fetch antes de que las páginas carguen datos
+    forceWhiteCards();
+    setTimeout(forceWhiteCards, 600);
+    setTimeout(forceWhiteCards, 2000);
     bootDesignUpgrade();
     bootTiltEffect();
     bootAiMotion();

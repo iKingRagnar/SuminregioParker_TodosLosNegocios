@@ -366,9 +366,16 @@ function install(app, { duckSnaps, log }) {
         return await callLocal('GET', `/api/inv/resumen${dbq}`);
       case 'get_top_vendedores': {
         const mes = input.mes ? `&mes=${encodeURIComponent(input.mes)}` : '';
-        const r = await callLocal('GET', `/api/bi/comisiones${dbq}${mes}`);
-        if (r && r.vendedores) r.vendedores = r.vendedores.slice(0, input.top || 10);
-        return r;
+        const r = await callLocal('GET', `/api/director/vendedores${dbq}${mes}`);
+        // Normalizar respuesta: puede venir como array o como {vendedores:[...]}
+        const lista = Array.isArray(r) ? r : (r && r.vendedores ? r.vendedores : (r && r.data ? r.data : []));
+        const top = (lista).slice(0, input.top || 10).map(v => ({
+          vendedor: v.VENDEDOR || v.NOMBRE || v.nombre || v.vendedor,
+          venta_mes: v.TOTAL_VENTAS || v.VENTA_MES || v.venta_mes || 0,
+          cotizaciones: v.COTIZACIONES || v.NUM_COTI || 0,
+          clientes: v.CLIENTES || v.NUM_CLIENTES || 0,
+        }));
+        return { ok: true, vendedores: top, total: lista.length };
       }
       case 'get_clientes_riesgo': {
         const r = await callLocal('GET', `/api/churn/summary${dbq}`);
