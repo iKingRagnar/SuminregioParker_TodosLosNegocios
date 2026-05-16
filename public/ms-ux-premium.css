@@ -4,6 +4,45 @@
  * Scroll-snapping · Scrollbars custom · Tokens animables · Spring hover
  */
 
+/* ── LIGHT MODE: glass variables → blanco sólido ── */
+html[data-theme="light"],
+html.theme-premium-light {
+  --ms-glass-card:  #ffffff;
+  --ms-glass-hover: #f8fafc;
+  --ms-glass-dark:  #ffffff;
+  --ms-glass-light: #ffffff;
+}
+
+/* ── LIGHT MODE: quitar backdrop-filter de todas las tarjetas ── */
+html[data-theme="light"] .kpi-card,
+html[data-theme="light"] .kpi,
+html[data-theme="light"] .card,
+html[data-theme="light"] .sc-card,
+html[data-theme="light"] .module-card,
+html[data-theme="light"] .uni-entity-card,
+html[data-theme="light"] .aging-bkt,
+html[data-theme="light"] .intel-bar,
+html[data-theme="light"] .exec-score-wrap,
+html[data-theme="light"] .insight-box,
+html[data-theme="light"] .pl-sc-card,
+html[data-theme="light"] .pl-mini-wrap,
+html.theme-premium-light .kpi-card,
+html.theme-premium-light .kpi,
+html.theme-premium-light .card,
+html.theme-premium-light .sc-card,
+html.theme-premium-light .module-card,
+html.theme-premium-light .uni-entity-card,
+html.theme-premium-light .aging-bkt,
+html.theme-premium-light .intel-bar,
+html.theme-premium-light .exec-score-wrap,
+html.theme-premium-light .insight-box,
+html.theme-premium-light .pl-sc-card,
+html.theme-premium-light .pl-mini-wrap {
+  background: #ffffff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 /* ════════════════════════════════════════════════════════════
    TOKENS Y CUSTOM PROPERTIES ANIMABLES
    ════════════════════════════════════════════════════════════ */
@@ -39,7 +78,7 @@
   --ms-rad-lg:  clamp(18px, 2.5vw, 28px);
   --ms-rad-xl:  clamp(22px, 3vw, 36px);
 
-  /* Glass backgrounds */
+  /* Glass backgrounds — dark mode */
   --ms-glass-dark:  rgba(10, 18, 32, 0.65);
   --ms-glass-card:  rgba(15, 25, 45, 0.55);
   --ms-glass-hover: rgba(20, 35, 60, 0.72);
