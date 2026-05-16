@@ -265,7 +265,7 @@ nav#main-nav::-webkit-scrollbar { display:none; }
 html[data-theme="light"]{
   --bg:#f0f5fa;--s1:#ffffff;--s2:#e8eef6;--s3:#dce6f0;--s4:#cfd9e8;
   --border:rgba(15,23,42,.08);--border2:rgba(15,23,42,.12);
-  --text:#0f172a;--text2:#334155;--muted:#64748b;--dim:#e2e8f0;
+  --text:#0f172a;--text2:#334155;--muted:#4b5563;--dim:#e2e8f0;
 }
 /* CxC (body.ms-page-cxc): no aplastar KPI/tablas � la p�gina trae su propio tema + app-ui cxc */
 html[data-theme="light"] body:not(.ms-page-cxc){background:var(--bg)!important;color:var(--text)!important}
@@ -276,7 +276,7 @@ html[data-theme="light"] body:not(.ms-page-cxc) header#app-header{
 }
 html[data-theme="light"] body:not(.ms-page-cxc) .logo-mark{color:#0f172a;filter:none}
 html[data-theme="light"] body:not(.ms-page-cxc) nav#main-nav{background:rgba(15,23,42,.04);border-color:rgba(15,23,42,.08)}
-html[data-theme="light"] body:not(.ms-page-cxc) .nav-link{color:var(--muted)}
+html[data-theme="light"] body:not(.ms-page-cxc) .nav-link{color:#374151}
 html[data-theme="light"] body:not(.ms-page-cxc) .nav-link:hover{color:var(--text2);background:rgba(15,23,42,.06)}
 html[data-theme="light"] body:not(.ms-page-cxc) .nav-link.active{
   color:#9a3412;
@@ -285,7 +285,7 @@ html[data-theme="light"] body:not(.ms-page-cxc) .nav-link.active{
   box-shadow:0 2px 10px rgba(251,191,36,.2);
 }
 html[data-theme="light"] body:not(.ms-page-cxc) .live-pill{background:rgba(30,127,217,.1);border-color:rgba(30,127,217,.25);color:var(--blue)}
-html[data-theme="light"] body:not(.ms-page-cxc) .clock{color:var(--muted);background:rgba(15,23,42,.04);border-color:rgba(15,23,42,.08)}
+html[data-theme="light"] body:not(.ms-page-cxc) .clock{color:#374151;background:rgba(15,23,42,.04);border-color:rgba(15,23,42,.08)}
 html[data-theme="light"] body:not(.ms-page-cxc) .nav-aux-wrap{border-left-color:rgba(15,23,42,.1)}
 html[data-theme="light"] body:not(.ms-page-cxc) .orb{opacity:.06!important}
 html[data-theme="light"] body:not(.ms-page-cxc) .nav-aux-btn{background:rgba(15,23,42,.04);color:var(--text2);border-color:rgba(15,23,42,.1)}
@@ -308,6 +308,12 @@ html[data-theme="light"] body:not(.ms-page-cxc) :where(.tbl td,table tbody td,.k
 }
 html[data-theme="light"] body:not(.ms-page-cxc) :where(.ins-sub,.ins-pill .h,.aging-sub,.meta-pct,.clock,.live-pill){
   color:#475569!important;
+}
+/* Garantizar contraste WCAG AA: cualquier elemento con clase .muted en light mode */
+html[data-theme="light"] body:not(.ms-page-cxc) .muted{color:#4b5563!important}
+/* Textos que usan var(--muted) inline: section-title, pedido-label, uuid, loading, kpi-sub extra */
+html[data-theme="light"] body:not(.ms-page-cxc) :where(.section-title,.pedido-label,.uuid,.loading,.kpi-sub,.hero-sub,.page-sub,.card-note,.nav-link:not(.active)){
+  color:#374151!important;
 }
 html[data-theme="light"] body:not(.ms-page-cxc) :where(.card,.kpi,.kpi-card,.module-card,.bg-box,.bg-kpi,.filter-bar){
   box-shadow:0 2px 14px rgba(15,23,42,.08)!important;

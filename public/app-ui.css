@@ -307,7 +307,7 @@ html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) .kpi-lbl,
 html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) .hero-eyebrow,
 html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) .hero-sub,
 html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) .kpi-sub {
-  color: #475569 !important;
+  color: #111827 !important;
 }
 html.theme-premium-light[data-theme="light"] body:not(.ms-page-cxc) .kpi.green .kpi-val {
   color: #15803d !important;
@@ -348,7 +348,7 @@ html[data-theme="light"] .c4 .aging-val { color: #7f1d1d !important; }
 /* Aging labels / captions */
 html[data-theme="light"] .aging-lbl,
 html[data-theme="light"] .aging-cap {
-  color: #475569 !important;
+  color: #111827 !important;
 }
 
 /* Valores de KPI que usan var(--grn)/var(--ylw)/var(--red) como color inline */
@@ -375,7 +375,7 @@ html[data-theme="light"] table td[style*="color: var(--ylw)"] {
 }
 html[data-theme="light"] table td[style*="color:var(--muted)"],
 html[data-theme="light"] table td[style*="color: var(--muted)"] {
-  color: #64748b !important;
+  color: #111827 !important;
 }
 html[data-theme="light"] table td[style*="color:var(--text2)"],
 html[data-theme="light"] table td[style*="color: var(--text2)"] {
@@ -413,7 +413,7 @@ html[data-theme="light"] .scorecard-title {
 }
 html[data-theme="light"] .sc-table th {
   background: #f1f5f9 !important;
-  color: #475569 !important;
+  color: #111827 !important;
 }
 html[data-theme="light"] .sc-table td {
   border-bottom-color: rgba(15, 23, 42, 0.06) !important;
@@ -425,23 +425,23 @@ html[data-theme="light"] .sc-kpi-name {
   color: #0f172a !important;
 }
 html[data-theme="light"] .sc-kpi-area {
-  color: #64748b !important;
+  color: #111827 !important;
 }
 html[data-theme="light"] .sc-val {
   color: #0f172a !important;
 }
 html[data-theme="light"] .sc-meta {
-  color: #64748b !important;
+  color: #111827 !important;
 }
 html[data-theme="light"] .sc-bar-bg {
   background: #e2e8f0 !important;
 }
 html[data-theme="light"] .sc-pct {
-  color: #64748b !important;
+  color: #111827 !important;
 }
 html[data-theme="light"] .delta-up { color: #166534 !important; }
 html[data-theme="light"] .delta-down { color: #b91c1c !important; }
-html[data-theme="light"] .delta-flat { color: #64748b !important; }
+html[data-theme="light"] .delta-flat { color: #111827 !important; }
 
 /* Panel universo de negocios */
 html[data-theme="light"] .uni-portfolio {
@@ -456,14 +456,14 @@ html[data-theme="light"] .uni-title {
   color: #0f172a !important;
 }
 html[data-theme="light"] .uni-subtitle {
-  color: #475569 !important;
+  color: #111827 !important;
 }
 html[data-theme="light"] .uni-sum-pill {
   background: rgba(15, 23, 42, 0.04) !important;
   border-color: rgba(15, 23, 42, 0.1) !important;
 }
 html[data-theme="light"] .uni-sum-pill .u-l {
-  color: #64748b !important;
+  color: #111827 !important;
 }
 html[data-theme="light"] .uni-sum-pill .u-v {
   color: #0f172a !important;
@@ -483,7 +483,7 @@ html[data-theme="light"] .uni-detail-title {
 }
 html[data-theme="light"] .uni-table th {
   background: #f8fafc !important;
-  color: #475569 !important;
+  color: #111827 !important;
   border-bottom-color: rgba(15, 23, 42, 0.08) !important;
 }
 html[data-theme="light"] .uni-table td {
@@ -493,10 +493,10 @@ html[data-theme="light"] .uni-table .t-name {
   color: #0f172a !important;
 }
 html[data-theme="light"] .uni-table .t-id {
-  color: #64748b !important;
+  color: #111827 !important;
 }
 html[data-theme="light"] .uni-foot {
-  color: #64748b !important;
+  color: #111827 !important;
   border-top-color: rgba(15, 23, 42, 0.08) !important;
 }
 
@@ -509,16 +509,16 @@ html[data-theme="light"] .mod-name {
   color: #0f172a !important;
 }
 html[data-theme="light"] .mod-desc {
-  color: #475569 !important;
+  color: #111827 !important;
 }
 html[data-theme="light"] .mod-kpi-label {
-  color: #64748b !important;
+  color: #111827 !important;
 }
 html[data-theme="light"] .mod-footer {
   border-top-color: rgba(15, 23, 42, 0.08) !important;
 }
 html[data-theme="light"] .mod-status {
-  color: #64748b !important;
+  color: #111827 !important;
 }
 
 /* KPI mega grid (index) */
@@ -527,16 +527,16 @@ html[data-theme="light"] .kpi-card {
   border-color: rgba(15, 23, 42, 0.1) !important;
 }
 html[data-theme="light"] body:not(.ms-page-cxc) .kpi-label {
-  color: #475569 !important;
+  color: #111827 !important;
 }
 html[data-theme="light"] body:not(.ms-page-cxc) .kpi-sub {
-  color: #64748b !important;
+  color: #111827 !important;
 }
 html[data-theme="light"] .meta-bar-bg {
   background: #e2e8f0 !important;
 }
 html[data-theme="light"] .meta-pct {
-  color: #64748b !important;
+  color: #111827 !important;
 }
 html[data-theme="light"] .kpi-card.green .kpi-value  { color: #166534 !important; }
 html[data-theme="light"] .kpi-card.blue .kpi-value   { color: #1d4ed8 !important; }
@@ -555,7 +555,7 @@ html[data-theme="light"] .hero-title {
   color: #0f172a !important;
 }
 html[data-theme="light"] .hero-sub {
-  color: #475569 !important;
+  color: #111827 !important;
 }
 html[data-theme="light"] .hero-data-hint {
   background: rgba(180, 83, 9, 0.07) !important;
@@ -563,7 +563,7 @@ html[data-theme="light"] .hero-data-hint {
   color: #92400e !important;
 }
 html[data-theme="light"] .section-divider-label {
-  color: #64748b !important;
+  color: #111827 !important;
 }
 html[data-theme="light"] .section-divider-line {
   background: rgba(15, 23, 42, 0.1) !important;
@@ -604,7 +604,7 @@ html.theme-premium-light[data-theme="light"] .cxc-hero h1 {
   text-shadow: none !important;
 }
 html.theme-premium-light[data-theme="light"] .cxc-hero p {
-  color: #475569 !important;
+  color: #111827 !important;
   font-size: 0.95rem !important;
   line-height: 1.55 !important;
 }
@@ -643,7 +643,7 @@ html.theme-premium-light[data-theme="light"] .client-filter-bar {
   box-shadow: 0 4px 22px rgba(15, 23, 42, 0.07) !important;
 }
 html.theme-premium-light[data-theme="light"] .client-filter-bar .filter-label {
-  color: #64748b !important;
+  color: #111827 !important;
 }
 /* Select cliente (#fCliente): lista nativa legible en Windows/Chrome */
 html.theme-premium-light[data-theme="light"] .client-filter-bar select,
@@ -697,7 +697,7 @@ html.theme-premium-light[data-theme="light"] main .tabs {
   box-shadow: 0 2px 12px rgba(15, 23, 42, 0.05) !important;
 }
 html.theme-premium-light[data-theme="light"] main .tab {
-  color: #475569 !important;
+  color: #111827 !important;
   border-radius: 8px !important;
   padding: 8px 20px !important;
   transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease !important;
@@ -732,7 +732,7 @@ html.theme-premium-light[data-theme="light"] main tbody td {
   color: #334155 !important;
 }
 html.theme-premium-light[data-theme="light"] main .card-note {
-  color: #64748b !important;
+  color: #111827 !important;
 }
 html.theme-premium-light[data-theme="light"] main .card-title {
   color: #92400e !important;
@@ -744,19 +744,19 @@ html.theme-premium-light[data-theme="light"] .cxc-kpi-storytitle {
 }
 html.theme-premium-light[data-theme="light"] .cxc-kpi-lead,
 html.theme-premium-light[data-theme="light"] .cxc-kpi-eyebrow {
-  color: #64748b !important;
+  color: #111827 !important;
 }
 html.theme-premium-light[data-theme="light"] .cxc-kpi-lead strong {
   color: #334155 !important;
 }
 html.theme-premium-light[data-theme="light"] .kpi-narrative {
-  color: #475569 !important;
+  color: #111827 !important;
 }
 html.theme-premium-light[data-theme="light"] .kpi-narrative strong {
   color: #0f172a !important;
 }
 html.theme-premium-light[data-theme="light"] .kpi-step-label {
-  color: #64748b !important;
+  color: #111827 !important;
 }
 html.theme-premium-light[data-theme="light"] .kpi-step-num {
   background: linear-gradient(145deg, rgba(251, 191, 36, 0.35), #fff) !important;
@@ -786,10 +786,10 @@ html.theme-premium-light[data-theme="light"] .kpi-share-track {
   background: #e2e8f0 !important;
 }
 html.theme-premium-light[data-theme="light"] .kpi-share-cap {
-  color: #64748b !important;
+  color: #111827 !important;
 }
 html[data-theme="light"] .kpi-composition-legend {
-  color: #64748b !important;
+  color: #111827 !important;
 }
 
 /* KPI vencido CxC: refuerzo de color sobre anillos semánticos */
@@ -810,7 +810,7 @@ html.theme-premium-light[data-theme="light"] .module-card.orange .mod-status {
 /* Textos secundarios más legibles en tema claro */
 html.theme-premium-light[data-theme="light"] .hero-sub,
 html.theme-premium-light[data-theme="light"] .page-header p {
-  color: #475569 !important;
+  color: #111827 !important;
 }
 
 /*
@@ -841,7 +841,7 @@ main .ms-reveal.ms-inview,
   --ms-surface-soft: #f8fafd;
   --ms-border: #dbe4ef;
   --ms-text: #0f172a;
-  --ms-text-soft: #475569;
+  --ms-text-soft: #111827;
   --ms-brand: #b45309;
   --ms-brand-soft: #fff4e8;
   --ms-shadow-sm: 0 2px 10px rgba(15, 23, 42, 0.06);
@@ -881,7 +881,7 @@ html[data-theme="light"] body #app-header #main-nav {
 }
 html.theme-premium-light body #app-header .nav-link,
 html[data-theme="light"] body #app-header .nav-link {
-  color: #475569 !important;
+  color: #111827 !important;
   border-radius: 10px !important;
   font-size: 0.72rem !important;
   font-weight: 700 !important;
@@ -908,7 +908,7 @@ html.theme-premium-light body #app-header .header-right .clock,
 html[data-theme="light"] body #app-header .header-right .clock {
   background: #f8fafc !important;
   border-color: var(--ms-border) !important;
-  color: #475569 !important;
+  color: #111827 !important;
 }
 
 /* Layout + hero */
@@ -967,7 +967,7 @@ html[data-theme="light"] :where(.card-head, .scorecard-head, .uni-detail-head) {
 }
 html.theme-premium-light :where(.kpi-label, .kpi-lbl, .mod-kpi-label, .sc-kpi-area, .card-badge),
 html[data-theme="light"] :where(.kpi-label, .kpi-lbl, .mod-kpi-label, .sc-kpi-area, .card-badge) {
-  color: #64748b !important;
+  color: #111827 !important;
   font-size: 0.62rem !important;
   letter-spacing: 0.07em !important;
 }
@@ -989,7 +989,7 @@ html[data-theme="light"] :where(.tbl, .sc-table, .uni-table, .risk-table) {
 html.theme-premium-light :where(.tbl th, .sc-table th, .uni-table th, .risk-table th),
 html[data-theme="light"] :where(.tbl th, .sc-table th, .uni-table th, .risk-table th) {
   background: #f8fafc !important;
-  color: #475569 !important;
+  color: #111827 !important;
   border-bottom: 1px solid var(--ms-border) !important;
 }
 html.theme-premium-light :where(.tbl td, .sc-table td, .uni-table td, .risk-table td),
@@ -1007,7 +1007,7 @@ html.theme-premium-light :where(.main-tabs .main-tab),
 html[data-theme="light"] :where(.main-tabs .main-tab) {
   background: #fff !important;
   border: 1px solid var(--ms-border) !important;
-  color: #475569 !important;
+  color: #111827 !important;
   font-weight: 700 !important;
 }
 html.theme-premium-light :where(.main-tabs .main-tab.active-red, .main-tabs .main-tab.active-yellow, .main-tabs .main-tab.active-orange),
@@ -1076,7 +1076,7 @@ html[data-theme="light"] :where(table.ms-table-glass thead th) {
   top: 0 !important;
   z-index: 2 !important;
   background: linear-gradient(180deg, #f7fafe 0%, #f2f7fc 100%) !important;
-  color: #475569 !important;
+  color: #111827 !important;
   border-bottom: 1px solid #dbe4ef !important;
   font-size: 0.63rem !important;
   font-weight: 700 !important;
