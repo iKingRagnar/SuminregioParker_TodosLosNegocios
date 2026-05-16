@@ -1959,7 +1959,7 @@ function renderVendedores(vends){
     const avatarStyle=rankCls?`class="vend-avatar ${rankCls}"`:`class="vend-avatar" style="color:${col}"`;
     html+=`<div class="vendedor-row">
       <div ${avatarStyle}>${i<3?(i+1):inicial}</div>
-      <div class="vend-name" title="${nombre}">${nombre}</div>
+      <div class="vend-name" title="${nombre}" style="color:#111827">${nombre}</div>
       <div class="vend-bar-wrap"><div class="vend-bar-bg"><div class="vend-bar-fill" style="width:${p}%;background:${col}"></div></div></div>
       <div class="vend-pct" style="color:${col}">${fmtM(venta)}</div>
     </div>`;
@@ -1987,7 +1987,7 @@ function renderAlertas({ventaHoy,metaDia,cxcVenc,cxcTotal,pVenc,invBajo,invCero}
   const activas=alerts.filter(a=>a.t!=='ok').length;
   setEl('alertCount',activas+' alerta'+(activas!==1?'s':''));
   document.getElementById('alertsList').innerHTML=alerts.map(a=>
-    `<div class="alert-item ${a.t}"><div class="alert-dot"></div><div class="alert-text">${a.msg}</div><div class="alert-time">${a.src}</div></div>`
+    `<div class="alert-item ${a.t}"><div class="alert-dot"></div><div class="alert-text" style="color:#111827">${a.msg}</div><div class="alert-time">${a.src}</div></div>`
   ).join('');
 }
 

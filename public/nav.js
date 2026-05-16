@@ -322,9 +322,9 @@
       'border-radius:9px;display:grid;place-items:center;flex-shrink:0;',
       'box-shadow:0 0 18px rgba(230,168,0,.28);}',
       '.nav-logo-icon svg{width:20px;height:20px;fill:white;}',
-      '.nav-logo-txt{font-size:.9rem;font-weight:800;color:#F0F6FF;}',
+      '.nav-logo-txt{font-size:.9rem;font-weight:800;color:#FFFFFF;}',
       '.nav-logo-sub{font-size:.57rem;font-family:"DM Mono",monospace;',
-      'color:rgba(240,246,255,.75);letter-spacing:.12em;text-transform:uppercase;}',
+      'color:#FFFFFF;letter-spacing:.12em;text-transform:uppercase;}',
 
       '#app-header nav{display:flex;align-items:center;gap:.12rem;flex-wrap:wrap;}',
 
