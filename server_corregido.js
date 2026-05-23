@@ -2246,6 +2246,7 @@ const ROUTE_TTL_MAP = {
   // CXC
   "/api/cxc/resumen": 120000,
   "/api/cxc/resumen-aging": 120000,
+  "/api/cxc/cobrado-relativo": 300000,
   "/api/cxc/top-deudores": 120000,
   "/api/cxc/por-condicion": 120000,
   "/api/cxc/vencidas": 90000,
@@ -4434,12 +4435,24 @@ get('/api/ventas/cobradas-detalle', async (req) => {
 
 // Margen por renglón: DOCTOS_VE_DET / DOCTOS_PV_DET (venta sin campo importe: PRECIO_T o UNIDADES×PRECIO_U).
 get('/api/ventas/margen-lineas', async (req) => {
-  const dbo = getReqDbOpts(req);
   if (!req.query.desde && !req.query.hasta && !req.query.anio) {
     const now = new Date();
     req.query.anio = now.getFullYear();
     req.query.mes = now.getMonth() + 1;
   }
+
+  // Soporte db=__all__: ejecutar por cada base y combinar resultados
+  if (isAllDbs(req)) {
+    const allRows = await runForAllDbs(async (dboEntry) => {
+      return margenLineasForDb(req, dboEntry);
+    });
+    return allRows;
+  }
+
+  return margenLineasForDb(req, getReqDbOpts(req));
+});
+
+async function margenLineasForDb(req, dbo) {
   const f = buildFiltros(req, 'd');
   const tipo = getTipo(req);
   const limit = Math.min(parseInt(req.query.limit, 10) || 3000, 12000);
@@ -4588,7 +4601,7 @@ get('/api/ventas/margen-lineas', async (req) => {
     }
     return [];
   }
-});
+}
 
 // Facturas del periodo de ventas con cobro acumulado en periodo de cobros (misma query string de filtro).
 get('/api/ventas/cobradas-por-factura', async (req) => {
@@ -5631,6 +5644,106 @@ get('/api/cxc/resumen-aging', async (req) => {
     cxcResumenAgingSnapCache.set(cacheKey, { expireAt: Date.now() + ttlMs, payload });
   }
   return payload;
+});
+
+// Cobrado Relativo: de los documentos con saldo activo, ¿qué % ya fue cobrado via remisiones?
+// Estrategia: batch por documento (no GROUP BY WAN). Reutiliza cxcDocSaldosInnerSQL para
+// obtener CARGO y SALDO_NETO por doc; COBRADO = CARGO - SALDO_NETO. Cache TTL 5 min.
+get('/api/cxc/cobrado-relativo', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const ms = 90000;
+  const cf = req.query.cliente ? parseInt(req.query.cliente, 10) : null;
+  const cfSql = cf ? ` AND cd.CLIENTE_ID = ${cf}` : '';
+  const cobroAplicado = cxcCobroRRequiereAplicado() ? CXC_COBRO_R_APLICADO_SQL : '';
+
+  // Query única: por cada documento con saldo > 0, obtenemos cargo total y saldo neto.
+  // COBRADO = CARGO - SALDO_NETO (lo que ya se aplicó via remisiones).
+  // Usamos la misma lógica de cxcDocSaldosInnerSQL pero exponiendo también el CARGO.
+  const sql = `
+    SELECT
+      d.DOCTO_CC_ID,
+      d.CLIENTE_ID,
+      c.NOMBRE AS CLIENTE_NOMBRE,
+      CAST(COALESCE((
+        SELECT SUM(ic.IMPORTE) FROM IMPORTES_DOCTOS_CC ic
+        WHERE ic.DOCTO_CC_ID = d.DOCTO_CC_ID
+          AND ic.TIPO_IMPTE = 'C'
+          AND COALESCE(ic.CANCELADO, 'N') = 'N'
+      ), 0) AS DECIMAL(18,2)) AS CARGO,
+      CAST(COALESCE((
+        SELECT SUM(ic.IMPORTE) FROM IMPORTES_DOCTOS_CC ic
+        WHERE ic.DOCTO_CC_ID = d.DOCTO_CC_ID
+          AND ic.TIPO_IMPTE = 'C'
+          AND COALESCE(ic.CANCELADO, 'N') = 'N'
+      ), 0) - COALESCE((
+        SELECT SUM(${CXC_RECIBO_BASE_EXPR})
+        FROM IMPORTES_DOCTOS_CC i2
+        WHERE i2.TIPO_IMPTE = 'R'
+          AND COALESCE(i2.CANCELADO, 'N') = 'N'
+          ${cobroAplicado}
+          AND (
+            i2.DOCTO_CC_ACR_ID = d.DOCTO_CC_ID
+            OR (i2.DOCTO_CC_ID = d.DOCTO_CC_ID AND i2.DOCTO_CC_ACR_ID IS NULL)
+          )
+      ), 0) AS DECIMAL(18,2)) AS SALDO_NETO
+    FROM (
+      SELECT cd.DOCTO_CC_ID, cd.CLIENTE_ID
+      FROM ${cxcCargosSQL()} cd
+      WHERE 1=1 ${cfSql}
+      GROUP BY cd.DOCTO_CC_ID, cd.CLIENTE_ID
+    ) d
+    LEFT JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
+  `;
+
+  let rows = [];
+  try {
+    rows = await query(sql, [], ms, dbo);
+  } catch (e) {
+    console.error('[cobrado-relativo] query error:', e && (e.message || e));
+    return { error: e.message, deudaBase: 0, cobrado: 0, deudaNeta: 0, cobradoPct: 0, porCliente: [] };
+  }
+
+  // Filtrar solo docs con saldo > 0 (activos) y agregar en JS (sin GROUP BY WAN)
+  const docsActivos = (rows || []).filter(r => (+r.SALDO_NETO || 0) > 0.005);
+
+  // Agregar por cliente en JS
+  const byCliente = {};
+  let totalCargo = 0, totalSaldo = 0;
+  for (const r of docsActivos) {
+    const cargo = +r.CARGO || 0;
+    const saldo = +r.SALDO_NETO || 0;
+    const cobrado = cargo - saldo;
+    totalCargo += cargo;
+    totalSaldo += saldo;
+    const cid = r.CLIENTE_ID;
+    if (!byCliente[cid]) {
+      byCliente[cid] = { clienteId: cid, nombre: r.CLIENTE_NOMBRE || String(cid), deudaBase: 0, cobrado: 0, deudaNeta: 0 };
+    }
+    byCliente[cid].deudaBase += cargo;
+    byCliente[cid].cobrado   += cobrado;
+    byCliente[cid].deudaNeta += saldo;
+  }
+
+  const totalCobrado = totalCargo - totalSaldo;
+  const cobradoPct = totalCargo > 0.005 ? Math.round(totalCobrado / totalCargo * 10000) / 100 : 0;
+
+  const porCliente = Object.values(byCliente)
+    .map(c => ({
+      ...c,
+      deudaBase:  Math.round(c.deudaBase  * 100) / 100,
+      cobrado:    Math.round(c.cobrado    * 100) / 100,
+      deudaNeta:  Math.round(c.deudaNeta  * 100) / 100,
+      cobradoPct: c.deudaBase > 0.005 ? Math.round(c.cobrado / c.deudaBase * 10000) / 100 : 0,
+    }))
+    .sort((a, b) => b.deudaBase - a.deudaBase);
+
+  return {
+    deudaBase:  Math.round(totalCargo   * 100) / 100,
+    cobrado:    Math.round(totalCobrado * 100) / 100,
+    deudaNeta:  Math.round(totalSaldo   * 100) / 100,
+    cobradoPct,
+    porCliente,
+  };
 });
 
 // Debug: desglosa fuentes de CxC para ver por qué VENCIDO puede caer a 0.
