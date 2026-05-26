@@ -553,6 +553,10 @@ NUNCA:
     if (c.inventario && /invent|stock|exist|artículo|articulo|producto|sku|reorden/i.test(q)) {
       fetches.push(['inventario', callLocal('GET', `/api/inv/resumen${dbq}`)]);
     }
+    // Sin movimiento / baja rotación — admin y gerente
+    if (c.inventario && /rotaci[oó]n|rotan|rotando|sin.mov|baja.rot|lento|lentos|parado|muerto|obsoleto|liquida|no.vend|poco.*mov|menos.*rotac|rotac.*menos|menor.*rotac/i.test(q)) {
+      fetches.push(['sin_movimiento', callLocal('GET', `/api/inv/sin-movimiento${dbq}&limit=30&dias=30`)]);
+    }
     // P&L / márgenes — SOLO admin
     if (c.pnl && /margen|rentab|utilidad|ganancia|p&l|pnl|result|profit|bruto/i.test(q)) {
       fetches.push(['pnl', callLocal('GET', `/api/resultados/pnl${dbq}`)]);
