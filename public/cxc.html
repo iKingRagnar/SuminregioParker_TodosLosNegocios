@@ -144,11 +144,7 @@ main{padding-top:24px;padding-bottom:48px;max-width:1520px;margin:0 auto;
   position:relative;overflow:hidden;
   box-shadow:0 4px 18px rgba(6,14,26,.2)
 }
-.cxc-hero::after{
-  content:'';position:absolute;inset:-40%;background:radial-gradient(ellipse 50% 40% at 70% 20%,rgba(230,168,0,.14),transparent 72%);
-  pointer-events:none;opacity:.85;
-  animation:cxcHeroAura 14s ease-in-out infinite alternate
-}
+.cxc-hero::after{display:none}
 @keyframes cxcHeroAura{
   from{transform:translate(-4%,2%) scale(1);opacity:.65}
   to{transform:translate(4%,-2%) scale(1.05);opacity:.95}
@@ -169,9 +165,9 @@ main{padding-top:24px;padding-bottom:48px;max-width:1520px;margin:0 auto;
 .client-filter-bar select:focus{border-color:var(--accent)}
 .filter-group{display:flex;flex-direction:column;gap:4px}
 .filter-label{font-size:10px;color:var(--txt3);font-weight:700;letter-spacing:.5px}
-.btn{background:var(--accent);color:#050B14;border:none;border-radius:8px;padding:8px 18px;
+.btn{background:var(--s3)!important;color:var(--txt)!important;border:1px solid var(--brd)!important;border-radius:8px;padding:8px 18px;
      font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;transition:.2s}
-.btn:hover{background:var(--acc2);color:#050B14}
+.btn:hover{background:var(--s4)!important;color:var(--txt)!important}
 .btn.btn-on{background:rgba(56,189,248,.14);border:1px solid rgba(56,189,248,.35);color:var(--txt)}
 
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:18px;margin-bottom:26px}
