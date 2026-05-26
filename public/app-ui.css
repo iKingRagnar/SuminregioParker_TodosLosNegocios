@@ -594,9 +594,10 @@ html.theme-premium-light[data-theme="light"] {
   color-scheme: light;
 }
 html.theme-premium-light[data-theme="light"] .cxc-hero {
-  background: linear-gradient(135deg, rgba(251, 191, 36, 0.14), #ffffff 48%, #f8fafc) !important;
+  background: #f8fafc !important;
+  background-image: none !important;
   border: 1px solid rgba(15, 23, 42, 0.08) !important;
-  box-shadow: 0 10px 40px rgba(15, 23, 42, 0.08) !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06) !important;
 }
 html.theme-premium-light[data-theme="light"] .cxc-hero h1 {
   font-family: "Fraunces", "Syne", serif !important;
