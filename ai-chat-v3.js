@@ -620,7 +620,7 @@ NUNCA:
   }
 
   // ─── Llamado principal (con tool loop + caching) ──────────────────────────
-  async function chatWithTools({ sessionId, message, dbId, effort, vision, userRoles, userEmail }) {
+  async function chatWithTools({ sessionId, message, dbId, effort, vision, userRoles, userEmail, clientMessages }) {
     if (!client) throw new Error('Anthropic no configurado (ANTHROPIC_API_KEY faltante)');
 
     // 1. Resolver permisos del usuario
@@ -631,7 +631,11 @@ NUNCA:
     const now = Date.now();
     let sess = loadSession(sessionId);
     if (!sess) {
-      sess = { sessionId, createdAt: now, lastAt: now, messages: [], dbId, usage: {} };
+      // Si el cliente manda historial previo, usarlo como seed de la sesión nueva
+      const seedMsgs = (Array.isArray(clientMessages) && clientMessages.length > 0)
+        ? clientMessages.filter(m => m && m.role && m.content).slice(-20)
+        : [];
+      sess = { sessionId, createdAt: now, lastAt: now, messages: seedMsgs, dbId, usage: {} };
     }
 
     // 3. Pre-fetch datos reales (solo lo que el rol permite)
@@ -844,6 +848,7 @@ NUNCA:
         vision: body.imageBase64 ? { imageBase64: body.imageBase64, mediaType: body.mediaType || 'image/png' } : null,
         userRoles,
         userEmail,
+        clientMessages: Array.isArray(body.messages) ? body.messages : [],
       });
       res.json({ ok: true, ...result });
     } catch (e) {

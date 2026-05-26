@@ -9,6 +9,19 @@
   // ── Config ──────────────────────────────────────────────────────────────────
   const API     = (typeof window !== 'undefined' && window.__API_BASE) ? window.__API_BASE : '';
   const PAGE    = (() => { try { return document.title.split('—')[0].trim() || location.pathname.split('/').pop(); } catch { return ''; } })();
+
+  // SessionId fijo por pestaña: persiste en sessionStorage para mantener contexto
+  const SESSION_ID = (() => {
+    try {
+      var k = 'cw_session_id';
+      var s = sessionStorage.getItem(k);
+      if (s) return s;
+      var id = 'cw-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+      sessionStorage.setItem(k, id);
+      return id;
+    } catch (_) { return 'cw-' + Date.now(); }
+  })();
+
   // DB dinámico: se resuelve en cada sendMessage para respetar el selector de negocio en vivo.
   function currentDb() {
     try {
@@ -486,6 +499,7 @@
       const liveKpis = collectPageKpis();
       const body = {
         message   : text,
+        sessionId : SESSION_ID,
         context   : {
           page: PAGE,
           url: location.pathname,
