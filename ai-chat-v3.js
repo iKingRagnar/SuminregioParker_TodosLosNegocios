@@ -529,37 +529,79 @@ NUNCA:
     const fetches = [];
     const c = caps || ROLE_CAPS.admin;
 
-    // Ventas generales (todos los roles con ventas=true)
-    if (c.ventas && /venta|factur|ingres|mes|hoy|semana|año|meta|cumpl/i.test(q)) {
+    // Briefing / resumen general
+    if (c.ventas && /resumen|panorama|c[oó]mo vamos|qu[eé] tal|d[aá]me un|briefing|general|overview|situaci[oó]n|estado del/i.test(q)) {
+      fetches.push(['director_resumen', callLocal('GET', `/api/director/resumen${dbq}`)]);
+    }
+
+    // Ventas generales
+    if (c.ventas && /venta|factur|ingres|mes|hoy|semana|a[ny]o|meta|cumpl|cu[aá]nto.*llev|llev.*vend/i.test(q)) {
       fetches.push(['ventas_resumen', callLocal('GET', `/api/ventas/resumen${dbq}`)]);
     }
-    // Ranking vendedores — solo admin y gerente
-    if (c.vendedores && /vendedor|quien vende|top.*vend|vend.*top|ranking|mejor.*vend|comis/i.test(q)) {
+
+    // Ventas diarias
+    if (c.ventas && /hoy|ayer|semana|diaria|por d[ií]a/i.test(q)) {
+      fetches.push(['ventas_diarias', callLocal('GET', `/api/ventas/diarias${dbq}&dias=30`)]);
+    }
+
+    // Cumplimiento de metas
+    if (c.ventas && /meta|cumpl|objetivo|target|avance/i.test(q)) {
+      fetches.push(['cumplimiento', callLocal('GET', `/api/ventas/cumplimiento${dbq}`)]);
+    }
+
+    // Top clientes por ventas
+    if (c.clientes && /top.*cli|cli.*top|mejor.*cli|cliente.*m[aá]s|pareto|ranking.*cli|qui[eé]n.*compra/i.test(q)) {
+      fetches.push(['top_clientes', callLocal('GET', `/api/ventas/top-clientes${dbq}&limit=10`)]);
+    }
+
+    // Clientes inactivos / riesgo
+    if (c.clientes && /inactiv|no compra|perdid|riesgo.*cli|churn|fuga/i.test(q)) {
+      fetches.push(['clientes_inactivos', callLocal('GET', `/api/clientes/inactivos${dbq}&dias=90`)]);
+    }
+
+    // Clientes general (sin duplicar)
+    if (c.clientes && /cliente|comprador/i.test(q) && !fetches.find(f => f[0] === 'top_clientes')) {
+      fetches.push(['top_clientes', callLocal('GET', `/api/ventas/top-clientes${dbq}&limit=10`)]);
+    }
+
+    // Ranking vendedores
+    if (c.vendedores && /vendedor|qui[eé]n vende|top.*vend|vend.*top|ranking|mejor.*vend|comis|equipo/i.test(q)) {
       fetches.push(['top_vendedores', callLocal('GET', `/api/director/vendedores${dbq}`)]);
     }
-    // CxC / cobranza — admin y gerente
-    if (c.cxc && /cxc|cobrar|cobro|vencid|deuda|cartera|pago|dso|aging|mora|cliente.*debe/i.test(q)) {
+
+    // CxC / cobranza general
+    if (c.cxc && /cxc|cobrar|cobro|vencid|deuda|cartera|pago|dso|aging|mora|debe/i.test(q)) {
       fetches.push(['cxc_resumen', callLocal('GET', `/api/cxc/resumen-aging${dbq}`)]);
     }
-    // Clientes — admin y gerente
-    if (c.clientes && /cliente|comprador|pareto|top.*cli|churn|riesgo.*cli/i.test(q)) {
-      fetches.push(['pareto_clientes', callLocal('GET', `/api/analytics/pareto${dbq}&dim=cliente`)]);
+
+    // Top deudores
+    if (c.cxc && /deudor|qui[eé]n.*debe|mayor.*deuda|top.*deu|cobrar.*urgente/i.test(q)) {
+      fetches.push(['top_deudores', callLocal('GET', `/api/cxc/top-deudores${dbq}&limit=10`)]);
     }
-    // Inventario — admin y gerente
-    if (c.inventario && /invent|stock|exist|artículo|articulo|producto|sku|reorden/i.test(q)) {
+
+    // Inventario general
+    if (c.inventario && /invent|stock|exist|art[ií]culo|articulo|producto|sku|reorden/i.test(q)) {
       fetches.push(['inventario', callLocal('GET', `/api/inv/resumen${dbq}`)]);
     }
-    // Sin movimiento / baja rotación — admin y gerente
-    if (c.inventario && /rotaci[oó]n|rotan|rotando|sin.mov|baja.rot|lento|lentos|parado|muerto|obsoleto|liquida|no.vend|poco.*mov|menos.*rotac|rotac.*menos|menor.*rotac/i.test(q)) {
-      const _hoyDia = new Date().getDate(); const _diasMes = Math.max(_hoyDia, 1);
+
+    // Bajo minimo / hay que reponer
+    if (c.inventario && /bajo.*m[ií]nimo|reponer|reabast|se.*acaba|falta.*stock|punto.*reorden/i.test(q)) {
+      fetches.push(['bajo_minimo', callLocal('GET', `/api/inv/bajo-minimo${dbq}&limit=20`)]);
+    }
+
+    // Sin movimiento / baja rotacion
+    if (c.inventario && /rotaci[oó]n|rotan|sin.*mov|baja.*rot|lento|parado|muerto|obsoleto|liquida|no.*vend|menos.*rotac|poco.*mov/i.test(q)) {
+      const _diasMes = Math.max(new Date().getDate(), 1);
       fetches.push(['sin_movimiento', callLocal('GET', `/api/inv/sin-movimiento${dbq}&limit=30&dias=${_diasMes}`)]);
     }
-    // P&L / márgenes — SOLO admin
+
+    // P&L / margenes — SOLO admin
     if (c.pnl && /margen|rentab|utilidad|ganancia|p&l|pnl|result|profit|bruto/i.test(q)) {
       fetches.push(['pnl', callLocal('GET', `/api/resultados/pnl${dbq}`)]);
     }
-    // Negocios — todos
-    if (/negocio|empresa|unit|sucurs|unidad/i.test(q)) {
+
+    // Negocios / unidades
+    if (/negocio|empresa|unidad|sucursal/i.test(q)) {
       fetches.push(['negocios', callLocal('GET', `/api/dbs`)]);
     }
 
