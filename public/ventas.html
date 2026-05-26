@@ -1037,6 +1037,29 @@ const setWid  = (id,p) => { const e=document.getElementById(id); if(e) e.style.w
 
 setInterval(()=>{ document.getElementById('clock').textContent=new Date().toLocaleTimeString('es-MX'); },1000);
 
+/** Muestra/oculta tabs VE/PV según el DB activo — solo Parker los usa */
+function isParkerDb() {
+  try {
+    const db = (new URLSearchParams(location.search).get('db') || '').trim().toLowerCase();
+    return db === '' || db === 'default' || db === 'suminregio-parker' || db === 'suminregio_parker';
+  } catch(_) { return true; }
+}
+function updateTipoTabsVisibility() {
+  const tabVE = document.getElementById('tab-ve');
+  const tabPV = document.getElementById('tab-pv');
+  if (!tabVE || !tabPV) return;
+  const parker = isParkerDb();
+  tabVE.style.display = parker ? '' : 'none';
+  tabPV.style.display = parker ? '' : 'none';
+  // Si estaba en VE o PV y cambia a un DB no-Parker, resetear a Todos
+  if (!parker && (currentTipo === 'VE' || currentTipo === 'PV')) {
+    currentTipo = '';
+    document.getElementById('tab-all').classList.add('active');
+    tabVE.classList.remove('active');
+    tabPV.classList.remove('active');
+  }
+}
+
 function setTipo(t) {
   currentTipo = t;
   ['tab-all','tab-ve','tab-pv'].forEach(id => document.getElementById(id).classList.remove('active'));
@@ -1108,6 +1131,7 @@ function clearVentasFilterLoadingUI() {
 }
 
 async function loadAll() {
+  updateTipoTabsVisibility();
   clearVentasFilterLoadingUI();
   try {
     const m = await fwt(buildApiUrl('/api/config/metas'), {});
