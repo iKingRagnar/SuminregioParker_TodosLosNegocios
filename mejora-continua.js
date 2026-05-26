@@ -289,6 +289,201 @@ function install(app, { log }) {
     }
   });
 
+  // ── GET /api/ai/mejoras/stats — métricas para KPI cards ──────────────────
+
+  app.get('/api/ai/mejoras/stats', (req, res) => {
+    try {
+      const tickets = store.readAll(TABLE_MEJORAS) || [];
+      const comentarios = store.readAll(TABLE_COMENTARIOS) || [];
+
+      const now = Date.now();
+      const msDay = 86400000;
+      const ms7d  = 7 * msDay;
+      const ms30d = 30 * msDay;
+
+      const abiertos   = tickets.filter(t => t.estado !== 'RESUELTO' && t.estado !== 'CERRADO');
+      const resueltos  = tickets.filter(t => t.estado === 'RESUELTO' || t.estado === 'CERRADO');
+      const criticos   = abiertos.filter(t => t.criticidad === 'P1' || t.criticidad === 'P2');
+      const ultimos7d  = tickets.filter(t => (now - new Date(t.fecha_reporte || 0).getTime()) < ms7d);
+      const ultimos30d = tickets.filter(t => (now - new Date(t.fecha_reporte || 0).getTime()) < ms30d);
+
+      // TTR promedio (time-to-resolve) en horas
+      let ttrTotal = 0, ttrCount = 0;
+      resueltos.forEach(t => {
+        if (t.fecha_resolucion && t.fecha_reporte) {
+          const ms = new Date(t.fecha_resolucion).getTime() - new Date(t.fecha_reporte).getTime();
+          if (ms > 0) { ttrTotal += ms; ttrCount++; }
+        }
+      });
+      const ttr_horas_prom = ttrCount > 0 ? Math.round(ttrTotal / ttrCount / 3600000 * 10) / 10 : null;
+
+      // SLA cumplimiento: tickets resueltos dentro de su sla_horas
+      let slaOk = 0;
+      resueltos.forEach(t => {
+        if (t.fecha_resolucion && t.fecha_reporte && t.sla_horas) {
+          const ms = new Date(t.fecha_resolucion).getTime() - new Date(t.fecha_reporte).getTime();
+          if (ms / 3600000 <= t.sla_horas) slaOk++;
+        }
+      });
+      const sla_cumplimiento_pct = resueltos.length > 0 ? Math.round(slaOk / resueltos.length * 100) : null;
+
+      // Por área
+      const por_area = {};
+      abiertos.forEach(t => {
+        const a = t.area_afectada || 'otro';
+        por_area[a] = (por_area[a] || 0) + 1;
+      });
+
+      // Por COBIT
+      const por_cobit = {};
+      tickets.forEach(t => {
+        const d = t.cobit_dominio || 'DSS02';
+        por_cobit[d] = (por_cobit[d] || 0) + 1;
+      });
+
+      res.json({
+        ok: true,
+        total:          tickets.length,
+        abiertos:       abiertos.length,
+        criticos:       criticos.length,
+        resueltos:      resueltos.length,
+        ultimos_7d:     ultimos7d.length,
+        ultimos_30d:    ultimos30d.length,
+        ttr_horas_prom,
+        sla_cumplimiento_pct,
+        por_area,
+        por_cobit,
+      });
+    } catch (e) {
+      console.error('[mejora-continua] GET stats:', e.message, e.stack);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ── POST /api/ai/mejoras/auto-scan — detección proactiva de problemas ─────
+  // Llama a endpoints críticos y crea tickets si detecta anomalías.
+
+  app.post('/api/ai/mejoras/auto-scan', async (req, res) => {
+    if (!client) return res.status(503).json({ error: 'IA no disponible' });
+
+    try {
+      const http = require('http');
+      const PORT_SCAN = process.env.PORT || 7000;
+      const created = [];
+
+      function fetchLocal(path) {
+        return new Promise((resolve) => {
+          const opts = { method: 'GET', hostname: '127.0.0.1', port: PORT_SCAN, path, timeout: 10000 };
+          const r = http.request(opts, (resp) => {
+            let buf = '';
+            resp.on('data', c => buf += c);
+            resp.on('end', () => { try { resolve({ status: resp.statusCode, body: JSON.parse(buf) }); } catch (_) { resolve({ status: resp.statusCode, body: null }); } });
+          });
+          r.on('error', e => resolve({ status: 0, error: e.message }));
+          r.on('timeout', () => { r.destroy(); resolve({ status: 0, error: 'timeout' }); });
+          r.end();
+        });
+      }
+
+      async function checkAndTicket(desc, pagina) {
+        // Evitar duplicados: no crear si hay un ticket abierto con descripción similar
+        const existing = store.readAll(TABLE_MEJORAS) || [];
+        const dupe = existing.find(t =>
+          t.estado !== 'RESUELTO' && t.estado !== 'CERRADO' &&
+          t.descripcion && t.descripcion.slice(0, 50) === desc.slice(0, 50)
+        );
+        if (dupe) return null;
+
+        let analisis;
+        try { analisis = await analizarConIA(desc, pagina); } catch (_) { analisis = null; }
+
+        const id  = 'mc-auto-' + Date.now();
+        const now = new Date().toISOString();
+        const ticket = {
+          id,
+          titulo:             (analisis && analisis.titulo) || desc.slice(0, 60),
+          descripcion:        desc,
+          pagina:             pagina || 'auto-scan',
+          usuario:            'Auto-Scan IA',
+          email:              'sistema@suminregio.com',
+          fecha_reporte:      now,
+          criticidad:         (analisis && analisis.criticidad)  || 'P3',
+          nivel:              (analisis && analisis.nivel)        || 'MEDIA',
+          sla_horas:          (analisis && analisis.sla_horas)    || 24,
+          impacto:            (analisis && analisis.impacto)      || 'MEDIO',
+          urgencia:           (analisis && analisis.urgencia)     || 'MEDIA',
+          cobit_dominio:      (analisis && analisis.cobit_dominio) || 'DSS02',
+          cobit_descripcion:  (analisis && analisis.cobit_descripcion) || '',
+          area_afectada:      (analisis && analisis.area_afectada) || 'otro',
+          diagnostico_ia:     (analisis && analisis.diagnostico)  || '',
+          causa_raiz:         (analisis && analisis.causa_raiz)   || '',
+          accion_recomendada: (analisis && analisis.accion_recomendada) || '',
+          estado:             'NUEVO',
+          fecha_resolucion:   null,
+        };
+        store.append(TABLE_MEJORAS, ticket);
+
+        const comentarioIA = {
+          mejora_id: id,
+          autor:     'IA Sistema',
+          rol:       'IA',
+          mensaje:   (analisis && analisis.comentario_inicial) || '🔍 Problema detectado por auto-scan.',
+          fecha:     now,
+          tipo:      'DIAGNOSTICO',
+        };
+        store.append(TABLE_COMENTARIOS, comentarioIA);
+        created.push(ticket);
+        log && log.warn && log.warn('auto-scan', `Ticket auto creado: ${ticket.criticidad} — ${ticket.titulo}`);
+        return ticket;
+      }
+
+      // ─── Checks ───────────────────────────────────────────────────────────
+
+      // 1. CxC: hay saldos vencidos >90 días?
+      const cxc = await fetchLocal('/api/cxc/resumen-aging?db=default');
+      if (cxc.body && cxc.body.aging) {
+        const v90 = cxc.body.aging['91-120'] || cxc.body.aging['90+'] || 0;
+        const v120 = cxc.body.aging['121+'] || 0;
+        if (v90 + v120 > 50000) {
+          await checkAndTicket(
+            `CxC: hay $${(v90 + v120).toLocaleString('es-MX')} MXN vencidos a más de 90 días sin resolver. Esto indica un riesgo de cartera alta.`,
+            'Dashboard_CC'
+          );
+        }
+      }
+
+      // 2. Inventario: muchos artículos bajo mínimo
+      const invMin = await fetchLocal('/api/inv/bajo-minimo?db=default&limit=5');
+      if (invMin.body && Array.isArray(invMin.body.items) && invMin.body.items.length >= 5) {
+        await checkAndTicket(
+          `Inventario: se detectaron ${invMin.body.total || invMin.body.items.length} artículos por debajo del mínimo de reorden. Riesgo de quiebre de stock.`,
+          'Dashboard_Inventario'
+        );
+      }
+
+      // 3. Ventas: ¿estamos por debajo del 60% de meta a mitad de mes?
+      const ventas = await fetchLocal('/api/ventas/cumplimiento?db=default');
+      if (ventas.body && ventas.body.pct_cumplimiento !== undefined) {
+        const diaActual = new Date().getDate();
+        const diasMes   = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+        const avanceTiempo = diaActual / diasMes;
+        const pctVentas = ventas.body.pct_cumplimiento;
+        // Si llevamos más de 40% del mes pero menos del 50% de la meta
+        if (avanceTiempo > 0.4 && pctVentas < 50) {
+          await checkAndTicket(
+            `Ventas: cumplimiento de meta al ${Math.round(pctVentas)}% cuando el mes lleva ${Math.round(avanceTiempo * 100)}% avanzado. Tendencia de cierre negativa.`,
+            'Dashboard_Ventas'
+          );
+        }
+      }
+
+      res.json({ ok: true, tickets_creados: created.length, tickets: created });
+    } catch (e) {
+      console.error('[mejora-continua] auto-scan:', e.message, e.stack);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   log && log.info && log.info('mejora-continua', 'módulo instalado — ITIL v4 + COBIT 2019');
 }
 

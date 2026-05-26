@@ -862,7 +862,7 @@
   // ── Bienvenida ────────────────────────────────────────────────────────────
   function showWelcome() {
     const today = new Date().toLocaleDateString('es-MX', { weekday:'short', month:'short', day:'numeric' });
-    addMessage('ai', `👋 Hola, soy tu asistente IA de ${PAGE || 'ERP'} conectado en tiempo real a la base de datos Microsip.\n\n📅 ${today} — ¿En qué te puedo ayudar hoy?\n\nPuedo responder sobre ventas, CXC, estado de resultados, vendedores, inventario y más. También puedes capturar la pantalla con 📷 para que analice los gráficos.`);
+    addMessage('ai', `👋 Hola, soy tu asistente IA de ${PAGE || 'ERP'} conectado en tiempo real a la base de datos Microsip.\n\n📅 ${today} — ¿En qué te puedo ayudar hoy?\n\nPuedo responder sobre ventas, CXC, estado de resultados, vendedores, inventario y más. También puedes capturar la pantalla con 📷 para que analice los gráficos.`, null, { noHistory: true });
     setStatus('Conectado · datos en tiempo real', true);
   }
 

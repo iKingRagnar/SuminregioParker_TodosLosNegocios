@@ -595,6 +595,22 @@
       <div class="mc-kpi-label">Resueltos</div>
       <div class="mc-kpi-value green" id="kpiResueltos">—</div>
     </div>
+    <div class="mc-kpi">
+      <div class="mc-kpi-label">TTR Promedio</div>
+      <div class="mc-kpi-value" id="kpiTTR" title="Time-to-Resolve promedio en horas">—</div>
+    </div>
+    <div class="mc-kpi">
+      <div class="mc-kpi-label">SLA Cumplimiento</div>
+      <div class="mc-kpi-value green" id="kpiSLA" title="% de tickets resueltos dentro del SLA">—</div>
+    </div>
+  </div>
+
+  <!-- ── Auto-Scan ───────────────────────────────────────────────── -->
+  <div style="text-align:right;margin-bottom:12px;">
+    <button class="mc-filter-btn" id="btnAutoScan" style="background:rgba(139,92,246,.15);border-color:rgba(139,92,246,.4);color:#a78bfa;padding:8px 16px;font-size:.85rem;">
+      🤖 Auto-Scan IA
+    </button>
+    <span id="autoScanMsg" style="margin-left:12px;font-size:.8rem;color:var(--clr-muted,#9ca3af);"></span>
   </div>
 
   <!-- ── Formulario nuevo reporte ───────────────────────────────── -->
@@ -710,6 +726,22 @@
     document.getElementById('kpiCriticos').textContent  = criticos;
     document.getElementById('kpiRevision').textContent  = revision;
     document.getElementById('kpiResueltos').textContent = resueltos;
+
+    // TTR y SLA — cargar desde /stats
+    fetch(API + '/api/ai/mejoras/stats', { credentials: 'include' })
+      .then(function(r) { return r.json(); })
+      .then(function(s) {
+        var ttrEl = document.getElementById('kpiTTR');
+        var slaEl = document.getElementById('kpiSLA');
+        if (ttrEl) ttrEl.textContent = s.ttr_horas_prom !== null ? s.ttr_horas_prom + 'h' : 'N/A';
+        if (slaEl) {
+          slaEl.textContent = s.sla_cumplimiento_pct !== null ? s.sla_cumplimiento_pct + '%' : 'N/A';
+          if (slaEl && s.sla_cumplimiento_pct !== null) {
+            slaEl.className = 'mc-kpi-value ' + (s.sla_cumplimiento_pct >= 80 ? 'green' : s.sla_cumplimiento_pct >= 50 ? 'orange' : 'red');
+          }
+        }
+      })
+      .catch(function(e) { console.error('[mc] stats:', e.message, e.stack); });
   }
 
   // ── Date format ─────────────────────────────────────────────────
@@ -999,6 +1031,35 @@
   // ── Utils ────────────────────────────────────────────────────────
   function escHtml(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Auto-Scan ────────────────────────────────────────────────────
+  var btnAutoScan = document.getElementById('btnAutoScan');
+  if (btnAutoScan) {
+    btnAutoScan.addEventListener('click', function() {
+      btnAutoScan.disabled = true;
+      btnAutoScan.textContent = '⏳ Escaneando…';
+      var msgEl = document.getElementById('autoScanMsg');
+      if (msgEl) msgEl.textContent = '';
+
+      fetch(API + '/api/ai/mejoras/auto-scan', { method: 'POST', credentials: 'include' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          var n = data.tickets_creados || 0;
+          if (msgEl) msgEl.textContent = n > 0
+            ? '✅ ' + n + ' ticket(s) nuevo(s) detectados automáticamente.'
+            : '✅ Sin anomalías detectadas en este momento.';
+          loadTickets();
+        })
+        .catch(function(e) {
+          console.error('[mc] auto-scan:', e.message, e.stack);
+          if (msgEl) msgEl.textContent = '❌ Error: ' + e.message;
+        })
+        .finally(function() {
+          btnAutoScan.disabled = false;
+          btnAutoScan.textContent = '🤖 Auto-Scan IA';
+        });
+    });
   }
 
   // ── Init + auto-refresh ──────────────────────────────────────────

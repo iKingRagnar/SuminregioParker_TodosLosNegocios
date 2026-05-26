@@ -635,6 +635,29 @@ NUNCA:
       fetches.push(['negocios', callLocal('GET', `/api/dbs`)]);
     }
 
+    // Compras urgentes / qué pedir / reposición
+    if (c.inventario && /compr|pedir|reposi|proveed|surtir|qu[eé].*pido|orden.*compr|purchase/i.test(q)) {
+      fetches.push(['compras_urgentes', callLocal('GET', `/api/inv/compras-urgentes${dbq}&lead_dias=15`)]);
+    }
+
+    // Cotizaciones / propuestas pendientes
+    if (c.ventas && /cotiz|propuesta|oportunidad|pipeline|pendiente.*aprob|presupuest/i.test(q)) {
+      fetches.push(['cotizaciones', callLocal('GET', `/api/cotizaciones/resumen${dbq}`)]);
+    }
+
+    // Forecast / proyección de ventas
+    if (c.ventas && /proyec|forecast|estimad|cierre.*mes|cu[aá]nto.*cerrar|va.*cerrar|llegar.*meta/i.test(q)) {
+      fetches.push(['ventas_diarias_forecast', callLocal('GET', `/api/ventas/diarias${dbq}&dias=30`)]);
+      if (!fetches.find(f => f[0] === 'cumplimiento')) {
+        fetches.push(['cumplimiento', callLocal('GET', `/api/ventas/cumplimiento${dbq}`)]);
+      }
+    }
+
+    // Alertas activas del sistema
+    if (/alerta|problema|issue|fallo|error.*sistema|qu[eé].*mal|qu[eé].*pasa/i.test(q)) {
+      fetches.push(['alertas', callLocal('GET', `/api/alerts/check${dbq}`)]);
+    }
+
     if (fetches.length === 0) return null;
 
     const results = await Promise.allSettled(fetches.map(([, p]) => p));
