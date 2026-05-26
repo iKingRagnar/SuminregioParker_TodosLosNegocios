@@ -304,7 +304,7 @@ body:has(#cxc-particles) a:not([class*="nav"]):not(.btn):hover {
   border-bottom-color: #E6A800;
 }
 
-body:has(#cxc-particles) button:not(.cxc-spectacle-dock button):not([class*="nav"]) {
+body:has(#cxc-particles) button:not(.cxc-spectacle-dock button):not([class*="nav"]):not(.biz-chip):not(.db-chip):not(.tab):not(.tab-btn) {
   background: linear-gradient(135deg, #F5C33C 0%, #E6A800 50%, #B8860B 100%) !important;
   color: #1A1200 !important;
   border: none !important;
