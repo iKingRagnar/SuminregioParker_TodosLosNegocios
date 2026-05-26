@@ -1086,6 +1086,11 @@ try {
   require('./sat-diot').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
 } catch (e) { console.warn('[sat-diot] no instalado:', e.message); }
 
+// Mejora Continua — ITIL v4 + COBIT 2019 con análisis IA
+try {
+  require('./mejora-continua').install(app, { log: _boostLog });
+} catch (e) { console.warn('[mejora-continua] no instalado:', e.message); }
+
 // Auth + candados: se instala al inicio (tras session), ver bloque "auth/gates".
 
 // Ejemplo de route extraído del monolito (solo si USE_NEW_VENTAS=1)

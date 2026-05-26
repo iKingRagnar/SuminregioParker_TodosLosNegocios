@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mejora Continua — Suminregio Parker</title>
+  <script src="/nav.js?v=1"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+      background: #050B14;
+      color: #C8D8EC;
+      min-height: 100vh;
+    }
+
+    .mc-page {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    .mc-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .mc-title {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: #E6A800;
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+    }
+
+    .mc-badges {
+      display: flex;
+      gap: .5rem;
+      margin-top: .4rem;
+      flex-wrap: wrap;
+    }
+
+    .mc-badge {
+      font-size: .6rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      padding: .2rem .65rem;
+      border-radius: 99px;
+      border: 1px solid;
+    }
+
+    .mc-badge.itil  { color: #60A5FA; border-color: rgba(96,165,250,.4); background: rgba(96,165,250,.08); }
+    .mc-badge.cobit { color: #34D399; border-color: rgba(52,211,153,.4); background: rgba(52,211,153,.08); }
+
+    /* ── KPI cards ──────────────────────────────────────────────── */
+    .mc-kpis {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .mc-kpi {
+      background: #0A1628;
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 12px;
+      padding: 1.1rem 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: .3rem;
+    }
+
+    .mc-kpi-label {
+      font-size: .65rem;
+      font-weight: 600;
+      color: #6A85A6;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .mc-kpi-value {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #E6A800;
+      line-height: 1;
+    }
+
+    .mc-kpi-value.red    { color: #F87171; }
+    .mc-kpi-value.orange { color: #FB923C; }
+    .mc-kpi-value.green  { color: #34D399; }
+
+    /* ── Form ───────────────────────────────────────────────────── */
+    .mc-form-card {
+      background: #0A1628;
+      border: 1px solid rgba(230,168,0,.2);
+      border-radius: 14px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .mc-form-title {
+      font-size: .85rem;
+      font-weight: 700;
+      color: #E6A800;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: .4rem;
+    }
+
+    .mc-form-row {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .mc-form-group {
+      display: flex;
+      flex-direction: column;
+      gap: .4rem;
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .mc-form-group label {
+      font-size: .72rem;
+      font-weight: 600;
+      color: #6A85A6;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+    }
+
+    .mc-form-group textarea,
+    .mc-form-group input {
+      background: #050B14;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 8px;
+      color: #C8D8EC;
+      font-family: inherit;
+      font-size: .85rem;
+      padding: .65rem .85rem;
+      resize: vertical;
+      transition: border-color .2s;
+    }
+
+    .mc-form-group textarea:focus,
+    .mc-form-group input:focus {
+      outline: none;
+      border-color: rgba(230,168,0,.5);
+    }
+
+    .mc-form-group textarea { min-height: 90px; }
+
+    .mc-submit-btn {
+      margin-top: 1rem;
+      padding: .7rem 1.5rem;
+      background: linear-gradient(135deg, #E6A800, #FF8C42);
+      border: none;
+      border-radius: 9px;
+      color: #050B14;
+      font-family: inherit;
+      font-size: .85rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: opacity .2s, transform .1s;
+    }
+
+    .mc-submit-btn:hover   { opacity: .9; }
+    .mc-submit-btn:active  { transform: scale(.97); }
+    .mc-submit-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    .mc-form-msg {
+      margin-top: .75rem;
+      padding: .75rem 1rem;
+      border-radius: 8px;
+      font-size: .8rem;
+      display: none;
+    }
+
+    .mc-form-msg.ok  { background: rgba(52,211,153,.1); border: 1px solid rgba(52,211,153,.3); color: #34D399; }
+    .mc-form-msg.err { background: rgba(248,113,113,.1); border: 1px solid rgba(248,113,113,.3); color: #F87171; }
+
+    /* ── Table ──────────────────────────────────────────────────── */
+    .mc-filters {
+      display: flex;
+      gap: .4rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+
+    .mc-filter-btn {
+      padding: .35rem .85rem;
+      border-radius: 99px;
+      border: 1px solid rgba(255,255,255,.1);
+      background: transparent;
+      color: #6A85A6;
+      font-family: inherit;
+      font-size: .72rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .mc-filter-btn:hover,
+    .mc-filter-btn.active {
+      background: rgba(230,168,0,.12);
+      border-color: rgba(230,168,0,.4);
+      color: #E6A800;
+    }
+
+    .mc-table-wrap {
+      background: #0A1628;
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    .mc-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .mc-table thead th {
+      padding: .75rem 1rem;
+      text-align: left;
+      font-size: .65rem;
+      font-weight: 700;
+      color: #6A85A6;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      border-bottom: 1px solid rgba(255,255,255,.07);
+      white-space: nowrap;
+    }
+
+    .mc-table tbody tr {
+      border-bottom: 1px solid rgba(255,255,255,.04);
+      transition: background .15s;
+    }
+
+    .mc-table tbody tr:last-child { border-bottom: none; }
+    .mc-table tbody tr:hover { background: rgba(255,255,255,.03); }
+
+    .mc-table tbody td {
+      padding: .75rem 1rem;
+      font-size: .78rem;
+      color: #C8D8EC;
+      vertical-align: middle;
+    }
+
+    .mc-table .id-cell {
+      font-family: 'DM Mono', monospace;
+      font-size: .65rem;
+      color: #6A85A6;
+    }
+
+    /* Priority badges */
+    .prio-badge {
+      display: inline-block;
+      padding: .2rem .55rem;
+      border-radius: 6px;
+      font-size: .7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    .prio-P1 { background: rgba(248,113,113,.15); color: #F87171; border: 1px solid rgba(248,113,113,.3); }
+    .prio-P2 { background: rgba(251,146,60,.15);  color: #FB923C; border: 1px solid rgba(251,146,60,.3);  }
+    .prio-P3 { background: rgba(250,204,21,.12);  color: #FACC15; border: 1px solid rgba(250,204,21,.3);  }
+    .prio-P4 { background: rgba(52,211,153,.1);   color: #34D399; border: 1px solid rgba(52,211,153,.3);  }
+
+    /* Estado badges */
+    .estado-badge {
+      display: inline-block;
+      padding: .18rem .5rem;
+      border-radius: 6px;
+      font-size: .65rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    .estado-NUEVO       { background: rgba(96,165,250,.1);  color: #60A5FA; border: 1px solid rgba(96,165,250,.3); }
+    .estado-EN_REVISION { background: rgba(250,204,21,.1);  color: #FACC15; border: 1px solid rgba(250,204,21,.3); }
+    .estado-RESUELTO    { background: rgba(52,211,153,.1);  color: #34D399; border: 1px solid rgba(52,211,153,.3); }
+    .estado-CERRADO     { background: rgba(107,114,128,.1); color: #9CA3AF; border: 1px solid rgba(107,114,128,.3); }
+
+    .mc-ver-btn {
+      padding: .28rem .65rem;
+      background: rgba(230,168,0,.1);
+      border: 1px solid rgba(230,168,0,.3);
+      border-radius: 6px;
+      color: #E6A800;
+      font-family: inherit;
+      font-size: .7rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .mc-ver-btn:hover { background: rgba(230,168,0,.2); }
+
+    .mc-empty {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: #6A85A6;
+      font-size: .85rem;
+    }
+
+    /* ── Modal ──────────────────────────────────────────────────── */
+    .mc-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.7);
+      z-index: 1000;
+      overflow-y: auto;
+      padding: 2rem 1rem;
+    }
+
+    .mc-modal-overlay.open { display: flex; align-items: flex-start; justify-content: center; }
+
+    .mc-modal {
+      background: #0A1628;
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 16px;
+      width: 100%;
+      max-width: 760px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.6);
+    }
+
+    .mc-modal-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid rgba(255,255,255,.07);
+      gap: 1rem;
+    }
+
+    .mc-modal-head h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #E6A800;
+      line-height: 1.3;
+    }
+
+    .mc-modal-close {
+      background: none;
+      border: none;
+      color: #6A85A6;
+      font-size: 1.3rem;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .mc-modal-close:hover { color: #C8D8EC; }
+
+    .mc-modal-body {
+      padding: 1.25rem 1.5rem;
+    }
+
+    .mc-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: .75rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .mc-meta-item {
+      display: flex;
+      flex-direction: column;
+      gap: .25rem;
+    }
+
+    .mc-meta-label {
+      font-size: .62rem;
+      font-weight: 700;
+      color: #6A85A6;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .mc-meta-val {
+      font-size: .82rem;
+      font-weight: 600;
+      color: #C8D8EC;
+    }
+
+    .mc-section {
+      background: rgba(255,255,255,.03);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 10px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .mc-section h3 {
+      font-size: .72rem;
+      font-weight: 700;
+      color: #6A85A6;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin-bottom: .6rem;
+    }
+
+    .mc-section p {
+      font-size: .82rem;
+      color: #C8D8EC;
+      line-height: 1.6;
+    }
+
+    /* Thread */
+    .mc-thread {
+      max-height: 300px;
+      overflow-y: auto;
+      margin-bottom: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: .75rem;
+    }
+
+    .mc-comment {
+      display: flex;
+      gap: .75rem;
+      align-items: flex-start;
+    }
+
+    .mc-comment-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    .mc-comment-avatar.ia     { background: rgba(96,165,250,.15); }
+    .mc-comment-avatar.user   { background: rgba(230,168,0,.15); }
+    .mc-comment-avatar.admin  { background: rgba(52,211,153,.15); }
+
+    .mc-comment-body {
+      flex: 1;
+    }
+
+    .mc-comment-meta {
+      font-size: .63rem;
+      color: #6A85A6;
+      margin-bottom: .3rem;
+      display: flex;
+      gap: .5rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .mc-comment-tipo {
+      font-size: .58rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      padding: .1rem .35rem;
+      border-radius: 4px;
+      background: rgba(230,168,0,.1);
+      color: #E6A800;
+    }
+
+    .mc-comment-msg {
+      font-size: .8rem;
+      color: #C8D8EC;
+      line-height: 1.5;
+    }
+
+    .mc-modal-add {
+      display: flex;
+      flex-direction: column;
+      gap: .75rem;
+    }
+
+    .mc-modal-add textarea {
+      background: #050B14;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 8px;
+      color: #C8D8EC;
+      font-family: inherit;
+      font-size: .8rem;
+      padding: .6rem .8rem;
+      resize: vertical;
+      min-height: 70px;
+      transition: border-color .2s;
+    }
+
+    .mc-modal-add textarea:focus {
+      outline: none;
+      border-color: rgba(230,168,0,.5);
+    }
+
+    .mc-modal-actions {
+      display: flex;
+      gap: .75rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .mc-modal-send {
+      padding: .55rem 1.1rem;
+      background: rgba(230,168,0,.15);
+      border: 1px solid rgba(230,168,0,.4);
+      border-radius: 8px;
+      color: #E6A800;
+      font-family: inherit;
+      font-size: .78rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .mc-modal-send:hover { background: rgba(230,168,0,.25); }
+
+    .mc-estado-select {
+      background: #050B14;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 8px;
+      color: #C8D8EC;
+      font-family: inherit;
+      font-size: .78rem;
+      padding: .5rem .75rem;
+      cursor: pointer;
+    }
+
+    .mc-estado-save {
+      padding: .5rem .9rem;
+      background: rgba(52,211,153,.1);
+      border: 1px solid rgba(52,211,153,.3);
+      border-radius: 8px;
+      color: #34D399;
+      font-family: inherit;
+      font-size: .75rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all .2s;
+    }
+
+    .mc-estado-save:hover { background: rgba(52,211,153,.2); }
+
+    @media (max-width: 700px) {
+      .mc-page { padding: 1rem; }
+      .mc-table thead th:nth-child(3),
+      .mc-table tbody td:nth-child(3) { display: none; }
+    }
+  </style>
+</head>
+<body>
+<header id="app-header"></header>
+
+<div class="mc-page">
+
+  <!-- ── Header ─────────────────────────────────────────────────── -->
+  <div class="mc-header">
+    <div>
+      <div class="mc-title">🔧 Centro de Mejora Continua</div>
+      <div class="mc-badges">
+        <span class="mc-badge itil">ITIL v4</span>
+        <span class="mc-badge cobit">COBIT 2019</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── KPI cards ──────────────────────────────────────────────── -->
+  <div class="mc-kpis" id="mcKpis">
+    <div class="mc-kpi">
+      <div class="mc-kpi-label">Total Reportes</div>
+      <div class="mc-kpi-value" id="kpiTotal">—</div>
+    </div>
+    <div class="mc-kpi">
+      <div class="mc-kpi-label">P1 + P2 Críticos/Altos</div>
+      <div class="mc-kpi-value red" id="kpiCriticos">—</div>
+    </div>
+    <div class="mc-kpi">
+      <div class="mc-kpi-label">En Revisión</div>
+      <div class="mc-kpi-value orange" id="kpiRevision">—</div>
+    </div>
+    <div class="mc-kpi">
+      <div class="mc-kpi-label">Resueltos</div>
+      <div class="mc-kpi-value green" id="kpiResueltos">—</div>
+    </div>
+  </div>
+
+  <!-- ── Formulario nuevo reporte ───────────────────────────────── -->
+  <div class="mc-form-card">
+    <div class="mc-form-title">🔍 Nuevo Reporte de Incidencia</div>
+    <div class="mc-form-row">
+      <div class="mc-form-group" style="flex:2;min-width:280px">
+        <label>¿Qué está fallando?</label>
+        <textarea id="mcDescripcion" placeholder="Ej: El módulo de CxC no carga, el dashboard está lento, los datos de ventas del día están incorrectos, no puedo exportar a Excel…"></textarea>
+      </div>
+      <div class="mc-form-group">
+        <label>Página / Área afectada</label>
+        <input type="text" id="mcPagina" placeholder="Ej: cxc.html, ventas, inventario…"/>
+      </div>
+    </div>
+    <button class="mc-submit-btn" id="mcSubmitBtn">🔧 Analizar y Reportar</button>
+    <div class="mc-form-msg" id="mcFormMsg"></div>
+  </div>
+
+  <!-- ── Tabla de tickets ───────────────────────────────────────── -->
+  <div class="mc-filters" id="mcFilters">
+    <button class="mc-filter-btn active" data-filter="todos">Todos</button>
+    <button class="mc-filter-btn" data-filter="P1">P1 Crítico</button>
+    <button class="mc-filter-btn" data-filter="P2">P2 Alto</button>
+    <button class="mc-filter-btn" data-filter="P3">P3 Medio</button>
+    <button class="mc-filter-btn" data-filter="P4">P4 Bajo</button>
+    <button class="mc-filter-btn" data-filter="resueltos">Resueltos</button>
+  </div>
+
+  <div class="mc-table-wrap">
+    <table class="mc-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Título</th>
+          <th>Criticidad</th>
+          <th>COBIT</th>
+          <th>Área</th>
+          <th>Estado</th>
+          <th>Fecha</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="mcTableBody">
+        <tr><td colspan="8" class="mc-empty">Cargando…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- ── Modal hilo ──────────────────────────────────────────────── -->
+<div class="mc-modal-overlay" id="mcModal">
+  <div class="mc-modal">
+    <div class="mc-modal-head">
+      <h2 id="mmTitle">Cargando…</h2>
+      <button class="mc-modal-close" id="mmClose">✕</button>
+    </div>
+    <div class="mc-modal-body">
+      <div class="mc-meta-grid" id="mmMeta"></div>
+
+      <div class="mc-section" id="mmDiag" style="display:none">
+        <h3>🤖 Diagnóstico IA</h3>
+        <p id="mmDiagTxt"></p>
+      </div>
+      <div class="mc-section" id="mmCausa" style="display:none">
+        <h3>🔍 Causa Raíz</h3>
+        <p id="mmCausaTxt"></p>
+      </div>
+      <div class="mc-section" id="mmAccion" style="display:none">
+        <h3>✅ Acción Recomendada</h3>
+        <p id="mmAccionTxt"></p>
+      </div>
+
+      <h3 style="font-size:.72rem;font-weight:700;color:#6A85A6;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.75rem">💬 Hilo de seguimiento</h3>
+      <div class="mc-thread" id="mmThread"></div>
+
+      <div class="mc-modal-add">
+        <textarea id="mmComentario" placeholder="Agregar comentario o actualización…"></textarea>
+        <div class="mc-modal-actions">
+          <button class="mc-modal-send" id="mmSendBtn">Enviar comentario</button>
+          <select class="mc-estado-select" id="mmEstadoSelect">
+            <option value="">— Cambiar estado —</option>
+            <option value="NUEVO">NUEVO</option>
+            <option value="EN_REVISION">EN REVISIÓN</option>
+            <option value="RESUELTO">RESUELTO</option>
+            <option value="CERRADO">CERRADO</option>
+          </select>
+          <button class="mc-estado-save" id="mmEstadoSave">Guardar estado</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var API = (location.protocol === 'file:') ? 'http://localhost:7000' : (window.__API_BASE || location.origin);
+  var allTickets = [];
+  var activeFilter = 'todos';
+  var modalTicketId = null;
+
+  // ── KPIs ────────────────────────────────────────────────────────
+  function updateKpis(tickets) {
+    var total     = tickets.length;
+    var criticos  = tickets.filter(function(t){ return t.criticidad === 'P1' || t.criticidad === 'P2'; }).length;
+    var revision  = tickets.filter(function(t){ return t.estado === 'EN_REVISION'; }).length;
+    var resueltos = tickets.filter(function(t){ return t.estado === 'RESUELTO' || t.estado === 'CERRADO'; }).length;
+
+    document.getElementById('kpiTotal').textContent     = total;
+    document.getElementById('kpiCriticos').textContent  = criticos;
+    document.getElementById('kpiRevision').textContent  = revision;
+    document.getElementById('kpiResueltos').textContent = resueltos;
+  }
+
+  // ── Date format ─────────────────────────────────────────────────
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    try {
+      var d = new Date(iso);
+      return d.toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'2-digit' })
+           + ' ' + d.toLocaleTimeString('es-MX', { hour:'2-digit', minute:'2-digit', hour12:false });
+    } catch(e) { return iso; }
+  }
+
+  // ── Render table ─────────────────────────────────────────────────
+  function renderTable(tickets) {
+    var tbody = document.getElementById('mcTableBody');
+    if (!tickets.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="mc-empty">No hay reportes en esta categoría.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = tickets.map(function(t) {
+      var safeTitulo = escHtml(t.titulo || '—');
+      var safeCobit  = escHtml(t.cobit_dominio || '—');
+      var safeArea   = escHtml(t.area_afectada || '—');
+      var safeId     = escHtml(t.id || '—');
+
+      return '<tr>' +
+        '<td class="id-cell">' + safeId.replace('mc-', '') + '</td>' +
+        '<td style="max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + safeTitulo + '">' + safeTitulo + '</td>' +
+        '<td><span class="prio-badge prio-' + (t.criticidad||'P3') + '">' + (t.criticidad||'—') + ' ' + (t.nivel||'') + '</span></td>' +
+        '<td><span style="font-size:.7rem;font-family:\'DM Mono\',monospace;color:#60A5FA">' + safeCobit + '</span></td>' +
+        '<td>' + safeArea + '</td>' +
+        '<td><span class="estado-badge estado-' + (t.estado||'NUEVO') + '">' + (t.estado||'NUEVO').replace('_',' ') + '</span></td>' +
+        '<td style="font-size:.7rem;white-space:nowrap;color:#6A85A6">' + fmtDate(t.fecha_reporte) + '</td>' +
+        '<td><button class="mc-ver-btn" data-id="' + escHtml(t.id) + '">Ver hilo</button></td>' +
+      '</tr>';
+    }).join('');
+
+    // Bind ver hilo buttons
+    tbody.querySelectorAll('.mc-ver-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        openModal(btn.getAttribute('data-id'));
+      });
+    });
+  }
+
+  function applyFilter() {
+    var filtered = allTickets;
+    if (activeFilter === 'resueltos') {
+      filtered = allTickets.filter(function(t){ return t.estado === 'RESUELTO' || t.estado === 'CERRADO'; });
+    } else if (activeFilter !== 'todos') {
+      filtered = allTickets.filter(function(t){ return t.criticidad === activeFilter; });
+    }
+    renderTable(filtered);
+  }
+
+  // ── Load data ────────────────────────────────────────────────────
+  function loadTickets() {
+    fetch(API + '/api/ai/mejoras', { credentials: 'include' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        allTickets = data.tickets || [];
+        updateKpis(allTickets);
+        applyFilter();
+      })
+      .catch(function(e) {
+        console.error('[mc] loadTickets:', e.message, e.stack);
+        document.getElementById('mcTableBody').innerHTML =
+          '<tr><td colspan="8" class="mc-empty">Error al cargar datos.</td></tr>';
+      });
+  }
+
+  // ── Submit form ──────────────────────────────────────────────────
+  var submitBtn = document.getElementById('mcSubmitBtn');
+  submitBtn.addEventListener('click', function() {
+    var descripcion = document.getElementById('mcDescripcion').value.trim();
+    var pagina      = document.getElementById('mcPagina').value.trim();
+
+    if (!descripcion) {
+      showMsg('Por favor describe el problema antes de enviar.', 'err');
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = '⏳ Analizando con IA…';
+    hideMsg();
+
+    fetch(API + '/api/ai/mejora', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ descripcion: descripcion, pagina: pagina }),
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.error) throw new Error(data.error);
+        var t = data.ticket;
+        showMsg('✅ Ticket ' + t.id + ' creado — ' + t.criticidad + ' ' + t.nivel + '. ' + t.cobit_dominio + ': ' + (t.cobit_descripcion || ''), 'ok');
+        document.getElementById('mcDescripcion').value = '';
+        document.getElementById('mcPagina').value = '';
+        loadTickets();
+      })
+      .catch(function(e) {
+        console.error('[mc] submit:', e.message, e.stack);
+        showMsg('Error: ' + e.message, 'err');
+      })
+      .finally(function() {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '🔧 Analizar y Reportar';
+      });
+  });
+
+  function showMsg(txt, type) {
+    var el = document.getElementById('mcFormMsg');
+    el.textContent = txt;
+    el.className = 'mc-form-msg ' + type;
+    el.style.display = 'block';
+  }
+
+  function hideMsg() {
+    var el = document.getElementById('mcFormMsg');
+    el.style.display = 'none';
+  }
+
+  // ── Filters ──────────────────────────────────────────────────────
+  document.getElementById('mcFilters').querySelectorAll('.mc-filter-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.mc-filter-btn').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      activeFilter = btn.getAttribute('data-filter');
+      applyFilter();
+    });
+  });
+
+  // ── Modal ────────────────────────────────────────────────────────
+  function openModal(id) {
+    modalTicketId = id;
+    var modal = document.getElementById('mcModal');
+    modal.classList.add('open');
+
+    document.getElementById('mmTitle').textContent = 'Cargando…';
+    document.getElementById('mmMeta').innerHTML = '';
+    document.getElementById('mmThread').innerHTML = '';
+    document.getElementById('mmDiag').style.display = 'none';
+    document.getElementById('mmCausa').style.display = 'none';
+    document.getElementById('mmAccion').style.display = 'none';
+    document.getElementById('mmComentario').value = '';
+    document.getElementById('mmEstadoSelect').value = '';
+
+    fetch(API + '/api/ai/mejora/' + encodeURIComponent(id), { credentials: 'include' })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.error) throw new Error(data.error);
+        renderModal(data.ticket, data.comentarios || []);
+      })
+      .catch(function(e) {
+        console.error('[mc] openModal:', e.message, e.stack);
+        document.getElementById('mmTitle').textContent = 'Error: ' + e.message;
+      });
+  }
+
+  function renderModal(t, comentarios) {
+    document.getElementById('mmTitle').textContent = escHtml(t.titulo || t.id);
+
+    document.getElementById('mmMeta').innerHTML = [
+      metaItem('Criticidad', '<span class="prio-badge prio-' + (t.criticidad||'P3') + '">' + (t.criticidad||'—') + ' ' + (t.nivel||'') + '</span>'),
+      metaItem('SLA', (t.sla_horas || '—') + 'h'),
+      metaItem('COBIT', '<span style="font-family:\'DM Mono\',monospace;color:#60A5FA">' + escHtml(t.cobit_dominio||'—') + '</span>'),
+      metaItem('Proceso', escHtml(t.cobit_descripcion||'—')),
+      metaItem('Impacto', escHtml(t.impacto||'—')),
+      metaItem('Urgencia', escHtml(t.urgencia||'—')),
+      metaItem('Área', escHtml(t.area_afectada||'—')),
+      metaItem('Estado', '<span class="estado-badge estado-' + (t.estado||'NUEVO') + '">' + (t.estado||'NUEVO').replace('_',' ') + '</span>'),
+    ].join('');
+
+    if (t.diagnostico_ia) {
+      document.getElementById('mmDiag').style.display = '';
+      document.getElementById('mmDiagTxt').textContent = t.diagnostico_ia;
+    }
+    if (t.causa_raiz) {
+      document.getElementById('mmCausa').style.display = '';
+      document.getElementById('mmCausaTxt').textContent = t.causa_raiz;
+    }
+    if (t.accion_recomendada) {
+      document.getElementById('mmAccion').style.display = '';
+      document.getElementById('mmAccionTxt').textContent = t.accion_recomendada;
+    }
+
+    renderThread(comentarios);
+  }
+
+  function metaItem(label, valHtml) {
+    return '<div class="mc-meta-item">' +
+      '<div class="mc-meta-label">' + escHtml(label) + '</div>' +
+      '<div class="mc-meta-val">' + valHtml + '</div>' +
+    '</div>';
+  }
+
+  function renderThread(comentarios) {
+    var thread = document.getElementById('mmThread');
+    if (!comentarios.length) {
+      thread.innerHTML = '<div style="font-size:.78rem;color:#6A85A6;padding:.5rem 0">Sin comentarios aún.</div>';
+      return;
+    }
+
+    thread.innerHTML = comentarios.map(function(c) {
+      var isIA    = c.rol === 'IA';
+      var isAdmin = c.rol === 'ADMIN';
+      var avatarClass = isIA ? 'ia' : (isAdmin ? 'admin' : 'user');
+      var avatar = isIA ? '🤖' : (isAdmin ? '🛡️' : '👤');
+
+      return '<div class="mc-comment">' +
+        '<div class="mc-comment-avatar ' + avatarClass + '">' + avatar + '</div>' +
+        '<div class="mc-comment-body">' +
+          '<div class="mc-comment-meta">' +
+            '<strong>' + escHtml(c.autor||'Sistema') + '</strong>' +
+            '<span>' + fmtDate(c.fecha) + '</span>' +
+            '<span class="mc-comment-tipo">' + escHtml(c.tipo||'COMENTARIO') + '</span>' +
+          '</div>' +
+          '<div class="mc-comment-msg">' + escHtml(c.mensaje||'') + '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    thread.scrollTop = thread.scrollHeight;
+  }
+
+  document.getElementById('mmClose').addEventListener('click', function() {
+    document.getElementById('mcModal').classList.remove('open');
+    modalTicketId = null;
+  });
+
+  document.getElementById('mcModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+      this.classList.remove('open');
+      modalTicketId = null;
+    }
+  });
+
+  document.getElementById('mmSendBtn').addEventListener('click', function() {
+    if (!modalTicketId) return;
+    var msg = document.getElementById('mmComentario').value.trim();
+    if (!msg) return;
+
+    fetch(API + '/api/ai/mejora/' + encodeURIComponent(modalTicketId) + '/comentar', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mensaje: msg }),
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.error) throw new Error(data.error);
+        document.getElementById('mmComentario').value = '';
+        openModal(modalTicketId); // refresh modal
+        loadTickets();
+      })
+      .catch(function(e) {
+        console.error('[mc] comentar:', e.message, e.stack);
+        alert('Error al enviar: ' + e.message);
+      });
+  });
+
+  document.getElementById('mmEstadoSave').addEventListener('click', function() {
+    if (!modalTicketId) return;
+    var estado = document.getElementById('mmEstadoSelect').value;
+    if (!estado) { alert('Selecciona un estado primero.'); return; }
+
+    fetch(API + '/api/ai/mejora/' + encodeURIComponent(modalTicketId) + '/estado', {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ estado: estado }),
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.error) throw new Error(data.error);
+        openModal(modalTicketId);
+        loadTickets();
+      })
+      .catch(function(e) {
+        console.error('[mc] cambiar estado:', e.message, e.stack);
+        alert('Error: ' + e.message);
+      });
+  });
+
+  // ── Utils ────────────────────────────────────────────────────────
+  function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Init + auto-refresh ──────────────────────────────────────────
+  loadTickets();
+  setInterval(loadTickets, 60000);
+
+})();
+</script>
+</body>
+</html>

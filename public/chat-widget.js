@@ -282,6 +282,7 @@
     <button class="cw-qa-btn" data-q="Top 5 vendedores del mes con cumplimiento">🏆 Top 5</button>
     <button class="cw-qa-btn" data-q="Proyección de cierre de mes (regresión lineal)">📈 Proyección</button>
     <button class="cw-qa-btn" data-q="¿Cuál es el margen bruto actual?">📊 Margen</button>
+    <button class="cw-qa-btn" data-action="reportar">🔧 Reportar problema</button>
   </div>
 
   <div id="cw-suggestions"></div>
@@ -898,6 +899,64 @@
       qaContainer.querySelectorAll('.cw-qa-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           const q = btn.getAttribute('data-q');
+          const action = btn.getAttribute('data-action');
+
+          if (action === 'reportar') {
+            // Inject inline report form into chat messages area
+            const msgs = $('cw-msgs');
+            if (!msgs) return;
+            // Remove existing form if any
+            const existing = document.getElementById('cw-reportar-form');
+            if (existing) { existing.remove(); return; }
+
+            const formDiv = document.createElement('div');
+            formDiv.id = 'cw-reportar-form';
+            formDiv.style.cssText = 'background:rgba(230,168,0,.07);border:1px solid rgba(230,168,0,.25);border-radius:10px;padding:.85rem;margin:.5rem 0;display:flex;flex-direction:column;gap:.6rem;';
+            formDiv.innerHTML =
+              '<div style="font-size:.78rem;font-weight:700;color:#E6A800">🔧 ¿Qué está fallando? Descríbelo y lo analizo con IA:</div>' +
+              '<textarea id="cw-rep-desc" style="background:#050B14;border:1px solid rgba(255,255,255,.12);border-radius:7px;color:#C8D8EC;font-family:inherit;font-size:.78rem;padding:.5rem .7rem;resize:vertical;min-height:70px;" placeholder="Ej: El módulo de CxC no carga, los datos de ventas están mal…"></textarea>' +
+              '<button id="cw-rep-send" style="align-self:flex-start;padding:.4rem .9rem;background:rgba(230,168,0,.15);border:1px solid rgba(230,168,0,.35);border-radius:7px;color:#E6A800;font-family:inherit;font-size:.75rem;font-weight:700;cursor:pointer;">Enviar reporte</button>';
+
+            msgs.appendChild(formDiv);
+            msgs.scrollTop = msgs.scrollHeight;
+
+            document.getElementById('cw-rep-send').addEventListener('click', () => {
+              const desc = (document.getElementById('cw-rep-desc').value || '').trim();
+              if (!desc) return;
+              formDiv.remove();
+
+              const pagina = location.pathname.split('/').pop() || '';
+              const apiBase = (location.protocol === 'file:') ? 'http://localhost:7000' : (window.__API_BASE || location.origin);
+
+              addMessage('user', '🔧 Reporte: ' + desc);
+
+              fetch(apiBase + '/api/ai/mejora', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ descripcion: desc, pagina: pagina }),
+              })
+                .then(r => r.json())
+                .then(data => {
+                  if (data.error) throw new Error(data.error);
+                  const t = data.ticket;
+                  const c = data.comentario;
+                  const msg = '✅ **Ticket creado: ' + t.id + '**\n\n' +
+                    '**Criticidad:** ' + t.criticidad + ' — ' + t.nivel + ' (SLA ' + t.sla_horas + 'h)\n' +
+                    '**COBIT:** ' + t.cobit_dominio + ' — ' + (t.cobit_descripcion || '') + '\n' +
+                    '**Área:** ' + (t.area_afectada || '—') + '\n\n' +
+                    (c ? c.mensaje : '') + '\n\n' +
+                    '[Ver hilo completo →](/mejora-continua.html)';
+                  addMessage('ai', msg);
+                })
+                .catch(e => {
+                  console.error('[cw-reportar]', e.message, e.stack);
+                  addMessage('ai', '❌ Error al crear reporte: ' + e.message);
+                });
+            });
+            return;
+          }
+
           if (q) {
             $('cw-input').value = q;
             sendMessage(q);
