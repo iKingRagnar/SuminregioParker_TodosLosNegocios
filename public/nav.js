@@ -428,6 +428,7 @@
       btn.addEventListener('click', function () {
         fetch(API_ORIGIN + '/api/auth/logout', { method: 'POST', credentials: 'same-origin' })
           .finally(function () {
+            if (typeof window.cwClearSession === 'function') window.cwClearSession();
             location.href = '/login.html';
           });
       });
@@ -582,6 +583,7 @@
             clearLoginSessionHints();
             fetch(API_ORIGIN + '/api/auth/logout', { method: 'POST', credentials: 'same-origin' })
               .finally(function () {
+                if (typeof window.cwClearSession === 'function') window.cwClearSession();
                 location.replace('/login.html?gate=session_mismatch');
               });
             return;

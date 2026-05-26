@@ -10,17 +10,27 @@
   const API     = (typeof window !== 'undefined' && window.__API_BASE) ? window.__API_BASE : '';
   const PAGE    = (() => { try { return document.title.split('—')[0].trim() || location.pathname.split('/').pop(); } catch { return ''; } })();
 
-  // SessionId fijo por pestaña: persiste en sessionStorage para mantener contexto
+  // SessionId persistente en localStorage: sobrevive cambios de pestaña y recarga.
+  // Se borra solo al hacer logout (nav.js llama cwClearSession() antes de redirigir).
   const SESSION_ID = (() => {
     try {
       var k = 'cw_session_id';
-      var s = sessionStorage.getItem(k);
+      var s = localStorage.getItem(k);
       if (s) return s;
       var id = 'cw-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-      sessionStorage.setItem(k, id);
+      localStorage.setItem(k, id);
       return id;
     } catch (_) { return 'cw-' + Date.now(); }
   })();
+
+  // Exponer función global para que nav.js la llame al hacer logout
+  window.cwClearSession = function () {
+    try {
+      localStorage.removeItem('cw_session_id');
+      localStorage.removeItem('cw_chat_history_v2');
+      localStorage.removeItem('cw_chat_history_v2'); // alias por si acaso
+    } catch (_) {}
+  };
 
   // DB dinámico: se resuelve en cada sendMessage para respetar el selector de negocio en vivo.
   function currentDb() {
