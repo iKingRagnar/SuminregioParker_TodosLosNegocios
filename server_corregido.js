@@ -13306,6 +13306,298 @@ app.get('/api/hospital/ventas', (_req, res) => {
   });
 });
 
+// ══════════════════════════════════════════════════════════════════════════════
+// PEDIDOS vs ENTREGADO — Cumplimiento por pedido y línea de artículo
+// Álvaro: "lo que pidió el hospital vs lo que se entregó"
+//
+// GET /api/pedidos/vs-entregado
+//   ?db=     — base de datos (default: default)
+//   ?cliente — nombre parcial del cliente (ILIKE)
+//   ?folio   — folio específico del pedido
+//   ?desde   — fecha inicial (YYYY-MM-DD, default: hace 90 días)
+//   ?hasta   — fecha final   (YYYY-MM-DD, default: hoy)
+//   ?limit   — máx pedidos encabezado (default 50)
+//   ?detalle=1 — incluir líneas de artículos por pedido
+// ══════════════════════════════════════════════════════════════════════════════
+app.get('/api/pedidos/vs-entregado', async (req, res) => {
+  try {
+    const dbo    = getReqDbOpts(req);
+    const limit  = Math.min(200, Math.max(1, parseInt(req.query.limit, 10) || 50));
+    const detalle = (req.query.detalle || '0') === '1';
+
+    // Fechas — default: últimos 90 días
+    const hoy   = new Date();
+    const defDesde = new Date(hoy); defDesde.setDate(hoy.getDate() - 90);
+    const desde = req.query.desde || defDesde.toISOString().slice(0, 10);
+    const hasta = req.query.hasta || hoy.toISOString().slice(0, 10);
+
+    // Detectar nombres de columnas (Microsip varía por versión)
+    const [veHdrCols, veDetCols] = await Promise.all([
+      getTableColumns('DOCTOS_VE',     dbo).catch(() => new Set()),
+      getTableColumns('DOCTOS_VE_DET', dbo).catch(() => new Set()),
+    ]);
+    const fechaCol = firstExistingColumn(veHdrCols, ['FECHA', 'FECHA_DOCUMENTO']) || 'FECHA';
+    const qtyCol   = firstExistingColumn(veDetCols, ['UNIDADES', 'CANTIDAD'])     || 'UNIDADES';
+    const precioCol= firstExistingColumn(veDetCols, ['PRECIO_NETO', 'PRECIO_U', 'PRECIO_UNIT', 'PRECIO']) || 'PRECIO_U';
+
+    // Filtros opcionales
+    const conds  = [`p.TIPO_DOCTO = 'P'`, `CAST(p.${fechaCol} AS DATE) BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)`, `p.ESTATUS <> 'C'`];
+    const params = [desde, hasta];
+
+    if (req.query.cliente) {
+      conds.push(`UPPER(cl.NOMBRE) CONTAINING UPPER(?)`);
+      params.push(req.query.cliente);
+    }
+    if (req.query.folio) {
+      conds.push(`p.FOLIO = ?`);
+      params.push(req.query.folio);
+    }
+
+    const where = conds.join(' AND ');
+
+    // ── 1. Encabezados de pedidos ────────────────────────────────────────────
+    const hdrSQL = `
+      SELECT FIRST ${limit}
+        p.DOCTO_VE_ID        AS PEDIDO_ID,
+        p.FOLIO              AS FOLIO_PEDIDO,
+        CAST(p.${fechaCol} AS DATE) AS FECHA_PEDIDO,
+        p.ESTATUS            AS ESTATUS_PEDIDO,
+        p.IMPORTE_NETO       AS IMPORTE_PEDIDO,
+        p.CLIENTE_ID,
+        TRIM(cl.NOMBRE)      AS CLIENTE,
+        TRIM(COALESCE(p.REFERENCIA, p.PEDIDO_CLIENTE, '')) AS REF_CLIENTE,
+        p.VENDEDOR_ID,
+        TRIM(COALESCE(vend.NOMBRE, '')) AS VENDEDOR
+      FROM DOCTOS_VE p
+      JOIN CLIENTES cl   ON cl.CLIENTE_ID   = p.CLIENTE_ID
+      LEFT JOIN VENDEDORES vend ON vend.VENDEDOR_ID = p.VENDEDOR_ID
+      WHERE ${where}
+      ORDER BY p.${fechaCol} DESC, p.FOLIO`;
+
+    let pedidosRaw;
+    try {
+      pedidosRaw = await query(hdrSQL, params, 30000, dbo);
+    } catch (e) {
+      // Si falla REFERENCIA/PEDIDO_CLIENTE, intentar sin esos campos
+      const hdrSQL2 = `
+        SELECT FIRST ${limit}
+          p.DOCTO_VE_ID  AS PEDIDO_ID,
+          p.FOLIO        AS FOLIO_PEDIDO,
+          CAST(p.${fechaCol} AS DATE) AS FECHA_PEDIDO,
+          p.ESTATUS      AS ESTATUS_PEDIDO,
+          p.IMPORTE_NETO AS IMPORTE_PEDIDO,
+          p.CLIENTE_ID,
+          TRIM(cl.NOMBRE) AS CLIENTE,
+          ''             AS REF_CLIENTE,
+          p.VENDEDOR_ID,
+          TRIM(COALESCE(vend.NOMBRE, '')) AS VENDEDOR
+        FROM DOCTOS_VE p
+        JOIN CLIENTES cl   ON cl.CLIENTE_ID   = p.CLIENTE_ID
+        LEFT JOIN VENDEDORES vend ON vend.VENDEDOR_ID = p.VENDEDOR_ID
+        WHERE ${where}
+        ORDER BY p.${fechaCol} DESC, p.FOLIO`;
+      pedidosRaw = await query(hdrSQL2, params, 30000, dbo);
+    }
+
+    if (!pedidosRaw || pedidosRaw.length === 0) {
+      return res.json({ ok: true, total: 0, pedidos: [], desde, hasta });
+    }
+
+    const pedidoIds = pedidosRaw.map(r => r.PEDIDO_ID);
+
+    // ── 2. Detalle de líneas pedidas (DOCTOS_VE_DET con TIPO_DOCTO='P') ──────
+    // Construimos el IN dinámico (Firebird no tiene array binding)
+    const placeholders = pedidoIds.map(() => '?').join(',');
+
+    const detSQL = `
+      SELECT
+        d.DOCTO_VE_ID           AS PEDIDO_ID,
+        d.RENGLON               AS RENGLON,
+        d.ARTICULO_ID,
+        TRIM(art.DESCRIPCION)   AS ARTICULO,
+        TRIM(COALESCE(art.CODIGO_PRODUCTO, art.CLAVE, '')) AS CLAVE,
+        CAST(d.${qtyCol} AS DECIMAL(18,4))   AS CANT_PEDIDA,
+        COALESCE(d.${precioCol}, 0)          AS PRECIO_UNIT,
+        COALESCE(d.UNIDAD_MEDIDA, art.UNIDAD_COMPRA, '') AS UNIDAD
+      FROM DOCTOS_VE_DET d
+      JOIN ARTICULOS art ON art.ARTICULO_ID = d.ARTICULO_ID
+      WHERE d.DOCTO_VE_ID IN (${placeholders})
+      ORDER BY d.DOCTO_VE_ID, d.RENGLON`;
+
+    const detalles = await query(detSQL, pedidoIds, 45000, dbo).catch(() => []);
+
+    // ── 3. Ventas/Remisiones que surgieron de esos pedidos ───────────────────
+    // En Microsip VE, las ventas que provienen de un pedido referencian al pedido
+    // vía DOCTO_PADRE_ID (si existe) o a través de DOCTOS_VE_DET con mismos artículos.
+    // Usamos la mejor estrategia disponible: DOCTO_PADRE_ID o fallback por artículo+cliente+periodo.
+
+    const hasParent = veHdrCols.has('DOCTO_PADRE_ID');
+    let entregados = [];
+
+    if (hasParent) {
+      // Estrategia A: join directo por DOCTO_PADRE_ID (más preciso)
+      const entSQL = `
+        SELECT
+          v.DOCTO_PADRE_ID        AS PEDIDO_ID,
+          v.DOCTO_VE_ID           AS VENTA_ID,
+          v.FOLIO                 AS FOLIO_VENTA,
+          CAST(v.${fechaCol} AS DATE) AS FECHA_ENTREGA,
+          v.TIPO_DOCTO            AS TIPO_ENTREGA,
+          v.ESTATUS               AS ESTATUS_ENTREGA,
+          vd.ARTICULO_ID,
+          vd.RENGLON,
+          CAST(vd.${qtyCol} AS DECIMAL(18,4)) AS CANT_ENTREGADA
+        FROM DOCTOS_VE v
+        JOIN DOCTOS_VE_DET vd ON vd.DOCTO_VE_ID = v.DOCTO_VE_ID
+        WHERE v.DOCTO_PADRE_ID IN (${placeholders})
+          AND v.TIPO_DOCTO IN ('V', 'R', 'F')
+          AND v.ESTATUS <> 'C'
+        ORDER BY v.DOCTO_PADRE_ID, v.${fechaCol}`;
+      entregados = await query(entSQL, pedidoIds, 45000, dbo).catch(() => []);
+    } else {
+      // Estrategia B: mismos artículos, mismo cliente, ventana de fecha ±60 días del pedido
+      // Agrupamos por (CLIENTE_ID, ARTICULO_ID) dentro del rango
+      const artIds = [...new Set(detalles.map(d => d.ARTICULO_ID))];
+      if (artIds.length > 0) {
+        const artPlaceholders = artIds.map(() => '?').join(',');
+        const cliIds = [...new Set(pedidosRaw.map(r => r.CLIENTE_ID))];
+        const cliPlaceholders = cliIds.map(() => '?').join(',');
+        const entSQL = `
+          SELECT
+            v.CLIENTE_ID,
+            vd.ARTICULO_ID,
+            v.DOCTO_VE_ID           AS VENTA_ID,
+            v.FOLIO                 AS FOLIO_VENTA,
+            CAST(v.${fechaCol} AS DATE) AS FECHA_ENTREGA,
+            v.TIPO_DOCTO            AS TIPO_ENTREGA,
+            CAST(vd.${qtyCol} AS DECIMAL(18,4)) AS CANT_ENTREGADA
+          FROM DOCTOS_VE v
+          JOIN DOCTOS_VE_DET vd ON vd.DOCTO_VE_ID = v.DOCTO_VE_ID
+          WHERE v.CLIENTE_ID IN (${cliPlaceholders})
+            AND vd.ARTICULO_ID IN (${artPlaceholders})
+            AND v.TIPO_DOCTO IN ('V', 'R', 'F')
+            AND v.ESTATUS <> 'C'
+            AND CAST(v.${fechaCol} AS DATE) BETWEEN CAST(? AS DATE) AND CAST(? AS DATE)
+          ORDER BY v.${fechaCol}`;
+        entregados = await query(entSQL, [...cliIds, ...artIds, desde, hasta], 45000, dbo).catch(() => []);
+      }
+    }
+
+    // ── 4. Armar respuesta cruzada ────────────────────────────────────────────
+
+    // Índice: detalles por pedido
+    const detByPedido = {};
+    for (const d of detalles) {
+      if (!detByPedido[d.PEDIDO_ID]) detByPedido[d.PEDIDO_ID] = [];
+      detByPedido[d.PEDIDO_ID].push({ ...d, cant_entregada: 0, ventas_refs: [] });
+    }
+
+    // Índice: entregados
+    if (hasParent) {
+      // Sumar por (PEDIDO_ID, ARTICULO_ID)
+      for (const e of entregados) {
+        const lineas = detByPedido[e.PEDIDO_ID] || [];
+        for (const lin of lineas) {
+          if (lin.ARTICULO_ID === e.ARTICULO_ID) {
+            lin.cant_entregada += +(e.CANT_ENTREGADA || 0);
+            if (!lin.ventas_refs.find(v => v.venta_id === e.VENTA_ID)) {
+              lin.ventas_refs.push({ venta_id: e.VENTA_ID, folio: e.FOLIO_VENTA, fecha: e.FECHA_ENTREGA, tipo: e.TIPO_ENTREGA });
+            }
+          }
+        }
+      }
+    } else {
+      // Estrategia B: por (CLIENTE_ID, ARTICULO_ID) — distribuir entre pedidos del mismo cliente
+      const entMap = {}; // cliId_artId → suma
+      for (const e of entregados) {
+        const k = `${e.CLIENTE_ID}_${e.ARTICULO_ID}`;
+        if (!entMap[k]) entMap[k] = 0;
+        entMap[k] += +(e.CANT_ENTREGADA || 0);
+      }
+      for (const ped of pedidosRaw) {
+        const lineas = detByPedido[ped.PEDIDO_ID] || [];
+        for (const lin of lineas) {
+          const k = `${ped.CLIENTE_ID}_${lin.ARTICULO_ID}`;
+          lin.cant_entregada = entMap[k] || 0;
+        }
+      }
+    }
+
+    // Construir resultado final por pedido
+    const pedidos = pedidosRaw.map(p => {
+      const lineas = (detByPedido[p.PEDIDO_ID] || []).map(lin => {
+        const pedida    = +(lin.CANT_PEDIDA || 0);
+        const entregada = Math.min(+(lin.cant_entregada || 0), pedida); // no puede superar lo pedido
+        const pendiente = Math.max(0, pedida - entregada);
+        const pct       = pedida > 0 ? Math.round(entregada / pedida * 100) : 0;
+        return {
+          renglon:        lin.RENGLON,
+          articulo_id:    lin.ARTICULO_ID,
+          clave:          lin.CLAVE,
+          articulo:       lin.ARTICULO,
+          unidad:         lin.UNIDAD,
+          precio_unit:    +(lin.PRECIO_UNIT || 0),
+          cant_pedida:    pedida,
+          cant_entregada: entregada,
+          cant_pendiente: pendiente,
+          pct_cumplimiento: pct,
+          ventas_refs:    lin.ventas_refs || [],
+        };
+      });
+
+      const totalPedido    = lineas.reduce((s, l) => s + l.cant_pedida,    0);
+      const totalEntregado = lineas.reduce((s, l) => s + l.cant_entregada, 0);
+      const totalPendiente = lineas.reduce((s, l) => s + l.cant_pendiente, 0);
+      const pctGlobal      = totalPedido > 0 ? Math.round(totalEntregado / totalPedido * 100) : 0;
+      const estado         = pctGlobal >= 100 ? 'COMPLETO' : pctGlobal > 0 ? 'PARCIAL' : 'PENDIENTE';
+
+      const obj = {
+        pedido_id:       p.PEDIDO_ID,
+        folio:           p.FOLIO_PEDIDO,
+        fecha:           p.FECHA_PEDIDO,
+        estatus_microsip:p.ESTATUS_PEDIDO,
+        cliente_id:      p.CLIENTE_ID,
+        cliente:         p.CLIENTE,
+        ref_cliente:     p.REF_CLIENTE,
+        vendedor:        p.VENDEDOR,
+        importe_pedido:  +(p.IMPORTE_PEDIDO || 0),
+        total_piezas_pedidas:    totalPedido,
+        total_piezas_entregadas: totalEntregado,
+        total_piezas_pendientes: totalPendiente,
+        pct_cumplimiento: pctGlobal,
+        estado,
+        metodo_match: hasParent ? 'DOCTO_PADRE_ID' : 'CLIENTE_ARTICULO_PERIODO',
+      };
+      if (detalle) obj.lineas = lineas;
+      return obj;
+    });
+
+    // KPIs globales
+    const total          = pedidos.length;
+    const completos      = pedidos.filter(p => p.estado === 'COMPLETO').length;
+    const parciales      = pedidos.filter(p => p.estado === 'PARCIAL').length;
+    const pendientes_tot = pedidos.filter(p => p.estado === 'PENDIENTE').length;
+    const pctGlobal      = total > 0 ? Math.round(completos / total * 100) : 0;
+
+    res.json({
+      ok: true,
+      desde, hasta,
+      metodo_match: hasParent ? 'DOCTO_PADRE_ID' : 'CLIENTE_ARTICULO_PERIODO',
+      kpis: {
+        total_pedidos:    total,
+        completos,
+        parciales,
+        pendientes:       pendientes_tot,
+        pct_cumplimiento: pctGlobal,
+      },
+      pedidos,
+    });
+  } catch (e) {
+    console.error('[/api/pedidos/vs-entregado]', e.message, e.stack);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Suminregio API escuchando en http://localhost:${PORT} · build=${BUILD_FINGERPRINT}`);
   if (CACHE_MODE) {

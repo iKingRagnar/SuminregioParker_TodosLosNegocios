@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cumplimiento de Pedidos — Suminregio Parker</title>
+  <script src="/nav.js?v=1"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+      background: #050B14;
+      color: #C8D8EC;
+      min-height: 100vh;
+    }
+
+    .pc-page {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 28px 20px 60px;
+    }
+
+    .pc-hero {
+      background: linear-gradient(135deg, #0d1f3c 0%, #0f2a50 60%, #1a1040 100%);
+      border: 1px solid rgba(59,130,246,.25);
+      border-radius: 16px;
+      padding: 28px 32px 24px;
+      margin-bottom: 28px;
+    }
+    .pc-hero h1 { font-size: 1.7rem; font-weight: 700; color: #e2eaf6; margin-bottom: 6px; }
+    .pc-hero p  { color: #7a9cc0; font-size: .93rem; }
+
+    /* KPIs */
+    .pc-kpis {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    .pc-kpi {
+      background: rgba(255,255,255,.03);
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: 12px;
+      padding: 18px 20px;
+      text-align: center;
+    }
+    .pc-kpi-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: #6b8bae; margin-bottom: 8px; }
+    .pc-kpi-value { font-size: 2rem; font-weight: 700; color: #e2eaf6; }
+    .pc-kpi-value.green  { color: #34d399; }
+    .pc-kpi-value.orange { color: #fb923c; }
+    .pc-kpi-value.red    { color: #f87171; }
+    .pc-kpi-value.blue   { color: #60a5fa; }
+
+    /* Filtros */
+    .pc-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: flex-end;
+      margin-bottom: 20px;
+      background: rgba(255,255,255,.02);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 12px;
+      padding: 16px 20px;
+    }
+    .pc-filters label { font-size: .75rem; color: #6b8bae; display: block; margin-bottom: 4px; }
+    .pc-filters input, .pc-filters select {
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 8px;
+      color: #c8d8ec;
+      padding: 7px 12px;
+      font-size: .85rem;
+      min-width: 140px;
+    }
+    .pc-filters input::placeholder { color: #4a6a8a; }
+    .btn-primary {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 20px;
+      font-size: .85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-primary:disabled { background: #1e3a6e; cursor: not-allowed; }
+    .btn-export {
+      background: rgba(52,211,153,.12);
+      color: #34d399;
+      border: 1px solid rgba(52,211,153,.3);
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-size: .82rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-export:hover { background: rgba(52,211,153,.2); }
+
+    /* Tabla de encabezados */
+    .pc-table-wrap {
+      background: rgba(255,255,255,.02);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+    .pc-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .82rem;
+    }
+    .pc-table th {
+      background: rgba(255,255,255,.04);
+      color: #6b8bae;
+      font-size: .7rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      white-space: nowrap;
+    }
+    .pc-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255,255,255,.04);
+      vertical-align: middle;
+    }
+    .pc-table tr:last-child td { border-bottom: none; }
+    .pc-table tr:hover td { background: rgba(255,255,255,.03); }
+    .pc-table .pc-empty {
+      text-align: center;
+      color: #4a6a8a;
+      padding: 40px 20px;
+      font-style: italic;
+    }
+
+    /* Badges estado */
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .05em;
+    }
+    .badge-COMPLETO  { background: rgba(52,211,153,.15);  color: #34d399; border: 1px solid rgba(52,211,153,.3);  }
+    .badge-PARCIAL   { background: rgba(251,146,60,.12);  color: #fb923c; border: 1px solid rgba(251,146,60,.3);  }
+    .badge-PENDIENTE { background: rgba(248,113,113,.12); color: #f87171; border: 1px solid rgba(248,113,113,.3); }
+
+    /* Barra de progreso */
+    .pct-bar { position: relative; height: 6px; background: rgba(255,255,255,.08); border-radius: 4px; min-width: 80px; }
+    .pct-fill { height: 100%; border-radius: 4px; transition: width .3s; }
+    .pct-label { font-size: .78rem; font-weight: 600; margin-bottom: 2px; }
+
+    /* Botón expandir */
+    .btn-expand {
+      background: none;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 6px;
+      color: #7a9cc0;
+      cursor: pointer;
+      padding: 3px 10px;
+      font-size: .75rem;
+    }
+    .btn-expand:hover { border-color: #3b82f6; color: #60a5fa; }
+
+    /* Detalle de líneas (drawer inline) */
+    .pc-detail-row { display: none; }
+    .pc-detail-row.open { display: table-row; }
+    .pc-detail-cell {
+      padding: 0 !important;
+      background: rgba(0,0,0,.15);
+    }
+    .pc-detail-inner {
+      padding: 12px 16px;
+      border-top: 1px solid rgba(255,255,255,.06);
+    }
+    .pc-lineas-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .78rem;
+    }
+    .pc-lineas-table th {
+      color: #4a6a8a;
+      text-transform: uppercase;
+      font-size: .66rem;
+      letter-spacing: .06em;
+      padding: 6px 10px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,.05);
+      white-space: nowrap;
+    }
+    .pc-lineas-table td {
+      padding: 6px 10px;
+      border-bottom: 1px solid rgba(255,255,255,.03);
+      color: #b0c4dc;
+    }
+    .pc-lineas-table tr:last-child td { border-bottom: none; }
+    .linea-ok   { color: #34d399; }
+    .linea-warn { color: #fb923c; }
+    .linea-bad  { color: #f87171; }
+
+    /* Metodo match badge */
+    .metodo-tag {
+      font-size: .65rem;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: rgba(99,102,241,.12);
+      color: #a5b4fc;
+      border: 1px solid rgba(99,102,241,.2);
+    }
+
+    /* Spinner */
+    .pc-spinner {
+      text-align: center;
+      padding: 40px;
+      color: #4a6a8a;
+    }
+  </style>
+</head>
+<body>
+<div class="pc-page">
+
+  <!-- Hero -->
+  <div class="pc-hero">
+    <h1>📦 Cumplimiento de Pedidos</h1>
+    <p>Lo que pidió el hospital vs lo que se entregó — cruce por artículo y pedido en tiempo real desde Microsip</p>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="pc-kpis">
+    <div class="pc-kpi">
+      <div class="pc-kpi-label">Total Pedidos</div>
+      <div class="pc-kpi-value blue" id="kpiTotal">—</div>
+    </div>
+    <div class="pc-kpi">
+      <div class="pc-kpi-label">Completos</div>
+      <div class="pc-kpi-value green" id="kpiCompletos">—</div>
+    </div>
+    <div class="pc-kpi">
+      <div class="pc-kpi-label">Parciales</div>
+      <div class="pc-kpi-value orange" id="kpiParciales">—</div>
+    </div>
+    <div class="pc-kpi">
+      <div class="pc-kpi-label">Pendientes</div>
+      <div class="pc-kpi-value red" id="kpiPendientes">—</div>
+    </div>
+    <div class="pc-kpi">
+      <div class="pc-kpi-label">% Cumplimiento</div>
+      <div class="pc-kpi-value green" id="kpiPct">—</div>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="pc-filters">
+    <div>
+      <label>Negocio</label>
+      <select id="filtDb">
+        <option value="suminregio_suministros_medicos">Suministros Médicos</option>
+        <option value="default">Suminregio Parker</option>
+        <option value="">— Todas —</option>
+      </select>
+    </div>
+    <div>
+      <label>Cliente / Hospital</label>
+      <input type="text" id="filtCliente" placeholder="Nombre parcial…"/>
+    </div>
+    <div>
+      <label>Folio pedido</label>
+      <input type="text" id="filtFolio" placeholder="Ej: 1234"/>
+    </div>
+    <div>
+      <label>Desde</label>
+      <input type="date" id="filtDesde"/>
+    </div>
+    <div>
+      <label>Hasta</label>
+      <input type="date" id="filtHasta"/>
+    </div>
+    <div>
+      <label>&nbsp;</label>
+      <button class="btn-primary" id="btnBuscar">🔍 Buscar</button>
+    </div>
+    <div>
+      <label>&nbsp;</label>
+      <button class="btn-export" id="btnExport" style="display:none">⬇ Exportar Excel</button>
+    </div>
+  </div>
+
+  <!-- Tabla principal -->
+  <div class="pc-table-wrap">
+    <table class="pc-table">
+      <thead>
+        <tr>
+          <th></th>
+          <th>Folio</th>
+          <th>Fecha</th>
+          <th>Cliente</th>
+          <th>Ref. Cliente</th>
+          <th>Artículos</th>
+          <th>Cumplimiento</th>
+          <th>Piezas Pedidas</th>
+          <th>Piezas Entregadas</th>
+          <th>Pendiente</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody id="pcBody">
+        <tr><td colspan="11" class="pc-empty">Usa los filtros para buscar pedidos.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div id="pcMeta" style="font-size:.75rem;color:#4a6a8a;margin-top:-16px;margin-bottom:16px;"></div>
+
+</div>
+
+<script src="/chat-widget.js?v=10"></script>
+<script>
+(function () {
+  'use strict';
+
+  var API = (window.__API_BASE || '');
+  var allPedidos = [];
+
+  // Defaults de fechas: hoy y hace 90 días
+  (function setDefaults() {
+    var hoy = new Date();
+    var desde = new Date(hoy); desde.setDate(hoy.getDate() - 90);
+    document.getElementById('filtHasta').value = hoy.toISOString().slice(0, 10);
+    document.getElementById('filtDesde').value = desde.toISOString().slice(0, 10);
+  })();
+
+  function fmt(n) {
+    return Number(n || 0).toLocaleString('es-MX', { maximumFractionDigits: 2 });
+  }
+
+  function pctColor(pct) {
+    if (pct >= 100) return '#34d399';
+    if (pct >= 60)  return '#fb923c';
+    return '#f87171';
+  }
+
+  function badgeHtml(estado) {
+    return '<span class="badge badge-' + estado + '">' + estado + '</span>';
+  }
+
+  function updateKpis(kpis) {
+    document.getElementById('kpiTotal').textContent    = kpis.total_pedidos || 0;
+    document.getElementById('kpiCompletos').textContent= kpis.completos     || 0;
+    document.getElementById('kpiParciales').textContent= kpis.parciales     || 0;
+    document.getElementById('kpiPendientes').textContent= kpis.pendientes   || 0;
+    var pct = kpis.pct_cumplimiento || 0;
+    var el = document.getElementById('kpiPct');
+    el.textContent = pct + '%';
+    el.className = 'pc-kpi-value ' + (pct >= 80 ? 'green' : pct >= 50 ? 'orange' : 'red');
+  }
+
+  function renderTable(pedidos) {
+    var tbody = document.getElementById('pcBody');
+    if (!pedidos || pedidos.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="11" class="pc-empty">Sin pedidos en el período seleccionado.</td></tr>';
+      document.getElementById('btnExport').style.display = 'none';
+      return;
+    }
+
+    var html = '';
+    pedidos.forEach(function(p, i) {
+      var pct   = p.pct_cumplimiento || 0;
+      var color = pctColor(pct);
+      var nLineas = (p.lineas || []).length;
+
+      html += '<tr class="pc-hdr-row" data-idx="' + i + '">';
+      html += '<td><button class="btn-expand" data-idx="' + i + '">▶ Ver</button></td>';
+      html += '<td><strong>' + escHtml(p.folio || '—') + '</strong></td>';
+      html += '<td>' + escHtml(p.fecha || '—') + '</td>';
+      html += '<td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + escHtml(p.cliente) + '">' + escHtml(p.cliente || '—') + '</td>';
+      html += '<td style="font-size:.75rem;color:#7a9cc0">' + escHtml(p.ref_cliente || '—') + '</td>';
+      html += '<td style="text-align:center">' + nLineas + '</td>';
+      html += '<td style="min-width:120px">';
+      html += '  <div class="pct-label" style="color:' + color + '">' + pct + '%</div>';
+      html += '  <div class="pct-bar"><div class="pct-fill" style="width:' + Math.min(pct,100) + '%;background:' + color + '"></div></div>';
+      html += '</td>';
+      html += '<td style="text-align:right">' + fmt(p.total_piezas_pedidas) + '</td>';
+      html += '<td style="text-align:right;color:#60a5fa">' + fmt(p.total_piezas_entregadas) + '</td>';
+      html += '<td style="text-align:right;color:#f87171">' + fmt(p.total_piezas_pendientes) + '</td>';
+      html += '<td>' + badgeHtml(p.estado) + '</td>';
+      html += '</tr>';
+
+      // Drawer de líneas
+      html += '<tr class="pc-detail-row" id="detail-' + i + '">';
+      html += '<td class="pc-detail-cell" colspan="11">';
+      html += '<div class="pc-detail-inner">';
+
+      if (!p.lineas || p.lineas.length === 0) {
+        html += '<span style="color:#4a6a8a;font-size:.78rem">Sin detalle de artículos disponible.</span>';
+      } else {
+        html += '<table class="pc-lineas-table"><thead><tr>';
+        html += '<th>#</th><th>Clave</th><th>Artículo</th><th>Unidad</th>';
+        html += '<th style="text-align:right">Pedidas</th>';
+        html += '<th style="text-align:right">Entregadas</th>';
+        html += '<th style="text-align:right">Pendientes</th>';
+        html += '<th>% Cumpl.</th>';
+        html += '</tr></thead><tbody>';
+        p.lineas.forEach(function(l) {
+          var lc = l.pct_cumplimiento >= 100 ? 'linea-ok' : l.pct_cumplimiento > 0 ? 'linea-warn' : 'linea-bad';
+          html += '<tr>';
+          html += '<td>' + (l.renglon || '—') + '</td>';
+          html += '<td style="font-family:monospace;font-size:.75rem">' + escHtml(l.clave || '—') + '</td>';
+          html += '<td>' + escHtml(l.articulo || '—') + '</td>';
+          html += '<td>' + escHtml(l.unidad || '—') + '</td>';
+          html += '<td style="text-align:right">' + fmt(l.cant_pedida) + '</td>';
+          html += '<td style="text-align:right;color:#60a5fa">' + fmt(l.cant_entregada) + '</td>';
+          html += '<td style="text-align:right;color:#f87171">' + fmt(l.cant_pendiente) + '</td>';
+          html += '<td><span class="' + lc + '">' + l.pct_cumplimiento + '%</span></td>';
+          html += '</tr>';
+        });
+        html += '</tbody></table>';
+      }
+
+      html += '</div></td></tr>';
+    });
+
+    tbody.innerHTML = html;
+    document.getElementById('btnExport').style.display = 'inline-block';
+
+    // Handlers de expandir
+    tbody.querySelectorAll('.btn-expand').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var idx = this.getAttribute('data-idx');
+        var row = document.getElementById('detail-' + idx);
+        if (!row) return;
+        var isOpen = row.classList.contains('open');
+        row.classList.toggle('open');
+        this.textContent = isOpen ? '▶ Ver' : '▼ Ocultar';
+      });
+    });
+  }
+
+  function buscar() {
+    var btn = document.getElementById('btnBuscar');
+    btn.disabled = true;
+    btn.textContent = '⏳ Cargando…';
+    document.getElementById('pcBody').innerHTML = '<tr><td colspan="11" class="pc-empty pc-spinner">🔄 Consultando Microsip…</td></tr>';
+    document.getElementById('pcMeta').textContent = '';
+
+    var db      = document.getElementById('filtDb').value;
+    var cliente = document.getElementById('filtCliente').value.trim();
+    var folio   = document.getElementById('filtFolio').value.trim();
+    var desde   = document.getElementById('filtDesde').value;
+    var hasta   = document.getElementById('filtHasta').value;
+
+    var qs = new URLSearchParams({ detalle: '1', limit: '100' });
+    if (db)      qs.set('db',     db);
+    if (cliente) qs.set('cliente', cliente);
+    if (folio)   qs.set('folio',  folio);
+    if (desde)   qs.set('desde',  desde);
+    if (hasta)   qs.set('hasta',  hasta);
+
+    fetch(API + '/api/pedidos/vs-entregado?' + qs.toString(), { credentials: 'include' })
+      .then(function(r) {
+        if (!r.ok) return r.json().then(function(e) { throw new Error(e.error || 'Error ' + r.status); });
+        return r.json();
+      })
+      .then(function(data) {
+        allPedidos = data.pedidos || [];
+        updateKpis(data.kpis || {});
+        renderTable(allPedidos);
+
+        var metodo = data.metodo_match === 'DOCTO_PADRE_ID'
+          ? '🔗 Match exacto por DOCTO_PADRE_ID'
+          : '⚠️ Match aproximado por cliente + artículo + período (DOCTO_PADRE_ID no disponible en esta base)';
+        document.getElementById('pcMeta').innerHTML =
+          'Período: ' + (data.desde||'—') + ' → ' + (data.hasta||'—') +
+          ' &nbsp;·&nbsp; ' + allPedidos.length + ' pedidos &nbsp;·&nbsp; ' +
+          '<span class="metodo-tag">' + metodo + '</span>';
+      })
+      .catch(function(e) {
+        console.error('[pc] buscar:', e.message, e.stack);
+        document.getElementById('pcBody').innerHTML =
+          '<tr><td colspan="11" class="pc-empty" style="color:#f87171">Error: ' + escHtml(e.message) + '</td></tr>';
+      })
+      .finally(function() {
+        btn.disabled = false;
+        btn.textContent = '🔍 Buscar';
+      });
+  }
+
+  document.getElementById('btnBuscar').addEventListener('click', buscar);
+  document.getElementById('filtCliente').addEventListener('keydown', function(e) { if (e.key === 'Enter') buscar(); });
+  document.getElementById('filtFolio').addEventListener('keydown', function(e) { if (e.key === 'Enter') buscar(); });
+
+  // Exportar Excel básico (CSV por ahora)
+  document.getElementById('btnExport').addEventListener('click', function() {
+    if (!allPedidos.length) return;
+    var rows = [['Folio','Fecha','Cliente','Ref.Cliente','Artículos','Pedidas','Entregadas','Pendientes','%Cumpl','Estado']];
+    allPedidos.forEach(function(p) {
+      rows.push([p.folio,p.fecha,p.cliente,p.ref_cliente,(p.lineas||[]).length,p.total_piezas_pedidas,p.total_piezas_entregadas,p.total_piezas_pendientes,p.pct_cumplimiento,p.estado]);
+      (p.lineas||[]).forEach(function(l) {
+        rows.push(['  '+p.folio+' det.',l.clave,l.articulo,l.unidad,'',l.cant_pedida,l.cant_entregada,l.cant_pendiente,l.pct_cumplimiento,'LINEA']);
+      });
+    });
+    var csv = rows.map(function(r){ return r.map(function(c){ return '"'+ String(c||'').replace(/"/g,'""') +'"'; }).join(','); }).join('\r\n');
+    var blob = new Blob(['﻿'+csv], { type: 'text/csv;charset=utf-8;' });
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+    a.download = 'pedidos-cumplimiento-' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+  });
+
+  function escHtml(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+})();
+</script>
+</body>
+</html>
