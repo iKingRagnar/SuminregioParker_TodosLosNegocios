@@ -224,6 +224,7 @@ main{padding-top:24px;padding-bottom:48px;max-width:1520px;margin:0 auto;
 .kpi--venc.kpi-story{border-left-color:rgba(239,68,68,.35)}
 .kpi--vig.kpi-story{border-left-color:rgba(34,197,94,.35)}
 .kpi--health.kpi-story{border-left-color:rgba(6,182,212,.35)}
+.kpi--cobrado.kpi-story{border-left-color:rgba(34,197,94,.35)}
 .kpi-story-step{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .kpi-step-num{
   width:32px;height:32px;border-radius:10px;display:grid;place-items:center;
@@ -850,6 +851,15 @@ html[data-theme="light"] .cxc-aging-meta,html.theme-premium-light .cxc-aging-met
         <div class="kpi-sub" id="kSaludSub">&mdash;</div>
         <div class="kpi-share-track" aria-hidden="true"><div class="kpi-share-fill" id="kShareHealth" style="width:0%;background:linear-gradient(90deg,#64748b,#94a3b8)"></div></div>
         <div class="kpi-share-cap" id="kShareHealthCap">&nbsp;</div>
+      </article>
+      <article class="kpi kpi--cobrado kpi-story">
+        <div class="kpi-story-step"><span class="kpi-step-num" aria-hidden="true">5</span><span class="kpi-step-label">Cobrado</span></div>
+        <div class="kpi-label">Cobrado relativo <span style="font-weight:400;color:var(--txt3)">(de docs activos)</span></div>
+        <p class="kpi-narrative" id="kNarrCobrado">Del cargo original de documentos con saldo activo, cu&aacute;nto ya fue cobrado v&iacute;a remisiones aplicadas.</p>
+        <div class="kpi-val grn" id="kCobradoPct">&mdash;</div>
+        <div class="kpi-sub" id="kCobradoAbs">&mdash; cobrado</div>
+        <div class="kpi-share-track" aria-hidden="true"><div class="kpi-share-fill" id="kShareCobrado" style="width:0%;background:linear-gradient(90deg,rgba(34,197,94,.6),rgba(34,197,94,.25))"></div></div>
+        <div class="kpi-share-cap" id="kCobradoCap">Cargando&hellip;</div>
       </article>
     </div>
   </section>
@@ -1904,6 +1914,36 @@ async function ensureClientesFiltro(){
   }
 }
 
+async function loadCobradoRelativo() {
+  const elPct  = document.getElementById('kCobradoPct');
+  const elAbs  = document.getElementById('kCobradoAbs');
+  const elBar  = document.getElementById('kShareCobrado');
+  const elCap  = document.getElementById('kCobradoCap');
+  if (!elPct) return;
+  try {
+    const q = buildCxcQuery('');
+    const d = await apiFetch('/api/cxc/cobrado-relativo' + q, { timeout: 310000 });
+    if (!d || d.error) {
+      elPct.textContent = '—';
+      elAbs.textContent = d && d.error ? 'Error: ' + d.error : '—';
+      if (elCap) elCap.textContent = 'No disponible';
+      return;
+    }
+    const pct = +(d.cobradoPct || 0);
+    const cobrado = +(d.cobrado || 0);
+    const deudaBase = +(d.deudaBase || 0);
+    const deudaNeta = +(d.deudaNeta || 0);
+    elPct.textContent = pct.toFixed(1) + ' %';
+    elAbs.textContent = '$' + cobrado.toLocaleString('es-MX', { maximumFractionDigits: 0 }) + ' cobrado';
+    if (elBar) elBar.style.width = Math.min(pct, 100) + '%';
+    if (elCap) elCap.textContent = 'Saldo pendiente: $' + deudaNeta.toLocaleString('es-MX', { maximumFractionDigits: 0 }) + ' de $' + deudaBase.toLocaleString('es-MX', { maximumFractionDigits: 0 }) + ' originales';
+  } catch (e) {
+    console.error('[cxc] loadCobradoRelativo', e);
+    if (elPct) elPct.textContent = '—';
+    if (elCap) elCap.textContent = 'Error al cargar';
+  }
+}
+
 async function loadAll(){
   try {
     try { sessionStorage.removeItem('cxc_total_kpi'); } catch (_) {}
@@ -1918,7 +1958,7 @@ async function loadAll(){
   if (rVig.status === 'rejected') console.error('[cxc] loadVigentes', rVig.reason);
   // Carga secuencial de pestañas: menos contención en Firebird que 3× en paralelo tras el resumen.
   const results = [];
-  for (const fn of [loadTop, loadCond, loadBuro]) {
+  for (const fn of [loadTop, loadCond, loadBuro, loadCobradoRelativo]) {
     try {
       results.push({ name: fn.name, status: 'fulfilled', value: await fn() });
     } catch (e) {
