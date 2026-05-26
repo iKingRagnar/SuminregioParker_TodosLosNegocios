@@ -503,6 +503,56 @@ NUNCA:
     if (existing) store.remove(SESSION_TABLE, existing.id);
   }
 
+  // ─── Pre-fetch inteligente: trae datos reales según keywords de la pregunta ──
+  // Esto garantiza que Claude siempre tenga datos reales sin depender de tool calling.
+  async function smartPrefetch(message, dbId) {
+    const q = message.toLowerCase();
+    const db = dbId || 'default';
+    const dbq = `?db=${encodeURIComponent(db)}`;
+    const fetches = [];
+
+    // Ventas / vendedores
+    if (/vend|venta|factur|ingres|cobr|mes|hoy|semana|year|año|meta|cumpl/i.test(q)) {
+      fetches.push(['ventas_resumen', callLocal('GET', `/api/ventas/resumen${dbq}`)]);
+    }
+    if (/vendedor|quien vende|top.*vend|vend.*top|ranking|mejor.*vend|vend.*mejor|comis/i.test(q)) {
+      fetches.push(['top_vendedores', callLocal('GET', `/api/director/vendedores${dbq}`)]);
+    }
+    // CxC / cobranza
+    if (/cxc|cobrar|cobro|vencid|deuda|cartera|pago|dso|aging|mora|cliente.*debe/i.test(q)) {
+      fetches.push(['cxc_resumen', callLocal('GET', `/api/cxc/resumen-aging${dbq}`)]);
+    }
+    // Clientes
+    if (/cliente|comprador|pareto|abc|top.*cli|cli.*top|churn|riesgo.*cli/i.test(q)) {
+      fetches.push(['pareto_clientes', callLocal('GET', `/api/analytics/pareto${dbq}&dim=cliente`)]);
+    }
+    // Inventario
+    if (/invent|stock|exist|artículo|articulo|producto|sku|reorden|compra/i.test(q)) {
+      fetches.push(['inventario', callLocal('GET', `/api/inv/resumen${dbq}`)]);
+    }
+    // Rentabilidad / margen / P&L
+    if (/margen|rentab|utilidad|ganancia|p&l|pnl|result|profit|bruto/i.test(q)) {
+      fetches.push(['pnl', callLocal('GET', `/api/resultados/pnl${dbq}`)]);
+    }
+    // Negocios disponibles
+    if (/negocio|empresa|unit|sucurs|unidad/i.test(q)) {
+      fetches.push(['negocios', callLocal('GET', `/api/dbs`)]);
+    }
+
+    if (fetches.length === 0) return null; // pregunta no-business
+
+    const results = await Promise.allSettled(fetches.map(([, p]) => p));
+    const parts = [];
+    fetches.forEach(([label], i) => {
+      const r = results[i];
+      if (r.status === 'fulfilled' && r.value && !r.value.error) {
+        const str = JSON.stringify(r.value);
+        parts.push(`[${label}]\n${str.substring(0, 3000)}`);
+      }
+    });
+    return parts.length > 0 ? parts.join('\n\n') : null;
+  }
+
   // ─── Llamado principal (con tool loop + caching) ──────────────────────────
   async function chatWithTools({ sessionId, message, dbId, effort, vision }) {
     if (!client) throw new Error('Anthropic no configurado (ANTHROPIC_API_KEY faltante)');
@@ -514,7 +564,10 @@ NUNCA:
       sess = { sessionId, createdAt: now, lastAt: now, messages: [], dbId, usage: {} };
     }
 
-    // 2. Construir input del usuario (texto + opcional imagen)
+    // 2. Pre-fetch datos reales basado en la pregunta
+    const liveData = await smartPrefetch(message, dbId).catch(() => null);
+
+    // 3. Construir input del usuario (texto + imagen + datos pre-fetched)
     const userContent = [];
     if (vision && vision.imageBase64 && vision.mediaType) {
       userContent.push({
@@ -526,11 +579,15 @@ NUNCA:
         },
       });
     }
-    userContent.push({ type: 'text', text: message });
+    // Mensaje del usuario con datos reales inyectados
+    const msgWithData = liveData
+      ? `${message}\n\n<<<DATOS_REALES_ERP>>>\n${liveData}\n<<<FIN_DATOS>>>\n(Usa estos datos para responder. Son datos reales del ERP en este momento.)`
+      : message;
+    userContent.push({ type: 'text', text: msgWithData });
     sess.messages.push({ role: 'user', content: userContent });
     if (sess.messages.length > MAX_MSGS_PER_SESSION) sess.messages = sess.messages.slice(-MAX_MSGS_PER_SESSION);
 
-    // 3. Tool loop manual (max 8 iteraciones para evitar runaway)
+    // 4. Tool loop manual (max 8 iteraciones para evitar runaway)
     const MAX_TOOL_ITERATIONS = 8;
     let usage = sess.usage || { input: 0, output: 0, cacheRead: 0, cacheCreate: 0, calls: 0 };
     let lastResponse = null;
@@ -539,8 +596,6 @@ NUNCA:
       const reqBody = {
         model: MODEL,
         max_tokens: 4096,
-        // Adaptive thinking — el modelo decide cuándo razonar profundamente.
-        thinking: { type: 'adaptive' },
         // Cache: system prompt + tools como prefix estable
         system: [
           {
@@ -553,9 +608,6 @@ NUNCA:
           ? { ...t, cache_control: { type: 'ephemeral' } }
           : t),
         messages: sess.messages,
-        output_config: {
-          effort: ['low', 'medium', 'high', 'max', 'xhigh'].includes(effort) ? effort : DEFAULT_EFFORT,
-        },
       };
 
       let resp;
@@ -566,8 +618,7 @@ NUNCA:
         if (MODEL !== MODEL_FAST) {
           log && log.warn && log.warn('ai-v3', `${MODEL} falló (${e.message}), reintentando con ${MODEL_FAST}`);
           reqBody.model = MODEL_FAST;
-          delete reqBody.thinking; // Haiku no soporta adaptive
-          delete reqBody.output_config.effort;
+          delete reqBody.thinking; // Haiku no soporta thinking
           resp = await client.messages.create(reqBody);
         } else {
           throw e;
