@@ -503,43 +503,66 @@ NUNCA:
     if (existing) store.remove(SESSION_TABLE, existing.id);
   }
 
-  // ─── Pre-fetch inteligente: trae datos reales según keywords de la pregunta ──
-  // Esto garantiza que Claude siempre tenga datos reales sin depender de tool calling.
-  async function smartPrefetch(message, dbId) {
+  // ─── Permisos por rol ──────────────────────────────────────────────────────
+  // Qué puede ver cada rol (espejo de gerente-gate.js y vendedor-scope.js)
+  const ROLE_CAPS = {
+    admin:   { ventas: true, vendedores: true, cxc: true, inventario: true, pnl: true,  clientes: true, director: true },
+    gerente: { ventas: true, vendedores: true, cxc: true, inventario: true, pnl: false, clientes: true, director: false },
+    vendedor:{ ventas: true, vendedores: false,cxc: false,inventario: false,pnl: false, clientes: false,director: false },
+  };
+
+  function capsForRoles(roles) {
+    if (!roles || !roles.length || roles.includes('admin')) return ROLE_CAPS.admin;
+    if (roles.includes('gerente')) return ROLE_CAPS.gerente;
+    if (roles.includes('vendedor')) return ROLE_CAPS.vendedor;
+    return ROLE_CAPS.admin; // default: acceso completo (sesión antigua sin rol)
+  }
+
+  function roleLabelEs(roles) {
+    if (!roles || !roles.length || roles.includes('admin')) return 'administrador';
+    if (roles.includes('gerente')) return 'gerente';
+    if (roles.includes('vendedor')) return 'vendedor';
+    return 'administrador';
+  }
+
+  // ─── Pre-fetch inteligente: trae datos reales según keywords y permisos ────
+  async function smartPrefetch(message, dbId, caps) {
     const q = message.toLowerCase();
     const db = dbId || 'default';
     const dbq = `?db=${encodeURIComponent(db)}`;
     const fetches = [];
+    const c = caps || ROLE_CAPS.admin;
 
-    // Ventas / vendedores
-    if (/vend|venta|factur|ingres|cobr|mes|hoy|semana|year|año|meta|cumpl/i.test(q)) {
+    // Ventas generales (todos los roles con ventas=true)
+    if (c.ventas && /venta|factur|ingres|mes|hoy|semana|año|meta|cumpl/i.test(q)) {
       fetches.push(['ventas_resumen', callLocal('GET', `/api/ventas/resumen${dbq}`)]);
     }
-    if (/vendedor|quien vende|top.*vend|vend.*top|ranking|mejor.*vend|vend.*mejor|comis/i.test(q)) {
+    // Ranking vendedores — solo admin y gerente
+    if (c.vendedores && /vendedor|quien vende|top.*vend|vend.*top|ranking|mejor.*vend|comis/i.test(q)) {
       fetches.push(['top_vendedores', callLocal('GET', `/api/director/vendedores${dbq}`)]);
     }
-    // CxC / cobranza
-    if (/cxc|cobrar|cobro|vencid|deuda|cartera|pago|dso|aging|mora|cliente.*debe/i.test(q)) {
+    // CxC / cobranza — admin y gerente
+    if (c.cxc && /cxc|cobrar|cobro|vencid|deuda|cartera|pago|dso|aging|mora|cliente.*debe/i.test(q)) {
       fetches.push(['cxc_resumen', callLocal('GET', `/api/cxc/resumen-aging${dbq}`)]);
     }
-    // Clientes
-    if (/cliente|comprador|pareto|abc|top.*cli|cli.*top|churn|riesgo.*cli/i.test(q)) {
+    // Clientes — admin y gerente
+    if (c.clientes && /cliente|comprador|pareto|top.*cli|churn|riesgo.*cli/i.test(q)) {
       fetches.push(['pareto_clientes', callLocal('GET', `/api/analytics/pareto${dbq}&dim=cliente`)]);
     }
-    // Inventario
-    if (/invent|stock|exist|artículo|articulo|producto|sku|reorden|compra/i.test(q)) {
+    // Inventario — admin y gerente
+    if (c.inventario && /invent|stock|exist|artículo|articulo|producto|sku|reorden/i.test(q)) {
       fetches.push(['inventario', callLocal('GET', `/api/inv/resumen${dbq}`)]);
     }
-    // Rentabilidad / margen / P&L
-    if (/margen|rentab|utilidad|ganancia|p&l|pnl|result|profit|bruto/i.test(q)) {
+    // P&L / márgenes — SOLO admin
+    if (c.pnl && /margen|rentab|utilidad|ganancia|p&l|pnl|result|profit|bruto/i.test(q)) {
       fetches.push(['pnl', callLocal('GET', `/api/resultados/pnl${dbq}`)]);
     }
-    // Negocios disponibles
+    // Negocios — todos
     if (/negocio|empresa|unit|sucurs|unidad/i.test(q)) {
       fetches.push(['negocios', callLocal('GET', `/api/dbs`)]);
     }
 
-    if (fetches.length === 0) return null; // pregunta no-business
+    if (fetches.length === 0) return null;
 
     const results = await Promise.allSettled(fetches.map(([, p]) => p));
     const parts = [];
@@ -554,18 +577,22 @@ NUNCA:
   }
 
   // ─── Llamado principal (con tool loop + caching) ──────────────────────────
-  async function chatWithTools({ sessionId, message, dbId, effort, vision }) {
+  async function chatWithTools({ sessionId, message, dbId, effort, vision, userRoles, userEmail }) {
     if (!client) throw new Error('Anthropic no configurado (ANTHROPIC_API_KEY faltante)');
 
-    // 1. Cargar o crear sesión
+    // 1. Resolver permisos del usuario
+    const caps = capsForRoles(userRoles);
+    const roleLabel = roleLabelEs(userRoles);
+
+    // 2. Cargar o crear sesión
     const now = Date.now();
     let sess = loadSession(sessionId);
     if (!sess) {
       sess = { sessionId, createdAt: now, lastAt: now, messages: [], dbId, usage: {} };
     }
 
-    // 2. Pre-fetch datos reales basado en la pregunta
-    const liveData = await smartPrefetch(message, dbId).catch(() => null);
+    // 3. Pre-fetch datos reales (solo lo que el rol permite)
+    const liveData = await smartPrefetch(message, dbId, caps).catch(() => null);
 
     // 3. Construir input del usuario (texto + imagen + datos pre-fetched)
     const userContent = [];
@@ -579,10 +606,17 @@ NUNCA:
         },
       });
     }
+    // Contexto de permisos para el modelo
+    const roleCtx = `\n\n[PERMISOS DE CUENTA: El usuario "${userEmail}" tiene rol "${roleLabel}". ` +
+      `Capacidades habilitadas: ${JSON.stringify(caps)}. ` +
+      `Si solicita información de una capacidad en "false", responde con respeto: ` +
+      `"Tengo esa información pero tu cuenta (${roleLabel}) no tiene los permisos para que yo te la proporcione. Si necesitas acceso, habla con el administrador del sistema." ` +
+      `NO proporciones el dato restringido bajo ninguna circunstancia.]`;
+
     // Mensaje del usuario con datos reales inyectados
     const msgWithData = liveData
-      ? `${message}\n\n<<<DATOS_REALES_ERP>>>\n${liveData}\n<<<FIN_DATOS>>>\n(Usa estos datos para responder. Son datos reales del ERP en este momento.)`
-      : message;
+      ? `${message}\n\n<<<DATOS_REALES_ERP>>>\n${liveData}\n<<<FIN_DATOS>>>\n(Usa estos datos para responder. Son datos reales del ERP en este momento.)${roleCtx}`
+      : `${message}${roleCtx}`;
     userContent.push({ type: 'text', text: msgWithData });
     sess.messages.push({ role: 'user', content: userContent });
     if (sess.messages.length > MAX_MSGS_PER_SESSION) sess.messages = sess.messages.slice(-MAX_MSGS_PER_SESSION);
@@ -755,6 +789,9 @@ NUNCA:
     const message = String(body.message || '').trim();
     if (!message && !body.imageBase64) return res.status(400).json({ error: 'Falta body.message' });
 
+    const userRoles = (req.session && req.session.user && req.session.user.roles) || [];
+    const userEmail = (req.session && req.session.user && req.session.user.email) || 'anon';
+
     try {
       const result = await chatWithTools({
         sessionId,
@@ -762,6 +799,8 @@ NUNCA:
         dbId: String(body.db || 'default'),
         effort: body.effort,
         vision: body.imageBase64 ? { imageBase64: body.imageBase64, mediaType: body.mediaType || 'image/png' } : null,
+        userRoles,
+        userEmail,
       });
       res.json({ ok: true, ...result });
     } catch (e) {
