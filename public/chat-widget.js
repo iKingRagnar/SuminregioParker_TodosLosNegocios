@@ -911,11 +911,24 @@
       isOpen = !isOpen;
       panel.classList.toggle('open', isOpen);
       fab.textContent = isOpen ? '✕' : '🤖';
-      if (isOpen && history.length === 0) {
-        showWelcome();
-        renderSuggestions();
-        showQuickActions();
-        // Verificar estado de alertas en background
+      if (isOpen) {
+        if (history.length === 0) {
+          showWelcome();
+          renderSuggestions();
+          showQuickActions();
+        } else {
+          // Restaurar mensajes previos en el DOM si la página acaba de cargar
+          const msgs = $('cw-msgs');
+          if (msgs && msgs.children.length === 0) {
+            history.forEach(function(m) {
+              if (m && m.role && m.content) {
+                addMessage(m.role === 'assistant' ? 'ai' : 'user', m.content);
+              }
+            });
+            if (msgs.lastChild) msgs.lastChild.scrollIntoView({ behavior: 'instant' });
+          }
+        }
+        // Verificar estado de alertas en background (siempre que se abra)
         const _dbBg1 = currentDb();
         fetch(API + '/api/alerts/check' + (_dbBg1 ? '?db=' + encodeURIComponent(_dbBg1) : ''), { credentials: 'include', signal: AbortSignal.timeout(30000) })
           .then(r => r.json())
