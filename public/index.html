@@ -495,6 +495,37 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
   0%, 100% { box-shadow: 0 0 8px rgba(0,229,160,.15); }
   50% { box-shadow: 0 0 16px rgba(0,229,160,.3); }
 }
+/* ── SC-CARD design (vendedores style applied to modules + universo) ── */
+.sc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:1.2rem;margin-bottom:1.75rem}
+.sc-card{background:var(--s1);border:1px solid var(--border);border-radius:18px;padding:1.3rem;position:relative;overflow:hidden;transition:all .3s;display:flex;flex-direction:column;text-decoration:none}
+.sc-card:hover{border-color:var(--border2);transform:translateY(-2px);box-shadow:0 16px 48px rgba(0,0,0,.4)}
+.sc-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--vc,var(--green)),transparent);z-index:1}
+.sc-card::after{content:'';position:absolute;top:-30px;right:-30px;width:100px;height:100px;border-radius:50%;background:radial-gradient(circle,var(--vc,var(--green)),transparent 70%);opacity:.06;pointer-events:none}
+.sc-header{display:flex;align-items:center;gap:.8rem;margin-bottom:1rem}
+.sc-avatar{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-size:.85rem;font-weight:800;flex-shrink:0;font-family:'DM Mono',monospace;color:#fff;letter-spacing:-.02em}
+.sc-name{font-size:.9rem;font-weight:700;color:var(--text)}
+.sc-id{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);margin-top:.15rem}
+.sc-kpis{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.6rem;margin-bottom:.6rem}
+.sc-kpi{text-align:center;padding:.45rem .3rem;border-radius:10px;background:rgba(255,255,255,.03)}
+.sc-kpi-lbl{font-family:'DM Mono',monospace;font-size:.5rem;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:.2rem}
+.sc-kpi-val{font-family:'DM Mono',monospace;font-size:.84rem;font-weight:500;color:var(--vc,var(--green))}
+.sc-meta-row{margin-top:.35rem}
+.sc-meta-lbl{display:flex;justify-content:space-between;font-family:'DM Mono',monospace;font-size:.58rem;color:var(--muted);margin-bottom:.25rem}
+.sc-meta-bar{height:5px;background:var(--s3);border-radius:99px;overflow:hidden}
+.sc-meta-fill{height:100%;border-radius:99px;transition:width 1.2s cubic-bezier(.4,0,.2,1)}
+.sc-mod-footer{display:flex;align-items:center;justify-content:space-between;padding-top:.65rem;border-top:1px solid var(--border);margin-top:auto;position:relative;z-index:1}
+.sc-mod-open{font-family:'DM Mono',monospace;font-size:.6rem;color:var(--vc,var(--green));letter-spacing:.06em;text-transform:uppercase;display:flex;align-items:center;gap:.3rem}
+.sc-mod-open svg{width:11px;height:11px;fill:currentColor}
+.sc-badge{display:inline-flex;align-items:center;font-family:'DM Mono',monospace;font-size:.58rem;padding:.18rem .55rem;border-radius:99px}
+.sc-badge-ok{background:var(--green-dim);color:var(--green);border:1px solid rgba(0,229,160,.25)}
+.sc-badge-warn{background:var(--yellow-dim);color:var(--yellow-ink);border:1px solid rgba(255,184,0,.25)}
+.sc-badge-danger{background:var(--red-dim);color:var(--red);border:1px solid rgba(255,69,102,.25)}
+.sc-badge-muted{background:var(--s2);color:var(--muted);border:1px solid var(--border2)}
+/* light mode overrides for sc-card */
+html[data-theme="light"] .sc-card,html.theme-premium-light .sc-card{background:#fff!important;border:1px solid rgba(15,23,42,.07)!important;box-shadow:0 4px 24px rgba(15,23,42,.06)!important}
+html[data-theme="light"] .sc-kpi,html.theme-premium-light .sc-kpi{background:rgba(15,23,42,.03)!important}
+html[data-theme="light"] .sc-name,html.theme-premium-light .sc-name{color:#111827!important}
+html[data-theme="light"] .sc-id,html.theme-premium-light .sc-id,html[data-theme="light"] .sc-kpi-lbl,html.theme-premium-light .sc-kpi-lbl{color:#64748B!important}
 </style>
 <link rel="stylesheet" href="design-upgrade.css">
 </head>
@@ -637,7 +668,7 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
         </div>
         <div class="uni-summary-strip" id="uniSummaryStrip"></div>
       </div>
-      <div class="uni-card-grid" id="uniCardGrid"></div>
+      <div class="uni-card-grid sc-grid" id="uniCardGrid"></div>
       <div class="uni-detail-panel">
         <div class="uni-detail-head">
           <span class="uni-detail-title">Comparativo detallado</span>
@@ -771,205 +802,205 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
     <div class="section-divider-line"></div>
   </div>
 
-  <div class="modules-grid">
+  <div class="sc-grid">
 
     <!-- VENTAS -->
-    <a class="module-card green ms-reveal module-card-v2" href="ventas.html">
-      <div class="mod-top">
-        <div class="mod-icon"><svg viewBox="0 0 24 24"><path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z"/></svg></div>
-        <div class="mod-info">
-          <div class="mod-name">Ventas</div>
-          <div class="mod-desc">Facturaci&#243;n industrial + mostrador<br>Tendencia 30 d&#237;as</div>
+    <a class="sc-card ms-reveal" style="--vc:var(--green)" href="ventas.html">
+      <div class="sc-header">
+        <div class="sc-avatar" style="background:linear-gradient(135deg,var(--green),rgba(0,229,160,.35))">V</div>
+        <div>
+          <div class="sc-name">Ventas</div>
+          <div class="sc-id">Facturaci&#243;n industrial · Tendencia 30d</div>
         </div>
       </div>
-      <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Venta Hoy</span><span class="mod-kpi-val" id="modVentaHoy">$0</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Venta Mes</span><span class="mod-kpi-val" id="modVentaMes">$0</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Cotiz. Hoy</span><span class="mod-kpi-val" id="modCotiHoy">$0</span></div>
+      <div class="sc-kpis">
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Hoy</div><div class="sc-kpi-val" id="modVentaHoy">$0</div></div>
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Mes</div><div class="sc-kpi-val" id="modVentaMes">$0</div></div>
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Cotiz.</div><div class="sc-kpi-val" id="modCotiHoy">$0</div></div>
       </div>
-      <div class="mod-footer">
-        <span class="mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
-        <span class="mod-status" id="modVentaStatus">&mdash;</span>
+      <div class="sc-mod-footer">
+        <span class="sc-mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
+        <span class="sc-badge sc-badge-muted" id="modVentaStatus">&mdash;</span>
       </div>
     </a>
 
     <!-- COBRADAS -->
-    <a class="module-card cyan ms-reveal module-card-v2" href="cobradas.html">
-      <div class="mod-top">
-        <div class="mod-icon"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
-        <div class="mod-info">
-          <div class="mod-name">Cobradas</div>
-          <div class="mod-desc">Facturas cobradas del mes<br>Comisi&#243;n 8% por vendedor</div>
+    <a class="sc-card ms-reveal" style="--vc:var(--cyan)" href="cobradas.html">
+      <div class="sc-header">
+        <div class="sc-avatar" style="background:linear-gradient(135deg,var(--cyan),rgba(0,212,255,.35))">C</div>
+        <div>
+          <div class="sc-name">Cobradas</div>
+          <div class="sc-id">Facturas cobradas · Comisi&#243;n 8%</div>
         </div>
       </div>
-      <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Cobrado Mes</span><span class="mod-kpi-val" id="modCobradoMes">$0</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Comisi&#243;n Est.</span><span class="mod-kpi-val" id="modComision">$0</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Facturas</span><span class="mod-kpi-val" id="modCobFacts">0</span></div>
+      <div class="sc-kpis">
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Cobrado</div><div class="sc-kpi-val" id="modCobradoMes">$0</div></div>
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Comisi&#243;n</div><div class="sc-kpi-val" id="modComision">$0</div></div>
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Facturas</div><div class="sc-kpi-val" id="modCobFacts">0</div></div>
       </div>
-      <div class="mod-footer">
-        <span class="mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
-        <span class="mod-status" id="modCobStatus">&mdash;</span>
+      <div class="sc-mod-footer">
+        <span class="sc-mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
+        <span class="sc-badge sc-badge-muted" id="modCobStatus">&mdash;</span>
       </div>
     </a>
 
     <!-- VENDEDORES -->
-    <a class="module-card purple ms-reveal module-card-v2" href="vendedores.html">
-      <div class="mod-top">
-        <div class="mod-icon"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></div>
-        <div class="mod-info">
-          <div class="mod-name">Vendedores</div>
-          <div class="mod-desc">Cumplimiento diario y mensual<br>por vendedor</div>
+    <a class="sc-card ms-reveal" style="--vc:var(--purple)" href="vendedores.html">
+      <div class="sc-header">
+        <div class="sc-avatar" style="background:linear-gradient(135deg,var(--purple),rgba(155,109,255,.35))">VD</div>
+        <div>
+          <div class="sc-name">Vendedores</div>
+          <div class="sc-id">Cumplimiento diario y mensual</div>
         </div>
       </div>
-      <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">En Meta Hoy</span><span class="mod-kpi-val" id="modVendEnMeta">0/0</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">% Equipo Mes</span><span class="mod-kpi-val" id="modVendPctMes">0%</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Activos</span><span class="mod-kpi-val" id="modVendActivos">0</span></div>
+      <div class="sc-kpis">
+        <div class="sc-kpi"><div class="sc-kpi-lbl">En Meta</div><div class="sc-kpi-val" id="modVendEnMeta">0/0</div></div>
+        <div class="sc-kpi"><div class="sc-kpi-lbl">% Equipo</div><div class="sc-kpi-val" id="modVendPctMes">0%</div></div>
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Activos</div><div class="sc-kpi-val" id="modVendActivos">0</div></div>
       </div>
-      <div class="mod-footer">
-        <span class="mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
-        <span class="mod-status" id="modVendStatus">&mdash;</span>
+      <div class="sc-mod-footer">
+        <span class="sc-mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
+        <span class="sc-badge sc-badge-muted" id="modVendStatus">&mdash;</span>
       </div>
     </a>
 
     <!-- CxC -->
-    <a class="module-card orange ms-reveal module-card-v2" href="cxc.html">
-      <div class="mod-top">
-        <div class="mod-icon"><svg viewBox="0 0 24 24"><path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/></svg></div>
-        <div class="mod-info">
-          <div class="mod-name">Cuentas por Cobrar</div>
-          <div class="mod-desc">Aging, vencidos y top deudores<br>Gesti&#243;n de cartera</div>
+    <a class="sc-card ms-reveal" style="--vc:var(--orange)" href="cxc.html">
+      <div class="sc-header">
+        <div class="sc-avatar" style="background:linear-gradient(135deg,var(--orange),rgba(255,140,66,.35))">CxC</div>
+        <div>
+          <div class="sc-name">Cuentas por Cobrar</div>
+          <div class="sc-id">Aging · vencidos · top deudores</div>
         </div>
       </div>
-      <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Saldo Total</span><span class="mod-kpi-val" id="modCxcTotal">$0</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Vencido</span><span class="mod-kpi-val" id="modCxcVenc">$0</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Clientes</span><span class="mod-kpi-val" id="modCxcClientes">0</span></div>
+      <div class="sc-kpis">
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Saldo</div><div class="sc-kpi-val" id="modCxcTotal">$0</div></div>
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Vencido</div><div class="sc-kpi-val" id="modCxcVenc">$0</div></div>
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Clientes</div><div class="sc-kpi-val" id="modCxcClientes">0</div></div>
       </div>
-      <div class="mod-footer">
-        <span class="mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
-        <span class="mod-status" id="modCxcStatus">&mdash;</span>
+      <div class="sc-mod-footer">
+        <span class="sc-mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
+        <span class="sc-badge sc-badge-muted" id="modCxcStatus">&mdash;</span>
       </div>
     </a>
 
     <!-- CLIENTES -->
-    <a class="module-card red ms-reveal module-card-v2" href="clientes.html">
-      <div class="mod-top">
-        <div class="mod-icon"><svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg></div>
-        <div class="mod-info">
-          <div class="mod-name">Clientes</div>
-          <div class="mod-desc">Riesgo de cartera e Inactivos<br>Comportamiento de pago</div>
+    <a class="sc-card ms-reveal" style="--vc:var(--red)" href="clientes.html">
+      <div class="sc-header">
+        <div class="sc-avatar" style="background:linear-gradient(135deg,var(--red),rgba(255,69,102,.35))">CL</div>
+        <div>
+          <div class="sc-name">Clientes</div>
+          <div class="sc-id">Riesgo de cartera · comportamiento de pago</div>
         </div>
       </div>
-      <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">En Riesgo</span><span class="mod-kpi-val" id="modCliRiesgo">0</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Monto Cr&#237;tico</span><span class="mod-kpi-val" id="modCliCritico">$0</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Inactivos</span><span class="mod-kpi-val" id="modCliInactivos">0</span></div>
+      <div class="sc-kpis">
+        <div class="sc-kpi"><div class="sc-kpi-lbl">En Riesgo</div><div class="sc-kpi-val" id="modCliRiesgo">0</div></div>
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Cr&#237;tico</div><div class="sc-kpi-val" id="modCliCritico">$0</div></div>
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Inactivos</div><div class="sc-kpi-val" id="modCliInactivos">0</div></div>
       </div>
-      <div class="mod-footer">
-        <span class="mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
-        <span class="mod-status" id="modCliStatus">&mdash;</span>
+      <div class="sc-mod-footer">
+        <span class="sc-mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
+        <span class="sc-badge sc-badge-muted" id="modCliStatus">&mdash;</span>
       </div>
     </a>
 
     <!-- INVENTARIO -->
-    <a class="module-card blue ms-reveal module-card-v2" href="inventario.html">
-      <div class="mod-top">
-        <div class="mod-icon"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg></div>
-        <div class="mod-info">
-          <div class="mod-name">Inventario</div>
-          <div class="mod-desc">Existencias, Minimos, Forecast<br>Sin movimiento</div>
+    <a class="sc-card ms-reveal" style="--vc:var(--blue)" href="inventario.html">
+      <div class="sc-header">
+        <div class="sc-avatar" style="background:linear-gradient(135deg,var(--blue),rgba(77,166,255,.35))">INV</div>
+        <div>
+          <div class="sc-name">Inventario</div>
+          <div class="sc-id">Existencias · m&#237;nimos · sin movimiento</div>
         </div>
       </div>
-      <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Total Art&#237;culos</span><span class="mod-kpi-val" id="modInvTotal">0</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Bajo M&#237;nimo</span><span class="mod-kpi-val" id="modInvBajo">0</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Sin Stock</span><span class="mod-kpi-val" id="modInvCero">0</span></div>
+      <div class="sc-kpis">
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Art&#237;culos</div><div class="sc-kpi-val" id="modInvTotal">0</div></div>
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Bajo M&#237;n.</div><div class="sc-kpi-val" id="modInvBajo">0</div></div>
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Sin Stock</div><div class="sc-kpi-val" id="modInvCero">0</div></div>
       </div>
-      <div class="mod-footer">
-        <span class="mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
-        <span class="mod-status" id="modInvStatus">&mdash;</span>
+      <div class="sc-mod-footer">
+        <span class="sc-mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
+        <span class="sc-badge sc-badge-muted" id="modInvStatus">&mdash;</span>
       </div>
     </a>
 
     <!-- DIRECTOR -->
-    <a class="module-card orange ms-reveal module-card-v2" href="director.html">
-      <div class="mod-top">
-        <div class="mod-icon"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></div>
-        <div class="mod-info">
-          <div class="mod-name">Director General</div>
-          <div class="mod-desc">Vista ejecutiva y KPIs estrat&#233;gicos<br>Resumen consolidado</div>
+    <a class="sc-card ms-reveal" style="--vc:var(--suminregio)" href="director.html">
+      <div class="sc-header">
+        <div class="sc-avatar" style="background:linear-gradient(135deg,var(--suminregio),rgba(230,168,0,.35))">DG</div>
+        <div>
+          <div class="sc-name">Director General</div>
+          <div class="sc-id">Vista ejecutiva · KPIs estrat&#233;gicos</div>
         </div>
       </div>
-      <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Venta Mes</span><span class="mod-kpi-val" id="modDirVenta">$0</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Margen</span><span class="mod-kpi-val" id="modDirMargen">0%</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Salud Cartera</span><span class="mod-kpi-val" id="modDirSalud">0%</span></div>
+      <div class="sc-kpis">
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Venta Mes</div><div class="sc-kpi-val" id="modDirVenta">$0</div></div>
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Margen</div><div class="sc-kpi-val" id="modDirMargen">0%</div></div>
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Cartera</div><div class="sc-kpi-val" id="modDirSalud">0%</div></div>
       </div>
-      <div class="mod-footer">
-        <span class="mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
-        <span class="mod-status">Vista ejecutiva</span>
+      <div class="sc-mod-footer">
+        <span class="sc-mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
+        <span class="sc-badge sc-badge-muted">Vista ejecutiva</span>
       </div>
     </a>
 
     <!-- RESULTADOS -->
-    <a class="module-card green ms-reveal module-card-v2" href="resultados.html">
-      <div class="mod-top">
-        <div class="mod-icon"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></div>
-        <div class="mod-info">
-          <div class="mod-name">P&amp;L</div>
-          <div class="mod-desc">P&amp;L mensual, Ventas netas<br>Margen bruto y Tendencias</div>
+    <a class="sc-card ms-reveal" style="--vc:var(--green)" href="resultados.html">
+      <div class="sc-header">
+        <div class="sc-avatar" style="background:linear-gradient(135deg,var(--green),rgba(0,229,160,.35))">P&amp;L</div>
+        <div>
+          <div class="sc-name">P&amp;L</div>
+          <div class="sc-id">Ventas netas · margen bruto · tendencias</div>
         </div>
       </div>
-      <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Ventas Netas</span><span class="mod-kpi-val" id="modResVentas">$0</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Margen Bruto</span><span class="mod-kpi-val" id="modResMargen">0%</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Cobros Mes</span><span class="mod-kpi-val" id="modResCobros">$0</span></div>
+      <div class="sc-kpis">
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Ventas</div><div class="sc-kpi-val" id="modResVentas">$0</div></div>
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Margen</div><div class="sc-kpi-val" id="modResMargen">0%</div></div>
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Cobros</div><div class="sc-kpi-val" id="modResCobros">$0</div></div>
       </div>
-      <div class="mod-footer">
-        <span class="mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
-        <span class="mod-status" id="modResStatus">&mdash;</span>
+      <div class="sc-mod-footer">
+        <span class="sc-mod-open">Abrir m&#243;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
+        <span class="sc-badge sc-badge-muted" id="modResStatus">&mdash;</span>
       </div>
     </a>
 
     <!-- DASHBOARDS V2 -->
-    <a class="module-card purple ms-reveal module-card-v2" href="Dashboard_Index.html">
-      <div class="mod-top">
-        <div class="mod-icon"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm10 8h8V11h-8v10zM3 21h8v-6H3v6zm10-18v6h8V3h-8z"/></svg></div>
-        <div class="mod-info">
-          <div class="mod-name">Suite Dashboards V2</div>
-          <div class="mod-desc">Vista por &aacute;reas (ventas, clientes, finanzas, inventario)<br>Storytelling completo estilo anal&iacute;tico</div>
+    <a class="sc-card ms-reveal" style="--vc:var(--purple)" href="Dashboard_Index.html">
+      <div class="sc-header">
+        <div class="sc-avatar" style="background:linear-gradient(135deg,var(--purple),rgba(155,109,255,.35))">SD</div>
+        <div>
+          <div class="sc-name">Suite Dashboards V2</div>
+          <div class="sc-id">Ventas · clientes · finanzas · inventario</div>
         </div>
       </div>
-      <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">M&oacute;dulos</span><span class="mod-kpi-val">16</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Cobertura</span><span class="mod-kpi-val">Comercial + Finanzas</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Acceso</span><span class="mod-kpi-val">Lista completa</span></div>
+      <div class="sc-kpis">
+        <div class="sc-kpi"><div class="sc-kpi-lbl">M&#243;dulos</div><div class="sc-kpi-val">16</div></div>
+        <div class="sc-kpi"><div class="sc-kpi-lbl">&#193;reas</div><div class="sc-kpi-val">Comercial</div></div>
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Acceso</div><div class="sc-kpi-val">Completo</div></div>
       </div>
-      <div class="mod-footer">
-        <span class="mod-open">Abrir m&oacute;dulo <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
-        <span class="mod-status">Nuevo</span>
+      <div class="sc-mod-footer">
+        <span class="sc-mod-open">Abrir suite <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg></span>
+        <span class="sc-badge sc-badge-ok">Nuevo</span>
       </div>
     </a>
 
     <!-- METAS ACTIVAS -->
-    <div class="module-card yellow" style="cursor:default">
-      <div class="mod-top">
-        <div class="mod-icon"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></div>
-        <div class="mod-info">
-          <div class="mod-name">Metas Activas</div>
-          <div class="mod-desc">Configuraci&#243;n vigente del sistema<br>diaria y mensual &#8211; cotizaci&#243;n</div>
+    <div class="sc-card" style="--vc:var(--yellow);cursor:default">
+      <div class="sc-header">
+        <div class="sc-avatar" style="background:linear-gradient(135deg,var(--yellow),rgba(255,184,0,.35));color:#050B14">M</div>
+        <div>
+          <div class="sc-name">Metas Activas</div>
+          <div class="sc-id">Config. vigente · diaria · mensual</div>
         </div>
       </div>
-      <div class="mod-kpis">
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Meta Diaria</span><span class="mod-kpi-val" id="modMetaDiaria">$0</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Meta Cotiz.</span><span class="mod-kpi-val" id="modMetaCoti">$0</span></div>
-        <div class="mod-kpi-row"><span class="mod-kpi-label">Vendedores</span><span class="mod-kpi-val" id="modMetaVend">0</span></div>
+      <div class="sc-kpis">
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Meta D&#237;a</div><div class="sc-kpi-val" id="modMetaDiaria">$0</div></div>
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Meta Cotiz.</div><div class="sc-kpi-val" id="modMetaCoti">$0</div></div>
+        <div class="sc-kpi"><div class="sc-kpi-lbl">Vendedores</div><div class="sc-kpi-val" id="modMetaVend">0</div></div>
       </div>
-      <div class="mod-footer">
-        <span class="mod-open" style="color:var(--yellow-ink)">Config. activa <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></span>
-        <span class="mod-status" id="modMetaStatus">&mdash;</span>
+      <div class="sc-mod-footer">
+        <span class="sc-mod-open" style="color:var(--yellow-ink)">Config. activa</span>
+        <span class="sc-badge sc-badge-muted" id="modMetaStatus">&mdash;</span>
       </div>
     </div>
 
@@ -1292,24 +1323,41 @@ function renderUniversePortfolio(uni){
     if(foot) foot.innerHTML='';
     return;
   }
-  grid.innerHTML=emp.map(r=>{
+  const UNI_COLS=['#9B6DFF','#4DA6FF','#00E5A0','#FFB800','#FF8C42','#FF4566','#00D4FF','#E6A800'];
+  grid.innerHTML=emp.map((r,idx)=>{
+    const col=UNI_COLS[idx%UNI_COLS.length];
+    const initials=(r.label||r.id||'?').replace(/[^A-Za-z0-9\u00c0-\u024f]/g,' ').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'?';
     if(!r.ok){
-      return '<article class="uni-entity-card err"><div class="uni-ec-head"><div class="uni-ec-name">'+escHtml(r.label||r.id)+'</div><div class="uni-ec-id">'+escHtml(r.id)+'</div></div><p style="color:var(--red);font-size:.8rem;margin:0">'+escHtml(r.error||'Error de conexi\u00f3n')+'</p></article>';
+      return '<article class="sc-card" style="--vc:var(--red)">'+
+        '<div class="sc-header"><div class="sc-avatar" style="background:linear-gradient(135deg,var(--red),rgba(255,69,102,.35))">!</div>'+
+        '<div><div class="sc-name">'+escHtml(r.label||r.id)+'</div><div class="sc-id">'+escHtml(r.id)+'</div></div></div>'+
+        '<p style="color:var(--red);font-size:.78rem;font-family:\'DM Mono\',monospace;margin:.5rem 0">'+escHtml(r.error||'Error de conexi\u00f3n')+'</p></article>';
     }
     const pv=+(r.cxc_pct_vencido||0);
-    const riskCls=pv>40?'danger':pv>20?'warn':'';
-    const path=dbPathForId(r.id);
-    const shortPath=path?path.replace(/\\/g,'/').split('/').filter(Boolean).slice(-2).join('/'):'';
-    return '<article class="uni-entity-card '+riskCls+'"><div class="uni-ec-head"><div class="uni-ec-name">'+escHtml(r.label||r.id)+'</div><div class="uni-ec-id">ID \u00b7 '+escHtml(r.id)+'</div>'+
-      (path?'<div class="uni-ec-path" title="'+escHtml(path)+'">'+escHtml(shortPath)+'</div>':'')+'</div>'+
-      '<div class="uni-ec-metrics">'+
-      '<div class="uni-ec-m"><div class="m-l">Venta periodo</div><div class="m-v m-v-sale">'+fmtM(r.ventas_mes)+'</div></div>'+
-      '<div class="uni-ec-m"><div class="m-l">Venta hoy</div><div class="m-v m-v-hoy">'+fmtM(r.ventas_hoy)+'</div></div>'+
-      '<div class="uni-ec-m"><div class="m-l">Saldo CxC</div><div class="m-v m-v-cxc">'+fmtM(r.cxc_saldo)+'</div></div>'+
-      '<div class="uni-ec-m"><div class="m-l">Cotiz. periodo</div><div class="m-v m-v-cotiz">'+fmtM(r.cotiz_importe_mes)+'</div></div>'+
+    const pvCol=pv>40?'var(--red)':pv>20?'var(--yellow-ink)':'var(--green)';
+    const pvBarW=Math.min(100,Math.max(0,pv));
+    const badgeCls=pv>40?'sc-badge sc-badge-danger':pv>20?'sc-badge sc-badge-warn':'sc-badge sc-badge-ok';
+    const badgeTxt=pv>40?'Cartera cr\u00edtica':pv>20?'Atenci\u00f3n requerida':'Cartera sana';
+    return '<article class="sc-card" style="--vc:'+col+'">'+
+      '<div class="sc-header">'+
+        '<div class="sc-avatar" style="background:linear-gradient(135deg,'+col+','+col+'55);color:#fff;font-size:.75rem">'+escHtml(initials)+'</div>'+
+        '<div><div class="sc-name">'+escHtml(r.label||r.id)+'</div><div class="sc-id">ID \u00b7 '+escHtml(r.id)+'</div></div>'+
       '</div>'+
-      '<div class="uni-risk-bar"><div class="uni-risk-fill" style="width:'+Math.min(100,Math.max(0,pv))+'%;background:'+(pv>40?'var(--red)':pv>20?'var(--yellow-ink)':'var(--green)')+'"></div></div>'+
-      '<div class="uni-risk-meta"><span>Cartera vencida</span><span style="color:'+(pv>40?'var(--red)':pv>20?'var(--yellow-ink)':'var(--green)')+'">'+pv.toFixed(1)+'%</span></div></article>';
+      '<div class="sc-kpis">'+
+        '<div class="sc-kpi"><div class="sc-kpi-lbl">Periodo</div><div class="sc-kpi-val">'+fmtM(r.ventas_mes)+'</div></div>'+
+        '<div class="sc-kpi"><div class="sc-kpi-lbl">Hoy</div><div class="sc-kpi-val">'+fmtM(r.ventas_hoy)+'</div></div>'+
+        '<div class="sc-kpi"><div class="sc-kpi-lbl">CxC</div><div class="sc-kpi-val">'+fmtM(r.cxc_saldo)+'</div></div>'+
+      '</div>'+
+      '<div class="sc-kpis" style="margin-top:.4rem;border-top:1px solid var(--border);padding-top:.4rem">'+
+        '<div class="sc-kpi" style="grid-column:span 2"><div class="sc-kpi-lbl">Cotiz. periodo</div><div class="sc-kpi-val">'+fmtM(r.cotiz_importe_mes)+'</div></div>'+
+        '<div class="sc-kpi"><div class="sc-kpi-lbl">% Vencido</div><div class="sc-kpi-val" style="color:'+pvCol+'">'+pv.toFixed(1)+'%</div></div>'+
+      '</div>'+
+      '<div class="sc-meta-row" style="margin-top:.4rem">'+
+        '<div class="sc-meta-lbl"><span>Cartera vencida</span><span style="color:'+pvCol+'">'+pv.toFixed(1)+'%</span></div>'+
+        '<div class="sc-meta-bar"><div class="sc-meta-fill" style="width:'+pvBarW+'%;background:'+pvCol+'"></div></div>'+
+      '</div>'+
+      '<div style="margin-top:.55rem"><span class="'+badgeCls+'">'+badgeTxt+'</span></div>'+
+      '</article>';
   }).join('');
   if(tbody){
     tbody.innerHTML=emp.map(r=>{
