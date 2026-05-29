@@ -977,36 +977,36 @@ function showTab(tab, el) {
 
 function renderClientsTable(data) {
     const mx = data[0]?.venta || 1;
-    let html = '<h3>Top Clientes</h3><table id="data-table"><thead><tr><th>#</th><th>Cliente</th><th>Tipo</th><th class="tr">Venta Neta</th><th class="tr">Docs</th><th class="tr">Ticket</th></tr></thead><tbody>';
+    let html = '<h3>Top Clientes</h3><table id="data-table-1"><thead><tr><th>#</th><th>Cliente</th><th>Tipo</th><th class="tr">Venta Neta</th><th class="tr">Docs</th><th class="tr">Ticket</th></tr></thead><tbody>';
     data.forEach((c,i)=>{
         const pct = (c.venta/mx*100).toFixed(0);
         html += `<tr style="cursor:pointer" onclick="applyDimensionFilter('cliente',${JSON.stringify(c.cliente)})"><td>${i+1}</td><td><div class="bar-w"><div class="bar-bg" style="width:${pct}%"></div>${c.cliente}</div></td><td style="cursor:pointer" onclick="event.stopPropagation();applyDimensionFilter('tipo',${JSON.stringify(c.tipo)})">${c.tipo}</td><td class="tr">${fmt$(c.venta)}</td><td class="tr">${c.docs}</td><td class="tr">${fmt$(c.ticket_prom)}</td></tr>`;
     });
     html += '</tbody></table>';
     document.getElementById('table-section').innerHTML = html;
-    makeTableSortable('data-table', data, renderClientsTable, [0, 3, 4, 5]);
+    makeTableSortable('data-table-1', data, renderClientsTable, [0, 3, 4, 5]);
 }
 
 function renderVendorsTable(data) {
-    let html = '<h3>Rendimiento Vendedores</h3><table id="data-table"><thead><tr><th>Vendedor</th><th class="tr">Venta</th><th class="tr">Costo</th><th class="tr">Utilidad</th><th class="tr">Margen</th><th class="tr">Docs</th><th class="tr">Ticket</th></tr></thead><tbody>';
+    let html = '<h3>Rendimiento Vendedores</h3><table id="data-table-2"><thead><tr><th>Vendedor</th><th class="tr">Venta</th><th class="tr">Costo</th><th class="tr">Utilidad</th><th class="tr">Margen</th><th class="tr">Docs</th><th class="tr">Ticket</th></tr></thead><tbody>';
     data.forEach(v=>{
         const mc = v.margen>=30?'pos':v.margen<20?'neg':'';
         html += `<tr style="cursor:pointer" onclick="applyDimensionFilter('vendedor',${JSON.stringify(v.vendedor)})"><td>${v.vendedor}</td><td class="tr">${fmt$(v.venta)}</td><td class="tr">${fmt$(v.costo)}</td><td class="tr">${fmt$(v.utilidad)}</td><td class="tr ${mc}">${v.margen}%</td><td class="tr">${v.docs}</td><td class="tr">${fmt$(v.ticket_prom)}</td></tr>`;
     });
     html += '</tbody></table>';
     document.getElementById('table-section').innerHTML = html;
-    makeTableSortable('data-table', data, renderVendorsTable, [1, 2, 3, 4, 5, 6]);
+    makeTableSortable('data-table-2', data, renderVendorsTable, [1, 2, 3, 4, 5, 6]);
 }
 
 function renderArticlesTable(data) {
-    let html = '<h3>Top Artículos</h3><table id="data-table"><thead><tr><th>#</th><th>Artículo</th><th>Línea</th><th class="tr">Venta</th><th class="tr">Uds</th><th class="tr">Costo</th><th class="tr">Margen</th></tr></thead><tbody>';
+    let html = '<h3>Top Artículos</h3><table id="data-table-3"><thead><tr><th>#</th><th>Artículo</th><th>Línea</th><th class="tr">Venta</th><th class="tr">Uds</th><th class="tr">Costo</th><th class="tr">Margen</th></tr></thead><tbody>';
     data.forEach((a,i)=>{
         const mc = a.margen>=30?'pos':a.margen<20?'neg':'';
         html += `<tr style="cursor:pointer" onclick="applyDimensionFilter('linea',${JSON.stringify(a.linea)})"><td>${i+1}</td><td>${a.articulo}</td><td>${a.linea}</td><td class="tr">${fmt$(a.venta)}</td><td class="tr">${a.unidades.toLocaleString('es-MX')}</td><td class="tr">${fmt$(a.costo)}</td><td class="tr ${mc}">${a.margen}%</td></tr>`;
     });
     html += '</tbody></table>';
     document.getElementById('table-section').innerHTML = html;
-    makeTableSortable('data-table', data, renderArticlesTable, [0, 3, 4, 5, 6]);
+    makeTableSortable('data-table-3', data, renderArticlesTable, [0, 3, 4, 5, 6]);
 }
 
 function renderTable(f) {

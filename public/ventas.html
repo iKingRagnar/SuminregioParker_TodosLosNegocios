@@ -1144,7 +1144,7 @@ async function loadAll() {
     setText('kpi-meta', bloq ? '—' : fmtK(metaVDia));
     setText('kpi-meta-sub', bloq ? 'Metas de equipo no aplican en solo mostrador (DAX).' : `Meta equipo/día laboral · Ideal (+30%): ${fmtK(idealVDia)}`);
     setText('kc-meta', bloq ? '—' : fmtK(metaCDia));
-  } catch(e){}
+  } catch(e){ console.error('[ventas] render error:', e && e.message, e); }
 
   // allSettled: si un sub-módulo falla, los demás siguen renderizando
   try {
@@ -1283,7 +1283,7 @@ async function loadSplit() {
       setText('split-pv-pct', `PV ${pp.toFixed(0)}%`);
       setText('split-info', `VE: ${vp.toFixed(0)}% | PV: ${pp.toFixed(0)}%`);
     }
-  } catch(e){}
+  } catch(e){ console.error('[ventas] render error:', e && e.message, e); }
 }
 
 // Normaliza respuesta de diarias: acepta array directo o { data/rows: array }; cada fila puede tener DIA o FECHA, VENTAS_VE/VENTAS_PV/TOTAL_VENTAS o TOTAL
@@ -1459,7 +1459,7 @@ async function loadClientes() {
       <td class="num">${fmt(tot(r))}</td>
       <td class="num">${docs(r).toLocaleString('es-MX')}</td>
     </tr>`).join('') || '<tr><td colspan="4" class="ms-empty" style="border:none">Sin datos</td></tr>';
-  } catch(e){}
+  } catch(e){ console.error('[ventas] render error:', e && e.message, e); }
 }
 
 function applyCotiData(resObj, diarias, vends, ventasVE) {
@@ -1723,7 +1723,7 @@ async function loadRecientes() {
       return `<tr><td class="lbl" style="font-family:'DM Mono',monospace">${r.FOLIO||'?'}</td><td>${tipo}</td><td>${src}</td><td>${r.CLIENTE||'?'}</td><td style="color:var(--text2)">${r.VENDEDOR||'?'}</td><td class="num">${fmt(r.TOTAL!=null?r.TOTAL:r.IMPORTE_NETO)}</td><td style="color:var(--text2);font-family:'DM Mono',monospace;font-size:.72rem">${fecha}</td></tr>`;
     }).join('') || '<tr><td colspan="7" class="ms-empty" style="border:none">Sin datos</td></tr>';
     setText('rec-badge', `${rows.length} documentos`);
-  } catch(e){}
+  } catch(e){ console.error('[ventas] render error:', e && e.message, e); }
 }
 
 // Carga inicial inmediata — si filters.js falla/no carga, seguimos sin romper la página.

@@ -153,7 +153,7 @@
       if (!raw) return [];
       const arr = JSON.parse(raw);
       return Array.isArray(arr) ? arr.slice(-40) : []; // keep last 40 turns
-    } catch (_) { return []; }
+    } catch (e) { console.error('[chat-widget] error:', e.message||e); return []; }
   }
   function persistHistory() {
     try { localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(-40))); } catch (_) {}

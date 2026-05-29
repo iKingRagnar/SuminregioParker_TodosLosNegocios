@@ -1215,7 +1215,7 @@ async function loadDiarias() {
         scales:{ x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5A7090',font:{size:9}}},
           y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#5A7090',font:{size:9},callback:v=>fmtK(v)}} } }
     });
-  } catch(e){}
+  } catch(e){ console.error('[director] render error:', e && e.message, e); }
 }
 
 let _vendedoresData = []; // para search/export
@@ -1281,7 +1281,7 @@ async function loadVendedores() {
     // Reaplicar filtro si había texto
     const inp = document.getElementById('vend-search');
     if (inp && inp.value) filterVendedoresList(inp.value);
-  } catch(e){}
+  } catch(e){ console.error('[director] render error:', e && e.message, e); }
 }
 
 let _clientesData = [];
@@ -1313,7 +1313,7 @@ async function loadClientes() {
       <td class="num">${fmt(tot(r))}</td>
       <td class="num">${docs(r).toLocaleString('es-MX')}</td>
     </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Sin datos</td></tr>';
-  } catch(e){}
+  } catch(e){ console.error('[director] render error:', e && e.message, e); }
 }
 
 async function loadRecientes() {
@@ -1326,7 +1326,7 @@ async function loadRecientes() {
       return `<tr><td class="lbl" style="font-family:'DM Mono',monospace">${r.FOLIO||'&mdash;'}</td><td>${src}</td><td>${r.CLIENTE||'&mdash;'}</td><td style="color:var(--muted)">${r.VENDEDOR||'&mdash;'}</td><td class="num">${fmt(r.TOTAL)}</td><td style="color:var(--muted);font-family:'DM Mono',monospace;font-size:.72rem">${fecha}</td></tr>`;
     }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted)">Sin datos</td></tr>';
     setText('rec-badge', `${rows.length} movimientos`);
-  } catch(e){}
+  } catch(e){ console.error('[director] render error:', e && e.message, e); }
 }
 
 // Carga inicial: initFilters primero (hidrata preset/anio/mes desde URL) y onReady dispara loadAll — evita KPI CxC/cartera con ?db= desalineado o periodo vacío antes de la barra.

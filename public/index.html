@@ -2045,7 +2045,7 @@ async function fetchTend(){
     const data=await fetch(url).then(r=>r.json());
     const arr=Array.isArray(data)?data:[];
     if(arr.length)renderChart(arr);
-  }catch(e){}
+  }catch(e){ console.error('[index] chart fetch error:', e && e.message); }
 }
 
 function renderChart(data){

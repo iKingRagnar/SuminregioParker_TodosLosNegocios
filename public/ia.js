@@ -53,7 +53,7 @@
       if (!raw) return [];
       var arr = JSON.parse(raw);
       return Array.isArray(arr) ? arr : [];
-    } catch (_) { return []; }
+    } catch (e) { console.error('[chat-widget] error:', e.message||e); return []; }
   }
 
   function saveConversations() {

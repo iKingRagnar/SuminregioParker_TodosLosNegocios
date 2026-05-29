@@ -135,7 +135,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       if (u) return u;
       var s = (sessionStorage.getItem('microsip_erp_db') || '').trim();
       if (s) return s;
-    } catch (e) {}
+    } catch (e) { console.error('[filters] param error:', e && e.message); }
     return '';
   }
 
@@ -146,7 +146,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       if (u) return u.toLowerCase();
       var s = (sessionStorage.getItem('cxc_total_kpi') || '').trim();
       if (s) return s.toLowerCase();
-    } catch (e) {}
+    } catch (e) { console.error('[filters] param error:', e && e.message); }
     return 'documento';
   }
 
@@ -287,9 +287,9 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
         const u = new URL(window.location.href);
         u.searchParams.set('db', urlDb);
         history.replaceState({}, '', u);
-      } catch (_) {}
+      } catch (_) { console.error('[filters] param error:', _ && _.message); }
       if (urlDb !== '__all__') {
-        try { sessionStorage.setItem('microsip_erp_db', urlDb); } catch (_) {}
+        try { sessionStorage.setItem('microsip_erp_db', urlDb); } catch (_) { console.error('[filters] param error:', _ && _.message); }
       }
 
     }
@@ -322,10 +322,10 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
           const u = new URL(window.location.href);
           u.searchParams.set('db', raw);
           history.replaceState({}, '', u);
-        } catch (_) {}
+        } catch (_) { console.error('[filters] param error:', _ && _.message); }
         // No persistir __all__ en sessionStorage; solo afecta la página actual
         if (raw !== '__all__') {
-          try { sessionStorage.setItem('microsip_erp_db', raw); } catch (_) {}
+          try { sessionStorage.setItem('microsip_erp_db', raw); } catch (_) { console.error('[filters] param error:', _ && _.message); }
         }
 
         container.querySelectorAll('.biz-chip').forEach(function (b) { b.classList.remove('active'); });
@@ -388,7 +388,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
         try {
           const qdb = (new URLSearchParams(window.location.search).get('db') || '').trim();
           if (qdb) sp.set('db', qdb);
-        } catch (_) {}
+        } catch (_) { console.error('[filters] param error:', _ && _.message); }
         if (p.desde && p.hasta) {
           sp.set('desde', p.desde);
           sp.set('hasta', p.hasta);
@@ -416,7 +416,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       const qs = sp.toString();
       const path = u.pathname + (u.hash || '');
       history.replaceState({}, '', path + (qs ? '?' + qs : ''));
-    } catch (_) {}
+    } catch (_) { console.error('[filters] param error:', _ && _.message); }
   }
 
   /** Lee ?preset=&anio=&mes=&desde=&hasta=&vendedor= al cargar (p. ej. tras reload con ?db=). */
@@ -455,7 +455,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
       }
       if (!isNaN(anioUrl)) _state.anio = anioUrl;
       if (!isNaN(mesUrl)) _state.mes = mesUrl;
-    } catch (_) {}
+    } catch (_) { console.error('[filters] param error:', _ && _.message); }
   }
 
   function fire() {
@@ -1188,7 +1188,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
         loc.searchParams.set('db', d);
         history.replaceState({}, '', loc);
       }
-    } catch (e) {}
+    } catch (e) { console.error('[filters] param error:', e && e.message); }
   }
 
   /**
@@ -1231,7 +1231,7 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     try {
       var rr = unwrapCxcResumenRow(cxcSnap && cxcSnap.resumen);
       if (rr && typeof rr === 'object') vSnap = +rr.VENCIDO || 0;
-    } catch (e) {}
+    } catch(e){ console.error('[filters] CxC unwrap error:', e.message||e); }
     var saldo = 0;
     if (dc && (+dc.SALDO_TOTAL || 0) > 0.005) {
       saldo = +dc.SALDO_TOTAL;

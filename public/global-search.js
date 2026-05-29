@@ -68,13 +68,21 @@
 
   function open() {
     state.open = true;
-    document.getElementById('sumi-search-overlay').classList.add('open');
-    setTimeout(function () { document.getElementById('sumi-search-input').focus(); }, 50);
+    var overlay = document.getElementById('sumi-search-overlay');
+    if (!overlay) return;
+    overlay.classList.add('open');
+    setTimeout(function () {
+      var inp = document.getElementById('sumi-search-input');
+      if (inp) inp.focus();
+    }, 50);
   }
   function close() {
     state.open = false;
-    document.getElementById('sumi-search-overlay').classList.remove('open');
-    document.getElementById('sumi-search-input').value = '';
+    var overlay = document.getElementById('sumi-search-overlay');
+    if (!overlay) return;
+    overlay.classList.remove('open');
+    var inp = document.getElementById('sumi-search-input');
+    if (inp) inp.value = '';
     render([]);
   }
 

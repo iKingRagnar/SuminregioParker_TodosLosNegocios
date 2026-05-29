@@ -569,7 +569,7 @@ function doBusqueda(val) {
           }).join('')
         }</tbody></table>` :
         '<div style="text-align:center;color:var(--muted);padding:1rem">Sin resultados</div>';
-    } catch(e){}
+    } catch(e){ console.error('[inventario] search error:', e && e.message, e); }
   }, 350);
 }
 
