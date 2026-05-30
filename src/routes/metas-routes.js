@@ -21,6 +21,29 @@ const auth = require('../auth');
 // Fuentes de valor REAL por meta (sólo donde el dato es confiable).
 //   source: endpoint a consultar · pick(body): extrae el valor real (mismas
 //   unidades que la meta) o null si no hay dato.
+// Crecimiento YoY robusto desde la serie mensual del P&L: compara el ÚLTIMO
+// MES COMPLETO (no el mes en curso) contra el mismo mes del año anterior.
+// Devuelve fracción de crecimiento o null si no hay datos suficientes.
+function yoyFromPnl(b) {
+  const meses = (b && Array.isArray(b.meses)) ? b.meses : null;
+  if (!meses || meses.length < 13) return null;
+  const norm = meses.map((m) => ({
+    y: parseInt(m.ANIO, 10),
+    mo: parseInt(m.MES, 10),
+    v: Number(m.VENTAS_NETAS),
+  })).filter((x) => x.y > 0 && x.mo >= 1 && x.mo <= 12 && isFinite(x.v));
+  if (norm.length < 13) return null;
+  const idx = (x) => x.y * 12 + (x.mo - 1);           // índice absoluto de mes
+  const now = new Date();
+  const nowIdx = now.getFullYear() * 12 + now.getMonth(); // mes en curso (incompleto)
+  const completos = norm.filter((x) => idx(x) < nowIdx).sort((a, c) => idx(a) - idx(c));
+  if (!completos.length) return null;
+  const last = completos[completos.length - 1];        // último mes completo
+  const prev = norm.find((x) => idx(x) === idx(last) - 12); // mismo mes, año anterior
+  if (!prev || !(prev.v > 0)) return null;
+  return (last.v - prev.v) / prev.v;                   // fracción YoY
+}
+
 const MEASURABLE = {
   META_MARGEN_BRUTO_PCT: {
     source: '/api/resultados/pnl',
@@ -33,6 +56,11 @@ const MEASURABLE = {
       if (!isFinite(pct)) return null;
       return pct > 1.5 ? pct / 100 : pct; // normaliza 0-100 → fracción
     },
+  },
+  META_CRECIMIENTO_YOY_PCT: {
+    source: '/api/resultados/pnl',
+    params: '&meses=14',           // serie de 14 meses → cubre M-1 y M-13
+    pick: (b) => yoyFromPnl(b),
   },
   META_CARTERA_VENCIDA_PCT: {
     source: '/api/cxc/resumen-aging',
@@ -168,17 +196,19 @@ function install(deps) {
     const metas = metasConfig.buildPayload({ numV: 1 });
     const dbq = `?db=${encodeURIComponent(db)}`;
 
-    // Trae cada fuente real una sola vez (varias metas pueden compartir fuente).
-    const sources = [...new Set(Object.values(MEASURABLE).map((m) => m.source))];
+    // Trae cada ruta real una sola vez (la ruta incluye sus params propios, así
+    // p.ej. el P&L del periodo y el P&L de 14 meses para YoY no se mezclan).
+    const pathOf = (m) => m.source + dbq + (m.params || '');
+    const paths = [...new Set(Object.values(MEASURABLE).map(pathOf))];
     const bodies = {};
-    await Promise.all(sources.map(async (s) => { bodies[s] = await fetchLocalJson(s + dbq); }));
+    await Promise.all(paths.map(async (p) => { bodies[p] = await fetchLocalJson(p); }));
 
     const items = metasConfig.SCHEMA.map((s) => {
       const meta = metas[s.key];
       const m = MEASURABLE[s.key];
       let real = null;
-      if (m && bodies[m.source]) {
-        try { real = m.pick(bodies[m.source]); } catch (_) { real = null; }
+      if (m && bodies[pathOf(m)]) {
+        try { real = m.pick(bodies[pathOf(m)]); } catch (_) { real = null; }
       }
       const c = metasConfig.cumplimiento(s.key, real, meta);
       return {
@@ -218,4 +248,4 @@ function install(deps) {
   });
 }
 
-module.exports = { install };
+module.exports = { install, yoyFromPnl, MEASURABLE };
