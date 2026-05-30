@@ -3623,6 +3623,52 @@ get('/api/config/metas', async (req) => {
     MARGEN_COMISION          : 0.08,
   };
 
+  // ───────────────────────────────────────────────────────────────────────────
+  // METAS ESTÁNDAR SUGERIDAS (benchmarks típicos de distribución/mayoreo B2B).
+  //
+  // ⚠️  Son VALORES DE REFERENCIA INICIALES, NO metas oficiales de la empresa.
+  //     Cada componente del tablero que antes no tenía meta usa estos números
+  //     como punto de partida. DEBEN ajustarse a la realidad y objetivos de
+  //     Suminregio (histórico, márgenes por línea, estacionalidad, crédito
+  //     otorgado, etc.). Para fijar metas propias, capturarlas en
+  //     CONFIGURACIONES_GEN / config de empresa y sobreescribir estas defaults.
+  //
+  //  Convención: *_PCT = fracción 0..1 (0.30 = 30 %); *_DIAS = días; los
+  //  factores como ROTACION son veces/año.
+  // ───────────────────────────────────────────────────────────────────────────
+  Object.assign(payload, {
+    // Rentabilidad / Resultados (P&L)
+    META_MARGEN_BRUTO_PCT        : 0.30,  // margen bruto objetivo
+    META_MARGEN_NETO_PCT         : 0.08,  // utilidad operativa / ventas
+    META_GASTO_OPERATIVO_PCT     : 0.20,  // gasto de operación ≤ 20 % de ventas
+    META_CRECIMIENTO_YOY_PCT     : 0.10,  // crecimiento de ventas vs año anterior
+    // Margen por producto
+    META_MARGEN_PRODUCTO_MIN_PCT : 0.20,  // margen mínimo aceptable por SKU
+    // Cartera / CxC
+    META_DSO_DIAS                : 45,    // días promedio de cobro (DSO)
+    META_CARTERA_VENCIDA_PCT     : 0.15,  // ≤ 15 % de la cartera vencida
+    META_EFICIENCIA_COBRANZA_PCT : 0.95,  // cobrado / facturado
+    // Inventario
+    META_ROTACION_INVENTARIO_ANUAL : 6,   // vueltas de inventario al año
+    META_DIAS_INVENTARIO_MAX     : 60,    // días de inventario ≤ 60
+    META_FILL_RATE_PCT           : 0.95,  // disponibilidad / surtido de línea
+    META_EXACTITUD_INVENTARIO_PCT: 0.97,  // exactitud físico vs sistema
+    // Pedidos / Cumplimiento (p.ej. Hospital)
+    META_CUMPLIMIENTO_PEDIDOS_PCT: 0.95,  // líneas surtidas completas
+    META_ENTREGA_A_TIEMPO_PCT    : 0.95,  // entregas dentro de fecha
+    // Clientes / Retención
+    META_RETENCION_CLIENTES_PCT  : 0.85,  // clientes activos retenidos
+    META_CHURN_MENSUAL_PCT       : 0.05,  // abandono mensual ≤ 5 %
+    META_RECOMPRA_PCT            : 0.60,  // clientes que recompran
+
+    // Bandera para que el frontend pueda mostrar el aviso correspondiente.
+    METAS_ESTANDAR_SUGERIDAS     : true,
+    _NOTA_METAS_ESTANDAR:
+      'Metas estándar sugeridas (benchmarks de distribución B2B). Son valores ' +
+      'de referencia, no metas oficiales: ajústalas a las necesidades y el ' +
+      'histórico de la empresa en CONFIGURACIONES_GEN.',
+  });
+
   metasCache.set(dbKey, { expireAt: Date.now() + 60 * 1000, payload });
   return payload;
 });
