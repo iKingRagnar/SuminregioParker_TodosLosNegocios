@@ -24,9 +24,14 @@
  */
 
 const { makeHelpers } = require('./lib/snap-helper');
+const memoLib = require('./lib/memo');
 
 function install(app, { duckSnaps, log }) {
   const { getSnap, all } = makeHelpers(duckSnaps);
+  // La query base (demanda/stock/costos) sólo depende de la base de datos, no de
+  // service_level/lead (que se aplican en el post-proceso JS). Memoizar evita
+  // recorrer DOCTOS_VE_DET / SALDOS_IN / DOCTOS_IN_DET en cada request.
+  const memo = memoLib.create({ ttlMs: 10 * 60 * 1000, max: 50 });
 
   // Z-score para niveles de servicio comunes
   function zForSL(sl) {
@@ -65,7 +70,8 @@ function install(app, { duckSnaps, log }) {
         }
       }
 
-      const rows = await all(snap, `
+      const rowsKey = `reorden-rows:${req.query.db || 'default'}`;
+      const rows = await memo.wrap(rowsKey, () => all(snap, `
         WITH daily AS (
           SELECT d.ARTICULO_ID, h.FECHA, SUM(d.UNIDADES) AS u_dia
           FROM DOCTOS_VE_DET d
@@ -107,7 +113,7 @@ function install(app, { duckSnaps, log }) {
         LEFT JOIN costos c     ON c.ARTICULO_ID = s.ARTICULO_ID
         ${proveedorJoin}
         ORDER BY s.total_180d DESC
-        LIMIT 1000`);
+        LIMIT 1000`));
 
       const items = rows.map((r) => {
         const D = Number(r.d_prom) || 0;

@@ -15,9 +15,13 @@
  */
 
 const { makeHelpers } = require('./lib/snap-helper');
+const memoLib = require('./lib/memo');
 
 function install(app, { duckSnaps, log }) {
   const { getSnap, all } = makeHelpers(duckSnaps);
+  // Cache de resultados — los snapshots DuckDB sólo cambian en el refresh diario,
+  // así que memoizar evita recalcular series/forecast en cada request.
+  const memo = memoLib.create({ ttlMs: 10 * 60 * 1000, max: 100 });
 
   /** Devuelve { mes: 'YYYY-MM', unidades, importe }. */
   function getMonthlySeries(snap, articuloId) {
@@ -103,12 +107,16 @@ function install(app, { duckSnaps, log }) {
     const articuloId = parseInt(req.query.articulo, 10);
     if (!isFinite(articuloId)) return res.status(400).json({ error: 'Falta ?articulo=articuloId' });
     const meses = Math.min(12, Math.max(1, parseInt(req.query.meses, 10) || 3));
+    const memoKey = `fc-sku:${req.query.db || 'default'}:${articuloId}:${meses}`;
 
     try {
-      const serie = await getMonthlySeries(snap, articuloId);
-      const articulo = await all(snap, `SELECT NOMBRE, CLAVE FROM ARTICULOS WHERE ARTICULO_ID = ?`, [articuloId]);
-      const result = forecastSerie(serie, meses);
-      res.json({ ok: true, articulo_id: articuloId, articulo: articulo[0] || null, ...result });
+      const payload = await memo.wrap(memoKey, async () => {
+        const serie = await getMonthlySeries(snap, articuloId);
+        const articulo = await all(snap, `SELECT NOMBRE, CLAVE FROM ARTICULOS WHERE ARTICULO_ID = ?`, [articuloId]);
+        const result = forecastSerie(serie, meses);
+        return { ok: true, articulo_id: articuloId, articulo: articulo[0] || null, ...result };
+      });
+      res.json(payload);
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
@@ -118,8 +126,10 @@ function install(app, { duckSnaps, log }) {
     if (!snap) return res.json({ ok: false, reason: 'Sin snapshot' });
     const topN = Math.min(200, Math.max(5, parseInt(req.query.top, 10) || 50));
     const meses = Math.min(6, Math.max(1, parseInt(req.query.meses, 10) || 3));
+    const memoKey = `fc-batch:${req.query.db || 'default'}:${topN}:${meses}`;
 
     try {
+      const items = await memo.wrap(memoKey, async () => {
       const topSkus = await all(snap, `
         SELECT d.ARTICULO_ID, a.NOMBRE, a.CLAVE, SUM(d.PRECIO_TOTAL_NETO) AS valor_12m
         FROM DOCTOS_VE_DET d
@@ -159,7 +169,9 @@ function install(app, { duckSnaps, log }) {
         }
       }
       await Promise.all(Array.from({ length: Math.min(POOL, topSkus.length) }, worker));
-      res.json({ ok: true, top: topN, meses, items: out.filter(Boolean) });
+        return out.filter(Boolean);
+      });
+      res.json({ ok: true, top: topN, meses, items });
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
