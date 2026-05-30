@@ -126,6 +126,29 @@ test('/api/ventas/resumen devuelve ceros sin snapshot (no 500, no hang)', async 
   assert.ok(r.json);
 });
 
+test('/api/config/filtros degrada a arreglos vacíos sin Firebird (no 500)', async () => {
+  const r = await get('/api/config/filtros');
+  assert.equal(r.status, 200);
+  assert.ok(Array.isArray(r.json.vendedores));
+  assert.ok(Array.isArray(r.json.clientes));
+  assert.ok(Array.isArray(r.json.anios));
+});
+
+test('/api/config/metas expone metas estándar + derivadas coherentes', async () => {
+  const r = await get('/api/config/metas');
+  assert.equal(r.status, 200);
+  assert.ok(r.json.META_DIARIA_POR_VENDEDOR > 0);
+  // la meta ideal debe ser la diaria × el factor (matemática consistente)
+  assert.equal(r.json.META_IDEAL_POR_VENDEDOR, r.json.META_DIARIA_POR_VENDEDOR * r.json.META_FACTOR_IDEAL);
+});
+
+test('/api/universe/databases lista los negocios de los filtros', async () => {
+  const r = await get('/api/universe/databases');
+  assert.equal(r.status, 200);
+  assert.ok(Array.isArray(r.json));
+  assert.ok(r.json.every((d) => d && typeof d.id === 'string'));
+});
+
 test('/api/ping reporta uptime + memory', async () => {
   const r = await get('/api/ping');
   assert.equal(r.status, 200);

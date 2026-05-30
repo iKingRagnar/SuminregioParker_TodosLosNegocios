@@ -3559,7 +3559,8 @@ get('/api/config/filtros', async (req) => {
   const dbo = getReqDbOpts(req);
   const [vendedores, clientes, anios] = await Promise.all([
     query(`SELECT VENDEDOR_ID, NOMBRE FROM VENDEDORES WHERE COALESCE(ESTATUS,'A') NOT IN ('I','B','0','N') ORDER BY NOMBRE`, [], 30000, dbo)
-      .catch(() => query(`SELECT VENDEDOR_ID, NOMBRE FROM VENDEDORES ORDER BY NOMBRE`, [], 30000, dbo)),
+      .catch(() => query(`SELECT VENDEDOR_ID, NOMBRE FROM VENDEDORES ORDER BY NOMBRE`, [], 30000, dbo))
+      .catch(() => []),
     query(`
       SELECT FIRST 500 d.CLIENTE_ID, c.NOMBRE
       FROM (
@@ -3569,13 +3570,13 @@ get('/api/config/filtros', async (req) => {
       ) d
       JOIN CLIENTES c ON c.CLIENTE_ID = d.CLIENTE_ID
       ORDER BY c.NOMBRE
-    `, [], 30000, dbo),
+    `, [], 30000, dbo).catch(() => []),
     query(`
       SELECT DISTINCT EXTRACT(YEAR FROM FECHA) AS ANIO
       FROM DOCTOS_VE
       WHERE (TIPO_DOCTO='F' OR TIPO_DOCTO='V') AND ESTATUS <> 'C'
       ORDER BY ANIO DESC
-    `, [], 30000, dbo),
+    `, [], 30000, dbo).catch(() => []),
   ]);
   return { vendedores, clientes, anios };
 });
