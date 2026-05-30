@@ -22,6 +22,18 @@ const auth = require('../auth');
 //   source: endpoint a consultar · pick(body): extrae el valor real (mismas
 //   unidades que la meta) o null si no hay dato.
 const MEASURABLE = {
+  META_MARGEN_BRUTO_PCT: {
+    source: '/api/resultados/pnl',
+    pick: (b) => {
+      const t = (b && b.totales) || {};
+      const ventas = Number(t.VENTAS_NETAS) || 0;
+      // Sin costo capturado el margen "aparente" es ~100%: no es dato real → null.
+      if (!b || !b.tiene_costo || ventas <= 0) return null;
+      const pct = Number(t.MARGEN_BRUTO_PCT);
+      if (!isFinite(pct)) return null;
+      return pct > 1.5 ? pct / 100 : pct; // normaliza 0-100 → fracción
+    },
+  },
   META_CARTERA_VENCIDA_PCT: {
     source: '/api/cxc/resumen-aging',
     pick: (b) => {
