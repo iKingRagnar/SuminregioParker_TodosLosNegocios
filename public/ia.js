@@ -707,9 +707,9 @@
     if (exportBtn) {
       var msgBody = exportBtn.closest('.msg-ai-body');
       if (msgBody) {
-        var contentEl = msgBody.querySelector('.msg-ai-content');
-        var text = contentEl ? contentEl.textContent : '';
-        var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+        var exportContentEl = msgBody.querySelector('.msg-ai-content');
+        var exportText = exportContentEl ? exportContentEl.textContent : '';
+        var blob = new Blob([exportText], { type: 'text/plain;charset=utf-8' });
         var url = URL.createObjectURL(blob);
         var a = document.createElement('a');
         a.href = url;

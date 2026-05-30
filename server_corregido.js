@@ -12795,7 +12795,7 @@ app.post('/api/alerts/test', async (req, res) => {
 // ── DIAGNÓSTICO VENTAS: endpoint temporal para comparar métodos de cálculo ────
 app.get('/api/diagnostico/ventas', async (req, res) => {
   const dbParam = req.query.db || null;
-  const dbOpts  = dbParam ? resolveDb(dbParam) : null;
+  const dbOpts  = dbParam ? _resolveDbOptsFromId(dbParam) : null;
 
   // Periodo: mes actual por defecto, o ?desde=&hasta= en query string
   const now   = new Date();

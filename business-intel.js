@@ -161,7 +161,7 @@ function install(app, { duckSnaps, log }) {
         comision: acc.comision + (Number(r.comision_estimada) || 0),
       }), { ventas: 0, comision: 0 });
 
-      res.json({ ok: true, mes: mesParam || new Date().toISOString().slice(0, 7), porcentaje: pct, vendedores: rows, totales: totals });
+      res.json({ ok: true, mes: mesRaw || new Date().toISOString().slice(0, 7), porcentaje: pct, vendedores: rows, totales: totals });
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
