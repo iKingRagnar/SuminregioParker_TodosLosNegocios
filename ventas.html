@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Análisis de ventas de Suminregio Parker: tendencias, productos, clientes y vendedores.">
 <title>Suminregio Parker &mdash; Ventas</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
@@ -335,9 +336,9 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
   </div>
 
   <div class="source-tabs">
-    <button class="tab-btn tab-all active" onclick="setTipo('')" id="tab-all">Todos</button>
-    <button class="tab-btn tab-ve" onclick="setTipo('VE')" id="tab-ve">Venta Industrial (VE)</button>
-    <button class="tab-btn tab-pv" onclick="setTipo('PV')" id="tab-pv">Ventas de Mostrador (PV)</button>
+    <button type="button" class="tab-btn tab-all active" onclick="setTipo('')" id="tab-all">Todos</button>
+    <button type="button" class="tab-btn tab-ve" onclick="setTipo('VE')" id="tab-ve">Venta Industrial (VE)</button>
+    <button type="button" class="tab-btn tab-pv" onclick="setTipo('PV')" id="tab-pv">Ventas de Mostrador (PV)</button>
     <span style="margin-left:auto;font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted)" id="split-info"></span>
   </div>
 
@@ -397,9 +398,9 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
       <div class="card-head">
         <div class="card-title"><svg viewBox="0 0 24 24"><path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z"/></svg>Ventas Diarias</div>
         <div style="display:flex;gap:.4rem">
-          <button onclick="setDias(14)" class="card-badge btn" id="btn-14d">14d</button>
-          <button onclick="setDias(30)" class="card-badge btn" id="btn-30d" style="border-color:var(--accent);color:var(--accent)">30d</button>
-          <button onclick="setDias(60)" class="card-badge btn" id="btn-60d">60d</button>
+          <button type="button" onclick="setDias(14)" class="card-badge btn" id="btn-14d">14d</button>
+          <button type="button" onclick="setDias(30)" class="card-badge btn" id="btn-30d" style="border-color:var(--accent);color:var(--accent)">30d</button>
+          <button type="button" onclick="setDias(60)" class="card-badge btn" id="btn-60d">60d</button>
         </div>
       </div>
       <div class="card-body"><div class="chart-wrap"><canvas id="chartDiarias"></canvas></div></div>

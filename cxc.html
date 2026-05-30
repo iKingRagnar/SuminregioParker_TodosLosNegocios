@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Cuentas por cobrar (CXC) de Suminregio Parker: cartera vencida y vigente, antigüedad de saldos y buró de crédito.">
 <title>CXC &mdash; Suminregio Parker</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -801,7 +802,7 @@ html[data-theme="light"] [style*="color:var(--txt3)"],html.theme-premium-light [
         <option value="">Todos los clientes</option>
       </select>
     </div>
-    <button class="btn" onclick="loadAll()">Aplicar</button>
+    <button type="button" class="btn" onclick="loadAll()">Aplicar</button>
     <button class="cxc-info-toggle" id="cxcInfoToggle" type="button" title="Ver metodolog&iacute;a y notas de conciliaci&oacute;n">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
       Metodolog&iacute;a
@@ -883,12 +884,12 @@ html[data-theme="light"] [style*="color:var(--txt3)"],html.theme-premium-light [
 
   <!-- TABS -->
   <div class="tabs">
-    <button class="tab active" onclick="switchTab('vencidas')">Facturas Vencidas</button>
-    <button class="tab" onclick="switchTab('vigentes')">Deudas Vigentes</button>
-    <button class="tab" onclick="switchTab('totales')">Deudas Totales</button>
-    <button class="tab" onclick="switchTab('top')">Top Deudores</button>
-    <button class="tab" onclick="switchTab('condicion')">Por Condici&oacute;n</button>
-    <button class="tab" onclick="switchTab('buro')">Calendario Pagos</button>
+    <button type="button" class="tab active" onclick="switchTab('vencidas')">Facturas Vencidas</button>
+    <button type="button" class="tab" onclick="switchTab('vigentes')">Deudas Vigentes</button>
+    <button type="button" class="tab" onclick="switchTab('totales')">Deudas Totales</button>
+    <button type="button" class="tab" onclick="switchTab('top')">Top Deudores</button>
+    <button type="button" class="tab" onclick="switchTab('condicion')">Por Condici&oacute;n</button>
+    <button type="button" class="tab" onclick="switchTab('buro')">Calendario Pagos</button>
   </div>
 
   <!-- PANEL VENCIDAS -->
@@ -993,7 +994,7 @@ html[data-theme="light"] [style*="color:var(--txt3)"],html.theme-premium-light [
           <input type="text" id="buroSearch" placeholder="Nombre del cliente..."
             style="background:var(--s2);border:1px solid var(--brd);color:var(--txt);border-radius:8px;padding:7px 12px;font-family:var(--font);font-size:12px;outline:none;width:200px">
         </div>
-        <button class="btn" onclick="loadBuro()">Actualizar</button>
+        <button type="button" class="btn" onclick="loadBuro()">Actualizar</button>
       </div>
       <div class="buro-legend">
         <span class="leg-item"><span class="leg-dot ok"></span>Pagado a tiempo</span>
