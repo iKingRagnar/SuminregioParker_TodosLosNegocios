@@ -3580,8 +3580,53 @@ get('/api/config/filtros', async (req) => {
   ]);
   return { vendedores, clientes, anios };
 });
-// ═══════════════════════════════════════════════════════════
-//  VENTAS — RESÚMENES
+
+// ── Cohortes de clientes: retención, recompra y churn (real, no "en riesgo") ──
+//   Definiciones estándar sobre el historial de ventas (DOCTOS_VE):
+//   · Retención (anual) = clientes activos en los 12m previos que SIGUEN
+//     comprando en los últimos 12m (retenidos / base previa).
+//   · Recompra = clientes con compras en ≥2 meses distintos en los últimos 12m
+//     (recurrentes / activos del año).
+//   · Churn mensual = equivalente mensual de la pérdida anual:
+//     1 − retención_anual^(1/12) (comparable con la meta mensual).
+get('/api/clientes/cohortes', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const VV = "((TIPO_DOCTO='F' AND ESTATUS<>'C') OR (TIPO_DOCTO='V' AND ESTATUS NOT IN ('C','T')))";
+  const qN = (sql) => query(sql, [], 30000, dbo).then((r) => (r && r[0] ? Number(r[0].N) || 0 : 0)).catch(() => null);
+
+  const [actual, previo, retenidos, recurrentes] = await Promise.all([
+    qN(`SELECT COUNT(DISTINCT CLIENTE_ID) AS N FROM DOCTOS_VE WHERE ${VV} AND FECHA >= CURRENT_DATE - 365`),
+    qN(`SELECT COUNT(DISTINCT CLIENTE_ID) AS N FROM DOCTOS_VE WHERE ${VV} AND FECHA >= CURRENT_DATE - 730 AND FECHA < CURRENT_DATE - 365`),
+    qN(`SELECT COUNT(*) AS N FROM (
+          SELECT DISTINCT CLIENTE_ID FROM DOCTOS_VE WHERE ${VV} AND FECHA >= CURRENT_DATE - 730 AND FECHA < CURRENT_DATE - 365
+        ) p WHERE p.CLIENTE_ID IN (
+          SELECT DISTINCT CLIENTE_ID FROM DOCTOS_VE WHERE ${VV} AND FECHA >= CURRENT_DATE - 365
+        )`),
+    qN(`SELECT COUNT(*) AS N FROM (
+          SELECT CLIENTE_ID FROM DOCTOS_VE WHERE ${VV} AND FECHA >= CURRENT_DATE - 365
+          GROUP BY CLIENTE_ID
+          HAVING COUNT(DISTINCT (EXTRACT(YEAR FROM FECHA) * 100 + EXTRACT(MONTH FROM FECHA))) >= 2
+        ) r`),
+  ]);
+
+  const retencion_pct = (previo && previo > 0 && retenidos != null) ? retenidos / previo : null;
+  const recompra_pct = (actual && actual > 0 && recurrentes != null) ? recurrentes / actual : null;
+  const churn_mensual_pct = (retencion_pct != null && retencion_pct > 0)
+    ? 1 - Math.pow(retencion_pct, 1 / 12)
+    : null;
+
+  return {
+    ok: true,
+    clientes_activos_12m: actual,
+    clientes_activos_previo: previo,
+    retenidos,
+    recurrentes,
+    retencion_pct,
+    recompra_pct,
+    churn_mensual_pct,
+  };
+});
+
 // ═══════════════════════════════════════════════════════════
 
 // Ventas del periodo: HOY = venta del d\u00eda actual; MES_ACTUAL = total del periodo filtrado (anio/mes o desde-hasta) para que cuadre con Power BI.

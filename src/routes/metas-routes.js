@@ -174,6 +174,19 @@ const MEASURABLE = {
       return valorInv / (cogs12 / 365);
     },
   },
+  // Cohortes de clientes (historial de ventas): retención, recompra, churn real.
+  META_RETENCION_CLIENTES_PCT: {
+    source: '/api/clientes/cohortes',
+    pick: (b) => (b && b.retencion_pct != null ? Number(b.retencion_pct) : null),
+  },
+  META_RECOMPRA_PCT: {
+    source: '/api/clientes/cohortes',
+    pick: (b) => (b && b.recompra_pct != null ? Number(b.recompra_pct) : null),
+  },
+  META_CHURN_MENSUAL_PCT: {
+    source: '/api/clientes/cohortes',
+    pick: (b) => (b && b.churn_mensual_pct != null ? Number(b.churn_mensual_pct) : null),
+  },
 };
 
 /**
