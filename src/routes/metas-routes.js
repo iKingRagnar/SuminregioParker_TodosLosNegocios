@@ -52,6 +52,14 @@ const MEASURABLE = {
       return n > 1.5 ? n / 100 : n; // normaliza 0-100 → fracción
     },
   },
+  META_EFICIENCIA_COBRANZA_PCT: {
+    source: '/api/ventas/cobradas',
+    pick: (b) => {
+      const fact = Number(b && b.totalFacturado) || 0;
+      const cob = Number(b && b.totalCobrado) || 0;
+      return fact > 0 ? cob / fact : null; // cobrado / facturado del periodo
+    },
+  },
 };
 
 /**
