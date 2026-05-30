@@ -658,12 +658,12 @@ NUNCA:
 
     // Compras urgentes / qué pedir / reposición
     if (c.inventario && /compr|pedir|reposi|proveed|surtir|qu[eé].*pido|orden.*compr|purchase/i.test(q)) {
-      fetches.push(['compras_urgentes', callLocal('GET', `/api/inv/compras-urgentes${dbq}&lead_dias=15`)]);
+      fetches.push(['compras_urgentes', callLocal('GET', `/api/compras/lista${dbq}&lead=15&limit=30`)]);
     }
 
     // Cotizaciones / propuestas pendientes
     if (c.ventas && /cotiz|propuesta|oportunidad|pipeline|pendiente.*aprob|presupuest/i.test(q)) {
-      fetches.push(['cotizaciones', callLocal('GET', `/api/cotizaciones/resumen${dbq}`)]);
+      fetches.push(['cotizaciones', callLocal('GET', `/api/ventas/cotizaciones/resumen${dbq}`)]);
     }
 
     // Forecast / proyección de ventas

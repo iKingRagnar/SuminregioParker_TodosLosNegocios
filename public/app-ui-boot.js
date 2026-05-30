@@ -1874,7 +1874,7 @@
       // Buscar la entrada de caché más reciente entre las APIs comunes
       var commonApis = [
         '/api/ventas/resumen', '/api/cxc/resumen', '/api/inv/resumen',
-        '/api/ventas/dia', '/api/cobradas/resumen', '/api/alertas/check'
+        '/api/ventas/diarias', '/api/director/resumen', '/api/alerts/check'
       ];
       var base = (typeof window.__API_BASE === 'string') ? window.__API_BASE : '';
       var latestTs = null;
