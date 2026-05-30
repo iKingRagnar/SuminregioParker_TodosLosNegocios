@@ -8,7 +8,7 @@
 
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { yoyFromPnl } = require('../src/routes/metas-routes');
+const { yoyFromPnl, trailing12Sum } = require('../src/routes/metas-routes');
 
 function serie(ventasPorYM) {
   const meses = [];
@@ -42,4 +42,16 @@ test('YoY: sin serie suficiente → null', () => {
 test('YoY: mes base del año anterior en 0 → null (evita división por cero)', () => {
   const b = serie({ '2024-12': 120, '2023-12': 0 });
   assert.equal(yoyFromPnl(b), null);
+});
+
+test('trailing12Sum: suma los últimos 12 meses completos', () => {
+  // Serie 2023-2024 con VENTAS_NETAS=100 cada mes (24 meses, todos < hoy 2026).
+  const b = serie({});
+  // últimos 12 completos = 2024-01..2024-12 = 12 × 100 = 1200
+  assert.equal(trailing12Sum(b, 'VENTAS_NETAS'), 1200);
+});
+
+test('trailing12Sum: sin 12 meses completos → null', () => {
+  assert.equal(trailing12Sum({ meses: [{ ANIO: 2024, MES: 1, VENTAS_NETAS: 100 }] }, 'VENTAS_NETAS'), null);
+  assert.equal(trailing12Sum(null, 'VENTAS_NETAS'), null);
 });

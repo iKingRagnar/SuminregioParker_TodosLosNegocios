@@ -57,6 +57,22 @@ function pickPctPedidos(b) {
   return n > 1.5 ? n / 100 : n; // normaliza 0-100 → fracción
 }
 
+// Suma de los últimos 12 meses COMPLETOS de un campo de la serie del P&L
+// (ventas o costo). null si no hay 12 meses completos.
+function trailing12Sum(b, field) {
+  const meses = (b && Array.isArray(b.meses)) ? b.meses : null;
+  if (!meses) return null;
+  const norm = meses.map((m) => ({
+    idx: parseInt(m.ANIO, 10) * 12 + (parseInt(m.MES, 10) - 1),
+    v: Number(m[field]),
+  })).filter((x) => isFinite(x.idx) && isFinite(x.v));
+  const now = new Date();
+  const nowIdx = now.getFullYear() * 12 + now.getMonth();
+  const completos = norm.filter((x) => x.idx < nowIdx).sort((a, c) => a.idx - c.idx);
+  if (completos.length < 12) return null;
+  return completos.slice(-12).reduce((s, x) => s + x.v, 0);
+}
+
 const MEASURABLE = {
   META_MARGEN_BRUTO_PCT: {
     source: '/api/resultados/pnl',
@@ -117,6 +133,45 @@ const MEASURABLE = {
       const fact = Number(b && b.totalFacturado) || 0;
       const cob = Number(b && b.totalCobrado) || 0;
       return fact > 0 ? cob / fact : null; // cobrado / facturado del periodo
+    },
+  },
+  // DSO = Cartera / (Ventas 12m / 365). Días que tarda en cobrarse.
+  META_DSO_DIAS: {
+    deps: [{ source: '/api/cxc/resumen-aging' }, { source: '/api/resultados/pnl', params: '&meses=14' }],
+    compute: (get) => {
+      const cxc = get('/api/cxc/resumen-aging');
+      const pnl = get('/api/resultados/pnl', '&meses=14');
+      const r = (cxc && cxc.resumen) || cxc || {};
+      const ar = Number(r.SALDO_TOTAL) || 0;
+      const ventas12 = trailing12Sum(pnl, 'VENTAS_NETAS');
+      if (!(ventas12 > 0) || ar < 0) return null;
+      return ar / (ventas12 / 365);
+    },
+  },
+  // Rotación = Costo de ventas 12m / Valor de inventario (vueltas/año).
+  META_ROTACION_INVENTARIO_ANUAL: {
+    deps: [{ source: '/api/resultados/pnl', params: '&meses=14' }, { source: '/api/inv/resumen' }],
+    compute: (get) => {
+      const pnl = get('/api/resultados/pnl', '&meses=14');
+      const inv = get('/api/inv/resumen');
+      if (!pnl || !pnl.tiene_costo) return null;
+      const cogs12 = trailing12Sum(pnl, 'COSTO_VENTAS');
+      const valorInv = Number(inv && inv.VALOR_INVENTARIO) || 0;
+      if (!(cogs12 > 0) || !(valorInv > 0)) return null;
+      return cogs12 / valorInv;
+    },
+  },
+  // Días de inventario = 365 / rotación = Inventario / (COGS 12m / 365).
+  META_DIAS_INVENTARIO_MAX: {
+    deps: [{ source: '/api/resultados/pnl', params: '&meses=14' }, { source: '/api/inv/resumen' }],
+    compute: (get) => {
+      const pnl = get('/api/resultados/pnl', '&meses=14');
+      const inv = get('/api/inv/resumen');
+      if (!pnl || !pnl.tiene_costo) return null;
+      const cogs12 = trailing12Sum(pnl, 'COSTO_VENTAS');
+      const valorInv = Number(inv && inv.VALOR_INVENTARIO) || 0;
+      if (!(cogs12 > 0) || valorInv < 0) return null;
+      return valorInv / (cogs12 / 365);
     },
   },
 };
@@ -228,18 +283,27 @@ function install(deps) {
     const dbq = `?db=${encodeURIComponent(db)}`;
 
     // Trae cada ruta real una sola vez (la ruta incluye sus params propios, así
-    // p.ej. el P&L del periodo y el P&L de 14 meses para YoY no se mezclan).
-    const pathOf = (m) => m.source + dbq + (m.params || '');
-    const paths = [...new Set(Object.values(MEASURABLE).map(pathOf))];
+    // p.ej. el P&L del periodo y el P&L de 14 meses no se mezclan). Soporta KPIs
+    // de fuente única (source/pick) y multi-fuente (deps/compute).
+    const specPath = (src, params) => src + dbq + (params || '');
+    const pathsSet = new Set();
+    Object.values(MEASURABLE).forEach((m) => {
+      if (m.source) pathsSet.add(specPath(m.source, m.params));
+      if (m.deps) m.deps.forEach((d) => pathsSet.add(specPath(d.source, d.params)));
+    });
     const bodies = {};
-    await Promise.all(paths.map(async (p) => { bodies[p] = await fetchLocalJson(p); }));
+    await Promise.all([...pathsSet].map(async (p) => { bodies[p] = await fetchLocalJson(p); }));
+    const getBody = (src, params) => bodies[specPath(src, params)];
 
     const items = metasConfig.SCHEMA.map((s) => {
       const meta = metas[s.key];
       const m = MEASURABLE[s.key];
       let real = null;
-      if (m && bodies[pathOf(m)]) {
-        try { real = m.pick(bodies[pathOf(m)]); } catch (_) { real = null; }
+      if (m) {
+        try {
+          if (m.compute) real = m.compute(getBody);
+          else if (m.pick) real = m.pick(getBody(m.source, m.params));
+        } catch (_) { real = null; }
       }
       const c = metasConfig.cumplimiento(s.key, real, meta);
       return {
@@ -279,4 +343,4 @@ function install(deps) {
   });
 }
 
-module.exports = { install, yoyFromPnl, MEASURABLE };
+module.exports = { install, yoyFromPnl, trailing12Sum, MEASURABLE };
