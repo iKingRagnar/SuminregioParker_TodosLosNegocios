@@ -71,122 +71,23 @@
     if (typeof document === 'undefined' || !document.body) return;
     injectManualRefreshStyles();
 
+    // Los datos NO son en vivo: se actualizan automáticamente una vez al día
+    // (11 PM). Se muestra una nota informativa, sin botón de refrescar manual
+    // ni cuenta regresiva, para no confundir al usuario.
     var bar = document.createElement('div');
     bar.className = 'ms-refresh-bar';
     bar.setAttribute('role', 'region');
     bar.setAttribute('aria-label', 'Actualización de datos');
     bar.innerHTML =
       '<div class="ms-refresh-inner">' +
-      '<button type="button" class="ms-refresh-btn" id="ms-ref-btn">↻ Actualizar</button>' +
-      '<span class="ms-refresh-status loading" id="ms-ref-status">Cargando datos…</span>' +
-      '<span id="ms-countdown" style="font-family:\'DM Mono\',monospace;font-size:10.5px;color:rgba(148,163,184,.7);margin-left:auto;white-space:nowrap"></span>' +
+      '<span class="ms-refresh-status ok" id="ms-daily-note" style="flex:1;text-align:center">' +
+      '🕚 Datos actualizados diariamente · 11 PM</span>' +
       '</div>';
 
     document.body.insertBefore(bar, document.body.firstChild);
 
-    var statusEl = document.getElementById('ms-ref-status') || bar.querySelector('.ms-refresh-status');
-    var btn      = document.getElementById('ms-ref-btn')    || bar.querySelector('.ms-refresh-btn');
-    var cntEl    = document.getElementById('ms-countdown');
-
-    var _lastOkTs   = null;
-    var _cntTimer   = null;
-    var AUTO_MINS   = 30; // minutos de auto-refresh (setInterval de los dashboards)
-
-    function fmt(dt) {
-      try { return dt.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
-      catch (e) { return String(dt); }
-    }
-
-    function startCountdown() {
-      if (_cntTimer) clearInterval(_cntTimer);
-      if (!_lastOkTs || !cntEl) return;
-      var _autoFired = false; // evitar doble disparo
-
-      _cntTimer = setInterval(function () {
-        var elapsed = Math.floor((Date.now() - _lastOkTs) / 1000);
-        var total   = AUTO_MINS * 60;
-        var remain  = Math.max(0, total - elapsed);
-
-        if (remain <= 0) {
-          // ── Disparo único del auto-refresh ─────────────────────────────
-          if (!_autoFired) {
-            _autoFired = true;
-            clearInterval(_cntTimer);
-            _cntTimer = null;
-            if (cntEl) cntEl.textContent = '↻ actualizando…';
-
-            // 1. Limpiar AMBAS capas de caché
-            try {
-              if (typeof window.clearApiCache === 'function') window.clearApiCache();
-            } catch (_) {}
-            try {
-              if (typeof SUMI_CACHE !== 'undefined') {
-                SUMI_CACHE.clearAll();
-                SUMI_CACHE.setBypass(true);
-                setTimeout(function () { SUMI_CACHE.setBypass(false); }, 14000);
-              }
-            } catch (_) {}
-
-            // 2. Recargar datos de la página (sin full reload si es posible)
-            setLoading();
-            var reloaded = false;
-            if (typeof window.loadAll === 'function') {
-              try { window.loadAll(); reloaded = true; } catch (_) {}
-            }
-            if (!reloaded && typeof window.__reloadPageData === 'function') {
-              try { window.__reloadPageData(); reloaded = true; } catch (_) {}
-            }
-            if (!reloaded) {
-              // Fallback: full reload con caché ya limpia
-              setTimeout(function () { window.location.reload(); }, 300);
-            }
-          }
-          return;
-        }
-
-        var m = Math.floor(remain / 60);
-        var s = remain % 60;
-        cntEl.textContent = '⏱ próx. auto ' + m + ':' + String(s).padStart(2, '0');
-      }, 1000);
-    }
-
-    function setLoading() {
-      if (_cntTimer) { clearInterval(_cntTimer); _cntTimer = null; }
-      if (cntEl) cntEl.textContent = '';
-      statusEl.textContent = 'Cargando datos…';
-      statusEl.className = 'ms-refresh-status loading';
-      btn.disabled = true;
-    }
-
-    function setSuccess() {
-      _lastOkTs = Date.now();
-      var now = new Date(_lastOkTs);
-      statusEl.textContent = '✓ Actualizado: ' + fmt(now);
-      statusEl.className = 'ms-refresh-status ok';
-      btn.disabled = false;
-      startCountdown();
-    }
-
-    btn.addEventListener('click', function () {
-      setLoading();
-      // Intentar llamar loadAll() si existe; sino reload
-      if (typeof window.loadAll === 'function') {
-        try { window.loadAll(); return; } catch(_) {}
-      }
-      window.location.reload();
-    });
-
-    window.addEventListener('load', function () {
-      if (!window.__manualRefreshDeferSuccess) setSuccess();
-    });
-
-    window.addEventListener('pageshow', function (ev) {
-      if (ev.persisted && !window.__manualRefreshDeferSuccess) setSuccess();
-    });
-
-    window.markManualRefreshComplete = function () { setSuccess(); };
-
-    if (document.readyState === 'complete' && !window.__manualRefreshDeferSuccess) setSuccess();
+    // Compatibilidad: tableros que llamaban markManualRefreshComplete → no-op.
+    window.markManualRefreshComplete = function () {};
 
     applyRefreshBarStickyOffset(bar);
   }
