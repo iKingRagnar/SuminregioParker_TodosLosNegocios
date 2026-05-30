@@ -90,7 +90,6 @@ function install(app, { duckSnaps, log }) {
     const dso = Number(r.dso);
     const pctAt = Number(r.pct_a_tiempo);
     const maxEdad = Number(r.max_edad) || 0;
-    const edadProm = Number(r.edad_promedio) || 0;
     const saldo = Number(r.saldo_abierto) || 0;
     const ticket = Number(r.ticket_prom) || 0;
     const cargosN = Number(r.cargos_12m) || 0;

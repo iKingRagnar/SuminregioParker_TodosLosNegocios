@@ -396,7 +396,7 @@
       bubbleContent += `<br><img src="${imgDataUrl}" style="margin-top:6px;max-width:200px;border-radius:6px;border:1px solid #1e3a5f" alt="captura"/>`;
     }
     // Retry button for error messages
-    const isError = opts.isError || (role === 'ai' && /^[⚠️📶⏱]/.test(text.trim()));
+    const isError = opts.isError || (role === 'ai' && /^[⚠️📶⏱]/u.test(text.trim()));
     const retryHtml = (isError && lastFailedMessage)
       ? `<div style="margin-top:6px"><button class="cw-retry-btn" onclick="this.closest('.cw-msg').dispatchEvent(new CustomEvent('cw:retry',{bubbles:true}))">↺ Reintentar</button></div>`
       : '';

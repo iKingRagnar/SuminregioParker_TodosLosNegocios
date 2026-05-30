@@ -50,7 +50,6 @@ function install(app, { duckSnaps, log }) {
       // Detecta si la tabla ARTICULOS tiene columna PROVEEDOR_PRINCIPAL_ID
       const cols = await all(snap, `SELECT column_name AS n FROM information_schema.columns WHERE table_name = 'ARTICULOS'`).catch(() => []);
       const colNames = new Set(cols.map((c) => c.n));
-      const hasProveedor = colNames.has('PROVEEDOR_PRINCIPAL_ID') || colNames.has('PROVEEDOR_ID');
       const provCol = colNames.has('PROVEEDOR_PRINCIPAL_ID') ? 'PROVEEDOR_PRINCIPAL_ID'
         : colNames.has('PROVEEDOR_ID') ? 'PROVEEDOR_ID' : null;
 
