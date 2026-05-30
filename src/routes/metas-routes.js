@@ -44,6 +44,19 @@ function yoyFromPnl(b) {
   return (last.v - prev.v) / prev.v;                   // fracción YoY
 }
 
+// Suma de los gastos de operación (buckets CO_* del P&L).
+const CO_KEYS = ['CO_A1', 'CO_A2', 'CO_A3', 'CO_A4', 'CO_A5', 'CO_A6', 'CO_B1', 'CO_B2', 'CO_B3', 'CO_B4', 'CO_B5', 'CO_C1', 'CO_C2', 'CO_C3', 'CO_C4', 'CO_C5', 'CO_C6'];
+function sumGastoCo(t) { return CO_KEYS.reduce((s, k) => s + (Number(t[k]) || 0), 0); }
+
+// Fill rate / cumplimiento de pedidos comparten dato: % de líneas surtidas.
+function pickPctPedidos(b) {
+  const v = (b && b.kpis && b.kpis.pct_cumplimiento != null) ? b.kpis.pct_cumplimiento
+    : (b && b.pct_cumplimiento != null ? b.pct_cumplimiento : null);
+  if (v == null || !isFinite(Number(v))) return null;
+  const n = Number(v);
+  return n > 1.5 ? n / 100 : n; // normaliza 0-100 → fracción
+}
+
 const MEASURABLE = {
   META_MARGEN_BRUTO_PCT: {
     source: '/api/resultados/pnl',
@@ -55,6 +68,26 @@ const MEASURABLE = {
       const pct = Number(t.MARGEN_BRUTO_PCT);
       if (!isFinite(pct)) return null;
       return pct > 1.5 ? pct / 100 : pct; // normaliza 0-100 → fracción
+    },
+  },
+  META_MARGEN_NETO_PCT: {
+    source: '/api/resultados/pnl',
+    pick: (b) => {
+      const t = (b && b.totales) || {};
+      const ventas = Number(t.VENTAS_NETAS) || 0;
+      // Requiere costo Y gastos capturados para ser un margen operativo real.
+      if (!b || !b.tiene_costo || !b.tiene_gastos_co || ventas <= 0) return null;
+      const utilOper = (Number(t.UTILIDAD_BRUTA) || 0) - sumGastoCo(t);
+      return utilOper / ventas;
+    },
+  },
+  META_GASTO_OPERATIVO_PCT: {
+    source: '/api/resultados/pnl',
+    pick: (b) => {
+      const t = (b && b.totales) || {};
+      const ventas = Number(t.VENTAS_NETAS) || 0;
+      if (!b || !b.tiene_gastos_co || ventas <= 0) return null;
+      return sumGastoCo(t) / ventas;
     },
   },
   META_CRECIMIENTO_YOY_PCT: {
@@ -72,13 +105,11 @@ const MEASURABLE = {
   },
   META_CUMPLIMIENTO_PEDIDOS_PCT: {
     source: '/api/ventas/cumplimiento',
-    pick: (b) => {
-      const v = (b && b.kpis && b.kpis.pct_cumplimiento != null) ? b.kpis.pct_cumplimiento
-        : (b && b.pct_cumplimiento != null ? b.pct_cumplimiento : null);
-      if (v == null || !isFinite(Number(v))) return null;
-      const n = Number(v);
-      return n > 1.5 ? n / 100 : n; // normaliza 0-100 → fracción
-    },
+    pick: pickPctPedidos,
+  },
+  META_FILL_RATE_PCT: {
+    source: '/api/ventas/cumplimiento',
+    pick: pickPctPedidos, // fill rate = % de líneas surtidas (mismo dato)
   },
   META_EFICIENCIA_COBRANZA_PCT: {
     source: '/api/ventas/cobradas',
