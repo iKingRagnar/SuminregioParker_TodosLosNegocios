@@ -56,7 +56,9 @@ function install(app, { log }) {
     log && log.warn && log.warn('mejora-continua', 'sin ANTHROPIC_API_KEY — análisis IA deshabilitado');
   }
 
-  const MODEL = 'claude-haiku-4-5';
+  const MODEL = process.env.AI_MODEL_MEJORA || 'claude-haiku-4-5';
+  const MAX_TOKENS = Math.min(4096, Math.max(512, parseInt(process.env.AI_MEJORA_MAX_TOKENS, 10) || 1024));
+  const MAX_DESC_CHARS = 4000; // cota defensiva del input al modelo
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -70,45 +72,98 @@ function install(app, { log }) {
     return map[c] || 'MEDIA';
   }
 
-  async function analizarConIA(descripcion, pagina) {
-    if (!client) {
-      return {
-        titulo: descripcion.slice(0, 60),
-        criticidad: 'P3',
-        impacto: 'MEDIO',
-        urgencia: 'MEDIA',
-        nivel: 'MEDIA',
-        sla_horas: 24,
-        cobit_dominio: 'DSS02',
-        cobit_descripcion: 'Gestión de solicitudes e incidentes',
-        area_afectada: 'otro',
-        diagnostico: 'Análisis IA no disponible — sin API key.',
-        causa_raiz: 'N/A',
-        accion_recomendada: 'Revisar manualmente.',
-        comentario_inicial: 'Tu reporte fue registrado. El análisis IA no está disponible en este momento.',
-      };
+  const CRITICIDADES = ['P1', 'P2', 'P3', 'P4'];
+  const AREAS = ['ventas', 'cxc', 'inventario', 'ia', 'ui', 'datos', 'conectividad', 'usuarios', 'otro'];
+
+  /** Extrae el primer bloque de texto de una respuesta de Claude (ignora thinking/tool). */
+  function textOf(response) {
+    if (!response || !Array.isArray(response.content)) return '';
+    const block = response.content.find((b) => b && b.type === 'text' && typeof b.text === 'string');
+    return block ? block.text : '';
+  }
+
+  /** Parseo robusto: quita fences y, si falla, extrae el primer objeto {...} del texto. */
+  function parseJsonLoose(raw) {
+    const clean = String(raw || '').trim()
+      .replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '').trim();
+    try { return JSON.parse(clean); } catch (_) { /* intentar extraer subcadena */ }
+    const start = clean.indexOf('{');
+    const end = clean.lastIndexOf('}');
+    if (start !== -1 && end > start) {
+      try { return JSON.parse(clean.slice(start, end + 1)); } catch (_) { /* noop */ }
     }
+    return null;
+  }
+
+  /** Llama al modelo con 1 reintento ante errores transitorios (429/5xx/red). */
+  async function createWithRetry(params) {
+    try {
+      return await client.messages.create(params);
+    } catch (e) {
+      const status = e && (e.status || e.statusCode);
+      const transient = !status || status === 429 || (status >= 500 && status < 600);
+      if (!transient) throw e;
+      await new Promise((r) => setTimeout(r, 800));
+      return await client.messages.create(params);
+    }
+  }
+
+  /** Normaliza/valida el análisis del modelo a valores conocidos + campos derivados. */
+  function normalizarAnalisis(parsed, descripcion) {
+    const a = parsed && typeof parsed === 'object' ? parsed : {};
+    const criticidad = CRITICIDADES.includes(a.criticidad) ? a.criticidad : 'P3';
+    return {
+      titulo: (a.titulo ? String(a.titulo) : descripcion).slice(0, 60),
+      criticidad,
+      impacto: ['ALTO', 'MEDIO', 'BAJO'].includes(a.impacto) ? a.impacto : 'MEDIO',
+      urgencia: ['ALTA', 'MEDIA', 'BAJA'].includes(a.urgencia) ? a.urgencia : 'MEDIA',
+      nivel: nivelFromCriticidad(criticidad),
+      sla_horas: slaFromCriticidad(criticidad),
+      cobit_dominio: a.cobit_dominio || 'DSS02',
+      cobit_descripcion: a.cobit_descripcion || 'Gestión de solicitudes e incidentes',
+      area_afectada: AREAS.includes(a.area_afectada) ? a.area_afectada : 'otro',
+      diagnostico: a.diagnostico || '',
+      causa_raiz: a.causa_raiz || '',
+      accion_recomendada: a.accion_recomendada || '',
+      comentario_inicial: a.comentario_inicial || 'Ticket registrado y analizado.',
+    };
+  }
+
+  function defaultAnalisis(descripcion, motivo) {
+    return normalizarAnalisis({
+      diagnostico: motivo || 'Análisis IA no disponible.',
+      causa_raiz: 'N/A',
+      accion_recomendada: 'Revisar manualmente.',
+      comentario_inicial: 'Tu reporte fue registrado. El análisis automático no está disponible por ahora; un responsable lo revisará.',
+    }, descripcion);
+  }
+
+  // Nunca lanza: ante cualquier fallo de IA devuelve un análisis por defecto,
+  // de modo que el reporte SIEMPRE se registra (no se pierde por un hipo de IA).
+  async function analizarConIA(descripcion, pagina) {
+    const desc = String(descripcion || '').slice(0, MAX_DESC_CHARS);
+    if (!client) return defaultAnalisis(desc, 'Análisis IA no disponible — sin API key.');
 
     const userMsg = [
       `Página/área: ${pagina || 'no especificado'}`,
-      `Descripción del problema: ${descripcion}`,
+      `Descripción del problema: ${desc}`,
     ].join('\n');
 
-    const response = await client.messages.create({
-      model: MODEL,
-      max_tokens: 1024,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userMsg }],
-    });
-
-    const raw = response.content[0].text.trim();
-    // Strip markdown fences if Claude adds them despite instructions
-    const clean = raw.replace(/^```[a-z]*\n?/i, '').replace(/\n?```$/, '');
-    const parsed = JSON.parse(clean);
-    // Ensure derived fields are consistent
-    parsed.sla_horas = slaFromCriticidad(parsed.criticidad);
-    parsed.nivel     = nivelFromCriticidad(parsed.criticidad);
-    return parsed;
+    try {
+      const response = await createWithRetry({
+        model: MODEL,
+        max_tokens: MAX_TOKENS,
+        // Prompt caching: el system prompt es estable → ~90% más barato y rápido.
+        system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],
+        messages: [{ role: 'user', content: userMsg }],
+      });
+      const parsed = parseJsonLoose(textOf(response));
+      if (!parsed) return defaultAnalisis(desc, 'No se pudo interpretar el análisis automático.');
+      return normalizarAnalisis(parsed, desc);
+    } catch (e) {
+      log && log.warn && log.warn('mejora-continua', 'IA falló: ' + e.message);
+      return defaultAnalisis(desc, 'El análisis automático no respondió.');
+    }
   }
 
   // ── POST /api/ai/mejora — crear ticket con análisis IA ────────────────────
