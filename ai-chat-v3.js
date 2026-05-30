@@ -353,8 +353,10 @@ function install(app, { duckSnaps, log }) {
   ];
 
   // ─── Ruteo de tool → endpoint ──────────────────────────────────────────────
-  async function runTool(name, input) {
-    const db = input.db || 'default';
+  async function runTool(name, input, defaultDb) {
+    // Si el modelo no especifica empresa, usa el negocio que el usuario tiene
+    // seleccionado (defaultDb), no siempre "default".
+    const db = input.db || defaultDb || 'default';
     const dbq = `?db=${encodeURIComponent(db)}`;
 
     switch (name) {
@@ -460,14 +462,17 @@ CÓMO COMPORTARTE:
 
 UNIDADES DE NEGOCIO (IDs exactos del sistema):
 - "default"                        → Suminregio Parker (ferretería industrial, el principal)
-- "grupo_suminregio"               → Grupo Suminregio
+- "grupo_suminregio"               → Grupo Suminregio (consolidado del grupo)
 - "suminregio_agua"                → Agua / AGUA / Suminregio Agua
 - "suminregio_carton"              → Cartón / CARTON / Suminregio Cartón
 - "suminregio_maderas"             → Maderas / MADERAS / Suminregio Maderas
 - "suminregio_reciclaje"           → Reciclaje / RECICLAJE / Suminregio Reciclaje
 - "suminregio_suministros_medicos" → Médicos / MEDICOS / Suministros Médicos
-- "suminregio_empaque"             → Empaque / Suminregio Empaque
-- "grupo_suminregio"               → Grupo Suminregio
+
+La lista vigente y EXACTA de negocios disponibles en los filtros te llega en
+cada mensaje dentro de "NEGOCIOS DISPONIBLES EN LOS FILTROS". Esa lista manda:
+si un negocio no aparece ahí, no está disponible en el selector. Úsala como
+fuente de verdad para nombres e IDs.
 
 Cuando el usuario mencione un negocio por nombre ("Agua", "Médicos", "Maderas", etc.),
 usa el ID correcto para interpretar los datos que ya tienes en <<<DATOS_REALES_ERP>>>.
@@ -537,7 +542,6 @@ NUNCA:
     { re: /\bmaderas?\b/i,                               db: 'suminregio_maderas' },
     { re: /\breciclaje\b/i,                              db: 'suminregio_reciclaje' },
     { re: /\bm[eé]dico[s]?\b|\bmedico[s]?\b|\bsuministros.m[eé]dicos?\b/i, db: 'suminregio_suministros_medicos' },
-    { re: /\bempaque\b/i,                                db: 'suminregio_empaque' },
     { re: /\bgrupo.suminregio\b|\bgrupo\b/i,             db: 'grupo_suminregio' },
     { re: /\bparker\b|\bsuminregio.parker\b|\bprincipal\b/i, db: 'default' },
   ];
@@ -547,6 +551,23 @@ NUNCA:
       if (re.test(message)) return db;
     }
     return null;
+  }
+
+  // ─── Catálogo de negocios vigente (los que aplican en los filtros) ─────────
+  // Lo lee del registro real de bases (/api/universe/databases) y lo cachea.
+  // Se inyecta en CADA mensaje para que la IA siempre conozca, con exactitud,
+  // todos los negocios disponibles en el proyecto.
+  let _negociosCache = { at: 0, text: null };
+  async function getNegociosCatalog() {
+    if (_negociosCache.text && (Date.now() - _negociosCache.at) < 10 * 60 * 1000) {
+      return _negociosCache.text;
+    }
+    const data = await callLocal('GET', '/api/universe/databases').catch(() => null);
+    if (!Array.isArray(data) || !data.length) return _negociosCache.text; // conserva el anterior si falla
+    const lines = data.map((d) => `- "${d.id}" → ${d.label || d.id}`).join('\n');
+    const text = `NEGOCIOS DISPONIBLES EN LOS FILTROS (id exacto → nombre):\n${lines}`;
+    _negociosCache = { at: Date.now(), text };
+    return text;
   }
 
   // ─── Pre-fetch inteligente: trae datos reales según keywords y permisos ────
@@ -632,7 +653,7 @@ NUNCA:
 
     // Negocios / unidades
     if (/negocio|empresa|unidad|sucursal/i.test(q)) {
-      fetches.push(['negocios', callLocal('GET', `/api/dbs`)]);
+      fetches.push(['negocios', callLocal('GET', `/api/universe/databases`)]);
     }
 
     // Compras urgentes / qué pedir / reposición
@@ -693,6 +714,9 @@ NUNCA:
 
     // 3. Pre-fetch datos reales (solo lo que el rol permite)
     const liveData = await smartPrefetch(message, dbId, caps).catch(() => null);
+    // Catálogo de negocios vigente — siempre presente para que la IA conozca
+    // todos los negocios que aplican en los filtros del proyecto.
+    const negociosCtx = await getNegociosCatalog().catch(() => null);
 
     // 3. Construir input del usuario (texto + imagen + datos pre-fetched)
     const userContent = [];
@@ -713,9 +737,15 @@ NUNCA:
       `"Tengo esa información pero tu cuenta (${roleLabel}) no tiene los permisos para que yo te la proporcione. Si necesitas acceso, habla con el administrador del sistema." ` +
       `NO proporciones el dato restringido bajo ninguna circunstancia.]`;
 
-    // Mensaje del usuario con datos reales inyectados
-    const msgWithData = liveData
-      ? `${message}\n\n<<<DATOS_REALES_ERP>>>\n${liveData}\n<<<FIN_DATOS>>>\n(Usa estos datos para responder. Son datos reales del ERP en este momento.)${roleCtx}`
+    // Mensaje del usuario con catálogo de negocios + datos reales inyectados
+    const ctxParts = [];
+    if (negociosCtx) ctxParts.push(negociosCtx);
+    // Negocio activo: el que el usuario tiene seleccionado en el dashboard. Si
+    // pregunta sin nombrar negocio, interpreta sobre éste.
+    ctxParts.push(`NEGOCIO ACTUALMENTE SELECCIONADO: "${dbId || 'default'}" (si el usuario no menciona otro negocio, responde sobre éste).`);
+    if (liveData) ctxParts.push(`<<<DATOS_REALES_ERP>>>\n${liveData}\n<<<FIN_DATOS>>>\n(Usa estos datos para responder. Son datos reales del ERP en este momento.)`);
+    const msgWithData = ctxParts.length
+      ? `${message}\n\n${ctxParts.join('\n\n')}${roleCtx}`
       : `${message}${roleCtx}`;
     userContent.push({ type: 'text', text: msgWithData });
     sess.messages.push({ role: 'user', content: userContent });
@@ -794,7 +824,7 @@ NUNCA:
       for (const tu of toolUses) {
         try {
           _usageStats.tool_calls += 1;
-          const result = await runTool(tu.name, tu.input || {});
+          const result = await runTool(tu.name, tu.input || {}, dbId);
           // Truncar resultados muy grandes para no inflar el contexto
           const resultStr = JSON.stringify(result);
           const truncated = resultStr.length > 8000
@@ -935,7 +965,12 @@ NUNCA:
       let sess = loadSession(sessionId);
       if (!sess) sess = { sessionId, createdAt: Date.now(), messages: [], dbId: body.db, usage: {} };
 
-      sess.messages.push({ role: 'user', content: [{ type: 'text', text: message }] });
+      // Catálogo de negocios vigente — para que la IA conozca todos los negocios
+      // que aplican en los filtros, también en modo streaming.
+      const negociosCtx = await getNegociosCatalog().catch(() => null);
+      const activoCtx = `NEGOCIO ACTUALMENTE SELECCIONADO: "${body.db || 'default'}" (si el usuario no menciona otro negocio, responde sobre éste).`;
+      const streamMsg = [message, negociosCtx, activoCtx].filter(Boolean).join('\n\n');
+      sess.messages.push({ role: 'user', content: [{ type: 'text', text: streamMsg }] });
       if (sess.messages.length > MAX_MSGS_PER_SESSION) sess.messages = sess.messages.slice(-MAX_MSGS_PER_SESSION);
 
       send('start', { sessionId });
@@ -975,7 +1010,7 @@ NUNCA:
         for (const tu of toolUses) {
           send('tool_use', { name: tu.name, input: tu.input });
           try {
-            const result = await runTool(tu.name, tu.input || {});
+            const result = await runTool(tu.name, tu.input || {}, body.db);
             const resultStr = JSON.stringify(result);
             const truncated = resultStr.length > 8000 ? resultStr.slice(0, 8000) + '... (truncado)' : resultStr;
             toolResults.push({ type: 'tool_result', tool_use_id: tu.id, content: truncated });
