@@ -1,11 +1,14 @@
-/* sw.js — Service Worker minimalista para Suminregio Dashboard.
+/* sw.js — Service Worker para Suminregio Dashboard.
  *
  * Estrategia:
- *  - Estáticos (HTML/JS/CSS/img/fuentes): network-first con cache de fallback
- *    para que un Render frío de 30s no deje al usuario en blanco.
- *  - API (/api/*): network-only (datos siempre frescos), pero captura errores
- *    de red devolviendo el último response cacheado si existe.
- *  - Versionado por CACHE_NAME — bump al deployar para invalidar.
+ *  - HTML / JS / CSS: NETWORK-FIRST con timeout. Siempre intenta traer la
+ *    versión recién deployada; sólo cae a caché si la red falla o Render está
+ *    frío (timeout). Esto garantiza que los cambios/deploys se vean de
+ *    inmediato y no se queden "pegados" en una versión vieja.
+ *  - Imágenes / fuentes / manifest: cache-first (stale-while-revalidate) —
+ *    cambian poco y conviene carga instantánea.
+ *  - API (/api/*): network-only con fallback al último cacheado si no hay red.
+ *  - Versionado por CACHE_NAME — bump automático al deployar (hash del commit).
  */
 
 // __CACHE_VERSION__ es reemplazado por el server con el hash del commit actual.
@@ -37,6 +40,37 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// ¿El recurso es "código" (HTML/JS/CSS) que debe venir siempre fresco?
+function esCodigo(req, url) {
+  if (req.mode === 'navigate' || req.destination === 'document') return true;
+  if (req.destination === 'script' || req.destination === 'style') return true;
+  return /\.(html|js|mjs|css)$/i.test(url.pathname);
+}
+
+// Network-first con timeout: intenta red; si tarda > timeoutMs o falla, usa caché.
+function networkFirst(req, timeoutMs) {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (resp) => { if (!done) { done = true; resolve(resp); } };
+
+    const timer = setTimeout(() => {
+      caches.match(req).then((hit) => { if (hit) finish(hit); });
+    }, timeoutMs);
+
+    fetch(req).then((resp) => {
+      clearTimeout(timer);
+      if (resp && resp.ok) {
+        const clone = resp.clone();
+        caches.open(ASSET_CACHE).then((c) => c.put(req, clone)).catch(() => null);
+      }
+      finish(resp);
+    }).catch(() => {
+      clearTimeout(timer);
+      caches.match(req).then((hit) => finish(hit || Response.error()));
+    });
+  });
+}
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
@@ -49,7 +83,6 @@ self.addEventListener('fetch', (event) => {
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(req).then((resp) => {
-        // Cache solo GETs 200 que sean razonablemente pequeños
         if (resp && resp.ok && resp.status === 200) {
           const clone = resp.clone();
           caches.open(CACHE_NAME).then((c) => c.put(req, clone)).catch(() => null);
@@ -63,7 +96,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Estáticos: stale-while-revalidate.
+  // HTML / JS / CSS: network-first (timeout 4s) → siempre lo último cuando hay red.
+  if (esCodigo(req, url)) {
+    event.respondWith(networkFirst(req, 4000));
+    return;
+  }
+
+  // Imágenes / fuentes / otros estáticos: cache-first con revalidación.
   event.respondWith(
     caches.match(req).then((hit) => {
       const fetchPromise = fetch(req).then((resp) => {
@@ -85,3 +124,4 @@ self.addEventListener('message', (event) => {
     event.waitUntil(caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k)))));
   }
 });
+
