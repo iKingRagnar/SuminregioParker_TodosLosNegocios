@@ -50,6 +50,23 @@ function install(app, { duckSnaps, log }) {
   const DEFAULT_EFFORT = process.env.AI_DEFAULT_EFFORT || 'medium';
   const PORT = process.env.PORT || 7000;
 
+  // Traduce errores de la API de IA a mensajes limpios para el usuario, SIN
+  // filtrar el detalle crudo (claves, JSON de billing, etc.).
+  function friendlyAiError(e) {
+    const msg = String((e && e.message) || '').toLowerCase();
+    const status = (e && (e.status || e.statusCode)) || 0;
+    if (msg.includes('credit balance') || msg.includes('billing') || msg.includes('payment') || status === 402) {
+      return { status: 503, error: 'El asistente de IA está temporalmente fuera de servicio (la cuenta de IA se quedó sin saldo). Avisa al administrador para recargar créditos.', code: 'SIN_SALDO' };
+    }
+    if (status === 401 || status === 403 || msg.includes('api key') || msg.includes('authentication') || msg.includes('x-api-key')) {
+      return { status: 503, error: 'El asistente de IA no está configurado correctamente. Contacta al administrador.', code: 'AUTH' };
+    }
+    if (status === 429 || status === 529 || msg.includes('overloaded') || msg.includes('rate limit')) {
+      return { status: 503, error: 'El asistente de IA está saturado en este momento. Intenta de nuevo en unos segundos.', code: 'SATURADO' };
+    }
+    return { status: 502, error: 'El asistente tuvo un problema temporal. Intenta de nuevo en unos segundos.', code: 'TEMPORAL' };
+  }
+
   // ─── Tracking de uso ────────────────────────────────────────────────────────
   // Persistimos por sesión para poder ver hit rate del cache y costos.
   const _usageStats = {
@@ -937,7 +954,8 @@ NUNCA:
     } catch (e) {
       log && log.error && log.error('ai-v3', e.message);
       _usageStats.errors += 1;
-      res.status(500).json({ error: e.message });
+      const fe = friendlyAiError(e);
+      res.status(fe.status).json({ error: fe.error, code: fe.code });
     }
   });
 
@@ -1026,7 +1044,8 @@ NUNCA:
       saveSession(sessionId, sess);
       res.end();
     } catch (e) {
-      send('error', { message: e.message });
+      const fe = friendlyAiError(e);
+      send('error', { message: fe.error, code: fe.code });
       res.end();
     }
   });

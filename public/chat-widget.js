@@ -537,18 +537,17 @@
       if (!resp.ok) {
         const err = await resp.json().catch(() => ({}));
         const errCode = resp.status;
-        let errMsg;
-        if (errCode === 401 || errCode === 403) {
-          errMsg = '🔑 Error de autenticación con el servidor IA. Contacta al administrador.';
-        } else if (errCode === 429) {
-          errMsg = '⏳ Demasiadas solicitudes. Espera unos segundos e intenta de nuevo.';
-        } else if (errCode >= 500) {
-          errMsg = `⚠️ El servidor IA encontró un problema interno (${errCode}). Intenta de nuevo en unos segundos.`;
-          if (err.error) errMsg += `\n\nDetalle técnico: ${String(err.error).slice(0, 120)}`;
-        } else {
-          errMsg = `⚠️ Error ${errCode}: ${err.error || err.message || 'Error desconocido'}`;
+        // El servidor ya manda un mensaje limpio en err.error. NO mostramos
+        // detalles técnicos crudos (claves, JSON de la API) al usuario.
+        let errMsg = (err && typeof err.error === 'string' && err.error) || '';
+        if (!errMsg) {
+          if (errCode === 401 || errCode === 403) errMsg = 'Error de autenticación con el asistente. Contacta al administrador.';
+          else if (errCode === 429) errMsg = 'Demasiadas solicitudes. Espera unos segundos e intenta de nuevo.';
+          else if (errCode >= 500) errMsg = 'El asistente tuvo un problema temporal. Intenta de nuevo en unos segundos.';
+          else errMsg = 'No se pudo procesar tu mensaje. Intenta de nuevo.';
         }
-        addMessage('ai', errMsg);
+        if (!/^[⚠️🔑⏳📶⏱]/u.test(errMsg)) errMsg = '⚠️ ' + errMsg;
+        addMessage('ai', errMsg, null, { isError: true });
         setStatus('Error temporal', false);
         setTimeout(() => setStatus('Conectado', true), 5000);
       } else {
