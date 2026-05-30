@@ -60,6 +60,8 @@ const zlib     = require('zlib');
 const Firebird = require('node-firebird');
 const path     = require('path');
 const dailyCache = require('./daily-cache');
+const metasConfig = require('./lib/metas-config');
+const auth = require('./src/auth');
 
 (function warnIfEnvLooksLikeJs() {
   try {
@@ -3603,74 +3605,44 @@ get('/api/config/metas', async (req) => {
     numV = Math.max(numVActivos || 0, numVConVenta || 0, 1);
   }
 
-  const META_DIA_V   = 5650;
-  const META_IDEAL_V = 5650 * 1.30;
-  const META_DIA_C   = 10000;
-  const META_IDEAL_C = 10000 * 1.30;
-
-  const payload = {
-    META_DIARIA_POR_VENDEDOR : META_DIA_V,
-    META_IDEAL_POR_VENDEDOR  : META_IDEAL_V,
-    META_COTI_POR_VENDEDOR   : META_DIA_C,
-    META_COTI_IDEAL          : META_IDEAL_C,
-    META_TOTAL_DIARIA        : META_DIA_V   * numV,
-    META_IDEAL_TOTAL         : META_IDEAL_V * numV,
-    META_COTI_TOTAL          : META_DIA_C   * numV,
-    META_COTI_IDEAL_TOTAL    : META_IDEAL_C * numV,
-    NUM_VENDEDORES           : numV,
-    NUM_VENDEDORES_ACTIVOS   : numVActivos,
-    NUM_VENDEDORES_CON_VENTA : numVConVenta,
-    MARGEN_COMISION          : 0.08,
-  };
-
-  // ───────────────────────────────────────────────────────────────────────────
-  // METAS ESTÁNDAR SUGERIDAS (benchmarks típicos de distribución/mayoreo B2B).
-  //
-  // ⚠️  Son VALORES DE REFERENCIA INICIALES, NO metas oficiales de la empresa.
-  //     Cada componente del tablero que antes no tenía meta usa estos números
-  //     como punto de partida. DEBEN ajustarse a la realidad y objetivos de
-  //     Suminregio (histórico, márgenes por línea, estacionalidad, crédito
-  //     otorgado, etc.). Para fijar metas propias, capturarlas en
-  //     CONFIGURACIONES_GEN / config de empresa y sobreescribir estas defaults.
-  //
-  //  Convención: *_PCT = fracción 0..1 (0.30 = 30 %); *_DIAS = días; los
-  //  factores como ROTACION son veces/año.
-  // ───────────────────────────────────────────────────────────────────────────
-  Object.assign(payload, {
-    // Rentabilidad / Resultados (P&L)
-    META_MARGEN_BRUTO_PCT        : 0.30,  // margen bruto objetivo
-    META_MARGEN_NETO_PCT         : 0.08,  // utilidad operativa / ventas
-    META_GASTO_OPERATIVO_PCT     : 0.20,  // gasto de operación ≤ 20 % de ventas
-    META_CRECIMIENTO_YOY_PCT     : 0.10,  // crecimiento de ventas vs año anterior
-    // Margen por producto
-    META_MARGEN_PRODUCTO_MIN_PCT : 0.20,  // margen mínimo aceptable por SKU
-    // Cartera / CxC
-    META_DSO_DIAS                : 45,    // días promedio de cobro (DSO)
-    META_CARTERA_VENCIDA_PCT     : 0.15,  // ≤ 15 % de la cartera vencida
-    META_EFICIENCIA_COBRANZA_PCT : 0.95,  // cobrado / facturado
-    // Inventario
-    META_ROTACION_INVENTARIO_ANUAL : 6,   // vueltas de inventario al año
-    META_DIAS_INVENTARIO_MAX     : 60,    // días de inventario ≤ 60
-    META_FILL_RATE_PCT           : 0.95,  // disponibilidad / surtido de línea
-    META_EXACTITUD_INVENTARIO_PCT: 0.97,  // exactitud físico vs sistema
-    // Pedidos / Cumplimiento (p.ej. Hospital)
-    META_CUMPLIMIENTO_PEDIDOS_PCT: 0.95,  // líneas surtidas completas
-    META_ENTREGA_A_TIEMPO_PCT    : 0.95,  // entregas dentro de fecha
-    // Clientes / Retención
-    META_RETENCION_CLIENTES_PCT  : 0.85,  // clientes activos retenidos
-    META_CHURN_MENSUAL_PCT       : 0.05,  // abandono mensual ≤ 5 %
-    META_RECOMPRA_PCT            : 0.60,  // clientes que recompran
-
-    // Bandera para que el frontend pueda mostrar el aviso correspondiente.
-    METAS_ESTANDAR_SUGERIDAS     : true,
-    _NOTA_METAS_ESTANDAR:
-      'Metas estándar sugeridas (benchmarks de distribución B2B). Son valores ' +
-      'de referencia, no metas oficiales: ajústalas a las necesidades y el ' +
-      'histórico de la empresa en CONFIGURACIONES_GEN.',
-  });
+  // Payload = metas base (default estándar + overrides de la empresa) + las
+  // metas derivadas, calculadas en lib/metas-config (fuente única). Editar una
+  // meta en /metas.html actualiza el archivo de overrides y se refleja aquí.
+  const payload = metasConfig.buildPayload({ numV, numVActivos, numVConVenta });
 
   metasCache.set(dbKey, { expireAt: Date.now() + 60 * 1000, payload });
   return payload;
+});
+
+// ── Esquema de metas (para la UI editable) ──────────────────────────────────
+get('/api/config/metas/schema', async () => {
+  return { schema: metasConfig.SCHEMA, derivadas: metasConfig.DERIVED, overrides: metasConfig.loadOverrides() };
+});
+
+// ── Edición de metas (admin) — persiste overrides y refleja en todo el proyecto
+app.post('/api/config/metas', require('express').json(), auth.requireRole('admin'), (req, res) => {
+  try {
+    const result = metasConfig.validateMerge(req.body || {});
+    if (!result.ok) return res.status(400).json({ ok: false, errors: result.errors });
+    metasConfig.saveOverrides(result.overrides);
+    metasCache.clear();                          // cache interno del endpoint
+    _cacheInvalidate('/api/config/metas');       // cache de ruta del wrapper get()
+    return res.json({ ok: true, overrides: result.overrides, metas: metasConfig.buildPayload({ numV: 1 }) });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ── Reset de metas a los valores estándar (admin) ───────────────────────────
+app.post('/api/config/metas/reset', auth.requireRole('admin'), (req, res) => {
+  try {
+    metasConfig.resetOverrides();
+    metasCache.clear();
+    _cacheInvalidate('/api/config/metas');
+    return res.json({ ok: true, overrides: {}, metas: metasConfig.buildPayload({ numV: 1 }) });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
+  }
 });
 
 get('/api/config/filtros', async (req) => {

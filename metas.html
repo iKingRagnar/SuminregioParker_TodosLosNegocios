@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Configuración de metas y objetivos de Suminregio Parker: edita los KPIs objetivo y se reflejan en todo el proyecto.">
+<title>Suminregio Parker &mdash; Metas / Objetivos</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<style>
+  :root{
+    --bg:#0b1220; --card:#111a2e; --card2:#0e1626; --border:#1e2d4a;
+    --txt:#e8eefc; --muted:#8aa0c6; --accent:#4f9cff; --gold:#e0b341;
+    --green:#34d399; --red:#f87171;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.45}
+  .wrap{max-width:1080px;margin:0 auto;padding:1.5rem 1rem 4rem}
+  h1{font-size:1.5rem;margin:.2rem 0}
+  .sub{color:var(--muted);font-size:.9rem}
+  .banner{margin:1rem 0;padding:.8rem 1rem;border:1px solid var(--border);border-left:4px solid var(--gold);border-radius:10px;background:var(--card2);font-size:.85rem;color:var(--muted)}
+  .banner strong{color:var(--gold)}
+  .group{margin:1.2rem 0;border:1px solid var(--border);border-radius:14px;background:var(--card);overflow:hidden}
+  .group>h2{margin:0;padding:.7rem 1rem;font-size:.95rem;background:var(--card2);border-bottom:1px solid var(--border)}
+  .row{display:flex;align-items:center;gap:1rem;padding:.6rem 1rem;border-bottom:1px solid var(--border)}
+  .row:last-child{border-bottom:none}
+  .row .lbl{flex:1;min-width:0}
+  .row .lbl .name{font-size:.92rem}
+  .row .lbl .hint{font-size:.72rem;color:var(--muted)}
+  .row .dir{font-family:ui-monospace,monospace;color:var(--muted);width:1.4rem;text-align:center}
+  .inp{display:flex;align-items:center;gap:.35rem;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:.25rem .5rem}
+  .inp input{width:7rem;background:transparent;border:none;color:var(--txt);font-size:1rem;font-variant-numeric:tabular-nums;text-align:right;outline:none}
+  .inp .unit{color:var(--muted);font-size:.8rem;min-width:2.6rem}
+  .derived .row{opacity:.92}
+  .derived .val{font-variant-numeric:tabular-nums;font-weight:700;width:9rem;text-align:right}
+  .derived .formula{font-size:.72rem;color:var(--muted)}
+  .bar{position:sticky;bottom:0;margin-top:1.5rem;display:flex;gap:.7rem;align-items:center;padding:.9rem 1rem;background:linear-gradient(0deg,var(--bg),rgba(11,18,32,.7));border-top:1px solid var(--border)}
+  button{font:inherit;border-radius:9px;padding:.55rem 1.1rem;border:1px solid var(--border);cursor:pointer}
+  .btn-save{background:var(--accent);color:#06122a;border-color:var(--accent);font-weight:700}
+  .btn-reset{background:transparent;color:var(--muted)}
+  .btn-save:disabled{opacity:.5;cursor:not-allowed}
+  .status{font-size:.85rem;margin-left:auto}
+  .status.ok{color:var(--green)} .status.err{color:var(--red)}
+  a.back{color:var(--accent);text-decoration:none;font-size:.85rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="index.html">&larr; Volver al scorecard</a>
+  <h1>🎯 Metas / Objetivos</h1>
+  <p class="sub">Configuración central de las metas del proyecto. Lo que cambies aquí se refleja en <strong>todos los tableros</strong>.</p>
+
+  <div class="banner">
+    Los valores iniciales son <strong>metas estándar sugeridas</strong> (benchmarks de distribución/mayoreo B2B), <strong>no</strong> metas oficiales de la empresa.
+    Ajústalas al histórico y los objetivos de Suminregio. Las <strong>metas derivadas</strong> (ideales y totales del equipo) se recalculan solas a partir de las base, así la matemática siempre cuadra.
+  </div>
+
+  <div id="form"><p class="sub">Cargando metas…</p></div>
+
+  <div class="group derived" id="derivedBox" style="display:none">
+    <h2>Metas derivadas (calculadas automáticamente)</h2>
+    <div id="derivedRows"></div>
+  </div>
+
+  <div class="bar">
+    <button class="btn-save" id="btnSave" disabled>Guardar metas</button>
+    <button class="btn-reset" id="btnReset">Restaurar estándar</button>
+    <span class="status" id="status"></span>
+  </div>
+</div>
+
+<script src="safe-dom.js"></script>
+<script>
+(function () {
+  'use strict';
+  var API = (window.__API_BASE || '');
+  var schema = [], derived = [], current = {}, dirty = {};
+
+  function $(id){ return document.getElementById(id); }
+  function fmtMoney(n){ return '$' + Number(n||0).toLocaleString('es-MX',{maximumFractionDigits:0}); }
+  function fmtVal(kind, v){
+    var n = Number(v);
+    if (kind === 'pct') return (Math.round(n*1000)/10) + '%';
+    if (kind === 'money') return fmtMoney(n);
+    if (kind === 'dias') return n + ' días';
+    if (kind === 'x') return n + '×/año';
+    if (kind === 'factor') return n + '×';
+    return String(n);
+  }
+  // valor mostrado en el input según tipo (pct → porcentaje)
+  function toDisplay(kind, v){ return kind === 'pct' ? (Math.round(Number(v)*10000)/100) : Number(v); }
+  function fromDisplay(kind, v){ return kind === 'pct' ? (Number(v)/100) : Number(v); }
+  function unitOf(kind){ return kind==='pct'?'%':kind==='money'?'$':kind==='dias'?'días':kind==='x'?'×/año':kind==='factor'?'×':''; }
+  function stepOf(kind){ return kind==='pct'?'0.5':kind==='money'?'50':kind==='factor'?'0.05':'1'; }
+
+  function setStatus(msg, cls){ var s=$('status'); s.textContent=msg||''; s.className='status '+(cls||''); }
+
+  function render(){
+    var groups = {};
+    schema.forEach(function(s){ (groups[s.group] = groups[s.group] || []).push(s); });
+    var html = '';
+    Object.keys(groups).forEach(function(g){
+      html += '<div class="group"><h2>'+g+'</h2>';
+      groups[g].forEach(function(s){
+        var disp = toDisplay(s.kind, current[s.key] != null ? current[s.key] : s.def);
+        html += '<div class="row">'
+          + '<div class="lbl"><div class="name">'+s.label+'</div><div class="hint">'+s.key+'</div></div>'
+          + '<div class="dir" title="objetivo">'+(s.dir||'')+'</div>'
+          + '<div class="inp"><input type="number" step="'+stepOf(s.kind)+'" data-key="'+s.key+'" data-kind="'+s.kind+'" value="'+disp+'"><span class="unit">'+unitOf(s.kind)+'</span></div>'
+          + '</div>';
+      });
+      html += '</div>';
+    });
+    $('form').innerHTML = html;
+
+    Array.prototype.forEach.call(document.querySelectorAll('input[data-key]'), function(inp){
+      inp.addEventListener('input', function(){
+        dirty[inp.getAttribute('data-key')] = fromDisplay(inp.getAttribute('data-kind'), inp.value);
+        $('btnSave').disabled = false;
+        setStatus('Cambios sin guardar', '');
+        renderDerived(); // previsualiza el efecto en las derivadas
+      });
+    });
+    renderDerived();
+  }
+
+  function effective(){ return Object.assign({}, current, dirty); }
+
+  function renderDerived(){
+    if (!derived.length) return;
+    var eff = effective();
+    var dia = Number(eff.META_DIARIA_POR_VENDEDOR), coti = Number(eff.META_COTI_POR_VENDEDOR);
+    var fac = Number(eff.META_FACTOR_IDEAL);
+    var numV = Number(current.NUM_VENDEDORES) || 1;
+    var calc = {
+      META_IDEAL_POR_VENDEDOR: dia*fac,
+      META_COTI_IDEAL: coti*fac,
+      META_TOTAL_DIARIA: dia*numV,
+      META_IDEAL_TOTAL: dia*fac*numV,
+      META_COTI_TOTAL: coti*numV,
+      META_COTI_IDEAL_TOTAL: coti*fac*numV,
+    };
+    var html = '';
+    derived.forEach(function(d){
+      html += '<div class="row"><div class="lbl"><div class="name">'+d.label+'</div>'
+        + '<div class="formula">'+d.formula+'</div></div>'
+        + '<div class="val">'+fmtVal(d.kind, calc[d.key])+'</div></div>';
+    });
+    $('derivedRows').innerHTML = html;
+    $('derivedBox').style.display = '';
+  }
+
+  function load(){
+    Promise.all([
+      fetch(API+'/api/config/metas/schema',{credentials:'same-origin'}).then(function(r){return r.json();}),
+      fetch(API+'/api/config/metas',{credentials:'same-origin'}).then(function(r){return r.json();})
+    ]).then(function(res){
+      schema = res[0].schema || [];
+      derived = res[0].derivadas || [];
+      current = res[1] || {};
+      dirty = {};
+      render();
+      setStatus(current.METAS_PERSONALIZADAS ? 'Metas personalizadas activas' : 'Usando metas estándar', '');
+    }).catch(function(e){
+      $('form').innerHTML = '<p class="status err">No se pudieron cargar las metas: '+(e.message||e)+'</p>';
+    });
+  }
+
+  $('btnSave').addEventListener('click', function(){
+    if (!Object.keys(dirty).length) return;
+    $('btnSave').disabled = true; setStatus('Guardando…','');
+    fetch(API+'/api/config/metas', {
+      method:'POST', credentials:'same-origin',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(dirty)
+    }).then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+      .then(function(x){
+        if (!x.ok || !x.j.ok) {
+          var msg = (x.j.errors && x.j.errors.join(' · ')) || x.j.error || 'No autorizado (requiere admin)';
+          setStatus('Error: '+msg, 'err'); $('btnSave').disabled = false; return;
+        }
+        current = x.j.metas || current; dirty = {};
+        setStatus('✓ Guardado. Se refleja en todo el proyecto.', 'ok');
+        render();
+      }).catch(function(e){ setStatus('Error de red: '+(e.message||e),'err'); $('btnSave').disabled=false; });
+  });
+
+  $('btnReset').addEventListener('click', function(){
+    if (!confirm('¿Restaurar todas las metas a los valores estándar sugeridos?')) return;
+    setStatus('Restaurando…','');
+    fetch(API+'/api/config/metas/reset', {method:'POST', credentials:'same-origin'})
+      .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
+      .then(function(x){
+        if (!x.ok || !x.j.ok){ setStatus('Error: '+((x.j&&x.j.error)||'No autorizado (requiere admin)'),'err'); return; }
+        setStatus('✓ Restaurado a estándar.', 'ok'); load();
+      }).catch(function(e){ setStatus('Error de red: '+(e.message||e),'err'); });
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>

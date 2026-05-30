@@ -32,3 +32,4 @@ ver-estatus*.js
 *.LOCAL_VENTAS_*.js
 *_resto.js
 server_cumplimiento_*.js
+data/metas-overrides.json

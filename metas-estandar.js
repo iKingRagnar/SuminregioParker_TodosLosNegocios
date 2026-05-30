@@ -104,14 +104,22 @@
     }).join('');
     if (!chips) return;
 
+    var custom = !!metas.METAS_PERSONALIZADAS;
+    var badge = custom
+      ? '<span class="mestd-badge" style="border-color:rgba(52,211,153,.5);color:#34d399">Personalizadas</span>'
+      : '<span class="mestd-badge">Estándar</span>';
+    var note = custom
+      ? 'Metas configuradas por la empresa. Edítalas en <a href="metas.html" style="color:inherit;text-decoration:underline">Metas / Objetivos</a> y se reflejan en todo el proyecto.'
+      : 'Son <strong>metas estándar sugeridas</strong> (benchmarks de distribución/mayoreo B2B), no metas oficiales. ' +
+        'Edítalas en <a href="metas.html" style="color:inherit;text-decoration:underline">Metas / Objetivos</a> para ajustarlas a Suminregio; el cambio se refleja en todo el proyecto.';
+
     var wrap = document.createElement('div');
     wrap.className = 'mestd-card';
     wrap.innerHTML =
       '<details class="mestd-box" open>' +
-      '<summary><span class="mestd-badge">Estándar</span> 🎯 Metas estándar de referencia</summary>' +
+      '<summary>' + badge + ' 🎯 Metas de referencia</summary>' +
       '<div class="mestd-grid">' + chips + '</div>' +
-      '<p class="mestd-note">Son <strong>metas estándar sugeridas</strong> (benchmarks de distribución/mayoreo B2B), no metas oficiales de la empresa. ' +
-      'Ajústalas a las necesidades, el histórico y los objetivos de Suminregio (en CONFIGURACIONES_GEN).</p>' +
+      '<p class="mestd-note">' + note + '</p>' +
       '</details>';
 
     var host = document.querySelector('main') || document.body;
