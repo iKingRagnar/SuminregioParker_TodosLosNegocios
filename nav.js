@@ -71,7 +71,6 @@
       <button type="button" class="nav-aux-btn" id="app-notif-toggle" aria-label="Avisos" aria-expanded="false" title="Avisos">${icBell}<span id="app-notif-badge" class="app-notif-badge hidden">0</span></button>
     </div>
     <div class="header-right">
-      <div class="live-pill"><div class="live-dot"></div>Live</div>
       <div class="clock" id="reloj">--:--:--</div>
     </div>
   </div>

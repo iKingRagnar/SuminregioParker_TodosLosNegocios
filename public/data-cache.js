@@ -357,32 +357,11 @@
     }, true);
   }
 
-  // ── Indicador de caché en la barra ───────────────────────────────────────────
+  // ── Indicador de caché ────────────────────────────────────────────────────
+  // Desactivado: confundía (sugería refrescos periódicos "refresh en Xm"). Los
+  // datos se actualizan una vez al día (11 PM); la barra ya muestra el corte.
   function injectCacheIndicator() {
-    const bar = document.querySelector('.ms-refresh-inner');
-    if (!bar || document.getElementById('sumi-cache-ind')) return;
-
-    const lastRefreshTs = +(localStorage.getItem('sumi_last_refresh') || Date.now());
-    const agoMin = Math.round((Date.now() - lastRefreshTs) / 60000);
-    const nextMin = Math.round(getNextRefreshMs() / 60000);
-
-    const ind = document.createElement('span');
-    ind.id = 'sumi-cache-ind';
-    ind.style.cssText =
-      'font-size:10.5px;color:#64748b;font-family:\'DM Mono\',monospace;letter-spacing:.04em;margin-left:auto;white-space:nowrap;';
-    ind.textContent = agoMin < 2
-      ? `⚡ Caché activo · próximo refresh en ${nextMin}m`
-      : `⚡ Caché activo · ${agoMin}m ago · refresh en ${nextMin}m`;
-    bar.appendChild(ind);
-
-    // Actualizar cada minuto
-    setInterval(() => {
-      const ago2 = Math.round((Date.now() - (+(localStorage.getItem('sumi_last_refresh') || Date.now()))) / 60000);
-      const next2 = Math.round(getNextRefreshMs() / 60000);
-      ind.textContent = ago2 < 2
-        ? `⚡ Caché activo · próximo refresh en ${next2}m`
-        : `⚡ Caché activo · ${ago2}m ago · refresh en ${next2}m`;
-    }, 60000);
+    return;
   }
 
   // ── Boot ─────────────────────────────────────────────────────────────────────
