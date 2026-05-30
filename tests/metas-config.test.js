@@ -67,6 +67,43 @@ test('saveOverrides + buildPayload: editar una base recalcula las derivadas', ()
   assert.equal(p.METAS_PERSONALIZADAS, true);
 });
 
+test('cumplimiento (más-es-mejor): real >= meta → alcanzada y pct >= 100', () => {
+  // META_MARGEN_BRUTO_PCT default 0.30, dir ≥
+  const c = mc.cumplimiento('META_MARGEN_BRUTO_PCT', 0.33, 0.30);
+  assert.equal(c.dir, 'higher');
+  assert.equal(c.alcanzada, true);
+  assert.equal(c.pct, 110);              // 0.33/0.30 = 110%
+  assert.ok(Math.abs(c.delta - 0.03) < 1e-9);
+});
+
+test('cumplimiento (más-es-mejor): real < meta → no alcanzada y pct < 100', () => {
+  const c = mc.cumplimiento('META_CUMPLIMIENTO_PEDIDOS_PCT', 0.855, 0.95);
+  assert.equal(c.alcanzada, false);
+  assert.equal(c.pct, 90);               // 0.855/0.95 = 90%
+});
+
+test('cumplimiento (menos-es-mejor): real <= meta → alcanzada y pct >= 100', () => {
+  // META_CARTERA_VENCIDA_PCT default 0.15, dir ≤
+  const c = mc.cumplimiento('META_CARTERA_VENCIDA_PCT', 0.10, 0.15);
+  assert.equal(c.dir, 'lower');
+  assert.equal(c.alcanzada, true);
+  assert.equal(c.pct, 150);              // 0.15/0.10 = 150%
+});
+
+test('cumplimiento (menos-es-mejor): real > meta → no alcanzada y pct < 100', () => {
+  const c = mc.cumplimiento('META_DSO_DIAS', 60, 45);
+  assert.equal(c.alcanzada, false);
+  assert.equal(c.pct, 75);               // 45/60 = 75%
+  assert.equal(c.delta, 15);
+});
+
+test('cumplimiento sin dato real → pct/delta null (degrada)', () => {
+  const c = mc.cumplimiento('META_MARGEN_BRUTO_PCT', null, 0.30);
+  assert.equal(c.real, null);
+  assert.equal(c.pct, null);
+  assert.equal(c.alcanzada, null);
+});
+
 test('resetOverrides vuelve a los valores estándar', () => {
   mc.saveOverrides({ META_MARGEN_BRUTO_PCT: 0.5 });
   mc.resetOverrides();

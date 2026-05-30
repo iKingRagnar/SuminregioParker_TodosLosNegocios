@@ -14,8 +14,33 @@
  */
 
 const express = require('express');
+const http = require('http');
 const metasConfig = require('../../lib/metas-config');
 const auth = require('../auth');
+
+// Fuentes de valor REAL por meta (sólo donde el dato es confiable).
+//   source: endpoint a consultar · pick(body): extrae el valor real (mismas
+//   unidades que la meta) o null si no hay dato.
+const MEASURABLE = {
+  META_CARTERA_VENCIDA_PCT: {
+    source: '/api/cxc/resumen-aging',
+    pick: (b) => {
+      const r = (b && b.resumen) || b || {};
+      const tot = Number(r.SALDO_TOTAL) || 0;
+      return tot > 0 ? (Number(r.VENCIDO) || 0) / tot : null;
+    },
+  },
+  META_CUMPLIMIENTO_PEDIDOS_PCT: {
+    source: '/api/ventas/cumplimiento',
+    pick: (b) => {
+      const v = (b && b.kpis && b.kpis.pct_cumplimiento != null) ? b.kpis.pct_cumplimiento
+        : (b && b.pct_cumplimiento != null ? b.pct_cumplimiento : null);
+      if (v == null || !isFinite(Number(v))) return null;
+      const n = Number(v);
+      return n > 1.5 ? n / 100 : n; // normaliza 0-100 → fracción
+    },
+  },
+};
 
 /**
  * @param {object} deps
@@ -98,6 +123,52 @@ function install(deps) {
   // ── Esquema de metas (para la UI editable) ────────────────────────────────
   get('/api/config/metas/schema', async () => {
     return { schema: metasConfig.SCHEMA, derivadas: metasConfig.DERIVED, overrides: metasConfig.loadOverrides() };
+  });
+
+  // ── Cumplimiento: META vs REAL (delta + % alcance) por KPI ────────────────
+  // Centraliza la matemática: lee las metas EDITABLES y, donde hay dato real
+  // confiable, calcula delta y % de cumplimiento. Editar una meta recalcula
+  // todo automáticamente (esta respuesta usa las metas vigentes).
+  function fetchLocalJson(path) {
+    return new Promise((resolve) => {
+      const port = process.env.PORT || 7000;
+      const reqL = http.request({ method: 'GET', hostname: '127.0.0.1', port, path, timeout: 20000 }, (resp) => {
+        let buf = '';
+        resp.on('data', (c) => { buf += c; });
+        resp.on('end', () => { try { resolve(JSON.parse(buf)); } catch (_) { resolve(null); } });
+      });
+      reqL.on('error', () => resolve(null));
+      reqL.on('timeout', () => { reqL.destroy(); resolve(null); });
+      reqL.end();
+    });
+  }
+
+  get('/api/metas/cumplimiento', async (req) => {
+    const db = (req && req.query && req.query.db) ? String(req.query.db) : 'default';
+    const metas = metasConfig.buildPayload({ numV: 1 });
+    const dbq = `?db=${encodeURIComponent(db)}`;
+
+    // Trae cada fuente real una sola vez (varias metas pueden compartir fuente).
+    const sources = [...new Set(Object.values(MEASURABLE).map((m) => m.source))];
+    const bodies = {};
+    await Promise.all(sources.map(async (s) => { bodies[s] = await fetchLocalJson(s + dbq); }));
+
+    const items = metasConfig.SCHEMA.map((s) => {
+      const meta = metas[s.key];
+      const m = MEASURABLE[s.key];
+      let real = null;
+      if (m && bodies[m.source]) {
+        try { real = m.pick(bodies[m.source]); } catch (_) { real = null; }
+      }
+      const c = metasConfig.cumplimiento(s.key, real, meta);
+      return {
+        key: s.key, label: s.label, group: s.group, kind: s.kind, dir: s.dir,
+        meta: c.meta, real: c.real, delta: c.delta, pct: c.pct,
+        alcanzada: c.alcanzada, medible: !!m,
+      };
+    });
+
+    return { ok: true, db, items, personalizadas: !!metas.METAS_PERSONALIZADAS, generadoEn: new Date().toISOString() };
   });
 
   // ── Edición de metas (admin) — persiste overrides y refleja en todo el proyecto

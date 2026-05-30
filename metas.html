@@ -73,7 +73,7 @@
 (function () {
   'use strict';
   var API = (window.__API_BASE || '');
-  var schema = [], derived = [], current = {}, dirty = {};
+  var schema = [], derived = [], current = {}, dirty = {}, cumpl = {};
 
   function $(id){ return document.getElementById(id); }
   function fmtMoney(n){ return '$' + Number(n||0).toLocaleString('es-MX',{maximumFractionDigits:0}); }
@@ -102,8 +102,18 @@
       html += '<div class="group"><h2>'+g+'</h2>';
       groups[g].forEach(function(s){
         var disp = toDisplay(s.kind, current[s.key] != null ? current[s.key] : s.def);
+        var c = cumpl[s.key];
+        var cLine = '';
+        if (c && c.real != null) {
+          var col = c.alcanzada ? 'var(--green)' : 'var(--red)';
+          var pct = (c.pct != null ? Math.round(c.pct)+'%' : '—');
+          cLine = '<div class="hint" style="color:'+col+'">Actual: '+fmtVal(s.kind, c.real)
+            + ' · '+(c.alcanzada?'✓':'✗')+' '+pct+' cumplimiento</div>';
+        } else if (c && c.medible) {
+          cLine = '<div class="hint" style="opacity:.5">Actual: sin dato</div>';
+        }
         html += '<div class="row">'
-          + '<div class="lbl"><div class="name">'+s.label+'</div><div class="hint">'+s.key+'</div></div>'
+          + '<div class="lbl"><div class="name">'+s.label+'</div><div class="hint">'+s.key+'</div>'+cLine+'</div>'
           + '<div class="dir" title="objetivo">'+(s.dir||'')+'</div>'
           + '<div class="inp"><input type="number" step="'+stepOf(s.kind)+'" data-key="'+s.key+'" data-kind="'+s.kind+'" value="'+disp+'"><span class="unit">'+unitOf(s.kind)+'</span></div>'
           + '</div>';
@@ -152,11 +162,14 @@
   function load(){
     Promise.all([
       fetch(API+'/api/config/metas/schema',{credentials:'same-origin'}).then(function(r){return r.json();}),
-      fetch(API+'/api/config/metas',{credentials:'same-origin'}).then(function(r){return r.json();})
+      fetch(API+'/api/config/metas',{credentials:'same-origin'}).then(function(r){return r.json();}),
+      fetch(API+'/api/metas/cumplimiento',{credentials:'same-origin'}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;})
     ]).then(function(res){
       schema = res[0].schema || [];
       derived = res[0].derivadas || [];
       current = res[1] || {};
+      cumpl = {};
+      if (res[2] && res[2].items) res[2].items.forEach(function(it){ cumpl[it.key] = it; });
       dirty = {};
       render();
       setStatus(current.METAS_PERSONALIZADAS ? 'Metas personalizadas activas' : 'Usando metas estándar', '');
@@ -180,7 +193,7 @@
         }
         current = x.j.metas || current; dirty = {};
         setStatus('✓ Guardado. Se refleja en todo el proyecto.', 'ok');
-        render();
+        load(); // recarga metas + cumplimiento recalculado
       }).catch(function(e){ setStatus('Error de red: '+(e.message||e),'err'); $('btnSave').disabled=false; });
   });
 

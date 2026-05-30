@@ -86,6 +86,12 @@
       '.mestd-chip{display:flex;flex-direction:column;gap:.1rem;border:1px solid rgba(127,127,127,.25);border-radius:9px;padding:.45rem .65rem;min-width:140px;background:rgba(127,127,127,.06)}' +
       '.mestd-chip .l{font-size:.68rem;opacity:.75}' +
       '.mestd-chip .v{font-size:1rem;font-weight:700;font-variant-numeric:tabular-nums}' +
+      '.mestd-chip .m{font-size:.66rem;font-variant-numeric:tabular-nums;opacity:.9}' +
+      '.mestd-chip.ok{border-color:rgba(52,211,153,.5)}' +
+      '.mestd-chip.bad{border-color:rgba(248,113,113,.5)}' +
+      '.mestd-ok{color:#34d399;font-weight:700}' +
+      '.mestd-bad{color:#f87171;font-weight:700}' +
+      '.mestd-mut{opacity:.6}' +
       '.mestd-note{font-size:.7rem;opacity:.75;line-height:1.4;margin-top:.35rem}' +
       '.mestd-badge{font-size:.62rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border:1px solid rgba(212,160,23,.5);color:#d4a017;border-radius:99px;padding:.05rem .45rem}';
     var st = document.createElement('style');
@@ -94,30 +100,61 @@
     document.head.appendChild(st);
   }
 
-  function render(metas, keys) {
+  // Δ formateado según tipo (pct → puntos porcentuales)
+  function fmtDelta(kind, delta) {
+    if (delta == null) return '';
+    var signo = delta > 0 ? '+' : '';
+    if (kind === 'pct') return signo + (Math.round(delta * 1000) / 10) + ' pp';
+    if (kind === 'money') return signo + '$' + Math.round(delta).toLocaleString('es-MX');
+    if (kind === 'dias') return signo + Math.round(delta) + ' d';
+    return signo + (Math.round(delta * 100) / 100);
+  }
+
+  function render(items, keys, personalizadas) {
     injectStyles();
+    var byKey = {};
+    items.forEach(function (it) { byKey[it.key] = it; });
+
     var chips = keys.map(function (k) {
-      var def = DEFS[k];
-      if (!def || metas[k] === undefined || metas[k] === null) return '';
-      var val = def.dir + ' ' + fmtVal(def.kind, metas[k]);
-      return '<div class="mestd-chip"><span class="l">' + def.label + '</span><span class="v">' + val + '</span></div>';
+      var it = byKey[k];
+      if (!it || it.meta == null) return '';
+      var metaTxt = (it.dir || '') + ' ' + fmtVal(it.kind, it.meta);
+
+      // Con dato real medido → Real grande + Meta/Δ/% con color
+      if (it.medible && it.real != null) {
+        var ok = !!it.alcanzada;
+        var pctTxt = (it.pct != null ? Math.round(it.pct) + '%' : '—');
+        var line = 'Meta ' + metaTxt + ' · <span class="' + (ok ? 'mestd-ok' : 'mestd-bad') + '">'
+          + (ok ? '✓ ' : '✗ ') + pctTxt + '</span> · Δ ' + fmtDelta(it.kind, it.delta);
+        return '<div class="mestd-chip ' + (ok ? 'ok' : 'bad') + '">'
+          + '<span class="l">' + it.label + '</span>'
+          + '<span class="v">' + fmtVal(it.kind, it.real) + '</span>'
+          + '<span class="m">' + line + '</span></div>';
+      }
+
+      // Medible pero sin dato disponible, o meta-solo (objetivo de referencia)
+      var sub = it.medible ? '<span class="m mestd-mut">sin dato actual</span>'
+        : '<span class="m mestd-mut">objetivo</span>';
+      return '<div class="mestd-chip"><span class="l">' + it.label + '</span>'
+        + '<span class="v">' + metaTxt + '</span>' + sub + '</div>';
     }).join('');
     if (!chips) return;
 
-    var custom = !!metas.METAS_PERSONALIZADAS;
-    var badge = custom
+    var badge = personalizadas
       ? '<span class="mestd-badge" style="border-color:rgba(52,211,153,.5);color:#34d399">Personalizadas</span>'
       : '<span class="mestd-badge">Estándar</span>';
-    var note = custom
-      ? 'Metas configuradas por la empresa. Edítalas en <a href="metas.html" style="color:inherit;text-decoration:underline">Metas / Objetivos</a> y se reflejan en todo el proyecto.'
-      : 'Son <strong>metas estándar sugeridas</strong> (benchmarks de distribución/mayoreo B2B), no metas oficiales. ' +
-        'Edítalas en <a href="metas.html" style="color:inherit;text-decoration:underline">Metas / Objetivos</a> para ajustarlas a Suminregio; el cambio se refleja en todo el proyecto.';
+    var note = (personalizadas
+      ? 'Metas configuradas por la empresa. '
+      : 'Metas estándar sugeridas (benchmarks B2B). ')
+      + 'El % es el cumplimiento vs la meta (✓ = alcanzada). Edítalas en '
+      + '<a href="metas.html" style="color:inherit;text-decoration:underline">Metas / Objetivos</a> '
+      + 'y el cálculo se recalcula en todo el proyecto.';
 
     var wrap = document.createElement('div');
     wrap.className = 'mestd-card';
     wrap.innerHTML =
       '<details class="mestd-box" open>' +
-      '<summary>' + badge + ' 🎯 Metas de referencia</summary>' +
+      '<summary>' + badge + ' 🎯 Metas y cumplimiento</summary>' +
       '<div class="mestd-grid">' + chips + '</div>' +
       '<p class="mestd-note">' + note + '</p>' +
       '</details>';
@@ -136,9 +173,9 @@
         if (db) dbqs = '?db=' + encodeURIComponent(db);
       } catch (_) { /* URLSearchParams no disponible */ }
 
-      fetch(apiBase() + '/api/config/metas' + dbqs, { credentials: 'same-origin' })
+      fetch(apiBase() + '/api/metas/cumplimiento' + dbqs, { credentials: 'same-origin' })
         .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (metas) { if (metas) render(metas, keys); })
+        .then(function (data) { if (data && data.items) render(data.items, keys, data.personalizadas); })
         .catch(function () { /* sin red / endpoint: no mostrar nada */ });
     } catch (_) { /* nunca romper la página */ }
   }
