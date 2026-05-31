@@ -43,6 +43,49 @@
     return '';
   }
 
+  // ── Etiquetas de negocio (dbId → nombre legible) para auto-agrupado ────────
+  var DB_LABELS = {};
+  function dbLabel(id) {
+    var key = String(id || 'default');
+    if (DB_LABELS[key]) return DB_LABELS[key];
+    var nice = key.replace(/^suminregio[_-]?/i, '').replace(/\.fdb$/i, '').replace(/[_-]+/g, ' ').trim();
+    if (!nice || /^default$/i.test(key)) nice = 'Suminregio Parker';
+    return nice.charAt(0).toUpperCase() + nice.slice(1);
+  }
+
+  // Detecta el TEMA de la consulta (subgrupo resumido) a partir del texto.
+  function detectTema(text) {
+    var q = String(text || '').toLowerCase();
+    var R = [
+      [/\bventa|factur|ingres|vendid|vend[ií]|cu[aá]nto.*llev/, 'Ventas'],
+      [/\bcxc|cobr|vencid|cartera|deud|saldo|adeud/, 'Cobranza / CxC'],
+      [/\binventario|stock|existenc|almac[eé]n|quiebr|mercanc/, 'Inventario'],
+      [/\bvendedor|comisi[oó]n|ranking|equipo/, 'Vendedores'],
+      [/\bcliente|comprador|churn|riesgo|recompra|retenci/, 'Clientes'],
+      [/\bmargen|utilidad|rentab|pnl|p&l|resultado|gasto/, 'Rentabilidad'],
+      [/\bcotiz|propuesta|pipeline|presupuest/, 'Cotizaciones'],
+      [/\bcompra|reposi|proveed|surtir|ordenar/, 'Compras'],
+      [/\bmeta|objetivo|cumplim|proyec|cierre/, 'Metas'],
+      [/\bforecast|tendenc|estima|predic/, 'Proyecciones'],
+    ];
+    for (var i = 0; i < R.length; i++) { if (R[i][0].test(q)) return R[i][1]; }
+    return 'General';
+  }
+
+  // Crea (si no existe) el grupo del negocio + subgrupo del tema y devuelve el
+  // id del subgrupo, para que la conversación se auto-organice por contexto.
+  function ensureContextGroup(dbId, tema) {
+    try {
+      var negocio = dbLabel(dbId);
+      var parent = groups.find(function (g) { return !g.parentId && g.name === negocio; });
+      if (!parent) { parent = { id: newGid(), name: negocio, parentId: null, collapsed: false, auto: true }; groups.push(parent); }
+      var sub = groups.find(function (g) { return g.parentId === parent.id && g.name === tema; });
+      if (!sub) { sub = { id: newGid(), name: tema, parentId: parent.id, collapsed: false, auto: true }; groups.push(sub); }
+      saveGroups(groups);
+      return sub.id;
+    } catch (_) { return null; }
+  }
+
   // ── Conversation persistence (server + localStorage fallback) ──────────────
   var STORAGE_KEY = 'sumi_ia_conversations_v1';
   var serverConvAvailable = false;
@@ -165,9 +208,21 @@
     if (!firstUser) return;
     var text = typeof firstUser.content === 'string' ? firstUser.content : '';
     conv.title = text.slice(0, 50) + (text.length > 50 ? '...' : '');
+
+    // Auto-organiza la conversación por contexto: grupo = negocio consultado,
+    // subgrupo = tema (resumido). Solo si el usuario no la movió manualmente.
+    if (!conv.groupPinned && (!conv.groupId || _isAutoGroup(conv.groupId))) {
+      var subId = ensureContextGroup(conv.dbId || currentDb(), detectTema(text));
+      if (subId) conv.groupId = subId;
+    }
+
     saveConversations();
     syncToServer(conv);
     renderSidebar();
+  }
+  function _isAutoGroup(gid) {
+    var g = groups.find(function (x) { return x.id === gid; });
+    return !!(g && g.auto);
   }
 
   // ── Markdown rendering ─────────────────────────────────────────────────────
@@ -376,7 +431,9 @@
   }
   function moveConvoToGroup(convoId, groupId) {
     var c = getConv(convoId); if (!c) return;
-    c.groupId = groupId || null; saveConversations(); syncToServer(c);
+    c.groupId = groupId || null;
+    c.groupPinned = true; // movida a mano → el auto-agrupado ya no la reubica
+    saveConversations(); syncToServer(c);
     renderSidebar($sidebarSearch ? $sidebarSearch.value : '');
   }
   // Expone acciones para el handler global de clicks.
