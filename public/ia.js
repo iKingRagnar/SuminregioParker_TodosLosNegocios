@@ -356,6 +356,62 @@
   }
 
   // ── Sidebar rendering ─────────────────────────────────────────────────────
+  // ── Grupos de contexto (carpetas) para organizar conversaciones ───────────
+  var GROUPS_KEY = 'sumi_ia_groups_v1';
+  function loadGroups() { try { var a = JSON.parse(localStorage.getItem(GROUPS_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
+  function saveGroups(a) { try { localStorage.setItem(GROUPS_KEY, JSON.stringify(a)); } catch (_) {} }
+  var groups = loadGroups();
+  function newGid() { return 'g_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); }
+  function addGroup(name, parentId) { groups.push({ id: newGid(), name: String(name || 'Grupo').slice(0, 40), parentId: parentId || null, collapsed: false }); saveGroups(groups); renderSidebar($sidebarSearch ? $sidebarSearch.value : ''); }
+  function renameGroup(id) { var g = groups.find(function (x) { return x.id === id; }); if (!g) return; var n = prompt('Renombrar grupo:', g.name); if (n) { g.name = String(n).slice(0, 40); saveGroups(groups); renderSidebar($sidebarSearch ? $sidebarSearch.value : ''); } }
+  function toggleGroupCollapse(id) { var g = groups.find(function (x) { return x.id === id; }); if (g) { g.collapsed = !g.collapsed; saveGroups(groups); renderSidebar($sidebarSearch ? $sidebarSearch.value : ''); } }
+  function removeGroup(id) {
+    var del = {}; del[id] = true; var added = true;
+    while (added) { added = false; groups.forEach(function (g) { if (g.parentId && del[g.parentId] && !del[g.id]) { del[g.id] = true; added = true; } }); }
+    conversations.forEach(function (c) { if (del[c.groupId]) { c.groupId = null; } });
+    saveConversations();
+    groups = groups.filter(function (g) { return !del[g.id]; });
+    saveGroups(groups);
+    renderSidebar($sidebarSearch ? $sidebarSearch.value : '');
+  }
+  function moveConvoToGroup(convoId, groupId) {
+    var c = getConv(convoId); if (!c) return;
+    c.groupId = groupId || null; saveConversations(); syncToServer(c);
+    renderSidebar($sidebarSearch ? $sidebarSearch.value : '');
+  }
+  // Expone acciones para el handler global de clicks.
+  window.__iaGroups = { add: addGroup, rename: renameGroup, toggle: toggleGroupCollapse, remove: removeGroup, sub: function (p) { var n = prompt('Nombre del subgrupo:'); if (n) addGroup(n, p); } };
+
+  function _convItemHtml(c) {
+    var isActive = c.id === activeConvId;
+    return '<div class="conv-item' + (isActive ? ' active' : '') + '" draggable="true" data-id="' + c.id + '">' +
+      '<span class="conv-title">' + escapeHtml(c.title) + '</span>' +
+      '<button class="conv-delete" data-delete="' + c.id + '" title="Eliminar">&#10005;</button>' +
+      '</div>';
+  }
+  function _groupHtml(g, byGroup, depth) {
+    var kids = byGroup[g.id] || [];
+    var subs = groups.filter(function (x) { return x.parentId === g.id; });
+    var h = '<div class="ia-group" data-gid="' + g.id + '">' +
+      '<div class="ia-group-head" data-gdrop="' + g.id + '" style="padding-left:' + (8 + depth * 12) + 'px">' +
+        '<span class="ia-group-tog" data-gtoggle="' + g.id + '">' + (g.collapsed ? '▸' : '▾') + '</span>' +
+        '<span class="ia-group-name" data-gtoggle="' + g.id + '">' + escapeHtml(g.name) + '</span>' +
+        '<span class="ia-group-count">' + kids.length + '</span>' +
+        '<span class="ia-group-acts">' +
+          '<button class="ia-g-act" data-gsub="' + g.id + '" title="Subgrupo">+</button>' +
+          '<button class="ia-g-act" data-gren="' + g.id + '" title="Renombrar">✎</button>' +
+          '<button class="ia-g-act" data-gdel="' + g.id + '" title="Eliminar">✕</button>' +
+        '</span>' +
+      '</div>';
+    if (!g.collapsed) {
+      h += '<div class="ia-group-body">';
+      subs.forEach(function (s) { h += _groupHtml(s, byGroup, depth + 1); });
+      kids.forEach(function (c) { h += _convItemHtml(c); });
+      h += '</div>';
+    }
+    return h + '</div>';
+  }
+
   function renderSidebar(filter) {
     if (!$sidebarList) return;
     var filterLower = (filter || '').toLowerCase().trim();
@@ -364,31 +420,25 @@
       sorted = sorted.filter(function (c) { return c.title.toLowerCase().indexOf(filterLower) !== -1; });
     }
 
-    var dbGroups = {};
+    var validG = {}; groups.forEach(function (g) { validG[g.id] = true; });
+    var byGroup = {}; var ungrouped = [];
     sorted.forEach(function (c) {
-      var key = c.dbId || 'General';
-      if (!dbGroups[key]) dbGroups[key] = [];
-      dbGroups[key].push(c);
+      if (c.groupId && validG[c.groupId]) { (byGroup[c.groupId] = byGroup[c.groupId] || []).push(c); }
+      else ungrouped.push(c);
     });
 
-    var html = '';
-    var dbKeys = Object.keys(dbGroups).sort();
-    dbKeys.forEach(function (dbKey) {
-      var items = dbGroups[dbKey];
-      var label = String(dbKey).replace(/\.fdb$/i, '').replace(/_/g, ' ');
-      label = label.charAt(0).toUpperCase() + label.slice(1);
-      var count = items.length;
-      html += '<div class="conv-date-group" style="display:flex;justify-content:space-between;align-items:center"><span>' + escapeHtml(label) + '</span><span style="font-size:.65rem;background:rgba(15,23,42,.06);padding:1px 6px;border-radius:8px">' + count + '</span></div>';
-      items.forEach(function (c) {
-        var isActive = c.id === activeConvId;
-        html += '<div class="conv-item' + (isActive ? ' active' : '') + '" data-id="' + c.id + '">' +
-          '<span class="conv-title">' + escapeHtml(c.title) + '</span>' +
-          '<button class="conv-delete" data-delete="' + c.id + '" title="Eliminar">&#10005;</button>' +
-          '</div>';
-      });
-    });
+    var html = '<div class="ia-groups-bar"><button class="ia-add-group" data-gadd="1">+ Grupo de contexto</button></div>';
 
-    if (!html) {
+    // Sin grupo (también es zona de soltado para "sacar" de un grupo)
+    html += '<div class="ia-group"><div class="ia-group-head ia-ungrouped-head" data-gdrop="">' +
+      '<span class="ia-group-name">Sin grupo</span><span class="ia-group-count">' + ungrouped.length + '</span></div>' +
+      '<div class="ia-group-body">';
+    ungrouped.forEach(function (c) { html += _convItemHtml(c); });
+    html += '</div></div>';
+
+    groups.filter(function (g) { return !g.parentId; }).forEach(function (g) { html += _groupHtml(g, byGroup, 0); });
+
+    if (!sorted.length && !groups.length) {
       html = '<div style="padding:20px 12px;text-align:center;color:#475569;font-size:.78rem;">Sin conversaciones</div>';
     }
     $sidebarList.innerHTML = html;
@@ -739,7 +789,45 @@
       if (delId) deleteConversation(delId);
       return;
     }
+
+    // ── Grupos de contexto ──
+    var addG = e.target.closest('[data-gadd]');
+    if (addG) { var nm = prompt('Nombre del grupo de contexto:'); if (nm) window.__iaGroups.add(nm, null); return; }
+    var tog = e.target.closest('[data-gtoggle]');
+    if (tog) { window.__iaGroups.toggle(tog.getAttribute('data-gtoggle')); return; }
+    var sub = e.target.closest('[data-gsub]');
+    if (sub) { window.__iaGroups.sub(sub.getAttribute('data-gsub')); return; }
+    var ren = e.target.closest('[data-gren]');
+    if (ren) { window.__iaGroups.rename(ren.getAttribute('data-gren')); return; }
+    var gdel = e.target.closest('[data-gdel]');
+    if (gdel) { if (confirm('¿Eliminar este grupo? Sus conversaciones pasan a "Sin grupo".')) window.__iaGroups.remove(gdel.getAttribute('data-gdel')); return; }
   });
+
+  // ── Drag & drop: arrastra una conversación a un grupo ──────────────────────
+  if ($sidebarList) {
+    $sidebarList.addEventListener('dragstart', function (e) {
+      var it = e.target.closest('.conv-item');
+      if (!it) return;
+      it.classList.add('dragging');
+      try { e.dataTransfer.setData('text/plain', it.getAttribute('data-id')); e.dataTransfer.effectAllowed = 'move'; } catch (_) {}
+    });
+    $sidebarList.addEventListener('dragend', function (e) {
+      var it = e.target.closest('.conv-item'); if (it) it.classList.remove('dragging');
+    });
+    $sidebarList.addEventListener('dragover', function (e) {
+      var head = e.target.closest('[data-gdrop]'); if (!head) return;
+      e.preventDefault(); head.classList.add('ia-drop'); try { e.dataTransfer.dropEffect = 'move'; } catch (_) {}
+    });
+    $sidebarList.addEventListener('dragleave', function (e) {
+      var head = e.target.closest('[data-gdrop]'); if (head) head.classList.remove('ia-drop');
+    });
+    $sidebarList.addEventListener('drop', function (e) {
+      var head = e.target.closest('[data-gdrop]'); if (!head) return;
+      e.preventDefault(); head.classList.remove('ia-drop');
+      var cid = ''; try { cid = e.dataTransfer.getData('text/plain'); } catch (_) {}
+      if (cid) moveConvoToGroup(cid, head.getAttribute('data-gdrop') || null);
+    });
+  }
 
   // ── Input auto-resize ─────────────────────────────────────────────────────
   function autoResize() {
