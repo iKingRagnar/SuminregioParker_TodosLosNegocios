@@ -162,6 +162,7 @@
           }
         });
         if (pullCount > 0) {
+          if (typeof autoOrganizeExisting === 'function') autoOrganizeExisting();
           saveConversations();
           renderSidebar();
         }
@@ -1134,9 +1135,29 @@
       .catch(function () {});
   }
 
+  // Reorganiza UNA vez las conversaciones existentes por contexto (negocio →
+  // tema), respetando las que el usuario movió a mano (groupPinned).
+  function autoOrganizeExisting() {
+    try {
+      var changed = false;
+      conversations.forEach(function (c) {
+        if (c.groupPinned) return;
+        if (c.groupId && !_isAutoGroup(c.groupId)) return; // ya en grupo manual
+        if (!c.messages || !c.messages.length) return;
+        var firstUser = c.messages.find(function (m) { return m.role === 'user'; });
+        var text = firstUser ? (typeof firstUser.content === 'string' ? firstUser.content : '') : (c.title || '');
+        if (!text) return;
+        var subId = ensureContextGroup(c.dbId || '', detectTema(text));
+        if (subId && c.groupId !== subId) { c.groupId = subId; changed = true; }
+      });
+      if (changed) saveConversations();
+    } catch (_) { /* nunca romper la carga */ }
+  }
+
   // ── Init ──────────────────────────────────────────────────────────────────
   renderSuggestions();
   renderBizUnits();
+  autoOrganizeExisting();
   renderSidebar();
   showLanding();
   loadServerConversations();
