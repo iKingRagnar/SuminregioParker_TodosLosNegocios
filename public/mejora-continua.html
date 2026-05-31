@@ -596,6 +596,27 @@
     .mc-cobit { display:flex; flex-direction:column; gap:.45rem; margin-top:.9rem; }
     .mc-cobit div { font-size:.68rem; color:#9fb3cf; display:flex; gap:.5rem; align-items:baseline; }
     .mc-cobit code { font-family:'DM Mono',monospace; font-size:.64rem; color:#34D399; background:rgba(52,211,153,.1); border:1px solid rgba(52,211,153,.25); border-radius:6px; padding:.05rem .4rem; flex:0 0 auto; }
+
+    /* ── Modal de detalle (ITIL Problem Management) ─────────────────── */
+    .mc-modal { box-shadow:0 24px 60px rgba(0,0,0,.55); border:1px solid rgba(255,255,255,.1); }
+    .mc-modal-head { background:linear-gradient(180deg,#0d2038,#0a1628); }
+    .mc-meta-grid { gap:.6rem; }
+    .mc-meta-item { background:#0b1a30; border:1px solid rgba(255,255,255,.07); border-radius:10px; padding:.55rem .7rem; }
+    .mc-meta-label { font-size:.58rem; letter-spacing:.06em; }
+    /* Secciones de problem management con acento de color */
+    .mc-section { border:1px solid rgba(255,255,255,.07); border-left-width:3px; border-radius:10px; padding:.85rem 1rem; background:#0b1a30; margin-bottom:.8rem; }
+    .mc-section h3 { font-size:.66rem; letter-spacing:.07em; text-transform:uppercase; margin-bottom:.4rem; display:flex; align-items:center; gap:.4rem; }
+    .mc-section p { font-size:.85rem; line-height:1.55; color:#c8d8ec; }
+    .mc-section .cobit-tag { font-family:'DM Mono',monospace; font-size:.56rem; padding:.05rem .4rem; border-radius:5px; margin-left:auto; }
+    #mmDiag   { border-left-color:#60A5FA; } #mmDiag h3   { color:#60A5FA; }
+    #mmCausa  { border-left-color:#FB923C; } #mmCausa h3  { color:#FB923C; } #mmCausa .cobit-tag { color:#FB923C; background:rgba(251,146,60,.12); }
+    #mmAccion { border-left-color:#34D399; } #mmAccion h3 { color:#34D399; } #mmAccion .cobit-tag { color:#34D399; background:rgba(52,211,153,.12); }
+    /* Hilo de seguimiento */
+    .mc-comment { gap:.7rem; }
+    .mc-comment-body { background:#0b1a30; border:1px solid rgba(255,255,255,.06); border-radius:10px; padding:.6rem .8rem; }
+    .mc-comment-avatar.ia    { background:rgba(96,165,250,.15); }
+    .mc-comment-avatar.admin { background:rgba(52,211,153,.15); }
+    .mc-comment-tipo { font-family:'DM Mono',monospace; font-size:.56rem; padding:.05rem .4rem; border-radius:5px; background:rgba(255,255,255,.06); color:#9fb3cf; }
   </style>
 </head>
 <body>
@@ -761,15 +782,15 @@
       <div class="mc-meta-grid" id="mmMeta"></div>
 
       <div class="mc-section" id="mmDiag" style="display:none">
-        <h3>🤖 Diagnóstico IA</h3>
+        <h3>🤖 Diagnóstico inicial <span class="cobit-tag" style="color:#60A5FA;background:rgba(96,165,250,.12)">ITIL · Incident</span></h3>
         <p id="mmDiagTxt"></p>
       </div>
       <div class="mc-section" id="mmCausa" style="display:none">
-        <h3>🔍 Causa Raíz</h3>
+        <h3>🔍 Causa raíz <span class="cobit-tag">Problem Mgmt · DSS03</span></h3>
         <p id="mmCausaTxt"></p>
       </div>
       <div class="mc-section" id="mmAccion" style="display:none">
-        <h3>✅ Acción Recomendada</h3>
+        <h3>✅ Acción recomendada <span class="cobit-tag">Resolución · BAI06</span></h3>
         <p id="mmAccionTxt"></p>
       </div>
 
