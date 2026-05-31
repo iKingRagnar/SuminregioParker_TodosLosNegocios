@@ -145,23 +145,37 @@
           }
         });
         if (migrateCount > 0 && window.console) console.info('[ia] migrated', migrateCount, 'conversations to server');
+        // Índice de conversaciones locales por título+db para evitar duplicar un
+        // chat cuyo serverId no alcanzó a persistir (timing async): si ya existe
+        // local con ese título+db, NO se agrega el stub; en su lugar se le asigna
+        // el serverId al local para que futuras sync sean updates.
+        function _normTitle(t) { return String(t || '').trim().toLowerCase(); }
+        var localByKey = {};
+        conversations.forEach(function (c) {
+          localByKey[_normTitle(c.title) + '|' + (c.dbId || '')] = c;
+        });
         var pullCount = 0;
         d.conversations.forEach(function (sc) {
-          if (!localServerIds[sc.id]) {
-            conversations.push({
-              id: 'srv_' + sc.id,
-              serverId: sc.id,
-              title: sc.title || 'Sin título',
-              dbId: sc.dbId || '',
-              messages: [],
-              groupId: sc.groupId || null,
-              groupPinned: !!sc.groupPinned,
-              createdAt: new Date(sc.createdAt).getTime() || Date.now(),
-              updatedAt: new Date(sc.updatedAt || sc.createdAt).getTime() || Date.now(),
-              msgCount: sc.msgCount || 0,
-            });
-            pullCount++;
+          if (localServerIds[sc.id]) return; // ya enlazado por serverId
+          var dupe = localByKey[_normTitle(sc.title) + '|' + (sc.dbId || '')];
+          if (dupe) {
+            // Mismo chat: enlaza el serverId al local (que conserva sus mensajes).
+            if (!dupe.serverId) { dupe.serverId = sc.id; }
+            return;
           }
+          conversations.push({
+            id: 'srv_' + sc.id,
+            serverId: sc.id,
+            title: sc.title || 'Sin título',
+            dbId: sc.dbId || '',
+            messages: [],
+            groupId: sc.groupId || null,
+            groupPinned: !!sc.groupPinned,
+            createdAt: new Date(sc.createdAt).getTime() || Date.now(),
+            updatedAt: new Date(sc.updatedAt || sc.createdAt).getTime() || Date.now(),
+            msgCount: sc.msgCount || 0,
+          });
+          pullCount++;
         });
         if (pullCount > 0) {
           if (typeof autoOrganizeExisting === 'function') autoOrganizeExisting();
