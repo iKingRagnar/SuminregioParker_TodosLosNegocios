@@ -461,3 +461,19 @@
 @media (prefers-reduced-motion: reduce) {
   #cw-window, #cw-header::after, .cw-msg { animation: none !important; }
 }
+
+/* ═══════════ CHATBOT · MENSAJES PREMIUM v2 ═══════════ */
+.cw-msg-bubble pre {
+  background:#0d1117 !important; color:#e6edf3 !important;
+  border-radius:10px !important; border:1px solid #1f2937 !important;
+  padding:10px 12px !important; overflow:auto; font-size:.8em;
+}
+.cw-msg-bubble pre code { background:transparent !important; color:inherit !important; }
+.cw-msg-bubble code { background:rgba(224,179,65,.16) !important; color:#E0B341 !important; border-radius:5px; padding:1px 5px; font-size:.85em; }
+.cw-msg-bubble table { border-collapse:separate !important; border-spacing:0; width:100%; border-radius:8px; overflow:hidden; }
+.cw-msg-bubble thead th { background:rgba(224,179,65,.18) !important; color:#E0B341 !important; font-weight:700; }
+.cw-msg-bubble tbody tr:nth-child(even) td { background:rgba(255,255,255,.03); }
+.cw-msg-bubble tbody td, .cw-msg-bubble thead th { padding:5px 8px; border-bottom:1px solid rgba(255,255,255,.08); }
+.cw-msg-bubble blockquote { border-left:3px solid #E0B341; padding:4px 10px; margin:6px 0; opacity:.92; }
+.cw-msg-bubble a { color:#E0B341; text-decoration:underline; }
+.cw-msg-bubble strong { color:#fff; }

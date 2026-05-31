@@ -1446,3 +1446,88 @@ body { display: flex; flex-direction: column; min-height: 100vh; min-height: 100
   .landing-content > *, .landing-logo, .landing-logo::after, .cap-card::before,
   #ia-landing h1, .ia-msg { animation: none !important; }
 }
+
+/* ═══════════ SUMI IA · ÁREA DE CONVERSACIÓN PREMIUM v2 ═══════════ */
+@keyframes ia-msg-in   { from{opacity:0;transform:translateY(12px) scale(.985)} to{opacity:1;transform:none} }
+@keyframes ia-av-pop   { 0%{transform:scale(.5) rotate(-12deg);opacity:0} 70%{transform:scale(1.08)} 100%{transform:scale(1);opacity:1} }
+@keyframes ia-caret    { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+.msg { animation: ia-msg-in .32s cubic-bezier(.2,.7,.2,1); }
+
+/* Burbuja del usuario: degradado, cola y profundidad */
+.msg-user .msg-bubble {
+  background: linear-gradient(135deg,#1e3a5f,#24486f) !important;
+  color:#fff !important;
+  border-radius: 18px 18px 4px 18px !important;
+  box-shadow: 0 6px 18px rgba(30,58,95,.28);
+  border: none !important;
+}
+.msg-user .msg-bubble img.msg-attachment { border-radius:12px; margin-bottom:6px; }
+
+/* Avatar IA: gradiente dorado, anillo y pop */
+.msg-ai-avatar {
+  background: linear-gradient(135deg,#E0B341,#B8860B) !important;
+  color:#1a1205 !important; font-weight:800 !important;
+  box-shadow: 0 4px 12px rgba(224,179,65,.4), 0 0 0 3px rgba(224,179,65,.16);
+  animation: ia-av-pop .4s cubic-bezier(.2,.8,.2,1);
+}
+
+/* Cuerpo IA: tarjeta glass con borde sutil */
+.msg-ai-body {
+  background: rgba(255,255,255,.9) !important;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  border: 1px solid rgba(15,23,42,.07);
+  border-radius: 4px 18px 18px 18px;
+  box-shadow: 0 4px 16px rgba(16,24,40,.07);
+}
+.msg-error .msg-ai-body { border-color: rgba(225,29,72,.35); background: #fff5f6 !important; }
+
+/* Código: cabecera tipo terminal + tema oscuro legible */
+.msg-ai-content pre {
+  background: #0d1117 !important; color:#e6edf3 !important;
+  border-radius: 12px !important; border:1px solid #1f2937 !important;
+  padding: 34px 14px 14px !important; position: relative; overflow:auto;
+  box-shadow: 0 6px 18px rgba(2,12,30,.18);
+}
+.msg-ai-content pre::before {
+  content:'●  ●  ●'; position:absolute; top:0; left:0; right:0; height:24px;
+  display:flex; align-items:center; padding:0 12px; letter-spacing:2px; font-size:9px;
+  color:#fb7185; background:#161b22; border-bottom:1px solid #1f2937; border-radius:12px 12px 0 0;
+}
+.msg-ai-content pre code { background:transparent !important; color:inherit !important; padding:0 !important; }
+.msg-ai-content code { background:#fff3d6 !important; color:#92560b !important; border:1px solid #f3dca0; border-radius:6px; padding:1px 6px; font-size:.85em; }
+
+/* Tablas: encabezado dorado, filas zebra y hover */
+.table-scroll-wrap { border-radius:12px; box-shadow:0 4px 16px rgba(16,24,40,.08); border:1px solid rgba(15,23,42,.08); overflow:auto; }
+.msg-ai-content table { border-collapse:separate !important; border-spacing:0 !important; width:100%; }
+.msg-ai-content thead th {
+  background: linear-gradient(180deg,#fff7e6,#ffedc2) !important;
+  color:#7c5310 !important; font-weight:700 !important;
+  position:sticky; top:0; border-bottom:2px solid #e8c878 !important;
+}
+.msg-ai-content tbody tr:nth-child(even) td { background: #faf9f6; }
+.msg-ai-content tbody tr:hover td { background: #fff7e6; }
+.msg-ai-content tbody td { border-bottom:1px solid #eef2f7 !important; }
+
+/* Blockquote: acento dorado */
+.msg-ai-content blockquote {
+  border-left:3px solid #E0B341 !important; background:#fffdf6; border-radius:0 8px 8px 0;
+  padding:6px 12px !important; color:#5b4a1f;
+}
+
+/* Acciones (copiar/exportar) aparecen al hover de la respuesta */
+.msg-actions { opacity:0; transition:opacity .2s; }
+.msg-ai:hover .msg-actions { opacity:1; }
+.msg-action-btn { transition: transform .12s, background .15s, color .15s; }
+.msg-action-btn:hover { transform:translateY(-1px); color:#B8860B; }
+
+/* Chip de confianza */
+.confidence-chip { border-radius:99px; font-size:.62rem; font-weight:700; padding:2px 8px; }
+.confidence-high { background:#ecfdf5; color:#047857; } .confidence-medium { background:#fffbeb; color:#b45309; } .confidence-low { background:#fff1f2; color:#be123c; }
+
+/* Cursor de streaming */
+.msg-ai-content .ia-stream-caret { display:inline-block; width:7px; background:#E0B341; animation: ia-caret 1s steps(1) infinite; margin-left:1px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .msg, .msg-ai-avatar { animation: none !important; }
+}
