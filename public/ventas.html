@@ -1045,18 +1045,20 @@ function isParkerDb() {
   } catch(_) { return true; }
 }
 function updateTipoTabsVisibility() {
-  const tabVE = document.getElementById('tab-ve');
-  const tabPV = document.getElementById('tab-pv');
-  if (!tabVE || !tabPV) return;
   const parker = isParkerDb();
-  tabVE.style.display = parker ? '' : 'none';
-  tabPV.style.display = parker ? '' : 'none';
-  // Si estaba en VE o PV y cambia a un DB no-Parker, resetear a Todos
+  // El filtro VE/PV solo aplica a Suminregio Parker. En los demás negocios
+  // (y en "Todos los Negocios") se oculta TODA la barra de canal.
+  const bar = document.querySelector('.source-tabs');
+  if (bar) bar.style.display = parker ? '' : 'none';
   if (!parker && (currentTipo === 'VE' || currentTipo === 'PV')) {
+    // Forzar "Todos" (sin filtro de canal) al salir de Parker.
     currentTipo = '';
-    document.getElementById('tab-all').classList.add('active');
-    tabVE.classList.remove('active');
-    tabPV.classList.remove('active');
+    const ta = document.getElementById('tab-all');
+    const tabVE = document.getElementById('tab-ve');
+    const tabPV = document.getElementById('tab-pv');
+    if (ta) ta.classList.add('active');
+    if (tabVE) tabVE.classList.remove('active');
+    if (tabPV) tabPV.classList.remove('active');
   }
 }
 

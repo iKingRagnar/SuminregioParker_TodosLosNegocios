@@ -1360,8 +1360,28 @@ function clearUI(){
 }
 
 /* ─── MAIN LOAD ─────────────────────────────────────────────── */
+/** El filtro de canal VE/PV solo aplica a Suminregio Parker; en los demás
+ *  negocios (y en "Todos") se oculta toda la barra y se fuerza Todos (VE+PV). */
+function isParkerDb(){
+  try{
+    const db=(new URLSearchParams(location.search).get('db')||'').trim().toLowerCase();
+    return db===''||db==='default'||db==='suminregio-parker'||db==='suminregio_parker';
+  }catch(_){ return true; }
+}
+function updateTipoTabsVisibility(){
+  const parker=isParkerDb();
+  const bar=document.querySelector('.source-tabs');
+  if(bar) bar.style.display=parker?'':'none';
+  if(!parker && (tipo==='VE'||tipo==='PV')){
+    tipo='';
+    ['tVE','tPV'].forEach(id=>{ const e=document.getElementById(id); if(e) e.classList.remove('active'); });
+    const ta=document.getElementById('tAll'); if(ta) ta.classList.add('active');
+  }
+}
+
 async function loadAll(){
   const run = ++__loadGen;
+  updateTipoTabsVisibility();
   clearUI();
   // Load everything in parallel except semanal (heavy Firebird query)
   await Promise.allSettled([
