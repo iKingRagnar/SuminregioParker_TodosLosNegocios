@@ -45,7 +45,7 @@ function install(app, { duckSnaps, log }) {
     log && log.warn && log.warn('ai-chat-v3', 'sin ANTHROPIC_API_KEY — endpoints responden 503');
   }
 
-  const MODEL = process.env.AI_MODEL_V3 || 'claude-opus-4-7';
+  const MODEL = process.env.AI_MODEL_V3 || 'claude-opus-4-8';
   const MODEL_FAST = process.env.AI_MODEL_FAST || 'claude-haiku-4-5';
   const DEFAULT_EFFORT = process.env.AI_DEFAULT_EFFORT || 'medium';
   const PORT = process.env.PORT || 7000;
