@@ -519,12 +519,47 @@
     $landing.classList.add('hidden');
     $messages.classList.remove('hidden');
     $messages.innerHTML = '';
-    conv.messages.forEach(function (m) {
-      if (m.role === 'user') appendUserMessage(m.content, m.image);
-      else if (m.role === 'assistant') appendAiMessage(m.content);
-    });
-    scrollToBottom();
+
+    // Si la conversación viene del servidor sin mensajes cargados (stub), los
+    // trae bajo demanda para poder verla y NO perder el contexto al seguir.
+    if (conv.serverId && (!conv.messages || conv.messages.length === 0) && (conv.msgCount > 0 || conv.msgCount === undefined) && !conv._loaded) {
+      $messages.innerHTML = '<div class="ia-loading-msgs" style="text-align:center;color:#94A3B8;font-size:.8rem;padding:24px">Cargando conversación…</div>';
+      fetch(API + '/api/ia/conversations/' + conv.serverId, { credentials: 'same-origin' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          if (d && d.ok && d.conversation && Array.isArray(d.conversation.messages)) {
+            conv.messages = d.conversation.messages;
+            conv._loaded = true;
+            saveConversations();
+          } else {
+            conv._loaded = true; // evita reintentos infinitos
+          }
+          if (activeConvId === convId) _paintConversation(conv);
+        })
+        .catch(function () {
+          conv._loaded = true;
+          if (activeConvId === convId) _paintConversation(conv);
+        });
+      renderSidebar();
+      return;
+    }
+
+    _paintConversation(conv);
     renderSidebar();
+    $input.focus();
+  }
+
+  function _paintConversation(conv) {
+    $messages.innerHTML = '';
+    if (!conv.messages || !conv.messages.length) {
+      $messages.innerHTML = '<div class="ia-loading-msgs" style="text-align:center;color:#94A3B8;font-size:.8rem;padding:24px">Esta conversación no tiene mensajes guardados. Escribe para continuar.</div>';
+    } else {
+      conv.messages.forEach(function (m) {
+        if (m.role === 'user') appendUserMessage(m.content, m.image);
+        else if (m.role === 'assistant') appendAiMessage(m.content);
+      });
+    }
+    scrollToBottom();
     $input.focus();
   }
 
