@@ -68,46 +68,15 @@
   }
 
   function bootManualRefreshBar() {
-    if (typeof document === 'undefined' || !document.body) return;
-    injectManualRefreshStyles();
-
-    // Los datos NO son en vivo: se actualizan automáticamente una vez al día
-    // (11 PM). Se muestra una nota informativa, sin botón de refrescar manual
-    // ni cuenta regresiva, para no confundir al usuario.
-    // Último corte = el 11 PM más reciente ya transcurrido (refresco diario fijo).
-    function ultimoCorteTexto() {
-      try {
-        var now = new Date();
-        var cut = new Date(now);
-        cut.setHours(23, 0, 0, 0);
-        if (now < cut) cut.setDate(cut.getDate() - 1); // aún no son las 11 PM de hoy
-        var hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-        var dCut = new Date(cut); dCut.setHours(0, 0, 0, 0);
-        var difDias = Math.round((hoy - dCut) / 86400000);
-        var cuando = difDias === 0 ? 'hoy' : (difDias === 1 ? 'ayer'
-          : cut.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }));
-        return '🕚 Datos al corte: ' + cuando + ' · 11 PM (actualización diaria)';
-      } catch (e) {
-        return '🕚 Datos actualizados diariamente · 11 PM';
-      }
-    }
-
-    var bar = document.createElement('div');
-    bar.className = 'ms-refresh-bar';
-    bar.setAttribute('role', 'region');
-    bar.setAttribute('aria-label', 'Actualización de datos');
-    bar.innerHTML =
-      '<div class="ms-refresh-inner">' +
-      '<span class="ms-refresh-status ok" id="ms-daily-note" style="flex:1;text-align:center">' +
-      ultimoCorteTexto() + '</span>' +
-      '</div>';
-
-    document.body.insertBefore(bar, document.body.firstChild);
-
+    // El indicador de "corte diario · 11 PM" ahora vive SOLO en el header
+    // (nav.js → navCorteTxt). Antes esta barra sticky lo duplicaba (a veces 2
+    // barras). Se elimina y se limpia cualquier barra previamente inyectada.
+    try {
+      var prev = document.querySelectorAll('.ms-refresh-bar');
+      for (var i = 0; i < prev.length; i++) { prev[i].parentNode && prev[i].parentNode.removeChild(prev[i]); }
+    } catch (_) {}
     // Compatibilidad: tableros que llamaban markManualRefreshComplete → no-op.
     window.markManualRefreshComplete = function () {};
-
-    applyRefreshBarStickyOffset(bar);
   }
 
   /** Calcula el offset del header sticky para que no quede tapado por la barra */
