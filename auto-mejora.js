@@ -33,6 +33,16 @@ function install(app, { log } = {}) {
     : null;
   const AI_MODEL = process.env.AI_MODEL_RESUMEN || 'claude-haiku-4-5';
 
+  // Canales de envío del briefing (opcionales: solo si hay credenciales).
+  let nodemailer; try { nodemailer = require('nodemailer'); } catch (_) { nodemailer = null; }
+  let twilio; try { twilio = require('twilio'); } catch (_) { twilio = null; }
+  const waClient = (twilio && process.env.TWILIO_SID && process.env.TWILIO_TOKEN)
+    ? twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN) : null;
+  function mailTransport() {
+    if (!nodemailer || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) return null;
+    return nodemailer.createTransport({ service: process.env.EMAIL_SERVICE || 'gmail', auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS } });
+  }
+
   function fetchLocal(path) {
     return new Promise((resolve) => {
       const req = http.request({ method: 'GET', hostname: '127.0.0.1', port: PORT, path, timeout: 30000 }, (resp) => {
@@ -198,7 +208,52 @@ function install(app, { log } = {}) {
     return { ok: true, por_negocio: bloques, empeorando, narrativa, generadoEn: new Date().toISOString() };
   }
 
+  // ── Briefing ejecutivo diario (correo / WhatsApp) ──────────────────────────
+  function briefingTexto(resumen) {
+    const L = ['🎯 Mejora Continua — Briefing diario (' + new Date().toLocaleDateString('es-MX') + ')'];
+    if (resumen.narrativa) { L.push('', resumen.narrativa.trim()); }
+    L.push('');
+    let hayBrechas = false;
+    (resumen.por_negocio || []).forEach((b) => {
+      if (!b.brechas) return;
+      hayBrechas = true;
+      L.push('• ' + b.negocio + ': ' + b.brechas + ' brecha(s)');
+      (b.top || []).slice(0, 3).forEach((t) => {
+        L.push('   - [' + t.criticidad + '] ' + t.label + ' · ' + (t.pct != null ? Math.round(t.pct) + '%' : '—'));
+      });
+    });
+    const emp = resumen.empeorando || [];
+    if (emp.length) L.push('', '⚠️ Empeorando: ' + emp.slice(0, 6).map((e) => String(e.key).replace('META_', '').toLowerCase()).join(', '));
+    if (!hayBrechas) L.push('✅ Sin brechas: todos los KPIs medibles están en meta.');
+    return L.join('\n');
+  }
+
+  async function enviarBriefing() {
+    const resumen = await resumenEjecutivo();
+    const texto = briefingTexto(resumen);
+    const sent = { email: false, whatsapp: false };
+    try {
+      const tr = mailTransport();
+      const to = process.env.AUTO_MEJORA_EMAIL_TO || process.env.EMAIL_TO || process.env.EMAIL_USER;
+      if (tr && to) {
+        await tr.sendMail({ from: process.env.EMAIL_USER, to, subject: '🎯 Mejora Continua — Briefing diario', text: texto });
+        sent.email = true;
+      }
+    } catch (e) { log && log.warn && log.warn('auto-mejora', 'email briefing: ' + e.message); }
+    try {
+      if (waClient && process.env.AUTO_MEJORA_WA_TO && process.env.TWILIO_WHATSAPP_FROM) {
+        await waClient.messages.create({ from: process.env.TWILIO_WHATSAPP_FROM, to: process.env.AUTO_MEJORA_WA_TO, body: texto.slice(0, 1500) });
+        sent.whatsapp = true;
+      }
+    } catch (e) { log && log.warn && log.warn('auto-mejora', 'wa briefing: ' + e.message); }
+    return { ok: true, sent, texto };
+  }
+
   // ── Endpoints ──────────────────────────────────────────────────────────────
+  app.post('/api/auto-mejora/briefing', async (_req, res) => {
+    try { res.json(await enviarBriefing()); }
+    catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+  });
   app.post('/api/auto-mejora/run', async (_req, res) => {
     try { res.json(await runSweep()); }
     catch (e) { res.status(500).json({ ok: false, error: e.message }); }
@@ -217,6 +272,9 @@ function install(app, { log } = {}) {
     const scheduler = require('./lib/scheduler');
     const hour = Math.min(23, Math.max(0, parseInt(process.env.AUTO_MEJORA_HOUR, 10) || 6));
     scheduler.schedule({ name: 'auto-mejora-sweep', hour, run: async () => { await runSweep(); } });
+    // Briefing ejecutivo una hora después del barrido (datos ya frescos).
+    const briefHour = Math.min(23, Math.max(0, parseInt(process.env.AUTO_MEJORA_BRIEF_HOUR, 10) || (hour + 1)));
+    scheduler.schedule({ name: 'auto-mejora-briefing', hour: briefHour, run: async () => { await enviarBriefing(); } });
   } catch (e) { log && log.warn && log.warn('auto-mejora', 'no se pudo agendar: ' + e.message); }
 
   log && log.info && log.info('auto-mejora', 'motor de automejora instalado (ITIL 4 CSI)');

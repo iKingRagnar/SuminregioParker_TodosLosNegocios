@@ -156,7 +156,7 @@
 (function () {
   'use strict';
   var API = (window.__API_BASE || '');
-  var schema = [], derived = [], current = {}, dirty = {}, cumpl = {};
+  var schema = [], derived = [], current = {}, dirty = {}, cumpl = {}, tend = {};
 
   // Estética por grupo (color + ícono)
   var GROUPS = {
@@ -190,6 +190,19 @@
   // Clase de color según % de cumplimiento
   function cumpClass(pct){ if (pct == null) return ''; if (pct >= 100) return 'ok'; if (pct >= 80) return 'warn'; return 'bad'; }
 
+  // Flecha de tendencia (desde /api/auto-mejora/tendencia): mejora/empeora/estable.
+  function trendChip(key){
+    var t = tend[key];
+    if (!t || !t.tendencia) return '';
+    var map = {
+      mejora:  { a:'▲', c:'#059669', tt:'Mejorando vs corte anterior' },
+      empeora: { a:'▼', c:'#e11d48', tt:'Empeorando vs corte anterior' },
+      estable: { a:'▬', c:'#94a3b8', tt:'Estable' },
+    };
+    var m = map[t.tendencia]; if (!m) return '';
+    return '<span title="'+m.tt+' ('+(t.muestras||0)+' cortes)" style="color:'+m.c+';font-size:.78rem;font-weight:800;margin-left:.15rem">'+m.a+'</span>';
+  }
+
   function cumpHtml(s, c){
     if (!c || !c.medible) return '<span class="nodata">Objetivo de referencia</span>';
     if (c.real == null) return '<span class="nodata">Sin dato actual</span>';
@@ -200,7 +213,7 @@
     return ''
       + '<div class="line"><span class="real">' + fmtVal(s.kind, c.real) + '</span>'
       + '<span class="vs">vs meta ' + fmtVal(s.kind, c.meta) + '</span>'
-      + '<span class="badge ' + cls + '">' + ico + ' ' + pctTxt + '</span></div>'
+      + '<span class="badge ' + cls + '">' + ico + ' ' + pctTxt + '</span>' + trendChip(s.key) + '</div>'
       + '<div class="bar"><i class="' + cls + '" style="width:' + width + '%"></i></div>';
   }
 
@@ -284,13 +297,16 @@
     Promise.all([
       fetch(API+'/api/config/metas/schema',{credentials:'same-origin'}).then(function(r){return r.json();}),
       fetch(API+'/api/config/metas',{credentials:'same-origin'}).then(function(r){return r.json();}),
-      fetch(API+'/api/metas/cumplimiento',{credentials:'same-origin'}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;})
+      fetch(API+'/api/metas/cumplimiento',{credentials:'same-origin'}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}),
+      fetch(API+'/api/auto-mejora/tendencia?db=default',{credentials:'same-origin'}).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;})
     ]).then(function(res){
       schema = res[0].schema || [];
       derived = res[0].derivadas || [];
       current = res[1] || {};
       cumpl = {};
       if (res[2] && res[2].items) res[2].items.forEach(function(it){ cumpl[it.key] = it; });
+      tend = {};
+      if (res[3] && res[3].tendencias) res[3].tendencias.forEach(function(t){ tend[t.key] = t; });
       dirty = {};
       render();
       setStatus(current.METAS_PERSONALIZADAS ? 'Metas personalizadas activas' : 'Usando metas estándar', '');
