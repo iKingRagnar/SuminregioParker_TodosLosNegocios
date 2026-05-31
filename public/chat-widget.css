@@ -409,3 +409,70 @@
   user-select:none; pointer-events:none;
 }
 .cw-msg.user .cw-msg-ts{ color:rgba(255,255,255,.3); }
+
+/* ═══════════════════ CHATBOT · CAPA PREMIUM v2 ═══════════════════ */
+@keyframes cw-pop   { 0%{transform:scale(.6) translateY(20px);opacity:0} 60%{transform:scale(1.04)} 100%{transform:scale(1);opacity:1} }
+@keyframes cw-rise  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+@keyframes cw-pulse { 0%{box-shadow:0 0 0 0 rgba(224,179,65,.5)} 70%{box-shadow:0 0 0 14px rgba(224,179,65,0)} 100%{box-shadow:0 0 0 0 rgba(224,179,65,0)} }
+@keyframes cw-spin  { to{transform:rotate(360deg)} }
+@keyframes cw-sheen { 0%{transform:translateX(-120%)} 60%,100%{transform:translateX(220%)} }
+
+/* FAB: glow pulsante + halo giratorio + hover */
+.cw-fab {
+  position: relative;
+  box-shadow: 0 10px 28px rgba(224,179,65,.45) !important;
+  animation: cw-pulse 3.2s ease-out infinite;
+  transition: transform .2s cubic-bezier(.2,.7,.2,1), box-shadow .2s;
+}
+.cw-fab::before {
+  content:''; position:absolute; inset:-3px; border-radius:inherit; z-index:-1;
+  background: conic-gradient(from 0deg, #E0B341, #B8860B, #fbbf24, #E0B341);
+  animation: cw-spin 6s linear infinite; opacity:.55; filter:blur(4px);
+}
+.cw-fab:hover { transform: translateY(-3px) scale(1.08); box-shadow: 0 16px 38px rgba(224,179,65,.6) !important; }
+.cw-fab:active { transform: scale(.94); }
+
+/* Ventana: entrada con pop + sombra premium + borde sutil */
+.cw-window {
+  animation: cw-pop .34s cubic-bezier(.2,.8,.2,1);
+  box-shadow: 0 24px 70px rgba(2,12,30,.42), 0 0 0 1px rgba(255,255,255,.06) !important;
+}
+
+/* Header con barrido de luz */
+.cw-header { position: relative; overflow: hidden; }
+.cw-header::after {
+  content:''; position:absolute; top:0; left:0; width:45%; height:100%;
+  background: linear-gradient(110deg, transparent, rgba(255,255,255,.18), transparent);
+  transform: translateX(-120%); animation: cw-sheen 5.5s ease-in-out 1.2s infinite; pointer-events:none;
+}
+
+/* Burbujas: aparición suave + cola y profundidad */
+.cw-msg { animation: cw-rise .28s cubic-bezier(.2,.7,.2,1); }
+.cw-bubble { transition: transform .15s, box-shadow .15s; }
+.cw-msg-ai .cw-bubble:hover, .cw-msg-user .cw-bubble:hover { box-shadow: 0 6px 18px rgba(2,12,30,.16); }
+
+/* Botón enviar: hover/active vivos */
+.cw-send { transition: transform .14s, filter .2s, box-shadow .2s; }
+.cw-send:not(:disabled):hover { transform: translateY(-1px) scale(1.08); filter: brightness(1.06); box-shadow: 0 8px 18px rgba(224,179,65,.4); }
+.cw-send:not(:disabled):active { transform: scale(.9); }
+
+/* Composer: glow al enfocar */
+.cw-composer:focus-within { box-shadow: 0 0 0 2px rgba(224,179,65,.4); border-radius: 14px; }
+
+/* Sugerencias rápidas: hover dorado elevado */
+.cw-suggestion, .cw-quick button {
+  transition: transform .15s, box-shadow .15s, border-color .15s, background .15s;
+}
+.cw-suggestion:hover, .cw-quick button:hover {
+  transform: translateY(-2px);
+  border-color: rgba(224,179,65,.55) !important;
+  box-shadow: 0 6px 16px rgba(224,179,65,.2);
+}
+
+/* Indicador de escritura: puntos con rebote */
+.cw-typing span { animation: cw-rise .6s infinite alternate; }
+.cw-typing span:nth-child(2){ animation-delay:.15s } .cw-typing span:nth-child(3){ animation-delay:.3s }
+
+@media (prefers-reduced-motion: reduce) {
+  .cw-fab, .cw-fab::before, .cw-window, .cw-header::after, .cw-msg { animation: none !important; }
+}
