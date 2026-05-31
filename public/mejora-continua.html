@@ -559,6 +559,43 @@
       .mc-table thead th:nth-child(3),
       .mc-table tbody td:nth-child(3) { display: none; }
     }
+
+    /* ── Mejoras de interfaz (ITIL 4 + COBIT) ───────────────────────── */
+    .mc-sub { color:#7d93b0; font-size:.9rem; max-width:70ch; margin-top:.5rem; line-height:1.5; }
+    .mc-kpi { position:relative; background:linear-gradient(180deg,#0b1a30,#091421); transition:border-color .15s, transform .15s; }
+    .mc-kpi:hover { border-color:rgba(224,179,65,.35); transform:translateY(-2px); }
+    .mc-kpi-top { display:flex; align-items:center; justify-content:space-between; }
+    .mc-kpi-ic { width:30px; height:30px; border-radius:9px; display:grid; place-items:center; background:rgba(255,255,255,.05); }
+    .mc-kpi-ic svg { width:16px; height:16px; stroke:#7d93b0; fill:none; stroke-width:2; }
+    .mc-kpi-hint { font-size:.6rem; color:#5e7390; }
+
+    .mc-panels { display:grid; grid-template-columns:1.5fr 1fr; gap:1rem; margin:0 0 2rem; }
+    @media(max-width:900px){ .mc-panels{ grid-template-columns:1fr; } }
+    .mc-panel { background:#0A1628; border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:1.1rem 1.25rem; }
+    .mc-panel h3 { font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#8fa6c4; margin-bottom:.9rem; display:flex; align-items:center; gap:.45rem; }
+    .mc-panel h3 .tag { font-size:.55rem; padding:.12rem .5rem; border-radius:99px; border:1px solid rgba(96,165,250,.4); color:#60A5FA; background:rgba(96,165,250,.08); letter-spacing:.06em; }
+
+    /* 7-step Continual Improvement Model */
+    .mc-steps { display:flex; flex-wrap:wrap; gap:.5rem; }
+    .mc-step { flex:1 1 calc(25% - .5rem); min-width:120px; background:#0b1a30; border:1px solid rgba(255,255,255,.07); border-radius:10px; padding:.6rem .7rem; }
+    .mc-step .n { width:20px;height:20px;border-radius:50%;background:rgba(96,165,250,.15);color:#60A5FA;font-size:.7rem;font-weight:800;display:grid;place-items:center;margin-bottom:.35rem; }
+    .mc-step .t { font-size:.72rem; color:#c8d8ec; line-height:1.3; font-weight:600; }
+
+    /* Guiding principles */
+    .mc-princ { display:flex; flex-wrap:wrap; gap:.4rem; margin-top:.9rem; }
+    .mc-princ span { font-size:.66rem; color:#9fb3cf; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:99px; padding:.2rem .6rem; }
+
+    /* Priority matrix */
+    .mc-matrix { width:100%; border-collapse:separate; border-spacing:4px; }
+    .mc-matrix th { font-size:.6rem; color:#7d93b0; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:.2rem; }
+    .mc-matrix td { text-align:center; font-size:.7rem; font-weight:800; padding:.5rem .2rem; border-radius:8px; color:#0b1421; }
+    .mc-p1 { background:#F87171; } .mc-p2 { background:#FB923C; } .mc-p3 { background:#FBBF24; } .mc-p4 { background:#34D399; }
+    .mc-axis { font-size:.58rem; color:#7d93b0; text-transform:uppercase; letter-spacing:.06em; }
+
+    /* COBIT legend */
+    .mc-cobit { display:flex; flex-direction:column; gap:.45rem; margin-top:.9rem; }
+    .mc-cobit div { font-size:.68rem; color:#9fb3cf; display:flex; gap:.5rem; align-items:baseline; }
+    .mc-cobit code { font-family:'DM Mono',monospace; font-size:.64rem; color:#34D399; background:rgba(52,211,153,.1); border:1px solid rgba(52,211,153,.25); border-radius:6px; padding:.05rem .4rem; flex:0 0 auto; }
   </style>
 </head>
 <body>
@@ -571,37 +608,88 @@
     <div>
       <div class="mc-title">🔧 Centro de Mejora Continua</div>
       <div class="mc-badges">
-        <span class="mc-badge itil">ITIL v4</span>
+        <span class="mc-badge itil">ITIL 4 · Continual Improvement</span>
         <span class="mc-badge cobit">COBIT 2019</span>
+        <span class="mc-badge cobit" style="color:#60A5FA;border-color:rgba(96,165,250,.4);background:rgba(96,165,250,.08)">ISO/IEC 20000</span>
       </div>
+      <p class="mc-sub">Registro de mejora continua (CI Register) e incidencias del ERP, gestionado con las prácticas ITIL 4 de <strong>Incident</strong>, <strong>Problem</strong> y <strong>Continual Improvement</strong>: priorización por matriz Impacto × Urgencia, SLA por criticidad y diagnóstico de causa raíz asistido por IA, mapeado a objetivos COBIT 2019.</p>
     </div>
   </div>
 
   <!-- ── KPI cards ──────────────────────────────────────────────── -->
   <div class="mc-kpis" id="mcKpis">
     <div class="mc-kpi">
-      <div class="mc-kpi-label">Total Reportes</div>
+      <div class="mc-kpi-top"><div class="mc-kpi-label">Total Reportes</div>
+        <div class="mc-kpi-ic"><svg viewBox="0 0 24 24"><path d="M9 17v-6M12 17V7M15 17v-3M4 4v16h16"/></svg></div></div>
       <div class="mc-kpi-value" id="kpiTotal">—</div>
+      <div class="mc-kpi-hint">CI Register · incidencias totales</div>
     </div>
     <div class="mc-kpi">
-      <div class="mc-kpi-label">P1 + P2 Críticos/Altos</div>
+      <div class="mc-kpi-top"><div class="mc-kpi-label">P1 + P2 (Críticos / Altos)</div>
+        <div class="mc-kpi-ic"><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h16.9a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div></div>
       <div class="mc-kpi-value red" id="kpiCriticos">—</div>
+      <div class="mc-kpi-hint">Prioridad alta abierta</div>
     </div>
     <div class="mc-kpi">
-      <div class="mc-kpi-label">En Revisión</div>
+      <div class="mc-kpi-top"><div class="mc-kpi-label">En Revisión</div>
+        <div class="mc-kpi-ic"><svg viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4"/></svg></div></div>
       <div class="mc-kpi-value orange" id="kpiRevision">—</div>
+      <div class="mc-kpi-hint">En progreso / diagnóstico</div>
     </div>
     <div class="mc-kpi">
-      <div class="mc-kpi-label">Resueltos</div>
+      <div class="mc-kpi-top"><div class="mc-kpi-label">Resueltos</div>
+        <div class="mc-kpi-ic"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></div></div>
       <div class="mc-kpi-value green" id="kpiResueltos">—</div>
+      <div class="mc-kpi-hint">Cerrados / resueltos</div>
     </div>
     <div class="mc-kpi">
-      <div class="mc-kpi-label">TTR Promedio</div>
-      <div class="mc-kpi-value" id="kpiTTR" title="Time-to-Resolve promedio en horas">—</div>
+      <div class="mc-kpi-top"><div class="mc-kpi-label">MTTR</div>
+        <div class="mc-kpi-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div></div>
+      <div class="mc-kpi-value" id="kpiTTR" title="Mean Time To Resolve — tiempo medio de resolución en horas">—</div>
+      <div class="mc-kpi-hint">Tiempo medio de resolución</div>
     </div>
     <div class="mc-kpi">
-      <div class="mc-kpi-label">SLA Cumplimiento</div>
-      <div class="mc-kpi-value green" id="kpiSLA" title="% de tickets resueltos dentro del SLA">—</div>
+      <div class="mc-kpi-top"><div class="mc-kpi-label">Cumplimiento SLA</div>
+        <div class="mc-kpi-ic"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></svg></div></div>
+      <div class="mc-kpi-value green" id="kpiSLA" title="% de tickets resueltos dentro del SLA por criticidad">—</div>
+      <div class="mc-kpi-hint">Resueltos dentro de SLA</div>
+    </div>
+  </div>
+
+  <!-- ── ITIL 4 · modelo de mejora continua + matriz de prioridad ──── -->
+  <div class="mc-panels">
+    <div class="mc-panel">
+      <h3>Modelo de mejora continua <span class="tag">ITIL 4 · 7 pasos</span></h3>
+      <div class="mc-steps">
+        <div class="mc-step"><div class="n">1</div><div class="t">¿Cuál es la visión?</div></div>
+        <div class="mc-step"><div class="n">2</div><div class="t">¿Dónde estamos hoy?</div></div>
+        <div class="mc-step"><div class="n">3</div><div class="t">¿Dónde queremos estar?</div></div>
+        <div class="mc-step"><div class="n">4</div><div class="t">¿Cómo llegamos? (plan)</div></div>
+        <div class="mc-step"><div class="n">5</div><div class="t">Actuar (ejecutar)</div></div>
+        <div class="mc-step"><div class="n">6</div><div class="t">¿Llegamos? (medir)</div></div>
+        <div class="mc-step"><div class="n">7</div><div class="t">Mantener el impulso</div></div>
+      </div>
+      <div class="mc-princ">
+        <span>Empezar donde estás</span><span>Progresar iterativamente</span>
+        <span>Colaborar y dar visibilidad</span><span>Pensar holísticamente</span>
+        <span>Mantenerlo simple</span><span>Optimizar y automatizar</span>
+      </div>
+    </div>
+
+    <div class="mc-panel">
+      <h3>Matriz de prioridad <span class="tag">Impacto × Urgencia</span></h3>
+      <table class="mc-matrix">
+        <tr><th></th><th>Urg. Alta</th><th>Urg. Media</th><th>Urg. Baja</th></tr>
+        <tr><th class="mc-axis">Imp. Alto</th><td class="mc-p1">P1</td><td class="mc-p2">P2</td><td class="mc-p3">P3</td></tr>
+        <tr><th class="mc-axis">Imp. Medio</th><td class="mc-p2">P2</td><td class="mc-p3">P3</td><td class="mc-p4">P4</td></tr>
+        <tr><th class="mc-axis">Imp. Bajo</th><td class="mc-p3">P3</td><td class="mc-p4">P4</td><td class="mc-p4">P4</td></tr>
+      </table>
+      <div class="mc-cobit">
+        <div><code>DSS02</code> Gestión de solicitudes e incidentes</div>
+        <div><code>DSS03</code> Gestión de problemas (causa raíz)</div>
+        <div><code>BAI06</code> Gestión de cambios de TI</div>
+        <div><code>APO12</code> Gestión de riesgos · <code>APO14</code> Datos</div>
+      </div>
     </div>
   </div>
 
