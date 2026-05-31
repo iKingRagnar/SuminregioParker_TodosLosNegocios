@@ -16,17 +16,17 @@
 :root{
   --bg:#060E1A;--s1:#0C1B29;--s2:#112233;--s3:#172D42;--s4:#1D3654;
   --border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.14);
-  --green:#00E5A0;--green-dim:rgba(0,229,160,.10);--green-dim2:rgba(0,229,160,.06);
-  --yellow:#FFB800;--yellow-dim:rgba(255,184,0,.12);--yellow-dim2:rgba(255,184,0,.06);
+  --green:#34D399;--green-dim:rgba(0,229,160,.10);--green-dim2:rgba(0,229,160,.06);
+  --yellow:#FBBF24;--yellow-dim:rgba(255,184,0,.12);--yellow-dim2:rgba(255,184,0,.06);
   --yellow-ink:#facc15;--chart-yellow:#f59e0b;
-  --orange:#FF8C42;--orange-dim:rgba(255,140,66,.10);
-  --red:#FF4566;--red-dim:rgba(255,69,102,.12);--red-dim2:rgba(255,69,102,.06);
+  --orange:#FB923C;--orange-dim:rgba(255,140,66,.10);
+  --red:#F87171;--red-dim:rgba(255,69,102,.12);--red-dim2:rgba(255,69,102,.06);
   --blue:#4DA6FF;--blue-dim:rgba(77,166,255,.10);
   --purple:#9B6DFF;--purple-dim:rgba(155,109,255,.10);
-  --cyan:#00D4FF;--cyan-dim:rgba(0,212,255,.10);
+  --cyan:#38BDF8;--cyan-dim:rgba(0,212,255,.10);
   --text:#F0F6FF;--text2:#C8D8EC;--muted:#94A3B8;--dim:#1E2E42;
   /* Suminregio: dorado/ambar del logo */
-  --suminregio:#E6A800;--suminregio-dim:rgba(230,168,0,.15);
+  --suminregio:#E0B341;--suminregio-dim:rgba(230,168,0,.15);
   --accent:var(--suminregio);
 }
 html[data-theme=light]{
@@ -37,7 +37,7 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
 .bg-orbs{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
 .orb{position:absolute;border-radius:50%;filter:blur(140px);opacity:.09;animation:drift 22s ease-in-out infinite alternate}
 .orb-1{width:800px;height:800px;background:radial-gradient(circle,#1E7FD9,transparent 70%);top:-250px;left:-200px}
-.orb-2{width:600px;height:600px;background:radial-gradient(circle,#00E5A0,transparent 70%);bottom:-100px;right:-100px;animation-delay:-8s}
+.orb-2{width:600px;height:600px;background:radial-gradient(circle,#34D399,transparent 70%);bottom:-100px;right:-100px;animation-delay:-8s}
 .orb-3{width:500px;height:500px;background:radial-gradient(circle,#F57C00,transparent 70%);top:40%;left:40%;animation-delay:-14s;opacity:.05}
 @keyframes drift{0%{transform:translate(0,0)}100%{transform:translate(25px,18px)}}
 
@@ -396,7 +396,7 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
   font-size: clamp(2.8rem, 5vw, 4.2rem) !important;
   font-weight: 800 !important;
   letter-spacing: -.04em !important;
-  background: linear-gradient(135deg, #E6A800 0%, #FFD700 30%, #FF8C42 65%, #E6A800 100%) !important;
+  background: linear-gradient(135deg, #E0B341 0%, #FFD700 30%, #FB923C 65%, #E0B341 100%) !important;
   background-size: 250% auto !important;
   -webkit-background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
@@ -607,8 +607,8 @@ html[data-theme="light"] .sc-id,html.theme-premium-light .sc-id,html[data-theme=
               </linearGradient>
               <linearGradient id="heroBiLine" x1="0" y1="0" x2="1" y2="0">
                 <stop offset="0%" stop-color="#4DA6FF"/>
-                <stop offset="45%" stop-color="#E6A800"/>
-                <stop offset="100%" stop-color="#00E5A0"/>
+                <stop offset="45%" stop-color="#E0B341"/>
+                <stop offset="100%" stop-color="#34D399"/>
               </linearGradient>
               <filter id="heroBiBlur" x="-20%" y="-20%" width="140%" height="140%">
                 <feGaussianBlur in="SourceGraphic" stdDeviation="0.8"/>
@@ -629,7 +629,7 @@ html[data-theme="light"] .sc-id,html.theme-premium-light .sc-id,html[data-theme=
             </g>
             <path class="hero-bi-spark" fill="none" stroke="url(#heroBiLine)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" filter="url(#heroBiBlur)"
               d="M28 142 Q72 120 108 132 T196 96 T268 78 T308 88"/>
-            <circle class="hero-bi-dot" cx="308" cy="88" r="5" fill="#00E5A0" opacity="0.95"/>
+            <circle class="hero-bi-dot" cx="308" cy="88" r="5" fill="#34D399" opacity="0.95"/>
             <text x="24" y="186" fill="rgba(106,133,166,.85)" font-family="DM Mono, ui-monospace, monospace" font-size="9.5" letter-spacing="0.06em">KPI · META · REAL (ilustración)</text>
           </svg>
         </div>
@@ -1322,7 +1322,7 @@ function renderUniversePortfolio(uni){
     if(foot) foot.innerHTML='';
     return;
   }
-  const UNI_COLS=['#9B6DFF','#4DA6FF','#00E5A0','#FFB800','#FF8C42','#FF4566','#00D4FF','#E6A800'];
+  const UNI_COLS=['#9B6DFF','#4DA6FF','#34D399','#FBBF24','#FB923C','#F87171','#38BDF8','#E0B341'];
   grid.innerHTML=emp.map((r,idx)=>{
     const col=UNI_COLS[idx%UNI_COLS.length];
     const initials=(r.label||r.id||'?').replace(/[^A-Za-z0-9\u00c0-\u024f]/g,' ').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('').toUpperCase()||'?';

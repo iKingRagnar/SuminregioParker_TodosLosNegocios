@@ -6,7 +6,7 @@
 <title>Admin — Suminregio</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="manifest" href="/manifest.webmanifest">
-<meta name="theme-color" content="#E6A800">
+<meta name="theme-color" content="#E0B341">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="/auth-guard.js?v=6"></script>
 <script>window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');</script>
@@ -21,7 +21,7 @@
   .tabs { display: inline-flex; gap: 4px; background: #fff; border: 1px solid rgba(15,23,42,.08); padding: 5px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 8px -2px rgba(15,23,42,.06); }
   .tabs button { background: transparent; border: none; padding: 8px 16px; border-radius: 8px; font-size: .82rem; font-weight: 600; color: #475569; cursor: pointer; transition: all .18s ease; font-family: inherit; }
   .tabs button:hover { background: rgba(230,168,0,.08); color: #B8860B; }
-  .tabs button.active { background: linear-gradient(135deg,#F5C33C,#E6A800,#B8860B); color: #1A1200; box-shadow: 0 2px 10px -2px rgba(230,168,0,.5); }
+  .tabs button.active { background: linear-gradient(135deg,#F5C33C,#E0B341,#B8860B); color: #1A1200; box-shadow: 0 2px 10px -2px rgba(230,168,0,.5); }
   section.panel { display: none; background: #fff; border: 1px solid rgba(230,168,0,.22); border-radius: 16px; padding: 22px 24px; box-shadow: 0 4px 12px -2px rgba(15,23,42,.06); }
   section.panel.active { display: block; }
   table { width: 100%; border-collapse: collapse; font-size: .85rem; }
@@ -39,7 +39,7 @@
   .stat .v { font-size: 1.4rem; font-weight: 700; color: #0F172A; font-variant-numeric: tabular-nums; margin-top: 4px; }
   .stat .x { font-size: .72rem; color: #94A3B8; margin-top: 2px; }
   .refresh { background: none; border: none; color: #B8860B; font-size: .78rem; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; }
-  .refresh:hover { color: #E6A800; }
+  .refresh:hover { color: #E0B341; }
   pre { background: #0F172A; color: #F5C33C; padding: 12px; border-radius: 8px; font-family: 'DM Mono', monospace; font-size: .75rem; overflow-x: auto; max-height: 400px; overflow-y: auto; }
   .row-actions { display: flex; gap: 6px; }
   .btn-sm { background: rgba(239,68,68,.1); color: #B91C1C; border: 1px solid rgba(239,68,68,.25); padding: 3px 8px; border-radius: 5px; font-size: .7rem; cursor: pointer; font-family: inherit; }
@@ -47,8 +47,8 @@
   .qr { display: block; margin: 12px 0; max-width: 200px; border: 1px solid rgba(15,23,42,.1); border-radius: 8px; }
   code { background: rgba(15,23,42,.05); padding: 2px 6px; border-radius: 4px; font-family: 'DM Mono', monospace; font-size: .8em; }
   input[type="text"], input[type="number"] { background: #fff; border: 1px solid rgba(15,23,42,.1); border-radius: 8px; padding: 6px 10px; font-family: inherit; font-size: .85rem; }
-  input:focus { outline: none; border-color: #E6A800; box-shadow: 0 0 0 3px rgba(230,168,0,.15); }
-  button.primary { background: linear-gradient(135deg,#F5C33C,#E6A800); color: #1A1200; border: none; padding: 6px 14px; border-radius: 8px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  input:focus { outline: none; border-color: #E0B341; box-shadow: 0 0 0 3px rgba(230,168,0,.15); }
+  button.primary { background: linear-gradient(135deg,#F5C33C,#E0B341); color: #1A1200; border: none; padding: 6px 14px; border-radius: 8px; font-weight: 600; cursor: pointer; font-family: inherit; }
 </style>
 </head>
 <body>
@@ -123,7 +123,7 @@
   <!-- DOCS -->
   <section id="panel-docs" class="panel">
     <p style="margin-bottom:12px">Spec OpenAPI completa del API:</p>
-    <a href="/docs.html" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:10px 18px;background:linear-gradient(135deg,#F5C33C,#E6A800);color:#1A1200;border-radius:8px;text-decoration:none;font-weight:600">Abrir Swagger UI →</a>
+    <a href="/docs.html" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:10px 18px;background:linear-gradient(135deg,#F5C33C,#E0B341);color:#1A1200;border-radius:8px;text-decoration:none;font-weight:600">Abrir Swagger UI →</a>
     <!-- openapi.yaml no disponible en este servidor -->
   </section>
 </main>

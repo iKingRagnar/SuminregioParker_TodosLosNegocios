@@ -9,7 +9,7 @@
   --ai-radius-md: 10px;
   --ai-teal: #0d9488;
   --ai-teal2: #0f766e;
-  --ai-gold: var(--suminregio, #e6a800);
+  --ai-gold: var(--suminregio, #E0B341);
   font-family: 'Syne', system-ui, sans-serif;
 }
 
@@ -601,7 +601,7 @@
 }
 
 .ai-btn-attach.recording {
-  color: #ff4566;
+  color: #F87171;
   animation: ai-pulse-mic 1s ease-in-out infinite;
 }
 

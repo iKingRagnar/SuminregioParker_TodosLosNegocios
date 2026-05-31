@@ -85,7 +85,7 @@ html.theme-premium-light .pl-mini-wrap {
   --ms-glass-light: rgba(248, 250, 252, 0.82);
 
   /* Brand */
-  --ms-gold:    #E6A800;
+  --ms-gold:    #E0B341;
   --ms-gold-dk: #B87D00;
   --ms-cyan:    #22d3ee;
   --ms-violet:  #a78bfa;
@@ -201,7 +201,7 @@ td.num {
 
 /* Gradient text — clase utilitaria */
 .ms-text-gradient {
-  background: linear-gradient(135deg, #E6A800 0%, #ffdb6e 45%, #22d3ee 100%);
+  background: linear-gradient(135deg, #E0B341 0%, #ffdb6e 45%, #22d3ee 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;

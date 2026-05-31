@@ -14,16 +14,16 @@
 :root{
   --bg:#060E1A;--s1:#0C1B29;--s2:#112233;--s3:#172D42;--s4:#1D3654;
   --border:rgba(255,255,255,.07);--border2:rgba(255,255,255,.14);
-  --suminregio:#E6A800;--suminregio-dim:rgba(230,168,0,.15);
-  --green:#00E5A0;--green-dim:rgba(0,229,160,.10);
-  --yellow:#FFB800;--yellow-dim:rgba(255,184,0,.12);
+  --suminregio:#E0B341;--suminregio-dim:rgba(230,168,0,.15);
+  --green:#34D399;--green-dim:rgba(0,229,160,.10);
+  --yellow:#FBBF24;--yellow-dim:rgba(255,184,0,.12);
   --yellow-ink:#c9a227;--chart-yellow:#9a6b3a;--chart-yellow-fill:rgba(154,107,58,.24);
   --brown-ink:#d4a574;--brown-mid:#8b5a2b;
-  --orange:#FF8C42;--orange-dim:rgba(255,140,66,.10);
+  --orange:#FB923C;--orange-dim:rgba(255,140,66,.10);
   --blue:#4DA6FF;--blue-dim:rgba(77,166,255,.10);
-  --red:#FF4566;--red-dim:rgba(255,69,102,.12);
+  --red:#F87171;--red-dim:rgba(255,69,102,.12);
   --purple:#9B6DFF;--purple-dim:rgba(155,109,255,.10);
-  --cyan:#00D4FF;--cyan-dim:rgba(0,212,255,.10);
+  --cyan:#38BDF8;--cyan-dim:rgba(0,212,255,.10);
   --text:#F0F6FF;--text2:#C8D8EC;--muted:#6A85A6;--dim:#1E2E42;
 }
 html[data-theme=light]{
@@ -35,8 +35,8 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
 .bg-orbs{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
 .orb{position:absolute;border-radius:50%;filter:blur(140px);opacity:.09;animation:drift 22s ease-in-out infinite alternate}
 .orb-1{width:700px;height:700px;background:radial-gradient(circle,#1E7FD9,transparent 70%);top:-200px;left:-150px}
-.orb-2{width:600px;height:600px;background:radial-gradient(circle,#00E5A0,transparent 70%);bottom:-150px;right:-150px;animation-delay:-7s}
-.orb-3{width:400px;height:400px;background:radial-gradient(circle,#FFB800,transparent 70%);top:40%;left:45%;transform:translate(-50%,-50%);animation-delay:-12s;opacity:.05}
+.orb-2{width:600px;height:600px;background:radial-gradient(circle,#34D399,transparent 70%);bottom:-150px;right:-150px;animation-delay:-7s}
+.orb-3{width:400px;height:400px;background:radial-gradient(circle,#FBBF24,transparent 70%);top:40%;left:45%;transform:translate(-50%,-50%);animation-delay:-12s;opacity:.05}
 @keyframes drift{0%{transform:translate(0,0)}100%{transform:translate(20px,15px)}}
 header{position:sticky;top:0;z-index:100;background:rgba(5,11,20,.92);backdrop-filter:blur(28px);border-bottom:1px solid var(--border)}
 .header-inner{max-width:1900px;margin:0 auto;height:62px;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;padding:0 2rem}
@@ -1326,7 +1326,7 @@ async function loadBalanceGeneral(){
           gaugeRemainder = 0.02;
           gaugeVis = GAUGE_MAX - gaugeRemainder;
         }
-        const gaugeColor = liquidez >= 1.5 ? '#00E5A0' : liquidez >= 1 ? '#8b5a2b' : '#FF4566';
+        const gaugeColor = liquidez >= 1.5 ? '#34D399' : liquidez >= 1 ? '#8b5a2b' : '#F87171';
         bgGaugeChart = new Chart(ctxG, {
           type: 'doughnut',
           data: { labels: ['Liquidez', 'Restante'], datasets: [{ data: [gaugeVis, gaugeRemainder], backgroundColor: [gaugeColor, 'rgba(255,255,255,.10)'], borderWidth: 0, hoverOffset: 0 }] },
@@ -1376,7 +1376,7 @@ async function loadBalanceGeneral(){
           type: 'doughnut',
           data: {
             labels: ['Proveedores', 'Bancos/Crédito', 'Otros pasivos'],
-            datasets: [{ data: [bucketPasivo.prov, bucketPasivo.bancos, bucketPasivo.otros], backgroundColor: ['#4DA6FF', '#FF8C42', '#9B6DFF'], borderWidth: 0 }]
+            datasets: [{ data: [bucketPasivo.prov, bucketPasivo.bancos, bucketPasivo.otros], backgroundColor: ['#4DA6FF', '#FB923C', '#9B6DFF'], borderWidth: 0 }]
           },
           options: { cutout: '65%', plugins: { legend: { position: 'bottom', labels: { color: '#B0BECE', font: { size: 10, family: "'DM Mono'" } } } } }
         });
@@ -1403,7 +1403,7 @@ async function loadBalanceGeneral(){
           datasets: [{
             label: 'Balance',
             data: [activo, pasivo + capital, diff],
-            backgroundColor: ['#4DA6FF', '#FF8C42', Math.abs(diff) <= 1 ? '#00E5A0' : '#FF4566'],
+            backgroundColor: ['#4DA6FF', '#FB923C', Math.abs(diff) <= 1 ? '#34D399' : '#F87171'],
             borderWidth: 0,
             minBarLength: flatTot && detailMag > 50 ? 8 : 0
           }]
@@ -2105,7 +2105,7 @@ function renderCharts(meses,hasCosto){
   const ctx1=el1.getContext('2d');
   if(chartVC)chartVC.destroy();
   const ds1=[{label:'Ventas Netas',data:ventas,backgroundColor:'rgba(77,166,255,.22)',borderColor:'#4DA6FF',borderWidth:1.5,borderRadius:5,type:'bar'}];
-  if(hasCosto)ds1.push({label:'Utilidad Bruta',data:util,backgroundColor:'rgba(0,229,160,.35)',borderColor:'#00E5A0',borderWidth:1.5,borderRadius:5,type:'bar'});
+  if(hasCosto)ds1.push({label:'Utilidad Bruta',data:util,backgroundColor:'rgba(0,229,160,.35)',borderColor:'#34D399',borderWidth:1.5,borderRadius:5,type:'bar'});
   chartVC=new Chart(ctx1,{data:{labels,datasets:ds1},options:chartOpts(v=>fmtM(v))});
 
   const el3=document.getElementById('chartCobros');
@@ -2133,7 +2133,7 @@ function renderCharts(meses,hasCosto){
       data:{labels,datasets:[
         {type:'bar',label:'Venta Industrial (VE)',data:ve,stack:'ventas',yAxisID:'y',backgroundColor:'rgba(77,166,255,.55)',borderColor:'#4DA6FF',borderWidth:1.5,borderRadius:4},
         {type:'bar',label:'Ventas de Mostrador (PV)',data:pv,stack:'ventas',yAxisID:'y',backgroundColor:'rgba(155,109,255,.5)',borderColor:'#9B6DFF',borderWidth:1.5,borderRadius:4},
-        {type:'line',label:'Cobros',data:cobros,yAxisID:'y1',borderColor:'#00E5A0',backgroundColor:'rgba(0,229,160,.12)',borderWidth:2.5,pointRadius:4,pointHoverRadius:6,pointBackgroundColor:'#00E5A0',tension:.35,fill:true}
+        {type:'line',label:'Cobros',data:cobros,yAxisID:'y1',borderColor:'#34D399',backgroundColor:'rgba(0,229,160,.12)',borderWidth:2.5,pointRadius:4,pointHoverRadius:6,pointBackgroundColor:'#34D399',tension:.35,fill:true}
       ]},
       options:{
         responsive:true,maintainAspectRatio:false,
@@ -2143,7 +2143,7 @@ function renderCharts(meses,hasCosto){
         scales:{
           x:{stacked:true,grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6A85A6',font:{size:10,family:"'DM Mono'"}}},
           y:{stacked:true,position:'left',min:0,max:yMax,grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6A85A6',font:{size:10,family:"'DM Mono'"},callback:v=>fmtM(v)}},
-          y1:{stacked:false,position:'right',min:0,max:yMax,grid:{drawOnChartArea:false},ticks:{color:'#00E5A0',font:{size:10,family:"'DM Mono'"},callback:v=>fmtM(v)}}
+          y1:{stacked:false,position:'right',min:0,max:yMax,grid:{drawOnChartArea:false},ticks:{color:'#34D399',font:{size:10,family:"'DM Mono'"},callback:v=>fmtM(v)}}
         }
       }
     });
@@ -2695,7 +2695,7 @@ async function initCorrCharts(){
             label: 'Gastos Operativos' + (tieneGastos ? '' : ' (est.)'),
             data: gastos,
             backgroundColor: 'rgba(255,69,102,0.38)',
-            borderColor: '#FF4566',
+            borderColor: '#F87171',
             borderWidth: 1,
             order: 2
           },
@@ -2703,7 +2703,7 @@ async function initCorrCharts(){
             type: 'line',
             label: 'Utilidad Bruta',
             data: utilBruta,
-            borderColor: '#00E5A0',
+            borderColor: '#34D399',
             backgroundColor: 'rgba(0,229,160,0.08)',
             borderWidth: 2,
             pointRadius: 3,
@@ -2760,7 +2760,7 @@ async function initCorrCharts(){
           {
             label: '% Gastos / Ventas' + (tieneGastos ? '' : ' (est.)'),
             data: ratioGV,
-            borderColor: '#E6A800',
+            borderColor: '#E0B341',
             backgroundColor: 'rgba(230,168,0,0.08)',
             borderWidth: 2,
             pointRadius: 3,
@@ -2770,7 +2770,7 @@ async function initCorrCharts(){
           {
             label: '% Margen Bruto',
             data: margenPct,
-            borderColor: '#00E5A0',
+            borderColor: '#34D399',
             backgroundColor: 'rgba(0,229,160,0.08)',
             borderWidth: 2,
             pointRadius: 3,
@@ -2842,9 +2842,9 @@ async function initCorrCharts(){
     }));
 
     const pointColors = scatPoints.map(p =>
-      p.ratio < 0.30 ? '#00E5A0' :
-      p.ratio <= 0.40 ? '#FFB800' :
-      '#FF4566'
+      p.ratio < 0.30 ? '#34D399' :
+      p.ratio <= 0.40 ? '#FBBF24' :
+      '#F87171'
     );
 
     // Regresión lineal simple
@@ -3054,7 +3054,7 @@ async function initBalanceGeneral() {
               label: 'Pasivo Est.',
               data: pasivoData,
               type: 'line',
-              borderColor: '#FF4566',
+              borderColor: '#F87171',
               borderWidth: 2,
               pointRadius: 3,
               fill: false,
@@ -3064,7 +3064,7 @@ async function initBalanceGeneral() {
               label: 'Capital Neto Est.',
               data: capitalData,
               type: 'line',
-              borderColor: '#00E5A0',
+              borderColor: '#34D399',
               borderWidth: 2,
               pointRadius: 3,
               fill: false,
@@ -3103,7 +3103,7 @@ async function initBalanceGeneral() {
             datasets: [{
               label: 'Costo de Ventas (proxy consumo)',
               data: costoData,
-              borderColor: '#E6A800',
+              borderColor: '#E0B341',
               backgroundColor: 'rgba(230,168,0,.12)',
               fill: true,
               tension: .4,

@@ -23,22 +23,22 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
 :root{
   --bg:#060E1A;--s1:#0C1B29;--s2:#112233;--s3:#172D42;--s4:#1D3654;
   --border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.11);
-  --suminregio:#E6A800;--suminregio-dim:rgba(230,168,0,.15);
-  --green:#00E5A0;--green-dim:rgba(0,229,160,.1);
-  --yellow:#FFB800;--yellow-dim:rgba(255,184,0,.12);
-  --orange:#FF8C42;--orange-dim:rgba(255,140,66,.1);
-  --red:#FF4566;--red-dim:rgba(255,69,102,.12);
+  --suminregio:#E0B341;--suminregio-dim:rgba(230,168,0,.15);
+  --green:#34D399;--green-dim:rgba(0,229,160,.1);
+  --yellow:#FBBF24;--yellow-dim:rgba(255,184,0,.12);
+  --orange:#FB923C;--orange-dim:rgba(255,140,66,.1);
+  --red:#F87171;--red-dim:rgba(255,69,102,.12);
   --blue:#4DA6FF;--blue-dim:rgba(77,166,255,.1);
   --purple:#9B6DFF;--purple-dim:rgba(155,109,255,.1);
-  --cyan:#00D4FF;--cyan-dim:rgba(0,212,255,.1);
+  --cyan:#38BDF8;--cyan-dim:rgba(0,212,255,.1);
   --text:#E8EFF8;--text2:#B0BECE;--muted:#5A7090;
 }
 html{font-size:16px;-webkit-font-smoothing:antialiased}
 body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh}
 .bg-orbs{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
 .orb{position:absolute;border-radius:50%;filter:blur(130px);opacity:.10;animation:drift 20s ease-in-out infinite alternate}
-.orb-1{width:700px;height:700px;background:radial-gradient(circle,#FF4566,transparent 70%);top:-200px;left:-150px}
-.orb-2{width:600px;height:600px;background:radial-gradient(circle,#FFB800,transparent 70%);bottom:-150px;right:-150px;animation-delay:-7s}
+.orb-1{width:700px;height:700px;background:radial-gradient(circle,#F87171,transparent 70%);top:-200px;left:-150px}
+.orb-2{width:600px;height:600px;background:radial-gradient(circle,#FBBF24,transparent 70%);bottom:-150px;right:-150px;animation-delay:-7s}
 .orb-3{width:400px;height:400px;background:radial-gradient(circle,#1E7FD9,transparent 70%);top:40%;left:45%;transform:translate(-50%,-50%);animation-delay:-12s;opacity:.06}
 @keyframes drift{0%{transform:translate(0,0)}100%{transform:translate(20px,15px)}}
 @media (prefers-reduced-motion: reduce){
@@ -786,7 +786,7 @@ function renderChartBuckets(res){
       labels:['Leve\n1-30d','Medio\n31-60d','Alto\n61-90d','Cr\u00edtico\n+90d'],
       datasets:[{data:bVals,
         backgroundColor:['rgba(77,166,255,.5)','rgba(255,184,0,.5)','rgba(255,140,66,.5)','rgba(255,69,102,.5)'],
-        borderColor:['#4DA6FF','#FFB800','#FF8C42','#FF4566'],borderWidth:1.5,borderRadius:5}]
+        borderColor:['#4DA6FF','#FBBF24','#FB923C','#F87171'],borderWidth:1.5,borderRadius:5}]
     },
     options:{
       responsive:true,

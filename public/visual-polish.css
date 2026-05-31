@@ -3,7 +3,7 @@
  * ──────────────────────────────────────────────────────────────────────────── */
 
 :root, html.theme-premium-light {
-  --vp-gold:          #E6A800;
+  --vp-gold:          #E0B341;
   --vp-gold-soft:     #F5C33C;
   --vp-gold-deep:     #B8860B;
   --vp-ink:           #0F172A;
@@ -30,7 +30,7 @@
   --vp-ease:          cubic-bezier(.22, 1, .36, 1);
   --vp-dur:           .22s;
 
-  --vp-gradient-gold: linear-gradient(135deg, #F5C33C 0%, #E6A800 45%, #B8860B 100%);
+  --vp-gradient-gold: linear-gradient(135deg, #F5C33C 0%, #E0B341 45%, #B8860B 100%);
 
   color-scheme: light;
 }

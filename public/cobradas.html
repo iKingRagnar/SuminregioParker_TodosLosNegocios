@@ -14,22 +14,22 @@
 :root{
   --bg:#060E1A;--s1:#0C1B29;--s2:#112233;--s3:#172D42;--s4:#1D3654;
   --border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.11);
-  --green:#00E5A0;--green-dim:rgba(0,229,160,.1);
-  --yellow:#FFB800;--yellow-dim:rgba(255,184,0,.12);
-  --orange:#FF8C42;--orange-dim:rgba(255,140,66,.1);
-  --red:#FF4566;--red-dim:rgba(255,69,102,.12);
+  --green:#34D399;--green-dim:rgba(0,229,160,.1);
+  --yellow:#FBBF24;--yellow-dim:rgba(255,184,0,.12);
+  --orange:#FB923C;--orange-dim:rgba(255,140,66,.1);
+  --red:#F87171;--red-dim:rgba(255,69,102,.12);
   --blue:#4DA6FF;--blue-dim:rgba(77,166,255,.1);
   --purple:#9B6DFF;--purple-dim:rgba(155,109,255,.1);
-  --cyan:#00D4FF;--cyan-dim:rgba(0,212,255,.1);
+  --cyan:#38BDF8;--cyan-dim:rgba(0,212,255,.1);
   --text:#E8EFF8;--text2:#B0BECE;--muted:#5A7090;--dim:#243348;
-  --suminregio:#E6A800;--suminregio-dim:rgba(230,168,0,.15);
+  --suminregio:#E0B341;--suminregio-dim:rgba(230,168,0,.15);
   --accent:var(--suminregio);
 }
 html{font-size:16px;-webkit-font-smoothing:antialiased}
 body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh}
 .bg-orbs{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
 .orb{position:absolute;border-radius:50%;filter:blur(130px);opacity:.10;animation:drift 20s ease-in-out infinite alternate}
-.orb-1{width:700px;height:700px;background:radial-gradient(circle,#00E5A0,transparent 70%);top:-200px;left:-150px}
+.orb-1{width:700px;height:700px;background:radial-gradient(circle,#34D399,transparent 70%);top:-200px;left:-150px}
 .orb-2{width:600px;height:600px;background:radial-gradient(circle,#1E7FD9,transparent 70%);bottom:-150px;right:-150px;animation-delay:-7s}
 .orb-3{width:400px;height:400px;background:radial-gradient(circle,#F57C00,transparent 70%);top:40%;left:45%;transform:translate(-50%,-50%);animation-delay:-12s;opacity:.06}
 @keyframes drift{0%{transform:translate(0,0)}100%{transform:translate(20px,15px)}}
@@ -102,7 +102,7 @@ nav{display:flex;align-items:center;gap:.2rem}
 .detalle-table tr:hover td{background:var(--s2)}
 .detalle-table .num{text-align:right}
 .rank-badge{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:.65rem;font-weight:700;font-family:'DM Mono',monospace}
-.rank-1{background:linear-gradient(135deg,#FFB800,#FF8C42);color:#050B14}
+.rank-1{background:linear-gradient(135deg,#FBBF24,#FB923C);color:#050B14}
 .rank-2{background:linear-gradient(135deg,#B0BECE,#7A9ABE);color:#050B14}
 .rank-3{background:linear-gradient(135deg,#CD7F32,#A05C20);color:#E8EFF8}
 .rank-n{background:var(--s3);color:var(--muted)}
@@ -710,7 +710,7 @@ function renderAll(){
 
 function renderRanking(d, totalCobrado){
   const sorted = [...d].sort((a,b)=>(+b.TOTAL_COBRADO||0)-(+a.TOTAL_COBRADO||0));
-  const cols=['#00E5A0','#4DA6FF','#9B6DFF','#FFB800','#FF8C42','#FF4566','#00D4FF'];
+  const cols=['#34D399','#4DA6FF','#9B6DFF','#FBBF24','#FB923C','#F87171','#38BDF8'];
   const rows = sorted.map((r,i)=>{
     const cobrado   = +r.TOTAL_COBRADO||0;
     const venta     = +r.TOTAL_VENTA||0;
@@ -742,7 +742,7 @@ function renderRanking(d, totalCobrado){
 function renderBarras(d){
   const sorted = [...d].sort((a,b)=>(+b.TOTAL_COBRADO||0)-(+a.TOTAL_COBRADO||0));
   const maxCob = +sorted[0]?.TOTAL_COBRADO||1;
-  const cols=['#00E5A0','#4DA6FF','#9B6DFF','#FFB800','#FF8C42','#FF4566','#00D4FF'];
+  const cols=['#34D399','#4DA6FF','#9B6DFF','#FBBF24','#FB923C','#F87171','#38BDF8'];
   const html = sorted.map((r,i)=>{
     const cob  = +r.TOTAL_COBRADO||0;
     const ven  = +r.TOTAL_VENTA||0;
@@ -761,7 +761,7 @@ function renderBarras(d){
 
 function renderDonut(d, totalCobrado){
   const sorted = [...d].sort((a,b)=>(+b.TOTAL_COBRADO||0)-(+a.TOTAL_COBRADO||0)).slice(0,6);
-  const cols=['#00E5A0','#4DA6FF','#9B6DFF','#FFB800','#FF8C42','#FF4566'];
+  const cols=['#34D399','#4DA6FF','#9B6DFF','#FBBF24','#FB923C','#F87171'];
   const vals = sorted.map(r=>+r.TOTAL_COBRADO||0);
   const labels = sorted.map(r=>(r.VENDEDOR||r.NOMBRE||'?').split(' ')[0]);
   const topPct = totalCobrado>0?Math.round(vals[0]/totalCobrado*100):0;
@@ -837,7 +837,7 @@ function renderEvolucion(data){
       labels,
       datasets:[
         {label:'Cobrado',data:ventas,backgroundColor:'rgba(77,166,255,.25)',borderColor:'#4DA6FF',borderWidth:1.5,borderRadius:4},
-        {label:'Comisi\u00f3n 8%',data:comision,backgroundColor:'rgba(0,229,160,.3)',borderColor:'#00E5A0',borderWidth:1.5,borderRadius:4,type:'line',fill:false,tension:.3,pointRadius:3,pointBackgroundColor:'#00E5A0'}
+        {label:'Comisi\u00f3n 8%',data:comision,backgroundColor:'rgba(0,229,160,.3)',borderColor:'#34D399',borderWidth:1.5,borderRadius:4,type:'line',fill:false,tension:.3,pointRadius:3,pointBackgroundColor:'#34D399'}
       ]
     },
     options:{

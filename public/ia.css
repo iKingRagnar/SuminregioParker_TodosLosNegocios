@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    ia.css — Sumi IA · Premium Chat Interface
-   Palette: Suminregio gold (#E6A800) + slate + pure white
+   Palette: Suminregio gold (#E0B341) + slate + pure white
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ── Reset & base ───────────────────────────────────────────────────────── */
@@ -18,21 +18,21 @@
 /* Focus-visible: only show ring on keyboard navigation, not mouse clicks */
 :focus { outline: none; }
 :focus-visible {
-  outline: 2px solid #E6A800;
+  outline: 2px solid #E0B341;
   outline-offset: 2px;
   border-radius: 6px;
 }
 button:focus-visible,
 a:focus-visible,
 [role="button"]:focus-visible {
-  outline: 2px solid #E6A800;
+  outline: 2px solid #E0B341;
   outline-offset: 3px;
   box-shadow: 0 0 0 4px rgba(230, 168, 0, 0.18);
 }
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 2px solid #E6A800;
+  outline: 2px solid #E0B341;
   outline-offset: 1px;
 }
 
@@ -279,7 +279,7 @@ html, body {
   color: #0F172A;
 }
 .landing-logo h1 .accent {
-  background: linear-gradient(135deg, #E6A800, #B8860B);
+  background: linear-gradient(135deg, #E0B341, #B8860B);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -386,7 +386,7 @@ html, body {
   padding: 8px 24px;
 }
 .msg-user .msg-bubble {
-  background: linear-gradient(135deg, #E6A800, #B8860B);
+  background: linear-gradient(135deg, #E0B341, #B8860B);
   color: #fff;
   padding: 12px 18px;
   border-radius: 18px 18px 4px 18px;
@@ -411,7 +411,7 @@ html, body {
 .msg-ai-avatar {
   flex-shrink: 0;
   width: 32px; height: 32px;
-  background: linear-gradient(135deg, #F5C33C, #E6A800);
+  background: linear-gradient(135deg, #F5C33C, #E0B341);
   border-radius: 10px;
   display: flex;
   align-items: center;
@@ -470,7 +470,7 @@ html, body {
   color: inherit;
 }
 .msg-ai-content blockquote {
-  border-left: 3px solid #E6A800;
+  border-left: 3px solid #E0B341;
   padding: 8px 14px;
   margin: 10px 0;
   background: rgba(230,168,0,.04);
@@ -686,7 +686,7 @@ td.smart-highlight { background: rgba(230,168,0,.08); font-weight: 600; }
 #ia-input::placeholder { color: #94A3B8; }
 
 #btn-send, #btn-stop {
-  background: linear-gradient(135deg, #E6A800, #B8860B);
+  background: linear-gradient(135deg, #E0B341, #B8860B);
   border: none;
   color: #fff;
   width: 36px; height: 36px;
@@ -984,7 +984,7 @@ body.keyboard-open #btn-toggle-sidebar { display: none !important; }
 }
 .sidebar-brand-icon {
   width: 36px; height: 36px;
-  background: linear-gradient(135deg, #E6A800, #B8860B);
+  background: linear-gradient(135deg, #E0B341, #B8860B);
   border-radius: 10px;
   display: flex;
   align-items: center;
@@ -1031,7 +1031,7 @@ body.keyboard-open #btn-toggle-sidebar { display: none !important; }
 }
 .landing-headline em {
   font-style: italic;
-  background: linear-gradient(135deg, #E6A800, #B8860B);
+  background: linear-gradient(135deg, #E0B341, #B8860B);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -1111,7 +1111,7 @@ body.keyboard-open #btn-toggle-sidebar { display: none !important; }
 }
 .conv-item.active {
   background: rgba(230,168,0,.12);
-  border-left: 3px solid #E6A800;
+  border-left: 3px solid #E0B341;
 }
 
 /* ── Input area premium polish ─────────────────────────────────────────── */

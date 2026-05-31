@@ -17,15 +17,15 @@ window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7
 :root{
   --bg:#060E1A;--s1:#0C1B29;--s2:#112233;--s3:#172D42;--s4:#1D3654;
   --border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.11);
-  --green:#00E5A0;--green-dim:rgba(0,229,160,.1);
-  --yellow:#FFB800;--yellow-dim:rgba(255,184,0,.12);
-  --orange:#FF8C42;--orange-dim:rgba(255,140,66,.1);
-  --red:#FF4566;--red-dim:rgba(255,69,102,.12);
+  --green:#34D399;--green-dim:rgba(0,229,160,.1);
+  --yellow:#FBBF24;--yellow-dim:rgba(255,184,0,.12);
+  --orange:#FB923C;--orange-dim:rgba(255,140,66,.1);
+  --red:#F87171;--red-dim:rgba(255,69,102,.12);
   --blue:#4DA6FF;--blue-dim:rgba(77,166,255,.1);
   --purple:#9B6DFF;--purple-dim:rgba(155,109,255,.1);
-  --cyan:#00D4FF;--cyan-dim:rgba(0,212,255,.1);
+  --cyan:#38BDF8;--cyan-dim:rgba(0,212,255,.1);
   --text:#E8EFF8;--text2:#B0BECE;--muted:#5A7090;--dim:#243348;
-  --suminregio:#E6A800;--suminregio-dim:rgba(230,168,0,.15);
+  --suminregio:#E0B341;--suminregio-dim:rgba(230,168,0,.15);
   --accent:var(--suminregio);
   --amber:var(--yellow);
 }
@@ -35,7 +35,7 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
 .orb{position:absolute;border-radius:50%;filter:blur(130px);opacity:.10;animation:drift 20s ease-in-out infinite alternate}
 .orb-1{width:700px;height:700px;background:radial-gradient(circle,#F57C00,transparent 70%);top:-200px;left:-150px}
 .orb-2{width:600px;height:600px;background:radial-gradient(circle,#1E7FD9,transparent 70%);bottom:-150px;right:-150px;animation-delay:-7s}
-.orb-3{width:400px;height:400px;background:radial-gradient(circle,#00E5A0,transparent 70%);top:40%;left:45%;transform:translate(-50%,-50%);animation-delay:-12s;opacity:.06}
+.orb-3{width:400px;height:400px;background:radial-gradient(circle,#34D399,transparent 70%);top:40%;left:45%;transform:translate(-50%,-50%);animation-delay:-12s;opacity:.06}
 @keyframes drift{0%{transform:translate(0,0)}100%{transform:translate(20px,15px)}}
 header{position:sticky;top:0;z-index:100;background:rgba(5,11,20,.88);backdrop-filter:blur(24px);border-bottom:1px solid var(--border)}
 .header-inner{max-width:1800px;margin:0 auto;height:64px;display:flex;align-items:center;justify-content:space-between;gap:1.5rem;padding:0 2rem}
@@ -414,7 +414,7 @@ const fmtM = v=>{
   v=+v;
   return'$'+v.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
 };
-const COLS=['#9B6DFF','#4DA6FF','#00E5A0','#FFB800','#FF8C42','#FF4566','#00D4FF'];
+const COLS=['#9B6DFF','#4DA6FF','#34D399','#FBBF24','#FB923C','#F87171','#38BDF8'];
 
 function clearVendedoresFilterLoadingUI(){
   const heroSub = document.getElementById('heroSub');
@@ -559,7 +559,7 @@ async function loadCobros(){
       data:{labels,datasets:[
         {type:'bar',label:'Ventas Netas',data:ventas,backgroundColor:'rgba(30,127,217,.28)',borderColor:'#1E7FD9',borderWidth:1.5,borderRadius:4},
         {type:'bar',label:'Cobros',data:cobros,backgroundColor:'rgba(0,196,140,.32)',borderColor:'#00C48C',borderWidth:1.5,borderRadius:4},
-        {type:'line',label:'% Eficiencia',data:efic,borderColor:'#FFB800',backgroundColor:'rgba(255,184,0,.08)',borderWidth:2,pointRadius:4,pointBackgroundColor:'#FFB800',fill:true,tension:.35,yAxisID:'y2'}
+        {type:'line',label:'% Eficiencia',data:efic,borderColor:'#FBBF24',backgroundColor:'rgba(255,184,0,.08)',borderWidth:2,pointRadius:4,pointBackgroundColor:'#FBBF24',fill:true,tension:.35,yAxisID:'y2'}
       ]},
       options:{responsive:true,maintainAspectRatio:false,
         interaction:{mode:'index',intersect:false},
@@ -569,7 +569,7 @@ async function loadCobros(){
         scales:{
           x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#4D6E8A',font:{size:10,family:"'DM Mono'"}}},
           y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#4D6E8A',font:{size:10,family:"'DM Mono'"},callback:v=>fmtM(v)}},
-          y2:{position:'right',min:0,max:120,grid:{display:false},ticks:{color:'#FFB800',font:{size:10,family:"'DM Mono'"},callback:v=>v+'%'}}
+          y2:{position:'right',min:0,max:120,grid:{display:false},ticks:{color:'#FBBF24',font:{size:10,family:"'DM Mono'"},callback:v=>v+'%'}}
         }}
     });
   }catch(e){console.warn('loadCobros error:',e);}
@@ -710,7 +710,7 @@ function renderRanking(vends){
     const st = hasMeta ? (v.STATUS_MES || 'BAJO') : 'SIN_META';
     const stCls=st==='OK'?'status-ok':st==='PARCIAL'?'status-parcial':st==='SIN_META'?'status-sm':'status-bajo';
     const stTxt=st==='OK'?'En meta':st==='PARCIAL'?'Parcial':st==='SIN_META'?'Sin meta':'Bajo';
-    const rankBg=i===0?'#FFB800':i===1?'#B0BECE':i===2?'#CD7F32':'var(--s3)';
+    const rankBg=i===0?'#FBBF24':i===1?'#B0BECE':i===2?'#CD7F32':'var(--s3)';
     const rankFg=i<3?'#050B14':'var(--muted)';
     return `<tr>
       <td style="padding:.65rem .75rem"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:${rankBg};color:${rankFg};font-size:.65rem;font-weight:700;font-family:'DM Mono',monospace">${i+1}</span></td>

@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════════
    chat-widget.css — Asistente IA Suminregio Industrial
-   Identidad visual: dorado #E6A800 · azul #4DA6FF · dark #060E1A
+   Identidad visual: dorado #E0B341 · azul #4DA6FF · dark #060E1A
    ═══════════════════════════════════════════════════════════════ */
 :root{
   --cw-bg:       #070f1c;
@@ -9,7 +9,7 @@
   --cw-bg4:      #101f35;
   --cw-border:   rgba(255,255,255,.08);
   --cw-border2:  rgba(255,255,255,.14);
-  --cw-acc:      #E6A800;
+  --cw-acc:      #E0B341;
   --cw-acc-dim:  rgba(230,168,0,.12);
   --cw-acc-glow: rgba(230,168,0,.3);
   --cw-blue:     #4DA6FF;
@@ -17,11 +17,11 @@
   --cw-txt:      #F0F6FF;
   --cw-txt2:     #C8D8EC;
   --cw-txt3:     #6A85A6;
-  --cw-grn:      #00E5A0;
+  --cw-grn:      #34D399;
   --cw-grn-dim:  rgba(0,229,160,.12);
-  --cw-red:      #FF4566;
+  --cw-red:      #F87171;
   --cw-red-dim:  rgba(255,69,102,.12);
-  --cw-ylw:      #FFB800;
+  --cw-ylw:      #FBBF24;
   --cw-r:        16px;
   --cw-shadow:   0 24px 80px rgba(0,0,0,.7), 0 4px 24px rgba(0,0,0,.5), 0 0 0 1px rgba(230,168,0,.08);
 }
@@ -30,7 +30,7 @@
 #cw-fab{
   position:fixed; bottom:28px; right:28px; z-index:9998;
   width:56px; height:56px; border-radius:50%;
-  background:linear-gradient(135deg,#E6A800,#c98a00);
+  background:linear-gradient(135deg,#E0B341,#c98a00);
   border:none; cursor:pointer;
   box-shadow:0 6px 28px var(--cw-acc-glow), 0 2px 8px rgba(0,0,0,.4);
   display:flex; align-items:center; justify-content:center;

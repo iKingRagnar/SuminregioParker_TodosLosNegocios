@@ -440,7 +440,7 @@
 /* Active page */
 #sumi-bottom-nav a.bnav-active,
 #sumi-bottom-nav button.bnav-active {
-  color:#E6A800;
+  color:#E0B341;
 }
 #sumi-bottom-nav a.bnav-active .bnav-icon svg {
   filter:drop-shadow(0 0 5px rgba(230,168,0,.6));
@@ -450,11 +450,11 @@
 #sumi-bottom-nav button.bnav-active::after {
   content:''; position:absolute; top:0; left:50%; transform:translateX(-50%);
   width:24px; height:2.5px; border-radius:0 0 2px 2px;
-  background:linear-gradient(90deg,#E6A800,#FF8C42);
+  background:linear-gradient(90deg,#E0B341,#FB923C);
   box-shadow:0 1px 6px rgba(230,168,0,.5);
 }
 /* AI button special style */
-#bnav-ai-btn { color:#E6A800 !important; }
+#bnav-ai-btn { color:#E0B341 !important; }
 #bnav-ai-btn .bnav-icon svg {
   filter:drop-shadow(0 0 4px rgba(230,168,0,.45));
 }
@@ -513,7 +513,7 @@
   flex:1; background:transparent; border:none; outline:none;
   font-size:.95rem; color:#F0F6FF;
   font-family:'Syne',system-ui,sans-serif;
-  caret-color:#E6A800;
+  caret-color:#E0B341;
 }
 #sumi-cmdpal-input::placeholder { color:#4A6080; }
 #sumi-cmdpal-hint {
@@ -604,7 +604,7 @@
   background:rgba(14,28,50,.92); border:1px solid rgba(230,168,0,.3);
   border-radius:99px; padding:6px 14px;
   font-family:'DM Mono',monospace; font-size:.65rem;
-  color:#E6A800; letter-spacing:.05em;
+  color:#E0B341; letter-spacing:.05em;
   box-shadow:0 4px 20px rgba(0,0,0,.4);
   transition:transform .25s, opacity .25s;
   pointer-events:none;
@@ -627,7 +627,7 @@
   transition:all .2s; flex-shrink:0;
   -webkit-tap-highlight-color:transparent;
 }
-#sumi-theme-toggle:hover { color:#E6A800; border-color:rgba(230,168,0,.35); background:rgba(230,168,0,.07); }
+#sumi-theme-toggle:hover { color:#E0B341; border-color:rgba(230,168,0,.35); background:rgba(230,168,0,.07); }
 
 /* Light theme overrides */
 html[data-theme="light"] body { background:#f0f4f8 !important; color:#1e293b !important; }

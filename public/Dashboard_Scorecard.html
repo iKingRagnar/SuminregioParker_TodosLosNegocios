@@ -8,12 +8,12 @@
 :root {
   --bg:#060E1A; --card:#0C1B29; --card2:#0F2035;
   --border:rgba(255,255,255,.06); --border2:rgba(255,255,255,.12);
-  --gold:#E6A800; --blue:#4DA6FF; --green:#00E5A0; --red:#FF4566; --orange:#FF8C42;
+  --gold:#E0B341; --blue:#4DA6FF; --green:#34D399; --red:#F87171; --orange:#FB923C;
   --silver:#C0C8D4; --bronze:#CD7F32;
   --text:#E8EDF5; --muted:#6B7A8D; --muted2:#8A96A8;
-  --c1:#4DA6FF; --c2:#FF8C42; --c3:#00E5A0; --c4:#FF4566; --c5:#B47DFF;
+  --c1:#4DA6FF; --c2:#FB923C; --c3:#34D399; --c4:#F87171; --c5:#B47DFF;
   --c6:#FFD166; --c7:#FF6EC7; --c8:#4ECDC4; --c9:#64B5CD; --c10:#8C8C8C;
-  --pos:#00E5A0; --neg:#FF4566; --warn:#E6A800; --gap:16px; --rad:14px;
+  --pos:#34D399; --neg:#F87171; --warn:#E0B341; --gap:16px; --rad:14px;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 html{scroll-behavior:smooth;}
@@ -378,10 +378,10 @@ function tickClock(){
 }
 tickClock();setInterval(tickClock,1000);
 
-const CC=['#4DA6FF','#FF8C42','#00E5A0','#FF4566','#B47DFF','#FFD166','#FF6EC7','#4ECDC4','#64B5CD','#8C8C8C'];
+const CC=['#4DA6FF','#FB923C','#34D399','#F87171','#B47DFF','#FFD166','#FF6EC7','#4ECDC4','#64B5CD','#8C8C8C'];
 const AVATAR_COLORS=[
-  ['#4DA6FF','#1a3a5c'],['#FF8C42','#5c3010'],['#00E5A0','#003d2b'],
-  ['#FF4566','#5c0015'],['#B47DFF','#2d1a5c'],['#FFD166','#5c4200'],
+  ['#4DA6FF','#1a3a5c'],['#FB923C','#5c3010'],['#34D399','#003d2b'],
+  ['#F87171','#5c0015'],['#B47DFF','#2d1a5c'],['#FFD166','#5c4200'],
   ['#FF6EC7','#5c1042'],['#4ECDC4','#0f3b39'],
 ];
 const MNAMES=['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
@@ -532,7 +532,7 @@ function render(vend){
     const mMap=Object.fromEntries(sc1.monthly.map(m=>[m.mes,m]));
     chTrend=new Chart(document.getElementById('ch-trend'),{type:'bar',data:{labels:filteredMonths.map(m=>mesL(m)),datasets:[
       {label:'Venta',data:filteredMonths.map(m=>(mMap[m]||{venta:0}).venta||0),backgroundColor:'#4DA6FFCC',borderRadius:4},
-      {label:'Utilidad',data:filteredMonths.map(m=>(mMap[m]||{utilidad:0}).utilidad||0),backgroundColor:'#00E5A0CC',borderRadius:4}
+      {label:'Utilidad',data:filteredMonths.map(m=>(mMap[m]||{utilidad:0}).utilidad||0),backgroundColor:'#34D399CC',borderRadius:4}
     ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{usePointStyle:true,color:'#8A96A8'}},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+fmt$(ctx.parsed.y)},backgroundColor:'rgba(12,27,41,.95)',borderColor:'rgba(255,255,255,.1)',borderWidth:1}},scales:{y:{beginAtZero:true,ticks:{callback:v=>fmtS(v),color:'#6B7A8D'},grid:{color:'rgba(255,255,255,.04)'}},x:{grid:{display:false},ticks:{color:'#6B7A8D'}}}}});
   }
 
@@ -559,7 +559,7 @@ function render(vend){
   // Rank bar with click handler
   if(chRank)chRank.destroy();
   const ranked=[...scData].sort((a,b)=>b.fventa-a.fventa);
-  chRank=new Chart(document.getElementById('ch-rank'),{type:'bar',data:{labels:ranked.map(s=>s.vendedor.split(' ')[0]),datasets:[{label:'Venta',data:ranked.map(s=>s.fventa),backgroundColor:ranked.map((s,i)=>{if(i===0)return'#E6A800CC';if(i===1)return'#C0C8D4CC';if(i===2)return'#CD7F32CC';return FILTER_STATE.vendedor===s.vendedor?'#4DA6FFCC':'#4DA6FF33';}),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',onClick:(evt,elements)=>{if(elements.length>0){const idx=elements[0].index;const vendedor=ranked[idx].vendedor;applyFilter(vendedor);}},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>fmt$(ctx.parsed.x)},backgroundColor:'rgba(12,27,41,.95)',borderColor:'rgba(255,255,255,.1)',borderWidth:1}},scales:{x:{beginAtZero:true,ticks:{callback:v=>fmtS(v),color:'#6B7A8D'},grid:{color:'rgba(255,255,255,.04)'}},y:{grid:{display:false},ticks:{color:'#8A96A8'}}}}});
+  chRank=new Chart(document.getElementById('ch-rank'),{type:'bar',data:{labels:ranked.map(s=>s.vendedor.split(' ')[0]),datasets:[{label:'Venta',data:ranked.map(s=>s.fventa),backgroundColor:ranked.map((s,i)=>{if(i===0)return'#E0B341CC';if(i===1)return'#C0C8D4CC';if(i===2)return'#CD7F32CC';return FILTER_STATE.vendedor===s.vendedor?'#4DA6FFCC':'#4DA6FF33';}),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',onClick:(evt,elements)=>{if(elements.length>0){const idx=elements[0].index;const vendedor=ranked[idx].vendedor;applyFilter(vendedor);}},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>fmt$(ctx.parsed.x)},backgroundColor:'rgba(12,27,41,.95)',borderColor:'rgba(255,255,255,.1)',borderWidth:1}},scales:{x:{beginAtZero:true,ticks:{callback:v=>fmtS(v),color:'#6B7A8D'},grid:{color:'rgba(255,255,255,.04)'}},y:{grid:{display:false},ticks:{color:'#8A96A8'}}}}});
 
   // Margen bar with click handler
   if(chMargen)chMargen.destroy();
@@ -568,7 +568,7 @@ function render(vend){
     const mgb=b.fventa>0?(b.futilidad/b.fventa*100):0;
     return mgb-mga;
   });
-  chMargen=new Chart(document.getElementById('ch-margen'),{type:'bar',data:{labels:byMargen.map(s=>s.vendedor.split(' ')[0]),datasets:[{label:'Margen %',data:byMargen.map(s=>s.fventa>0?(s.futilidad/s.fventa*100):0),backgroundColor:byMargen.map(s=>{const m=s.fventa>0?(s.futilidad/s.fventa*100):0;let c=m>=35?'#00E5A0CC':m>=25?'#E6A800CC':'#FF4566CC';return FILTER_STATE.vendedor===s.vendedor?c:c.replace('CC','4D');}),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',onClick:(evt,elements)=>{if(elements.length>0){const idx=elements[0].index;const vendedor=byMargen[idx].vendedor;applyFilter(vendedor);}},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.parsed.x.toFixed(1)+'%'},backgroundColor:'rgba(12,27,41,.95)',borderColor:'rgba(255,255,255,.1)',borderWidth:1}},scales:{x:{beginAtZero:true,max:60,ticks:{callback:v=>v+'%',color:'#6B7A8D'},grid:{color:'rgba(255,255,255,.04)'}},y:{grid:{display:false},ticks:{color:'#8A96A8'}}}}});
+  chMargen=new Chart(document.getElementById('ch-margen'),{type:'bar',data:{labels:byMargen.map(s=>s.vendedor.split(' ')[0]),datasets:[{label:'Margen %',data:byMargen.map(s=>s.fventa>0?(s.futilidad/s.fventa*100):0),backgroundColor:byMargen.map(s=>{const m=s.fventa>0?(s.futilidad/s.fventa*100):0;let c=m>=35?'#34D399CC':m>=25?'#E0B341CC':'#F87171CC';return FILTER_STATE.vendedor===s.vendedor?c:c.replace('CC','4D');}),borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',onClick:(evt,elements)=>{if(elements.length>0){const idx=elements[0].index;const vendedor=byMargen[idx].vendedor;applyFilter(vendedor);}},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.parsed.x.toFixed(1)+'%'},backgroundColor:'rgba(12,27,41,.95)',borderColor:'rgba(255,255,255,.1)',borderWidth:1}},scales:{x:{beginAtZero:true,max:60,ticks:{callback:v=>v+'%',color:'#6B7A8D'},grid:{color:'rgba(255,255,255,.04)'}},y:{grid:{display:false},ticks:{color:'#8A96A8'}}}}});
 
   // Table — sorted by fventa desc, with ranking decorations
   let h='';

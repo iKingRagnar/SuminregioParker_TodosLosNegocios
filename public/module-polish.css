@@ -189,7 +189,7 @@ html.theme-premium-light textarea {
 html.theme-premium-light input:focus,
 html.theme-premium-light select:focus,
 html.theme-premium-light textarea:focus {
-  border-color: #E6A800 !important;
+  border-color: #E0B341 !important;
   box-shadow: 0 0 0 3px rgba(230, 168, 0, 0.15) !important;
   outline: none !important;
 }
@@ -217,7 +217,7 @@ html.theme-premium-light .btn {
 html.theme-premium-light button[class*="primary"],
 html.theme-premium-light .btn-primary,
 html.theme-premium-light [class*="btn-gold"] {
-  background: linear-gradient(135deg, #F5C33C 0%, #E6A800 50%, #B8860B 100%) !important;
+  background: linear-gradient(135deg, #F5C33C 0%, #E0B341 50%, #B8860B 100%) !important;
   color: #1A1200 !important;
   border: none !important;
   padding: 8px 16px !important;
@@ -268,7 +268,7 @@ html.theme-premium-light #cw-fab,
 html.theme-premium-light #sumi-ai-pro-btn,
 html.theme-premium-light [class*="ai-fab"],
 html.theme-premium-light [id*="chat-fab"] {
-  background: linear-gradient(135deg, #F5C33C, #E6A800, #B8860B) !important;
+  background: linear-gradient(135deg, #F5C33C, #E0B341, #B8860B) !important;
   color: #1A1200 !important;
   border: none !important;
   box-shadow: 0 10px 32px -4px rgba(230, 168, 0, 0.55), 0 4px 14px rgba(15, 23, 42, 0.12) !important;

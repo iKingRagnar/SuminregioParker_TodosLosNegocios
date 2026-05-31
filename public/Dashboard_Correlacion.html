@@ -14,10 +14,10 @@
 :root {
   --bg:#060E1A; --card:#0C1B29; --card2:#0F2035;
   --border:rgba(255,255,255,.06); --border2:rgba(255,255,255,.12);
-  --gold:#E6A800; --blue:#4DA6FF; --green:#00E5A0; --red:#FF4566;
-  --orange:#FF8C42; --cyan:#00D4FF;
+  --gold:#E0B341; --blue:#4DA6FF; --green:#34D399; --red:#F87171;
+  --orange:#FB923C; --cyan:#38BDF8;
   --text:#E8EDF5; --muted:#6B7A8D; --muted2:#8A96A8;
-  --pos:#00E5A0; --neg:#FF4566; --warn:#E6A800;
+  --pos:#34D399; --neg:#F87171; --warn:#E0B341;
   --gap:16px; --rad:14px;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -415,7 +415,7 @@ tbody tr:hover td{background:rgba(77,166,255,.05)!important;}
     <div class="legend" id="legend-temporal">
       <div class="legend-item"><div class="legend-dot" style="background:#4DA6FF;"></div>Ventas netas</div>
       <div class="legend-item"><div class="legend-dot" style="background:rgba(255,69,102,.7);"></div>Gastos operativos</div>
-      <div class="legend-item"><div class="legend-line" style="background:#00E5A0;"></div>Utilidad bruta</div>
+      <div class="legend-item"><div class="legend-line" style="background:#34D399;"></div>Utilidad bruta</div>
     </div>
   </div>
   <div class="cc">
@@ -427,9 +427,9 @@ tbody tr:hover td{background:rgba(77,166,255,.05)!important;}
     </div>
     <canvas id="ch-ratios"></canvas>
     <div class="legend" id="legend-ratios">
-      <div class="legend-item"><div class="legend-line" style="background:#E6A800;"></div>% Gastos/Ventas</div>
-      <div class="legend-item"><div class="legend-line" style="background:#00E5A0;"></div>% Margen bruto</div>
-      <div class="legend-item"><div class="legend-dash" style="border-top-color:#FF4566;"></div>Alerta 25%</div>
+      <div class="legend-item"><div class="legend-line" style="background:#E0B341;"></div>% Gastos/Ventas</div>
+      <div class="legend-item"><div class="legend-line" style="background:#34D399;"></div>% Margen bruto</div>
+      <div class="legend-item"><div class="legend-dash" style="border-top-color:#F87171;"></div>Alerta 25%</div>
     </div>
   </div>
 </div>
@@ -443,9 +443,9 @@ tbody tr:hover td{background:rgba(77,166,255,.05)!important;}
       <div class="cc-sub">Cada punto = un mes. Color según ratio de eficiencia.</div>
     </div>
     <div class="legend">
-      <div class="legend-item"><div class="legend-dot" style="background:#00E5A0;"></div>&lt;25% (eficiente)</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#E6A800;"></div>25–35% (alerta)</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#FF4566;"></div>&gt;35% (crítico)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#34D399;"></div>&lt;25% (eficiente)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#E0B341;"></div>25–35% (alerta)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#F87171;"></div>&gt;35% (crítico)</div>
     </div>
   </div>
   <div class="scatter-wrap">
@@ -706,8 +706,8 @@ function renderTemporal(meses,ventas,gastos,utilidad){
         },
         {
           type:'line',label:'Utilidad bruta',data:utilidad.map(u=>+(u/1e6).toFixed(3)),
-          borderColor:'#00E5A0',backgroundColor:'rgba(0,229,160,.1)',
-          borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#00E5A0',
+          borderColor:'#34D399',backgroundColor:'rgba(0,229,160,.1)',
+          borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#34D399',
           tension:.35,fill:false,order:1,
           pointHoverRadius:6,
         }
@@ -753,15 +753,15 @@ function renderRatios(meses,ratiosGasto,ratiosMargen){
       datasets:[
         {
           type:'line',label:'% Gastos/Ventas',data:ratiosGasto,
-          borderColor:'#E6A800',backgroundColor:'rgba(230,168,0,.08)',
-          borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#E6A800',
+          borderColor:'#E0B341',backgroundColor:'rgba(230,168,0,.08)',
+          borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#E0B341',
           tension:.35,fill:true,order:1,
           pointHoverRadius:6,
         },
         {
           type:'line',label:'% Margen bruto',data:ratiosMargen,
-          borderColor:'#00E5A0',backgroundColor:'rgba(0,229,160,.06)',
-          borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#00E5A0',
+          borderColor:'#34D399',backgroundColor:'rgba(0,229,160,.06)',
+          borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#34D399',
           tension:.35,fill:false,order:2,
           pointHoverRadius:6,
         },

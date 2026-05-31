@@ -4,7 +4,7 @@
 <style>
 :root { --bg:#f0f2f5; --card:#fff; --text:#212529; --muted:#6c757d;
   --c1:#4C72B0; --c2:#DD8452; --c3:#55A868; --c4:#C44E52; --c5:#8172B3;
-  --pos:#28a745; --neg:#dc3545; --warn:#ffc107; --gap:14px; --rad:10px; }
+  --pos:#28a745; --neg:#dc3545; --warn:#FBBF24; --gap:14px; --rad:10px; }
 * { margin:0; padding:0; box-sizing:border-box; }
 body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); line-height:1.5; }
 .dash { max-width:1400px; margin:0 auto; padding:var(--gap); }
@@ -67,8 +67,8 @@ tbody tr:hover { background:#f8f9fa; }
   --bg:#060E1A!important;--bg2:#0B1628!important;--bg3:#0F1E35!important;
   --card:rgba(11,22,40,.9)!important;--text:#E8EEF6!important;--muted:#8FA3BE!important;
   --light:rgba(255,255,255,.05)!important;
-  --gold:#E6A800;--gold-glow:rgba(230,168,0,.18);
-  --pos:#00E5A0!important;--neg:#FF5A5A!important;--warn:#E6A800!important;
+  --gold:#E0B341;--gold-glow:rgba(230,168,0,.18);
+  --pos:#34D399!important;--neg:#FF5A5A!important;--warn:#E0B341!important;
   --rad:14px!important;--gap:16px!important;
   --border:rgba(255,255,255,.07);
 }
@@ -98,7 +98,7 @@ html, body { background:#060E1A!important; color:#E8EEF6!important; }
 .hdr h1 {
   font-size:clamp(1.1rem,2.5vw,1.5rem)!important;
   font-weight:800!important;
-  background:linear-gradient(135deg,#fff 0%,#E6A800 100%)!important;
+  background:linear-gradient(135deg,#fff 0%,#E0B341 100%)!important;
   -webkit-background-clip:text!important;
   -webkit-text-fill-color:transparent!important;
   background-clip:text!important;
@@ -128,7 +128,7 @@ html, body { background:#060E1A!important; color:#E8EEF6!important; }
 .hdr .nav a.active, .hdr nav a.active {
   background:linear-gradient(135deg,rgba(230,168,0,.2),rgba(230,168,0,.08))!important;
   border-color:rgba(230,168,0,.4)!important;
-  color:#E6A800!important;font-weight:600!important;
+  color:#E0B341!important;font-weight:600!important;
 }
 
 /* ── KPI Cards ── */
@@ -201,9 +201,9 @@ tbody td {
 tbody tr:hover { background:rgba(255,255,255,.03)!important; }
 
 /* ── Colors ── */
-.pos { color:#00E5A0!important; }
+.pos { color:#34D399!important; }
 .neg { color:#FF5A5A!important; }
-.warn { color:#E6A800!important; }
+.warn { color:#E0B341!important; }
 
 /* ── Filters ── */
 .filters, .filters-bar {
@@ -332,7 +332,7 @@ const vends=[...new Set(D.alertas.map(a=>a.vendedor))].sort();
 const selV=document.getElementById('sel-vend');
 vends.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v.split(' - ')[0];selV.appendChild(o);});
 
-const statusColors={'ACTIVO':'#28a745','ATRASADO':'#1976d2','EN RIESGO':'#ffc107','CRITICO':'#e65100','PERDIDO':'#dc3545'};
+const statusColors={'ACTIVO':'#28a745','ATRASADO':'#1976d2','EN RIESGO':'#FBBF24','CRITICO':'#e65100','PERDIDO':'#dc3545'};
 const statusBadge={'ACTIVO':'b-activo','ATRASADO':'b-atrasado','EN RIESGO':'b-riesgo','CRITICO':'b-critico','PERDIDO':'b-perdido'};
 
 let chStatus,chVend;
@@ -382,7 +382,7 @@ function render(){
   document.getElementById('tbl-title').textContent=`Detalle de Alertas (${n} clientes)`;
   let h='';
   data.forEach(a=>{
-    const riskColor=a.risk>=80?'#dc3545':a.risk>=50?'#e65100':a.risk>=30?'#ffc107':'#28a745';
+    const riskColor=a.risk>=80?'#dc3545':a.risk>=50?'#e65100':a.risk>=30?'#FBBF24':'#28a745';
     const slowTxt=a.slowdown>0?`<span style="color:var(--neg)">+${a.slowdown}%</span>`:`<span style="color:var(--pos)">${a.slowdown}%</span>`;
     h+=`<tr>
       <td>${a.cliente}</td>

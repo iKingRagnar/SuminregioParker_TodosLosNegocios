@@ -134,13 +134,13 @@ html:not([data-theme="light"]) body::after {
   position: absolute;
   bottom: 0; left: 50%; right: 50%;
   height: 1.5px;
-  background: var(--suminregio, #E6A800);
+  background: var(--suminregio, #E0B341);
   transition: left .25s var(--du-ease), right .25s var(--du-ease);
   opacity: 0;
 }
 .nav-link:hover::after { left: 8px; right: 8px; opacity: .6; }
 .nav-link.active {
-  color: #E6A800 !important;
+  color: #E0B341 !important;
   background: rgba(230,168,0,.1) !important;
   box-shadow: 0 0 16px rgba(230,168,0,.15), inset 0 0 12px rgba(230,168,0,.05) !important;
 }
@@ -371,12 +371,12 @@ html:not([data-theme="light"]) body::after {
 .hero-title, .hero-title-v2 {
   background: linear-gradient(
     135deg,
-    #E6A800 0%,
+    #E0B341 0%,
     #FFD040 18%,
-    #FF8C42 40%,
-    #FF4566 58%,
+    #FB923C 40%,
+    #F87171 58%,
     #9B6DFF 78%,
-    #E6A800 100%
+    #E0B341 100%
   ) !important;
   background-size: 300% auto !important;
   -webkit-background-clip: text !important;
@@ -417,13 +417,13 @@ html:not([data-theme="light"]) body::after {
 .sc-table tbody tr:hover td:first-child,
 .tbl tbody tr:hover td:first-child,
 .uni-table tbody tr:hover td:first-child {
-  box-shadow: inset 3px 0 0 var(--suminregio, #E6A800) !important;
+  box-shadow: inset 3px 0 0 var(--suminregio, #E0B341) !important;
 }
 .t-val, .sc-val, .num, .kpi-value, .mod-kpi-val {
   font-variant-numeric: tabular-nums !important;
 }
-.delta-up   { color: #00E5A0 !important; text-shadow: 0 0 10px rgba(0,229,160,.3); }
-.delta-down { color: #FF4566 !important; text-shadow: 0 0 10px rgba(255,69,102,.3); }
+.delta-up   { color: #34D399 !important; text-shadow: 0 0 10px rgba(0,229,160,.3); }
+.delta-down { color: #F87171 !important; text-shadow: 0 0 10px rgba(255,69,102,.3); }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    §9  SECTION DIVIDERS
@@ -449,7 +449,7 @@ html:not([data-theme="light"]) body::after {
 }
 .section-divider-label::before {
   content: '◆';
-  color: var(--suminregio, #E6A800);
+  color: var(--suminregio, #E0B341);
   font-size: .46rem;
   animation: diamond-spin 4s ease-in-out infinite;
 }
@@ -466,18 +466,18 @@ html:not([data-theme="light"]) body::after {
 .sem.danger{ background: rgba(255,69,102,.1) !important; border-color: rgba(255,69,102,.25) !important; }
 
 .sem-dot { animation: dot-beat 2s ease-in-out infinite; }
-.sem.ok    .sem-dot { background: #00E5A0 !important; box-shadow: 0 0 6px #00E5A0; }
-.sem.warn  .sem-dot { background: #FFB800 !important; box-shadow: 0 0 6px #FFB800; }
-.sem.danger.sem-dot { background: #FF4566 !important; box-shadow: 0 0 6px #FF4566; }
+.sem.ok    .sem-dot { background: #34D399 !important; box-shadow: 0 0 6px #34D399; }
+.sem.warn  .sem-dot { background: #FBBF24 !important; box-shadow: 0 0 6px #FBBF24; }
+.sem.danger.sem-dot { background: #F87171 !important; box-shadow: 0 0 6px #F87171; }
 
 @keyframes dot-beat {
   0%, 100% { transform: scale(1);    opacity: 1; }
   50%       { transform: scale(1.5); opacity: .7; }
 }
 
-.tag.up   { background: rgba(0,229,160,.12) !important;  color: #00E5A0 !important; border: 1px solid rgba(0,229,160,.28) !important;  box-shadow: 0 0 10px rgba(0,229,160,.15) !important; }
-.tag.down { background: rgba(255,69,102,.12) !important; color: #FF4566 !important; border: 1px solid rgba(255,69,102,.28) !important; box-shadow: 0 0 10px rgba(255,69,102,.15) !important; }
-.tag.warn { background: rgba(255,184,0,.12) !important;  color: #FFB800 !important; border: 1px solid rgba(255,184,0,.28) !important;  box-shadow: 0 0 10px rgba(255,184,0,.12) !important; }
+.tag.up   { background: rgba(0,229,160,.12) !important;  color: #34D399 !important; border: 1px solid rgba(0,229,160,.28) !important;  box-shadow: 0 0 10px rgba(0,229,160,.15) !important; }
+.tag.down { background: rgba(255,69,102,.12) !important; color: #F87171 !important; border: 1px solid rgba(255,69,102,.28) !important; box-shadow: 0 0 10px rgba(255,69,102,.15) !important; }
+.tag.warn { background: rgba(255,184,0,.12) !important;  color: #FBBF24 !important; border: 1px solid rgba(255,184,0,.28) !important;  box-shadow: 0 0 10px rgba(255,184,0,.12) !important; }
 
 .biz-chip.active {
   box-shadow: 0 0 16px rgba(230,168,0,.2), inset 0 1px 0 rgba(255,255,255,.08) !important;
@@ -600,7 +600,7 @@ input:focus, select:focus, textarea:focus, .search-input:focus {
    §18  AI FAB BUTTON — neon pulsante
    ═══════════════════════════════════════════════════════════════════════════ */
 #cw-fab {
-  background: linear-gradient(135deg, #E6A800, #FF8C42) !important;
+  background: linear-gradient(135deg, #E0B341, #FB923C) !important;
   animation: fab-glow 3s ease-in-out infinite !important;
 }
 @keyframes fab-glow {
@@ -757,7 +757,7 @@ html:not([data-theme="light"]) .kpi-card:hover {
     radial-gradient(ellipse 90% 80% at var(--tilt-shine-x,50%) var(--tilt-shine-y,50%), rgba(255,255,255,.09) 0%, transparent 65%),
     linear-gradient(135deg, rgba(255,255,255,.03) 0%, transparent 50%),
     linear-gradient(var(--s1,#0C1B29), var(--s1,#0C1B29)),
-    conic-gradient(from var(--bdr-angle), rgba(255,255,255,.04) 0deg, var(--kpi-c,#E6A800) 90deg, rgba(255,255,255,.5) 180deg, var(--kpi-c,#E6A800) 270deg, rgba(255,255,255,.04) 360deg) !important;
+    conic-gradient(from var(--bdr-angle), rgba(255,255,255,.04) 0deg, var(--kpi-c,#E0B341) 90deg, rgba(255,255,255,.5) 180deg, var(--kpi-c,#E0B341) 270deg, rgba(255,255,255,.04) 360deg) !important;
   background-origin: padding-box, padding-box, padding-box, border-box !important;
   background-clip: padding-box, padding-box, padding-box, border-box !important;
   animation: conic-spin 4s linear infinite !important;
@@ -892,8 +892,8 @@ html:not([data-theme="light"]) .tbl tbody tr:hover td:first-child {
    §32  PROGRESS BARS — glow + gradiente premium
    ═══════════════════════════════════════════════════════════════════════════ */
 html:not([data-theme="light"]) .meta-bar-fill {
-  background: linear-gradient(90deg, var(--kpi-c, #E6A800), color-mix(in srgb, var(--kpi-c, #E6A800) 60%, white)) !important;
-  box-shadow: 0 0 8px var(--kpi-c, #E6A800) !important;
+  background: linear-gradient(90deg, var(--kpi-c, #E0B341), color-mix(in srgb, var(--kpi-c, #E0B341) 60%, white)) !important;
+  box-shadow: 0 0 8px var(--kpi-c, #E0B341) !important;
   height: 4px !important;
   border-radius: 99px !important;
 }
@@ -925,7 +925,7 @@ html:not([data-theme="light"]) .section-title::before {
   width: 3px !important;
   height: 1.1em !important;
   border-radius: 99px !important;
-  background: linear-gradient(180deg, #E6A800, #FF8C42) !important;
+  background: linear-gradient(180deg, #E0B341, #FB923C) !important;
   box-shadow: 0 0 10px rgba(230,168,0,.5) !important;
   flex-shrink: 0 !important;
 }
@@ -960,7 +960,7 @@ html:not([data-theme="light"]) .module-card:hover {
     radial-gradient(ellipse at var(--tilt-shine-x,50%) var(--tilt-shine-y,50%), rgba(255,255,255,.065) 0%, transparent 60%),
     linear-gradient(135deg, rgba(255,255,255,.025) 0%, transparent 50%),
     linear-gradient(var(--s1,#0C1B29), var(--s1,#0C1B29)),
-    conic-gradient(from var(--bdr-angle), rgba(255,255,255,.03) 0deg, var(--mod-c,#E6A800) 120deg, rgba(255,255,255,.4) 180deg, var(--mod-c,#E6A800) 240deg, rgba(255,255,255,.03) 360deg) !important;
+    conic-gradient(from var(--bdr-angle), rgba(255,255,255,.03) 0deg, var(--mod-c,#E0B341) 120deg, rgba(255,255,255,.4) 180deg, var(--mod-c,#E0B341) 240deg, rgba(255,255,255,.03) 360deg) !important;
   background-origin: padding-box, padding-box, padding-box, border-box !important;
   background-clip: padding-box, padding-box, padding-box, border-box !important;
   animation: conic-spin 5s linear infinite !important;
@@ -979,7 +979,7 @@ html:not([data-theme="light"]) .card-badge {
 html:not([data-theme="light"]) .card-badge:hover {
   background: rgba(230,168,0,.1) !important;
   border-color: rgba(230,168,0,.3) !important;
-  color: #E6A800 !important;
+  color: #E0B341 !important;
 }
 html:not([data-theme="light"]) .tag.up,
 html:not([data-theme="light"]) .tag.down,
@@ -1037,7 +1037,7 @@ html:not([data-theme="light"]) textarea:hover {
    §38  BOTTOM NAV PREMIUM v2 — indicadores mejorados
    ═══════════════════════════════════════════════════════════════════════════ */
 html:not([data-theme="light"]) #sumi-bottom-nav .bn-item.active {
-  color: #E6A800 !important;
+  color: #E0B341 !important;
 }
 html:not([data-theme="light"]) #sumi-bottom-nav .bn-item.active svg {
   filter: drop-shadow(0 0 6px rgba(230,168,0,.6)) !important;
@@ -1050,7 +1050,7 @@ html:not([data-theme="light"]) #sumi-bottom-nav .bn-item::after {
   width: 0 !important;
   height: 2px !important;
   border-radius: 99px !important;
-  background: #E6A800 !important;
+  background: #E0B341 !important;
   box-shadow: 0 0 8px rgba(230,168,0,.7) !important;
   transform: translateX(-50%) !important;
   transition: width .25s var(--du-ease) !important;
@@ -1073,7 +1073,7 @@ html:not([data-theme="light"]) #sumi-cmdpal {
 html:not([data-theme="light"]) #cmd-input {
   background: rgba(255,255,255,.04) !important;
   border-bottom: 1px solid rgba(255,255,255,.08) !important;
-  caret-color: #E6A800 !important;
+  caret-color: #E0B341 !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -1313,7 +1313,7 @@ html:not([data-theme="light"]) textarea { cursor: text !important; }
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #E6A800;
+  background: #E0B341;
   pointer-events: none;
   z-index: 999999;
   transform: translate(-50%, -50%);
@@ -1367,7 +1367,7 @@ html:not([data-theme="light"]) textarea { cursor: text !important; }
 @keyframes liquid-flow { 0%{background-position:0% center} 100%{background-position:200% center} }
 
 html:not([data-theme="light"]) .kpi-card.yellow .kpi-value {
-  background: linear-gradient(90deg, #8B5E00 0%, #C17F00 15%, #E6A800 28%, #FFE169 40%, #E6A800 52%, #C17F00 65%, #FFD040 78%, #E6A800 90%, #8B5E00 100%);
+  background: linear-gradient(90deg, #8B5E00 0%, #C17F00 15%, #E0B341 28%, #FFE169 40%, #E0B341 52%, #C17F00 65%, #FFD040 78%, #E0B341 90%, #8B5E00 100%);
   background-size: 200% auto;
   -webkit-background-clip: text !important;
   background-clip: text !important;
@@ -1378,7 +1378,7 @@ html:not([data-theme="light"]) .kpi-card.yellow .kpi-value {
   text-shadow: none !important;
 }
 html:not([data-theme="light"]) .kpi-card.green .kpi-value {
-  background: linear-gradient(90deg, #007850 0%, #00B87A 15%, #00E5A0 30%, #6FFFD8 42%, #00E5A0 55%, #00B87A 68%, #00E5A0 82%, #007850 100%);
+  background: linear-gradient(90deg, #007850 0%, #00B87A 15%, #34D399 30%, #6FFFD8 42%, #34D399 55%, #00B87A 68%, #34D399 82%, #007850 100%);
   background-size: 200% auto;
   -webkit-background-clip: text !important;
   background-clip: text !important;
@@ -1400,7 +1400,7 @@ html:not([data-theme="light"]) .kpi-card.blue .kpi-value {
   text-shadow: none !important;
 }
 html:not([data-theme="light"]) .kpi-card.orange .kpi-value {
-  background: linear-gradient(90deg, #8B3800 0%, #C05200 15%, #FF8C42 30%, #FFBA85 42%, #FF8C42 55%, #C05200 68%, #FF8C42 82%, #8B3800 100%);
+  background: linear-gradient(90deg, #8B3800 0%, #C05200 15%, #FB923C 30%, #FFBA85 42%, #FB923C 55%, #C05200 68%, #FB923C 82%, #8B3800 100%);
   background-size: 200% auto;
   -webkit-background-clip: text !important;
   background-clip: text !important;
@@ -1411,7 +1411,7 @@ html:not([data-theme="light"]) .kpi-card.orange .kpi-value {
   text-shadow: none !important;
 }
 html:not([data-theme="light"]) .kpi-card.red .kpi-value {
-  background: linear-gradient(90deg, #8B0020 0%, #CC0035 15%, #FF4566 30%, #FF8FA1 42%, #FF4566 55%, #CC0035 68%, #FF4566 82%, #8B0020 100%);
+  background: linear-gradient(90deg, #8B0020 0%, #CC0035 15%, #F87171 30%, #FF8FA1 42%, #F87171 55%, #CC0035 68%, #F87171 82%, #8B0020 100%);
   background-size: 200% auto;
   -webkit-background-clip: text !important;
   background-clip: text !important;
@@ -1575,7 +1575,7 @@ html:not([data-theme="light"]) header {
   height: 2.5px !important;
   z-index: 999997 !important;
   pointer-events: none !important;
-  background: linear-gradient(90deg, #E6A800, #FF8C42 40%, #00E5A0 70%, #4DA6FF) !important;
+  background: linear-gradient(90deg, #E0B341, #FB923C 40%, #34D399 70%, #4DA6FF) !important;
   box-shadow: 0 0 10px rgba(230,168,0,.6), 0 0 20px rgba(230,168,0,.3) !important;
   border-radius: 0 2px 2px 0 !important;
   transition: width .3s ease, opacity .4s !important;
@@ -1624,7 +1624,7 @@ html:not([data-theme="light"]) .section-main-title::after {
   left: 0 !important;
   width: 40% !important;
   height: 1.5px !important;
-  background: linear-gradient(90deg, #E6A800, rgba(77,166,255,.5), transparent) !important;
+  background: linear-gradient(90deg, #E0B341, rgba(77,166,255,.5), transparent) !important;
   border-radius: 99px !important;
   box-shadow: 0 0 8px rgba(230,168,0,.35) !important;
 }
@@ -2182,7 +2182,7 @@ html:not([data-theme="light"]) .tab-btn:hover::before { opacity: 1; }
 html:not([data-theme="light"]) .tab-btn.active {
   background: rgba(230,168,0,.1) !important;
   border-color: rgba(230,168,0,.4) !important;
-  color: #E6A800 !important;
+  color: #E0B341 !important;
   box-shadow:
     0 0 12px rgba(230,168,0,.18),
     inset 0 0 10px rgba(230,168,0,.05) !important;
@@ -2191,7 +2191,7 @@ html:not([data-theme="light"]) .tab-btn.active {
 html:not([data-theme="light"]) .tab-btn.active.green {
   background: rgba(0,229,160,.1) !important;
   border-color: rgba(0,229,160,.4) !important;
-  color: #00E5A0 !important;
+  color: #34D399 !important;
   box-shadow: 0 0 12px rgba(0,229,160,.18), inset 0 0 10px rgba(0,229,160,.05) !important;
 }
 html:not([data-theme="light"]) .tab-btn.active.blue {
@@ -2203,7 +2203,7 @@ html:not([data-theme="light"]) .tab-btn.active.blue {
 html:not([data-theme="light"]) .tab-btn.active.red {
   background: rgba(255,69,102,.1) !important;
   border-color: rgba(255,69,102,.4) !important;
-  color: #FF4566 !important;
+  color: #F87171 !important;
   box-shadow: 0 0 12px rgba(255,69,102,.18), inset 0 0 10px rgba(255,69,102,.05) !important;
 }
 
@@ -2278,7 +2278,7 @@ html:not([data-theme="light"]) .kpi:hover {
   background-image:
     radial-gradient(ellipse 90% 80% at var(--tilt-shine-x,50%) var(--tilt-shine-y,50%), rgba(255,255,255,.07) 0%, transparent 65%),
     linear-gradient(var(--s1,#0C1B29), var(--s1,#0C1B29)),
-    conic-gradient(from var(--bdr-angle), rgba(255,255,255,.04) 0deg, var(--kc,#E6A800) 90deg, rgba(255,255,255,.5) 180deg, var(--kc,#E6A800) 270deg, rgba(255,255,255,.04) 360deg) !important;
+    conic-gradient(from var(--bdr-angle), rgba(255,255,255,.04) 0deg, var(--kc,#E0B341) 90deg, rgba(255,255,255,.5) 180deg, var(--kc,#E0B341) 270deg, rgba(255,255,255,.04) 360deg) !important;
   background-origin: padding-box, padding-box, border-box !important;
   background-clip: padding-box, padding-box, border-box !important;
   animation: conic-spin 4s linear infinite !important;
@@ -2415,7 +2415,7 @@ html.theme-premium-light #sumi-tooltip {
   transition: width .08s linear;
 }
 html:not([data-theme="light"]) #sumi-scroll-progress {
-  background: linear-gradient(90deg, #E6A800, #FF8C42, #4DA6FF, #00E5A0);
+  background: linear-gradient(90deg, #E0B341, #FB923C, #4DA6FF, #34D399);
 }
 html[data-theme="light"] #sumi-scroll-progress,
 html.theme-premium-light #sumi-scroll-progress {
@@ -2438,9 +2438,9 @@ html:not([data-theme="light"]) .kpi::before {
   background: linear-gradient(
     90deg,
     transparent,
-    var(--kc, #E6A800) 30%,
+    var(--kc, #E0B341) 30%,
     rgba(255,255,255,.85) 50%,
-    var(--kc, #E6A800) 70%,
+    var(--kc, #E0B341) 70%,
     transparent
   ) !important;
   background-size: 300% 100% !important;
@@ -2539,7 +2539,7 @@ html:not([data-theme="light"]) .card:hover .card-title svg {
   filter: drop-shadow(0 0 12px rgba(230,168,0,.8)) !important;
 }
 /* Colores de icono contextuales */
-html:not([data-theme="light"]) .card-title svg[stroke="#00E5A0"],
+html:not([data-theme="light"]) .card-title svg[stroke="#34D399"],
 html:not([data-theme="light"]) .card-title svg.green { filter: drop-shadow(0 0 6px rgba(0,229,160,.55)) !important; }
 html:not([data-theme="light"]) .card-title svg[stroke="#4DA6FF"],
 html:not([data-theme="light"]) .card-title svg.blue  { filter: drop-shadow(0 0 6px rgba(77,166,255,.55)) !important; }

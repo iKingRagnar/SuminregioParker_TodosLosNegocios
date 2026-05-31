@@ -16,11 +16,11 @@ window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
   --bg:#060E1A;--s1:#0C1B29;--s2:#112233;--s3:#172D42;--brd:rgba(255,255,255,.08);
-  --txt:#E8EFF8;--muted:#8DA2BF;--acc:#E6A800;--acc-dim:rgba(230,168,0,.15);
-  --green:#00E5A0;--green-dim:rgba(0,229,160,.14);
+  --txt:#E8EFF8;--muted:#8DA2BF;--acc:#E0B341;--acc-dim:rgba(230,168,0,.15);
+  --green:#34D399;--green-dim:rgba(0,229,160,.14);
   --blue:#4DA6FF;--blue-dim:rgba(77,166,255,.14);
-  --purple:#9B6DFF;--orange:#FF8C42;--yellow:#FFB800;
-  --red:#FF4566;--red-dim:rgba(255,69,102,.14);
+  --purple:#9B6DFF;--orange:#FB923C;--yellow:#FBBF24;
+  --red:#F87171;--red-dim:rgba(255,69,102,.14);
   --rad:16px;--gap:18px;
 }
 body{background:var(--bg);color:var(--txt);font-family:'Syne',sans-serif;min-height:100vh}
@@ -28,7 +28,7 @@ body{background:var(--bg);color:var(--txt);font-family:'Syne',sans-serif;min-hei
 /* ─── ORB BACKGROUNDS ─── */
 .orb{position:fixed;border-radius:50%;filter:blur(130px);opacity:.1;pointer-events:none;z-index:0}
 .o1{width:600px;height:600px;left:-150px;top:-150px;background:radial-gradient(circle,#1E7FD9,transparent 70%)}
-.o2{width:500px;height:500px;right:-130px;bottom:-130px;background:radial-gradient(circle,#00E5A0,transparent 70%)}
+.o2{width:500px;height:500px;right:-130px;bottom:-130px;background:radial-gradient(circle,#34D399,transparent 70%)}
 
 /* ─── HEADER ─── */
 header{position:sticky;top:0;z-index:20;background:rgba(5,11,20,.88);backdrop-filter:blur(18px);border-bottom:1px solid var(--brd)}
@@ -728,9 +728,9 @@ function getTheme(){
   } : {
     light:false, text:'#8DA2BF', textHi:'#E8EFF8', grid:'rgba(255,255,255,0.07)',
     line:'#4DA6FF', lineFill:'rgba(77,166,255,0.12)', lineFill2:'rgba(0,229,160,0.1)',
-    barU:'rgba(0,229,160,0.7)', bar$:'rgba(230,168,0,0.55)', barLine:'#E6A800',
+    barU:'rgba(0,229,160,0.7)', bar$:'rgba(230,168,0,0.55)', barLine:'#E0B341',
     tipBg:'rgba(11,27,41,0.96)', tipTitle:'#E8EFF8', tipBody:'#8DA2BF', tipBorder:'rgba(255,255,255,0.08)',
-    acc:'#E6A800', green:'#00E5A0', red:'#FF4566', yellow:'#FFB800', blue:'#4DA6FF'
+    acc:'#E0B341', green:'#34D399', red:'#F87171', yellow:'#FBBF24', blue:'#4DA6FF'
   };
 }
 

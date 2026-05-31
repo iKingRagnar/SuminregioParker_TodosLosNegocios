@@ -13,11 +13,11 @@
 :root{
   --bg:#060E1A;--s1:#0C1B29;--s2:#112233;--s3:#172D42;--s4:#1D3654;
   --border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.11);
-  --suminregio:#E6A800;--suminregio-dim:rgba(230,168,0,.15);
-  --green:#00E5A0;--green-dim:rgba(0,229,160,.1);
-  --yellow:#FFB800;--yellow-dim:rgba(255,184,0,.12);
-  --orange:#FF8C42;--orange-dim:rgba(255,140,66,.1);
-  --red:#FF4566;--red-dim:rgba(255,69,102,.12);
+  --suminregio:#E0B341;--suminregio-dim:rgba(230,168,0,.15);
+  --green:#34D399;--green-dim:rgba(0,229,160,.1);
+  --yellow:#FBBF24;--yellow-dim:rgba(255,184,0,.12);
+  --orange:#FB923C;--orange-dim:rgba(255,140,66,.1);
+  --red:#F87171;--red-dim:rgba(255,69,102,.12);
   --blue:#4DA6FF;--blue-dim:rgba(77,166,255,.1);
   --purple:#9B6DFF;--purple-dim:rgba(155,109,255,.1);
   --text:#E8EFF8;--text2:#B0BECE;--muted:#5A7090;--dim:#243348;
@@ -27,7 +27,7 @@ body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-he
 .bg-orbs{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
 .orb{position:absolute;border-radius:50%;filter:blur(130px);opacity:.12;animation:drift 20s ease-in-out infinite alternate}
 .orb-1{width:600px;height:600px;background:radial-gradient(circle,#1E7FD9,transparent 70%);bottom:-100px;right:-100px}
-.orb-2{width:500px;height:500px;background:radial-gradient(circle,#FFB800,transparent 70%);top:-100px;left:-100px;animation-delay:-5s}
+.orb-2{width:500px;height:500px;background:radial-gradient(circle,#FBBF24,transparent 70%);top:-100px;left:-100px;animation-delay:-5s}
 .orb-3{width:400px;height:400px;background:radial-gradient(circle,rgba(230,168,0,.5),transparent 72%);top:42%;right:15%;opacity:.07;animation-delay:-11s}
 @keyframes drift{0%{transform:translate(0,0)}100%{transform:translate(15px,15px)}}
 header{position:sticky;top:0;z-index:100;background:rgba(5,11,20,.85);backdrop-filter:blur(20px);border-bottom:1px solid var(--border)}
@@ -735,14 +735,14 @@ function renderChart(computed) {
         {
           label: 'Capital Total',
           data: capData,
-          borderColor: '#FFB800',
+          borderColor: '#FBBF24',
           backgroundColor: 'rgba(255,184,0,.05)',
           fill: false,
           tension: .35,
           borderWidth: 3,
           pointRadius: 2,
           pointHoverRadius: 6,
-          pointBackgroundColor: '#FFB800',
+          pointBackgroundColor: '#FBBF24',
         },
       ]
     },

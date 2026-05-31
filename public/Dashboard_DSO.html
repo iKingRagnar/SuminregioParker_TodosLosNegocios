@@ -5,7 +5,7 @@
 :root { --bg:#f0f2f5; --card:#fff; --text:#212529; --muted:#6c757d; --light:#e9ecef;
   --c1:#4C72B0; --c2:#DD8452; --c3:#55A868; --c4:#C44E52; --c5:#8172B3;
   --c6:#937860; --c7:#DA8BC3; --c8:#CCB974; --c9:#64B5CD; --c10:#8C8C8C;
-  --pos:#28a745; --neg:#dc3545; --warn:#ffc107; --gap:14px; --rad:10px; }
+  --pos:#28a745; --neg:#dc3545; --warn:#FBBF24; --gap:14px; --rad:10px; }
 * { margin:0; padding:0; box-sizing:border-box; }
 body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--text); line-height:1.5; }
 .dash { max-width:1400px; margin:0 auto; padding:var(--gap); }
@@ -59,8 +59,8 @@ tbody tr:hover { background:#f8f9fa; }
   --bg:#060E1A!important;--bg2:#0B1628!important;--bg3:#0F1E35!important;
   --card:rgba(11,22,40,.9)!important;--text:#E8EEF6!important;--muted:#8FA3BE!important;
   --light:rgba(255,255,255,.05)!important;
-  --gold:#E6A800;--gold-glow:rgba(230,168,0,.18);
-  --pos:#00E5A0!important;--neg:#FF5A5A!important;--warn:#E6A800!important;
+  --gold:#E0B341;--gold-glow:rgba(230,168,0,.18);
+  --pos:#34D399!important;--neg:#FF5A5A!important;--warn:#E0B341!important;
   --rad:14px!important;--gap:16px!important;
   --border:rgba(255,255,255,.07);
 }
@@ -90,7 +90,7 @@ html, body { background:#060E1A!important; color:#E8EEF6!important; }
 .hdr h1 {
   font-size:clamp(1.1rem,2.5vw,1.5rem)!important;
   font-weight:800!important;
-  background:linear-gradient(135deg,#fff 0%,#E6A800 100%)!important;
+  background:linear-gradient(135deg,#fff 0%,#E0B341 100%)!important;
   -webkit-background-clip:text!important;
   -webkit-text-fill-color:transparent!important;
   background-clip:text!important;
@@ -120,7 +120,7 @@ html, body { background:#060E1A!important; color:#E8EEF6!important; }
 .hdr .nav a.active, .hdr nav a.active {
   background:linear-gradient(135deg,rgba(230,168,0,.2),rgba(230,168,0,.08))!important;
   border-color:rgba(230,168,0,.4)!important;
-  color:#E6A800!important;font-weight:600!important;
+  color:#E0B341!important;font-weight:600!important;
 }
 
 /* ── KPI Cards ── */
@@ -193,9 +193,9 @@ tbody td {
 tbody tr:hover { background:rgba(255,255,255,.03)!important; }
 
 /* ── Colors ── */
-.pos { color:#00E5A0!important; }
+.pos { color:#34D399!important; }
 .neg { color:#FF5A5A!important; }
-.warn { color:#E6A800!important; }
+.warn { color:#E0B341!important; }
 
 /* ── Filters ── */
 .filters, .filters-bar {
@@ -310,7 +310,7 @@ function mesL(m){const[y,mo]=m.split('-');return MN[parseInt(mo)]+' '+y.slice(2)
 
 const D={"dso_global": 39.0, "dso_mediana": 34.0, "total_cobros": 14111308.26, "n_pagos": 584, "monthly": [{"mes": "2025-04", "dso": 20.0, "cobros": 1277981.01, "pagos": 51}, {"mes": "2025-05", "dso": 56.0, "cobros": 524433.97, "pagos": 24}, {"mes": "2025-06", "dso": 69.0, "cobros": 494126.8, "pagos": 17}, {"mes": "2025-07", "dso": 60.0, "cobros": 1185487.62, "pagos": 65}, {"mes": "2025-08", "dso": 53.0, "cobros": 1484119.29, "pagos": 57}, {"mes": "2025-09", "dso": 43.0, "cobros": 766243.97, "pagos": 41}, {"mes": "2025-10", "dso": 37.0, "cobros": 1384502.04, "pagos": 83}, {"mes": "2025-11", "dso": 33.0, "cobros": 1195075.3, "pagos": 76}, {"mes": "2025-12", "dso": 34.0, "cobros": 1181130.81, "pagos": 61}, {"mes": "2026-01", "dso": 22.0, "cobros": 981420.03, "pagos": 29}, {"mes": "2026-02", "dso": 27.0, "cobros": 1921541.45, "pagos": 73}, {"mes": "2026-03", "dso": 1.0, "cobros": 1715245.97, "pagos": 7}], "distribution": [{"bucket": "0-15 días", "count": 148}, {"bucket": "16-30 días", "count": 113}, {"bucket": "31-45 días", "count": 116}, {"bucket": "46-60 días", "count": 94}, {"bucket": "61-90 días", "count": 76}, {"bucket": "90+ días", "count": 37}], "top_clientes": [{"cliente": "ELIGETUPROFESIONAL.COM", "tipo": "Sin tipo", "dso_prom": 45.0, "dso_med": 38.0, "cobros": 8448208.95, "n_pagos": 344, "max_dias": 239}, {"cliente": "FASTENAL MEXICO", "tipo": "Mostrador", "dso_prom": 10.0, "dso_med": 10.0, "cobros": 1660331.2, "n_pagos": 2, "max_dias": 21}, {"cliente": "AMERIKA MFG", "tipo": "Mostrador", "dso_prom": 35.0, "dso_med": 33.0, "cobros": 618515.44, "n_pagos": 59, "max_dias": 83}, {"cliente": "FLEX-AUST DE MEXICO", "tipo": "Exclusivo", "dso_prom": 38.0, "dso_med": 34.0, "cobros": 476144.96, "n_pagos": 4, "max_dias": 57}, {"cliente": "FUD TRAILERS MARTINEZ", "tipo": "Mostrador", "dso_prom": 1.0, "dso_med": 0.0, "cobros": 398201.09, "n_pagos": 16, "max_dias": 16}, {"cliente": "EFICA INGENIERIA Y MAQUINADOS SA DE CV", "tipo": "Mostrador", "dso_prom": 2.0, "dso_med": 2.0, "cobros": 264569.12, "n_pagos": 2, "max_dias": 4}, {"cliente": "LORENA GUADALUPE LEAL MONTEMAYOR", "tipo": "Revendedor", "dso_prom": 21.0, "dso_med": 13.0, "cobros": 230440.99, "n_pagos": 13, "max_dias": 107}, {"cliente": "CROWN FAMOSA", "tipo": "Industrial", "dso_prom": 46.0, "dso_med": 44.0, "cobros": 224820.26, "n_pagos": 25, "max_dias": 70}, {"cliente": "CONSTRUACEROS DEL FUERTE", "tipo": "Mostrador", "dso_prom": 0.0, "dso_med": 0.0, "cobros": 207043.35, "n_pagos": 1, "max_dias": 0}, {"cliente": "SUMINISTROS Y SERVICIOS GENERALES RASO", "tipo": "Mostrador", "dso_prom": 0.0, "dso_med": 0.0, "cobros": 185068.08, "n_pagos": 1, "max_dias": 0}, {"cliente": "SERVICIO MECANICA INTEGRAL A FLOTE", "tipo": "Mostrador", "dso_prom": 0.0, "dso_med": 0.0, "cobros": 149056.94, "n_pagos": 2, "max_dias": 0}, {"cliente": "ROBERTO CARLOS RAMIREZ MARTINEZ", "tipo": "Mostrador", "dso_prom": 0.0, "dso_med": 0.0, "cobros": 118846.83, "n_pagos": 2, "max_dias": 0}, {"cliente": "REPRESENTACIONES Y EQUIPOS INDUSTRIALES ", "tipo": "Industrial", "dso_prom": 44.0, "dso_med": 56.0, "cobros": 113034.89, "n_pagos": 5, "max_dias": 96}, {"cliente": "GRUPO ZANJADOR MEXICANO", "tipo": "Mostrador", "dso_prom": 0.0, "dso_med": 0.0, "cobros": 102835.5, "n_pagos": 3, "max_dias": 0}, {"cliente": "SUPPLY AVYA", "tipo": "Revendedor", "dso_prom": 34.0, "dso_med": 35.0, "cobros": 101703.48, "n_pagos": 11, "max_dias": 41}, {"cliente": "HI-LEX CONTROLS DE MEXICO", "tipo": "Mostrador", "dso_prom": 72.0, "dso_med": 72.0, "cobros": 74240.0, "n_pagos": 1, "max_dias": 72}, {"cliente": "MUNTER MANGUERAS Y CONEXIONES", "tipo": "Revendedor", "dso_prom": 62.0, "dso_med": 62.0, "cobros": 73608.16, "n_pagos": 2, "max_dias": 91}, {"cliente": "ADVANCED STEEL TECHNOLOGY DE MEXICO", "tipo": "Mostrador", "dso_prom": 18.0, "dso_med": 10.0, "cobros": 66796.5, "n_pagos": 14, "max_dias": 52}, {"cliente": "VICTOR LAZARO RODRIGUEZ", "tipo": "Mostrador", "dso_prom": 0.0, "dso_med": 0.0, "cobros": 61863.64, "n_pagos": 1, "max_dias": 0}, {"cliente": "LIQESA", "tipo": "Mostrador", "dso_prom": 75.0, "dso_med": 83.0, "cobros": 54322.96, "n_pagos": 8, "max_dias": 125}, {"cliente": "COMERCIALIZADORA NEHIRO DE CHICAGO", "tipo": "Revendedor", "dso_prom": 39.0, "dso_med": 39.0, "cobros": 50437.75, "n_pagos": 1, "max_dias": 39}, {"cliente": "ATLAS EXPERTOS TECNICOS EN METROLOGIA", "tipo": "Mostrador", "dso_prom": 0.0, "dso_med": 0.0, "cobros": 47815.25, "n_pagos": 9, "max_dias": 0}, {"cliente": "MAESE INGENIERIA EN POTENCIA ", "tipo": "Volumen", "dso_prom": 48.0, "dso_med": 50.0, "cobros": 47799.67, "n_pagos": 4, "max_dias": 55}, {"cliente": "MARMON ENGINE TECHNOLOGIES MEXICO", "tipo": "Mostrador", "dso_prom": 2.0, "dso_med": 0.0, "cobros": 33280.4, "n_pagos": 4, "max_dias": 6}, {"cliente": "INTEGRADORA DE SUMINISTROS BOCANEGRA", "tipo": "Mostrador", "dso_prom": 0.0, "dso_med": 0.0, "cobros": 32565.5, "n_pagos": 2, "max_dias": 0}], "worst_payers": [{"cliente": "BOX-UP", "dso_prom": 141.0, "cobros": 17100.16, "n_pagos": 3}, {"cliente": "LIQESA", "dso_prom": 75.0, "cobros": 54322.96, "n_pagos": 8}, {"cliente": "MAESE INGENIERIA EN POTENCIA ", "dso_prom": 48.0, "cobros": 47799.67, "n_pagos": 4}, {"cliente": "CROWN FAMOSA", "dso_prom": 46.0, "cobros": 224820.26, "n_pagos": 25}, {"cliente": "ELIGETUPROFESIONAL.COM", "dso_prom": 45.0, "cobros": 8448208.95, "n_pagos": 344}, {"cliente": "REPRESENTACIONES Y EQUIPOS INDUSTRIALES ", "dso_prom": 44.0, "cobros": 113034.89, "n_pagos": 5}, {"cliente": "FLEX-AUST DE MEXICO", "dso_prom": 38.0, "cobros": 476144.96, "n_pagos": 4}, {"cliente": "AMERIKA MFG", "dso_prom": 35.0, "cobros": 618515.44, "n_pagos": 59}, {"cliente": "SUPPLY AVYA", "dso_prom": 34.0, "cobros": 101703.48, "n_pagos": 11}, {"cliente": "LORENA GUADALUPE LEAL MONTEMAYOR", "dso_prom": 21.0, "cobros": 230440.99, "n_pagos": 13}, {"cliente": "IMERYS CERAMICS MEXICO", "dso_prom": 20.0, "cobros": 5899.16, "n_pagos": 4}, {"cliente": "ADVANCED STEEL TECHNOLOGY DE MEXICO", "dso_prom": 18.0, "cobros": 66796.5, "n_pagos": 14}, {"cliente": "HECTOR DE LEON AMBRIZ", "dso_prom": 9.0, "cobros": 27160.43, "n_pagos": 4}, {"cliente": "MARMON ENGINE TECHNOLOGIES MEXICO", "dso_prom": 2.0, "cobros": 33280.4, "n_pagos": 4}, {"cliente": "FUD TRAILERS MARTINEZ", "dso_prom": 1.0, "cobros": 398201.09, "n_pagos": 16}]};
 new Chart(document.getElementById('ch1'),{type:'line',data:{labels:D.monthly.map(m=>mesL(m.mes)),datasets:[{label:'DSO (días)',data:D.monthly.map(m=>m.dso),borderColor:'#C44E52',backgroundColor:'#C44E5220',borderWidth:2,tension:.3,fill:true,pointRadius:4},{label:'Meta 30d',data:D.monthly.map(()=>30),borderColor:'#28a745',borderWidth:1,borderDash:[5,5],pointRadius:0,fill:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top',labels:{usePointStyle:true}},tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+ctx.parsed.y+' días'}}},scales:{y:{beginAtZero:true,title:{display:true,text:'Días'}},x:{grid:{display:false}}}}});
-const dColors=['#28a745','#55A868','#4C72B0','#ffc107','#DD8452','#dc3545'];
+const dColors=['#28a745','#55A868','#4C72B0','#FBBF24','#DD8452','#dc3545'];
 new Chart(document.getElementById('ch2'),{type:'bar',data:{labels:D.distribution.map(d=>d.bucket),datasets:[{label:'Pagos',data:D.distribution.map(d=>d.count),backgroundColor:dColors.map(c=>c+'CC'),borderColor:dColors,borderWidth:1,borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true},x:{grid:{display:false}}}}});
 let h='';D.top_clientes.forEach((c,i)=>{const cls=c.dso_prom>60?'neg':c.dso_prom>30?'warn':'pos';h+=`<tr><td>${i+1}</td><td>${c.cliente}</td><td>${c.tipo}</td><td class="tr ${cls}">${c.dso_prom}</td><td class="tr">${c.dso_med}</td><td class="tr">${fmt$(c.cobros)}</td><td class="tr">${c.n_pagos}</td><td class="tr">${c.max_dias}</td></tr>`;});
 document.getElementById('tbl1').innerHTML=h;
