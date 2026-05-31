@@ -1252,3 +1252,28 @@ body.keyboard-open #btn-toggle-sidebar { display: none !important; }
 
 /* Estado de arrastre: zona de soltado resaltada */
 .ia-drop { background:rgba(224,179,65,.16) !important; outline:2px dashed var(--ia-accent); outline-offset:-2px; border-radius:9px; }
+
+/* ════════════ FIX: el texto del input SIEMPRE visible ════════════
+   La página es clara (body #0F172A sobre #F6F8FB). Algún -webkit-text-fill-color
+   transparente / color heredado dejaba el texto invisible al escribir.
+   Forzamos color y cursor legibles con alta especificidad. */
+textarea#ia-input,
+#ia-input {
+  color: #0F172A !important;
+  -webkit-text-fill-color: #0F172A !important;
+  caret-color: #E0B341 !important;
+  opacity: 1 !important;
+  background-clip: border-box !important;
+  -webkit-background-clip: border-box !important;
+}
+textarea#ia-input::placeholder,
+#ia-input::placeholder {
+  color: #94A3B8 !important;
+  -webkit-text-fill-color: #94A3B8 !important;
+}
+/* La barra de búsqueda del sidebar (fondo oscuro) → texto claro legible */
+#sidebar-search-input {
+  color: #E2E8F0 !important;
+  -webkit-text-fill-color: #E2E8F0 !important;
+  caret-color: #E0B341 !important;
+}
