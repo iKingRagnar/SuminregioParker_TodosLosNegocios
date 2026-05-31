@@ -1090,6 +1090,9 @@ try {
 try {
   require('./mejora-continua').install(app, { log: _boostLog });
 } catch (e) { console.warn('[mejora-continua] no instalado:', e.message); }
+try {
+  require('./auto-mejora').install(app, { log: _boostLog });
+} catch (e) { console.warn('[auto-mejora] no instalado:', e.message); }
 
 // Auth + candados: se instala al inicio (tras session), ver bloque "auth/gates".
 
