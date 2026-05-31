@@ -1856,7 +1856,7 @@
   function forceWhiteCards() {
     var de = document.documentElement;
     if (de.getAttribute('data-theme') !== 'light' && !de.classList.contains('theme-premium-light')) return;
-    var sel = '.kpi-card,.kpi,.card,.sc-card,.aging-bkt,.intel-bar,.exec-score-wrap,.insight-box,.pl-sc-card,.pl-mini-wrap,.module-card,.uni-entity-card,.biz-card,.kpi-block,.ranking-card,.events-wrap,.bg-kpi,.bg-box,.bg-viz-card,.bg-classic,.bg-ratio,.live-preview,.ccard,.tcard';
+    var sel = '.kpi-card,.kpi,.card,.sc-card,.aging-bkt,.intel-bar,.exec-score-wrap,.insight-box,.pl-sc-card,.pl-mini-wrap,.module-card,.uni-entity-card,.biz-card,.kpi-block,.ranking-card,.events-wrap,.bg-kpi,.bg-box,.bg-viz-card,.bg-classic,.bg-ratio,.live-preview,.ccard,.tcard,.uni-sum-pill';
     document.querySelectorAll(sel).forEach(function(el) {
       el.style.setProperty('background','#ffffff','important');
       el.style.setProperty('backdrop-filter','none','important');
@@ -1864,12 +1864,30 @@
       _fixTextContrastIn(el);                               // ← texto legible sobre el blanco forzado
     });
   }
+  // El universe scorecard / rankings llegan async (Firebird): re-aplica el fix
+  // de contraste cuando se inyecte contenido nuevo, sin martillar (debounce).
+  function watchAsyncCards() {
+    try {
+      var de = document.documentElement;
+      if (de.getAttribute('data-theme') !== 'light' && !de.classList.contains('theme-premium-light')) return;
+      if (typeof MutationObserver === 'undefined') { setTimeout(forceWhiteCards, 5000); return; }
+      var t = null;
+      var obs = new MutationObserver(function () {
+        if (t) return;
+        t = setTimeout(function () { t = null; forceWhiteCards(); }, 350);
+      });
+      obs.observe(document.body, { childList: true, subtree: true });
+      setTimeout(function () { obs.disconnect(); }, 30000); // deja de observar tras 30s
+    } catch (e) { setTimeout(forceWhiteCards, 5000); }
+  }
 
   function bootAll() {
     bootApiCache();       // ← PRIMERO: intercepta fetch antes de que las páginas carguen datos
     forceWhiteCards();
     setTimeout(forceWhiteCards, 600);
     setTimeout(forceWhiteCards, 2000);
+    setTimeout(forceWhiteCards, 5000);
+    watchAsyncCards();
     bootDesignUpgrade();
     bootTiltEffect();
     bootAiMotion();

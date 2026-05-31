@@ -2742,3 +2742,38 @@ html.theme-premium-light .live-preview {
   border-color: rgba(15,23,42,.08) !important;
   box-shadow: 0 1px 8px rgba(15,23,42,.06), 0 0 0 1px rgba(15,23,42,.05) !important;
 }
+
+/* ════════════ CONTRASTE: textos legibles en tema claro (v2) ════════════
+   Los valores de KPI usaban colores vivos (amarillo #FBBF24, verde neón, el
+   color de empresa via --vc) como TEXTO → ilegibles sobre fondo claro.
+   En tema claro forzamos tinta oscura para los VALORES; los colores vivos se
+   reservan para acentos (barras, bordes, dots). */
+html[data-theme="light"] .sc-kpi-val,
+html.theme-premium-light .sc-kpi-val,
+html[data-theme="light"] .uni-sum-pill .u-v,
+html.theme-premium-light .uni-sum-pill .u-v,
+html[data-theme="light"] .sc-meta-lbl > span,
+html.theme-premium-light .sc-meta-lbl > span {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+}
+/* El nombre/“PERIODO/HOY/CXC” labels: gris medio legible */
+html[data-theme="light"] .sc-kpi-lbl,
+html.theme-premium-light .sc-kpi-lbl { color:#64748b !important; }
+
+/* Estados semánticos: tonos OSCUROS legibles (no neón) en tema claro */
+html[data-theme="light"] .sc-meta-lbl > span[style*="--red"],
+html[data-theme="light"] [style*="var(--red)"]:not(.sc-meta-fill):not(.sc-meta-bar *) { color:#dc2626 !important; -webkit-text-fill-color:#dc2626 !important; }
+
+/* % Vencido / badges: que el rojo/ámbar/verde de texto sea sólido */
+html[data-theme="light"] .sc-badge-warn,  html.theme-premium-light .sc-badge-warn  { color:#b45309 !important; background:#fff7e6 !important; border-color:#f3dca0 !important; }
+html[data-theme="light"] .sc-badge-danger, html.theme-premium-light .sc-badge-danger{ color:#be123c !important; background:#fff1f2 !important; border-color:#fecdd3 !important; }
+html[data-theme="light"] .sc-badge-ok,     html.theme-premium-light .sc-badge-ok    { color:#047857 !important; background:#ecfdf5 !important; border-color:#bbf7d0 !important; }
+
+/* El nombre de la empresa y el ID en las tarjetas */
+html[data-theme="light"] .sc-name, html.theme-premium-light .sc-name { color:#0f172a !important; }
+html[data-theme="light"] .sc-id,   html.theme-premium-light .sc-id   { color:#64748b !important; }
+
+/* uni-sum-pill: fondo claro real (no translúcido sobre blanco) */
+html[data-theme="light"] .uni-sum-pill, html.theme-premium-light .uni-sum-pill { background:#f8fafc !important; border-color:#e6ebf2 !important; }
+html[data-theme="light"] .uni-sum-pill .u-l, html.theme-premium-light .uni-sum-pill .u-l { color:#64748b !important; }
