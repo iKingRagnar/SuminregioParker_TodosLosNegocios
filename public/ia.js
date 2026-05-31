@@ -108,7 +108,7 @@
 
   function syncToServer(conv) {
     if (!conv) return;
-    var payload = { title: conv.title, dbId: conv.dbId || currentDb(), messages: conv.messages };
+    var payload = { title: conv.title, dbId: conv.dbId || currentDb(), messages: conv.messages, groupId: conv.groupId || null, groupPinned: !!conv.groupPinned };
     if (conv.serverId) {
       fetch(API + '/api/ia/conversations/' + conv.serverId, {
         method: 'PUT', credentials: 'same-origin',
@@ -154,6 +154,8 @@
               title: sc.title || 'Sin título',
               dbId: sc.dbId || '',
               messages: [],
+              groupId: sc.groupId || null,
+              groupPinned: !!sc.groupPinned,
               createdAt: new Date(sc.createdAt).getTime() || Date.now(),
               updatedAt: new Date(sc.updatedAt || sc.createdAt).getTime() || Date.now(),
               msgCount: sc.msgCount || 0,
@@ -415,8 +417,32 @@
   // ── Grupos de contexto (carpetas) para organizar conversaciones ───────────
   var GROUPS_KEY = 'sumi_ia_groups_v1';
   function loadGroups() { try { var a = JSON.parse(localStorage.getItem(GROUPS_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (_) { return []; } }
-  function saveGroups(a) { try { localStorage.setItem(GROUPS_KEY, JSON.stringify(a)); } catch (_) {} }
+  function saveGroups(a) {
+    try { localStorage.setItem(GROUPS_KEY, JSON.stringify(a)); } catch (_) {}
+    // Persiste el árbol en el server para verlo igual desde cualquier dispositivo.
+    try {
+      fetch(API + '/api/ia/groups', {
+        method: 'PUT', credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groups: a }),
+      }).catch(function () {});
+    } catch (_) {}
+  }
   var groups = loadGroups();
+  // Trae el árbol de grupos del server (si hay) y refresca el sidebar.
+  (function loadServerGroups() {
+    try {
+      fetch(API + '/api/ia/groups', { credentials: 'same-origin' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) {
+          if (d && d.ok && Array.isArray(d.groups) && d.groups.length) {
+            groups = d.groups;
+            try { localStorage.setItem(GROUPS_KEY, JSON.stringify(groups)); } catch (_) {}
+            if (typeof renderSidebar === 'function') renderSidebar($sidebarSearch ? $sidebarSearch.value : '');
+          }
+        }).catch(function () {});
+    } catch (_) {}
+  })();
   function newGid() { return 'g_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); }
   function addGroup(name, parentId) { groups.push({ id: newGid(), name: String(name || 'Grupo').slice(0, 40), parentId: parentId || null, collapsed: false }); saveGroups(groups); renderSidebar($sidebarSearch ? $sidebarSearch.value : ''); }
   function renameGroup(id) { var g = groups.find(function (x) { return x.id === id; }); if (!g) return; var n = prompt('Renombrar grupo:', g.name); if (n) { g.name = String(n).slice(0, 40); saveGroups(groups); renderSidebar($sidebarSearch ? $sidebarSearch.value : ''); } }

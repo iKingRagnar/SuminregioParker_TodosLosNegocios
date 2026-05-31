@@ -17,7 +17,7 @@ function install(app) {
     var uid = userId(req);
     var all = sumiDb.query(COLL, { userId: uid });
     var list = all.map(function (c) {
-      return { id: c.id, title: c.title || 'Sin título', dbId: c.dbId || '', msgCount: (c.messages || []).length, createdAt: c.createdAt, updatedAt: c.updatedAt || c.createdAt };
+      return { id: c.id, title: c.title || 'Sin título', dbId: c.dbId || '', msgCount: (c.messages || []).length, groupId: c.groupId || null, groupPinned: !!c.groupPinned, groups: c.groups || null, createdAt: c.createdAt, updatedAt: c.updatedAt || c.createdAt };
     });
     list.sort(function (a, b) { return (b.updatedAt || b.createdAt || '').localeCompare(a.updatedAt || a.createdAt || ''); });
     res.json({ ok: true, conversations: list });
@@ -39,6 +39,8 @@ function install(app) {
       title: body.title || 'Nueva conversación',
       dbId: body.dbId || '',
       messages: body.messages || [],
+      groupId: body.groupId || null,
+      groupPinned: !!body.groupPinned,
     });
     res.json({ ok: true, conversation: conv });
   });
@@ -51,8 +53,27 @@ function install(app) {
     if (req.body.title !== undefined) patch.title = req.body.title;
     if (req.body.messages !== undefined) patch.messages = req.body.messages;
     if (req.body.dbId !== undefined) patch.dbId = req.body.dbId;
+    if (req.body.groupId !== undefined) patch.groupId = req.body.groupId;
+    if (req.body.groupPinned !== undefined) patch.groupPinned = !!req.body.groupPinned;
+    if (req.body.groups !== undefined) patch.groups = req.body.groups;
     var updated = sumiDb.update(COLL, req.params.id, patch);
     res.json({ ok: true, conversation: updated });
+  });
+
+  // ── Árbol de grupos de contexto (persiste por usuario) ────────────────────
+  var GROUPS_COLL = 'ia_groups';
+  app.get('/api/ia/groups', function (req, res) {
+    var uid = userId(req);
+    var row = sumiDb.query(GROUPS_COLL, { userId: uid })[0];
+    res.json({ ok: true, groups: (row && row.groups) || [] });
+  });
+  app.put('/api/ia/groups', json, function (req, res) {
+    var uid = userId(req);
+    var groups = Array.isArray(req.body && req.body.groups) ? req.body.groups : [];
+    var row = sumiDb.query(GROUPS_COLL, { userId: uid })[0];
+    if (row) sumiDb.update(GROUPS_COLL, row.id, { groups: groups });
+    else sumiDb.append(GROUPS_COLL, { userId: uid, groups: groups });
+    res.json({ ok: true });
   });
 
   app.delete('/api/ia/conversations/:id', function (req, res) {
