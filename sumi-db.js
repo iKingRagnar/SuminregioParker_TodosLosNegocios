@@ -10,7 +10,34 @@
 const fs = require('fs');
 const path = require('path');
 
-const DB_DIR = process.env.SUMI_DB_DIR || path.join(process.env.DUCK_SNAPSHOT_DIR || '/tmp/duck_snaps', 'sumi-db');
+// Elige el primer directorio ESCRIBIBLE para persistir. Prioriza disco
+// persistente (Render monta uno en /var/data) sobre /tmp (efímero: se borra en
+// cada redeploy). Así los tickets de mejora, historial de metas, grupos y
+// conversaciones de IA sobreviven a los deploys.
+function _resolveDbDir() {
+  const candidates = [];
+  if (process.env.SUMI_DB_DIR) candidates.push(process.env.SUMI_DB_DIR);
+  // Junto al cache persistente si ese disco existe.
+  if (process.env.CACHE_DIR) candidates.push(path.join(process.env.CACHE_DIR, 'sumi-db'));
+  try { if (fs.existsSync('/var/data')) candidates.push('/var/data/sumi-db'); } catch (_) {}
+  // Fallbacks no persistentes (dev / sin disco).
+  if (process.env.DUCK_SNAPSHOT_DIR) candidates.push(path.join(process.env.DUCK_SNAPSHOT_DIR, 'sumi-db'));
+  candidates.push('/tmp/duck_snaps/sumi-db');
+
+  for (const dir of candidates) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      fs.accessSync(dir, fs.constants.W_OK);
+      const persistente = !/^\/tmp(\/|$)/.test(dir);
+      if (!persistente) console.warn('[sumi-db] usando almacenamiento EFÍMERO ' + dir + ' (se borra en redeploy). Configura un disco persistente o SUMI_DB_DIR.');
+      else console.log('[sumi-db] almacenamiento persistente: ' + dir);
+      return dir;
+    } catch (_) { /* probar siguiente */ }
+  }
+  return '/tmp/duck_snaps/sumi-db'; // último recurso
+}
+
+const DB_DIR = _resolveDbDir();
 
 function ensure() {
   try { fs.mkdirSync(DB_DIR, { recursive: true }); } catch (_) {}

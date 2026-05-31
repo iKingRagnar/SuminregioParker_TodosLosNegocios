@@ -17,5 +17,7 @@ services:
         value: "1"
       - key: CACHE_DIR
         value: /var/data/cache
+      - key: SUMI_DB_DIR
+        value: /var/data/cache/sumi-db
       - key: NODE_VERSION
         value: "20"
