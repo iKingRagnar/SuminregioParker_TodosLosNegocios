@@ -1277,3 +1277,30 @@ textarea#ia-input::placeholder,
   -webkit-text-fill-color: #E2E8F0 !important;
   caret-color: #E0B341 !important;
 }
+
+/* ════════════ Grupos de contexto en el sidebar (tema oscuro) ════════════ */
+.ia-groups-bar { padding: 4px 8px 8px; }
+.ia-add-group {
+  width:100%; font-size:.74rem; font-weight:700; color:#F5C33C;
+  background:rgba(230,168,0,.10); border:1px dashed rgba(230,168,0,.35);
+  border-radius:9px; padding:.4rem .6rem; cursor:pointer; transition:all .15s;
+}
+.ia-add-group:hover { background:rgba(230,168,0,.2); }
+.ia-group-head {
+  display:flex; align-items:center; gap:.4rem; padding:.45rem .55rem; margin:1px 4px;
+  border-radius:8px; cursor:pointer; user-select:none; font-size:.78rem; color:#CBD5E1;
+  transition:background .15s;
+}
+.ia-group-head:hover { background:rgba(255,255,255,.06); }
+.ia-group-tog { width:.85rem; color:#94A3B8; font-size:.7rem; flex-shrink:0; }
+.ia-group-name { font-weight:700; color:#E2E8F0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ia-group-count { font-size:.6rem; color:#94A3B8; background:rgba(255,255,255,.08); border-radius:99px; padding:.05rem .4rem; min-width:1.1rem; text-align:center; }
+.ia-group-acts { display:flex; gap:.05rem; opacity:0; transition:opacity .15s; }
+.ia-group-head:hover .ia-group-acts { opacity:1; }
+.ia-g-act { background:none; border:none; cursor:pointer; color:#94A3B8; font-size:.72rem; padding:.05rem .3rem; border-radius:5px; line-height:1; }
+.ia-g-act:hover { background:rgba(255,255,255,.12); color:#fff; }
+.ia-group-body { margin-left:.7rem; border-left:1px solid rgba(255,255,255,.08); padding-left:.15rem; }
+.ia-ungrouped-head { text-transform:uppercase; letter-spacing:.05em; font-size:.62rem; opacity:.75; cursor:default; }
+.conv-item[draggable="true"] { cursor:grab; }
+.conv-item.dragging { opacity:.45; }
+.ia-drop { background:rgba(230,168,0,.18) !important; outline:2px dashed #E0B341; outline-offset:-2px; }
