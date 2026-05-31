@@ -1182,3 +1182,45 @@ body.keyboard-open #btn-toggle-sidebar { display: none !important; }
 @media (max-width: 360px) {
   .landing-biz-units { grid-template-columns: 1fr; }
 }
+
+/* ════════════ Pulido + animaciones (Sumi IA) ════════════ */
+@keyframes ia-fade-up { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+@keyframes ia-pop { from { opacity:0; transform:scale(.96); } to { opacity:1; transform:scale(1); } }
+@keyframes ia-shimmer { 0%{background-position:-200% 0;} 100%{background-position:200% 0;} }
+
+/* Burbujas de mensaje entran suave */
+.ia-msg, .msg, [class*="msg-"] { animation: ia-fade-up .28s cubic-bezier(.4,0,.2,1); }
+
+/* Tarjetas de bienvenida: hover elevado + transición */
+.ia-suggest-card, .ia-card, [class*="suggest"] {
+  transition: transform .18s cubic-bezier(.4,0,.2,1), box-shadow .18s, border-color .18s;
+}
+.ia-suggest-card:hover, .ia-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px rgba(2,12,30,.14);
+  border-color: var(--ia-accent);
+}
+
+/* Items de conversación en el sidebar */
+.ia-convo-item { transition: background .15s, transform .12s, border-color .15s; border-radius:10px; }
+.ia-convo-item:hover { background: var(--ia-surface-2); transform: translateX(2px); }
+.ia-convo-item.active { box-shadow: inset 3px 0 0 var(--ia-accent); }
+.ia-convo-item.dragging { opacity:.5; }
+
+/* Composer: foco con glow */
+.ia-composer { transition: border-color .18s, box-shadow .18s; }
+.ia-composer:focus-within { border-color: var(--ia-accent); box-shadow: 0 0 0 3px rgba(224,179,65,.18); }
+
+/* Botones */
+.ia-send, .ia-new, button[class*="send"], button[class*="new"] { transition: transform .12s, filter .15s, background .15s; }
+.ia-send:hover, .ia-new:hover { filter: brightness(1.06); }
+.ia-send:active, .ia-new:active { transform: scale(.95); }
+
+/* Indicador de escritura (3 puntos) */
+.ia-typing span { animation: ia-pop .6s infinite alternate; }
+.ia-typing span:nth-child(2){ animation-delay:.2s; } .ia-typing span:nth-child(3){ animation-delay:.4s; }
+
+/* Respeta usuarios con reduce-motion */
+@media (prefers-reduced-motion: reduce) {
+  .ia-msg, .msg, .ia-suggest-card, .ia-convo-item, .ia-send, .ia-new { animation: none !important; transition: none !important; }
+}
