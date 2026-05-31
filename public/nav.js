@@ -210,6 +210,22 @@
     return d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
   }
 
+  // Los datos NO son en vivo: se actualizan cada día a las 11 PM. Muestra el
+  // último corte ya transcurrido (hoy / ayer / fecha).
+  function navCorteTxt() {
+    try {
+      var now = new Date();
+      var cut = new Date(now); cut.setHours(23, 0, 0, 0);
+      if (now < cut) cut.setDate(cut.getDate() - 1);
+      var hoy = new Date(now); hoy.setHours(0, 0, 0, 0);
+      var dc = new Date(cut); dc.setHours(0, 0, 0, 0);
+      var dif = Math.round((hoy - dc) / 86400000);
+      var cuando = dif === 0 ? 'HOY' : (dif === 1 ? 'AYER'
+        : cut.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' }).toUpperCase());
+      return 'AL CORTE ' + cuando + ' · 11 PM';
+    } catch (e) { return 'CORTE DIARIO 11 PM'; }
+  }
+
   function buildNav(linkList) {
     var list = linkList || NAV_LINKS;
     var cur = currentPage();
@@ -466,8 +482,8 @@
         '<div class="nav-right">' +
           '<div id="navDbContainer"></div>' +
           '<div id="navSessionSlot" class="nav-session-slot"></div>' +
-          '<div class="nav-live">' +
-            '<div class="nav-live-dot"></div>LIVE' +
+          '<div class="nav-live" title="Los datos se actualizan automáticamente cada día a las 11 PM">' +
+            '<div class="nav-live-dot"></div>' + navCorteTxt() +
           '</div>' +
           '<div class="nav-clock" id="' + clockId + '">—</div>' +
         '</div>' +

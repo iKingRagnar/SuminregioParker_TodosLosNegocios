@@ -1304,3 +1304,22 @@ textarea#ia-input::placeholder,
 .conv-item[draggable="true"] { cursor:grab; }
 .conv-item.dragging { opacity:.45; }
 .ia-drop { background:rgba(230,168,0,.18) !important; outline:2px dashed #E0B341; outline-offset:-2px; }
+
+/* ════════════ FIX: input de Sumi IA cortado abajo ════════════
+   #ia-app usaba calc(100vh - 64px) fijo, pero arriba también está el nav y la
+   barra de unidad de negocio → el área del input quedaba fuera del viewport.
+   Hacemos body una columna flex: el chat ocupa EXACTO el espacio restante,
+   sin importar la altura del nav/barra, así el input siempre se ve completo. */
+html, body { height: 100%; }
+body { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+#ia-app {
+  flex: 1 1 auto;
+  height: auto !important;
+  min-height: 0;          /* permite que los hijos con overflow encojan */
+}
+#ia-main { min-height: 0; }       /* el área de mensajes scrollea, el input no se corta */
+#ia-input-area { flex-shrink: 0; position: relative; z-index: 2; }
+/* Respaldo móvil: barra de entrada respeta el notch/inferior */
+@supports (padding: max(0px)) {
+  #ia-input-area { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+}

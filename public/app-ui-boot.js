@@ -1814,6 +1814,45 @@
     setTimeout(patchRefreshStatus, 1500);
   }
 
+  // Remapea un color claro a su equivalente legible sobre blanco (preserva matiz).
+  function _readableOnWhite(r, g, b) {
+    var max = Math.max(r, g, b), min = Math.min(r, g, b);
+    if (max - min < 28) return '#0f172a';                 // gris/blanco → tinta
+    if (r >= g && g >= b && (r - b) > 40) return (g > 150) ? '#b45309' : '#c2410c'; // dorado/ámbar/amarillo/naranja
+    if (g >= r && g >= b) return '#047857';               // verde
+    if (r >= g && b >= g) return '#be185d';               // rosa/magenta
+    if (b >= r && b >= g) return '#1d4ed8';               // azul/cyan
+    if (r > g && r > b) return '#dc2626';                 // rojo
+    return '#0f172a';
+  }
+  function _relLum(r, g, b) {
+    var a = [r, g, b].map(function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+    return 0.2126 * a[0] + 0.7152 * a[1] + 0.0722 * a[2];
+  }
+  // Dentro de una tarjeta blanca, oscurece SOLO el texto de bajo contraste.
+  function _fixTextContrastIn(card) {
+    try {
+      var WHITE = 1;
+      var kids = card.querySelectorAll('*');
+      for (var j = 0; j < kids.length; j++) {
+        var k = kids[j];
+        var cs = getComputedStyle(k);
+        var bg = (cs.backgroundColor || '').match(/rgba?\(([^)]+)\)/);
+        if (bg) { var bp = bg[1].split(',').map(parseFloat); if (bp.length >= 3 && (bp[3] === undefined || bp[3] > 0.08) && _relLum(bp[0], bp[1], bp[2]) < 0.7) continue; }
+        var cm = (cs.color || '').match(/rgba?\(([^)]+)\)/);
+        if (!cm) continue;
+        var p = cm[1].split(',').map(parseFloat);
+        if (p.length < 3 || p[3] === 0) continue;
+        var lum = _relLum(p[0], p[1], p[2]);
+        if ((WHITE + 0.05) / (lum + 0.05) < 3.0) {          // ilegible sobre blanco
+          var fix = _readableOnWhite(p[0], p[1], p[2]);
+          k.style.setProperty('color', fix, 'important');
+          k.style.setProperty('-webkit-text-fill-color', fix, 'important');
+        }
+      }
+    } catch (e) { /* never break page */ }
+  }
+
   function forceWhiteCards() {
     var de = document.documentElement;
     if (de.getAttribute('data-theme') !== 'light' && !de.classList.contains('theme-premium-light')) return;
@@ -1822,6 +1861,7 @@
       el.style.setProperty('background','#ffffff','important');
       el.style.setProperty('backdrop-filter','none','important');
       el.style.setProperty('-webkit-backdrop-filter','none','important');
+      _fixTextContrastIn(el);                               // ← texto legible sobre el blanco forzado
     });
   }
 
