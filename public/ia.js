@@ -548,7 +548,11 @@
 
     // Si la conversación viene del servidor sin mensajes cargados (stub), los
     // trae bajo demanda para poder verla y NO perder el contexto al seguir.
-    if (conv.serverId && (!conv.messages || conv.messages.length === 0) && (conv.msgCount > 0 || conv.msgCount === undefined) && !conv._loaded) {
+    // Lazy-load SOLO para stubs traídos del servidor (id 'srv_*' con msgCount>0
+    // y sin mensajes en memoria). NUNCA para chats locales (que ya tienen sus
+    // mensajes en memoria), para no pisarlos con [] del server.
+    var esStubServidor = conv.serverId && String(conv.id).indexOf('srv_') === 0;
+    if (esStubServidor && (!conv.messages || conv.messages.length === 0) && conv.msgCount > 0 && !conv._loaded) {
       $messages.innerHTML = '<div class="ia-loading-msgs" style="text-align:center;color:#94A3B8;font-size:.8rem;padding:24px">Cargando conversación…</div>';
       fetch(API + '/api/ia/conversations/' + conv.serverId, { credentials: 'same-origin' })
         .then(function (r) { return r.ok ? r.json() : null; })
