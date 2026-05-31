@@ -32,7 +32,7 @@ jobs:
 
       - name: Validate manifest + service worker
         run: |
-          python3 -c "import json; json.load(open('manifest.webmanifest'))"
+          if [ -f manifest.webmanifest ]; then python3 -c "import json; json.load(open('manifest.webmanifest'))"; fi
           if [ -f public/manifest.webmanifest ]; then python3 -c "import json; json.load(open('public/manifest.webmanifest'))"; fi
           node --check sw.js
           node --check safe-dom.js
