@@ -93,13 +93,19 @@
         head.appendChild(sc);
       });
 
-      // Registrar Service Worker (offline-first)
+      // Service Worker: NO se registra (causaba loop de recarga). Se desinstala
+      // cualquier SW previo y se borran sus cachés, una vez, sin recargar.
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function () {
-          navigator.serviceWorker.register('/sw.js').catch(function (e) {
-            console.warn('[SW] registro falló:', e.message);
-          });
-        });
+        try {
+          navigator.serviceWorker.getRegistrations().then(function (regs) {
+            regs.forEach(function (reg) { try { reg.unregister(); } catch (_) {} });
+          }).catch(function () {});
+          if (window.caches && caches.keys) {
+            caches.keys().then(function (keys) {
+              keys.forEach(function (k) { try { caches.delete(k); } catch (_) {} });
+            }).catch(function () {});
+          }
+        } catch (_) {}
       }
     } catch (_) {}
   })();

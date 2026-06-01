@@ -19,14 +19,10 @@ self.addEventListener('activate', function (event) {
         var keys = await caches.keys();
         await Promise.all(keys.map(function (k) { return caches.delete(k); }));
       } catch (_) {}
-      // 2) Toma control y luego se autodesregistra.
+      // 2) Toma control y se autodesregistra. NO recarga las pestañas (evita
+      //    loops de recarga). El desinstalador de pwa-register limpia el resto.
       try { await self.clients.claim(); } catch (_) {}
       try { await self.registration.unregister(); } catch (_) {}
-      // 3) Recarga las pestañas abiertas para servir ya sin SW (versión fresca).
-      try {
-        var clients = await self.clients.matchAll({ type: 'window' });
-        clients.forEach(function (c) { try { c.navigate(c.url); } catch (_) {} });
-      } catch (_) {}
     })()
   );
 });
