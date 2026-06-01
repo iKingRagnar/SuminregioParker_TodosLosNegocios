@@ -43,24 +43,9 @@ html:not([data-theme="light"]) body {
   background-attachment: fixed !important;
 }
 
-html:not([data-theme="light"]) body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background: radial-gradient(ellipse 60% 40% at 30% 20%, rgba(77,166,255,.04), transparent 65%);
-  animation: aurora-drift 18s ease-in-out infinite alternate;
-}
-html:not([data-theme="light"]) body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background: radial-gradient(ellipse 50% 35% at 70% 75%, rgba(0,229,160,.03), transparent 60%);
-  animation: aurora-drift2 22s ease-in-out infinite alternate;
-}
+/* Auroras animadas de fondo DESACTIVADAS (efecto verde "Star Wars" en
+   movimiento retirado a petición). Se neutralizan en todos los temas. */
+body::before, body::after { content: none !important; }
 
 @keyframes aurora-drift {
   0%   { transform: translate(0,0)   scale(1);    filter: blur(40px); }
@@ -806,13 +791,8 @@ html:not([data-theme="light"]) .kpi-card.purple:hover {
 /* ═══════════════════════════════════════════════════════════════════════════
    §28  DOT GRID BACKGROUND — profundidad atmosférica
    ═══════════════════════════════════════════════════════════════════════════ */
-html:not([data-theme="light"]) body::before {
-  background:
-    radial-gradient(ellipse 60% 40% at 30% 20%, rgba(77,166,255,.04), transparent 65%),
-    radial-gradient(circle, rgba(255,255,255,.028) 1px, transparent 1px) !important;
-  background-size: 100% 100%, 28px 28px !important;
-  animation: aurora-drift 18s ease-in-out infinite alternate;
-}
+/* Aurora animada (before) retirada — sin content no se pinta; sin animación. */
+html:not([data-theme="light"]) body::before { content: none !important; animation: none !important; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    §29  GRAIN NOISE OVERLAY — textura táctil premium
@@ -824,14 +804,8 @@ html:not([data-theme="light"]) body > *:not(canvas):not(script) {
   position: relative;
   z-index: 1;
 }
-/* Capa de grain via SVG data URI */
-html:not([data-theme="light"]) body::after {
-  background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)' opacity='0.045'/%3E%3C/svg%3E"),
-    radial-gradient(ellipse 50% 35% at 70% 75%, rgba(0,229,160,.03), transparent 60%) !important;
-  background-size: 256px 256px, 100% 100% !important;
-  animation: aurora-drift2 22s ease-in-out infinite alternate;
-}
+/* Aurora animada (after) retirada — sin content no se pinta; sin animación. */
+html:not([data-theme="light"]) body::after { content: none !important; animation: none !important; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    §30  TYPOGRAPHY SYSTEM v2 — rendering, kerning, escala

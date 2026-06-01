@@ -34,22 +34,10 @@
    AURORA TRICOLOR ANIMADA (2 capas)
    ════════════════════════════════════════════════════════════ */
 
-/* Capa 1: aurora base — movimiento lento */
+/* Capa 1: aurora base — DESACTIVADA (efecto "Star Wars" verde móvil retirado). */
 body::after {
-  content: "";
-  position: fixed;
-  inset: -30%;
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.65;
-  background:
-    radial-gradient(ellipse 60% 50% at 12% 22%, rgba(34,211,238,0.18), transparent 55%),
-    radial-gradient(ellipse 55% 45% at 88% 12%, rgba(167,139,250,0.16), transparent 52%),
-    radial-gradient(ellipse 50% 40% at 65% 78%, rgba(230,168,0,0.14), transparent 54%),
-    radial-gradient(ellipse 45% 38% at 28% 82%, rgba(232,121,249,0.11), transparent 52%),
-    radial-gradient(ellipse 35% 30% at 50% 50%, rgba(52,211,153,0.07), transparent 50%);
-  animation: ms-ai-aurora 26s ease-in-out infinite alternate;
-  will-change: transform;
+  content: none !important;
+  display: none !important;
 }
 
 /* Capa 2: aurora secundaria — movimiento opuesto */

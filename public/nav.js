@@ -617,9 +617,32 @@
   }
 
   function injectBizContextBar(hdr) {
-    // index.html / resultados.html ya montan #bizContextBar
-    if (document.getElementById('bizContextBar')) return;
-    if (document.getElementById('navInjectedBizOuter')) return;
+    // Garantiza UNA sola barra de unidad de negocio (la del nav, arriba).
+    // Elimina cualquier barra previa/duplicada: el outer del nav repetido, la
+    // barra muerta de filters.js (nav-global-db-bar) y la propia de index/
+    // resultados (#bizContextBar) — así nunca se ven dos filtros de negocio.
+    try {
+      // Barras propias de página (index/resultados) y la muerta de filters: se
+      // OCULTAN (no se borran, para no romper su JS) y se observa por si su
+      // propio script las vuelve a mostrar.
+      var ownBars = document.querySelectorAll('#bizContextBar, .nav-global-db-bar');
+      for (var k = 0; k < ownBars.length; k++) {
+        var ob = ownBars[k];
+        ob.style.setProperty('display', 'none', 'important');
+        if (typeof MutationObserver !== 'undefined') {
+          try {
+            new MutationObserver(function () {
+              this.style.setProperty('display', 'none', 'important');
+            }.bind(ob)).observe(ob, { attributes: true, attributeFilter: ['style', 'class'] });
+          } catch (_) {}
+        }
+      }
+      // Outer del propio nav repetido: ese sí se elimina (evita 2 barras del nav).
+      var navDups = document.querySelectorAll('#navInjectedBizOuter');
+      for (var i = 0; i < navDups.length; i++) {
+        if (navDups[i].parentNode) navDups[i].parentNode.removeChild(navDups[i]);
+      }
+    } catch (_) {}
 
     var anchor = document.getElementById('filter-bar');
     var outer = document.createElement('div');

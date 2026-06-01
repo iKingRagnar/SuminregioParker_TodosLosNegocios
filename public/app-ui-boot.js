@@ -109,29 +109,13 @@
   function bootAiMotion() {
     if (typeof document === 'undefined' || !document.body) return;
 
-    // Sparkle capa 1
-    var spark = document.createElement('div');
-    spark.className = 'ms-ai-sparkle';
-    spark.setAttribute('aria-hidden', 'true');
-    document.body.insertBefore(spark, document.body.firstChild);
-
-    // Sparkle capa 2
-    var spark2 = document.createElement('div');
-    spark2.className = 'ms-ai-sparkle2';
-    spark2.setAttribute('aria-hidden', 'true');
-    document.body.insertBefore(spark2, document.body.firstChild);
-
-    // Sparkle capa 3 (gold)
-    var spark3 = document.createElement('div');
-    spark3.className = 'ms-ai-sparkle3';
-    spark3.setAttribute('aria-hidden', 'true');
-    document.body.insertBefore(spark3, document.body.firstChild);
-
-    // Aurora capa 2
-    var aurora2 = document.createElement('div');
-    aurora2.className = 'ms-ai-aurora2';
-    aurora2.setAttribute('aria-hidden', 'true');
-    document.body.insertBefore(aurora2, document.body.firstChild);
+    // Aurora/sparkles animados (efecto "Star Wars" verde en movimiento)
+    // DESACTIVADOS: distraían y se veían sobre las tarjetas. Se eliminan las
+    // capas que pudieran haberse inyectado antes. El reveal-on-scroll se conserva.
+    try {
+      var olds = document.querySelectorAll('.ms-ai-sparkle, .ms-ai-sparkle2, .ms-ai-sparkle3, .ms-ai-aurora2');
+      for (var n = 0; n < olds.length; n++) { if (olds[n].parentNode) olds[n].parentNode.removeChild(olds[n]); }
+    } catch (_) {}
 
     var reduce =
       typeof window.matchMedia === 'function' &&
