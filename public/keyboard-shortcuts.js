@@ -17,7 +17,6 @@
     'g l': '/clientes.html',   // c ya está tomado por cxc → l de "lista"
     'g u': '/consumos.html',
     'g m': '/margen-producto.html',
-    'g p': '/comparar.html',   // p de "parallel"
     'g h': '/index.html',
   };
 

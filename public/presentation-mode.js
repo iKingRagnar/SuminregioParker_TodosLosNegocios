@@ -14,7 +14,6 @@
     { href: '/cxc.html',       name: 'CxC' },
     { href: '/inventario.html', name: 'Inventario' },
     { href: '/resultados.html', name: 'Finanzas' },
-    { href: '/comparar.html',  name: 'Comparar' },
   ];
   const INTERVAL = 25_000;
 
