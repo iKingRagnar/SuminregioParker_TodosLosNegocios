@@ -1735,7 +1735,11 @@ async function loadData(){
   try{
     // Si ya hay negocio concreto (URL/session), no escanear todo el registro — evita colgarse minutos en pnl-universe.
     const uniOmitDb = !selectedBizId || isAllBizId(selectedBizId);
-    const uniUrl=buildPnlApiUrl('/api/resultados/pnl-universe','meses='+currentMeses+'&concurrency=2',{ omitDb:uniOmitDb })+'&_='+Date.now();
+    // El universe scorecard debe respetar el MISMO periodo que el filtro
+    // (anio/mes o desde/hasta). Solo si no hay periodo explícito, usa meses=N.
+    const uniExplicit = getExplicitPnlQueryParts();
+    const uniPeriodQS = uniExplicit.length ? uniExplicit.join('&') : ('meses=' + currentMeses);
+    const uniUrl=buildPnlApiUrl('/api/resultados/pnl-universe', uniPeriodQS + '&concurrency=2',{ omitDb:uniOmitDb })+'&_='+Date.now();
 
     let uni=await tryFetch(uniUrl, 90000)||{};
     const base=getBase();
@@ -1818,7 +1822,7 @@ async function loadData(){
       if(costNotice)costNotice.style.display=hasCosto?'none':'block';
       const gastosNotice=document.getElementById('gastosNotice');
       if(gastosNotice)gastosNotice.style.display='block';
-      if(heroEl)heroEl.textContent='Vista consolidada · '+currentMeses+' meses · '+fmtM(tot.VENTAS_NETAS)+' ventas netas (suma empresas)';
+      if(heroEl){var _periodoTxt=(typeof getExplicitPnlQueryParts==='function'&&getExplicitPnlQueryParts().length)?'periodo del filtro':(currentMeses+' meses');heroEl.textContent='Vista consolidada · '+_periodoTxt+' · '+fmtM(tot.VENTAS_NETAS)+' ventas netas (suma empresas)';}
       return;
     }
 
