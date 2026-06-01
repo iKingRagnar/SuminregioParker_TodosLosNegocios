@@ -623,80 +623,36 @@
   }
 
   function injectBizContextBar(hdr) {
-    // Garantiza UNA sola barra de unidad de negocio (la del nav, arriba).
-    // Elimina cualquier barra previa/duplicada: el outer del nav repetido, la
-    // barra muerta de filters.js (nav-global-db-bar) y la propia de index/
-    // resultados (#bizContextBar) — así nunca se ven dos filtros de negocio.
-    try {
-      // Barras propias de página (index/resultados) y la muerta de filters: se
-      // OCULTAN (no se borran, para no romper su JS) y se observa por si su
-      // propio script las vuelve a mostrar.
-      var ownBars = document.querySelectorAll('#bizContextBar, .nav-global-db-bar');
-      for (var k = 0; k < ownBars.length; k++) {
-        var ob = ownBars[k];
-        ob.style.setProperty('display', 'none', 'important');
-        if (typeof MutationObserver !== 'undefined') {
-          try {
-            new MutationObserver(function () {
-              this.style.setProperty('display', 'none', 'important');
-            }.bind(ob)).observe(ob, { attributes: true, attributeFilter: ['style', 'class'] });
-          } catch (_) {}
+    // La barra HORIZONTAL de chips de negocio se ELIMINA en todas las páginas:
+    // el cambio de unidad de negocio se hace SOLO con el dropdown del header
+    // (el botón "Suminregio ▾"). Se quitan/ocultan todas las variantes de barra.
+    function purge() {
+      try {
+        // Barras que se pueden eliminar por completo.
+        var del = document.querySelectorAll('#navInjectedBizOuter, .nav-injected-biz-outer');
+        for (var i = 0; i < del.length; i++) {
+          if (del[i].parentNode) del[i].parentNode.removeChild(del[i]);
         }
-      }
-      // Outer del propio nav repetido: ese sí se elimina (evita 2 barras del nav).
-      var navDups = document.querySelectorAll('#navInjectedBizOuter');
-      for (var i = 0; i < navDups.length; i++) {
-        if (navDups[i].parentNode) navDups[i].parentNode.removeChild(navDups[i]);
+        // Barras propias de página (index/resultados) y la muerta de filters:
+        // se ocultan (su JS podría intentar mostrarlas).
+        var hide = document.querySelectorAll('#bizContextBar, .nav-global-db-bar, #navInjectedBizBar, .biz-context-bar');
+        for (var k = 0; k < hide.length; k++) {
+          hide[k].style.setProperty('display', 'none', 'important');
+        }
+      } catch (_) {}
+    }
+    purge();
+    // Re-purga si alguna página vuelve a inyectar/mostrar su barra (async).
+    try {
+      if (typeof MutationObserver !== 'undefined') {
+        var obs = new MutationObserver(function () { purge(); });
+        obs.observe(document.body, { childList: true, subtree: true });
+        setTimeout(function () { obs.disconnect(); }, 15000);
+      } else {
+        setTimeout(purge, 1500);
+        setTimeout(purge, 4000);
       }
     } catch (_) {}
-
-    var anchor = document.getElementById('filter-bar');
-    var outer = document.createElement('div');
-    outer.id = 'navInjectedBizOuter';
-    outer.className = 'nav-injected-biz-outer';
-    outer.innerHTML =
-      '<div class="biz-context-bar biz-context-bar-v2" id="navInjectedBizBar" style="display:none" aria-label="Unidad de negocio">' +
-      '<span class="biz-context-label">Unidad de negocio</span>' +
-      '<div class="biz-chips biz-chips-grid" id="navInjectedBizChips"></div></div>';
-
-    if (anchor && anchor.parentNode) {
-      anchor.parentNode.insertBefore(outer, anchor.nextSibling);
-    } else if (hdr && hdr.parentNode) {
-      hdr.parentNode.insertBefore(outer, hdr.nextSibling);
-    } else {
-      document.body.insertBefore(outer, document.body.firstChild);
-    }
-
-    var bar = document.getElementById('navInjectedBizBar');
-    var chips = document.getElementById('navInjectedBizChips');
-
-    fetch(API_ORIGIN + '/api/universe/databases')
-      .then(function (r) { return r.json(); })
-      .then(function (dbs) {
-        var filterFn =
-          typeof window.filterDbCatalog === 'function'
-            ? window.filterDbCatalog
-            : function (x) {
-                return Array.isArray(x) ? x : [];
-              };
-        var list = filterFn(Array.isArray(dbs) ? dbs : []);
-        if (!Array.isArray(list) || list.length < 1 || !chips || !bar) return;
-
-        if (typeof window.renderDbChipsInto !== 'function') {
-          console.warn('[nav] Falta filters.js antes de nav.js para la barra de unidad de negocio.');
-          return;
-        }
-        if (typeof window.__filtersInjectCss === 'function') window.__filtersInjectCss();
-
-        bar.style.display = 'flex';
-        window.renderDbChipsInto(chips, list, function () {
-          if (typeof window.filterSyncFiltersToUrl === 'function') window.filterSyncFiltersToUrl();
-          location.reload();
-        });
-      })
-      .catch(function (e) {
-        console.warn('[nav] biz-bar no pudo cargar dbs', e);
-      });
   }
 
   function ensureChatWidget() {
