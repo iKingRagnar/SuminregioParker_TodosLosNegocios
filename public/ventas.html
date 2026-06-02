@@ -691,6 +691,33 @@ function countLaborDaysInMonth(anio, mes1to12) {
   }
   return n;
 }
+/** Días laborables y calendario del PERIODO FILTRADO (no del día de hoy).
+ *  Mes en curso → acumula hasta hoy. Mes cerrado/pasado → mes completo.
+ *  Evita metas acumuladas absurdas (p.ej. 46135%) al ver un mes ya terminado. */
+function periodMetaDays() {
+  const p = (window.filterGetParams && filterGetParams()) || {};
+  const now = new Date();
+  const curY = now.getFullYear(), curM = now.getMonth() + 1;
+  if (p.anio && p.mes) {
+    const y = +p.anio, m = +p.mes;
+    if (y === curY && m === curM) {
+      return { labor: countLaborDaysMonthToDate(now), cal: now.getDate(), enCurso: true };
+    }
+    return { labor: countLaborDaysInMonth(y, m), cal: new Date(y, m, 0).getDate(), enCurso: false };
+  }
+  // Sin mes específico (YTD / año / rango): mantener comportamiento previo (mes en curso a hoy).
+  return { labor: countLaborDaysMonthToDate(now), cal: now.getDate(), enCurso: true };
+}
+/** Cumplimiento de meta legible para dirección: "85%" normal, o "18×" cuando se supera mucho la meta
+ *  (evita ver porcentajes de 4-5 dígitos cuando la meta base no está calibrada para esa unidad). */
+function fmtMetaPct(pct) {
+  if (pct == null || !isFinite(pct)) return '—';
+  if (pct >= 300) {
+    const x = pct / 100;
+    return (x >= 10 ? Math.round(x) : (x.toFixed(1).replace(/\.0$/, ''))) + '×';
+  }
+  return Math.round(pct) + '%';
+}
 function getVendedoresEnContexto(metaObj) {
   const p = (window.filterGetParams && filterGetParams()) || {};
   if (p.vendedor != null && String(p.vendedor).trim() !== '') return 1;
@@ -1184,14 +1211,15 @@ async function loadResumen() {
     const d = await fwt(buildApiUrl('/api/ventas/resumen', tipoQ()), {});
     const hoy=+(d.HOY||0), mes=+(d.MES_ACTUAL||0), docs=+(d.FACTURAS_MES||0), remMes=+(d.REMISIONES_MES||0);
     const hoyIva=+(d.HOY_IVA||0), mesIva=+(d.MES_ACTUAL_IVA||0), remMesIva=+(d.REMISIONES_MES_IVA||0);
-    const diasCal = new Date().getDate();
+    const _pmd = periodMetaDays();
+    const diasCal = _pmd.cal;
     const bloq = ventasMetaBloqueadasPorTipo();
     const nV = getVendedoresEnContexto(metas);
     const metaBase = +(metas.META_DIARIA_POR_VENDEDOR||5650);
     const idealBase = +(metas.META_IDEAL_POR_VENDEDOR||metaBase*1.3);
     const metaDia = bloq ? 0 : metaBase * nV;
     const idealDia = bloq ? 0 : idealBase * nV;
-    const laborMes = countLaborDaysMonthToDate(new Date());
+    const laborMes = _pmd.labor;
     const denomIdealMes = Math.max(idealDia * laborMes, 1);
     setText('kpi-hoy', fmt(hoy));
     if (bloq) {
@@ -1212,7 +1240,7 @@ async function loadResumen() {
       setText('pct-hoy', '—');
     }
     setWid('bar-mes', (mes/denomIdealMes)*100);
-    setText('pct-mes', `${((mes/denomIdealMes)*100).toFixed(0)}% vs meta ideal acumulada (días laborables)`);
+    setText('pct-mes', `${fmtMetaPct((mes/denomIdealMes)*100)} de la meta ideal acum. (${laborMes} d. lab.)`);
 
     if (typeof dashboardApplySem === 'function') {
       const hLabor = isLaborDay(new Date());
@@ -1416,7 +1444,7 @@ async function loadVendedores() {
     const bloq = ventasMetaBloqueadasPorTipo();
     const nV = getVendedoresEnContexto(metas);
     const metaBase = +(metas.META_DIARIA_POR_VENDEDOR||5650);
-    const laborMes = countLaborDaysMonthToDate(new Date());
+    const laborMes = periodMetaDays().labor;
     const metaMesVend = metaBase * laborMes; // meta individual acumulada al día de hoy
 
     el.innerHTML = sorted.length ? `<div class="vendor-list" id="vend-table">${sorted.map((r,i)=>{
@@ -1424,7 +1452,7 @@ async function loadVendedores() {
       const pct    = max>0 ? (mes/max*100).toFixed(0) : 0;
       const cumpl  = (!bloq && metaMesVend > 0) ? Math.round(mes/metaMesVend*100) : null;
       const cumplColor = cumpl == null ? 'var(--muted)' : cumpl >= 100 ? 'var(--green)' : cumpl >= 70 ? 'var(--yellow)' : 'var(--red)';
-      const cumplBadge = cumpl != null ? `<span style="font-family:'DM Mono',monospace;font-size:.62rem;font-weight:700;color:${cumplColor};margin-left:6px">${cumpl}%▸meta</span>` : '';
+      const cumplBadge = cumpl != null ? `<span style="font-family:'DM Mono',monospace;font-size:.62rem;font-weight:700;color:${cumplColor};margin-left:6px">${fmtMetaPct(cumpl)} ▸meta</span>` : '';
       const medal  = MEDALS[i] || `<span class="rank-num">${i+1}</span>`;
       const ve = +(r.VENTAS_MES_VE||0), pv = +(r.VENTAS_MES_PV||0);
       const docs = +(r.FACTURAS_MES||r.NUM_FACTURAS||0);
@@ -1494,7 +1522,7 @@ function applyCotiData(resObj, diarias, vends, ventasVE) {
     const nV = getVendedoresEnContexto(metas);
     const metaCBase = +(metas.META_COTI_POR_VENDEDOR||10000);
     const idealCBase = +(metas.META_COTI_IDEAL||metaCBase*1.3);
-    const laborMes = countLaborDaysMonthToDate(new Date());
+    const laborMes = periodMetaDays().labor;
     const metaAcumMes = bloq ? 0 : metaCBase * nV * laborMes;
     const idealAcumMes = bloq ? 0 : idealCBase * nV * laborMes;
 
@@ -1509,7 +1537,7 @@ function applyCotiData(resObj, diarias, vends, ventasVE) {
     } else {
       const mesImp = fnum(resObj.MES_ACTUAL);
       setWid('bar-coti', metaAcumMes > 0 ? (mesImp/metaAcumMes)*100 : 0);
-      setText('pct-coti', `${metaAcumMes > 0 ? ((mesImp/metaAcumMes)*100).toFixed(0) : '0'}% vs meta acum. (${laborMes} d. lab. × ${nV} vend.) · ideal ${fmtK(idealAcumMes)}`);
+      setText('pct-coti', `${metaAcumMes > 0 ? fmtMetaPct((mesImp/metaAcumMes)*100) : '0%'} de la meta acum. (${laborMes} d. lab. × ${nV} vend.) · ideal ${fmtK(idealAcumMes)}`);
     }
     const cotiMes = fnum(resObj.MES_ACTUAL);
     const venMes = fnumKeys(ventasVE, 'MES_ACTUAL');

@@ -1308,14 +1308,23 @@ function renderUniversePortfolio(uni){
     const headLine=escHtml(fdb||p.label||p.id||'Principal');
     sub.innerHTML='Est\u00e1s viendo <strong>'+headLine+'</strong> <span style="opacity:.75">('+escHtml(p.id)+')</span>. Los KPI de abajo siguen el filtro de fechas. Para listar <strong>varias</strong> bases, en el <code>.env</code> del servidor define <code>FB_DATABASE_DIR</code> (carpeta donde est\u00e1n todas las bases) y/o <code>FB_DATABASES_JSON</code>; el archivo <code>.env</code> debe ser solo l\u00edneas <code>VAR=valor</code> (sin pegar c\u00f3digo .js). Reinicia Node y revisa en consola del servidor la l\u00ednea <code>[Firebird] bases registradas</code>.'+(pathEsc?'<br><span style="opacity:.85">Ruta: <code>'+pathEsc+'</code></span>':'');
   }else{
-    sub.textContent='Vista consolidada del mismo periodo que el filtro superior. Cada tarjeta es una base Firebird registrada; el detalle operativo (KPI) lo controlan los chips de empresa.';
+    if(!emp.length){
+      sub.textContent='Resumen consolidado de los negocios en el periodo seleccionado.';
+    }else{
+      const _rojo=emp.filter(r=>r.ok&&(+r.cxc_pct_vencido||0)>40).length;
+      const _amar=emp.filter(r=>r.ok&&(+r.cxc_pct_vencido||0)>20&&(+r.cxc_pct_vencido||0)<=40).length;
+      const _sem=_rojo>0
+        ? '<strong style="color:var(--red)">'+_rojo+' negocio'+(_rojo!==1?'s':'')+' en rojo</strong>'+(_amar>0?' y '+_amar+' en amarillo':'')
+        : (_amar>0?'<strong style="color:var(--yellow-ink)">'+_amar+' negocio'+(_amar!==1?'s':'')+' en amarillo</strong>':'<strong style="color:var(--green)">todos con cartera sana</strong>');
+      sub.innerHTML='Ventas del periodo <strong>'+fmtM(co.ventas_mes_sum||0)+'</strong> · por cobrar <strong>'+fmtM(co.cxc_saldo_sum||0)+'</strong> · '+_sem+'.';
+    }
   }
   strip.innerHTML=[
     ['\u03a3 Ventas periodo',fmtM(co.ventas_mes_sum||0)],
     ['\u03a3 Cartera CxC',fmtM(co.cxc_saldo_sum||0)],
     ['\u03a3 Cotizaciones',fmtM(co.cotiz_mes_sum||0)],
     ['Facturas (periodo)',String(co.facturas_mes_sum!=null?co.facturas_mes_sum:0)],
-    ['Lecturas OK',String(co.empresas_ok||0)+' / '+String(co.empresas_total!=null?co.empresas_total:emp.length)],
+    ['Negocios activos',String(co.empresas_ok||0)+' / '+String(co.empresas_total!=null?co.empresas_total:emp.length)],
   ].map(([a,b])=>'<div class="uni-sum-pill"><div class="u-l">'+a+'</div><div class="u-v">'+b+'</div></div>').join('');
   if(!emp.length){
     grid.innerHTML='<div class="uni-setup-callout">No hubo respuesta del comparativo multi-empresa. Comprueba que <code>/api/universe/scorecard</code> responda y que Firebird est\u00e9 accesible.</div>';
