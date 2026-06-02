@@ -1052,7 +1052,9 @@ function computeMesesVista(mergedForPicker,mesesPeriodoFiltro,fp){
     if(hit.length)return hit;
     const hit2=periodo.filter(m=>monthKey(m)===k);
     if(hit2.length)return hit2;
-    return periodo.length?periodo:merged;
+    // Mes explícito SIN datos (p. ej. unidad sin ventas en ese mes): mostrar SOLO ese mes en cero.
+    // NO caer a `merged` (todos los meses) — eso producía el total del año = mismo número que YTD (bug).
+    return [{ANIO:+p.anio, MES:+p.mes, PERIODO:k}];
   }
   if(p.anio!=null&&p.anio!==''&&(p.mes==null||p.mes==='')){
     return merged.filter(m=>+m.ANIO===+p.anio);
