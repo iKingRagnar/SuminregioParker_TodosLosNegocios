@@ -73,6 +73,8 @@ nav{display:flex;align-items:center;gap:.2rem}
 
 /* Section divider */
 .sd{display:flex;align-items:center;gap:1rem;margin:2rem 0 1.25rem}
+/* Vista minimalista de dirección: secciones de detalle/analista ocultas de forma permanente */
+.v-secondary{display:none!important}
 .sd-label{font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
 .sd-line{flex:1;height:1px;background:var(--border)}
 
@@ -407,9 +409,9 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
     </div>
   </div>
 
-  <!-- Section: Barras cobranza + Detalle facturas -->
-  <div class="sd"><div class="sd-label">An&aacute;lisis Cobrado vs Facturado</div><div class="sd-line"></div></div>
-  <div class="grid-2">
+  <!-- Section: Barras cobranza + Detalle facturas (oculto en vista minimalista) -->
+  <div class="sd v-secondary"><div class="sd-label">An&aacute;lisis Cobrado vs Facturado</div><div class="sd-line"></div></div>
+  <div class="grid-2 v-secondary">
     <!-- Barras comparativas -->
     <div class="card">
       <div class="card-head">
@@ -439,8 +441,8 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
     </div>
   </div>
 
-  <div class="sd"><div class="sd-label">Detalle de cobros</div><div class="sd-line"></div></div>
-  <div class="card" style="margin-bottom:2rem">
+  <div class="sd v-secondary"><div class="sd-label">Detalle de cobros</div><div class="sd-line"></div></div>
+  <div class="card v-secondary" style="margin-bottom:2rem">
     <div class="card-head">
       <div class="card-title">
         <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>

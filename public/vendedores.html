@@ -100,6 +100,8 @@ nav{display:flex;align-items:center;gap:.2rem}
 /* Section divider */
 .sd{display:flex;align-items:center;gap:1rem;margin:2rem 0 1.25rem}
 .sd-label{font-family:'DM Mono',monospace;font-size:.65rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
+/* Vista minimalista de dirección: secciones redundantes/fuera de tema ocultas de forma permanente */
+.v-secondary{display:none!important}
 .sd-line{flex:1;height:1px;background:var(--border)}
 
 /* Cards */
@@ -322,9 +324,9 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
     </div>
   </div>
 
-  <!-- Cobros trend -->
-  <div class="sd"><div class="sd-label">Tendencia de Cobros (6 meses)</div><div class="sd-line"></div></div>
-  <div class="chart-grid" style="grid-template-columns:2fr 1fr;margin-bottom:1.5rem">
+  <!-- Cobros trend (oculto en vista minimalista: es tema de la pestaña Cobradas) -->
+  <div class="sd v-secondary"><div class="sd-label">Tendencia de Cobros (6 meses)</div><div class="sd-line"></div></div>
+  <div class="chart-grid v-secondary" style="grid-template-columns:2fr 1fr;margin-bottom:1.5rem">
     <div class="card">
       <div class="card-head">
         <div class="card-title">
@@ -353,9 +355,9 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
     </div>
   </div>
 
-  <!-- Tabla ranking completo -->
-  <div class="sd"><div class="sd-label">Ranking Detallado</div><div class="sd-line"></div></div>
-  <div class="card" style="margin-bottom:2rem">
+  <!-- Tabla ranking completo (oculto en vista minimalista: repite los scorecards de arriba) -->
+  <div class="sd v-secondary"><div class="sd-label">Ranking Detallado</div><div class="sd-line"></div></div>
+  <div class="card v-secondary" style="margin-bottom:2rem">
     <div class="card-head">
       <div class="card-title">
         <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
