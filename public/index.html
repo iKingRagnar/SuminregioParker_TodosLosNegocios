@@ -106,6 +106,12 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 .uni-risk-fill{height:100%;border-radius:99px;transition:width 1.1s cubic-bezier(.4,0,.2,1)}
 .uni-risk-meta{display:flex;justify-content:space-between;margin-top:.38rem;font-family:'DM Mono',monospace;font-size:.56rem;color:var(--muted)}
 .uni-detail-panel{border-radius:15px;border:1px solid rgba(255,255,255,.09);overflow:hidden;background:rgba(0,0,0,.22)}
+/* Vista directivo (minimalista): oculta el comparativo detallado por defecto */
+.dir-toggle{display:inline-flex;align-items:center;gap:6px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:999px;padding:.4rem .82rem;font-family:'DM Mono',monospace;font-size:.62rem;font-weight:600;transition:border-color .15s,color .15s}
+.dir-toggle:hover{color:var(--text);border-color:var(--suminregio)}
+.dir-toggle[aria-pressed="true"]{border-color:var(--suminregio);color:var(--suminregio)}
+.v-secondary{display:none!important}
+body.dir-full .v-secondary{display:block!important}
 .uni-detail-head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem;padding:.78rem 1.25rem;border-bottom:1px solid var(--border);background:linear-gradient(180deg,var(--s2),rgba(17,34,51,.85))}
 .uni-detail-title{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text2)}
 .uni-tech-badge{font-family:'DM Mono',monospace;font-size:.55rem;padding:.28rem .62rem;border-radius:99px;border:1px solid var(--border2);color:var(--muted)}
@@ -665,11 +671,13 @@ html[data-theme="light"] .sc-id,html.theme-premium-light .sc-id,html[data-theme=
           <span class="uni-eyebrow" id="uniEyebrow">Inteligencia corporativa</span>
           <h2 class="uni-title" id="uniHeading">Universo de negocios</h2>
           <p class="uni-subtitle" id="uniSubtitle">Cargando portafolio&hellip;</p>
+          <button type="button" id="btn-vista-dir" class="dir-toggle" aria-pressed="true" style="margin-top:.6rem"
+            onclick="toggleVista()" title="Alternar entre vista resumida (directivo) y vista completa con el comparativo detallado">👔 Vista directivo</button>
         </div>
         <div class="uni-summary-strip" id="uniSummaryStrip"></div>
       </div>
       <div class="uni-card-grid sc-grid" id="uniCardGrid"></div>
-      <div class="uni-detail-panel">
+      <div class="uni-detail-panel v-secondary">
         <div class="uni-detail-head">
           <span class="uni-detail-title">Comparativo detallado</span>
           <span class="uni-tech-badge" id="universeBadge">&mdash;</span>
@@ -2151,6 +2159,22 @@ setInterval(loadAll,1800000);
   <span style="margin-left:auto">v3.0 · Build 2026</span>
   <span>· Powered by IA</span>
 </div>
+  <script>
+  /* Vista directivo (minimalista) ↔ Vista completa. Preferencia compartida entre pestañas (erp_vista). */
+  function syncVistaBtn(){
+    var b=document.getElementById('btn-vista-dir'); if(!b) return;
+    var full=document.body.classList.contains('dir-full');
+    b.setAttribute('aria-pressed', full?'false':'true');
+    b.textContent= full?'📊 Vista completa':'👔 Vista directivo';
+  }
+  function toggleVista(){
+    var full=document.body.classList.toggle('dir-full');
+    try{ localStorage.setItem('erp_vista', full?'full':'min'); }catch(e){ console.error('vista pref', e&&e.message); }
+    syncVistaBtn();
+  }
+  try{ if(localStorage.getItem('erp_vista')==='full') document.body.classList.add('dir-full'); }catch(e){ console.error('vista pref read', e&&e.message); }
+  document.addEventListener('DOMContentLoaded', syncVistaBtn);
+  </script>
   <script src="metas-estandar.js" defer></script>
 </body>
 </html>

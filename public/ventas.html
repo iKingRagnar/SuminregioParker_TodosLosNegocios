@@ -60,6 +60,12 @@ nav{display:flex;align-items:center;gap:.25rem}
 .page-header{margin-bottom:2rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}
 .page-title{font-size:1.75rem;font-weight:800;background:linear-gradient(135deg,var(--suminregio) 0%,var(--yellow) 50%,var(--orange) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .page-sub{font-size:.85rem;color:var(--muted);margin-top:.35rem}
+/* Vista directivo (minimalista): oculta secciones de analista; por defecto ON, sin flash */
+.dir-toggle{display:inline-flex;align-items:center;gap:6px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:999px;padding:.4rem .82rem;font-family:'DM Mono',monospace;font-size:.66rem;font-weight:600;transition:border-color .15s,color .15s}
+.dir-toggle:hover{color:var(--text);border-color:var(--accent)}
+.dir-toggle[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+.v-secondary{display:none!important}
+body.dir-full .v-secondary{display:block!important}
 .source-tabs{display:flex;gap:.5rem;margin-bottom:1.5rem;flex-wrap:wrap;align-items:center}
 .tab-btn{padding:.45rem 1.1rem;border-radius:8px;font-size:.8rem;font-weight:600;cursor:pointer;border:1px solid var(--border2);background:var(--s1);color:var(--muted);transition:all .2s;font-family:'Syne',sans-serif}
 .tab-btn:hover{color:var(--text);border-color:var(--blue)}
@@ -290,32 +296,10 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
     </div>
   </div>
 
-  <figure class="ms-ai-page-banner ms-ai-page-banner--data" aria-hidden="true">
-    <div class="ms-ai-page-banner__viz">
-      <svg viewBox="0 0 420 56" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
-        <defs>
-          <linearGradient id="vbannerBars" x1="0" y1="1" x2="0" y2="0">
-            <stop offset="0%" stop-color="rgba(77,166,255,.4)"/>
-            <stop offset="100%" stop-color="rgba(230,168,0,.95)"/>
-          </linearGradient>
-        </defs>
-        <g fill="url(#vbannerBars)" opacity=".9">
-          <rect class="vbanner-bar" x="12" y="28" width="14" height="22" rx="3"/>
-          <rect class="vbanner-bar" x="34" y="18" width="14" height="32" rx="3"/>
-          <rect class="vbanner-bar" x="56" y="24" width="14" height="26" rx="3"/>
-          <rect class="vbanner-bar" x="78" y="12" width="14" height="38" rx="3"/>
-          <rect class="vbanner-bar" x="100" y="20" width="14" height="30" rx="3"/>
-          <rect class="vbanner-bar" x="122" y="8" width="14" height="42" rx="3"/>
-          <rect class="vbanner-bar" x="144" y="22" width="14" height="28" rx="3"/>
-          <rect class="vbanner-bar" x="166" y="14" width="14" height="36" rx="3"/>
-          <rect class="vbanner-bar" x="188" y="10" width="14" height="40" rx="3"/>
-          <rect class="vbanner-bar" x="210" y="20" width="14" height="30" rx="3"/>
-        </g>
-        <path fill="none" stroke="rgba(0,229,160,.75)" stroke-width="1.8" d="M8 38 Q110 14 210 26 T400 20"/>
-      </svg>
-    </div>
-    <span class="ms-ai-page-banner__label">Datos en contexto · KPIs y cotizaciones alineadas a operación</span>
-  </figure>
+  <div style="display:flex;justify-content:flex-end;margin:.2rem 0 .6rem">
+    <button type="button" id="btn-vista-dir" class="dir-toggle" aria-pressed="true"
+      onclick="toggleVista()" title="Alternar entre vista resumida (directivo) y vista completa con todo el detalle">👔 Vista directivo</button>
+  </div>
 
   <div class="ms-time-stack">
     <div id="filter-bar"></div>
@@ -455,7 +439,7 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
   </div>
 
   <!-- COTIZACIONES -->
-  <div id="coti-section" style="padding-top:.5rem">
+  <div id="coti-section" class="v-secondary" style="padding-top:.5rem">
     <div style="margin-bottom:1rem;padding-top:.5rem;border-top:1px solid var(--border)">
       <div style="font-size:1.1rem;font-weight:700;color:var(--text);margin-bottom:.25rem">Cotizaciones</div>
       <div style="font-size:.8rem;color:var(--muted)">
@@ -500,7 +484,7 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
   </div>
 
   <!-- -- Análisis Cotizaciones vs Ventas ----------------------- -->
-  <div class="card" style="margin-top:1.25rem;margin-bottom:1.25rem">
+  <div class="card v-secondary" style="margin-top:1.25rem;margin-bottom:1.25rem">
     <div class="card-head">
       <div class="card-title">
         <svg viewBox="0 0 24 24"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
@@ -718,6 +702,22 @@ function fmtMetaPct(pct) {
   }
   return Math.round(pct) + '%';
 }
+/** Vista directivo (minimalista) ↔ Vista completa. Preferencia compartida entre pestañas. */
+function syncVistaBtn() {
+  const b = document.getElementById('btn-vista-dir');
+  if (!b) return;
+  const full = document.body.classList.contains('dir-full');
+  b.setAttribute('aria-pressed', full ? 'false' : 'true');
+  b.textContent = full ? '📊 Vista completa' : '👔 Vista directivo';
+}
+function toggleVista() {
+  const full = document.body.classList.toggle('dir-full');
+  try { localStorage.setItem('erp_vista', full ? 'full' : 'min'); } catch (e) { console.error('vista pref', e && e.message); }
+  syncVistaBtn();
+  if (full) setTimeout(() => window.dispatchEvent(new Event('resize')), 60); // re-ajustar gráficas reveladas
+}
+try { if (localStorage.getItem('erp_vista') === 'full') document.body.classList.add('dir-full'); } catch (e) { console.error('vista pref read', e && e.message); }
+document.addEventListener('DOMContentLoaded', syncVistaBtn);
 function getVendedoresEnContexto(metaObj) {
   const p = (window.filterGetParams && filterGetParams()) || {};
   if (p.vendedor != null && String(p.vendedor).trim() !== '') return 1;
