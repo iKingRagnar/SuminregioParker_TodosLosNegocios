@@ -60,12 +60,8 @@ nav{display:flex;align-items:center;gap:.25rem}
 .page-header{margin-bottom:2rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}
 .page-title{font-size:1.75rem;font-weight:800;background:linear-gradient(135deg,var(--suminregio) 0%,var(--yellow) 50%,var(--orange) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .page-sub{font-size:.85rem;color:var(--muted);margin-top:.35rem}
-/* Vista directivo (minimalista): oculta secciones de analista; por defecto ON, sin flash */
-.dir-toggle{display:inline-flex;align-items:center;gap:6px;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:999px;padding:.4rem .82rem;font-family:'DM Mono',monospace;font-size:.66rem;font-weight:600;transition:border-color .15s,color .15s}
-.dir-toggle:hover{color:var(--text);border-color:var(--accent)}
-.dir-toggle[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+/* Vista minimalista de dirección: secciones de detalle/analista ocultas de forma permanente */
 .v-secondary{display:none!important}
-body.dir-full .v-secondary{display:block!important}
 .source-tabs{display:flex;gap:.5rem;margin-bottom:1.5rem;flex-wrap:wrap;align-items:center}
 .tab-btn{padding:.45rem 1.1rem;border-radius:8px;font-size:.8rem;font-weight:600;cursor:pointer;border:1px solid var(--border2);background:var(--s1);color:var(--muted);transition:all .2s;font-family:'Syne',sans-serif}
 .tab-btn:hover{color:var(--text);border-color:var(--blue)}
@@ -296,10 +292,6 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
     </div>
   </div>
 
-  <div style="display:flex;justify-content:flex-end;margin:.2rem 0 .6rem">
-    <button type="button" id="btn-vista-dir" class="dir-toggle" aria-pressed="true"
-      onclick="toggleVista()" title="Alternar entre vista resumida (directivo) y vista completa con todo el detalle">👔 Vista directivo</button>
-  </div>
 
   <div class="ms-time-stack">
     <div id="filter-bar"></div>
@@ -702,22 +694,6 @@ function fmtMetaPct(pct) {
   }
   return Math.round(pct) + '%';
 }
-/** Vista directivo (minimalista) ↔ Vista completa. Preferencia compartida entre pestañas. */
-function syncVistaBtn() {
-  const b = document.getElementById('btn-vista-dir');
-  if (!b) return;
-  const full = document.body.classList.contains('dir-full');
-  b.setAttribute('aria-pressed', full ? 'false' : 'true');
-  b.textContent = full ? '📊 Vista completa' : '👔 Vista directivo';
-}
-function toggleVista() {
-  const full = document.body.classList.toggle('dir-full');
-  try { localStorage.setItem('erp_vista', full ? 'full' : 'min'); } catch (e) { console.error('vista pref', e && e.message); }
-  syncVistaBtn();
-  if (full) setTimeout(() => window.dispatchEvent(new Event('resize')), 60); // re-ajustar gráficas reveladas
-}
-try { if (localStorage.getItem('erp_vista') === 'full') document.body.classList.add('dir-full'); } catch (e) { console.error('vista pref read', e && e.message); }
-document.addEventListener('DOMContentLoaded', syncVistaBtn);
 function getVendedoresEnContexto(metaObj) {
   const p = (window.filterGetParams && filterGetParams()) || {};
   if (p.vendedor != null && String(p.vendedor).trim() !== '') return 1;
