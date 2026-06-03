@@ -96,6 +96,8 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 /* Section divider */
 .sd{display:flex;align-items:center;gap:1rem;margin:1.6rem 0 1.1rem}
 .sd-label{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.12em;text-transform:uppercase;white-space:nowrap}
+/* Vista minimalista de dirección: sección analista "Correlación Gastos·Ventas" oculta */
+.v-secondary{display:none!important}
 .sd-line{flex:1;height:1px;background:var(--border)}
 
 /* Cards */
@@ -691,15 +693,15 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
     </div>
   </div>
 
-  <!-- SECCIÓN NUEVA: Correlación Gastos vs Ventas -->
-  <div class="sd" style="margin-top:2rem">
+  <!-- SECCIÓN NUEVA: Correlación Gastos vs Ventas (oculta en vista minimalista: análisis de analista) -->
+  <div class="sd v-secondary" style="margin-top:2rem">
     <span class="sd-label">Correlación Gastos · Ventas</span>
     <div class="sd-line"></div>
   </div>
-  <div class="notice" style="margin-bottom:1rem">
+  <div class="notice v-secondary" style="margin-bottom:1rem">
     📊 <strong>Análisis de correlación:</strong> Visualiza la relación entre el crecimiento de ventas y la evolución de gastos operativos para detectar ineficiencias y oportunidades de optimización de margen.
   </div>
-  <div class="grid-2" style="margin-bottom:1.25rem">
+  <div class="grid-2 v-secondary" style="margin-bottom:1.25rem">
     <!-- Chart 1: Ventas vs Gastos por mes (barras + línea) -->
     <div class="card">
       <div class="card-head">
@@ -728,7 +730,7 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
     </div>
   </div>
   <!-- Chart 3: Scatter correlación (si hay 3+ meses de datos) -->
-  <div class="card" style="margin-bottom:1.5rem" id="cardScatter">
+  <div class="card v-secondary" style="margin-bottom:1.5rem" id="cardScatter">
     <div class="card-head">
       <span class="card-title">
         <svg viewBox="0 0 24 24"><circle cx="7" cy="17" r="2"/><circle cx="17" cy="7" r="2"/><circle cx="12" cy="12" r="2"/><line x1="7" y1="17" x2="17" y2="7"/></svg>
