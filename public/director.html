@@ -603,6 +603,30 @@ function buildApiUrl(path, extra, qsOpts) {
   const parts = [qs, e].filter(Boolean).join('&');
   return API + path + (parts ? '?' + parts : '');
 }
+/**
+ * URL de /api/ventas/resumen para el MISMO periodo del filtro pero un año antes (YoY real).
+ * Antes se pedía preset=anio_ant junto al anio/mes vigente → comparaba contra un periodo
+ * distinto (mes vs año completo / mismo periodo), dando un badge YoY sin sentido.
+ */
+function buildYoyVentasUrl() {
+  const p = (typeof filterGetParams === 'function') ? (filterGetParams() || {}) : {};
+  const shiftY = (s) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || ''));
+    return m ? ((parseInt(m[1], 10) - 1) + '-' + m[2] + '-' + m[3]) : null;
+  };
+  let period = '';
+  if (p.anio && p.mes)        period = 'anio=' + (parseInt(p.anio, 10) - 1) + '&mes=' + parseInt(p.mes, 10);
+  else if (p.anio)            period = 'anio=' + (parseInt(p.anio, 10) - 1);
+  else if (p.desde && p.hasta){ const d = shiftY(p.desde), h = shiftY(p.hasta); if (d && h) period = 'desde=' + d + '&hasta=' + h; }
+  if (!period) period = 'anio=' + (new Date().getFullYear() - 1); // fallback razonable
+  let db = '';
+  try { db = (typeof window.getSelectedDbId === 'function') ? String(getSelectedDbId() || '').trim() : ''; } catch (_) {}
+  if (!db) { try { db = (new URL(location.href)).searchParams.get('db') || ''; } catch (_) {} }
+  if (!db) { try { db = sessionStorage.getItem('microsip_erp_db') || ''; } catch (_) {} }
+  db = String(db || '').trim();
+  const qs = [period, db ? ('db=' + encodeURIComponent(db)) : ''].filter(Boolean).join('&');
+  return API + '/api/ventas/resumen' + (qs ? '?' + qs : '');
+}
 /** Aplana respuestas raras de /api/cxc/resumen-aging (array, envoltorio data). */
 function normalizeDirectorCxcApiPayload(raw) {
   if (raw == null) return {};
@@ -899,8 +923,8 @@ async function loadAll() {
       dbgWrap('director/resumen', fetchJson(buildApiUrl('/api/director/resumen', 'omitCxc=1'), {}, tDir)),
       dbgWrap('cxc/resumen-aging', fetchJson(buildApiUrl('/api/cxc/resumen-aging','queryMs=180000'), {}, tDir)),
       dbgWrap('config/metas', fetchJson(buildApiUrl('/api/config/metas'), {}, tDir)),
-      // YoY: ventas del mismo periodo del año anterior (ligero, 30s timeout)
-      dbgWrap('ventas/resumen/yoy', fetchJson(buildApiUrl('/api/ventas/resumen', 'preset=anio_ant'), {}, 30000).catch(() => null)),
+      // YoY: ventas del MISMO periodo del filtro, un año antes (ligero, 30s timeout)
+      dbgWrap('ventas/resumen/yoy', fetchJson(buildYoyVentasUrl(), {}, 30000).catch(() => null)),
     ]);
 
     // Remove skeleton

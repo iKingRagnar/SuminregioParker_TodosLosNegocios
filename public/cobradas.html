@@ -327,7 +327,7 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
   <div class="kpi-grid">
     <div class="kpi green">
       <div class="kpi-mod">Cobros</div>
-      <div class="kpi-label">Total cobrado del mes</div>
+      <div class="kpi-label" id="lblTotalCobrado">Total cobrado del mes</div>
       <div class="kpi-val" id="kpiTotalCobrado">--</div>
       <div class="kpi-sub" id="kpiTotalCobradoSub">-- facturas</div>
     </div>
@@ -351,7 +351,7 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
     </div>
     <div class="kpi purple">
       <div class="kpi-mod">Mejor</div>
-      <div class="kpi-label">Vendedor top del mes</div>
+      <div class="kpi-label" id="lblTopVend">Vendedor top del mes</div>
       <div class="kpi-val" id="kpiTopVend">--</div>
       <div class="kpi-sub" id="kpiTopVendSub">-- en comisi&oacute;n</div>
     </div>
@@ -667,7 +667,31 @@ let totalCobradoGlobal = null;
 let totalCobradoConIvaGlobal = null;
 let totalFacturadoGlobal = null;
 
+// Sufijo de periodo para las etiquetas de KPI (antes decían "del mes" fijo aunque el
+// filtro fuera semana/año/mes elegido → etiqueta y valor descuadraban).
+function cobradasPeriodSuffix(){
+  const MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const p=(typeof filterGetParams==='function')?(filterGetParams()||{}):{};
+  const preset=p.preset||'mes';
+  const cap=s=>s?s.charAt(0).toUpperCase()+s.slice(1):'';
+  if(preset==='hoy') return 'de hoy';
+  if(preset==='semana') return 'de la semana';
+  if(preset==='mes_ant') return 'del mes anterior';
+  if(preset==='ytd') return 'YTD';
+  if((preset==='anio'||preset==='anio_ant') && p.anio) return 'del año '+p.anio;
+  if((preset==='mes'||preset==='custom_mes') && p.anio && p.mes){
+    const nom=cap(MESES[parseInt(p.mes,10)-1]||'');
+    return nom?('de '+nom+' '+p.anio):'del mes';
+  }
+  if(p.anio && p.mes){ const nom=cap(MESES[parseInt(p.mes,10)-1]||''); return nom?('de '+nom+' '+p.anio):'del periodo'; }
+  if(p.desde && p.hasta) return 'del periodo';
+  return 'del mes';
+}
+
 function renderAll(){
+  const _perSuf = cobradasPeriodSuffix();
+  const _lblCob=document.getElementById('lblTotalCobrado'); if(_lblCob) _lblCob.textContent='Total cobrado '+_perSuf;
+  const _lblTop=document.getElementById('lblTopVend');     if(_lblTop) _lblTop.textContent='Vendedor top '+_perSuf;
   const d = allData;
   if(!d.length){
     document.getElementById('heroSub').textContent='Sin datos de facturas cobradas';
