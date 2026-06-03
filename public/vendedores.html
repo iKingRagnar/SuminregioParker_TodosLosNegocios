@@ -382,6 +382,12 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
 
 <script>
 const API = (typeof window !== 'undefined' && window.__API_BASE !== undefined) ? window.__API_BASE : '';
+/** Cumplimiento legible: "85%" normal, "7×" cuando se supera mucho la meta (meta base no calibrada). */
+function fmtMetaPct(pct){
+  if(pct==null||!isFinite(pct)) return '—';
+  if(pct>=300){const x=pct/100; return (x>=10?Math.round(x):(x.toFixed(1).replace(/\.0$/,'')))+'×';}
+  return Math.round(pct)+'%';
+}
 function fwt(url,fallback,ms=15000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
 let chartDiarioInst = null, chartCumplInst = null, chartCobrosInst = null;
 let lastMetasForChart = {};
@@ -607,7 +613,7 @@ function renderAll(vends, metas){
   document.getElementById('kpiTotalHoy').textContent = fmtM(totalHoy);
   document.getElementById('kpiMetaHoySub').textContent = 'Meta: '+fmtM(metaDia)+' ('+Math.round(totalHoy/metaDia*100)+'%)';
   document.getElementById('kpiTotalMes').textContent = fmtM(totalMes);
-  document.getElementById('kpiMetaMesSub').textContent = 'Meta acum: '+fmtM(metaMes)+' ('+Math.round(totalMes/metaMes*100)+'%)';
+  document.getElementById('kpiMetaMesSub').textContent = 'Meta acum: '+fmtM(metaMes)+' ('+fmtMetaPct(metaMes>0?totalMes/metaMes*100:0)+')';
   document.getElementById('kpiEnMetaHoy').textContent = enMetaMes+'/'+vends.length;
   document.getElementById('kpiBestMes').textContent = (bestMes?.NOMBRE||'--').split(' ')[0];
   document.getElementById('kpiBestMesSub').textContent = fmtM(+bestMes?.VENTA_MES||0)+' mes';

@@ -550,13 +550,26 @@ function isLaborDay(d) {
   return wd >= 1 && wd <= 6;
 }
 function countLaborDaysMonthToDate() {
-  const end = new Date();
-  const y = end.getFullYear(), m = end.getMonth(), last = end.getDate();
+  // Period-aware: mes en curso cuenta hasta hoy; mes cerrado cuenta el mes completo
+  // (evita metas acumuladas absurdas, p.ej. 8607%, al ver un mes ya terminado).
+  const p = (typeof filterGetParams === 'function') ? (filterGetParams() || {}) : {};
+  const now = new Date();
+  const curY = now.getFullYear(), curM = now.getMonth() + 1;
+  let y = now.getFullYear(), m = now.getMonth(), last = now.getDate();
+  if (p.anio && p.mes && !(+p.anio === curY && +p.mes === curM)) {
+    y = +p.anio; m = +p.mes - 1; last = new Date(+p.anio, +p.mes, 0).getDate();
+  }
   let n = 0;
   for (let day = 1; day <= last; day++) {
     if (isLaborDay(new Date(y, m, day, 12, 0, 0))) n++;
   }
   return Math.max(n, 1);
+}
+/** Cumplimiento legible: "85%" normal, "9×" cuando se supera mucho la meta (meta base no calibrada). */
+function fmtMetaPct(pct){
+  if(pct==null||!isFinite(pct)) return '—';
+  if(pct>=300){const x=pct/100; return (x>=10?Math.round(x):(x.toFixed(1).replace(/\.0$/,'')))+'×';}
+  return Math.round(pct)+'%';
 }
 function getVendedoresEnContexto(metaObj) {
   const p = (typeof filterGetParams === 'function') ? filterGetParams() : {};
@@ -749,7 +762,7 @@ function setBarColor(barId,pctId,pct,{invert=false}={}){
   const col=!invert?(pct>=100?'var(--green)':pct>=70?'var(--yellow)':'var(--red)'):(pct<25?'var(--green)':pct<50?'var(--yellow)':'var(--red)');
     const label=!invert?(pct>=100?'\u2713 Meta cumplida':pct>=70?'Buen avance':'Por debajo'):(pct<25?'Saludable':pct<50?'Atenci\u00f3n':'Cr\u00edtica');
   if(bar){bar.style.width=Math.min(pct,100)+'%';bar.style.background=col}
-  if(pctEl){pctEl.innerHTML=`<span style="color:${col};font-weight:600">${pct}%</span> ${label}`}
+  if(pctEl){pctEl.innerHTML=`<span style="color:${col};font-weight:600">${fmtMetaPct(pct)}</span> ${label}`}
 }
 
 function labelPeriodoFiltro(){
@@ -1011,7 +1024,7 @@ async function loadAll() {
     setText('v-mes', fmtK(ventaMes));
     setBarColor('bar-mes','pct-mes',pMesIdeal);
     setText('v-mes-sub', `${v.FACTURAS_MES||0} docs · ideal acum. (${laborMes} d. lab.)`);
-    setSem('sem-mes',pMesIdeal>=100?'ok':pMesIdeal>=70?'warn':'danger',pMesIdeal+'% vs ideal');
+    setSem('sem-mes',pMesIdeal>=100?'ok':pMesIdeal>=70?'warn':'danger',fmtMetaPct(pMesIdeal)+' vs ideal');
 
     // Canal split
     const ventaVE=+(v.MES_VE||0), ventaPV=+(v.MES_PV||0), remMes=+(v.REMISIONES_MES||0);
