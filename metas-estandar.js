@@ -53,6 +53,13 @@
     META_IDEAL_POR_VENDEDOR:       { label: 'Venta ideal por vendedor',  dir: '≥', kind: 'money' },
   };
 
+  // Cumplimiento legible: "85%" normal, "14×" cuando se supera mucho la meta (evita cifras de 4 dígitos).
+  function fmtCumpl(pct) {
+    if (pct == null || !isFinite(pct)) return '—';
+    if (pct >= 300) { var x = pct / 100; return (x >= 10 ? Math.round(x) : (Math.round(x * 10) / 10)) + '×'; }
+    return Math.round(pct) + '%';
+  }
+
   function fmtVal(kind, v) {
     var n = Number(v);
     if (!isFinite(n)) return String(v);
@@ -123,7 +130,7 @@
       // Con dato real medido → Real grande + Meta/Δ/% con color
       if (it.medible && it.real != null) {
         var ok = !!it.alcanzada;
-        var pctTxt = (it.pct != null ? Math.round(it.pct) + '%' : '—');
+        var pctTxt = fmtCumpl(it.pct);
         var line = 'Meta ' + metaTxt + ' · <span class="' + (ok ? 'mestd-ok' : 'mestd-bad') + '">'
           + (ok ? '✓ ' : '✗ ') + pctTxt + '</span> · Δ ' + fmtDelta(it.kind, it.delta);
         return '<div class="mestd-chip ' + (ok ? 'ok' : 'bad') + '">'
