@@ -128,6 +128,10 @@ nav{display:flex;align-items:center;gap:.25rem}
 .tipo-badge{display:inline-block;padding:.1rem .4rem;border-radius:4px;font-size:.6rem;font-weight:600;font-family:'DM Mono',monospace}
 .tipo-ve{background:var(--blue-dim);color:var(--blue)}.tipo-pv{background:var(--purple-dim);color:var(--purple)}
 .exec-mission{background:linear-gradient(145deg,rgba(30,127,217,.1),rgba(245,124,0,.08));border:1px solid var(--border);border-radius:16px;padding:1rem 1.25rem;margin-bottom:1.25rem}
+/* Vista minimalista de dirección: intro de ayuda + movimientos folio-a-folio ocultos */
+.exec-mission{display:none!important}
+.v-secondary{display:none!important}
+.grid-2:has(> .v-secondary){grid-template-columns:1fr!important}
 .exec-mission h2{font-size:.88rem;font-weight:800;color:var(--suminregio);margin-bottom:.35rem;letter-spacing:-.02em}
 .exec-mission p{font-size:.78rem;color:var(--text2);line-height:1.55;max-width:920px}
 .exec-pills{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.65rem}
@@ -450,7 +454,7 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
         </table>
       </div>
     </div>
-    <div class="card">
+    <div class="card v-secondary">
       <div class="card-head"><div class="card-title"><svg viewBox="0 0 24 24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>Movimientos Recientes</div><div class="card-badge" id="rec-badge">&mdash;</div></div>
       <div class="card-body" style="padding:0">
         <table class="tbl table--analytic" id="tbl-recientes">

@@ -53,6 +53,9 @@ nav{display:flex;align-items:center;gap:.25rem}
 .page-title{font-size:1.75rem;font-weight:800;background:linear-gradient(135deg,var(--text),var(--suminregio));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .page-sub{font-size:.85rem;color:var(--muted);margin-top:.35rem}
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem}
+/* Vista minimalista de dirección: párrafo de metodología técnica (SALDOS_IN) oculto */
+.inv-filter-hint{display:none!important}
+.v-secondary{display:none!important}
 @media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
 .kpi-card{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:1.25rem 1.5rem;position:relative;overflow:hidden;transition:all .3s}
 .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--kpi-c),transparent);opacity:.8}
