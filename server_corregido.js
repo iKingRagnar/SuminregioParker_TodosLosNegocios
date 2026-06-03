@@ -93,9 +93,11 @@ const _ivaDiv = parseFloat(process.env.MICROSIP_VENTAS_SIN_IVA_DIVISOR);
 const VENTAS_IVA_FACTOR = Number.isFinite(_ivaFactor) && _ivaFactor >= 0.0001 ? _ivaFactor : null;
 const VENTAS_SIN_IVA_DIVISOR = Number.isFinite(_ivaDiv) && _ivaDiv >= 0.0001 ? _ivaDiv : 1.0;
 
-function sqlVentaImporteBaseExpr(alias = 'd') {
+function sqlVentaImporteBaseExpr(alias = 'd', forceNoIva = false) {
   const a = alias;
   const base = `COALESCE(${a}.IMPORTE_NETO, 0)`;
+  // El P&L (Estado de Resultados) siempre usa base NETA sin IVA (norma contable).
+  if (forceNoIva) return base;
   if (VENTAS_INCLUIR_IMPUESTOS) {
     // Suma el IVA real de cada documento — resultado idéntico a Microsip UI
     return `(${base} + COALESCE(${a}.TOTAL_IMPUESTOS, 0))`;
@@ -8030,7 +8032,8 @@ async function resultadosPnlCore(req, dbOpts) {
   // FIX: usar el mismo divisor IVA que ventasSub() para que resultados.html
   // sea consistente con ventas.html, director.html, vendedores.html, etc.
   // Antes usaba sqlVentaImporteResultadosExpr (sin divisor) → ventas 16% más altas.
-  const impRes = sqlVentaImporteBaseExpr('d');
+  // P&L: VENTAS_NETAS SIEMPRE sin IVA (base neta), sin importar la config global.
+  const impRes = sqlVentaImporteBaseExpr('d', true);
   const ventasSubRes = `(
     SELECT
       d.FECHA,

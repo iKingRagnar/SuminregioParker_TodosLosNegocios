@@ -2077,6 +2077,8 @@ function renderInsight(tot,meses,hasCosto){
   const cobMsg=efic>=80?'excelente eficiencia de cobro':efic>=50?'cobro moderado — gestionar cartera':'cobro bajo — revisar vencidos';
   parts.push(`Eficiencia de cobro: <span class="${cobColor}"><strong>${efic}%</strong> del facturado cobrado — ${cobMsg}</span>. Total cobrado: <strong class="hi-blue">${fmtM(cobros)}</strong> vs <strong>${fmtM(ventas)}</strong> facturado.`);
 
+  // Base SIN IVA (norma contable del P&L)
+  parts.push(`<span class="hi-blue">Las Ventas Netas se muestran <strong>sin IVA</strong> (base neta), como corresponde a un Estado de Resultados: el IVA se traslada al SAT y no es ingreso.</span> El total <strong>facturado con IVA</strong> es mayor (el IVA varía por producto; en suministros médicos hay partidas exentas/0%).`);
   // Gastos
   parts.push(`<span class="hi-yellow">Los gastos operativos (sueldos, rentas, servicios) se registran en Contabilidad Microsip</span> y no están disponibles en este módulo. La utilidad mostrada es <strong>Bruta</strong> (Ventas − Costo). Para <strong>Utilidad Neta</strong> se requiere integrar las pólizas contables.`);
 
