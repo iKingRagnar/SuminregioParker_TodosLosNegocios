@@ -1578,12 +1578,14 @@ function mergeVentasResumen(outs) {
         MES_ACTUAL_CONTA: a.MES_ACTUAL_CONTA + (+out.MES_ACTUAL_CONTA || 0),
         FACTURAS_MES: a.FACTURAS_MES + (+out.FACTURAS_MES || 0),
         HASTA_AYER_MES: a.HASTA_AYER_MES + (+out.HASTA_AYER_MES || 0),
+        MES_ACTUAL_IVA: a.MES_ACTUAL_IVA + (+out.MES_ACTUAL_IVA || 0),
+        MES_ACTUAL_CON_IVA: a.MES_ACTUAL_CON_IVA + (+out.MES_ACTUAL_CON_IVA || 0),
         REMISIONES_HOY: a.REMISIONES_HOY + (+out.REMISIONES_HOY || 0),
         REMISIONES_MES: a.REMISIONES_MES + (+out.REMISIONES_MES || 0),
         _anyConta: a._anyConta,
       };
     },
-    { HOY: 0, MES_ACTUAL: 0, MES_ACTUAL_DOCS: 0, MES_ACTUAL_CONTA: 0, FACTURAS_MES: 0, HASTA_AYER_MES: 0, REMISIONES_HOY: 0, REMISIONES_MES: 0, _anyConta: false },
+    { HOY: 0, MES_ACTUAL: 0, MES_ACTUAL_DOCS: 0, MES_ACTUAL_CONTA: 0, FACTURAS_MES: 0, HASTA_AYER_MES: 0, MES_ACTUAL_IVA: 0, MES_ACTUAL_CON_IVA: 0, REMISIONES_HOY: 0, REMISIONES_MES: 0, _anyConta: false },
   );
   acc.FUENTE_VENTAS = acc._anyConta ? 'CONTABLE_SALDOS_CO_4' : 'DOCS_VE_PV';
   delete acc._anyConta;
@@ -2572,10 +2574,14 @@ function ventasSub(tipo = '', opts = {}) {
     : `(${PV_TIPOS_DOCTO_SQL})`;
   const pvAplicadoFilter = PV_REQUIERE_APLICADO ? `\n      AND COALESCE(d.APLICADO, 'N') = 'S'` : '';
   const imp = sqlVentaImporteBaseExpr('d');
+  // IVA por documento (para mostrar con/sin IVA). Si la columna no existe en la
+  // instalación, la query que lo use degrada con su .catch — aquí va seguro.
+  const ivaCol = (opts && opts.withIva) ? 'COALESCE(d.TOTAL_IMPUESTOS, 0) AS IVA,' : '';
   const ve = `
     SELECT
       d.FECHA,
       ${imp} AS IMPORTE_NETO,
+      ${ivaCol}
       COALESCE(d.VENDEDOR_ID, 0)  AS VENDEDOR_ID,
       COALESCE(d.CLIENTE_ID,  0)  AS CLIENTE_ID,
       d.FOLIO,
@@ -2595,6 +2601,7 @@ function ventasSub(tipo = '', opts = {}) {
     SELECT
       d.FECHA,
       ${imp} AS IMPORTE_NETO,
+      ${ivaCol}
       COALESCE(
         CASE WHEN d.TIPO_DOCTO = 'F' THEN
           (SELECT d2.VENDEDOR_ID
@@ -3653,10 +3660,11 @@ get('/api/ventas/resumen', async (req) => {
       SUM(CASE WHEN CAST(d.FECHA AS DATE) = CURRENT_DATE
                THEN d.IMPORTE_NETO ELSE 0 END)                      AS HOY,
       COALESCE(SUM(d.IMPORTE_NETO), 0)                              AS MES_ACTUAL,
+      COALESCE(SUM(d.IVA), 0)                                       AS IVA_MES,
       COUNT(*)                                                      AS FACTURAS_MES,
       SUM(CASE WHEN CAST(d.FECHA AS DATE) < CURRENT_DATE
                THEN d.IMPORTE_NETO ELSE 0 END)                     AS HASTA_AYER_MES
-    FROM ${ventasSub(tipo)} d
+    FROM ${ventasSub(tipo, { withIva: true })} d
     WHERE 1=1 ${f.sql}
   `, f.params, 30000, dbo).catch(() => []),
       query(`
@@ -3682,6 +3690,9 @@ get('/api/ventas/resumen', async (req) => {
       FUENTE_VENTAS: useConta ? 'CONTABLE_SALDOS_CO_4' : 'DOCS_VE_PV',
       FACTURAS_MES: +((rows[0] && rows[0].FACTURAS_MES) || 0),
       HASTA_AYER_MES: +((rows[0] && rows[0].HASTA_AYER_MES) || 0),
+      // IVA del periodo (para mostrar con/sin IVA). Nombres que el frontend ya espera.
+      MES_ACTUAL_IVA: +((rows[0] && rows[0].IVA_MES) || 0),
+      MES_ACTUAL_CON_IVA: docsTotal + (+((rows[0] && rows[0].IVA_MES) || 0)),
     };
     const rem = remRows[0] || {};
     out.REMISIONES_HOY = +(rem.REMISIONES_HOY || 0);
