@@ -587,10 +587,12 @@ async function loadData(){
       allData = r.vendedores;
       totalCobradoGlobal = +r.totalCobrado || 0;
       totalFacturadoGlobal = +r.totalFacturado || 0;
+      totalCobradoConIvaGlobal = +r.totalCobradoConIva || 0;
     } else {
       allData = Array.isArray(r) ? r : [];
       totalCobradoGlobal = null;
       totalFacturadoGlobal = null;
+      totalCobradoConIvaGlobal = null;
     }
     renderAll();
     await loadDetalleCobros();
@@ -662,6 +664,7 @@ function renderDetalleCobrosTable(rows, mode){
 }
 
 let totalCobradoGlobal = null;
+let totalCobradoConIvaGlobal = null;
 let totalFacturadoGlobal = null;
 
 function renderAll(){
@@ -678,7 +681,8 @@ function renderAll(){
   const ticketProm   = totalFacturas>0 ? totalCobrado/totalFacturas : 0;
   const topVend      = [...d].sort((a,b)=>(+b.TOTAL_COBRADO||0)-(+a.TOTAL_COBRADO||0))[0];
 
-  document.getElementById('heroSub').textContent = d.length+' vendedores \u2022 '+totalFacturas+' facturas \u2022 '+fmtM(totalCobrado)+' cobrado';
+  const _ivaTxt = (totalCobradoConIvaGlobal && totalCobradoConIvaGlobal > totalCobrado + 1) ? (' (c/IVA ' + fmtM(totalCobradoConIvaGlobal) + ')') : '';
+  document.getElementById('heroSub').textContent = d.length+' vendedores \u2022 '+totalFacturas+' facturas \u2022 '+fmtM(totalCobrado)+' cobrado sin IVA'+_ivaTxt;
   document.getElementById('kpiTotalCobrado').textContent = fmtM(totalCobrado);
   document.getElementById('kpiTotalCobradoSub').textContent = totalFacturas+' facturas cobradas';
   document.getElementById('kpiTotalVenta').textContent = fmtM(totalVenta);

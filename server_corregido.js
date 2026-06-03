@@ -4266,9 +4266,10 @@ get('/api/ventas/cobradas', async (req) => {
       GROUP BY ${vendedorAtribExpr}
     `, fiAll.params, 12000, dbo).catch(() => []),
     query(`
-      SELECT COALESCE(SUM(CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END), 0) AS TOTAL_COBRADO
+      SELECT COALESCE(SUM(CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END), 0) AS TOTAL_COBRADO,
+             COALESCE(SUM(i.IMPORTE), 0) AS TOTAL_COBRADO_CON_IVA
       ${cobroSqlFull}
-    `, fiAll.params, 12000, dbo).catch(() => [{ TOTAL_COBRADO: 0 }]),
+    `, fiAll.params, 12000, dbo).catch(() => [{ TOTAL_COBRADO: 0, TOTAL_COBRADO_CON_IVA: 0 }]),
     query(`
       SELECT COALESCE(SUM(CASE WHEN COALESCE(i.IMPUESTO,0) > 0 THEN i.IMPORTE ELSE i.IMPORTE / 1.16 END), 0) AS TOTAL_COBRADO
       ${cobroSqlAtrib}
@@ -4377,12 +4378,14 @@ get('/api/ventas/cobradas', async (req) => {
   // (la contabilidad no se parte por vendedor).
   const useContaCob = (tipo === '' && !(vendedorReq > 0)) && (+ventasContaCob || 0) > 0.01;
   const totalFacturadoOut = useContaCob ? +ventasContaCob : outFacturado;
+  const totalCobradoConIva = +(cobrosRow && cobrosRow[0] && cobrosRow[0].TOTAL_COBRADO_CON_IVA) || 0;
   return {
     vendedores: out,
     totalFacturado: totalFacturadoOut,
     totalFacturadoDocs: outFacturado,
     totalFacturadoConta: +ventasContaCob || 0,
     totalCobrado: outCobrado,
+    totalCobradoConIva: totalCobradoConIva,   // lo cobrado CON IVA (i.IMPORTE crudo)
     fuenteVentas: useContaCob ? 'CONTABLE_SALDOS_CO_4' : 'DOCS_VE_PV',
   };
 });
