@@ -1665,7 +1665,11 @@ async function loadAll(){
     const preset = params.preset || 'mes';
     const isVistaHoy = (preset === 'hoy');
     const isSemana = (preset === 'semana');
-    const isMes = (preset === 'mes' || preset === 'mes_ant');
+    // 'custom_mes' = mes elegido a mano en el selector (filterSetAnioMes); debe tratarse como vista de MES,
+    // no caer al default "Año" (antes mostraba el total de un mes etiquetado como "Venta del Año").
+    const isMes = (preset === 'mes' || preset === 'mes_ant' || preset === 'custom_mes');
+    const isAnio = (preset === 'anio' || preset === 'anio_ant');
+    const isYtd = (preset === 'ytd');
 
     // Ventas y cotiz (valores crudos)
     const ventaHoy=+v.HOY||0;
@@ -1677,8 +1681,25 @@ async function loadAll(){
     const pCotiHoy=pctOf(cotiHoy,metaCotiDia);
     const pCotiMes=pctOf(cotiMes,metaCotiDia);
 
-    const labelVenta1 = isVistaHoy ? 'Venta del D\u00eda' : isSemana ? 'Venta de la Semana' : isMes ? 'Venta del Mes' : 'Venta del A\u00f1o';
-    const labelVenta2 = isVistaHoy ? 'Venta del Mes' : 'Acum. periodo';
+    // Nombre del mes y a\u00f1o seleccionados (para etiquetas claras en vista de mes/custom_mes).
+    const selMesNom = params.mes ? (MESES[parseInt(params.mes,10)-1]||'') : '';
+    const selMesCap = selMesNom ? selMesNom.charAt(0).toUpperCase()+selMesNom.slice(1) : '';
+    const selYear = parseInt(params.anio,10)
+      || (params.hasta ? parseInt(String(params.hasta).slice(0,4),10) : 0)
+      || now.getFullYear();
+    // Meta anual aproximada (meta mensual \u00d7 12) para contrastar las ventas del a\u00f1o.
+    const metaAnual = metaMes * 12;
+
+    const labelVenta1 = isVistaHoy ? 'Venta del D\u00eda'
+      : isSemana ? 'Venta de la Semana'
+      : isMes ? (selMesCap ? 'Venta de '+selMesCap : 'Venta del Mes')
+      : isYtd ? 'Venta YTD'
+      : 'Venta del A\u00f1o';
+    // Card 2: en vista Hoy = acumulado del mes; en vista A\u00f1o = promedio mensual;
+    // en mes/semana/YTD = VENTAS DEL A\u00d1O reales (Ene\u2013Dic del a\u00f1o filtrado), no un duplicado del periodo.
+    const labelVenta2 = isVistaHoy ? 'Venta del Mes'
+      : isAnio ? 'Promedio mensual'
+      : 'Ventas del A\u00f1o ' + selYear;
     const labelCoti   = isVistaHoy ? 'Cotiz. del D\u00eda' : isSemana ? 'Cotiz. de la Semana' : isMes ? 'Cotiz. del Mes' : 'Cotiz. del A\u00f1o';
     const valorVenta1 = isVistaHoy ? ventaHoy : ventaMes;
     const valorCoti   = isVistaHoy ? cotiHoy : cotiMes;
@@ -1694,7 +1715,7 @@ async function loadAll(){
     }else if(preset==='semana' && params.desde && params.hasta){
       periodLabel='Semana '+params.desde+' a '+params.hasta;
       areaPeriodLabel='Ventas \u00b7 Semana';
-    }else if((preset==='mes'||preset==='mes_ant') && params.anio && params.mes){
+    }else if((preset==='mes'||preset==='mes_ant'||preset==='custom_mes') && params.anio && params.mes){
       const m=parseInt(params.mes,10);
       const y=parseInt(params.anio,10);
       const nomMes=(MESES[m-1]||'').charAt(0).toUpperCase()+(MESES[m-1]||'').slice(1);
@@ -1713,7 +1734,7 @@ async function loadAll(){
 
     // T\u00edtulos de las cards (kpi-module) seg\u00fan preset para que no queden fijos "Hoy"/"Mes"
     const moduleVenta1 = isVistaHoy ? 'Ventas \u00b7 Hoy' : isSemana ? 'Ventas \u00b7 Semana' : isMes ? 'Ventas \u00b7 Mes' : 'Ventas \u00b7 A\u00f1o';
-    const moduleVenta2 = isVistaHoy ? 'Ventas \u00b7 Mes' : 'Ventas \u00b7 Acum.';
+    const moduleVenta2 = isVistaHoy ? 'Ventas \u00b7 Mes' : isAnio ? 'Ventas \u00b7 Prom.' : 'Ventas \u00b7 A\u00f1o';
     const moduleCoti   = isVistaHoy ? 'Cotiz. \u00b7 Hoy' : isSemana ? 'Cotiz. \u00b7 Semana' : isMes ? 'Cotiz. \u00b7 Mes' : 'Cotiz. \u00b7 A\u00f1o';
     setEl('kpiModuleVentaHoy', moduleVenta1);
     setEl('kpiModuleVentaMes', moduleVenta2);
@@ -1725,11 +1746,53 @@ async function loadAll(){
     setEl('kpiVentaHoySub', 'Meta: '+fmtM(metaVenta1));
     setBar('barVentaHoy','pctVentaHoy', pVenta1);
     sem('semVentaHoy', pVenta1, {labels:['Cumplido','En riesgo','Critico']});
+    // Card 2 — valor según vista. En mes/semana/YTD muestra VENTAS DEL AÑO (se refina con fetch del año).
+    let valorVenta2, metaVenta2, pVenta2;
+    if (isVistaHoy) {
+      valorVenta2 = ventaMes; metaVenta2 = metaMes; pVenta2 = pMes;
+    } else if (isAnio) {
+      // ventaMes ya es el total del año filtrado; card2 = promedio mensual del año.
+      const mesesTrans = (selYear === now.getFullYear()) ? (now.getMonth()+1) : 12;
+      valorVenta2 = mesesTrans>0 ? ventaMes/mesesTrans : ventaMes;
+      metaVenta2 = metaMes; pVenta2 = pctOf(valorVenta2, metaMes);
+    } else {
+      // Placeholder = periodo actual; el fetch del año lo reemplaza por el total Ene–Dic real.
+      valorVenta2 = ventaMes; metaVenta2 = metaAnual; pVenta2 = pctOf(ventaMes, metaAnual);
+    }
     setEl('kpiLabelVentaMes', labelVenta2);
-    setEl('kpiVentaMes', fmtM(ventaMes));
-    setEl('kpiVentaMesSub', 'Meta: '+fmtM(metaMes));
-    setBar('barVentaMes','pctVentaMes', pMes);
-    sem('semVentaMes', pMes, {labels:['Cumplido','En riesgo','Critico']});
+    setEl('kpiVentaMes', fmtM(valorVenta2));
+    setEl('kpiVentaMesSub', 'Meta: '+fmtM(metaVenta2));
+    setBar('barVentaMes','pctVentaMes', pVenta2);
+    sem('semVentaMes', pVenta2, {labels:['Cumplido','En riesgo','Critico']});
+
+    // Ventas del año reales (Ene–Dic del año filtrado) para card 2 — no bloquea el render; omitCxc para que sea ligero.
+    if (!isVistaHoy && !isAnio) {
+      (function(){
+        try{
+          const dbId = (typeof window.getSelectedDbId === 'function') ? String(window.getSelectedDbId()||'').trim() : '';
+          let yqs = 'anio='+selYear+'&omitCxc=1&omitExecutiveDrilldown=1';
+          if (dbId) yqs += '&db='+encodeURIComponent(dbId);
+          if (params.vendedor) yqs += '&vendedor='+encodeURIComponent(params.vendedor);
+          fetchJsonAbort(API+'/api/director/resumen?'+yqs, {}, 60000).then(function(yr){
+            try{
+              const yv = (yr && yr.ventas) ? (+yr.ventas.MES_ACTUAL||0) : 0;
+              if (yv > 0) {
+                const pY = pctOf(yv, metaAnual);
+                setEl('kpiVentaMes', fmtM(yv));
+                setEl('kpiVentaMesSub', 'Meta anual: '+fmtM(metaAnual));
+                setBar('barVentaMes','pctVentaMes', pY);
+                sem('semVentaMes', pY, {labels:['Cumplido','En riesgo','Critico']});
+                if (typeof dashboardApplySem === 'function') {
+                  const elc = document.getElementById('kpiVentaMes');
+                  const card = elc && elc.closest('.kpi-card');
+                  if (card) dashboardApplySem(card, pY>=100?'ok':pY>=70?'warn':'danger');
+                }
+              }
+            }catch(_){}
+          }).catch(function(){});
+        }catch(_){}
+      })();
+    }
 
     // Card Cotiz: etiqueta y valor según preset; con Hoy nunca mostramos "mes"
     setEl('kpiLabelCotiHoy', labelCoti);
@@ -1829,7 +1892,7 @@ async function loadAll(){
         if (card) dashboardApplySem(card, lvl);
       };
       ringMega('kpiVentaHoy', pVenta1 >= 100 ? 'ok' : pVenta1 >= 70 ? 'warn' : 'danger');
-      ringMega('kpiVentaMes', pMes >= 100 ? 'ok' : pMes >= 70 ? 'warn' : 'danger');
+      ringMega('kpiVentaMes', pVenta2 >= 100 ? 'ok' : pVenta2 >= 70 ? 'warn' : 'danger');
       const pCotiBar = isVistaHoy ? pCotiHoy : pCotiMes;
       ringMega('kpiCotiHoy', pCotiBar >= 100 ? 'ok' : pCotiBar >= 70 ? 'warn' : 'danger');
       ringMega('kpiCxcTotal', cxcTotal > 0 ? 'info' : 'neutral');
@@ -1867,7 +1930,7 @@ async function loadAll(){
       hintEl.textContent='';
       const ySel=parseInt(params.anio,10);
       const mSel=parseInt(params.mes,10);
-      const periodYm=(preset==='mes'||preset==='mes_ant')&&!isNaN(ySel)&&!isNaN(mSel)&&ySel>0&&mSel>0?ySel*100+mSel:null;
+      const periodYm=(preset==='mes'||preset==='mes_ant'||preset==='custom_mes')&&!isNaN(ySel)&&!isNaN(mSel)&&ySel>0&&mSel>0?ySel*100+mSel:null;
       const nowYm=now.getFullYear()*100+(now.getMonth()+1);
       const vendFilt=String(params.vendedor||'').trim();
       const looksEmpty=ventaMes===0&&valorVenta1===0&&cxcTotal===0&&invTotal===0&&cotiMes===0;
