@@ -1049,7 +1049,9 @@ async function loadAll() {
       // Cotizaciones: respetan el periodo del filtro (Hoy, Mes, Año Anterior, etc.)
       const params = (typeof filterGetParams === 'function') ? filterGetParams() : {};
       const preset = params.preset || 'mes';
-      const esPeriodoGeneral = ['semana','mes_ant','anio','anio_ant'].indexOf(preset) >= 0;
+      // 'custom_mes' (mes elegido a mano) y 'ytd' también son periodos ≠ "hoy": antes caían a
+      // "Cotiz. Hoy" mostrando el valor del periodo (etiqueta/valor descuadrados).
+      const esPeriodoGeneral = ['semana','mes_ant','anio','anio_ant','ytd','custom_mes'].indexOf(preset) >= 0;
       const cotiN=+((coObj&&coObj.COTI_HOY)||0), cotiM=+((coObj&&coObj.IMPORTE_COTI_HOY)||0);
       const cotiMesM=+((coObj&&coObj.IMPORTE_COTI_MES)||0), cotiMesN=+((coObj&&coObj.COTI_MES)||0);
       const lblCoti = esPeriodoGeneral ? 'Cotiz. en periodo' : 'Cotiz. Hoy';

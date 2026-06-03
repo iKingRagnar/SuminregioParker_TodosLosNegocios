@@ -2380,7 +2380,14 @@ function getDateBoundsFromReq(req) {
   const { anio, mes, desde: desdeQ, hasta: hastaQ } = req.query;
   const reDate = /^\d{4}-\d{2}-\d{2}$/;
   if (desdeQ && reDate.test(desdeQ)) {
-    const hasta = hastaQ && reDate.test(hastaQ) ? hastaQ : null;
+    // El 'hasta' explícito es inclusivo (intención del usuario), pero el cursor filtra FECHA < hasta;
+    // lo convertimos a exclusivo (+1 día) para no perder el último día del rango.
+    let hasta = null;
+    if (hastaQ && reDate.test(hastaQ)) {
+      const hd = new Date(hastaQ + 'T00:00:00Z');
+      hd.setUTCDate(hd.getUTCDate() + 1);
+      hasta = hd.toISOString().substring(0, 10);
+    }
     return { desde: desdeQ, hasta };
   }
   if (anio && mes) {
@@ -2975,21 +2982,19 @@ async function getCotizacionesByPeriodCursor(dbo, desde, hasta, timeoutMs = 8000
   const esc = (t) => `'${String(t).replace(/'/g, "''")}'`;
   const tiposIn = tipos.map(esc).join(',');
   const t0 = Date.now();
-  const MAX_ITER = 300; // límite de seguridad
+  const elapsed = () => Date.now() - t0;
+  const BATCH = 500;
+  const MAX_BATCHES = 400; // cubre ~200k cotizaciones/periodo (antes: tope de 300 docs subcontaba periodos grandes)
 
   const todayStr = new Date().toISOString().substring(0, 10);
 
   const rows = [];
-  let lastId = -1;
-  let iters = 0;
 
-  const elapsed = () => Date.now() - t0;
-
-  // Paso 1: Encontrar primera cotizacion del período (usa IE1 index via FECHA)
+  // Paso 1: ID mínimo del período (índice por FECHA) para sembrar el cursor sin escanear IDs viejos.
   const firstRows = await query(
-    `SELECT FIRST 1 h.DOCTO_VE_ID, h.IMPORTE_NETO, h.FECHA, h.VENDEDOR_ID, h.TIPO_DOCTO
+    `SELECT FIRST 1 h.DOCTO_VE_ID
      FROM DOCTOS_VE h
-     WHERE h.TIPO_DOCTO IN (${tiposIn}) AND h.FECHA >= '${desde}'${vendClause}
+     WHERE h.TIPO_DOCTO IN (${tiposIn}) AND h.FECHA >= '${desde}' AND h.FECHA < '${hasta}'${vendClause}
      ORDER BY h.DOCTO_VE_ID`,
     [], Math.min(10000, timeoutMs), dbo
   ).catch(() => []);
@@ -2997,31 +3002,28 @@ async function getCotizacionesByPeriodCursor(dbo, desde, hasta, timeoutMs = 8000
   if (!firstRows || !firstRows.length) {
     return { HOY: 0, MES_ACTUAL: 0, COTIZACIONES_MES: 0, COTIZACIONES_HOY: 0, rows: [], byVendedor: {} };
   }
-  const first = firstRows[0];
-  const fechaFirst = first.FECHA instanceof Date ? first.FECHA.toISOString() : String(first.FECHA);
-  if (fechaFirst >= hasta) {
-    return { HOY: 0, MES_ACTUAL: 0, COTIZACIONES_MES: 0, COTIZACIONES_HOY: 0, rows: [], byVendedor: {} };
-  }
-  rows.push(first);
-  lastId = first.DOCTO_VE_ID;
-  iters++;
+  let lastId = (Number(firstRows[0].DOCTO_VE_ID) || 0) - 1; // -1 para reincluir el primer documento
 
-  // Paso 2: Cursor iterativo — FIRST 1 WHERE ID > lastId AND tipo AND fecha < hasta
-  while (iters < MAX_ITER && elapsed() < timeoutMs - 5000) {
+  // Paso 2: paginado por DOCTO_VE_ID con AMBOS límites de fecha en el WHERE.
+  //  - FECHA >= desde: evita sumar cotizaciones retro-fechadas con ID mayor (antes faltaba el límite inferior).
+  //  - FECHA <  hasta: 'hasta' es exclusivo (getDateBoundsFromReq lo entrega así).
+  //  - lectura por lotes (FIRST 500): ya no se trunca a 300 documentos por periodo.
+  let batches = 0;
+  while (batches < MAX_BATCHES && elapsed() < timeoutMs - 5000) {
     const remaining = timeoutMs - elapsed();
-    const [next] = await query(
-      `SELECT FIRST 1 h.DOCTO_VE_ID, h.IMPORTE_NETO, h.FECHA, h.VENDEDOR_ID, h.TIPO_DOCTO
+    const batch = await query(
+      `SELECT FIRST ${BATCH} h.DOCTO_VE_ID, h.IMPORTE_NETO, h.FECHA, h.VENDEDOR_ID, h.TIPO_DOCTO
        FROM DOCTOS_VE h
-       WHERE h.TIPO_DOCTO IN (${tiposIn}) AND h.DOCTO_VE_ID > ${lastId} AND h.FECHA < '${hasta}'${vendClause}
+       WHERE h.TIPO_DOCTO IN (${tiposIn}) AND h.DOCTO_VE_ID > ${lastId}
+         AND h.FECHA >= '${desde}' AND h.FECHA < '${hasta}'${vendClause}
        ORDER BY h.DOCTO_VE_ID`,
-      [], Math.min(8000, remaining), dbo
+      [], Math.min(15000, remaining), dbo
     ).catch(() => []);
-    if (!next) break;
-    const fechaNext = next.FECHA instanceof Date ? next.FECHA.toISOString() : String(next.FECHA);
-    if (fechaNext >= hasta) break;
-    rows.push(next);
-    lastId = next.DOCTO_VE_ID;
-    iters++;
+    if (!batch || !batch.length) break;
+    for (const r of batch) rows.push(r);
+    lastId = batch[batch.length - 1].DOCTO_VE_ID;
+    batches++;
+    if (batch.length < BATCH) break;
   }
 
   // Agregación JavaScript
@@ -3044,7 +3046,7 @@ async function getCotizacionesByPeriodCursor(dbo, desde, hasta, timeoutMs = 8000
     if (fechaStr === todayStr) { byVendedor[vid].COTIZACIONES_HOY++; byVendedor[vid].IMPORTE_HOY += imp; }
   }
 
-  console.log(`[cursor-coti] ${desde}→${hasta}: ${rows.length} docs, $${MES_ACTUAL.toFixed(0)}, ${elapsed()}ms, iters=${iters}`);
+  console.log(`[cursor-coti] ${desde}→${hasta}: ${rows.length} docs, $${MES_ACTUAL.toFixed(0)}, ${elapsed()}ms, batches=${batches}`);
   return { HOY, MES_ACTUAL, COTIZACIONES_MES, COTIZACIONES_HOY, rows, byVendedor };
 }
 
@@ -9245,6 +9247,12 @@ function resolveDateRangeFromQuery(q) {
   let { desde, hasta, anio, mes } = q || {};
   if (desde && reDate.test(String(desde)) && hasta && reDate.test(String(hasta))) {
     return { desdeStr: String(desde), hastaStr: String(hasta) };
+  }
+  // 'desde' sin 'hasta': cerrar el rango en hoy (igual que buildFiltros), no caer al default rodante.
+  if (desde && reDate.test(String(desde)) && !(hasta && reDate.test(String(hasta)))) {
+    const now = new Date();
+    const isoNow = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    return { desdeStr: String(desde), hastaStr: isoNow };
   }
   const y = anio != null && String(anio).trim() !== '' ? parseInt(anio, 10) : NaN;
   const m = mes != null && String(mes).trim() !== '' ? parseInt(mes, 10) : NaN;

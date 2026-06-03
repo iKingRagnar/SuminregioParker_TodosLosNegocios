@@ -17,6 +17,17 @@ const express = require('express');
 const http = require('http');
 const metasConfig = require('../../lib/metas-config');
 const auth = require('../auth');
+// Gate de finanzas: gerente/vendedor no deben ver datos derivados del P&L (márgenes, costos).
+let isFinanceRestricted = () => false;
+try { ({ isFinanceRestricted } = require('../auth/gerente-gate')); } catch (_) { /* gate opcional */ }
+
+/** ¿La meta toma su valor real del P&L (/api/resultados/pnl)? → dato financiero sensible. */
+function metaUsaPnl(m) {
+  if (!m) return false;
+  if (m.source && String(m.source).indexOf('/api/resultados/pnl') >= 0) return true;
+  if (Array.isArray(m.deps) && m.deps.some((d) => d && String(d.source).indexOf('/api/resultados/pnl') >= 0)) return true;
+  return false;
+}
 
 // Fuentes de valor REAL por meta (sólo donde el dato es confiable).
 //   source: endpoint a consultar · pick(body): extrae el valor real (mismas
@@ -132,7 +143,9 @@ const MEASURABLE = {
     pick: (b) => {
       const fact = Number(b && b.totalFacturado) || 0;
       const cob = Number(b && b.totalCobrado) || 0;
-      return fact > 0 ? cob / fact : null; // cobrado / facturado del periodo
+      // cobrado/facturado del periodo. Cobrar cartera previa puede dar >1; se acota a 1
+      // (100%) para que no reporte "eficiencia" imposible ni distorsione el historial.
+      return fact > 0 ? Math.min(cob / fact, 1) : null;
     },
   },
   // DSO = Cartera / (Ventas 12m / 365). Días que tarda en cobrarse.
@@ -292,6 +305,7 @@ function install(deps) {
 
   get('/api/metas/cumplimiento', async (req) => {
     const db = (req && req.query && req.query.db) ? String(req.query.db) : 'default';
+    const financeRestricted = (() => { try { return isFinanceRestricted(req); } catch (_) { return false; } })();
     const metas = metasConfig.buildPayload({ numV: 1 });
     const dbq = `?db=${encodeURIComponent(db)}`;
 
@@ -318,11 +332,15 @@ function install(deps) {
           else if (m.pick) real = m.pick(getBody(m.source, m.params));
         } catch (_) { real = null; }
       }
+      // Gerente/vendedor: no exponer el valor real derivado del P&L (márgenes, costos, YoY);
+      // se conserva la meta (benchmark público) pero se oculta el dato financiero real.
+      if (financeRestricted && metaUsaPnl(m)) real = null;
       const c = metasConfig.cumplimiento(s.key, real, meta);
       return {
         key: s.key, label: s.label, group: s.group, kind: s.kind, dir: s.dir,
         meta: c.meta, real: c.real, delta: c.delta, pct: c.pct,
         alcanzada: c.alcanzada, medible: !!m,
+        restringido: !!(financeRestricted && metaUsaPnl(m)),
       };
     });
 
