@@ -1659,6 +1659,7 @@ async function loadAll(){
     const metaCotiDia=+m.META_COTI_TOTAL||(+m.META_COTI_POR_VENDEDOR||10000)*numVend;
     const diasHabil=+m.DIAS_HABILES_MES||22;
     const metaMes=metaDia*diasHabil;
+    const metaCotiMes=metaCotiDia*diasHabil; // meta de cotización del MES (la diaria × días hábiles)
 
     // Filtro activo: etiquetas y valores según preset (Hoy, Esta Semana, Este Mes, etc.)
     const params = (typeof window !== 'undefined' && window.filterGetParams) ? window.filterGetParams() : {};
@@ -1679,7 +1680,7 @@ async function loadAll(){
     const pHoy=pctOf(ventaHoy,metaDia);
     const pMes=pctOf(ventaMes,metaMes);
     const pCotiHoy=pctOf(cotiHoy,metaCotiDia);
-    const pCotiMes=pctOf(cotiMes,metaCotiDia);
+    const pCotiMes=pctOf(cotiMes,metaCotiMes); // mensual vs meta mensual (antes: vs meta diaria → % absurdo)
 
     // Nombre del mes y a\u00f1o seleccionados (para etiquetas claras en vista de mes/custom_mes).
     const selMesNom = params.mes ? (MESES[parseInt(params.mes,10)-1]||'') : '';
@@ -1799,7 +1800,7 @@ async function loadAll(){
     setEl('kpiCotiHoy', fmtM(valorCoti));
     setEl('kpiCotiHoySub', isVistaHoy
       ? (cotiHoy>0 ? 'Meta: '+fmtM(metaCotiDia) : 'Sin cotizaciones hoy')
-      : (cotiMes>0 ? 'Meta: '+fmtM(metaCotiDia) : 'Sin cotizaciones en el periodo'));
+      : (cotiMes>0 ? 'Meta: '+fmtM(metaCotiMes) : 'Sin cotizaciones en el periodo'));
     setBar('barCotiHoy','pctCotiHoy', isVistaHoy ? pCotiHoy : pCotiMes);
     sem('semCotiHoy', isVistaHoy ? pCotiHoy : pCotiMes, {labels:['Cumplido','En riesgo','Bajo']});
 
@@ -1813,11 +1814,11 @@ async function loadAll(){
           const cM = +cot.MES_ACTUAL || 0;
           const vC = isVistaHoy ? cH : cM;
           const pCH = pctOf(cH, metaCotiDia);
-          const pCM = pctOf(cM, metaCotiDia);
+          const pCM = pctOf(cM, metaCotiMes);
           setEl('kpiCotiHoy', fmtM(vC));
           setEl('kpiCotiHoySub', isVistaHoy
             ? (cH>0 ? 'Meta: '+fmtM(metaCotiDia) : 'Sin cotizaciones hoy')
-            : (cM>0 ? 'Meta: '+fmtM(metaCotiDia) : 'Sin cotizaciones en el periodo'));
+            : (cM>0 ? 'Meta: '+fmtM(metaCotiMes) : 'Sin cotizaciones en el periodo'));
           setBar('barCotiHoy','pctCotiHoy', isVistaHoy ? pCH : pCM);
           sem('semCotiHoy', isVistaHoy ? pCH : pCM, {labels:['Cumplido','En riesgo','Bajo']});
         }catch(_){}
@@ -1846,7 +1847,7 @@ async function loadAll(){
     const cxcClientes=+cx.NUM_CLIENTES||0;
     const pVenc=cxcTotal>0?Math.round(cxcVenc/cxcTotal*100):0;
     setEl('kpiCxcTotal',fmtM(cxcTotal));
-    setEl('kpiCxcSub',cxcClientes+' clientes activos');
+    setEl('kpiCxcSub',cxcClientes+(cxcClientes===1?' cliente activo':' clientes activos'));
     setEl('kpiCxcVencido',fmtM(cxcVenc));
     setEl('kpiCxcVencSub',pVenc+'% de cartera');
     (function(){
