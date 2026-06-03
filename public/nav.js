@@ -431,6 +431,58 @@
       /* Contenedor de la barra de unidad (misma UX que Inicio; chips via filters.js) */
       '.nav-injected-biz-outer{max-width:1900px;margin:0 auto 14px;width:calc(100% - 2rem);box-sizing:border-box;}',
       '@media(max-width:780px){.nav-injected-biz-outer{width:100%;padding:0 .75rem;margin-bottom:10px;}}',
+
+      /* ── Navegación móvil guiada: barra inferior + hoja "Más" (≤760px) ── */
+      '@media(max-width:760px){',
+      'body.sumi-has-bnav #main-nav{display:none!important;}', /* la barra inferior reemplaza la superior; si el JS falla, la superior queda como respaldo */
+      'body{padding-bottom:calc(66px + env(safe-area-inset-bottom))!important;}',
+      '#sumi-bnav{position:fixed;left:0;right:0;bottom:0;z-index:1200;display:flex;',
+      'justify-content:space-around;align-items:stretch;',
+      'background:rgba(7,14,24,.97);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);',
+      'border-top:1px solid rgba(255,255,255,.08);',
+      'padding:6px 4px calc(6px + env(safe-area-inset-bottom));',
+      'box-shadow:0 -8px 28px rgba(0,0,0,.35);}',
+      '#sumi-bnav .sumi-bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;',
+      'justify-content:center;gap:3px;border:0;background:none;cursor:pointer;text-decoration:none;',
+      'color:#6A85A6;font-size:.6rem;font-weight:600;font-family:inherit;line-height:1.1;',
+      'padding:7px 2px;border-radius:12px;transition:color .15s,background .15s;',
+      '-webkit-tap-highlight-color:transparent;min-height:48px;}',
+      '#sumi-bnav .sumi-bnav-item svg{width:22px;height:22px;fill:currentColor;}',
+      '#sumi-bnav .sumi-bnav-item span{max-width:64px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+      '#sumi-bnav .sumi-bnav-item.active{color:#E6A800;}',
+      '#sumi-bnav .sumi-bnav-item.active svg{filter:drop-shadow(0 0 6px rgba(230,168,0,.5));}',
+      '#sumi-bnav .sumi-bnav-item:active{background:rgba(230,168,0,.12);}',
+      '#sumi-msheet-ov{position:fixed;inset:0;z-index:1300;background:rgba(3,7,14,.6);',
+      'opacity:0;pointer-events:none;transition:opacity .22s;}',
+      '#sumi-msheet-ov.open{opacity:1;pointer-events:auto;}',
+      '#sumi-msheet{position:fixed;left:0;right:0;bottom:0;z-index:1310;',
+      'background:#0A1628;border-top-left-radius:22px;border-top-right-radius:22px;',
+      'border-top:1px solid rgba(255,255,255,.1);box-shadow:0 -16px 48px rgba(0,0,0,.5);',
+      'transform:translateY(110%);transition:transform .28s cubic-bezier(.22,1,.36,1);',
+      'max-height:84vh;overflow-y:auto;-webkit-overflow-scrolling:touch;',
+      'padding:0 16px calc(20px + env(safe-area-inset-bottom));}',
+      '#sumi-msheet.open{transform:translateY(0);}',
+      '.sumi-msheet-grab{width:40px;height:4px;border-radius:99px;background:rgba(255,255,255,.22);margin:10px auto 6px;}',
+      '.sumi-msheet-hd{font-size:.66rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;',
+      'color:#6A85A6;padding:4px 4px 12px;}',
+      '.sumi-msheet-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}',
+      '.sumi-msheet-grid a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;',
+      'padding:15px 6px;border-radius:14px;text-decoration:none;text-align:center;',
+      'background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);',
+      'color:#C8D8EC;font-size:.7rem;font-weight:600;transition:transform .12s,background .15s;',
+      '-webkit-tap-highlight-color:transparent;min-height:74px;}',
+      '.sumi-msheet-grid a svg{width:23px;height:23px;fill:currentColor;}',
+      '.sumi-msheet-grid a:active{transform:scale(.95);}',
+      '.sumi-msheet-grid a.active{color:#E6A800;background:rgba(230,168,0,.12);border-color:rgba(230,168,0,.4);}',
+      '.sumi-msheet-ft{display:flex;align-items:center;justify-content:space-between;gap:10px;',
+      'margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.08);}',
+      '.sumi-msheet-ft .u{font-size:.7rem;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;}',
+      '.sumi-msheet-ft button{font-size:.72rem;padding:.55rem .95rem;border-radius:10px;flex-shrink:0;',
+      'border:1px solid rgba(230,168,0,.35);background:rgba(230,168,0,.1);color:#E6A800;font-weight:700;cursor:pointer;font-family:inherit;}',
+      'body.sumi-sheet-open{overflow:hidden;}',
+      '#cw-fab,#sumi-ai-pro-btn,#cw-launcher,.cw-fab{bottom:calc(80px + env(safe-area-inset-bottom))!important;}',
+      '}',
+      '@media(min-width:761px){#sumi-bnav,#sumi-msheet,#sumi-msheet-ov{display:none!important;}}',
     ].join('');
     document.head.appendChild(s);
   }
@@ -503,7 +555,92 @@
 
     loadDbSelector('navDbContainer');
     injectBizContextBar(hdr);
+    try { buildMobileNav(links, user); } catch (e) { console.warn('[nav] bottom nav', e); }
     ensureChatWidget();
+  }
+
+  /**
+   * Navegación móvil guiada (≤760px): barra inferior con los accesos clave +
+   * botón "Más" que abre una hoja con TODAS las secciones (respeta el rol).
+   * Reemplaza la barra superior apretada que quedaba oculta en teléfono.
+   */
+  function buildMobileNav(links, user) {
+    if (!Array.isArray(links) || !links.length) links = NAV_LINKS;
+    ['sumi-bnav', 'sumi-msheet', 'sumi-msheet-ov'].forEach(function (id) {
+      var e = document.getElementById(id);
+      if (e && e.parentNode) e.parentNode.removeChild(e);
+    });
+    var cur = currentPage();
+    var svg = function (p) { return '<svg viewBox="0 0 24 24"><path d="' + p + '"/></svg>'; };
+    var isActive = function (h) { return (h === cur || (cur === '' && h === 'index.html')); };
+
+    // Accesos primarios (en orden de prioridad, según los permitidos por rol).
+    var pri = ['index.html', 'ventas.html', 'cxc.html', 'ia.html', 'cobradas.html', 'director.html', 'vendedores.html'];
+    var byHref = {};
+    links.forEach(function (l) { byHref[l.href] = l; });
+    var primary = [];
+    pri.forEach(function (h) { if (byHref[h] && primary.length < 4 && primary.indexOf(byHref[h]) < 0) primary.push(byHref[h]); });
+    links.forEach(function (l) { if (primary.length < 4 && primary.indexOf(l) < 0) primary.push(l); });
+    primary = primary.slice(0, 4);
+
+    var moreIcon = 'M4 8h4V4H4v4zm0 6h4v-4H4v4zm0 6h4v-4H4v4zm6 0h4v-4h-4v4zm0-6h4v-4h-4v4zm0-10v4h4V4h-4zm6 16h4v-4h-4v4zm0-6h4v-4h-4v4zm0-10v4h4V4h-4z';
+
+    var bnav = document.createElement('nav');
+    bnav.id = 'sumi-bnav';
+    bnav.setAttribute('aria-label', 'Navegación');
+    bnav.innerHTML = primary.map(function (l) {
+      return '<a class="sumi-bnav-item' + (isActive(l.href) ? ' active' : '') + '" href="' + l.href + '">' +
+        svg(l.icon) + '<span>' + l.label + '</span></a>';
+    }).join('') +
+      '<button type="button" class="sumi-bnav-item" id="sumi-bnav-more" aria-haspopup="dialog">' +
+      svg(moreIcon) + '<span>Más</span></button>';
+    document.body.appendChild(bnav);
+    document.body.classList.add('sumi-has-bnav'); // habilita ocultar la barra superior en móvil
+
+    var ov = document.createElement('div');
+    ov.id = 'sumi-msheet-ov';
+    var sheet = document.createElement('aside');
+    sheet.id = 'sumi-msheet';
+    sheet.setAttribute('aria-hidden', 'true');
+    sheet.setAttribute('role', 'dialog');
+    var grid = links.map(function (l) {
+      return '<a class="' + (isActive(l.href) ? 'active' : '') + '" href="' + l.href + '">' +
+        svg(l.icon) + '<span>' + l.label + '</span></a>';
+    }).join('');
+    var ftUser = (user && user.email)
+      ? '<span class="u" title="' + String(user.email).replace(/"/g, '&quot;') + '">' + String(user.email).replace(/</g, '&lt;') + '</span>'
+      : '<span class="u"></span>';
+    var ftBtn = (user && user.email) ? '<button type="button" id="sumi-msheet-logout">Salir</button>' : '';
+    sheet.innerHTML =
+      '<div class="sumi-msheet-grab"></div>' +
+      '<div class="sumi-msheet-hd">Navegación</div>' +
+      '<div class="sumi-msheet-grid">' + grid + '</div>' +
+      '<div class="sumi-msheet-ft">' + ftUser + ftBtn + '</div>';
+    document.body.appendChild(ov);
+    document.body.appendChild(sheet);
+
+    function openSheet() {
+      ov.classList.add('open');
+      sheet.classList.add('open');
+      sheet.setAttribute('aria-hidden', 'false');
+      document.body.classList.add('sumi-sheet-open');
+    }
+    function closeSheet() {
+      ov.classList.remove('open');
+      sheet.classList.remove('open');
+      sheet.setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('sumi-sheet-open');
+    }
+    var moreBtn = document.getElementById('sumi-bnav-more');
+    if (moreBtn) moreBtn.addEventListener('click', openSheet);
+    ov.addEventListener('click', closeSheet);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSheet(); });
+    var lo = document.getElementById('sumi-msheet-logout');
+    if (lo) lo.addEventListener('click', function () {
+      var realBtn = document.getElementById('navLogoutBtn');
+      if (realBtn) { realBtn.click(); return; }
+      try { location.href = '/api/auth/logout'; } catch (_) { /* noop */ }
+    });
   }
 
   /** admin: todo · gerente: sin Finanzas/Margen · solo vendedor: ventas operativas. */
