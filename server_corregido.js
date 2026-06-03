@@ -8951,6 +8951,53 @@ async function resultadosPnlCore(req, dbOpts) {
   });
 
 
+  // ── IVA por mes (paralelo, sin afectar VENTAS_NETAS) ──────────────────────
+  // Para mostrar "con y sin IVA" en todo el P&L. Suma TOTAL_IMPUESTOS de VE+PV
+  // con los mismos filtros/periodo. Autocontenido: detecta sus columnas y, si
+  // TOTAL_IMPUESTOS no existe o la query falla, IVA=0 (degrada con gracia).
+  try {
+    const [ivaVeCols, ivaPvCols] = await Promise.all([
+      getTableColumns('DOCTOS_VE', dbOpts).catch(() => new Set()),
+      getTableColumns('DOCTOS_PV', dbOpts).catch(() => new Set()),
+    ]);
+    const ivaOk = (cols) => {
+      const c = [];
+      if (cols.has('TIPO_DOCTO')) c.push(`d.TIPO_DOCTO IN ('F','V')`);
+      if (cols.has('ESTATUS')) c.push(`COALESCE(d.ESTATUS,'N') NOT IN ('C','D','S')`);
+      if (cols.has('APLICADO')) c.push(`COALESCE(d.APLICADO,'S') = 'S'`);
+      return c.length ? `(${c.join(' AND ')})` : '(1=1)';
+    };
+    const ivaExpr = 'COALESCE(d.TOTAL_IMPUESTOS, 0)';
+    const ivaVePromise = ivaVeCols.has('TOTAL_IMPUESTOS')
+      ? q(`SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES, COALESCE(SUM(${ivaExpr}),0) AS IVA
+           FROM DOCTOS_VE d WHERE ${ivaOk(ivaVeCols)} AND ${dateCond}
+           GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA)`, dateParams).catch(() => [])
+      : Promise.resolve([]);
+    const ivaPvPromise = ivaPvCols.has('TOTAL_IMPUESTOS')
+      ? q(`SELECT EXTRACT(YEAR FROM d.FECHA) AS ANIO, EXTRACT(MONTH FROM d.FECHA) AS MES, COALESCE(SUM(${ivaExpr}),0) AS IVA
+           FROM DOCTOS_PV d WHERE ${ivaOk(ivaPvCols)} AND ${dateCond}
+           GROUP BY EXTRACT(YEAR FROM d.FECHA), EXTRACT(MONTH FROM d.FECHA)`, dateParams).catch(() => [])
+      : Promise.resolve([]);
+    const [ivaVeRows, ivaPvRows] = await Promise.all([ivaVePromise, ivaPvPromise]);
+    const ivaMap = {};
+    [...(ivaVeRows || []), ...(ivaPvRows || [])].forEach((r) => {
+      const k = (+r.ANIO) + '-' + (+r.MES);
+      ivaMap[k] = (ivaMap[k] || 0) + (+r.IVA || 0);
+    });
+    let ivaTotal = 0;
+    meses.forEach((m) => {
+      const iva = ivaMap[(+m.ANIO) + '-' + (+m.MES)] || 0;
+      m.IVA = iva;
+      m.VENTAS_CON_IVA = (+m.VENTAS_NETAS || 0) + iva;
+      ivaTotal += iva;
+    });
+    totales.IVA = ivaTotal;
+    totales.VENTAS_CON_IVA = (+totales.VENTAS_NETAS || 0) + ivaTotal;
+  } catch (_) {
+    totales.IVA = 0;
+    totales.VENTAS_CON_IVA = +totales.VENTAS_NETAS || 0;
+  }
+
   return { meses, totales, tiene_costo, tiene_gastos_co, prefijos_labels, subconceptos, gastos_estimados: gastosEstimados, gastos_estimados_desde: gastosEstimadosDesde };
 }
 

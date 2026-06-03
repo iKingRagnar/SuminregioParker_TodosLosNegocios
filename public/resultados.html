@@ -2011,7 +2011,9 @@ function renderKPIs(tot,meses,hasCosto){
   }
 
   document.getElementById('kpiVentas').textContent=fmtM(ventas);
-  document.getElementById('kpiVentasSub').textContent=facts+' facturas · '+meses.length+' mes(es) en vista';
+  const _conIva=+tot.VENTAS_CON_IVA||0; const _iva=+tot.IVA||0;
+  const _ivaTxt=(_conIva>ventas+1)?(' · con IVA '+fmtM(_conIva)):'';
+  document.getElementById('kpiVentasSub').textContent=facts+' facturas · sin IVA'+_ivaTxt;
   document.getElementById('kpiVentasTrend').innerHTML=trendVentas;
   document.getElementById('kpiUtilidad').textContent=hasCosto?fmtM(utilidad):fmtM(ventas);
   document.getElementById('kpiUtilidadSub').textContent=hasCosto?'Ventas netas − costo de ventas':'(sin costo en BD)';
@@ -2078,7 +2080,9 @@ function renderInsight(tot,meses,hasCosto){
   parts.push(`Eficiencia de cobro: <span class="${cobColor}"><strong>${efic}%</strong> del facturado cobrado — ${cobMsg}</span>. Total cobrado: <strong class="hi-blue">${fmtM(cobros)}</strong> vs <strong>${fmtM(ventas)}</strong> facturado.`);
 
   // Base SIN IVA (norma contable del P&L)
-  parts.push(`<span class="hi-blue">Las Ventas Netas se muestran <strong>sin IVA</strong> (base neta), como corresponde a un Estado de Resultados: el IVA se traslada al SAT y no es ingreso.</span> El total <strong>facturado con IVA</strong> es mayor (el IVA varía por producto; en suministros médicos hay partidas exentas/0%).`);
+  const _ci=+tot.VENTAS_CON_IVA||0, _ivaM=+tot.IVA||0;
+  const _ivaNota=(_ci>ventas+1)?(' El <strong>facturado con IVA</strong> es <strong class="hi-blue">'+fmtM(_ci)+'</strong> (IVA '+fmtM(_ivaM)+'); el IVA varía por producto — en suministros médicos hay partidas exentas/0%.'):'';
+  parts.push(`<span class="hi-blue">Las Ventas Netas se muestran <strong>sin IVA</strong> (base neta), como corresponde a un Estado de Resultados: el IVA se traslada al SAT y no es ingreso.</span>${_ivaNota}`);
   // Gastos
   parts.push(`<span class="hi-yellow">Los gastos operativos (sueldos, rentas, servicios) se registran en Contabilidad Microsip</span> y no están disponibles en este módulo. La utilidad mostrada es <strong>Bruta</strong> (Ventas − Costo). Para <strong>Utilidad Neta</strong> se requiere integrar las pólizas contables.`);
 
