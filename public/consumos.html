@@ -96,6 +96,8 @@ nav::-webkit-scrollbar{display:none}
 
 /* ─── SECTION HEADERS ─── */
 .sec-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+/* Vista minimalista de dirección: matriz semanal analista (CV%, Stock Seg., P. Restock) oculta */
+.v-secondary{display:none!important}
 .sec-title{font-size:1rem;font-weight:700;color:var(--txt);display:flex;align-items:center;gap:8px}
 .sec-title .sec-icon{font-size:1.1rem}
 .sec-badge{font:.58rem 'DM Mono',monospace;background:var(--s2);border:1px solid var(--brd);padding:2px 8px;border-radius:8px;color:var(--muted)}
@@ -634,15 +636,15 @@ html[data-theme="light"] .q-ok .qcard-dias,html.theme-premium-light .q-ok .qcard
     </div>
   </div>
 
-  <!-- ═══ SECCIÓN 5: TABLA SEMANAL (colapsable) ═════════════════════ -->
-  <div class="sec-head mt collapsible reveal" id="semColHead" onclick="toggleSemSec()">
+  <!-- ═══ SECCIÓN 5: TABLA SEMANAL (colapsable · oculta en vista minimalista) ═════════════════════ -->
+  <div class="sec-head mt collapsible reveal v-secondary" id="semColHead" onclick="toggleSemSec()">
     <div class="sec-title">
       <span class="sec-icon">📅</span> Consumo Semanal por Artículo (matriz detallada)
       <span class="collapse-arrow" id="semArrow">▼</span>
     </div>
     <div class="sec-note">Click para expandir/contraer · semanas del mes seleccionado</div>
   </div>
-  <div id="semBody" class="collapse-body" style="max-height:0;overflow:hidden">
+  <div id="semBody" class="collapse-body v-secondary" style="max-height:0;overflow:hidden">
     <div class="card">
       <div class="card-head">
         <div class="card-title">📅 Matriz Semanal × Artículo</div>
