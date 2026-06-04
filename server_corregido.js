@@ -7174,6 +7174,45 @@ get('/api/inv/existencias', async (req) => {
   `, [like, like], INV_LIST_Q_MS, dbo).catch(() => []);
 });
 
+get('/api/inv/existencias-todas', async (req) => {
+  // INVENTARIO COMPLETO (dump paginado por PK, patron WAN-safe): TODOS los articulos
+  // activos con clave, nombre, unidad, EXISTENCIA, minimo y costo. Pensado para que
+  // el proyecto de Suministros Medicos tome EXACTAMENTE la misma data que este ERP.
+  //   ?db=<id>&desde_id=<ultimo ARTICULO_ID>&limit=500
+  const dbo = getReqDbOpts(req);
+  const desdeId = parseInt(req.query.desde_id) || 0;
+  const limit = Math.min(parseInt(req.query.limit) || 500, 1000);
+  const costoSub = await invCostoSubSql(dbo);
+  const colsArt = await getTableColumns('ARTICULOS', dbo).catch(() => new Set());
+  const cset = colsArt instanceof Set ? colsArt : new Set(colsArt || []);
+  const unidadCompra = cset.has('UNIDAD_COMPRA') ? "COALESCE(a.UNIDAD_COMPRA, '')" : "''";
+  const contenido = cset.has('CONTENIDO_UNIDAD_COMPRA') ? 'COALESCE(a.CONTENIDO_UNIDAD_COMPRA, 0)' : '0';
+  // clave principal del articulo (CLAVES_ARTICULOS) si la tabla existe en esta base
+  let claveJoin = '', claveSel = "'' AS CLAVE";
+  try {
+    const probe = await query('SELECT FIRST 1 ARTICULO_ID FROM CLAVES_ARTICULOS', [], 8000, dbo);
+    if (probe) {
+      claveJoin = 'LEFT JOIN ( SELECT ARTICULO_ID, MAX(CLAVE_ARTICULO) AS CLAVE FROM CLAVES_ARTICULOS GROUP BY ARTICULO_ID ) ka ON ka.ARTICULO_ID = a.ARTICULO_ID';
+      claveSel = 'COALESCE(ka.CLAVE, \'\') AS CLAVE';
+    }
+  } catch (_) { /* sin tabla de claves: se entrega vacia */ }
+  return query(`
+    SELECT FIRST ${limit} a.ARTICULO_ID, ${claveSel}, a.NOMBRE AS DESCRIPCION,
+      COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD, ${unidadCompra} AS UNIDAD_COMPRA,
+      ${contenido} AS CONTENIDO_EMPAQUE,
+      COALESCE(s.EXISTENCIA, 0) AS EXISTENCIA,
+      COALESCE(n.INVENTARIO_MINIMO, 0) AS INVENTARIO_MINIMO,
+      COALESCE(cs.COSTO1, 0) AS COSTO_UNITARIO
+    FROM ARTICULOS a
+    ${claveJoin}
+    LEFT JOIN ${getSqlExistSub()} s ON s.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN ${SQL_MINIMO_SUB} n ON n.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN ${costoSub} cs ON cs.ARTICULO_ID = a.ARTICULO_ID
+    WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND a.ARTICULO_ID > ${desdeId}
+    ORDER BY a.ARTICULO_ID
+  `, [], INV_LIST_Q_MS, dbo).catch(() => []);
+});
+
 get('/api/inv/top-stock', async (req) => {
   const dbo = getReqDbOpts(req);
   const limit = Math.min(parseInt(req.query.limit) || 30, 100);
