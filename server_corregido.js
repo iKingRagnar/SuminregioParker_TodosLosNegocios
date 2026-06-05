@@ -3643,6 +3643,43 @@ get('/api/clientes/cohortes', async (req) => {
 
 // ═══════════════════════════════════════════════════════════
 
+// \u00daltimo mes con movimiento de ventas (VE/PV) de la base. Permite que el tablero
+// avise/caiga al \u00faltimo periodo con datos cuando el mes en curso a\u00fan est\u00e1 vac\u00edo.
+get('/api/periodo/ultimo', async (req) => {
+  const run = async (dbo) => {
+    const rows = await query(`
+      SELECT EXTRACT(YEAR FROM mx) AS Y, EXTRACT(MONTH FROM mx) AS M
+      FROM (
+        SELECT MAX(CAST(d.FECHA AS DATE)) AS mx
+        FROM ${ventasSub()} d
+        WHERE CAST(d.FECHA AS DATE) <= CURRENT_DATE
+      ) s
+    `, [], 15000, dbo).catch(() => []);
+    const r = rows && rows[0] ? rows[0] : {};
+    const y = parseInt(r.Y, 10), m = parseInt(r.M, 10);
+    if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) return { anio: null, mes: null };
+    return { anio: y, mes: m };
+  };
+  try {
+    if (isAllDbs(req)) {
+      const parts = await mapPoolLimit(DATABASE_REGISTRY, 3, async (e) => {
+        try { return await run(e.options); } catch (_) { return { anio: null, mes: null }; }
+      });
+      let best = null;
+      parts.forEach((p) => {
+        if (!p || !p.anio) return;
+        const ym = p.anio * 100 + p.mes;
+        if (!best || ym > best.ym) best = { anio: p.anio, mes: p.mes, ym };
+      });
+      return { ok: true, anio: best ? best.anio : null, mes: best ? best.mes : null };
+    }
+    const r = await run(getReqDbOpts(req));
+    return { ok: true, anio: r.anio, mes: r.mes };
+  } catch (e) {
+    return { ok: false, anio: null, mes: null, error: e && e.message };
+  }
+});
+
 // Ventas del periodo: HOY = venta del d\u00eda actual; MES_ACTUAL = total del periodo filtrado (anio/mes o desde-hasta) para que cuadre con Power BI.
 get('/api/ventas/resumen', async (req) => {
   if (!req.query.desde && !req.query.hasta && !req.query.anio) {

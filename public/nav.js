@@ -87,6 +87,7 @@
         ['vp-push-js',      '/push-client.js?v=1'],
         ['vp-xlsx-js',      '/xlsx-export.js?v=1'],
         ['vp-tablefilter-js', '/table-filter.js?v=1'],
+        ['vp-emptyperiod-js', '/empty-period-helper.js?v=1'],
       ].forEach(function (pair) {
         if (document.getElementById(pair[0])) return;
         var sc = document.createElement('script');
