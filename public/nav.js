@@ -86,6 +86,7 @@
         ['vp-tour-js',      '/tour-guide.js?v=1'],
         ['vp-push-js',      '/push-client.js?v=1'],
         ['vp-xlsx-js',      '/xlsx-export.js?v=1'],
+        ['vp-tablefilter-js', '/table-filter.js?v=1'],
       ].forEach(function (pair) {
         if (document.getElementById(pair[0])) return;
         var sc = document.createElement('script');
