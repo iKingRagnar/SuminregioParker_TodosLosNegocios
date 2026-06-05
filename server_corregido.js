@@ -7178,10 +7178,14 @@ get('/api/inv/existencias-todas', async (req) => {
   // INVENTARIO COMPLETO (dump paginado por PK, patron WAN-safe): TODOS los articulos
   // activos con clave, nombre, unidad, EXISTENCIA, minimo y costo. Pensado para que
   // el proyecto de Suministros Medicos tome EXACTAMENTE la misma data que este ERP.
-  //   ?db=<id>&desde_id=<ultimo ARTICULO_ID>&limit=500
+  //   ?db=<id>&desde_id=<ultimo ARTICULO_ID>&limit=500&almacen=1,2 (opcional)
+  // EXISTENCIA = SUM(ENTRADAS-SALIDAS) de SALDOS_IN en TODOS los almacenes por
+  // defecto (el env MICROSIP_INV_ALMACEN_IDS esta afinado para la base Parker y
+  // dejaria en 0 a las demas bases); pasa ?almacen= para filtrar.
   const dbo = getReqDbOpts(req);
   const desdeId = parseInt(req.query.desde_id) || 0;
   const limit = Math.min(parseInt(req.query.limit) || 500, 1000);
+  const existSub = getSqlExistSubVariant({ almacenIdsRaw: req.query.almacen || '' });
   const costoSub = await invCostoSubSql(dbo);
   const colsArt = await getTableColumns('ARTICULOS', dbo).catch(() => new Set());
   const cset = colsArt instanceof Set ? colsArt : new Set(colsArt || []);
@@ -7205,7 +7209,7 @@ get('/api/inv/existencias-todas', async (req) => {
       COALESCE(cs.COSTO1, 0) AS COSTO_UNITARIO
     FROM ARTICULOS a
     ${claveJoin}
-    LEFT JOIN ${getSqlExistSub()} s ON s.ARTICULO_ID = a.ARTICULO_ID
+    LEFT JOIN ${existSub} s ON s.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${SQL_MINIMO_SUB} n ON n.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${costoSub} cs ON cs.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND a.ARTICULO_ID > ${desdeId}
