@@ -232,11 +232,44 @@ function install(app, { duckSnaps, log }) {
       var qLike = '%' + q.toUpperCase() + '%';
       var isNumeric = /^\d+$/.test(q);
 
+      // Articulos: busqueda TOLERANTE —
+      //  1) por TOKENS del nombre (cada palabra >=2 chars debe aparecer, en cualquier orden:
+      //     'AGUJA SPINOCAN 25' encuentra 'AGUJA S 25GX3.5 SPINOCAN...'),
+      //  2) por CLAVE en CLAVES_ARTICULOS (SM0154...) si la tabla esta en el snapshot,
+      //  3) fallback a ARTICULOS.CLAVE (algunos snapshots la traen) y a solo-nombre.
+      //  Antes: UPPER(CLAVE) sobre una columna inexistente tronaba y el catch devolvia []
+      //  en silencio — por eso la IA 'no encontraba' articulos que SI existen.
+      var toks = q.toUpperCase().split(/\s+/).filter(function (t) { return t.length >= 2; }).slice(0, 6);
+      if (!toks.length) toks = [q.toUpperCase()];
+      var nameWhere = toks.map(function () { return 'UPPER(a.NOMBRE) LIKE ?'; }).join(' AND ');
+      var nameParams = toks.map(function (t) { return '%' + t + '%'; });
+      var qClave = '%' + q.toUpperCase().replace(/\s+/g, '') + '%';
+      function buscaArticulos() {
+        return all(snap,
+          `SELECT a.ARTICULO_ID AS id, a.NOMBRE, ka.CLAVE FROM ARTICULOS a
+           LEFT JOIN (SELECT ARTICULO_ID, MAX(CLAVE_ARTICULO) AS CLAVE FROM CLAVES_ARTICULOS GROUP BY ARTICULO_ID) ka
+             ON ka.ARTICULO_ID = a.ARTICULO_ID
+           WHERE (${nameWhere}) OR UPPER(REPLACE(ka.CLAVE,' ','')) LIKE ? LIMIT 8`,
+          nameParams.concat([qClave]))
+        .catch(function () {
+          return all(snap,
+            `SELECT ARTICULO_ID AS id, NOMBRE, CLAVE FROM ARTICULOS a
+             WHERE (${nameWhere}) OR UPPER(REPLACE(CLAVE,' ','')) LIKE ? LIMIT 8`,
+            nameParams.concat([qClave]));
+        })
+        .catch(function () {
+          return all(snap,
+            `SELECT ARTICULO_ID AS id, NOMBRE, '' AS CLAVE FROM ARTICULOS a WHERE ${nameWhere} LIMIT 8`,
+            nameParams);
+        })
+        .catch(function () { return []; });
+      }
+
       // Paralelizamos 4 queries
       var [clientes, vendedores, articulos, docs] = await Promise.all([
         all(snap, `SELECT CLIENTE_ID AS id, NOMBRE FROM CLIENTES WHERE UPPER(NOMBRE) LIKE ? LIMIT 8`, [qLike]).catch(() => []),
         all(snap, `SELECT VENDEDOR_ID AS id, NOMBRE FROM VENDEDORES WHERE UPPER(NOMBRE) LIKE ? LIMIT 5`, [qLike]).catch(() => []),
-        all(snap, `SELECT ARTICULO_ID AS id, NOMBRE, CLAVE FROM ARTICULOS WHERE UPPER(NOMBRE) LIKE ? OR UPPER(CLAVE) LIKE ? LIMIT 8`, [qLike, qLike]).catch(() => []),
+        buscaArticulos(),
         isNumeric
           ? all(snap, `SELECT DOCTO_CC_ID AS id, FOLIO, FECHA::VARCHAR AS fecha, IMPORTE_NETO FROM DOCTOS_CC WHERE TRIM(FOLIO) = ? OR CAST(DOCTO_CC_ID AS VARCHAR) = ? LIMIT 5`, [q, q]).catch(() => [])
           : Promise.resolve([]),

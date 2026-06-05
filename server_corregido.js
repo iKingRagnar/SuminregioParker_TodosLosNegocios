@@ -7160,18 +7160,34 @@ get('/api/inv/existencias', async (req) => {
   const dbo = getReqDbOpts(req);
   const q = (req.query.q || '').trim();
   if (q.length < 2) return [];
-  const like = `%${q.toUpperCase().replace(/'/g, "''")}%`;
+  // Busqueda TOLERANTE: tokens del nombre en cualquier orden ('AGUJA SPINOCAN 25'
+  // encuentra 'AGUJA S 25GX3.5 SPINOCAN') + CLAVE del articulo (SM0154, en
+  // CLAVES_ARTICULOS) cuando la tabla existe en esta base.
+  const esc = (s) => String(s).toUpperCase().replace(/'/g, "''");
+  const toks = q.toUpperCase().split(/\s+/).filter((t) => t.length >= 2).slice(0, 6);
+  const nameWhere = (toks.length ? toks : [q]).map((t) => `UPPER(a.NOMBRE) LIKE '%${esc(t)}%'`).join(' AND ');
+  const qClave = esc(q.replace(/\s+/g, ''));
+  let claveJoin = '', claveSel = "'' AS CLAVE", claveOr = '';
+  try {
+    const probe = await query('SELECT FIRST 1 ARTICULO_ID FROM CLAVES_ARTICULOS', [], 8000, dbo);
+    if (probe && probe.length) {
+      claveJoin = 'LEFT JOIN ( SELECT ARTICULO_ID, MAX(CLAVE_ARTICULO) AS CLAVE FROM CLAVES_ARTICULOS GROUP BY ARTICULO_ID ) ka ON ka.ARTICULO_ID = a.ARTICULO_ID';
+      claveSel = "COALESCE(ka.CLAVE, '') AS CLAVE";
+      claveOr = ` OR UPPER(REPLACE(ka.CLAVE, ' ', '')) LIKE '%${qClave}%'`;
+    }
+  } catch (_) { /* sin tabla de claves */ }
   const precioSub = await invPrecioSubSql(dbo);
   return query(`
-    SELECT FIRST 50 a.ARTICULO_ID, a.NOMBRE AS DESCRIPCION, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
+    SELECT FIRST 50 a.ARTICULO_ID, ${claveSel}, a.NOMBRE AS DESCRIPCION, COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD,
       COALESCE(s.EXISTENCIA, 0) AS EXISTENCIA, COALESCE(n.INVENTARIO_MINIMO, 0) AS EXISTENCIA_MINIMA, COALESCE(pr.PRECIO1, 0) AS PRECIO_VENTA
     FROM ARTICULOS a
+    ${claveJoin}
     LEFT JOIN ${getSqlExistSub()} s ON s.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${SQL_MINIMO_SUB} n ON n.ARTICULO_ID = a.ARTICULO_ID
     LEFT JOIN ${precioSub} pr ON pr.ARTICULO_ID = a.ARTICULO_ID
-    WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND (UPPER(a.NOMBRE) LIKE ? OR UPPER(CAST(a.ARTICULO_ID AS VARCHAR(50))) LIKE ?)
+    WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND ((${nameWhere}) OR UPPER(CAST(a.ARTICULO_ID AS VARCHAR(50))) = '${esc(q)}'${claveOr})
     ORDER BY a.NOMBRE
-  `, [like, like], INV_LIST_Q_MS, dbo).catch(() => []);
+  `, [], INV_LIST_Q_MS, dbo).catch(() => []);
 });
 
 get('/api/inv/existencias-todas', async (req) => {
