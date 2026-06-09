@@ -606,7 +606,9 @@ function renderAll(vends, metas){
   const bestHoy  = [...vends].sort((a,b)=>(+b.VENTA_HOY||0)-(+a.VENTA_HOY||0))[0];
   const bestMes  = [...vends].sort((a,b)=>(+b.VENTA_MES||0)-(+a.VENTA_MES||0))[0];
 
-  document.getElementById('heroSub').textContent = vends.length+' vendedores activos \u2022 Meta diaria equipo '+fmtM(metaDia)+' \u2022 '+Math.round(totalHoy/metaDia*100)+'% cumplimiento hoy';
+  // Antes dec\u00eda solo "% cumplimiento hoy" aunque el filtro fuera otro periodo (enga\u00f1oso).
+  // Ahora distingue el dato de HOY del cumplimiento del PERIODO seleccionado (en meta del mes).
+  document.getElementById('heroSub').textContent = vends.length+' vendedores activos \u2022 Meta diaria equipo '+fmtM(metaDia)+' \u2022 Hoy '+Math.round(totalHoy/metaDia*100)+'% \u2022 '+enMetaMes+'/'+vends.length+' en meta del periodo';
   document.getElementById('kpiVendedores').textContent = vends.length;
   document.getElementById('kpiBestHoy').textContent = (bestHoy?.NOMBRE||'--').split(' ')[0];
   document.getElementById('kpiBestHoySub').textContent = fmtM(+bestHoy?.VENTA_HOY||0)+' hoy';

@@ -1609,7 +1609,9 @@ async function loadAll(){
     // Mostrar badge si algún endpoint degradó. fetchJsonAbort nunca rechaza (devuelve el
     // fallback y cuenta en __FETCH_DEGRADED), así que filtrar por 'rejected' daba siempre 0
     // y el aviso jamás aparecía: KPIs en $0 se veían como dato real.
-    const _failedEndpoints = (window.__FETCH_DEGRADED || 0) + _settled.filter(r => r.status === 'rejected').length;
+    // dir.empresas_err: en vista "todas las bases", nº de empresas cuyo snapshot no respondió
+    // (el consolidado las excluye, no las cuenta como $0) → también cuenta como fuente degradada.
+    const _failedEndpoints = (window.__FETCH_DEGRADED || 0) + _settled.filter(r => r.status === 'rejected').length + (+(dir && dir.empresas_err) || 0);
     if (_failedEndpoints > 0) {
       console.warn('[index] ' + _failedEndpoints + ' endpoint(s) fallaron — renderizando con datos parciales.');
       // id="page-sub" no existe en esta página (el aviso era doblemente muerto); usar heroDataHint.

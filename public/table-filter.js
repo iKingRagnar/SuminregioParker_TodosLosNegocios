@@ -337,12 +337,32 @@
   window.addEventListener('scroll', function () { closeDD(); }, true);
   window.addEventListener('resize', function () { closeDD(); });
 
+  /** A11y: las gráficas <canvas> no tienen alternativa textual para lectores de pantalla.
+   *  Les pone role="img" + aria-label tomado del título de su tarjeta más cercana. */
+  function labelCanvases(root) {
+    var cv = (root || document).querySelectorAll('canvas:not([data-tf-aria])');
+    for (var i = 0; i < cv.length; i++) {
+      var c = cv[i];
+      c.setAttribute('data-tf-aria', '1');
+      if (c.hasAttribute('aria-hidden') || c.getAttribute('aria-label') || c.getAttribute('role') === 'img') continue;
+      var title = '';
+      var card = c.closest && (c.closest('.card') || c.closest('section') || c.closest('article'));
+      if (card) {
+        var h = card.querySelector('.card-title, .sd-label, h1, h2, h3, h4, .title, .panel-title');
+        if (h) title = (h.textContent || '').replace(/\s+/g, ' ').trim();
+      }
+      c.setAttribute('role', 'img');
+      c.setAttribute('aria-label', title ? ('Gráfica: ' + title) : 'Gráfica de datos');
+    }
+  }
+
   function boot() {
     injectCss();
     enhanceAll(document);
-    // Tablas creadas dinámicamente (paneles BI): re-escanear con bajo costo.
+    labelCanvases(document);
+    // Tablas/gráficas creadas dinámicamente (paneles BI): re-escanear con bajo costo.
     try {
-      var mo = new MutationObserver(debounce(function () { enhanceAll(document); }, 250));
+      var mo = new MutationObserver(debounce(function () { enhanceAll(document); labelCanvases(document); }, 250));
       mo.observe(document.body, { childList: true, subtree: true });
     } catch (_) {}
   }

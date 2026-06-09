@@ -654,6 +654,12 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
         .fb-preset, .biz-chip { font-size: 10px; padding: 6px 10px; }
         .db-chip-sub { display: none; }
       }
+      /* En pantallas táctiles: chips y selects con altura mínima de 44px y 16px de fuente
+         (evita el zoom automático de iOS al enfocar). */
+      @media (pointer: coarse) {
+        .fb-preset, .biz-chip { min-height: 44px; font-size: 13px; padding: 8px 14px; }
+        .filter-mes-anio-toolbar select, .filter-bar select, .filter-bar input { min-height: 44px; font-size: 16px; }
+      }
     `;
     document.head.appendChild(style);
     }

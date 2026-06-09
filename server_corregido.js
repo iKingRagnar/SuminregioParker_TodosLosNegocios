@@ -427,6 +427,17 @@ app.get('/sw.js', (_req, res) => {
 });
 
 app.use(express.static(path.join(__dirname, 'public'), staticOpts));
+// Hasta aquí, public/ ya sirvió TODOS los activos de UI. Lo que llega abajo son archivos de
+// la RAÍZ del repo: además de los HTML legacy y 3 .js de UI, express.static(__dirname) exponía
+// TODO el código fuente del servidor, config y secretos (server_corregido.js, daily-cache.js,
+// package.json, render.yaml, *.py, .env*, src/, lib/…). Filtro por lista blanca de tipos seguros.
+const ROOT_UI_JS = new Set(['/metas-estandar.js', '/safe-dom.js', '/pwa-register.js']);
+const ROOT_ALLOW_EXT = /\.(html|css|png|jpe?g|gif|webp|svg|ico|woff2?|ttf|webmanifest)$/i;
+app.use((req, res, next) => {
+  if (!/\.[a-z0-9]+$/i.test(req.path)) return next(); // sin extensión → handlers/API/SPA
+  if (ROOT_ALLOW_EXT.test(req.path) || ROOT_UI_JS.has(req.path)) return next();
+  return res.status(404).end(); // .js/.json/.py/.env/.yaml/.md/… de la raíz = código fuente → oculto
+});
 // Los HTML duplicados en la raíz del repo enlazan public/app-ui.css y public/app-ui-boot.js; el siguiente static(__dirname) sirve /public/* desde disco.
 app.use(express.static(__dirname, staticOpts));
 
@@ -1904,8 +1915,11 @@ function mergeDirectorResumenSnapshots(parts) {
     COTI_MES: 0,
   };
   let anyConta = false;
+  let empresasOk = 0, empresasErr = 0;
   for (const p of parts || []) {
     if (!p) continue;
+    if (p._err) { empresasErr++; continue; } // base caída: no sumar sus ceros como dato real
+    empresasOk++;
     const v = p.ventas || {};
     if (String(v.FUENTE_VENTAS || '').toUpperCase() === 'CONTABLE_SALDOS_CO_4') anyConta = true;
     ventas.HOY += +v.HOY || 0;
@@ -1944,7 +1958,8 @@ function mergeDirectorResumenSnapshots(parts) {
   ventas.MES_PV = r2(ventas.MES_PV);
   ventas.REMISIONES_HOY = r2(ventas.REMISIONES_HOY);
   ventas.REMISIONES_MES = r2(ventas.REMISIONES_MES);
-  return { ventas, cxc, cotizaciones };
+  // empresas_err > 0 ⇒ el consolidado es PARCIAL (faltan bases que no respondieron).
+  return { ventas, cxc, cotizaciones, empresas_ok: empresasOk, empresas_err: empresasErr };
 }
 
 function mergeDiariasVentas(rowsList) {
@@ -5080,7 +5095,10 @@ get('/api/director/resumen', async (req) => {
       try {
         return await directorResumenSnapshot(req, entry.options, dirQms);
       } catch (e) {
+        // _err: marca la base que falló para que el merge NO la cuente como "$0 real"
+        // sino como faltante (empresas_err), y el frontend pueda avisar.
         return {
+          _err: true,
           ventas: { HOY: 0, MES_ACTUAL: 0, FACTURAS_MES: 0, MES_VE: 0, MES_PV: 0, REMISIONES_HOY: 0, REMISIONES_MES: 0 },
           cxc: { SALDO_TOTAL: 0, NUM_CLIENTES: 0, NUM_CLIENTES_VENCIDOS: 0, VENCIDO: 0, POR_VENCER: 0 },
           cotizaciones: { COTI_HOY: 0, IMPORTE_COTI_HOY: 0, IMPORTE_COTI_MES: 0, COTI_MES: 0 },
@@ -5119,7 +5137,8 @@ get('/api/universe/scorecard', async (req) => {
         cxc_vencido: +(c.VENCIDO || 0),
         cxc_pct_vencido: pctVenc,
         cotiz_importe_mes: +((data.cotizaciones && data.cotizaciones.IMPORTE_COTI_MES) || 0),
-        detail: data,
+        // 'detail: data' enviaba el snapshot completo del director por cada empresa; el
+        // frontend (renderUniversePortfolio) nunca lo lee → payload mucho más liviano sin él.
       };
     } catch (e) {
       return { ok: false, id: entry.id, label: entry.label, error: e.message };
