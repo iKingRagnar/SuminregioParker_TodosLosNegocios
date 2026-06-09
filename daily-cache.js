@@ -67,6 +67,22 @@ try {
   _registry = JSON.parse(raw || '{}') || {};
 } catch (_) { _registry = {}; }
 
+// Purga de registros "cursor" heredados (SQL con PK literal por lote: DOCTO_VE_ID > 123…).
+// Cada lote registraba una key nueva y el refresh de las 23:00 los re-ejecutaba contra
+// Firebird para siempre. Las queries nuevas de cursor ya llegan con {volatile} y no se
+// registran; esto limpia lo acumulado por versiones anteriores.
+try {
+  const CURSOR_SQL_RE = /(DOCTO_VE_ID|ARTICULO_ID)\s*>\s*\d/i;
+  let pruned = 0;
+  for (const [k, row] of Object.entries(_registry)) {
+    if (row && CURSOR_SQL_RE.test(String(row.sql || ''))) { delete _registry[k]; pruned++; }
+  }
+  if (pruned > 0) {
+    fs.writeFileSync(REGISTRY_FILE, JSON.stringify(_registry), 'utf8');
+    console.log(`[daily-cache] purgadas ${pruned} queries cursor heredadas del registro (no se re-ejecutarán a las 23:00).`);
+  }
+} catch (_) { /* la purga nunca debe impedir el arranque */ }
+
 function saveRegistry() {
   try { fs.writeFileSync(REGISTRY_FILE, JSON.stringify(_registry), 'utf8'); }
   catch (_) { /* ignore */ }
@@ -103,15 +119,44 @@ function msUntilNext23Mx(nowMs = Date.now()) {
   return Math.max(next - nowMs, 60 * 1000);
 }
 
+// ── Frente en memoria (LRU acotado) ─────────────────────────────────────────
+// Sin esto, CADA query de CADA request hacía fs.readFileSync + JSON.parse
+// (potencialmente MBs) bloqueando el event loop — los "cache hits" se sentían
+// lentos bajo concurrencia. Disco sigue siendo la fuente durable.
+const _MEM_MAX_ENTRIES = 400;
+const _MEM_MAX_ROWS = 20000; // resultados gigantes no se retienen en RAM
+const _memCache = new Map(); // key → { ts, rows } (mismo shape que el archivo)
+function _memGet(key) {
+  const hit = _memCache.get(key);
+  if (!hit) return null;
+  _memCache.delete(key); _memCache.set(key, hit); // refresca posición LRU
+  return hit;
+}
+function _memSet(key, entry) {
+  try {
+    if (entry && Array.isArray(entry.rows) && entry.rows.length > _MEM_MAX_ROWS) return;
+    if (_memCache.has(key)) _memCache.delete(key);
+    _memCache.set(key, entry);
+    while (_memCache.size > _MEM_MAX_ENTRIES) {
+      _memCache.delete(_memCache.keys().next().value); // expulsa el menos reciente
+    }
+  } catch (_) { /* nunca romper el camino de datos por el cache de memoria */ }
+}
+
 function readCache(key) {
+  const mem = _memGet(key);
+  if (mem) return mem;
   try {
     const p = cachePath(key);
     if (!fs.existsSync(p)) return null;
-    return JSON.parse(fs.readFileSync(p, 'utf8'));
+    const entry = JSON.parse(fs.readFileSync(p, 'utf8'));
+    if (entry) _memSet(key, entry);
+    return entry;
   } catch { return null; }
 }
 
 function writeCache(key, rows) {
+  _memSet(key, { ts: Date.now(), rows });
   try {
     fs.writeFileSync(cachePath(key), JSON.stringify({ ts: Date.now(), rows }), 'utf8');
     _writeOkCount++;

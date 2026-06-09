@@ -503,16 +503,41 @@ function translateRdbSchemaQuery(sql) {
   return null;
 }
 
-function query(sql, params = [], timeoutMs = 12000, dbOptsOverride = null) {
+function query(sql, params = [], timeoutMs = 12000, dbOptsOverride = null, qOpts = null) {
   const isSystemCatalog = /RDB\$/i.test(sql);
 
-  // CACHE_MODE: Firebird directo envuelto en daily-cache (refresh 23:00 CDMX).
-  // Queries RDB$ de schema NO se cachean (son metadata, baratas y cambian poco).
+  // CACHE_MODE: el camino CORRECTO es el snapshot DuckDB (corte 11 PM, local, sin WAN).
+  // Firebird directo SATURA el servidor remoto: solo se usa como respaldo cuando no hay
+  // snapshot de la empresa o la tabla no está sincronizada — y aun entonces envuelto en
+  // daily-cache para tocarlo una sola vez al día por query.
   if (CACHE_MODE) {
-    if (isSystemCatalog) return _fbQuery(sql, params, timeoutMs, dbOptsOverride);
+    if (isSystemCatalog) {
+      const snapCat = getDuckSnap(dbOptsOverride);
+      const translated = snapCat ? translateRdbSchemaQuery(sql) : null;
+      if (snapCat && translated) {
+        return duckQueryPromise(snapCat, translated, params)
+          .catch(() => _fbQuery(sql, params, timeoutMs, dbOptsOverride));
+      }
+      return _fbQuery(sql, params, timeoutMs, dbOptsOverride);
+    }
     const dbId = dbOptsToId(dbOptsOverride) || (dbOptsOverride
       ? String(dbOptsOverride.database || '').toLowerCase().replace(/\\/g, '/')
       : 'default');
+    const snap = getDuckSnap(dbOptsOverride);
+    if (snap) {
+      return duckQueryPromise(snap, sql, params).catch((duckErr) => {
+        const msg = (duckErr && duckErr.message) || String(duckErr);
+        const missing = msg.match(/Table with name ([A-Z_0-9]+) does not exist/i);
+        if (missing) console.warn(`[DuckDB][${dbId}] tabla no sincronizada: "${missing[1]}" → fallback daily-cache+Firebird`);
+        else console.warn(`[DuckDB][${dbId}] error → fallback daily-cache+Firebird: ${msg.slice(0, 100)}`);
+        if (qOpts && qOpts.volatile) return _fbQuery(sql, params, timeoutMs, dbOptsOverride);
+        return dailyCache.wrap(dbId, sql, params, () => _fbQuery(sql, params, timeoutMs, dbOptsOverride));
+      });
+    }
+    // volatile (cursores paginados con SQL único por lote): no registrar en daily-cache —
+    // cada lote creaba una key nueva que el refresh de las 23:00 re-ejecutaba contra
+    // Firebird para siempre (registro y disco crecían sin límite).
+    if (qOpts && qOpts.volatile) return _fbQuery(sql, params, timeoutMs, dbOptsOverride);
     return dailyCache.wrap(dbId, sql, params, () =>
       _fbQuery(sql, params, timeoutMs, dbOptsOverride)
     );
@@ -2978,7 +3003,7 @@ async function getCotizMensualesBatch(dbo, desdeStr, timeoutMs = 55000, vendedor
          AND h.DOCTO_VE_ID > ${lastId}
          AND (h.ESTATUS IS NULL OR h.ESTATUS NOT IN ('C', 'D'))${vendClause}
        ORDER BY h.DOCTO_VE_ID`,
-      [], Math.min(14000, rem), dbo
+      [], Math.min(14000, rem), dbo, { volatile: true } /* SQL único por lote: no registrar en daily-cache */
     ).catch(() => null);
 
     if (!batch || !batch.length) break;
@@ -3048,7 +3073,7 @@ async function getCotizacionesByPeriodCursor(dbo, desde, hasta, timeoutMs = 8000
        WHERE h.TIPO_DOCTO IN (${tiposIn}) AND h.DOCTO_VE_ID > ${lastId}
          AND h.FECHA >= '${desde}' AND h.FECHA < '${hasta}'${vendClause}
        ORDER BY h.DOCTO_VE_ID`,
-      [], Math.min(15000, remaining), dbo
+      [], Math.min(15000, remaining), dbo, { volatile: true } /* SQL único por lote: no registrar en daily-cache */
     ).catch(() => []);
     if (!batch || !batch.length) break;
     for (const r of batch) rows.push(r);
@@ -7313,7 +7338,7 @@ get('/api/inv/existencias-todas', async (req) => {
     LEFT JOIN ${costoSub} cs ON cs.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND a.ARTICULO_ID > ${desdeId}
     ORDER BY a.ARTICULO_ID
-  `, [], INV_LIST_Q_MS, dbo);
+  `, [], INV_LIST_Q_MS, dbo, { volatile: true } /* cursor paginado: no registrar cada página en daily-cache */);
   // SIN .catch(() => []): para un consumidor paginado por cursor, [] significa "fin del
   // inventario"; un timeout disfrazado de [] truncaba el sync en silencio. 500 es honesto.
 });
@@ -13320,7 +13345,7 @@ app.get('/api/debug/cotizaciones-cursor', async (req, res) => {
          FROM DOCTOS_VE h
          WHERE h.TIPO_DOCTO IN (${tipos}) AND h.DOCTO_VE_ID > ${lastId} AND h.FECHA < '${hasta}'
          ORDER BY h.DOCTO_VE_ID`,
-        [], 10000, dbo
+        [], 10000, dbo, { volatile: true } /* SQL único por iteración: no registrar en daily-cache */
       ).catch(() => []);
       if (!next) break;
       const fechaNext = next.FECHA instanceof Date ? next.FECHA : new Date(next.FECHA);
