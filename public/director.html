@@ -469,6 +469,7 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
 <script>
 const API = (window.__API_BASE != null ? String(window.__API_BASE).replace(/\/+$/, '') : (window.location.protocol === 'file:' ? 'http://localhost:7000' : (window.location.origin || '')));
 function fwt(url,fallback,ms=20000){return Promise.race([fetch(url).then(r=>{if(!r.ok)throw new Error(String(r.status));return r.json();}).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
+window.__DIR_DEGRADED = 0; // fuentes que cayeron a fallback (el fallback evita romper el render, pero hay que contarlo)
 async function fetchJson(url,fallback={},ms){
   ms=ms||25000;
   const ctrl=new AbortController();
@@ -477,7 +478,7 @@ async function fetchJson(url,fallback={},ms){
     const r=await fetch(url,{signal:ctrl.signal,cache:'no-store'});
     if(!r.ok)throw new Error(String(r.status));
     return await r.json();
-  }catch(_){return fallback;}finally{clearTimeout(tid);}
+  }catch(_){window.__DIR_DEGRADED++;return fallback;}finally{clearTimeout(tid);}
 }
 let chartVentas;
 let topDirCliLimit = 10;
@@ -899,6 +900,7 @@ function clearDirectorFilterLoadingUI(){
 }
 
 async function loadAll() {
+  window.__DIR_DEGRADED = 0; // reinicia el contador de fuentes degradadas de esta carga
   try {
     clearDirectorFilterLoadingUI();
     if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.loadAllStarted=(window.__DBG_STATE.loadAllStarted||0)+1; window.__DBG_STATE.phase='loadAll:start'; window.__DBG_STATE.note=''; }
@@ -1180,7 +1182,15 @@ async function loadAll() {
   }
 
   await Promise.allSettled([loadDiarias(), loadVendedores(), loadClientes(), loadRecientes()]);
-  setText('page-sub', `Actualizado: ${new Date().toLocaleTimeString('es-MX')}`);
+  // No estampar "Actualizado" como si todo hubiera salido bien cuando hubo fuentes degradadas:
+  // antes una caída total de Firebird mostraba KPIs en $0 + "Actualizado: 10:32".
+  if ((window.__DIR_DEGRADED || 0) > 0) {
+    setHtml('page-sub', '⚠️ ' + window.__DIR_DEGRADED + ' fuente(s) con timeout — datos parciales (los $0 pueden no ser reales). <button onclick="loadAll()" style="background:none;border:1px solid var(--border2);color:var(--yellow);padding:2px 10px;border-radius:9px;cursor:pointer;font-size:.7rem;font-family:\'DM Mono\',monospace">↺ Reintentar</button>');
+    const it = document.getElementById('intel-text');
+    if (it && /Cargando an/.test(it.textContent || '')) setText('intel-text', 'Análisis no disponible: fuentes con timeout. Usa ↺ Reintentar.');
+  } else {
+    setText('page-sub', `Actualizado: ${new Date().toLocaleTimeString('es-MX')}`);
+  }
 }
 
 function parseVentasDiariasDay(raw) {

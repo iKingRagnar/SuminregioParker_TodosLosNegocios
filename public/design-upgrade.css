@@ -462,7 +462,9 @@ body::before, body::after { content: none !important; }
 
 .tag.up   { background: rgba(0,229,160,.12) !important;  color: #34D399 !important; border: 1px solid rgba(0,229,160,.28) !important;  box-shadow: 0 0 10px rgba(0,229,160,.15) !important; }
 .tag.down { background: rgba(255,69,102,.12) !important; color: #F87171 !important; border: 1px solid rgba(255,69,102,.28) !important; box-shadow: 0 0 10px rgba(255,69,102,.15) !important; }
-.tag.warn { background: rgba(255,184,0,.12) !important;  color: #FBBF24 !important; border: 1px solid rgba(255,184,0,.28) !important;  box-shadow: 0 0 10px rgba(255,184,0,.12) !important; }
+/* #FBBF24 sobre blanco es ~1.6:1 (ilegible); en tema claro usar ámbar oscuro. El tema claro está forzado vía nav.js. */
+html:not([data-theme="light"]) .tag.warn { background: rgba(255,184,0,.12) !important;  color: #FBBF24 !important; border: 1px solid rgba(255,184,0,.28) !important;  box-shadow: 0 0 10px rgba(255,184,0,.12) !important; }
+html[data-theme="light"] .tag.warn { background: rgba(180,83,9,.10) !important; color: #92400e !important; border: 1px solid rgba(180,83,9,.30) !important; box-shadow: none !important; }
 
 .biz-chip.active {
   box-shadow: 0 0 16px rgba(230,168,0,.2), inset 0 1px 0 rgba(255,255,255,.08) !important;

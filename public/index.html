@@ -1069,6 +1069,7 @@ html[data-theme="light"] .sc-id,html.theme-premium-light .sc-id,html[data-theme=
 const API = (window.__API_BASE != null ? String(window.__API_BASE).replace(/\/+$/, '') : (window.location.protocol === 'file:' ? 'http://localhost:7000' : (window.location.origin || '')));
 function fwt(url,fallback,ms=20000){return Promise.race([fetch(url).then(r=>r.json()).catch(()=>fallback),new Promise(r=>setTimeout(()=>r(fallback),ms))]);}
 /** fetch + AbortController (sin Promise.race): si el servidor tarda >65s pero <ms, aún llega el JSON (evita KPI CxC en 0 con cartera cargada). */
+window.__FETCH_DEGRADED = 0; // nº de fuentes que cayeron a fallback en el loadAll en curso
 async function fetchJsonAbort(url, fallback, ms) {
   fallback = fallback !== undefined ? fallback : {};
   ms = ms || 120000;
@@ -1077,11 +1078,14 @@ async function fetchJsonAbort(url, fallback, ms) {
   try {
     var r = await fetch(url, { signal: ctrl.signal, cache: 'no-store' });
     clearTimeout(tid);
-    if (!r.ok) return fallback;
+    if (!r.ok) { window.__FETCH_DEGRADED++; return fallback; }
     var j = await r.json();
     return j && typeof j === 'object' ? j : fallback;
   } catch (_) {
     clearTimeout(tid);
+    // El fallback evita romper el render, pero hay que CONTAR el fallo: antes el
+    // badge "N fuentes con timeout" era código muerto (esta función nunca rechazaba).
+    window.__FETCH_DEGRADED++;
     return fallback;
   }
 }
@@ -1581,6 +1585,7 @@ async function loadAll(){
         .catch((e)=>{ if(dbgEnabled() && window.__DBG_STATE){ window.__DBG_STATE.note=label+':err:'+(e&&e.message?e.message:String(e)); } throw e; });
     };
     // ── Promise.allSettled: si un endpoint falla/timeout, los demás siguen renderizando ──
+    window.__FETCH_DEGRADED = 0; // reinicia el contador de fuentes degradadas de esta carga
     const _settled = await Promise.allSettled([
       dbgWrap('config/metas',       fetchJsonAbort(buildApiUrl('/api/config/metas'), {}, tKpi)),
       dbgWrap('cxc/resumen-aging',  fetchJsonAbort(buildApiUrl('/api/cxc/resumen-aging','queryMs=180000'), {}, tCxcResumenAging)),
@@ -1601,13 +1606,17 @@ async function loadAll(){
     const cumpl   = _val(_settled[5], []);
     const cliRes  = _val(_settled[6], {});
     const pnlData = _val(_settled[7], {});
-    // Mostrar badge si algún endpoint degradó
-    const _failedEndpoints = _settled.filter(r => r.status === 'rejected').length;
+    // Mostrar badge si algún endpoint degradó. fetchJsonAbort nunca rechaza (devuelve el
+    // fallback y cuenta en __FETCH_DEGRADED), así que filtrar por 'rejected' daba siempre 0
+    // y el aviso jamás aparecía: KPIs en $0 se veían como dato real.
+    const _failedEndpoints = (window.__FETCH_DEGRADED || 0) + _settled.filter(r => r.status === 'rejected').length;
     if (_failedEndpoints > 0) {
       console.warn('[index] ' + _failedEndpoints + ' endpoint(s) fallaron — renderizando con datos parciales.');
-      const subEl = document.getElementById('page-sub');
-      if (subEl && subEl.textContent.includes('Cargando')) {
-        subEl.innerHTML = '⚠️ ' + _failedEndpoints + ' fuente(s) con timeout — datos parciales. <button onclick="loadAll()" style="background:none;border:1px solid var(--border2);color:var(--yellow);padding:2px 10px;border-radius:9px;cursor:pointer;font-size:.7rem;font-family:\'DM Mono\',monospace">↺ Reintentar</button>';
+      // id="page-sub" no existe en esta página (el aviso era doblemente muerto); usar heroDataHint.
+      const subEl = document.getElementById('heroDataHint');
+      if (subEl) {
+        subEl.hidden = false;
+        subEl.innerHTML = '⚠️ ' + _failedEndpoints + ' fuente(s) con timeout — datos parciales (los $0 pueden no ser reales). <button onclick="loadAll()" style="background:none;border:1px solid var(--border2);color:var(--yellow);padding:2px 10px;border-radius:9px;cursor:pointer;font-size:.7rem;font-family:\'DM Mono\',monospace">↺ Reintentar</button>';
       }
     }
     const v = (dir && dir.ventas && typeof dir.ventas === 'object') ? dir.ventas : {};
@@ -1926,7 +1935,7 @@ async function loadAll(){
     );
 
     const hintEl=document.getElementById('heroDataHint');
-    if(hintEl){
+    if(hintEl && _failedEndpoints===0){ /* con fuentes degradadas, el aviso ⚠ de arriba tiene prioridad: no borrarlo */
       hintEl.hidden=true;
       hintEl.textContent='';
       const ySel=parseInt(params.anio,10);

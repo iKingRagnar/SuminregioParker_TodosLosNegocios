@@ -58,8 +58,12 @@
       .then(function (r) { return r.json(); })
       .then(function (j) {
         if (!j) return;
-        try { sessionStorage.setItem(ck, JSON.stringify({ anio: j.anio, mes: j.mes, t: Date.now() })); } catch (_) {}
-        handle(j.anio, j.mes, curY, curM, curYM);
+        // No cachear fallos transitorios (ok:false o sin dato): cachear {anio:null} 10 min
+        // desactivaba el aviso/fallback justo cuando más se necesitaba.
+        if (j.ok && j.anio) {
+          try { sessionStorage.setItem(ck, JSON.stringify({ anio: j.anio, mes: j.mes, t: Date.now() })); } catch (_) {}
+        }
+        if (j.ok) handle(j.anio, j.mes, curY, curM, curYM);
       })
       .catch(function () {});
   }

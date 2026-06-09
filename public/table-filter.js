@@ -76,7 +76,10 @@
       '.tf-opt small{color:#94a3b8;font-weight:600;margin-left:8px;}',
       '.tf-opt:hover,.tf-opt.tf-on{background:rgba(230,168,0,.14);color:#92400e;}',
       '.tf-opt mark{background:rgba(230,168,0,.32);color:inherit;border-radius:3px;padding:0 1px;}',
-      '.tf-dd-empty{padding:10px 12px;color:#94a3b8;}'
+      '.tf-dd-empty{padding:10px 12px;color:#94a3b8;}',
+      /* táctil: 44px de alto y 16px de fuente (evita el zoom de iOS al enfocar) */
+      '@media(pointer:coarse){.tf-inp{min-height:44px;font-size:16px;}',
+      '.tf-clear{width:28px;height:28px;line-height:28px;font-size:14px;right:8px;}}'
     ].join('');
     (document.head || document.documentElement).appendChild(s);
   }

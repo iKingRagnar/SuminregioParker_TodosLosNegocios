@@ -711,7 +711,7 @@ const isStale = (g) => typeof g === 'number' && g !== __loadGen;
 const fmtN = v => isNaN(+v) ? '0' : (+v).toLocaleString('es-MX',{maximumFractionDigits:0});
 const fmtF = v => isNaN(+v) ? '0.00' : (+v).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fmtM = v => {
-  if(isNaN(+v)) return '$0';
+  if(isNaN(+v)) return '—'; // dato faltante ≠ cero: '$0' enmascaraba timeouts como venta real
   const n = +v;
   if(Math.abs(n) >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M';
   if(Math.abs(n) >= 1e3) return '$' + (n/1e3).toFixed(1) + 'K';

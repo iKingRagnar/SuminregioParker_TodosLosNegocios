@@ -539,8 +539,8 @@ function invPeriodLabel() {
   } catch (e) {}
   return '';
 }
-const fmt  = n => isNaN(+n)||n==null?'&mdash;':'$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
-const fmtK = n => { if(isNaN(+n)||n==null) return '&mdash;'; n=+n; return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2}); };
+const fmt  = n => isNaN(+n)||n==null?'—':'$'+Number(n).toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
+const fmtK = n => { if(isNaN(+n)||n==null) return '—'; n=+n; return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2}); };
 const setText = (id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
 
 setInterval(()=>{ document.getElementById('clock').textContent=new Date().toLocaleTimeString('es-MX'); },1000);
@@ -548,7 +548,7 @@ setInterval(()=>{ document.getElementById('clock').textContent=new Date().toLoca
 let busqTimer;
 function doBusqueda(val) {
   clearTimeout(busqTimer);
-  if(val.trim().length < 2) { document.getElementById('busq-resultado').innerHTML=''; setText('busq-badge','Escribe m&iacute;nimo 2 caracteres'); return; }
+  if(val.trim().length < 2) { document.getElementById('busq-resultado').innerHTML=''; setText('busq-badge','Escribe mínimo 2 caracteres'); return; }
   busqTimer = setTimeout(async ()=>{
     try {
       const raw = await invFwt(apiDb('/api/inv/existencias?q='+encodeURIComponent(val)), [], 15000);
@@ -709,7 +709,7 @@ async function loadMinimo(g) {
         <td class="num"><span style="color:${faltanteCol}">${faltanteTxt}</span></td>
       </tr>`;
     }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted)">Sin art&iacute;culos bajo m&iacute;nimo</td></tr>';
-    setText('minimo-badge', rows.length+' art&iacute;culos');
+    setText('minimo-badge', rows.length+' artículos');
   } catch(e){
     if (g !== invLoadGen) return;
     console.error('bajo-minimo',e);

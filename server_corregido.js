@@ -380,13 +380,15 @@ const staticOpts = {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.html')) {
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      res.setHeader('Cache-Control', 'no-store');
+      // no-cache (≠ no-store): el navegador SIEMPRE revalida con el ETag y recibe
+      // 304 si no cambió — frescura de no-store sin re-descargar ~500KB por navegación.
+      res.setHeader('Cache-Control', 'no-cache');
     } else if (filePath.endsWith('.js')) {
       res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('Cache-Control', 'no-cache');
     } else if (filePath.endsWith('.css')) {
       res.setHeader('Content-Type', 'text/css; charset=utf-8');
-      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('Cache-Control', 'no-cache');
     } else if (/\.(svg|png|jpe?g|gif|webp|ico|woff2?|ttf)$/i.test(filePath)) {
       // Estos cambian rara vez — cache 1 día con must-revalidate por etag
       res.setHeader('Cache-Control', 'public, max-age=86400, must-revalidate');
@@ -2277,11 +2279,20 @@ const ROUTE_TTL_MAP = {
   "/api/clientes/resumen-riesgo": 120000,
   // Config (muy estable)
   "/api/config/metas": 300000,
+  // Catálogo de filtros (vendedores/clientes): 3 queries Firebird por carga de página sin esto.
+  "/api/config/filtros": 300000,
+  // Serie del gráfico principal (la clave del mapa era "diario"; la ruta real es "diarias").
+  "/api/ventas/diarias": 60000,
+  // El endpoint más caro de la app (todas las bases × ~11 queries): NUNCA estaba cacheado.
+  "/api/universe/scorecard": 180000,
+  // Último mes con datos (cambia a lo sumo una vez al día).
+  "/api/periodo/ultimo": 600000,
 };
 
 // ── Helper: ruta GET con manejo de errores + cache automático por ROUTE_TTL_MAP ─
 // Si la ruta aparece en ROUTE_TTL_MAP, la respuesta se cachea en memoria por ese TTL.
 // Pasa opts.ttl para sobreescribir, opts.noCache=true para deshabilitar.
+const _inflightByUrl = new Map(); // dedup: N requests concurrentes a la misma URL = 1 sola ejecución del handler
 function get(routePath, handler, opts = {}) {
   const mapTtl  = ROUTE_TTL_MAP[routePath] || 0;
   const ttl     = opts.noCache ? 0 : (opts.ttl > 0 ? opts.ttl : mapTtl);
@@ -2298,7 +2309,17 @@ function get(routePath, handler, opts = {}) {
       }
     }
     try {
-      const data = await handler(req);
+      // Dedup en vuelo: con Firebird remoto un recompute tarda 30-180s; dos pestañas
+      // o clics rápidos al filtro disparaban N recomputes idénticos en paralelo.
+      let p = _inflightByUrl.get(cacheKey);
+      if (!p) {
+        p = Promise.resolve().then(() => handler(req));
+        _inflightByUrl.set(cacheKey, p);
+        p.finally(() => _inflightByUrl.delete(cacheKey)).catch(() => {});
+      } else {
+        res.setHeader('X-Inflight', 'JOIN');
+      }
+      const data = await p;
       if (ttl > 0 && (!cacheIf || cacheIf(data))) {
         _cacheSet(cacheKey, data);
         res.setHeader('X-Cache', 'MISS');
@@ -2307,7 +2328,7 @@ function get(routePath, handler, opts = {}) {
       res.json(data);
     } catch (e) {
       console.error(`[ERROR] ${routePath} →`, e.message);
-      res.status(500).json({ error: e.message, path: routePath });
+      res.status(e.statusCode || 500).json({ error: e.message, path: routePath });
     }
   });
 }
@@ -2357,8 +2378,18 @@ function buildFiltros(req, alias = 'd', options = {}) {
     }
   }
   if (dia) { conds.push(`CAST(${feRoot} AS DATE) = CAST(? AS DATE)`); params.push(dia); }
-  if (!omitVC && vendedor) { conds.push(`${alias}.VENDEDOR_ID = ?`); params.push(parseInt(vendedor)); }
-  if (!omitVC && cliente) { conds.push(`${alias}.CLIENTE_ID  = ?`); params.push(parseInt(cliente)); }
+  // vendedor/cliente no numéricos: antes NaN llegaba a Firebird (error SQL tragado → ceros
+  // silenciosos o 500). Honesto: 400 con mensaje claro.
+  if (!omitVC && vendedor) {
+    const vid = parseInt(vendedor, 10);
+    if (!Number.isFinite(vid)) throw Object.assign(new Error(`vendedor inválido: "${vendedor}" (se espera un ID numérico)`), { statusCode: 400 });
+    conds.push(`${alias}.VENDEDOR_ID = ?`); params.push(vid);
+  }
+  if (!omitVC && cliente) {
+    const cid = parseInt(cliente, 10);
+    if (!Number.isFinite(cid)) throw Object.assign(new Error(`cliente inválido: "${cliente}" (se espera un ID numérico)`), { statusCode: 400 });
+    conds.push(`${alias}.CLIENTE_ID  = ?`); params.push(cid);
+  }
 
   // Si hay desde, calcular cuántos días de lookback necesitamos
   let lookbackOverride = null;
@@ -3646,6 +3677,8 @@ get('/api/clientes/cohortes', async (req) => {
 // \u00daltimo mes con movimiento de ventas (VE/PV) de la base. Permite que el tablero
 // avise/caiga al \u00faltimo periodo con datos cuando el mes en curso a\u00fan est\u00e1 vac\u00edo.
 get('/api/periodo/ultimo', async (req) => {
+  // ok:false cuando la consulta FALLÓ (timeout/conexión) — distinto de "base sin ventas"
+  // (ok:true, anio:null). El helper del frontend no debe cachear fallos transitorios.
   const run = async (dbo) => {
     const rows = await query(`
       SELECT EXTRACT(YEAR FROM mx) AS Y, EXTRACT(MONTH FROM mx) AS M
@@ -3654,31 +3687,34 @@ get('/api/periodo/ultimo', async (req) => {
         FROM ${ventasSub()} d
         WHERE CAST(d.FECHA AS DATE) <= CURRENT_DATE
       ) s
-    `, [], 15000, dbo).catch(() => []);
+    `, [], 15000, dbo); // sin .catch: el fallo sube y se reporta ok:false
     const r = rows && rows[0] ? rows[0] : {};
     const y = parseInt(r.Y, 10), m = parseInt(r.M, 10);
     if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) return { anio: null, mes: null };
     return { anio: y, mes: m };
   };
+  if (isAllDbs(req)) {
+    let okCount = 0, errCount = 0;
+    const parts = await mapPoolLimit(DATABASE_REGISTRY, 3, async (e) => {
+      try { const r = await run(e.options); okCount++; return r; }
+      catch (_) { errCount++; return { anio: null, mes: null }; }
+    });
+    let best = null;
+    parts.forEach((p) => {
+      if (!p || !p.anio) return;
+      const ym = p.anio * 100 + p.mes;
+      if (!best || ym > best.ym) best = { anio: p.anio, mes: p.mes, ym };
+    });
+    // ok solo si al menos una base respondió; si hubo datos, servirlos aunque otra base fallara.
+    return { ok: okCount > 0, anio: best ? best.anio : null, mes: best ? best.mes : null, bases_err: errCount };
+  }
   try {
-    if (isAllDbs(req)) {
-      const parts = await mapPoolLimit(DATABASE_REGISTRY, 3, async (e) => {
-        try { return await run(e.options); } catch (_) { return { anio: null, mes: null }; }
-      });
-      let best = null;
-      parts.forEach((p) => {
-        if (!p || !p.anio) return;
-        const ym = p.anio * 100 + p.mes;
-        if (!best || ym > best.ym) best = { anio: p.anio, mes: p.mes, ym };
-      });
-      return { ok: true, anio: best ? best.anio : null, mes: best ? best.mes : null };
-    }
     const r = await run(getReqDbOpts(req));
     return { ok: true, anio: r.anio, mes: r.mes };
   } catch (e) {
     return { ok: false, anio: null, mes: null, error: e && e.message };
   }
-});
+}, { cacheIf: (d) => !!(d && d.ok) });
 
 // Ventas del periodo: HOY = venta del d\u00eda actual; MES_ACTUAL = total del periodo filtrado (anio/mes o desde-hasta) para que cuadre con Power BI.
 get('/api/ventas/resumen', async (req) => {
@@ -5029,7 +5065,9 @@ get('/api/director/resumen', async (req) => {
     return mergeDirectorResumenSnapshots(parts);
   }
   return directorResumenSnapshot(req, getReqDbOpts(req), dirQms);
-});
+  // cacheIf: un timeout de Firebird produce ventas/CxC en 0; cachearlo serviría ceros
+  // "frescos" (X-Cache: HIT) durante 120s aun después de recuperarse la base.
+}, { cacheIf: (d) => !!(d && ((d.ventas && +d.ventas.MES_ACTUAL > 0) || (d.cxc && +d.cxc.SALDO_TOTAL > 0))) });
 
 // Catálogo de bases (sin credenciales) + scorecard multi-empresa (misma lógica que director, concurrencia acotada).
 get('/api/universe/databases', async () =>
@@ -5677,11 +5715,13 @@ get('/api/cxc/resumen-aging', async (req) => {
   }
   const snap = await cxcResumenAgingUnificado(req, dbo, qms);
   const payload = { resumen: snap.resumen, aging: snap.aging };
-  if (!nocache && ttlMs > 0) {
+  // No persistir snapshots degradados (timeout → SALDO_TOTAL 0): servirían cartera "en ceros".
+  const snapOk = !!(snap && snap.resumen && +snap.resumen.SALDO_TOTAL > 0);
+  if (!nocache && ttlMs > 0 && snapOk) {
     cxcResumenAgingSnapCache.set(cacheKey, { expireAt: Date.now() + ttlMs, payload });
   }
   return payload;
-});
+}, { cacheIf: (d) => !!(d && d.resumen && +d.resumen.SALDO_TOTAL > 0) });
 
 // Cobrado Relativo: de los documentos con saldo activo, ¿qué % ya fue cobrado via remisiones?
 // Estrategia: batch por documento (no GROUP BY WAN). Reutiliza cxcDocSaldosInnerSQL para
@@ -6291,7 +6331,12 @@ get('/api/cxc/historial-pagos', async (req) => {
   const limit = Math.min(parseInt(req.query.limit) || 300, 500);
   const meses = Math.min(parseInt(req.query.meses) || 12, 120);
   const saldosActuales = req.query.saldos_actuales === '1' || req.query.saldos_actuales === 'true';
-  const clienteFiltro = req.query.cliente ? ` AND cl.CLIENTE_ID = ${parseInt(req.query.cliente)}` : '';
+  let clienteFiltro = '';
+  if (req.query.cliente) {
+    const cid = parseInt(req.query.cliente, 10);
+    if (!Number.isFinite(cid)) throw Object.assign(new Error(`cliente inválido: "${req.query.cliente}"`), { statusCode: 400 });
+    clienteFiltro = ` AND cl.CLIENTE_ID = ${cid}`;
+  }
   // Con saldos_actuales=1 el front necesita filas con saldo aunque la FECHA del doc sea muy antigua; sin esto el calendario queda vacío con cartera vieja.
   const fechaSql = saldosActuales ? '' : ` AND dc.FECHA >= (CURRENT_DATE - ${meses * 31})`;
   const rows = await query(`
@@ -6319,7 +6364,7 @@ get('/api/cxc/historial-pagos', async (req) => {
     GROUP BY dc.DOCTO_CC_ID, dc.FOLIO, cl.NOMBRE, cl.CLIENTE_ID, cp.NOMBRE, cp.DIAS_PPAG, dc.FECHA
     HAVING SUM(CASE WHEN i.TIPO_IMPTE = 'C' THEN i.IMPORTE ELSE 0 END) > 0
     ORDER BY dc.FECHA DESC
-  `, [], 12000, dbo).catch(() => []);
+  `, [], 45000, dbo).catch(() => []); /* 12s cortaba antes que el presupuesto de 45s del frontend → "Sin datos de historial" falso */
   if (!saldosActuales || !rows || !rows.length) return rows || [];
   const ids = [...new Set((rows || []).map(r => r.CLIENTE_ID).filter(Boolean))];
   if (!ids.length) return { rows, saldosPorCliente: {} };
@@ -6684,7 +6729,8 @@ get('/api/inv/resumen', async (req) => {
     nota_valor:
       'Posición actual (SALDOS_IN) × costo; sin movimiento del mes del filtro. Alinear con Power BI: MICROSIP_INV_ALMACEN_IDS (almacén), MICROSIP_INV_COSTO_MODO=promedio si el modelo usa solo costo promedio, exclusión de servicios vía columnas SERVICIO/ES_SERVICIO cuando existen.',
   };
-});
+  // cacheIf: timeout → TOTAL_ARTICULOS 0; no servir ese cero cacheado como inventario real.
+}, { cacheIf: (d) => !!(d && +d.TOTAL_ARTICULOS > 0) });
 
 get('/api/debug/inv-columnas', async (req) => {
   const dbo = getReqDbOpts(req);
@@ -7267,7 +7313,9 @@ get('/api/inv/existencias-todas', async (req) => {
     LEFT JOIN ${costoSub} cs ON cs.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND a.ARTICULO_ID > ${desdeId}
     ORDER BY a.ARTICULO_ID
-  `, [], INV_LIST_Q_MS, dbo).catch(() => []);
+  `, [], INV_LIST_Q_MS, dbo);
+  // SIN .catch(() => []): para un consumidor paginado por cursor, [] significa "fin del
+  // inventario"; un timeout disfrazado de [] truncaba el sync en silencio. 500 es honesto.
 });
 
 get('/api/inv/top-stock', async (req) => {

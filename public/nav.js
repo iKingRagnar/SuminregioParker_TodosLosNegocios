@@ -605,6 +605,8 @@
     sheet.id = 'sumi-msheet';
     sheet.setAttribute('aria-hidden', 'true');
     sheet.setAttribute('role', 'dialog');
+    sheet.setAttribute('aria-modal', 'true');
+    sheet.setAttribute('aria-label', 'Navegación completa');
     var grid = links.map(function (l) {
       return '<a class="' + (isActive(l.href) ? 'active' : '') + '" href="' + l.href + '">' +
         svg(l.icon) + '<span>' + l.label + '</span></a>';
@@ -626,12 +628,18 @@
       sheet.classList.add('open');
       sheet.setAttribute('aria-hidden', 'false');
       document.body.classList.add('sumi-sheet-open');
+      var mb = document.getElementById('sumi-bnav-more');
+      if (mb) mb.setAttribute('aria-expanded', 'true');
+      var first = sheet.querySelector('.sumi-msheet-grid a');
+      if (first) try { first.focus(); } catch (_) {}
     }
     function closeSheet() {
       ov.classList.remove('open');
       sheet.classList.remove('open');
       sheet.setAttribute('aria-hidden', 'true');
       document.body.classList.remove('sumi-sheet-open');
+      var mb = document.getElementById('sumi-bnav-more');
+      if (mb) { mb.setAttribute('aria-expanded', 'false'); try { mb.focus(); } catch (_) {} }
     }
     var moreBtn = document.getElementById('sumi-bnav-more');
     if (moreBtn) moreBtn.addEventListener('click', openSheet);

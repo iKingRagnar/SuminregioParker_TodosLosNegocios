@@ -1258,3 +1258,15 @@ html.theme-premium-light .ranking-card__head {
   background: linear-gradient(#ffffff, #f8fafc) !important;
 }
 
+
+/* ── Contraste: amarillo legible en tema claro (global) ─────────────────────
+ * Varias páginas (cobradas, vendedores, director) usan var(--yellow)=#FBBF24
+ * para TEXTO; sobre blanco es ~1.6:1. El tema claro está forzado, así que se
+ * sombrea la variable a ámbar oscuro a nivel body (gana sobre el :root de cada
+ * página para todos sus descendientes). Las páginas que ya definían su propio
+ * override claro (index, consumos, inventario) quedan igual de legibles. */
+html.theme-premium-light body,
+html[data-theme="light"] body {
+  --yellow: #b45309;
+  --ylw: #b45309;
+}

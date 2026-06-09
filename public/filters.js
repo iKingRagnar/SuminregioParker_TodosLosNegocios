@@ -458,9 +458,18 @@ if (typeof window !== 'undefined' && /ngrok-free\.app|ngrok\.io|ngrok-free\.dev/
     } catch (_) { console.error('[filters] param error:', _ && _.message); }
   }
 
+  var _fireTid = null;
   function fire() {
     syncFiltersToUrl();
-    if (_cfg.onChange) _cfg.onChange(getParams(), buildQS);
+    // Debounce 300ms: clicar Hoy→Semana→Mes disparaba 3 loadAll completos en paralelo
+    // (cada uno hasta 8 fetches + scorecard multi-base). Solo cuenta el último estado.
+    if (_cfg.onChange) {
+      if (_fireTid) clearTimeout(_fireTid);
+      _fireTid = setTimeout(function () {
+        _fireTid = null;
+        _cfg.onChange(getParams(), buildQS);
+      }, 300);
+    }
   }
 
   async function loadVendedores() {
