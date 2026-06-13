@@ -598,26 +598,6 @@ html.theme-premium-light [style*="color:var(--ylw)"]{color:#D97706!important}
     </div>
   </div>
 
-  <div class="sd"><div class="sd-label">Estado de resultados · an&#225;lisis vertical</div><div class="sd-line"></div></div>
-  <div class="notice" style="margin-bottom:1rem" id="avLibroNotice">
-    Distribuci&#243;n sobre <strong>ventas netas = 100%</strong> (mismo criterio que texto de finanzas). ISR, dividendos y partidas no cargadas en P&amp;L aparecen como &#8212; hasta integrar cuentas en Microsip. La fila inferior <strong>Compras</strong> usa <em>costo de ventas</em> como referencia operativa.
-  </div>
-  <div class="card" style="margin-bottom:2rem" id="avLibroCard">
-    <div class="card-head">
-      <div class="card-title">
-        <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h5M8 16h3"/></svg>
-        Cuadro estado de resultados (% sobre ventas netas)
-      </div>
-      <div class="card-badge" id="avLibroBadge">alineado a P&amp;L</div>
-    </div>
-    <div class="card-body" style="overflow-x:auto;padding-top:0">
-      <table class="table-av-libro" aria-label="Análisis vertical estado de resultados">
-        <thead id="avLibroHead"></thead>
-        <tbody id="avLibroBody"><tr><td colspan="99" style="text-align:center;padding:1.5rem;color:var(--muted)">Cargando...</td></tr></tbody>
-      </table>
-    </div>
-  </div>
-
   <div class="sd"><div class="sd-label">Balance General (resumen contable)</div><div class="sd-line"></div></div>
   <div class="card" style="margin-bottom:2rem">
     <div class="card-head">
@@ -2147,7 +2127,7 @@ function renderCharts(meses,hasCosto){
       data:{labels,datasets:[
         {type:'bar',label:'Venta Industrial (VE)',data:ve,stack:'ventas',yAxisID:'y',backgroundColor:'rgba(77,166,255,.55)',borderColor:'#4DA6FF',borderWidth:1.5,borderRadius:4},
         {type:'bar',label:'Ventas de Mostrador (PV)',data:pv,stack:'ventas',yAxisID:'y',backgroundColor:'rgba(155,109,255,.5)',borderColor:'#9B6DFF',borderWidth:1.5,borderRadius:4},
-        {type:'line',label:'Cobros',data:cobros,yAxisID:'y1',borderColor:'#34D399',backgroundColor:'rgba(0,229,160,.12)',borderWidth:2.5,pointRadius:4,pointHoverRadius:6,pointBackgroundColor:'#34D399',tension:.35,fill:true}
+        {type:'line',label:'Cobros',data:cobros,yAxisID:'y',borderColor:'#34D399',backgroundColor:'rgba(0,229,160,.12)',borderWidth:2.5,pointRadius:4,pointHoverRadius:6,pointBackgroundColor:'#34D399',tension:.35,fill:true}
       ]},
       options:{
         responsive:true,maintainAspectRatio:false,
@@ -2156,8 +2136,7 @@ function renderCharts(meses,hasCosto){
           tooltip:{mode:'index',intersect:false,backgroundColor:'#0D1D35',borderColor:'rgba(255,255,255,.1)',borderWidth:1,titleColor:'#F0F6FF',bodyColor:'#C8D8EC',callbacks:{label:c=>' '+c.dataset.label+': '+fmtM(c.raw)}}},
         scales:{
           x:{stacked:true,grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6A85A6',font:{size:10,family:"'DM Mono'"}}},
-          y:{stacked:true,position:'left',min:0,max:yMax,grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6A85A6',font:{size:10,family:"'DM Mono'"},callback:v=>fmtM(v)}},
-          y1:{stacked:false,position:'right',min:0,max:yMax,grid:{drawOnChartArea:false},ticks:{color:'#34D399',font:{size:10,family:"'DM Mono'"},callback:v=>fmtM(v)}}
+          y:{stacked:true,position:'left',min:0,max:yMax,grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#6A85A6',font:{size:10,family:"'DM Mono'"},callback:v=>fmtM(v)}}
         }
       }
     });
