@@ -274,34 +274,6 @@ html[data-theme="light"] .q-low .qcard-dias,html.theme-premium-light .q-low .qca
 html[data-theme="light"] .q-ok .qcard-dias,html.theme-premium-light .q-ok .qcard-dias{color:#16A34A!important;background:rgba(22,163,74,.1)!important}
 /* ═══ ULTRA-PREMIUM ANIMATIONS v4 ════════════════════════════════ */
 
-/* — CSS @property for conic-gradient rotation — */
-@property --grad-angle {
-  syntax: '<angle>';
-  initial-value: 0deg;
-  inherits: false;
-}
-@keyframes rotateBorder { to { --grad-angle: 360deg; } }
-
-/* Animated border glow on hover for KPI cards */
-.kc { position:relative; isolation:isolate; }
-.kc::after {
-  content:'';
-  position:absolute;
-  inset:-1px;
-  border-radius:calc(var(--rad) + 1px);
-  background: conic-gradient(from var(--grad-angle), transparent 70%, var(--acc) 85%, transparent 100%);
-  opacity:0;
-  transition: opacity .4s ease;
-  z-index:-1;
-  --grad-angle: 0deg;
-  animation: rotateBorder 3s linear infinite paused;
-}
-.kc:hover::after { opacity:.6; animation-play-state: running; }
-.kc.red:hover::after { background: conic-gradient(from var(--grad-angle), transparent 70%, var(--red) 85%, transparent 100%); }
-.kc.grn:hover::after { background: conic-gradient(from var(--grad-angle), transparent 70%, var(--green) 85%, transparent 100%); }
-.kc.blu:hover::after { background: conic-gradient(from var(--grad-angle), transparent 70%, var(--blue) 85%, transparent 100%); }
-.kc.prp:hover::after { background: conic-gradient(from var(--grad-angle), transparent 70%, var(--purple) 85%, transparent 100%); }
-
 /* Count-up number transition */
 .kc-value { transition: all .3s ease; }
 .kc-value.cu-active { color: var(--acc) !important; }
@@ -414,7 +386,7 @@ html[data-theme="light"] .q-ok .qcard-dias,html.theme-premium-light .q-ok .qcard
   header nav,.source-tabs,.alert-banner{display:none!important}
   .card,.kc{background:white!important;border:1px solid #ddd!important;box-shadow:none!important;animation:none!important}
   .card-title{color:#B45309!important}
-  .kc::after,.kc::before{animation:none!important}
+  .kc::before{animation:none!important}
 }
 </style>
 <link rel="stylesheet" href="app-ui.css">
