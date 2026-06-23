@@ -1111,6 +1111,11 @@ try {
   require('./reorden-dinamico').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
 } catch (e) { console.warn('[reorden-dinamico] no instalado:', e.message); }
 
+// Catálogo completo de artículos (clave + nombre) para export PDF/Excel
+try {
+  require('./inv-catalogo').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
+} catch (e) { console.warn('[inv-catalogo] no instalado:', e.message); }
+
 // Forecast por SKU con estacionalidad
 try {
   require('./forecast-sku').install(app, { duckSnaps: _duckSnaps, log: _boostLog });
