@@ -52,6 +52,10 @@ nav{display:flex;align-items:center;gap:.25rem}
 .page-header{margin-bottom:2rem;display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap}
 .page-title{font-size:1.75rem;font-weight:800;background:linear-gradient(135deg,var(--text),var(--suminregio));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .page-sub{font-size:.85rem;color:var(--muted);margin-top:.35rem}
+.btn-catalogo{display:inline-flex;align-items:center;gap:.5rem;background:linear-gradient(135deg,var(--suminregio),var(--orange));color:#0B1220;border:none;font-family:'Syne',sans-serif;font-size:.82rem;font-weight:700;padding:.6rem 1.1rem;border-radius:10px;cursor:pointer;box-shadow:0 6px 20px rgba(230,168,0,.25);transition:transform .15s ease,box-shadow .15s ease,opacity .15s ease;white-space:nowrap}
+.btn-catalogo svg{stroke:#0B1220}
+.btn-catalogo:hover{transform:translateY(-1px);box-shadow:0 10px 28px rgba(230,168,0,.35)}
+.btn-catalogo:disabled{opacity:.6;cursor:progress;transform:none;box-shadow:none}
 .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem}
 /* Vista minimalista de dirección: párrafo de metodología técnica (SALDOS_IN) oculto */
 .inv-filter-hint{display:none!important}
@@ -214,6 +218,11 @@ html[data-theme="light"] select,html[data-theme="light"] input{
       <div class="page-title">Inventario</div>
       <div class="page-sub" id="page-sub">Cargando datos...</div>
     </div>
+    <button type="button" id="btnDescargarCatalogo" class="btn-catalogo"
+      title="Descarga TODOS los productos del catálogo (con su clave) a un archivo CSV — Excel lo abre directo">
+      <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      <span id="btnDescargarCatalogoLbl">Descargar catálogo (CSV)</span>
+    </button>
   </div>
   <div id="filter-bar"></div>
   <p class="inv-filter-hint" style="font-size:.78rem;color:var(--muted);margin:-0.5rem 0 1.25rem;line-height:1.45;max-width:56rem">
@@ -1224,6 +1233,119 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => clearInterval(checkChart), 5000);
   }
 });
+</script>
+<script>
+/* ── Descargar catálogo completo (TODOS los productos con su clave) ─────────
+ * Recorre /api/inv/existencias-todas paginado por cursor (desde_id = ARTICULO_ID),
+ * junta TODO el inventario activo del negocio seleccionado (Suministros Médicos
+ * cuando esa base está activa en la barra) y baja un CSV que Excel abre directo.
+ * Usa el mismo ?db= que el resto del tablero (apiPathWithDb). */
+(function () {
+  'use strict';
+  var PAGE = 1000; // tope del endpoint
+  var COLS = [
+    ['CLAVE', 'Clave'],
+    ['DESCRIPCION', 'Descripción'],
+    ['UNIDAD', 'Unidad'],
+    ['UNIDAD_COMPRA', 'Unidad compra'],
+    ['CONTENIDO_EMPAQUE', 'Contenido empaque'],
+    ['EXISTENCIA', 'Existencia'],
+    ['INVENTARIO_MINIMO', 'Mínimo'],
+    ['COSTO_UNITARIO', 'Costo unitario'],
+  ];
+
+  function apiUrl(desdeId) {
+    var path = '/api/inv/existencias-todas?desde_id=' + desdeId + '&limit=' + PAGE;
+    path = (typeof apiPathWithDb === 'function') ? apiPathWithDb(path) : path;
+    return (window.__API_BASE || '') + path;
+  }
+
+  function csvCell(v) {
+    var s = (v === null || v === undefined) ? '' : String(v);
+    return /[",\n\r;]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+
+  function buildCsv(rows) {
+    var out = [COLS.map(function (c) { return csvCell(c[1]); }).join(',')];
+    rows.forEach(function (r) {
+      out.push(COLS.map(function (c) { return csvCell(r[c[0]]); }).join(','));
+    });
+    return '﻿' + out.join('\r\n'); // BOM → acentos correctos en Excel
+  }
+
+  function download(text, filename) {
+    var blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
+  }
+
+  async function fetchAll(onProgress) {
+    var rows = [], desdeId = 0, guard = 0;
+    while (guard++ < 5000) { // ~5M artículos máx: cinturón de seguridad
+      var resp = await fetch(apiUrl(desdeId), { headers: { 'Accept': 'application/json' } });
+      var text = await resp.text();
+      var data = null;
+      try { data = text ? JSON.parse(text) : null; } catch (e) { data = null; }
+      if (!resp.ok) {
+        var msg = (data && (data.error || data.message)) || ('HTTP ' + resp.status);
+        throw new Error(msg);
+      }
+      if (!Array.isArray(data)) throw new Error('Respuesta inesperada del servidor');
+      if (data.length === 0) break;
+      rows = rows.concat(data);
+      if (onProgress) onProgress(rows.length);
+      var maxId = 0;
+      for (var i = 0; i < data.length; i++) {
+        var id = parseInt(data[i].ARTICULO_ID, 10) || 0;
+        if (id > maxId) maxId = id;
+      }
+      desdeId = maxId;
+      if (data.length < PAGE) break; // última página parcial
+    }
+    return rows;
+  }
+
+  function fechaTag() {
+    var d = new Date();
+    return d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+  }
+
+  async function onClick() {
+    var btn = document.getElementById('btnDescargarCatalogo');
+    var lbl = document.getElementById('btnDescargarCatalogoLbl');
+    if (!btn || btn.disabled) return;
+    var original = lbl ? lbl.textContent : '';
+    btn.disabled = true;
+    if (lbl) lbl.textContent = 'Descargando… 0';
+    try {
+      var rows = await fetchAll(function (n) {
+        if (lbl) lbl.textContent = 'Descargando… ' + n.toLocaleString('es-MX');
+      });
+      if (!rows.length) {
+        alert('El catálogo vino vacío para el negocio seleccionado.');
+        return;
+      }
+      download(buildCsv(rows), 'Suministros_Medicos_catalogo_' + fechaTag() + '.csv');
+      if (lbl) lbl.textContent = '✓ ' + rows.length.toLocaleString('es-MX') + ' productos';
+      setTimeout(function () { if (lbl) lbl.textContent = original; }, 3500);
+    } catch (e) {
+      alert('No se pudo descargar el catálogo: ' + (e && e.message ? e.message : e));
+      if (lbl) lbl.textContent = original;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var btn = document.getElementById('btnDescargarCatalogo');
+    if (btn) btn.addEventListener('click', onClick);
+  });
+})();
 </script>
 <script src="nav.js"></script>
 <script src="/chat-widget.js" defer></script>
