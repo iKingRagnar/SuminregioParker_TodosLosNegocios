@@ -7338,9 +7338,11 @@ get('/api/inv/existencias-todas', async (req) => {
   // forma de pasarlo sin validar es leerlo como OCTETS (copia binaria cruda): node-firebird
   // lo entrega como Buffer y lo decodificamos en JS con latin1 (los 256 bytes son válidos,
   // los acentos españoles salen bien y el byte corrupto degrada a un carácter inocuo).
-  // lc_ctype = NONE para ESTA consulta: el servidor no transcodifica y entrega bytes crudos
-  // (los decodificamos con latin1 en JS). Evita "Malformed string" en bytes WIN1252/NONE sucios.
-  const dboTxt = Object.assign({}, dbo || DB_OPTIONS, { charset: 'NONE' });
+  // lc_ctype = NONE para ESTA consulta: el servidor no transcodifica y entrega bytes crudos,
+  // evitando "Malformed string" en el artículo con un byte sucio. OJO: node-firebird lee la
+  // opción `encoding` (NO `charset`) para fijar lc_ctype en el attach (index.js: addString(
+  // isc_dpb_lc_ctype, options.encoding || 'UTF8')); por eso hay que pasar `encoding`.
+  const dboTxt = Object.assign({}, dbo || DB_OPTIONS, { encoding: 'NONE', charset: 'NONE' });
   const OCT = (expr /* sin CAST: con lc_ctype NONE leemos el campo crudo */, _n) => expr;
   const unidadCompra = cset.has('UNIDAD_COMPRA') ? OCT("COALESCE(a.UNIDAD_COMPRA, '')", 40) : "''";
   const contenido = cset.has('CONTENIDO_UNIDAD_COMPRA') ? 'COALESCE(a.CONTENIDO_UNIDAD_COMPRA, 0)' : '0';
