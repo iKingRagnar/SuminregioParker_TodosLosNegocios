@@ -7332,18 +7332,15 @@ get('/api/inv/existencias-todas', async (req) => {
   const costoSub = await invCostoSubSql(dbo);
   const colsArt = await getTableColumns('ARTICULOS', dbo).catch(() => new Set());
   const cset = colsArt instanceof Set ? colsArt : new Set(colsArt || []);
-  // "Malformed string": este dump trae TODO el catálogo y algún NOMBRE/CLAVE tiene un byte
-  // que no es válido en el charset declarado de la columna (WIN1252/NONE). Cualquier lectura
-  // o CAST que transcodifique ese campo obliga al motor a VALIDAR el byte y truena. La única
-  // forma de pasarlo sin validar es leerlo como OCTETS (copia binaria cruda): node-firebird
-  // lo entrega como Buffer y lo decodificamos en JS con latin1 (los 256 bytes son válidos,
-  // los acentos españoles salen bien y el byte corrupto degrada a un carácter inocuo).
-  // lc_ctype = NONE para ESTA consulta: el servidor no transcodifica y entrega bytes crudos,
-  // evitando "Malformed string" en el artículo con un byte sucio. OJO: node-firebird lee la
-  // opción `encoding` (NO `charset`) para fijar lc_ctype en el attach (index.js: addString(
-  // isc_dpb_lc_ctype, options.encoding || 'UTF8')); por eso hay que pasar `encoding`.
+  // SOLUCIÓN COMPLETA al "Malformed string" del volcado de TODO el catálogo:
+  //  1) encoding:'NONE' (¡node-firebird lee `encoding`, NO `charset`!) → lc_ctype=NONE, el
+  //     servidor NO transcodifica y por tanto no valida ni truena con el byte sucio.
+  //  2) CAST de los textos a CHARACTER SET OCTETS → node-firebird los entrega como Buffer
+  //     (SQLVarText.decode: subType===1/OCTETS → readBuffer), NO como string utf8 forzado.
+  //  3) dec(): Buffer → latin1, que mapea los 256 bytes (acentos WIN1252 á é í ó ú ñ ° salen
+  //     correctos; el byte corrupto degrada a un carácter inocuo en vez de tumbar la descarga).
   const dboTxt = Object.assign({}, dbo || DB_OPTIONS, { encoding: 'NONE', charset: 'NONE' });
-  const OCT = (expr /* sin CAST: con lc_ctype NONE leemos el campo crudo */, _n) => expr;
+  const OCT = (expr, n) => `CAST(${expr} AS VARCHAR(${n}) CHARACTER SET OCTETS)`;
   const unidadCompra = cset.has('UNIDAD_COMPRA') ? OCT("COALESCE(a.UNIDAD_COMPRA, '')", 40) : "''";
   const contenido = cset.has('CONTENIDO_UNIDAD_COMPRA') ? 'COALESCE(a.CONTENIDO_UNIDAD_COMPRA, 0)' : '0';
   // clave principal del articulo (CLAVES_ARTICULOS) si la tabla existe en esta base
