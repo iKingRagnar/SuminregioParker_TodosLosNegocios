@@ -7332,7 +7332,13 @@ get('/api/inv/existencias-todas', async (req) => {
   const costoSub = await invCostoSubSql(dbo);
   const colsArt = await getTableColumns('ARTICULOS', dbo).catch(() => new Set());
   const cset = colsArt instanceof Set ? colsArt : new Set(colsArt || []);
-  const unidadCompra = cset.has('UNIDAD_COMPRA') ? "COALESCE(a.UNIDAD_COMPRA, '')" : "''";
+  // "Malformed string": en estas bases NOMBRE/CLAVE están en CHARSET NONE con bytes
+  // WIN1252; con la conexión en UTF8 el motor truena al transliterar un acento inválido
+  // (y este dump trae TODO el catálogo, así que siempre topa con alguno). Forzamos un
+  // CAST a ISO8859_1: el resultado se transcodifica ISO8859_1→UTF8 (siempre válido) y
+  // los acentos españoles (á é í ó ú ñ ü) coinciden byte a byte, así que salen correctos.
+  const L1 = (expr, n) => `CAST(${expr} AS VARCHAR(${n}) CHARACTER SET ISO8859_1)`;
+  const unidadCompra = cset.has('UNIDAD_COMPRA') ? L1("COALESCE(a.UNIDAD_COMPRA, '')", 40) : "''";
   const contenido = cset.has('CONTENIDO_UNIDAD_COMPRA') ? 'COALESCE(a.CONTENIDO_UNIDAD_COMPRA, 0)' : '0';
   // clave principal del articulo (CLAVES_ARTICULOS) si la tabla existe en esta base
   let claveJoin = '', claveSel = "'' AS CLAVE";
@@ -7340,12 +7346,12 @@ get('/api/inv/existencias-todas', async (req) => {
     const probe = await query('SELECT FIRST 1 ARTICULO_ID FROM CLAVES_ARTICULOS', [], 8000, dbo);
     if (probe) {
       claveJoin = 'LEFT JOIN ( SELECT ARTICULO_ID, MAX(CLAVE_ARTICULO) AS CLAVE FROM CLAVES_ARTICULOS GROUP BY ARTICULO_ID ) ka ON ka.ARTICULO_ID = a.ARTICULO_ID';
-      claveSel = 'COALESCE(ka.CLAVE, \'\') AS CLAVE';
+      claveSel = L1("COALESCE(ka.CLAVE, '')", 80) + ' AS CLAVE';
     }
   } catch (_) { /* sin tabla de claves: se entrega vacia */ }
   return query(`
-    SELECT FIRST ${limit} a.ARTICULO_ID, ${claveSel}, a.NOMBRE AS DESCRIPCION,
-      COALESCE(a.UNIDAD_VENTA, 'PZA') AS UNIDAD, ${unidadCompra} AS UNIDAD_COMPRA,
+    SELECT FIRST ${limit} a.ARTICULO_ID, ${claveSel}, ${L1('a.NOMBRE', 255)} AS DESCRIPCION,
+      ${L1("COALESCE(a.UNIDAD_VENTA, 'PZA')", 40)} AS UNIDAD, ${unidadCompra} AS UNIDAD_COMPRA,
       ${contenido} AS CONTENIDO_EMPAQUE,
       COALESCE(s.EXISTENCIA, 0) AS EXISTENCIA,
       COALESCE(n.INVENTARIO_MINIMO, 0) AS INVENTARIO_MINIMO,
