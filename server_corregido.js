@@ -7338,7 +7338,10 @@ get('/api/inv/existencias-todas', async (req) => {
   // forma de pasarlo sin validar es leerlo como OCTETS (copia binaria cruda): node-firebird
   // lo entrega como Buffer y lo decodificamos en JS con latin1 (los 256 bytes son válidos,
   // los acentos españoles salen bien y el byte corrupto degrada a un carácter inocuo).
-  const OCT = (expr, n) => `CAST(${expr} AS VARCHAR(${n}) CHARACTER SET OCTETS)`;
+  // lc_ctype = NONE para ESTA consulta: el servidor no transcodifica y entrega bytes crudos
+  // (los decodificamos con latin1 en JS). Evita "Malformed string" en bytes WIN1252/NONE sucios.
+  const dboTxt = Object.assign({}, dbo || DB_OPTIONS, { charset: 'NONE' });
+  const OCT = (expr /* sin CAST: con lc_ctype NONE leemos el campo crudo */, _n) => expr;
   const unidadCompra = cset.has('UNIDAD_COMPRA') ? OCT("COALESCE(a.UNIDAD_COMPRA, '')", 40) : "''";
   const contenido = cset.has('CONTENIDO_UNIDAD_COMPRA') ? 'COALESCE(a.CONTENIDO_UNIDAD_COMPRA, 0)' : '0';
   // clave principal del articulo (CLAVES_ARTICULOS) si la tabla existe en esta base
@@ -7364,7 +7367,7 @@ get('/api/inv/existencias-todas', async (req) => {
     LEFT JOIN ${costoSub} cs ON cs.ARTICULO_ID = a.ARTICULO_ID
     WHERE COALESCE(a.ESTATUS, 'A') = 'A' AND a.ARTICULO_ID > ${desdeId}
     ORDER BY a.ARTICULO_ID
-  `, [], INV_LIST_Q_MS, dbo, { volatile: true } /* cursor paginado: no registrar cada página en daily-cache */);
+  `, [], INV_LIST_Q_MS, dboTxt, { volatile: true } /* cursor paginado: no registrar cada página en daily-cache */);
   // SIN .catch(() => []): para un consumidor paginado por cursor, [] significa "fin del
   // inventario"; un timeout disfrazado de [] truncaba el sync en silencio. 500 es honesto.
   // Los campos OCTETS llegan como Buffer: a texto con latin1 (no lanza con bytes inválidos).
