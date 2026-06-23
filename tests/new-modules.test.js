@@ -144,6 +144,13 @@ test('/api/inv/reorden responde sin snapshot', async () => {
   assert.equal(r.status, 200);
 });
 
+// ════════ Catálogo completo ════════
+test('/api/inv/catalogo responde sin snapshot', async () => {
+  const r = await get('/api/inv/catalogo');
+  assert.equal(r.status, 200);
+  assert.equal(r.json && r.json.ok, false);
+});
+
 // ════════ Forecast SKU ════════
 test('/api/forecast/sku/batch responde sin snapshot', async () => {
   const r = await get('/api/forecast/sku/batch?topN=5&meses=3');
