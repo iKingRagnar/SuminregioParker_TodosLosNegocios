@@ -632,6 +632,11 @@ const DUCK_TABLES = new Set([
   'IMPORTES_DOCTOS_CC', 'DOCTOS_CC', 'CONDICIONES_PAGO', 'CONFIGURACIONES_GEN',
   'DOCTOS_CO', 'DOCTOS_CO_DET', 'CUENTAS_CO', 'SALDOS_CO',
   'SALDOS_IN', 'DOCTOS_IN', 'DOCTOS_IN_DET', 'NIVELES_ARTICULOS', 'PRECIOS_ARTICULOS',
+  // ── Cadena de documentos Hospital SNTE (proyecto HSNTE50) ───────────────────
+  // Orden de compra (#2) y factura de proveedor (#3). REQUISITO: sync_duckdb.py (PC on-prem)
+  // DEBE incluir también estas tablas en el snapshot nocturno, o /api/oc/listado y
+  // /api/cm/listado devolverán vacío en Render (Firebird no es alcanzable ahí).
+  'DOCTOS_OC', 'DOCTOS_OC_DET', 'DOCTOS_CM', 'DOCTOS_CM_DET', 'PROVEEDORES',
 ]);
 
 // Directorio donde se guardan los snapshots: /tmp/duck_snaps/ por defecto
