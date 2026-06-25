@@ -13696,6 +13696,25 @@ get('/api/hospital/venta-buscar', async (req) => {
        LEFT JOIN CLIENTES c ON c.CLIENTE_ID = ve.CLIENTE_ID
       WHERE ${where.join(' AND ')}
       ORDER BY ve.FECHA DESC`, params, 60000, dbo).catch(() => []);
+
+  // detalle=1 → adjunta las CLAVES de articulo de cada factura (para inferir el pedido
+  // por solapamiento de articulos cuando la factura no trae ORDEN_COMPRA capturada).
+  if (String(req.query.detalle || '') === '1' && rows && rows.length) {
+    const veIds = rows.map(r => r.DOCTO_VE_ID).filter(x => x != null);
+    if (veIds.length) {
+      const det = await query(
+        `SELECT d.DOCTO_VE_ID, d.CLAVE_ARTICULO
+           FROM DOCTOS_VE_DET d
+          WHERE d.DOCTO_VE_ID IN (${veIds.join(',')})`, [], 60000, dbo).catch(() => []);
+      const porVe = {};
+      for (const d of (det || [])) {
+        const k = d.DOCTO_VE_ID, c = d.CLAVE_ARTICULO;
+        if (c == null) continue;
+        (porVe[k] = porVe[k] || new Set()).add(String(c));
+      }
+      for (const r of rows) r.claves = Array.from(porVe[r.DOCTO_VE_ID] || []);
+    }
+  }
   return { ok: true, count: rows.length, rows };
 });
 
