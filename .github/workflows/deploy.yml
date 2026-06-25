@@ -1,15 +1,33 @@
-# Despliegue automático en servidor Windows con runner autohospedado.
-# Requisitos: ver GITHUB-RUNNER-WINDOWS.md en la raíz del repo.
+# Despliegue MANUAL en servidor Windows con runner autohospedado.
+# Requisitos: ver docs/deploy/GITHUB-RUNNER-WINDOWS.md en el repo.
+#
+# IMPORTANTE: este job corre en un runner "self-hosted" (la PC Windows con
+# Microsip). Antes corria en CADA push a main y se quedaba "Queued - Waiting to
+# run this check" (colgado) hasta 24 h cuando el runner estaba apagado; por eso
+# ahora es SOLO manual (workflow_dispatch) y ya no se cuelga en cada push. La
+# produccion en Render NO depende de este workflow (Render despliega solo desde
+# main). Para usarlo: enciende el runner en el servidor (services.msc → servicio
+# "actions.runner.*", o en C:\actions-runner ejecutar `.\svc start`) y lanza el
+# deploy desde GitHub → Actions → "Deploy Windows (self-hosted)" → "Run workflow".
 name: Deploy Windows (self-hosted)
 
 on:
-  push:
-    branches:
-      - main
+  # Solo manual: este deploy NO corre en cada push. Se lanza a mano desde la
+  # pestaña Actions con el boton "Run workflow" (requiere el runner encendido).
+  workflow_dispatch:
+
+# Si llega un push nuevo mientras un deploy anterior sigue en cola (porque el
+# runner estaba apagado), cancela el viejo y deja solo el ultimo. Evita que se
+# acumulen varios "Queued" colgados a la vez.
+concurrency:
+  group: deploy-windows-self-hosted
+  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: self-hosted
+    # Tope una vez que el job arranca (no aplica mientras espera runner en cola).
+    timeout-minutes: 20
     defaults:
       run:
         shell: powershell
