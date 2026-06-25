@@ -633,10 +633,11 @@ const DUCK_TABLES = new Set([
   'DOCTOS_CO', 'DOCTOS_CO_DET', 'CUENTAS_CO', 'SALDOS_CO',
   'SALDOS_IN', 'DOCTOS_IN', 'DOCTOS_IN_DET', 'NIVELES_ARTICULOS', 'PRECIOS_ARTICULOS',
   // ── Cadena de documentos Hospital SNTE (proyecto HSNTE50) ───────────────────
-  // Orden de compra (#2) y factura de proveedor (#3). REQUISITO: sync_duckdb.py (PC on-prem)
-  // DEBE incluir también estas tablas en el snapshot nocturno, o /api/oc/listado y
-  // /api/cm/listado devolverán vacío en Render (Firebird no es alcanzable ahí).
-  'DOCTOS_OC', 'DOCTOS_OC_DET', 'DOCTOS_CM', 'DOCTOS_CM_DET', 'PROVEEDORES',
+  // Orden de compra/OSM (#2, TIPO_DOCTO='O') y factura de proveedor (#3, TIPO_DOCTO='C')
+  // viven AMBAS en DOCTOS_CM (NO existe DOCTOS_OC en este Microsip). REQUISITO:
+  // sync_duckdb.py (PC on-prem) DEBE incluir estas tablas en el snapshot nocturno, o
+  // /api/oc/listado y /api/cm/listado devolverán vacío en Render (Firebird no es alcanzable ahí).
+  'DOCTOS_CM', 'DOCTOS_CM_DET', 'PROVEEDORES',
 ]);
 
 // Directorio donde se guardan los snapshots: /tmp/duck_snaps/ por defecto
@@ -13572,13 +13573,20 @@ app.get('/api/hospital/ventas', (_req, res) => {
 //  ENDPOINTS LISTOS PARA PEGAR en server_corregido.js
 //  Pégalos JUSTO DESPUÉS de la ruta app.get('/api/hospital/ventas', ...) (~línea 13562).
 //  Usan los mismos helpers del server: get(), query(), getReqDbOpts(req).
-//  1) /api/oc/listado          — Órdenes de compra (DOCTOS_OC)        [documento #2]
-//  2) /api/cm/listado          — Facturas de proveedor (DOCTOS_CM)    [documento #3]
+//  1) /api/oc/listado          — Órdenes de compra / OSMs (DOCTOS_CM TIPO_DOCTO='O') [documento #2]
+//  2) /api/cm/listado          — Facturas de proveedor   (DOCTOS_CM TIPO_DOCTO='C') [documento #3]
 //  3) /api/hospital/venta-buscar — Busca la factura AL HOSPITAL (DOCTOS_VE) por
 //                                  referencia (RSM26008#8) o por cliente SNTE   [documento #4]
+//
+//  NOTA DE ESQUEMA (Microsip real, verificado por query):
+//    NO existe la tabla DOCTOS_OC. Las órdenes de compra (OSMs) y las facturas de
+//    proveedor viven en la MISMA tabla DOCTOS_CM, distinguidas por TIPO_DOCTO:
+//      TIPO_DOCTO = 'O'  → orden de compra / OSM         (documento #2)
+//      TIPO_DOCTO = 'C'  → factura del proveedor / compra (documento #3)
+//      TIPO_DOCTO = 'R'  → recepción
 // ════════════════════════════════════════════════════════════════════════════
 
-// ── 1) ÓRDENES DE COMPRA (paginadas por encabezado, documento completo) ───────
+// ── 1) ÓRDENES DE COMPRA / OSMs (DOCTOS_CM TIPO_DOCTO='O') ────────────────────
 get('/api/oc/listado', async (req) => {
   const dbo     = getReqDbOpts(req);
   const desde   = String(req.query.desde || '2025-01-01').replace(/[^0-9-]/g, '');
@@ -13586,31 +13594,31 @@ get('/api/oc/listado', async (req) => {
   const limit   = Math.min(parseInt(req.query.limit || '400', 10) || 400, 1000);
 
   const heads = await query(
-    `SELECT FIRST ${limit} oc.DOCTO_OC_ID
-       FROM DOCTOS_OC oc
-      WHERE oc.DOCTO_OC_ID > ${desdeId}
-        AND oc.ESTATUS <> 'C'
-        AND oc.FECHA >= DATE '${desde}'
-      ORDER BY oc.DOCTO_OC_ID`, [], 60000, dbo).catch(() => []);
-  const ids = (heads || []).map(h => h.DOCTO_OC_ID).filter(x => x != null);
+    `SELECT FIRST ${limit} cm.DOCTO_CM_ID
+       FROM DOCTOS_CM cm
+      WHERE cm.DOCTO_CM_ID > ${desdeId}
+        AND cm.TIPO_DOCTO = 'O'
+        AND cm.ESTATUS <> 'C'
+        AND cm.FECHA >= DATE '${desde}'
+      ORDER BY cm.DOCTO_CM_ID`, [], 60000, dbo).catch(() => []);
+  const ids = (heads || []).map(h => h.DOCTO_CM_ID).filter(x => x != null);
   if (!ids.length) return { ok: true, rows: [] };
 
   const rows = await query(
-    `SELECT oc.DOCTO_OC_ID, oc.FOLIO, oc.FECHA, oc.ESTATUS, oc.REFERENCIA,
+    `SELECT cm.DOCTO_CM_ID, cm.FOLIO, cm.FECHA, cm.ESTATUS, cm.REFERENCIA,
             prov.PROVEEDOR_ID, prov.NOMBRE AS PROVEEDOR, prov.RFC AS PROVEEDOR_RFC,
             det.ARTICULO_ID, art.CLAVE AS CLAVE_ARTICULO, art.NOMBRE AS ARTICULO,
-            det.UNIDADES, det.UNIDADES_RECIBIDAS, det.PRECIO_UNITARIO, det.PCTJE_DSCTO,
-            (det.UNIDADES * det.PRECIO_UNITARIO * (1 - COALESCE(det.PCTJE_DSCTO,0)/100)) AS IMPORTE_LINEA
-       FROM DOCTOS_OC oc
-       JOIN DOCTOS_OC_DET det ON det.DOCTO_OC_ID = oc.DOCTO_OC_ID
-       LEFT JOIN PROVEEDORES prov ON prov.PROVEEDOR_ID = oc.PROVEEDOR_ID
+            det.UNIDADES, det.PRECIO_UNITARIO, det.IMPORTE_NETO AS IMPORTE_LINEA
+       FROM DOCTOS_CM cm
+       JOIN DOCTOS_CM_DET det ON det.DOCTO_CM_ID = cm.DOCTO_CM_ID
+       LEFT JOIN PROVEEDORES prov ON prov.PROVEEDOR_ID = cm.PROVEEDOR_ID
        LEFT JOIN ARTICULOS   art  ON art.ARTICULO_ID  = det.ARTICULO_ID
-      WHERE oc.DOCTO_OC_ID IN (${ids.join(',')})
-      ORDER BY oc.DOCTO_OC_ID, det.DOCTO_OC_DET_ID`, [], 60000, dbo).catch(() => []);
+      WHERE cm.DOCTO_CM_ID IN (${ids.join(',')})
+      ORDER BY cm.DOCTO_CM_ID, det.DOCTO_CM_DET_ID`, [], 60000, dbo).catch(() => []);
   return { ok: true, rows };
 });
 
-// ── 2) FACTURAS DE PROVEEDOR / COMPRAS (DOCTOS_CM) ────────────────────────────
+// ── 2) FACTURAS DE PROVEEDOR / COMPRAS (DOCTOS_CM TIPO_DOCTO='C') ──────────────
 get('/api/cm/listado', async (req) => {
   const dbo     = getReqDbOpts(req);
   const desde   = String(req.query.desde || '2025-01-01').replace(/[^0-9-]/g, '');
@@ -13621,6 +13629,7 @@ get('/api/cm/listado', async (req) => {
     `SELECT FIRST ${limit} cm.DOCTO_CM_ID
        FROM DOCTOS_CM cm
       WHERE cm.DOCTO_CM_ID > ${desdeId}
+        AND cm.TIPO_DOCTO = 'C'
         AND cm.ESTATUS <> 'C'
         AND cm.FECHA >= DATE '${desde}'
       ORDER BY cm.DOCTO_CM_ID`, [], 60000, dbo).catch(() => []);
@@ -13628,7 +13637,7 @@ get('/api/cm/listado', async (req) => {
   if (!ids.length) return { ok: true, rows: [] };
 
   const rows = await query(
-    `SELECT cm.DOCTO_CM_ID, cm.FOLIO, cm.FECHA, cm.ESTATUS,
+    `SELECT cm.DOCTO_CM_ID, cm.FOLIO, cm.FECHA, cm.ESTATUS, cm.REFERENCIA,
             cm.IMPORTE_NETO AS SUBTOTAL, cm.IMPUESTOS AS IVA,
             (cm.IMPORTE_NETO + COALESCE(cm.IMPUESTOS,0)) AS TOTAL,
             prov.PROVEEDOR_ID, prov.NOMBRE AS PROVEEDOR, prov.RFC AS PROVEEDOR_RFC,
