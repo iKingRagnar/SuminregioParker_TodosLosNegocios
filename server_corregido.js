@@ -13608,10 +13608,12 @@ get('/api/oc/listado', async (req) => {
   if (!ids.length) return { ok: true, rows: [] };
 
   const rows = await query(
-    `SELECT cm.DOCTO_CM_ID, cm.FOLIO, cm.FECHA, cm.ESTATUS, cm.REFERENCIA,
-            prov.PROVEEDOR_ID, prov.NOMBRE AS PROVEEDOR, prov.RFC AS PROVEEDOR_RFC,
-            det.ARTICULO_ID, art.CLAVE AS CLAVE_ARTICULO, art.NOMBRE AS ARTICULO,
-            det.UNIDADES, det.PRECIO_UNITARIO, det.IMPORTE_NETO AS IMPORTE_LINEA
+    `SELECT cm.DOCTO_CM_ID, cm.FOLIO, cm.FECHA, cm.ESTATUS,
+            CAST(cm.DESCRIPCION AS VARCHAR) AS REFERENCIA, cm.FOLIO_PROV,
+            prov.PROVEEDOR_ID, prov.NOMBRE AS PROVEEDOR, prov.RFC_CURP AS PROVEEDOR_RFC,
+            det.ARTICULO_ID, det.CLAVE_ARTICULO, art.NOMBRE AS ARTICULO,
+            det.UNIDADES, det.PRECIO_UNITARIO,
+            (COALESCE(det.UNIDADES,0) * COALESCE(det.PRECIO_UNITARIO,0)) AS IMPORTE_LINEA
        FROM DOCTOS_CM cm
        JOIN DOCTOS_CM_DET det ON det.DOCTO_CM_ID = cm.DOCTO_CM_ID
        LEFT JOIN PROVEEDORES prov ON prov.PROVEEDOR_ID = cm.PROVEEDOR_ID
@@ -13640,12 +13642,14 @@ get('/api/cm/listado', async (req) => {
   if (!ids.length) return { ok: true, rows: [] };
 
   const rows = await query(
-    `SELECT cm.DOCTO_CM_ID, cm.FOLIO, cm.FECHA, cm.ESTATUS, cm.REFERENCIA,
-            cm.IMPORTE_NETO AS SUBTOTAL, cm.IMPUESTOS AS IVA,
-            (cm.IMPORTE_NETO + COALESCE(cm.IMPUESTOS,0)) AS TOTAL,
-            prov.PROVEEDOR_ID, prov.NOMBRE AS PROVEEDOR, prov.RFC AS PROVEEDOR_RFC,
-            det.ARTICULO_ID, art.CLAVE AS CLAVE_ARTICULO, art.NOMBRE AS ARTICULO,
-            det.UNIDADES, det.PRECIO_UNITARIO, det.IMPORTE_NETO AS IMPORTE_LINEA
+    `SELECT cm.DOCTO_CM_ID, cm.FOLIO, cm.FECHA, cm.ESTATUS,
+            CAST(cm.DESCRIPCION AS VARCHAR) AS REFERENCIA, cm.FOLIO_PROV,
+            cm.IMPORTE_NETO AS SUBTOTAL, cm.TOTAL_IMPUESTOS AS IVA,
+            (COALESCE(cm.IMPORTE_NETO,0) + COALESCE(cm.TOTAL_IMPUESTOS,0)) AS TOTAL,
+            prov.PROVEEDOR_ID, prov.NOMBRE AS PROVEEDOR, prov.RFC_CURP AS PROVEEDOR_RFC,
+            det.ARTICULO_ID, det.CLAVE_ARTICULO, art.NOMBRE AS ARTICULO,
+            det.UNIDADES, det.PRECIO_UNITARIO,
+            (COALESCE(det.UNIDADES,0) * COALESCE(det.PRECIO_UNITARIO,0)) AS IMPORTE_LINEA
        FROM DOCTOS_CM cm
        JOIN DOCTOS_CM_DET det ON det.DOCTO_CM_ID = cm.DOCTO_CM_ID
        LEFT JOIN PROVEEDORES prov ON prov.PROVEEDOR_ID = cm.PROVEEDOR_ID
@@ -13662,32 +13666,34 @@ get('/api/cm/listado', async (req) => {
 get('/api/hospital/venta-buscar', async (req) => {
   const dbo    = getReqDbOpts(req);
   const ref    = String(req.query.ref || '').trim();
-  const rfc    = String(req.query.rfc || 'SNT391220717').trim();   // SNTE por defecto
+  const rfc    = String(req.query.rfc || '').trim();   // opcional; el hospital se filtra por CLIENTE_ID
   const cliente= String(req.query.cliente || '').replace(/[^0-9]/g, ''); // CLIENTE_ID (Microsip), opcional
   const desde  = String(req.query.desde || '').replace(/[^0-9-]/g, '');
   const hasta  = String(req.query.hasta || '').replace(/[^0-9-]/g, '');
   const limit  = Math.min(parseInt(req.query.limit || '50', 10) || 50, 1000);
 
+  // ESQUEMA REAL (verificado contra Firebird): DOCTOS_VE NO tiene REFERENCIA ni IMPUESTOS
+  // (son ORDEN_COMPRA y TOTAL_IMPUESTOS). CLIENTES NO tiene RFC (vive en DIRS_CLIENTES.RFC_CURP).
+  // La factura al hospital se identifica por CLIENTE_ID (4265 = SNTE). El nº de pedido, cuando se
+  // captura, va en ORDEN_COMPRA (o, en su defecto, en DESCRIPCION). Si ambos van vacios en Microsip,
+  // la factura aparece igual pero NO liga sola a un pedido (gap de captura, no de codigo).
   const where = [`ve.TIPO_DOCTO = 'F'`, `ve.ESTATUS <> 'C'`];
   const params = [];
-  // Identifica al hospital por CLIENTE_ID y/o RFC. Si vienen ambos -> OR (basta uno): el resto
-  // del sistema filtra por CLIENTE_ID=4265, pero el RFC puede traer espacios/variantes y dejaba
-  // la busqueda en vacio. Aceptar ambos evita el "Ninguno cargado". cliente es solo digitos.
-  if (cliente && rfc) { where.push(`(ve.CLIENTE_ID = ${cliente} OR UPPER(c.RFC) = ?)`); params.push(rfc.toUpperCase()); }
-  else if (cliente)   { where.push(`ve.CLIENTE_ID = ${cliente}`); }
-  else if (rfc)       { where.push(`UPPER(c.RFC) = ?`); params.push(rfc.toUpperCase()); }
-  if (ref)   { where.push(`UPPER(COALESCE(ve.REFERENCIA,'')) LIKE ?`); params.push('%' + ref.toUpperCase() + '%'); }
+  if (cliente)  { where.push(`ve.CLIENTE_ID = ${cliente}`); }
+  else if (rfc) { where.push(`ve.CLIENTE_ID IN (SELECT dc.CLIENTE_ID FROM DIRS_CLIENTES dc WHERE UPPER(dc.RFC_CURP) = ?)`); params.push(rfc.toUpperCase()); }
+  if (ref)   { where.push(`UPPER(COALESCE(CAST(ve.ORDEN_COMPRA AS VARCHAR),'') || ' ' || COALESCE(CAST(ve.DESCRIPCION AS VARCHAR),'')) LIKE ?`); params.push('%' + ref.toUpperCase() + '%'); }
   if (desde) { where.push(`ve.FECHA >= DATE '${desde}'`); }
   if (hasta) { where.push(`ve.FECHA <= DATE '${hasta}'`); }
 
   const rows = await query(
     `SELECT FIRST ${limit}
-            ve.DOCTO_VE_ID, ve.FOLIO, ve.FECHA, ve.REFERENCIA,
-            c.NOMBRE AS CLIENTE, c.RFC AS CLIENTE_RFC,
-            ve.IMPORTE_NETO AS SUBTOTAL, ve.IMPUESTOS AS IVA,
-            (ve.IMPORTE_NETO + COALESCE(ve.IMPUESTOS,0)) AS TOTAL
+            ve.DOCTO_VE_ID, ve.FOLIO, ve.FECHA,
+            COALESCE(CAST(ve.ORDEN_COMPRA AS VARCHAR), CAST(ve.DESCRIPCION AS VARCHAR)) AS REFERENCIA,
+            c.NOMBRE AS CLIENTE,
+            ve.IMPORTE_NETO AS SUBTOTAL, ve.TOTAL_IMPUESTOS AS IVA,
+            (COALESCE(ve.IMPORTE_NETO,0) + COALESCE(ve.TOTAL_IMPUESTOS,0)) AS TOTAL
        FROM DOCTOS_VE ve
-       JOIN CLIENTES c ON c.CLIENTE_ID = ve.CLIENTE_ID
+       LEFT JOIN CLIENTES c ON c.CLIENTE_ID = ve.CLIENTE_ID
       WHERE ${where.join(' AND ')}
       ORDER BY ve.FECHA DESC`, params, 60000, dbo).catch(() => []);
   return { ok: true, count: rows.length, rows };
