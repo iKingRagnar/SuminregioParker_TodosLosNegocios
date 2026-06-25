@@ -13545,6 +13545,7 @@ app.get('/api/hospital/ventas', (_req, res) => {
     if (!byPedido[f.pedido]) byPedido[f.pedido] = { pedido: f.pedido, facturas: [], venta: 0, compra: 0 };
     byPedido[f.pedido].facturas.push(f);
     byPedido[f.pedido].venta += f.total;
+    byPedido[f.pedido].venta_neta = (byPedido[f.pedido].venta_neta || 0) + (f.subtotal || 0);
   }
   for (const [ped, c] of Object.entries(HOSPITAL_COMPRAS)) {
     if (!byPedido[ped]) byPedido[ped] = { pedido: ped, facturas: [], venta: 0, compra: 0 };
@@ -13552,16 +13553,18 @@ app.get('/api/hospital/ventas', (_req, res) => {
     byPedido[ped].proveedores = c.proveedores;
   }
   const pedidos = Object.values(byPedido).sort((a,b) => a.pedido.localeCompare(b.pedido));
-  const totalVenta  = HOSPITAL_FACTURAS.reduce((s,f) => s + f.total, 0);
-  const totalCompra = Object.values(HOSPITAL_COMPRAS).reduce((s,c) => s + c.compras, 0);
+  const totalVenta     = HOSPITAL_FACTURAS.reduce((s,f) => s + f.total, 0);            // con IVA (lo facturado)
+  const totalVentaNeto = HOSPITAL_FACTURAS.reduce((s,f) => s + (f.subtotal || 0), 0);  // neto (base del margen)
+  const totalCompra = Object.values(HOSPITAL_COMPRAS).reduce((s,c) => s + c.compras, 0); // neto
   res.json({
     cliente: { nombre: 'SINDICATO NACIONAL DE TRABAJADORES DE LA EDUCACION SECCION 50', rfc: 'SNT391220717' },
     emisor:  { nombre: 'SUMINREGIO', rfc: 'SUM1906278Q5' },
     alerta_microsip: true,
     total_venta:  totalVenta,
+    total_venta_neto: totalVentaNeto,
     total_compra: totalCompra,
-    margen_bruto: totalVenta - totalCompra,
-    margen_pct:   totalVenta > 0 ? ((totalVenta - totalCompra) / totalVenta * 100) : 0,
+    margen_bruto: totalVentaNeto - totalCompra,                 // NETO vs NETO (antes mezclaba IVA)
+    margen_pct:   totalVentaNeto > 0 ? ((totalVentaNeto - totalCompra) / totalVentaNeto * 100) : 0,
     facturas: HOSPITAL_FACTURAS,
     pedidos,
   });
@@ -13660,13 +13663,19 @@ get('/api/hospital/venta-buscar', async (req) => {
   const dbo    = getReqDbOpts(req);
   const ref    = String(req.query.ref || '').trim();
   const rfc    = String(req.query.rfc || 'SNT391220717').trim();   // SNTE por defecto
+  const cliente= String(req.query.cliente || '').replace(/[^0-9]/g, ''); // CLIENTE_ID (Microsip), opcional
   const desde  = String(req.query.desde || '').replace(/[^0-9-]/g, '');
   const hasta  = String(req.query.hasta || '').replace(/[^0-9-]/g, '');
-  const limit  = Math.min(parseInt(req.query.limit || '50', 10) || 50, 200);
+  const limit  = Math.min(parseInt(req.query.limit || '50', 10) || 50, 1000);
 
   const where = [`ve.TIPO_DOCTO = 'F'`, `ve.ESTATUS <> 'C'`];
   const params = [];
-  if (rfc)   { where.push(`UPPER(c.RFC) = ?`); params.push(rfc.toUpperCase()); }
+  // Identifica al hospital por CLIENTE_ID y/o RFC. Si vienen ambos -> OR (basta uno): el resto
+  // del sistema filtra por CLIENTE_ID=4265, pero el RFC puede traer espacios/variantes y dejaba
+  // la busqueda en vacio. Aceptar ambos evita el "Ninguno cargado". cliente es solo digitos.
+  if (cliente && rfc) { where.push(`(ve.CLIENTE_ID = ${cliente} OR UPPER(c.RFC) = ?)`); params.push(rfc.toUpperCase()); }
+  else if (cliente)   { where.push(`ve.CLIENTE_ID = ${cliente}`); }
+  else if (rfc)       { where.push(`UPPER(c.RFC) = ?`); params.push(rfc.toUpperCase()); }
   if (ref)   { where.push(`UPPER(COALESCE(ve.REFERENCIA,'')) LIKE ?`); params.push('%' + ref.toUpperCase() + '%'); }
   if (desde) { where.push(`ve.FECHA >= DATE '${desde}'`); }
   if (hasta) { where.push(`ve.FECHA <= DATE '${hasta}'`); }
