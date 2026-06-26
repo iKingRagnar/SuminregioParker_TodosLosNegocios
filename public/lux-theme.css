@@ -1,0 +1,475 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+ * lux-theme.css — Tema visual COMPARTIDO "Ejecutivo de lujo, TODO CLARO"
+ * Capa de refinamiento premium que se carga AL FINAL del cascade
+ * (después de visual-polish.css / module-polish.css), en TODAS las páginas.
+ *
+ * Objetivos:
+ *   1. Refinamiento tipográfico premium (títulos, números tabulares, tracking).
+ *   2. Acentos dorados/ámbar elegantes + sombras suaves para tarjetas/paneles/botones.
+ *   3. LIGHT overrides para clases de paneles OSCUROS COMPARTIDOS que quedaron
+ *      con fondos/gradientes oscuros hardcodeados o texto claro sobre claro.
+ *
+ * Reglas de seguridad:
+ *   · Solo CSS visual. No toca estructura/JS.
+ *   · NO afecta #app-sidebar (lo estiliza nav.js) ni componentes que
+ *     visual-polish.css ya resuelve bien (kpi-card glass, tablas base).
+ *   · Reutiliza los tokens --vp-* definidos en visual-polish.css.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Tokens de marca (alias locales sobre los --vp-* existentes) ──────────── */
+:root,
+html.theme-premium-light {
+  --lux-ink:        var(--vp-ink, #0F172A);
+  --lux-ink-2:      var(--vp-ink-dim, #475569);
+  --lux-ink-soft:   var(--vp-ink-soft, #64748B);
+  --lux-surface:    var(--vp-surface, #FFFFFF);
+  --lux-ivory:      #FCFAF3;
+  --lux-surface-2:  var(--vp-surface-2, #F8FAFC);
+  --lux-surface-3:  var(--vp-surface-3, #F1F5F9);
+  --lux-surface-4:  #E2E8F0;
+
+  --lux-gold:       var(--vp-gold, #E0B341);
+  --lux-gold-soft:  var(--vp-gold-soft, #F5C33C);
+  --lux-gold-deep:  var(--vp-gold-deep, #B8860B);
+  --lux-gold-ink:   #8A6A0B;
+  --lux-gradient-gold: var(--vp-gradient-gold, linear-gradient(135deg, #F5C33C 0%, #E0B341 45%, #B8860B 100%));
+
+  --lux-stroke:       rgba(15, 23, 42, .07);
+  --lux-stroke-2:     rgba(15, 23, 42, .10);
+  --lux-stroke-gold:  rgba(224, 179, 65, .28);
+  --lux-stroke-gold2: rgba(224, 179, 65, .45);
+
+  --lux-shadow-xs: 0 1px 3px rgba(15, 23, 42, .06);
+  --lux-shadow-sm: 0 4px 12px -2px rgba(15, 23, 42, .08), 0 1px 3px rgba(15, 23, 42, .05);
+  --lux-shadow-lg: 0 16px 40px -12px rgba(15, 23, 42, .15), 0 4px 10px -4px rgba(15, 23, 42, .08);
+  --lux-glow-gold: 0 0 22px -6px rgba(224, 179, 65, .40);
+
+  --lux-r-md: 12px;
+  --lux-r-lg: 16px;
+
+  --lux-green:      #16A34A;
+  --lux-green-ink:  #15803D;
+  --lux-amber-ink:  #B45309;
+  --lux-red-ink:    #DC2626;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   1 · REFINAMIENTO TIPOGRÁFICO PREMIUM
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Títulos: Syne/Inter, peso fuerte, tracking negativo leve, tinta oscura.
+   No tocamos el degradado dorado de los heros (lo gestionamos más abajo). */
+html.theme-premium-light h1,
+html.theme-premium-light h2,
+html.theme-premium-light h3,
+html.theme-premium-light .page-title,
+html.theme-premium-light .section-title,
+html.theme-premium-light .card-title,
+html.theme-premium-light .chart-title {
+  font-family: "Syne", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  letter-spacing: -.022em;
+}
+html.theme-premium-light h1,
+html.theme-premium-light .page-title {
+  font-weight: 800;
+  letter-spacing: -.03em;
+}
+html.theme-premium-light h2,
+html.theme-premium-light h3 { font-weight: 700; }
+
+/* Números, valores KPI y labels mono → cifras tabulares alineadas. */
+html.theme-premium-light .kpi-value,
+html.theme-premium-light .kpi-val,
+html.theme-premium-light .ms-kpi-value,
+html.theme-premium-light .metric-value,
+html.theme-premium-light .sc-val,
+html.theme-premium-light .uni-sum-pill .u-v,
+html.theme-premium-light [class*="kpi"][class*="val"],
+html.theme-premium-light [class*="metric"][class*="value"] {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "cv11" 1;
+  letter-spacing: -.025em;
+}
+
+/* Eyebrows / labels mono con tracking generoso. */
+html.theme-premium-light .hero-eyebrow,
+html.theme-premium-light .uni-eyebrow,
+html.theme-premium-light .kpi-module,
+html.theme-premium-light .kpi-label,
+html.theme-premium-light .section-divider-label {
+  font-family: "DM Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   2 · ACENTOS DORADOS + SOMBRAS SUAVES PREMIUM
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Heros con title dorado: aseguramos el degradado lux 135° (text gradient OK).
+   Se aplica solo a títulos hero, no a títulos normales (que van en tinta). */
+html.theme-premium-light .hero-title,
+html.theme-premium-light .uni-title.lux-gold,
+html.theme-premium-light [class*="hero"][class*="title"] {
+  background: var(--lux-gradient-gold) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  color: transparent !important;
+  letter-spacing: -.032em;
+}
+
+/* Tarjetas / paneles genéricos: sombra premium suave + radios coherentes.
+   No pisa fondo/borde (lo deja a visual-polish/module-polish) para no romper
+   los componentes ya bien estilizados; solo refina sombra + radio. */
+html.theme-premium-light .card,
+html.theme-premium-light .kpi-card,
+html.theme-premium-light .sc-card,
+html.theme-premium-light .metric-card,
+html.theme-premium-light .module-card,
+html.theme-premium-light .chart-container,
+html.theme-premium-light [class*="panel"]:not([class*="header"]):not([id*="sidebar"]) {
+  border-radius: var(--lux-r-lg);
+  box-shadow: var(--lux-shadow-sm);
+}
+
+/* Barra superior dorada sutil en tarjetas clave (acento de marca). */
+html.theme-premium-light .module-card::before,
+html.theme-premium-light .sc-card::before {
+  background: var(--lux-gradient-gold) !important;
+}
+
+/* Botones primarios / dorados: degradado lux + sombra suave (sin neón). */
+html.theme-premium-light .btn-primary,
+html.theme-premium-light button.primary,
+html.theme-premium-light button[class*="primary"],
+html.theme-premium-light [class*="btn-gold"],
+html.theme-premium-light [class*="btn"][class*="gold"] {
+  background: var(--lux-gradient-gold) !important;
+  color: #1A1200 !important;
+  -webkit-text-fill-color: #1A1200 !important;
+  border: none !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 14px -3px rgba(224, 179, 65, .50) !important;
+}
+html.theme-premium-light .btn-primary:hover,
+html.theme-premium-light button.primary:hover,
+html.theme-premium-light button[class*="primary"]:hover,
+html.theme-premium-light [class*="btn-gold"]:hover {
+  box-shadow: 0 7px 20px -3px rgba(224, 179, 65, .62), var(--lux-glow-gold) !important;
+}
+
+/* Bordes activos dorados (chips/tabs seleccionados). El sidebar usa #app-sidebar
+   y sus chips no llevan .active suelto, así que no se ven afectados. */
+html.theme-premium-light .biz-chip.active,
+html.theme-premium-light .tab.active {
+  border-color: var(--lux-stroke-gold2) !important;
+}
+
+/* Semáforos versión clara (refuerzo coherente, legible sobre fondo claro). */
+html.theme-premium-light .sem.ok,
+html.theme-premium-light .situation-badge.ok,
+html.theme-premium-light .sc-badge-ok,
+html.theme-premium-light [class*="badge-ok"],
+html.theme-premium-light [class*="badge-success"],
+html.theme-premium-light .semaforo-verde {
+  background: rgba(22, 163, 74, .10) !important;
+  color: var(--lux-green-ink) !important;
+  border: 1px solid rgba(22, 163, 74, .25) !important;
+}
+html.theme-premium-light .sem.warn,
+html.theme-premium-light .situation-badge.warn,
+html.theme-premium-light .sc-badge-warn,
+html.theme-premium-light [class*="badge-warn"],
+html.theme-premium-light .semaforo-amarillo {
+  background: rgba(180, 83, 9, .10) !important;
+  color: var(--lux-amber-ink) !important;
+  border: 1px solid rgba(180, 83, 9, .25) !important;
+}
+html.theme-premium-light .sem.danger,
+html.theme-premium-light .situation-badge.danger,
+html.theme-premium-light .sc-badge-danger,
+html.theme-premium-light [class*="badge-danger"],
+html.theme-premium-light [class*="badge-red"],
+html.theme-premium-light .semaforo-rojo {
+  background: rgba(220, 38, 38, .10) !important;
+  color: var(--lux-red-ink) !important;
+  border: 1px solid rgba(220, 38, 38, .25) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   3 · LIGHT OVERRIDES — paneles OSCUROS COMPARTIDOS
+   ───────────────────────────────────────────────────────────────────────────
+   Convierte superficies oscuras hardcodeadas (#050D18, #060E1A, #0A1828,
+   #0C1B29, #112233, rgba(17,34,51), gradientes navy…) en superficies claras
+   marfil/blanco con texto tinta y acento dorado.
+
+   IMPORTANTE: estos contenedores arrastran var(--text)/(--text2) que en varias
+   páginas (p.ej. index.html) siguen siendo CLAROS (#F0F6FF / #C8D8EC). Por eso
+   forzamos el color del texto interno a tinta para no dejarlo invisible.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Barra de contexto de negocio (index, resultados, etc.) ──────────────── */
+html.theme-premium-light .biz-context-bar,
+html.theme-premium-light .biz-context-bar-v2 {
+  background: rgba(255, 255, 255, .92) !important;
+  border: 1px solid var(--lux-stroke-gold) !important;
+  box-shadow: var(--lux-shadow-sm) !important;
+  border-radius: var(--lux-r-lg) !important;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+html.theme-premium-light .biz-context-label { color: var(--lux-ink-soft) !important; }
+html.theme-premium-light .biz-chip {
+  color: var(--lux-ink-2) !important;
+  border-color: var(--lux-stroke-2) !important;
+}
+html.theme-premium-light .biz-chip:hover {
+  color: var(--lux-ink) !important;
+  border-color: var(--lux-stroke-gold2) !important;
+  background: rgba(224, 179, 65, .08) !important;
+}
+html.theme-premium-light .biz-chip.active {
+  color: var(--lux-gold-ink) !important;
+  background: linear-gradient(135deg, rgba(224, 179, 65, .18), rgba(224, 179, 65, .06)) !important;
+}
+
+/* ── UNIVERSE: portfolio multi-empresa (index.html) ──────────────────────── */
+html.theme-premium-light .uni-portfolio,
+html.theme-premium-light .uni-portfolio-v2 {
+  background: linear-gradient(152deg, #FFFFFF 0%, var(--lux-ivory) 100%) !important;
+  border: 1px solid var(--lux-stroke-gold) !important;
+  box-shadow: var(--lux-shadow-lg) !important;
+}
+/* Texto interno del portfolio → tinta (los vars --text son claros aquí). */
+html.theme-premium-light .uni-portfolio .uni-title,
+html.theme-premium-light .uni-portfolio-v2 .uni-title { color: var(--lux-ink) !important; }
+html.theme-premium-light .uni-portfolio .uni-subtitle,
+html.theme-premium-light .uni-portfolio .uni-subtitle strong,
+html.theme-premium-light .uni-portfolio-v2 .uni-subtitle,
+html.theme-premium-light .uni-portfolio-v2 .uni-subtitle strong { color: var(--lux-ink-2) !important; }
+html.theme-premium-light .uni-eyebrow,
+html.theme-premium-light .uni-subtitle code { color: var(--lux-gold-deep) !important; }
+
+/* Píldoras de resumen */
+html.theme-premium-light .uni-sum-pill {
+  background: var(--lux-surface-2) !important;
+  border: 1px solid var(--lux-stroke) !important;
+}
+html.theme-premium-light .uni-sum-pill:hover {
+  background: rgba(224, 179, 65, .08) !important;
+  border-color: var(--lux-stroke-gold) !important;
+}
+html.theme-premium-light .uni-sum-pill .u-l { color: var(--lux-ink-soft) !important; }
+html.theme-premium-light .uni-sum-pill .u-v { color: var(--lux-ink) !important; }
+
+/* Tarjetas de entidad */
+html.theme-premium-light .uni-entity-card {
+  background: var(--lux-surface) !important;
+  border: 1px solid var(--lux-stroke) !important;
+  box-shadow: var(--lux-shadow-xs) !important;
+}
+html.theme-premium-light .uni-entity-card:hover {
+  border-color: var(--lux-stroke-gold) !important;
+  box-shadow: var(--lux-shadow-lg), var(--lux-glow-gold) !important;
+}
+html.theme-premium-light .uni-ec-name { color: var(--lux-ink) !important; }
+html.theme-premium-light .uni-ec-id,
+html.theme-premium-light .uni-ec-path,
+html.theme-premium-light .uni-ec-m .m-l,
+html.theme-premium-light .uni-risk-meta { color: var(--lux-ink-soft) !important; }
+html.theme-premium-light .uni-risk-bar { background: var(--lux-surface-3) !important; }
+
+/* Panel de detalle comparativo + cabecera + tabla */
+html.theme-premium-light .uni-detail-panel {
+  background: var(--lux-surface) !important;
+  border: 1px solid var(--lux-stroke) !important;
+}
+html.theme-premium-light .uni-detail-head {
+  background: linear-gradient(180deg, var(--lux-surface-2), var(--lux-ivory)) !important;
+  border-bottom: 1px solid var(--lux-stroke) !important;
+}
+html.theme-premium-light .uni-detail-title { color: var(--lux-ink-2) !important; }
+html.theme-premium-light .uni-tech-badge {
+  color: var(--lux-ink-soft) !important;
+  border-color: var(--lux-stroke-2) !important;
+}
+html.theme-premium-light .uni-table th {
+  color: var(--lux-ink-soft) !important;
+  background: rgba(224, 179, 65, .06) !important;
+  border-bottom: 1px solid var(--lux-stroke-gold) !important;
+}
+html.theme-premium-light .uni-table td {
+  color: var(--lux-ink) !important;
+  border-bottom: 1px solid rgba(15, 23, 42, .05) !important;
+}
+html.theme-premium-light .uni-table .t-name { color: var(--lux-ink) !important; }
+html.theme-premium-light .uni-table .t-id { color: var(--lux-ink-soft) !important; }
+html.theme-premium-light .uni-table tbody tr:hover td {
+  background: linear-gradient(90deg, rgba(224, 179, 65, .10), transparent 70%) !important;
+}
+html.theme-premium-light .uni-foot {
+  color: var(--lux-ink-soft) !important;
+  border-top: 1px solid var(--lux-stroke) !important;
+}
+
+/* ── Scorecard table panel (index.html) ──────────────────────────────────── */
+html.theme-premium-light .scorecard-wrap {
+  background: linear-gradient(180deg, #FFFFFF, var(--lux-ivory)) !important;
+  border: 1px solid var(--lux-stroke-gold) !important;
+  box-shadow: var(--lux-shadow-lg) !important;
+}
+html.theme-premium-light .scorecard-head {
+  border-bottom: 1px solid var(--lux-stroke) !important;
+}
+html.theme-premium-light .scorecard-title { color: var(--lux-ink) !important; }
+html.theme-premium-light .scorecard-title svg { fill: var(--lux-gold-deep) !important; }
+html.theme-premium-light .scorecard-badge {
+  color: var(--lux-ink-soft) !important;
+  border-color: var(--lux-stroke-2) !important;
+}
+html.theme-premium-light .sc-table th {
+  color: var(--lux-ink-soft) !important;
+  background: rgba(224, 179, 65, .06) !important;
+  border-bottom: 1px solid var(--lux-stroke-gold) !important;
+}
+html.theme-premium-light .sc-table td {
+  border-bottom: 1px solid rgba(15, 23, 42, .05) !important;
+}
+html.theme-premium-light .sc-table tr:hover td {
+  background: linear-gradient(90deg, rgba(224, 179, 65, .08), transparent 70%) !important;
+}
+html.theme-premium-light .sc-kpi-name { color: var(--lux-ink) !important; }
+html.theme-premium-light .sc-kpi-area,
+html.theme-premium-light .sc-meta,
+html.theme-premium-light .sc-pct { color: var(--lux-ink-soft) !important; }
+html.theme-premium-light .sc-bar-bg { background: var(--lux-surface-3) !important; }
+
+/* ── CxC: tarjetas KPI con gradiente oscuro hardcodeado + texto claro ─────── */
+/* El fondo lo lleva module-polish (.kpi → blanco), pero estos textos eran
+   #f8fafc / #cbd5e1 / #d1d5db (claros) = invisibles sobre blanco. */
+html.theme-premium-light .cxc-kpi-storytitle { color: var(--lux-ink) !important; }
+html.theme-premium-light .cxc-kpi-lead,
+html.theme-premium-light .kpi-step-label { color: var(--lux-ink-2) !important; }
+html.theme-premium-light .kpi-narrative { color: var(--lux-ink-2) !important; }
+html.theme-premium-light .kpi-narrative strong { color: var(--lux-ink) !important; }
+html.theme-premium-light .cxc-kpi-eyebrow { color: var(--lux-ink-soft) !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   3b · NAV.JS — hoja de navegación móvil (≤1023px) en versión clara
+   ───────────────────────────────────────────────────────────────────────────
+   nav.js inyecta #sumi-bnav / #sumi-msheet con fondos oscuros (rgba(7,14,24),
+   #0A1628) y texto claro. Como no se puede tocar nav.js, lo aclaramos aquí.
+   Solo aplica en móvil/tablet; el sidebar (#app-sidebar) NO se toca.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 1023px) {
+  html.theme-premium-light #sumi-bnav {
+    background: rgba(255, 255, 255, .96) !important;
+    border-top: 1px solid var(--lux-stroke-gold) !important;
+    box-shadow: 0 -8px 28px rgba(15, 23, 42, .12) !important;
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    backdrop-filter: blur(18px) saturate(160%);
+  }
+  html.theme-premium-light #sumi-bnav .sumi-bnav-item { color: var(--lux-ink-soft) !important; }
+  html.theme-premium-light #sumi-bnav .sumi-bnav-item.active { color: var(--lux-gold-deep) !important; }
+  html.theme-premium-light #sumi-bnav .sumi-bnav-item.active svg {
+    filter: drop-shadow(0 0 5px rgba(224, 179, 65, .45)) !important;
+  }
+  html.theme-premium-light #sumi-bnav .sumi-bnav-item:active { background: rgba(224, 179, 65, .12) !important; }
+
+  html.theme-premium-light #sumi-msheet {
+    background: linear-gradient(180deg, #FFFFFF 0%, var(--lux-ivory) 100%) !important;
+    border-top: 1px solid var(--lux-stroke-gold) !important;
+    box-shadow: 0 -16px 48px rgba(15, 23, 42, .22) !important;
+    color: var(--lux-ink) !important;
+  }
+  html.theme-premium-light .sumi-msheet-grab { background: rgba(15, 23, 42, .18) !important; }
+  html.theme-premium-light .sumi-msheet-hd { color: var(--lux-ink-soft) !important; }
+  html.theme-premium-light .sumi-msheet-grid a {
+    background: rgba(255, 255, 255, .85) !important;
+    border: 1px solid var(--lux-stroke-2) !important;
+    color: var(--lux-ink-2) !important;
+    box-shadow: var(--lux-shadow-xs) !important;
+  }
+  html.theme-premium-light .sumi-msheet-grid a.active {
+    color: var(--lux-gold-ink) !important;
+    background: linear-gradient(135deg, rgba(224, 179, 65, .18), rgba(224, 179, 65, .06)) !important;
+    border-color: var(--lux-stroke-gold2) !important;
+  }
+  html.theme-premium-light .sumi-msheet-ft { border-top: 1px solid var(--lux-stroke) !important; }
+  html.theme-premium-light .sumi-msheet-ft .u { color: var(--lux-ink-soft) !important; }
+  html.theme-premium-light .sumi-msheet-ft button {
+    background: rgba(224, 179, 65, .10) !important;
+    border: 1px solid var(--lux-stroke-gold2) !important;
+    color: var(--lux-gold-ink) !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   4 · BARRIDO DEFENSIVO — texto claro sobre claro (anti-invisibilidad)
+   ───────────────────────────────────────────────────────────────────────────
+   Pinta de tinta cualquier texto residual con color CLARO inline dentro de
+   contenedores que ya volvimos claros. Acotado a los paneles tratados arriba
+   para no afectar elementos legítimamente sobre fondo de color (badges, etc.).
+   ═══════════════════════════════════════════════════════════════════════════ */
+html.theme-premium-light .uni-portfolio [style*="color:#F0F6FF"],
+html.theme-premium-light .uni-portfolio [style*="color:#C8D8EC"],
+html.theme-premium-light .uni-portfolio [style*="color:#E8EFF8"],
+html.theme-premium-light .scorecard-wrap [style*="color:#F0F6FF"],
+html.theme-premium-light .scorecard-wrap [style*="color:#C8D8EC"] {
+  color: var(--lux-ink) !important;
+  -webkit-text-fill-color: var(--lux-ink) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   5 · FONDO DE PÁGINA CLARO (neutraliza el aurora oscuro #0B1629) + FILTROS
+   ───────────────────────────────────────────────────────────────────────────
+   El fondo global lo pintaba aurora-background.js en azul noche. Para "todo
+   claro" lo volvemos marfil claro y dejamos los blobs apenas perceptibles.
+   ═══════════════════════════════════════════════════════════════════════════ */
+html.theme-premium-light,
+html.theme-premium-light body {
+  background-color: #F4F6FA !important;
+}
+html.theme-premium-light #vp-aurora-root {
+  background: #F4F6FA !important;
+}
+html.theme-premium-light #vp-aurora-root .vp-blob {
+  mix-blend-mode: normal !important;
+  opacity: .10 !important;
+  filter: blur(120px) !important;
+}
+html.theme-premium-light #vp-aurora-root .vp-noise { display: none !important; }
+
+/* Barra de filtros (filters.js) y barra de contexto → claras de lujo. */
+html.theme-premium-light #filter-bar > .filter-bar,
+html.theme-premium-light .filter-bar,
+html.theme-premium-light .biz-context-bar {
+  background: rgba(255, 255, 255, .94) !important;
+  border: 1px solid rgba(15, 23, 42, .08) !important;
+  box-shadow: 0 4px 20px -6px rgba(15, 23, 42, .08), 0 1px 3px rgba(15, 23, 42, .04) !important;
+  backdrop-filter: blur(12px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(160%) !important;
+}
+html.theme-premium-light .fb-preset {
+  background: #fff !important;
+  border: 1px solid rgba(15, 23, 42, .10) !important;
+  color: #475569 !important;
+}
+html.theme-premium-light .fb-preset:hover {
+  background: rgba(224, 179, 65, .10) !important;
+  border-color: rgba(224, 179, 65, .40) !important;
+  color: #8A6A0B !important;
+}
+html.theme-premium-light .fb-preset.active {
+  background: linear-gradient(135deg, rgba(224, 179, 65, .22), rgba(224, 179, 65, .08)) !important;
+  border-color: rgba(224, 179, 65, .50) !important;
+  color: #8A6A0B !important;
+}
+html.theme-premium-light .fb-select,
+html.theme-premium-light .fb-date {
+  background: #fff !important;
+  border: 1px solid rgba(15, 23, 42, .12) !important;
+  color: #0F172A !important;
+}
+html.theme-premium-light .fb-sep { background: rgba(15, 23, 42, .12) !important; }
+html.theme-premium-light .fb-range label,
+html.theme-premium-light .fb-apply-hint { color: #64748B !important; }

@@ -46,6 +46,9 @@
       addLink('vp-module-css',  '/module-polish.css?v=1');
       addLink('vp-cxc-css',     '/cxc-redesign.css?v=2');
       addLink('vp-mobile-css',  '/mobile-enhance.css?v=1');
+      // Tema "ejecutivo de lujo claro": refinamiento premium global.
+      // Se carga al FINAL para ganar al resto del cascade.
+      addLink('vp-lux-css',     '/lux-theme.css?v=1');
 
       // Manifest PWA
       if (!document.querySelector('link[rel="manifest"]')) {

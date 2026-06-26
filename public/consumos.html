@@ -12,26 +12,26 @@ window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7
 </script>
 <script src="filters.js"></script>
 <style>
-/* ═══ TOKENS DARK ════════════════════════════════════════════════════════ */
+/* ═══ TOKENS — EJECUTIVO DE LUJO, TODO CLARO ═════════════════════════════ */
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#060E1A;--s1:#0C1B29;--s2:#112233;--s3:#172D42;--brd:rgba(255,255,255,.08);
-  --txt:#E8EFF8;--muted:#8DA2BF;--acc:#E0B341;--acc-dim:rgba(230,168,0,.15);
-  --green:#34D399;--green-dim:rgba(0,229,160,.14);
-  --blue:#4DA6FF;--blue-dim:rgba(77,166,255,.14);
-  --purple:#9B6DFF;--orange:#FB923C;--yellow:#FBBF24;
-  --red:#F87171;--red-dim:rgba(255,69,102,.14);
+  --bg:#F8FAFC;--s1:#FFFFFF;--s2:#F1F5F9;--s3:#E2E8F0;--brd:rgba(15,23,42,.08);
+  --txt:#0F172A;--muted:#475569;--acc:#B8860B;--acc-dim:rgba(224,179,65,.12);
+  --green:#16A34A;--green-dim:rgba(22,163,74,.10);
+  --blue:#0284C7;--blue-dim:rgba(2,132,199,.10);
+  --purple:#7C3AED;--orange:#C2410C;--yellow:#B45309;
+  --red:#DC2626;--red-dim:rgba(220,38,38,.10);
   --rad:16px;--gap:18px;
 }
 body{background:var(--bg);color:var(--txt);font-family:'Syne',sans-serif;min-height:100vh}
 
 /* ─── ORB BACKGROUNDS ─── */
-.orb{position:fixed;border-radius:50%;filter:blur(130px);opacity:.1;pointer-events:none;z-index:0}
-.o1{width:600px;height:600px;left:-150px;top:-150px;background:radial-gradient(circle,#1E7FD9,transparent 70%)}
-.o2{width:500px;height:500px;right:-130px;bottom:-130px;background:radial-gradient(circle,#34D399,transparent 70%)}
+.orb{position:fixed;border-radius:50%;filter:blur(130px);opacity:.05;pointer-events:none;z-index:0}
+.o1{width:600px;height:600px;left:-150px;top:-150px;background:radial-gradient(circle,#F5C33C,transparent 70%)}
+.o2{width:500px;height:500px;right:-130px;bottom:-130px;background:radial-gradient(circle,#E0B341,transparent 70%)}
 
 /* ─── HEADER ─── */
-header{position:sticky;top:0;z-index:20;background:rgba(5,11,20,.88);backdrop-filter:blur(18px);border-bottom:1px solid var(--brd)}
+header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.85);backdrop-filter:blur(18px);border-bottom:1px solid var(--brd)}
 .hd{max-width:1600px;margin:0 auto;height:64px;padding:0 20px;display:flex;justify-content:space-between;align-items:center;gap:12px}
 .logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--txt)}
 .logo i{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:linear-gradient(135deg,var(--acc),var(--orange));font-style:normal;font-weight:800;font-size:14px;color:#060E1A}
