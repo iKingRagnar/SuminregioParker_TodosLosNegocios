@@ -13655,7 +13655,7 @@ get('/api/oc/listado', async (req) => {
 
   const rows = await query(
     `SELECT cm.DOCTO_CM_ID, cm.FOLIO, cm.FECHA, cm.ESTATUS,
-            CAST(cm.DESCRIPCION AS VARCHAR) AS REFERENCIA, cm.FOLIO_PROV,
+            CAST(cm.DESCRIPCION AS VARCHAR(4000)) AS REFERENCIA, cm.FOLIO_PROV,
             prov.PROVEEDOR_ID, prov.NOMBRE AS PROVEEDOR, prov.RFC_CURP AS PROVEEDOR_RFC,
             det.ARTICULO_ID, det.CLAVE_ARTICULO, art.NOMBRE AS ARTICULO,
             det.UNIDADES, det.PRECIO_UNITARIO,
@@ -13689,7 +13689,7 @@ get('/api/cm/listado', async (req) => {
 
   const rows = await query(
     `SELECT cm.DOCTO_CM_ID, cm.FOLIO, cm.FECHA, cm.ESTATUS,
-            CAST(cm.DESCRIPCION AS VARCHAR) AS REFERENCIA, cm.FOLIO_PROV,
+            CAST(cm.DESCRIPCION AS VARCHAR(4000)) AS REFERENCIA, cm.FOLIO_PROV,
             cm.IMPORTE_NETO AS SUBTOTAL, cm.TOTAL_IMPUESTOS AS IVA,
             (COALESCE(cm.IMPORTE_NETO,0) + COALESCE(cm.TOTAL_IMPUESTOS,0)) AS TOTAL,
             prov.PROVEEDOR_ID, prov.NOMBRE AS PROVEEDOR, prov.RFC_CURP AS PROVEEDOR_RFC,
@@ -13703,33 +13703,6 @@ get('/api/cm/listado', async (req) => {
       WHERE cm.DOCTO_CM_ID IN (${ids.join(',')})
       ORDER BY cm.DOCTO_CM_ID, det.DOCTO_CM_DET_ID`, [], 60000, dbo).catch(() => []);
   return { ok: true, rows };
-});
-
-// ── DEBUG (solo lectura): por que /api/oc|cm/listado salen vacios ─────────────
-get('/api/debug/cm', async (req) => {
-  const dbo = getReqDbOpts(req);
-  const out = { db: String(req.query.db || 'default') };
-  try { out.total = await query('SELECT COUNT(*) AS N FROM DOCTOS_CM', [], 60000, dbo); }
-  catch (e) { out.total_error = String((e && e.message) || e); }
-  try { out.dist = await query("SELECT TIPO_DOCTO AS T, ESTATUS AS E, COUNT(*) AS N FROM DOCTOS_CM GROUP BY TIPO_DOCTO, ESTATUS ORDER BY N DESC", [], 60000, dbo); }
-  catch (e) { out.dist_error = String((e && e.message) || e); }
-  try { out.fechas = await query("SELECT MIN(FECHA) AS minf, MAX(FECHA) AS maxf FROM DOCTOS_CM", [], 60000, dbo); }
-  catch (e) { out.fechas_error = String((e && e.message) || e); }
-  try { out.headsO = await query("SELECT COUNT(*) AS N FROM DOCTOS_CM WHERE TIPO_DOCTO = 'O' AND ESTATUS <> 'C'", [], 60000, dbo); }
-  catch (e) { out.headsO_error = String((e && e.message) || e); }
-  try { out.cols = await query("SELECT column_name FROM information_schema.columns WHERE table_name = 'DOCTOS_CM'", [], 60000, dbo); }
-  catch (e) { out.cols_error = String((e && e.message) || e); }
-  try { out.ocHeads = await query("SELECT FIRST 5 cm.DOCTO_CM_ID FROM DOCTOS_CM cm WHERE cm.DOCTO_CM_ID > 0 AND cm.TIPO_DOCTO = 'O' AND cm.ESTATUS <> 'C' AND cm.FECHA >= DATE '2024-01-01' ORDER BY cm.DOCTO_CM_ID", [], 60000, dbo); }
-  catch (e) { out.ocHeads_error = String((e && e.message) || e); }
-  try { out.ocHeadsNoFecha = await query("SELECT FIRST 5 cm.DOCTO_CM_ID FROM DOCTOS_CM cm WHERE cm.TIPO_DOCTO = 'O' AND cm.ESTATUS <> 'C' ORDER BY cm.DOCTO_CM_ID", [], 60000, dbo); }
-  catch (e) { out.ocHeadsNoFecha_error = String((e && e.message) || e); }
-  try { out.articulos = await query("SELECT COUNT(*) AS N FROM ARTICULOS", [], 60000, dbo); }
-  catch (e) { out.articulos_error = String((e && e.message) || e); }
-  try { out.castTest = await query("SELECT FIRST 2 CAST(cm.DESCRIPCION AS VARCHAR) AS R FROM DOCTOS_CM cm WHERE cm.TIPO_DOCTO = 'O'", [], 60000, dbo); }
-  catch (e) { out.castTest_error = String((e && e.message) || e); }
-  try { out.detailTest = await query("SELECT FIRST 3 cm.DOCTO_CM_ID, prov.NOMBRE AS PROVEEDOR, det.ARTICULO_ID, det.CLAVE_ARTICULO, art.NOMBRE AS ARTICULO FROM DOCTOS_CM cm JOIN DOCTOS_CM_DET det ON det.DOCTO_CM_ID = cm.DOCTO_CM_ID LEFT JOIN PROVEEDORES prov ON prov.PROVEEDOR_ID = cm.PROVEEDOR_ID LEFT JOIN ARTICULOS art ON art.ARTICULO_ID = det.ARTICULO_ID WHERE cm.TIPO_DOCTO = 'O'", [], 60000, dbo); }
-  catch (e) { out.detailTest_error = String((e && e.message) || e); }
-  return out;
 });
 
 // ── 3) BUSCAR LA FACTURA AL HOSPITAL (DOCTOS_VE) por referencia o cliente ──────
@@ -13754,14 +13727,14 @@ get('/api/hospital/venta-buscar', async (req) => {
   const params = [];
   if (cliente)  { where.push(`ve.CLIENTE_ID = ${cliente}`); }
   else if (rfc) { where.push(`ve.CLIENTE_ID IN (SELECT dc.CLIENTE_ID FROM DIRS_CLIENTES dc WHERE UPPER(dc.RFC_CURP) = ?)`); params.push(rfc.toUpperCase()); }
-  if (ref)   { where.push(`UPPER(COALESCE(CAST(ve.ORDEN_COMPRA AS VARCHAR),'') || ' ' || COALESCE(CAST(ve.DESCRIPCION AS VARCHAR),'')) LIKE ?`); params.push('%' + ref.toUpperCase() + '%'); }
+  if (ref)   { where.push(`UPPER(COALESCE(CAST(ve.ORDEN_COMPRA AS VARCHAR(4000)),'') || ' ' || COALESCE(CAST(ve.DESCRIPCION AS VARCHAR(4000)),'')) LIKE ?`); params.push('%' + ref.toUpperCase() + '%'); }
   if (desde) { where.push(`ve.FECHA >= DATE '${desde}'`); }
   if (hasta) { where.push(`ve.FECHA <= DATE '${hasta}'`); }
 
   const rows = await query(
     `SELECT FIRST ${limit}
             ve.DOCTO_VE_ID, ve.FOLIO, ve.FECHA,
-            COALESCE(CAST(ve.ORDEN_COMPRA AS VARCHAR), CAST(ve.DESCRIPCION AS VARCHAR)) AS REFERENCIA,
+            COALESCE(CAST(ve.ORDEN_COMPRA AS VARCHAR(4000)), CAST(ve.DESCRIPCION AS VARCHAR(4000))) AS REFERENCIA,
             c.NOMBRE AS CLIENTE,
             ve.IMPORTE_NETO AS SUBTOTAL, ve.TOTAL_IMPUESTOS AS IVA,
             (COALESCE(ve.IMPORTE_NETO,0) + COALESCE(ve.TOTAL_IMPUESTOS,0)) AS TOTAL
