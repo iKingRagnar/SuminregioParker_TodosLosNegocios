@@ -13723,6 +13723,12 @@ get('/api/debug/cm', async (req) => {
   catch (e) { out.ocHeads_error = String((e && e.message) || e); }
   try { out.ocHeadsNoFecha = await query("SELECT FIRST 5 cm.DOCTO_CM_ID FROM DOCTOS_CM cm WHERE cm.TIPO_DOCTO = 'O' AND cm.ESTATUS <> 'C' ORDER BY cm.DOCTO_CM_ID", [], 60000, dbo); }
   catch (e) { out.ocHeadsNoFecha_error = String((e && e.message) || e); }
+  try { out.articulos = await query("SELECT COUNT(*) AS N FROM ARTICULOS", [], 60000, dbo); }
+  catch (e) { out.articulos_error = String((e && e.message) || e); }
+  try { out.castTest = await query("SELECT FIRST 2 CAST(cm.DESCRIPCION AS VARCHAR) AS R FROM DOCTOS_CM cm WHERE cm.TIPO_DOCTO = 'O'", [], 60000, dbo); }
+  catch (e) { out.castTest_error = String((e && e.message) || e); }
+  try { out.detailTest = await query("SELECT FIRST 3 cm.DOCTO_CM_ID, prov.NOMBRE AS PROVEEDOR, det.ARTICULO_ID, det.CLAVE_ARTICULO, art.NOMBRE AS ARTICULO FROM DOCTOS_CM cm JOIN DOCTOS_CM_DET det ON det.DOCTO_CM_ID = cm.DOCTO_CM_ID LEFT JOIN PROVEEDORES prov ON prov.PROVEEDOR_ID = cm.PROVEEDOR_ID LEFT JOIN ARTICULOS art ON art.ARTICULO_ID = det.ARTICULO_ID WHERE cm.TIPO_DOCTO = 'O'", [], 60000, dbo); }
+  catch (e) { out.detailTest_error = String((e && e.message) || e); }
   return out;
 });
 
