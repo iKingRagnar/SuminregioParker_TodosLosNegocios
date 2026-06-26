@@ -13719,6 +13719,10 @@ get('/api/debug/cm', async (req) => {
   catch (e) { out.headsO_error = String((e && e.message) || e); }
   try { out.cols = await query("SELECT column_name FROM information_schema.columns WHERE table_name = 'DOCTOS_CM'", [], 60000, dbo); }
   catch (e) { out.cols_error = String((e && e.message) || e); }
+  try { out.ocHeads = await query("SELECT FIRST 5 cm.DOCTO_CM_ID FROM DOCTOS_CM cm WHERE cm.DOCTO_CM_ID > 0 AND cm.TIPO_DOCTO = 'O' AND cm.ESTATUS <> 'C' AND cm.FECHA >= DATE '2024-01-01' ORDER BY cm.DOCTO_CM_ID", [], 60000, dbo); }
+  catch (e) { out.ocHeads_error = String((e && e.message) || e); }
+  try { out.ocHeadsNoFecha = await query("SELECT FIRST 5 cm.DOCTO_CM_ID FROM DOCTOS_CM cm WHERE cm.TIPO_DOCTO = 'O' AND cm.ESTATUS <> 'C' ORDER BY cm.DOCTO_CM_ID", [], 60000, dbo); }
+  catch (e) { out.ocHeadsNoFecha_error = String((e && e.message) || e); }
   return out;
 });
 
