@@ -77,6 +77,15 @@
       '.tf-opt:hover,.tf-opt.tf-on{background:rgba(230,168,0,.14);color:#92400e;}',
       '.tf-opt mark{background:rgba(230,168,0,.32);color:inherit;border-radius:3px;padding:0 1px;}',
       '.tf-dd-empty{padding:10px 12px;color:#94a3b8;}',
+      /* encabezados ordenables (sort) */
+      'th.tf-sortable{cursor:pointer;-webkit-user-select:none;user-select:none;position:relative;',
+      'padding-right:20px!important;transition:color .15s,background .15s;}',
+      'th.tf-sortable:hover{color:#92400e!important;background:rgba(230,168,0,.09)!important;}',
+      'th.tf-sortable:focus-visible{outline:2px solid #E6A800;outline-offset:-2px;}',
+      'th.tf-sortable .tf-sort-ind{position:absolute;right:6px;top:50%;transform:translateY(-50%);',
+      'font-size:.62em;opacity:.32;line-height:1;transition:opacity .15s,color .15s;pointer-events:none;}',
+      'th.tf-sortable:hover .tf-sort-ind{opacity:.65;}',
+      'th.tf-sort-asc .tf-sort-ind,th.tf-sort-desc .tf-sort-ind{opacity:1;color:#E6A800;}',
       /* táctil: 44px de alto y 16px de fuente (evita el zoom de iOS al enfocar) */
       '@media(pointer:coarse){.tf-inp{min-height:44px;font-size:16px;}',
       '.tf-clear{width:28px;height:28px;line-height:28px;font-size:14px;right:8px;}}'
@@ -195,6 +204,109 @@
     return c ? (c.textContent || '') : '';
   }
 
+  // ── Ordenamiento (sort) ──────────────────────────────────────────────────────
+  /** Parsea moneda/porcentaje/enteros es-MX: "$1,234,567.89" → 1234567.89,
+   *  "12.4%" → 12.4, "(1,234)" → -1234 (negativo contable). NaN si no es número. */
+  function parseNum(txt) {
+    if (txt == null) return NaN;
+    var s = String(txt).trim();
+    if (!s) return NaN;
+    var neg = /^\(.*\)$/.test(s) || s.indexOf('-') >= 0;
+    var cleaned = s.replace(/[^0-9.,]/g, '').replace(/,/g, ''); // es-MX: coma=miles, punto=decimal
+    if (!cleaned || cleaned === '.') return NaN;
+    var n = parseFloat(cleaned);
+    if (isNaN(n)) return NaN;
+    return neg ? -n : n;
+  }
+  function isDateLike(s) {
+    s = String(s).trim();
+    return /^\d{4}-\d{2}-\d{2}/.test(s) || /^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/.test(s);
+  }
+  function parseDate(txt) {
+    if (!txt) return NaN;
+    var s = String(txt).trim();
+    var m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return new Date(+m[1], +m[2] - 1, +m[3]).getTime();
+    m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+    if (m) { var y = +m[3]; if (y < 100) y += 2000; return new Date(y, +m[2] - 1, +m[1]).getTime(); }
+    return NaN;
+  }
+  var EMPTY_CELL = { '': 1, '—': 1, '-': 1, 'n/d': 1, 'nd': 1, 'n/a': 1, 'na': 1, '...': 1, '…': 1 };
+  /** Detecta el tipo de una columna muestreando las celdas de datos. */
+  function detectColType(tbody, col) {
+    var rows = dataRows(tbody), n = 0, num = 0, dat = 0;
+    for (var i = 0; i < rows.length && n < 16; i++) {
+      var t = cellText(rows[i], col).replace(/\s+/g, ' ').trim();
+      if (!t || EMPTY_CELL[t.toLowerCase()]) continue;
+      n++;
+      if (isDateLike(t)) dat++;
+      else if (!isNaN(parseNum(t))) num++;
+    }
+    if (n === 0) return 'text';
+    if (dat / n >= 0.7) return 'date';
+    if (num / n >= 0.7) return 'number';
+    return 'text';
+  }
+  function sortTable(table, col) {
+    var tf = table.__tf; if (!tf || !tf.headRow) return;
+    var cur = (tf.sort && tf.sort.col === col) ? tf.sort.dir : 0;
+    var dir = cur === 0 ? 1 : (cur === 1 ? -1 : 0); // ciclo: neutro → asc → desc → neutro
+    if (tf.colType[col] == null) tf.colType[col] = detectColType(tf.tbody, col);
+    tf.sort = dir === 0 ? null : { col: col, dir: dir, type: tf.colType[col] };
+    updateSortIndicators(table);
+    if (tf.sort) applySort(table);
+  }
+  function applySort(table) {
+    var tf = table.__tf;
+    if (!tf || !tf.sort) return;
+    var col = tf.sort.col, dir = tf.sort.dir, type = tf.sort.type, tbody = tf.tbody;
+    var all = Array.prototype.slice.call(tbody.rows), data = [], rest = [];
+    all.forEach(function (r) {
+      if (r.cells.length > 1 && !(r.classList && r.classList.contains('tf-norow'))) data.push(r);
+      else rest.push(r);
+    });
+    data.sort(function (a, b) {
+      var va, vb, ea, eb;
+      if (type === 'number') {
+        va = parseNum(cellText(a, col)); vb = parseNum(cellText(b, col));
+        ea = isNaN(va); eb = isNaN(vb);
+        if (ea && eb) return 0; if (ea) return 1; if (eb) return -1; // vacíos siempre al final
+        return (va - vb) * dir;
+      }
+      if (type === 'date') {
+        va = parseDate(cellText(a, col)); vb = parseDate(cellText(b, col));
+        ea = isNaN(va); eb = isNaN(vb);
+        if (ea && eb) return 0; if (ea) return 1; if (eb) return -1;
+        return (va - vb) * dir;
+      }
+      va = norm(cellText(a, col)); vb = norm(cellText(b, col));
+      if (va === vb) return 0;
+      if (!va) return 1; if (!vb) return -1;
+      return va.localeCompare(vb, 'es', { numeric: true, sensitivity: 'base' }) * dir;
+    });
+    var frag = document.createDocumentFragment();
+    data.forEach(function (r) { frag.appendChild(r); });
+    rest.forEach(function (r) { frag.appendChild(r); });
+    tbody.appendChild(frag);
+  }
+  function updateSortIndicators(table) {
+    var tf = table.__tf; if (!tf || !tf.headRow) return;
+    for (var c = 0; c < tf.headRow.cells.length; c++) {
+      var th = tf.headRow.cells[c];
+      if (!th.classList.contains('tf-sortable')) continue;
+      th.classList.remove('tf-sort-asc', 'tf-sort-desc');
+      var ind = th.querySelector('.tf-sort-ind');
+      if (tf.sort && tf.sort.col === c) {
+        th.classList.add(tf.sort.dir === 1 ? 'tf-sort-asc' : 'tf-sort-desc');
+        if (ind) ind.textContent = tf.sort.dir === 1 ? '▲' : '▼';
+        th.setAttribute('aria-sort', tf.sort.dir === 1 ? 'ascending' : 'descending');
+      } else {
+        if (ind) ind.textContent = '↕';
+        th.removeAttribute('aria-sort');
+      }
+    }
+  }
+
   // ── Aplicar filtros ─────────────────────────────────────────────────────────
   function applyFilter(table) {
     var tf = table.__tf;
@@ -296,11 +408,40 @@
     count.querySelector('button').addEventListener('click', function () { clearAll(table); });
     if (table.parentNode) table.parentNode.insertBefore(count, table);
 
-    table.__tf = { inputs: inputs, tbody: tbody, cache: Object.create(null), count: count };
+    table.__tf = { inputs: inputs, tbody: tbody, cache: Object.create(null), count: count,
+                   headRow: headRow, sort: null, colType: Object.create(null) };
 
-    // Re-aplicar y refrescar sugerencias cuando la tabla cargue datos por AJAX.
+    // Encabezados ordenables (sort universal). No duplicar si la tabla ya trae el suyo.
+    var hasOwnSort = !!headRow.querySelector('[data-sort], .th-sort, [data-sortable]');
+    var noSort = table.classList.contains('tf-no-sort') || table.hasAttribute('data-no-sort');
+    if (!hasOwnSort && !noSort) {
+      for (var sc = 0; sc < ncols; sc++) {
+        (function (ci) {
+          var th = headRow.cells[ci];
+          if (!th) return;
+          th.classList.add('tf-sortable');
+          var ind = document.createElement('span');
+          ind.className = 'tf-sort-ind';
+          ind.setAttribute('aria-hidden', 'true');
+          ind.textContent = '↕';
+          th.appendChild(ind);
+          th.tabIndex = 0;
+          th.setAttribute('role', 'button');
+          var hdr = (th.textContent || '').replace(/\s+/g, ' ').trim();
+          th.setAttribute('aria-label', 'Ordenar por ' + (hdr || ('columna ' + (ci + 1))));
+          th.addEventListener('click', function () { sortTable(table, ci); });
+          th.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sortTable(table, ci); }
+          });
+        })(sc);
+      }
+    }
+
+    // Re-aplicar filtro/orden y refrescar sugerencias cuando la tabla cargue datos por AJAX.
     var refresh = debounce(function () {
       table.__tf.cache = Object.create(null);
+      table.__tf.colType = Object.create(null);
+      if (table.__tf.sort) applySort(table);
       applyFilter(table);
     }, 130);
     try {
