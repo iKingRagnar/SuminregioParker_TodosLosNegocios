@@ -13705,6 +13705,23 @@ get('/api/cm/listado', async (req) => {
   return { ok: true, rows };
 });
 
+// ── DEBUG (solo lectura): por que /api/oc|cm/listado salen vacios ─────────────
+get('/api/debug/cm', async (req) => {
+  const dbo = getReqDbOpts(req);
+  const out = { db: String(req.query.db || 'default') };
+  try { out.total = await query('SELECT COUNT(*) AS N FROM DOCTOS_CM', [], 60000, dbo); }
+  catch (e) { out.total_error = String((e && e.message) || e); }
+  try { out.dist = await query("SELECT TIPO_DOCTO AS T, ESTATUS AS E, COUNT(*) AS N FROM DOCTOS_CM GROUP BY TIPO_DOCTO, ESTATUS ORDER BY N DESC", [], 60000, dbo); }
+  catch (e) { out.dist_error = String((e && e.message) || e); }
+  try { out.fechas = await query("SELECT MIN(FECHA) AS minf, MAX(FECHA) AS maxf FROM DOCTOS_CM", [], 60000, dbo); }
+  catch (e) { out.fechas_error = String((e && e.message) || e); }
+  try { out.headsO = await query("SELECT COUNT(*) AS N FROM DOCTOS_CM WHERE TIPO_DOCTO = 'O' AND ESTATUS <> 'C'", [], 60000, dbo); }
+  catch (e) { out.headsO_error = String((e && e.message) || e); }
+  try { out.cols = await query("SELECT column_name FROM information_schema.columns WHERE table_name = 'DOCTOS_CM'", [], 60000, dbo); }
+  catch (e) { out.cols_error = String((e && e.message) || e); }
+  return out;
+});
+
 // ── 3) BUSCAR LA FACTURA AL HOSPITAL (DOCTOS_VE) por referencia o cliente ──────
 //  Úsalo así, p. ej.:  /api/hospital/venta-buscar?db=...&ref=RSM26008%238
 //                      /api/hospital/venta-buscar?db=...&desde=2026-02-01&hasta=2026-03-31
