@@ -13718,6 +13718,23 @@ get('/api/hospital/venta-buscar', async (req) => {
   return { ok: true, count: rows.length, rows };
 });
 
+// ── CFDI TIMBRADOS DEL HOSPITAL (REPOSITORIO_CFDI) — UUID + XML fiscal real ────
+//  /api/hospital/cfdis?db=...&folio=SM19  → factura(s) al hospital como CFDI real.
+//  Requiere que sync_duckdb.py sincronice REPOSITORIO_CFDI filtrado al receptor SNTE.
+get('/api/hospital/cfdis', async (req) => {
+  const dbo   = getReqDbOpts(req);
+  const limit = Math.min(parseInt(req.query.limit || '300', 10) || 300, 1000);
+  const folio = String(req.query.folio || '').replace(/[^A-Za-z0-9_-]/g, '');
+  const where = [`r.RFC = 'SNT391220717'`];
+  if (folio) where.push(`UPPER(r.FOLIO) = '${folio.toUpperCase()}'`);
+  const rows = await query(
+    `SELECT FIRST ${limit} r.UUID, r.FOLIO, r.FECHA, r.NOM_ARCH, r.TIPO_COMPROBANTE, r.XML
+       FROM REPOSITORIO_CFDI r
+      WHERE ${where.join(' AND ')}
+      ORDER BY r.FECHA DESC`, [], 60000, dbo).catch(() => []);
+  return { ok: true, count: (rows || []).length, rows: rows || [] };
+});
+
 // PEDIDOS vs ENTREGADO — Cumplimiento por pedido y línea de artículo
 // Álvaro: "lo que pidió el hospital vs lo que se entregó"
 //
