@@ -278,6 +278,52 @@ app.use((req, res, next) => {
   next();
 });
 
+// ── REFRESCO BAJO DEMANDA ("Datos en vivo" del tablero) ───────────────────────
+// Registrado ANTES de los gates de sesion: /request y /status son publicos (los llama
+// el tablero server-to-server); /pending /start /done van protegidos por X-Snapshot-Token
+// (los llama el AGENTE local en la PC de Microsip). Estado en memoria.
+const REFRESH = Object.create(null);
+const REFRESH_ALLOWED = new Set(['suminregio_suministros_medicos']);
+function _refTok(req){ return (req.headers['x-snapshot-token'] || req.query.token) === process.env.SNAPSHOT_TOKEN; }
+app.post('/api/refresh/request', (req, res) => {
+  const db = String((req.body && req.body.db) || req.query.db || 'suminregio_suministros_medicos').trim();
+  if (!REFRESH_ALLOWED.has(db)) return res.status(400).json({ ok:false, error:'db no permitida' });
+  const r = REFRESH[db] || (REFRESH[db] = {});
+  r.requested_at = Date.now(); r.started_at = null; r.done_at = null; r.running = false;
+  res.json({ ok:true, db, requested_at: r.requested_at });
+});
+app.get('/api/refresh/status', (req, res) => {
+  const db = String(req.query.db || 'suminregio_suministros_medicos').trim();
+  const r = REFRESH[db] || {};
+  let estado = 'idle';
+  if (r.running) estado = 'actualizando';
+  else if (r.requested_at && (!r.done_at || r.done_at < r.requested_at)) estado = 'solicitado';
+  else if (r.done_at) estado = 'listo';
+  res.json({ ok:true, db, estado, requested_at: r.requested_at || null, done_at: r.done_at || null });
+});
+app.get('/api/refresh/pending', (req, res) => {
+  if (!_refTok(req)) return res.status(401).json({ error: 'Unauthorized' });
+  const dbs = Object.keys(REFRESH).filter((db) => {
+    const r = REFRESH[db];
+    return r.requested_at && (!r.done_at || r.done_at < r.requested_at) && !r.running;
+  });
+  res.json({ ok:true, dbs });
+});
+app.post('/api/refresh/start', (req, res) => {
+  if (!_refTok(req)) return res.status(401).json({ error: 'Unauthorized' });
+  const db = String((req.body && req.body.db) || '').trim();
+  const r = REFRESH[db] || (REFRESH[db] = {});
+  r.started_at = Date.now(); r.running = true;
+  res.json({ ok:true, db });
+});
+app.post('/api/refresh/done', (req, res) => {
+  if (!_refTok(req)) return res.status(401).json({ error: 'Unauthorized' });
+  const db = String((req.body && req.body.db) || '').trim();
+  const r = REFRESH[db] || (REFRESH[db] = {});
+  r.done_at = Date.now(); r.running = false;
+  res.json({ ok:true, db, done_at: r.done_at });
+});
+
 if (IS_SESSION_AUTH) {
   app.set('trust proxy', 1);
   const session = require('express-session');
