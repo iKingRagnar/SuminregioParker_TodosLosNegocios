@@ -13685,18 +13685,18 @@ get('/api/oc/listado', async (req) => {
   const desdeId = parseInt(req.query.desde_id || '0', 10) || 0;
   const limit   = Math.min(parseInt(req.query.limit || '400', 10) || 400, 1000);
 
-  const heads = await query(
+  const heads = await _fbQueryBlobs(
     `SELECT FIRST ${limit} cm.DOCTO_CM_ID
        FROM DOCTOS_CM cm
       WHERE cm.DOCTO_CM_ID > ${desdeId}
         AND cm.TIPO_DOCTO = 'O'
         AND cm.ESTATUS <> 'C'
         AND cm.FECHA >= DATE '${desde}'
-      ORDER BY cm.DOCTO_CM_ID`, [], 60000, dbo).catch(() => []);
+      ORDER BY cm.DOCTO_CM_ID`, [], 60000, dbo, []).catch(() => []);
   const ids = (heads || []).map(h => h.DOCTO_CM_ID).filter(x => x != null);
   if (!ids.length) return { ok: true, rows: [] };
 
-  const rows = await query(
+  const rows = await _fbQueryBlobs(
     `SELECT cm.DOCTO_CM_ID, cm.FOLIO, cm.FECHA, cm.ESTATUS,
             CAST(cm.DESCRIPCION AS VARCHAR(4000)) AS REFERENCIA, cm.FOLIO_PROV,
             prov.PROVEEDOR_ID, prov.NOMBRE AS PROVEEDOR, prov.RFC_CURP AS PROVEEDOR_RFC,
@@ -13708,7 +13708,7 @@ get('/api/oc/listado', async (req) => {
        LEFT JOIN PROVEEDORES prov ON prov.PROVEEDOR_ID = cm.PROVEEDOR_ID
        LEFT JOIN ARTICULOS   art  ON art.ARTICULO_ID  = det.ARTICULO_ID
       WHERE cm.DOCTO_CM_ID IN (${ids.join(',')})
-      ORDER BY cm.DOCTO_CM_ID, det.DOCTO_CM_DET_ID`, [], 60000, dbo).catch(() => []);
+      ORDER BY cm.DOCTO_CM_ID, det.DOCTO_CM_DET_ID`, [], 60000, dbo, []).catch(() => []);
   return { ok: true, rows };
 });
 
