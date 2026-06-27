@@ -13887,7 +13887,14 @@ get('/api/cm/cfdis-probe', async (req) => {
       `SELECT cm.TIPO_DOCTO, COUNT(*) AS N FROM DOCTOS_CM cm GROUP BY cm.TIPO_DOCTO ORDER BY COUNT(*) DESC`,
       [], 60000, dbo, []);
   } catch(e){ err=(err||'')+' | tipos:'+String((e&&e.message)||e); }
-  return { ok:true, err, total_rfcs: dist?dist.length:null, dist_top:(dist||[]).slice(0,15), sample_no_hospital: sample, doctos_cm_por_tipo: tipos };
+  let oc_estatus=null;
+  try {
+    oc_estatus = await _fbQueryBlobs(
+      `SELECT cm.ESTATUS, COUNT(*) AS N, MIN(cm.FECHA) AS FMIN, MAX(cm.FECHA) AS FMAX
+         FROM DOCTOS_CM cm WHERE cm.TIPO_DOCTO = 'O' GROUP BY cm.ESTATUS`,
+      [], 60000, dbo, []);
+  } catch(e){ err=(err||'')+' | oc_est:'+String((e&&e.message)||e); }
+  return { ok:true, err, total_rfcs: dist?dist.length:null, dist_top:(dist||[]).slice(0,15), sample_no_hospital: sample, doctos_cm_por_tipo: tipos, oc_por_estatus: oc_estatus };
 });
 
 // PEDIDOS vs ENTREGADO — Cumplimiento por pedido y línea de artículo
