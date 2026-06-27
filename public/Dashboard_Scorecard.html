@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<!DOCTYPE html><html lang="es" data-theme="light"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Scorecard Vendedores — Suminregio</title><link rel="icon" href="favicon.svg" type="image/svg+xml"/>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -264,7 +264,200 @@ tbody tr.rank-3 td:first-child{border-left:2px solid var(--bronze);}
   body::before,body::after,.orb-mid{display:none;}
 }
 </style><link rel="stylesheet" href="app-ui.css">
-<link rel="stylesheet" href="app-responsive.css"><script src="app-ui-boot.js" defer></script></head>
+<link rel="stylesheet" href="app-responsive.css"><script src="app-ui-boot.js" defer></script>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   LIGHT PREMIUM THEME — "ejecutivo de lujo, todo claro"
+   Override del tema oscuro original. Carga después de app-ui.css,
+   por lo que siempre gana. No toca HTML/IDs/clases ni el <script>.
+   ═══════════════════════════════════════════════════════════════ */
+:root{
+  --bg:#F4F6FA!important; --card:#FFFFFF!important; --card2:#FCFAF4!important;
+  --border:rgba(15,23,42,.07)!important; --border2:rgba(15,23,42,.12)!important;
+  --gold:#E0B341!important; --gold-deep:#B8860B!important;
+  --blue:#2563EB!important; --green:#16A34A!important; --red:#DC2626!important; --orange:#B45309!important;
+  --silver:#8A94A6!important; --bronze:#B07A3C!important;
+  --text:#0F172A!important; --muted:#64748B!important; --muted2:#475569!important;
+  --pos:#16A34A!important; --neg:#DC2626!important; --warn:#B45309!important;
+  --rad:15px!important;
+}
+
+/* Página y body claros */
+html,body{background:#F4F6FA!important;color:#0F172A!important;}
+body{font-family:'Syne','Inter','Segoe UI',system-ui,sans-serif!important;}
+
+/* Orbs decorativos: tonos cálidos suaves sobre claro (nada oscuro) */
+body::before{background:radial-gradient(circle,rgba(224,179,65,.10) 0%,transparent 70%)!important;}
+body::after{background:radial-gradient(circle,rgba(37,99,235,.07) 0%,transparent 70%)!important;}
+.orb-mid{background:radial-gradient(circle,rgba(224,179,65,.06) 0%,transparent 60%)!important;}
+
+/* ── HEADER: tarjeta marfil con barra dorada superior ── */
+.hdr{
+  background:linear-gradient(135deg,#FFFFFF 0%,#FCFAF3 100%)!important;
+  border:1px solid rgba(224,179,65,.28)!important;
+  box-shadow:0 10px 30px -16px rgba(15,23,42,.18)!important;
+  border-radius:18px!important;
+}
+.hdr::before{
+  background:linear-gradient(135deg,#F5C33C,#E0B341 45%,#B8860B)!important;
+  height:4px!important; opacity:1!important;
+}
+.hdr-logo{
+  background:linear-gradient(135deg,#F5C33C,#E0B341 55%,#B8860B)!important;
+  color:#1A1200!important;
+  box-shadow:0 6px 16px -6px rgba(224,179,65,.55)!important;
+}
+.hdr h1{
+  background:linear-gradient(135deg,#B8860B,#E0B341 60%,#8A6A0B)!important;
+  -webkit-background-clip:text!important; background-clip:text!important;
+  -webkit-text-fill-color:transparent!important; color:#B8860B!important;
+  font-weight:800!important;
+}
+.hdr .sub{color:#64748B!important;}
+#live-clock{color:#64748B!important;}
+.live-pill{
+  background:rgba(22,163,74,.10)!important; border:1px solid rgba(22,163,74,.30)!important;
+  color:#16A34A!important;
+}
+.live-pill::before{background:#16A34A!important;}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(22,163,74,.4);}50%{opacity:.7;box-shadow:0 0 0 6px rgba(22,163,74,0);}}
+.btn-export{
+  background:linear-gradient(135deg,#F5C33C,#E0B341 45%,#B8860B)!important;
+  color:#1A1200!important; border:none!important; font-weight:700!important;
+  box-shadow:0 4px 12px -3px rgba(224,179,65,.5)!important;
+}
+.btn-export:hover{filter:brightness(1.05)!important;box-shadow:0 6px 16px -4px rgba(224,179,65,.6)!important;}
+
+/* Nav como pills claros; activo dorado */
+.hdr .nav a{
+  color:#475569!important; background:#F4F6FA!important;
+  border:1px solid rgba(15,23,42,.1)!important; border-radius:20px!important;
+}
+.hdr .nav a:hover{
+  color:#8A6A0B!important; background:rgba(224,179,65,.10)!important;
+  border-color:rgba(224,179,65,.35)!important;
+}
+.hdr .nav a.active{
+  color:#8A6A0B!important; font-weight:700!important;
+  background:linear-gradient(135deg,rgba(224,179,65,.20),rgba(224,179,65,.07))!important;
+  border-color:rgba(224,179,65,.4)!important;
+}
+
+/* ── FILTER BADGE ── */
+#filter-badge span{
+  background:rgba(37,99,235,.08)!important; border:1px solid rgba(37,99,235,.28)!important;
+  color:#2563EB!important;
+}
+#filter-badge button{color:#2563EB!important;}
+
+/* ── FILTROS ── */
+.filters{
+  background:#FFFFFF!important; border:1px solid rgba(15,23,42,.07)!important;
+  border-radius:15px!important;
+  box-shadow:0 1px 2px rgba(15,23,42,.04),0 8px 24px -14px rgba(15,23,42,.14)!important;
+}
+.filters select,.filters input{
+  background:#FFFFFF!important; color:#0F172A!important;
+  border:1px solid rgba(15,23,42,.12)!important; border-radius:10px!important;
+}
+.filters select:focus,.filters input:focus{border-color:#E0B341!important;}
+.filters select option{background:#FFFFFF!important;color:#0F172A!important;}
+.filters label{color:#64748B!important;}
+.filters #lbl-a,.filters span{color:#64748B!important;}
+
+/* ── KPI CARDS (con fix de números que siempre caben) ── */
+.kpi{
+  background:linear-gradient(168deg,#FFFFFF,#FCFAF4)!important;
+  border:1px solid rgba(15,23,42,.07)!important; border-radius:16px!important;
+  box-shadow:0 1px 2px rgba(15,23,42,.04),0 10px 28px -16px rgba(15,23,42,.16)!important;
+  container-type:inline-size; /* el número escala según el ancho de SU tarjeta */
+}
+.kpi:hover{
+  border-color:rgba(224,179,65,.35)!important;
+  box-shadow:0 16px 36px -16px rgba(224,179,65,.4)!important;
+}
+.kpi::after{
+  background:linear-gradient(90deg,#E0B341,transparent)!important; opacity:.6!important;
+}
+.kpi-l{color:#64748B!important;}
+.kpi-v{
+  font-size:clamp(1rem,11cqi,1.65rem)!important; /* nunca se corta */
+  white-space:nowrap!important; max-width:100%!important;
+  color:#0B1220!important;
+}
+.kpi-v.pos{color:#16A34A!important;}
+.kpi-v.neg{color:#DC2626!important;}
+.kpi-s{color:#94A3B8!important;}
+
+/* ── CHART CARDS ── */
+.cc{
+  background:#FFFFFF!important; border:1px solid rgba(15,23,42,.07)!important;
+  border-radius:16px!important;
+  box-shadow:0 1px 2px rgba(15,23,42,.04),0 8px 24px -14px rgba(15,23,42,.14)!important;
+}
+.cc h3{color:#0F172A!important;}
+.cc h3::before{background:#E0B341!important;}
+
+/* ── TABLA ── */
+.tc{
+  background:#FFFFFF!important; border:1px solid rgba(15,23,42,.07)!important;
+  border-radius:16px!important;
+  box-shadow:0 1px 2px rgba(15,23,42,.04),0 8px 24px -14px rgba(15,23,42,.14)!important;
+}
+.tc h3{color:#0F172A!important;}
+.tc h3::before{background:#E0B341!important;}
+thead th{
+  color:#475569!important;
+  background:linear-gradient(180deg,#FBF6E9,#F6F8FC)!important;
+  border-bottom:2px solid rgba(224,179,65,.30)!important;
+}
+thead th:hover{color:#B8860B!important;}
+thead th.sort-asc::after,thead th.sort-desc::after{color:#B8860B!important;}
+tbody td{color:#0F172A!important;border-bottom:1px solid rgba(15,23,42,.05)!important;}
+tbody tr:nth-child(even) td{background:rgba(15,23,42,.015)!important;}
+tbody tr:hover td{background:rgba(224,179,65,.08)!important;}
+tbody tr.row-active td{background:rgba(224,179,65,.14)!important;border-bottom-color:rgba(224,179,65,.3)!important;}
+tbody tr.rank-1 td:first-child{border-left:2px solid #E0B341!important;}
+tbody tr.rank-2 td:first-child{border-left:2px solid #8A94A6!important;}
+tbody tr.rank-3 td:first-child{border-left:2px solid #B07A3C!important;}
+.tr .pos,td.pos{color:#16A34A!important;}
+.tr .neg,td.neg{color:#DC2626!important;}
+
+/* ── BADGES (semáforos claros) ── */
+.badge-g{background:rgba(22,163,74,.12)!important;color:#15803D!important;border:1px solid rgba(22,163,74,.30)!important;}
+.badge-r{background:rgba(220,38,38,.10)!important;color:#B91C1C!important;border:1px solid rgba(220,38,38,.28)!important;}
+.badge-y{background:rgba(224,179,65,.16)!important;color:#8A6A0B!important;border:1px solid rgba(224,179,65,.40)!important;}
+
+/* ── MEDALLAS ── */
+.medal-1{background:rgba(224,179,65,.18)!important;color:#8A6A0B!important;border:1px solid rgba(224,179,65,.45)!important;}
+.medal-2{background:rgba(138,148,166,.16)!important;color:#5B6577!important;border:1px solid rgba(138,148,166,.40)!important;}
+.medal-3{background:rgba(176,122,60,.16)!important;color:#8A5A24!important;border:1px solid rgba(176,122,60,.42)!important;}
+.medal-n{background:rgba(15,23,42,.05)!important;color:#64748B!important;border:1px solid rgba(15,23,42,.10)!important;}
+
+/* ── AVATAR / VENDEDOR ── */
+.vend-name{color:#0F172A!important;}
+.vend-sub{color:#64748B!important;}
+
+/* ── PROGRESS BAR ── */
+.pbar{background:rgba(15,23,42,.08)!important;}
+.pbar-fill.green{background:linear-gradient(90deg,#16A34A,#22C55E)!important;}
+.pbar-fill.yellow{background:linear-gradient(90deg,#E0B341,#B8860B)!important;}
+.pbar-fill.red{background:linear-gradient(90deg,#DC2626,#EF4444)!important;}
+.pbar-pct{color:#64748B!important;}
+
+/* ── FOOTER y SECTION LABELS ── */
+.footer{color:#94A3B8!important;border-top:1px solid rgba(15,23,42,.07)!important;}
+.section-label{color:#64748B!important;}
+.section-label::after{background:rgba(15,23,42,.10)!important;}
+
+/* ── PRINT ── */
+@media print{
+  html,body{background:#fff!important;color:#000!important;}
+  .hdr{background:#fff!important;border:1px solid #ddd!important;}
+  .hdr h1{-webkit-text-fill-color:#000!important;background:none!important;color:#000!important;}
+  .cc,.tc,.kpi,.filters{background:#fff!important;border:1px solid #ddd!important;box-shadow:none!important;}
+}
+</style></head>
 <body>
 <div class="orb-mid"></div>
 <div class="dash">
@@ -307,9 +500,9 @@ tbody tr.rank-3 td:first-child{border-left:2px solid var(--bronze);}
 
 <!-- FILTER BADGE -->
 <div id="filter-badge" style="display:none;text-align:center;margin:0 0 14px;">
-  <span style="background:rgba(77,166,255,.1);border:1px solid rgba(77,166,255,.3);color:#4DA6FF;border-radius:20px;padding:6px 16px;font-size:13px;display:inline-flex;align-items:center;gap:8px;">
+  <span style="background:rgba(37,99,235,.08);border:1px solid rgba(37,99,235,.28);color:#2563EB;border-radius:20px;padding:6px 16px;font-size:13px;display:inline-flex;align-items:center;gap:8px;">
     <span id="filter-text"></span>
-    <button onclick="clearFilter()" style="background:none;border:none;color:#4DA6FF;cursor:pointer;font-size:16px;padding:0 2px;">✕</button>
+    <button onclick="clearFilter()" style="background:none;border:none;color:#2563EB;cursor:pointer;font-size:16px;padding:0 2px;">✕</button>
   </span>
 </div>
 

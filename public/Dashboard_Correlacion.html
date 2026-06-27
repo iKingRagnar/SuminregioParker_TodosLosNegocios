@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -330,6 +330,238 @@ tbody tr:hover td{background:rgba(77,166,255,.05)!important;}
 <link rel="stylesheet" href="app-ui.css">
 <link rel="stylesheet" href="app-responsive.css">
 <script src="app-ui-boot.js" defer></script>
+
+<!-- ════════════════════════════════════════════════════════
+     OVERRIDE TEMA CLARO PREMIUM (Ejecutivo de Lujo)
+     Convierte el dashboard oscuro a light premium.
+     Solo CSS visual. No toca HTML, IDs, clases ni <script>.
+═════════════════════════════════════════════════════════ -->
+<style id="light-premium-override">
+:root{
+  --bg:#F4F6FA; --card:#FFFFFF; --card2:#FFFFFF;
+  --border:rgba(15,23,42,.07); --border2:rgba(15,23,42,.12);
+  --gold:#E0B341; --gold-deep:#B8860B;
+  --blue:#2563EB; --green:#16A34A; --red:#DC2626;
+  --orange:#B45309; --cyan:#0E7490;
+  --text:#0F172A; --muted:#64748B; --muted2:#475569;
+  --pos:#16A34A; --neg:#DC2626; --warn:#B45309;
+  --ink:#0F172A;
+  --shadow-soft:0 8px 24px -14px rgba(15,23,42,.14);
+  --shadow-card:0 8px 24px -16px rgba(15,23,42,.16);
+}
+
+body{
+  background:var(--bg)!important;color:var(--text)!important;
+}
+
+/* ── Quitar orbes oscuros / fondos decorativos ── */
+body::before,body::after,.orb-mid,.orb-top-right{
+  display:none!important;
+}
+
+/* ── HEADER: tarjeta blanca/marfil, barra dorada, h1 degradado dorado ── */
+.hdr{
+  background:linear-gradient(135deg,#FFFFFF 0%,#FCFAF4 100%)!important;
+  border:1px solid var(--border)!important;
+  box-shadow:var(--shadow-card)!important;
+  border-radius:16px!important;
+}
+.hdr::before{
+  height:4px!important;
+  background:linear-gradient(90deg,#F5C33C,#E0B341,#B8860B)!important;
+}
+.hdr-logo{
+  background:linear-gradient(135deg,#F5C33C,#E0B341,#B8860B)!important;
+  color:#FFFFFF!important;
+  box-shadow:0 6px 16px -6px rgba(184,134,11,.55)!important;
+}
+.hdr h1{
+  background:linear-gradient(135deg,#F5C33C,#E0B341,#B8860B)!important;
+  -webkit-background-clip:text!important;background-clip:text!important;
+  -webkit-text-fill-color:transparent!important;color:#B8860B!important;
+}
+.hdr .sub{color:var(--muted)!important;}
+#live-clock{color:var(--muted2)!important;}
+
+.live-pill{
+  background:rgba(22,163,74,.10)!important;
+  border:1px solid rgba(22,163,74,.30)!important;
+  color:var(--green)!important;
+}
+.live-pill::before{background:var(--green)!important;}
+
+.db-selector{
+  background:#F4F6FA!important;color:var(--text)!important;
+  border:1px solid var(--border2)!important;
+}
+.db-selector:focus{border-color:var(--gold)!important;}
+.db-selector option{background:#FFFFFF!important;color:var(--text)!important;}
+
+.btn-export{
+  background:#F4F6FA!important;color:var(--text)!important;
+  border:1px solid var(--border2)!important;
+}
+.btn-export:hover{
+  background:#FFFFFF!important;border-color:var(--gold)!important;
+  box-shadow:var(--shadow-soft)!important;
+}
+
+/* ── NAV: pills claros, activo dorado ── */
+.hdr .nav a{
+  color:var(--muted2)!important;
+  background:#F4F6FA!important;
+  border:1px solid var(--border)!important;
+}
+.hdr .nav a:hover{
+  color:var(--text)!important;
+  background:#FFFFFF!important;
+  border-color:var(--border2)!important;
+}
+.hdr .nav a.active{
+  color:#FFFFFF!important;
+  background:linear-gradient(135deg,#F5C33C,#E0B341,#B8860B)!important;
+  border-color:transparent!important;
+  box-shadow:0 6px 16px -8px rgba(184,134,11,.55)!important;
+}
+
+/* ── KPI CARDS: blanco + números que SIEMPRE caben ── */
+.kpi{
+  background:linear-gradient(135deg,#FFFFFF 0%,#FCFAF4 100%)!important;
+  border:1px solid var(--border)!important;
+  box-shadow:var(--shadow-card)!important;
+  border-radius:16px!important;
+  container-type:inline-size;
+}
+.kpi:hover{border-color:var(--border2)!important;box-shadow:var(--shadow-soft)!important;}
+.kpi-l{color:var(--muted)!important;}
+.kpi-v{
+  color:var(--text)!important;
+  font-size:clamp(1rem,11cqi,1.65rem)!important;
+  white-space:nowrap;max-width:100%;
+}
+.kpi-s{color:var(--muted)!important;}
+.kpi-v.pos{color:var(--green)!important;}
+.kpi-v.neg{color:var(--red)!important;}
+.kpi-v.warn{color:var(--gold-deep)!important;}
+
+/* ── SECTION LABEL ── */
+.section-label{color:var(--muted2)!important;}
+.section-label::after{background:var(--border)!important;}
+
+/* ── CHART CARDS ── */
+.cc{
+  background:#FFFFFF!important;
+  border:1px solid var(--border)!important;
+  box-shadow:var(--shadow-card)!important;
+  border-radius:16px!important;
+}
+.cc h3{color:var(--muted2)!important;}
+.cc-sub{color:var(--muted)!important;}
+
+/* ── STATS PANEL (regresión) ── */
+.stats-panel{
+  background:#FCFAF4!important;
+  border:1px solid var(--border)!important;
+  border-radius:14px!important;
+}
+.stats-panel h4{color:var(--muted2)!important;}
+.stat-label{color:var(--muted)!important;}
+.stat-val{color:var(--cyan)!important;}
+.stat-val.gold{color:var(--gold-deep)!important;}
+.stat-val.green{color:var(--green)!important;}
+.stat-desc{color:var(--muted2)!important;}
+.divider{background:var(--border)!important;}
+/* Interpretación: el HTML usa inline style color:var(--text) → ya es tinta */
+#stat-interpretacion{color:var(--text)!important;}
+
+/* ── TABLA ── */
+.tc{
+  background:#FFFFFF!important;
+  border:1px solid var(--border)!important;
+  box-shadow:var(--shadow-card)!important;
+  border-radius:16px!important;
+}
+.tc h3{color:var(--muted2)!important;}
+thead th{
+  color:var(--muted2)!important;
+  border-bottom:1px solid var(--border2)!important;
+}
+tbody td{
+  color:var(--text)!important;
+  border-bottom:1px solid var(--border)!important;
+}
+tbody tr:nth-child(even) td{background:rgba(15,23,42,.02)!important;}
+tbody tr:hover td{background:rgba(224,179,65,.08)!important;}
+.pos{color:var(--green)!important;}
+.neg{color:var(--red)!important;}
+.warn-c{color:var(--gold-deep)!important;}
+.trend-up{color:var(--green)!important;}
+.trend-down{color:var(--red)!important;}
+.trend-flat{color:var(--muted)!important;}
+
+/* ── ALERTAS: tonos claros legibles ── */
+.alert-card.alert-red{
+  background:rgba(220,38,38,.06)!important;border-color:rgba(220,38,38,.28)!important;
+}
+.alert-card.alert-yellow{
+  background:rgba(180,83,9,.07)!important;border-color:rgba(180,83,9,.28)!important;
+}
+.alert-card.alert-green{
+  background:rgba(22,163,74,.07)!important;border-color:rgba(22,163,74,.28)!important;
+}
+.alert-card.alert-red .alert-body h4{color:var(--red)!important;}
+.alert-card.alert-yellow .alert-body h4{color:var(--orange)!important;}
+.alert-card.alert-green .alert-body h4{color:var(--green)!important;}
+.alert-body p{color:var(--muted2)!important;}
+.alert-body .alert-meta{color:var(--muted)!important;}
+
+/* ── PROYECCIÓN ── */
+.proyeccion-card{
+  background:#FFFFFF!important;
+  border:1px solid var(--border)!important;
+  box-shadow:var(--shadow-card)!important;
+  border-radius:16px!important;
+}
+.proyeccion-card h3{color:var(--muted2)!important;}
+.proy-item{
+  background:#FCFAF4!important;
+  border:1px solid var(--border)!important;
+  border-radius:12px!important;
+  container-type:inline-size;
+}
+.proy-label{color:var(--muted)!important;}
+.proy-val{
+  color:var(--orange)!important;
+  font-size:clamp(1rem,11cqi,1.45rem)!important;
+  white-space:nowrap;max-width:100%;
+}
+
+/* ── GAUGE ── */
+.gauge-score{color:var(--text)!important;}
+
+/* ── LOADING OVERLAY: claro ── */
+#loading-overlay{background:var(--bg)!important;}
+.spinner{
+  border:3px solid var(--border2)!important;
+  border-top-color:var(--gold-deep)!important;
+}
+.loading-text{color:var(--muted2)!important;}
+
+/* ── FOOTER ── */
+.footer{
+  color:var(--muted)!important;
+  border-top:1px solid var(--border)!important;
+}
+
+/* ── LEGEND ── */
+.legend-item{color:var(--muted2)!important;}
+
+/* ── ACCENT BARS / dots: mapear acentos oscuros a paleta clara ── */
+.cc h3 .accent-bar{background:var(--blue)!important;}
+.cc h3 .accent-bar.gold{background:var(--gold-deep)!important;}
+.cc h3 .accent-bar.green{background:var(--green)!important;}
+.cc h3 .accent-bar.cyan{background:var(--cyan)!important;}
+</style>
 </head>
 <body>
 
