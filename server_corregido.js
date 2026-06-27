@@ -13684,6 +13684,7 @@ get('/api/oc/listado', async (req) => {
   const desde   = String(req.query.desde || '2025-01-01').replace(/[^0-9-]/g, '');
   const desdeId = parseInt(req.query.desde_id || '0', 10) || 0;
   const limit   = Math.min(parseInt(req.query.limit || '400', 10) || 400, 1000);
+  let _herr=null, _derr=null;
 
   const heads = await _fbQueryBlobs(
     `SELECT FIRST ${limit} cm.DOCTO_CM_ID
@@ -13692,9 +13693,9 @@ get('/api/oc/listado', async (req) => {
         AND cm.TIPO_DOCTO = 'O'
         AND cm.ESTATUS <> 'C'
         AND cm.FECHA >= DATE '${desde}'
-      ORDER BY cm.DOCTO_CM_ID`, [], 60000, dbo, []).catch(() => []);
+      ORDER BY cm.DOCTO_CM_ID`, [], 60000, dbo, []).catch((e) => { _herr = String((e&&e.message)||e); return []; });
   const ids = (heads || []).map(h => h.DOCTO_CM_ID).filter(x => x != null);
-  if (!ids.length) return { ok: true, rows: [] };
+  if (!ids.length) return { ok: true, rows: [], _diag: { heads: (heads||[]).length, herr: _herr } };
 
   const rows = await _fbQueryBlobs(
     `SELECT cm.DOCTO_CM_ID, cm.FOLIO, cm.FECHA, cm.ESTATUS,
@@ -13708,8 +13709,8 @@ get('/api/oc/listado', async (req) => {
        LEFT JOIN PROVEEDORES prov ON prov.PROVEEDOR_ID = cm.PROVEEDOR_ID
        LEFT JOIN ARTICULOS   art  ON art.ARTICULO_ID  = det.ARTICULO_ID
       WHERE cm.DOCTO_CM_ID IN (${ids.join(',')})
-      ORDER BY cm.DOCTO_CM_ID, det.DOCTO_CM_DET_ID`, [], 60000, dbo, []).catch(() => []);
-  return { ok: true, rows };
+      ORDER BY cm.DOCTO_CM_ID, det.DOCTO_CM_DET_ID`, [], 60000, dbo, []).catch((e) => { _derr = String((e&&e.message)||e); return []; });
+  return { ok: true, rows, _diag: { heads: ids.length, derr: _derr } };
 });
 
 // ── 2) FACTURAS DE PROVEEDOR / COMPRAS (DOCTOS_CM TIPO_DOCTO='C') ──────────────
