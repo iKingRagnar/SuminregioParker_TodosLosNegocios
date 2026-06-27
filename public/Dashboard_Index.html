@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="dark">
+<html lang="es" data-theme="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -311,7 +311,7 @@ a { text-decoration: none; color: inherit; }
 
 .icon-moon, .icon-sun { transition: opacity .2s, transform .2s; }
 [data-theme="light"] .icon-moon { display: none; }
-[data-theme="dark"]  .icon-sun  { display: none; }
+[data-theme="light"]  .icon-sun  { display: none; }
 
 /* ═══════════════════════════════════════════════
    HERO SECTION
@@ -1428,7 +1428,7 @@ a { text-decoration: none; color: inherit; }
 <script>
 /* ── THEME ── */
 (function(){
-  const saved = localStorage.getItem('suminregio-theme') || 'dark';
+  const saved = localStorage.getItem('suminregio-theme') || 'light';
   document.documentElement.setAttribute('data-theme', saved);
 })();
 

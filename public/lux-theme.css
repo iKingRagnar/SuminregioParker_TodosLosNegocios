@@ -555,11 +555,25 @@ html.theme-premium-light [class*="metric"][class*="value"] {
   letter-spacing: -.035em !important;
   line-height: 1.04 !important;
 }
+/* ── 6.3b · El número SIEMPRE cabe: escala con el ANCHO de la tarjeta ── */
+html.theme-premium-light .kpi-card,
+html.theme-premium-light .kpi,
+html.theme-premium-light .sc-card,
+html.theme-premium-light .metric-card,
+html.theme-premium-light .ms-kpi,
+html.theme-premium-light [class*="kpi-card"] { container-type: inline-size; }
+
 html.theme-premium-light .kpi-value,
 html.theme-premium-light .kpi-val,
+html.theme-premium-light .ms-kpi-value,
 html.theme-premium-light .metric-value,
-html.theme-premium-light .sc-val {
-  font-size: clamp(1.65rem, 2.3vw, 2.2rem) !important;
+html.theme-premium-light .sc-val,
+html.theme-premium-light [class*="kpi"][class*="val"],
+html.theme-premium-light [class*="metric"][class*="value"] {
+  font-size: clamp(1.05rem, 13cqi, 1.7rem) !important;
+  white-space: nowrap !important;
+  max-width: 100% !important;
+  overflow: visible !important;
 }
 
 /* ── 6.4 Acentos de color VÍVIDOS en tarjetas por categoría ──────────────── */
