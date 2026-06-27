@@ -570,7 +570,7 @@ html.theme-premium-light .metric-value,
 html.theme-premium-light .sc-val,
 html.theme-premium-light [class*="kpi"][class*="val"],
 html.theme-premium-light [class*="metric"][class*="value"] {
-  font-size: clamp(1.05rem, 13cqi, 1.7rem) !important;
+  font-size: clamp(1.05rem, 11cqi, 1.7rem) !important;
   white-space: nowrap !important;
   max-width: 100% !important;
   overflow: visible !important;

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="theme-premium-light" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -439,6 +439,194 @@
 <link rel="stylesheet" href="app-ui.css">
 <link rel="stylesheet" href="app-responsive.css">
 <script src="app-ui-boot.js" defer></script>
+<style>
+/* ═══════════════════════════════════════════════════════════
+   LIGHT PREMIUM THEME — "ejecutivo de lujo, TODO CLARO"
+   Override del tema oscuro. Solo CSS visual. (Suminregio)
+   ═══════════════════════════════════════════════════════════ */
+:root {
+  --bg:        #F4F6FA !important;
+  --card:      #FFFFFF !important;
+  --card2:     #FCFAF4 !important;
+  --border:    rgba(15,23,42,.07) !important;
+  --border2:   rgba(15,23,42,.12) !important;
+  --gold:      #E0B341 !important;
+  --gold-deep: #B8860B !important;
+  --gold-dim:  rgba(224,179,65,.16) !important;
+  --blue:      #2563EB !important;
+  --blue-dim:  rgba(37,99,235,.12) !important;
+  --green:     #16A34A !important;
+  --green-dim: rgba(22,163,74,.12) !important;
+  --red:       #DC2626 !important;
+  --red-dim:   rgba(220,38,38,.12) !important;
+  --orange:    #B45309 !important;
+  --orange-dim:rgba(180,83,9,.12) !important;
+  --text:      #0F172A !important;
+  --muted:     #475569 !important;
+  --muted2:    #64748B !important;
+  --rad:  16px !important;
+  --rad-sm: 10px !important;
+  /* chart series colors (legibles sobre claro) */
+  --ve: #2563EB !important; --pv: #C2410C !important;
+  --pos: #16A34A !important; --neg: #DC2626 !important;
+}
+
+html, body { background:#F4F6FA !important; color:#0F172A !important; }
+
+/* Atenúa los orbes para que no oscurezcan el fondo claro */
+.bg-orbs span { opacity:.07 !important; filter:blur(90px) !important; }
+
+/* ── HEADER como tarjeta marfil con barra dorada superior ── */
+.hdr {
+  background:linear-gradient(135deg,#FFFFFF 0%,#FCFAF3 100%) !important;
+  border:1px solid rgba(224,179,65,.28) !important;
+  border-radius:18px !important;
+  box-shadow:0 10px 30px -16px rgba(15,23,42,.18) !important;
+  backdrop-filter:none !important; -webkit-backdrop-filter:none !important;
+  overflow:hidden !important; position:sticky !important;
+}
+.hdr::before {
+  content:''; position:absolute; inset:0 0 auto 0; height:4px;
+  background:linear-gradient(135deg,#F5C33C,#E0B341 45%,#B8860B);
+  z-index:2; pointer-events:none;
+}
+.hdr-top { border-bottom:1px solid rgba(15,23,42,.07) !important; }
+.hdr-logo {
+  background:linear-gradient(135deg,#F5C33C 0%,#E0B341 45%,#B8860B 100%) !important;
+  color:#1A1200 !important;
+  box-shadow:0 6px 16px -6px rgba(224,179,65,.6) !important;
+}
+.hdr-titles h1 {
+  font-family:'Syne',var(--font-title),sans-serif !important;
+  font-weight:800 !important;
+  background:linear-gradient(135deg,#B8860B,#E0B341 55%,#8A6A0B) !important;
+  -webkit-background-clip:text !important; background-clip:text !important;
+  -webkit-text-fill-color:transparent !important;
+}
+.hdr-titles .sub { color:#64748B !important; }
+#hdr-clock { color:#64748B !important; }
+
+.live-badge {
+  background:rgba(22,163,74,.10) !important;
+  border:1px solid rgba(22,163,74,.28) !important;
+  color:#15803D !important;
+}
+.live-dot { background:#16A34A !important; box-shadow:0 0 8px rgba(22,163,74,.7) !important; }
+
+.btn-print {
+  background:linear-gradient(135deg,#F5C33C,#E0B341 45%,#B8860B) !important;
+  color:#1A1200 !important; border:none !important; font-weight:600 !important;
+  box-shadow:0 4px 12px -3px rgba(224,179,65,.5) !important;
+}
+.btn-print:hover { filter:brightness(1.04) !important; }
+
+/* ── NAV pills claros ── */
+.hdr-nav a {
+  color:#475569 !important; background:#F4F6FA !important;
+  border:1px solid rgba(15,23,42,.10) !important;
+}
+.hdr-nav a:hover {
+  color:#8A6A0B !important; background:rgba(224,179,65,.10) !important;
+  border-color:rgba(224,179,65,.35) !important;
+}
+.hdr-nav a.active {
+  color:#8A6A0B !important; font-weight:700 !important;
+  background:linear-gradient(135deg,rgba(224,179,65,.22),rgba(224,179,65,.07)) !important;
+  border-color:rgba(224,179,65,.42) !important;
+}
+
+/* ── FILTROS claros ── */
+.filters-bar {
+  background:#FFFFFF !important; border:1px solid rgba(15,23,42,.07) !important;
+  box-shadow:0 1px 2px rgba(15,23,42,.04),0 8px 24px -16px rgba(15,23,42,.14) !important;
+}
+.fgroup label { color:#64748B !important; }
+.fgroup select {
+  background:#FFFFFF !important; color:#0F172A !important;
+  border:1px solid rgba(15,23,42,.12) !important;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(71,85,105,.6)'/%3E%3C/svg%3E") !important;
+  background-repeat:no-repeat !important; background-position:right 10px center !important;
+}
+.fgroup select:focus { border-color:rgba(224,179,65,.55) !important; }
+.fgroup select option { background:#FFFFFF !important; color:#0F172A !important; }
+
+/* badges de filtro */
+.filter-badge { border:1px solid rgba(15,23,42,.10) !important; }
+.badge-all   { background:rgba(15,23,42,.05) !important; color:#475569 !important; }
+.badge-month { background:rgba(37,99,235,.10) !important; color:#1D4ED8 !important; border-color:rgba(37,99,235,.25) !important; }
+.badge-week  { background:rgba(180,83,9,.10) !important; color:#B45309 !important; border-color:rgba(180,83,9,.25) !important; }
+
+/* ── KPI cards claras + números que SIEMPRE caben ── */
+.kpi {
+  background:linear-gradient(168deg,#FFFFFF,#FCFAF4) !important;
+  border:1px solid rgba(15,23,42,.07) !important;
+  border-radius:16px !important;
+  box-shadow:0 1px 2px rgba(15,23,42,.04),0 10px 28px -16px rgba(15,23,42,.16) !important;
+  container-type:inline-size;
+}
+.kpi:hover {
+  box-shadow:0 16px 36px -16px rgba(224,179,65,.4) !important;
+  border-color:rgba(224,179,65,.3) !important;
+}
+.kpi-label { color:#64748B !important; }
+.kpi-val {
+  color:#0B1220; font-weight:600 !important;
+  font-size:clamp(1rem, 11cqi, 1.65rem) !important;
+  white-space:nowrap !important; max-width:100% !important; overflow:hidden !important;
+}
+.kpi-sub { color:#94A3B8 !important; }
+.kpi-delta.delta-up   { background:rgba(22,163,74,.12) !important; color:#15803D !important; }
+.kpi-delta.delta-down { background:rgba(220,38,38,.12) !important; color:#DC2626 !important; }
+
+/* ── CHART + TABLE cards claras ── */
+.ccard, .tcard, .tabs-wrap {
+  background:#FFFFFF !important; border:1px solid rgba(15,23,42,.07) !important;
+  box-shadow:0 1px 2px rgba(15,23,42,.04),0 8px 24px -14px rgba(15,23,42,.14) !important;
+}
+.ccard h3, .tcard h3 { color:#0F172A !important; font-weight:700 !important; }
+.ccard h3 .badge, .tabs-wrap .badge, .ccard .badge {
+  background:rgba(37,99,235,.10) !important; color:#1D4ED8 !important;
+  border:1px solid rgba(37,99,235,.22) !important;
+}
+
+/* ── TABLAS claras ── */
+thead th {
+  color:#475569 !important;
+  border-bottom:2px solid rgba(224,179,65,.30) !important;
+  background:linear-gradient(180deg,#FBF6E9,#F6F8FC) !important;
+}
+thead th:hover { color:#0F172A !important; background:#F1F5F9 !important; }
+tbody td { color:#0F172A !important; border-bottom:1px solid rgba(15,23,42,.05) !important; }
+tbody tr:nth-child(even) td { background:rgba(15,23,42,.018) !important; }
+tbody tr:hover td { background:rgba(224,179,65,.08) !important; }
+.bar-bg { background:#2563EB !important; opacity:.08 !important; }
+.pos { color:#16A34A !important; } .neg { color:#DC2626 !important; }
+
+/* ── CROSS-FILTER pills ── */
+.filter-pill {
+  background:rgba(37,99,235,.10) !important; color:#1D4ED8 !important;
+  border:1px solid rgba(37,99,235,.28) !important;
+}
+.filter-pill button { color:#1D4ED8 !important; }
+
+/* ── TABS ── */
+.tab { color:#64748B !important; }
+.tab:hover:not(.active) { color:#0F172A !important; background:rgba(15,23,42,.04) !important; }
+.tab.active { color:#8A6A0B !important; border-bottom-color:#E0B341 !important; }
+.tabs { border-bottom-color:rgba(15,23,42,.08) !important; }
+
+/* ── FOOTER ── */
+.footer { color:#94A3B8 !important; }
+
+/* ── PRINT ── */
+@media print {
+  html, body { background:#FFFFFF !important; color:#0F172A !important; }
+  .bg-orbs { display:none !important; }
+  .hdr { background:#FFFFFF !important; border:1px solid #E2E8F0 !important; }
+  .hdr-titles h1 { -webkit-text-fill-color:#B8860B !important; background:none !important; color:#B8860B !important; }
+  .ccard, .tcard, .kpi, .tabs-wrap { background:#FFFFFF !important; border:1px solid #E2E8F0 !important; }
+}
+</style>
 </head>
 <body>
 <!-- Ambient background orbs -->
@@ -592,8 +780,8 @@ const C = ['#4DA6FF','#FB923C','#34D399','#F87171','#E0B341','#B87FFF','#38BDF8'
 
 // Premium Chart.js global defaults
 if (typeof Chart !== 'undefined') {
-    Chart.defaults.color = 'rgba(232,239,248,.55)';
-    Chart.defaults.borderColor = 'rgba(255,255,255,.06)';
+    Chart.defaults.color = 'rgba(71,85,105,.85)';
+    Chart.defaults.borderColor = 'rgba(15,23,42,.08)';
     Chart.defaults.font.family = "'DM Mono', monospace";
     Chart.defaults.plugins.legend.labels.boxWidth = 10;
     Chart.defaults.plugins.legend.labels.padding = 16;
@@ -868,7 +1056,7 @@ function renderTrend(f) {
                 }
             },
             plugins:{ legend:{position:'top',labels:{usePointStyle:true,padding:14,font:{size:11}}}, tooltip:{callbacks:{label:ctx=>ctx.dataset.label+': '+fmt$(ctx.parsed.y)}} },
-            scales:{ x:{grid:{display:false},stacked:ch==='all',ticks:{font:{family:'DM Mono, monospace',size:10}}}, y:{beginAtZero:true,stacked:ch==='all',grid:{color:'rgba(255,255,255,.05)'},ticks:{callback:v=>fmtShort(v),font:{family:'DM Mono, monospace',size:10}}} }
+            scales:{ x:{grid:{display:false},stacked:ch==='all',ticks:{font:{family:'DM Mono, monospace',size:10}}}, y:{beginAtZero:true,stacked:ch==='all',grid:{color:'rgba(15,23,42,.07)'},ticks:{callback:v=>fmtShort(v),font:{family:'DM Mono, monospace',size:10}}} }
         }
     });
 }

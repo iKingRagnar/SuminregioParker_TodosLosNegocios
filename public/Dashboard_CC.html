@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="light" class="theme-premium-light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -14,31 +14,32 @@
    DESIGN TOKENS
    ======================================== */
 :root {
-  --bg:          #060E1A;
-  --card:        #0C1B29;
-  --card2:       #0F2035;
-  --border:      rgba(255,255,255,.06);
-  --border-glow: rgba(230,168,0,.25);
+  /* ===== LIGHT PREMIUM (ejecutivo de lujo, todo claro) ===== */
+  --bg:          #F4F6FA;
+  --card:        #FFFFFF;
+  --card2:       #FCFAF4;
+  --border:      rgba(15,23,42,.07);
+  --border-glow: rgba(224,179,65,.30);
 
-  --gold:    #E0B341;
-  --blue:    #4DA6FF;
-  --green:   #34D399;
-  --red:     #F87171;
-  --orange:  #FB923C;
-  --purple:  #A78BFA;
+  --gold:    #B8860B;
+  --blue:    #1D4ED8;
+  --green:   #16A34A;
+  --red:     #DC2626;
+  --orange:  #B45309;
+  --purple:  #6D28D9;
 
-  --gold-dim:   rgba(230,168,0,.15);
-  --blue-dim:   rgba(77,166,255,.15);
-  --green-dim:  rgba(0,229,160,.15);
-  --red-dim:    rgba(255,69,102,.15);
-  --orange-dim: rgba(255,140,66,.15);
+  --gold-dim:   rgba(224,179,65,.14);
+  --blue-dim:   rgba(29,78,216,.10);
+  --green-dim:  rgba(22,163,74,.12);
+  --red-dim:    rgba(220,38,38,.10);
+  --orange-dim: rgba(180,83,9,.12);
 
-  --text-primary:   #F0F4FA;
-  --text-secondary: #8899AA;
-  --text-muted:     #4A5F72;
+  --text-primary:   #0F172A;
+  --text-secondary: #475569;
+  --text-muted:     #64748B;
 
-  --rad:  14px;
-  --rad-sm: 8px;
+  --rad:  16px;
+  --rad-sm: 10px;
   --gap:  20px;
 
   --font-title: 'Syne', system-ui, sans-serif;
@@ -721,6 +722,245 @@ tbody tr:hover td {
 <link rel="stylesheet" href="app-ui.css">
 <link rel="stylesheet" href="app-responsive.css">
 <script src="app-ui-boot.js" defer></script>
+<!-- ========================================================================
+     OVERRIDE — TEMA EJECUTIVO DE LUJO, TODO CLARO (light premium)
+     Convierte el dashboard oscuro a claro. Solo CSS visual; sin tocar JS/HTML.
+     Cargado al final del <head> para ganar la cascada.
+     ======================================================================== -->
+<style>
+:root{
+  --lx-bg:#F4F6FA; --lx-card:#FFFFFF; --lx-card2:#FCFAF4;
+  --lx-ink:#0F172A; --lx-ink2:#475569; --lx-ink3:#64748B;
+  --lx-line:rgba(15,23,42,.07); --lx-line2:rgba(15,23,42,.12);
+  --lx-gold1:#F5C33C; --lx-gold2:#E0B341; --lx-gold3:#B8860B;
+  --lx-green:#16A34A; --lx-amber:#B45309; --lx-red:#DC2626; --lx-blue:#1D4ED8;
+  --lx-shadow:0 8px 24px -14px rgba(15,23,42,.14);
+  --lx-shadow-soft:0 4px 14px -10px rgba(15,23,42,.12);
+}
+
+/* ---------- BASE / FONDO CLARO ---------- */
+html[data-theme="light"] body{
+  background:var(--lx-bg) !important;
+  color:var(--lx-ink) !important;
+}
+/* Orbes de fondo: tintes muy suaves sobre claro (nada oscuro) */
+html[data-theme="light"] body::before{
+  background:
+    radial-gradient(ellipse 700px 500px at 10% 12%, rgba(224,179,65,.07) 0%, transparent 70%),
+    radial-gradient(ellipse 560px 420px at 92% 86%, rgba(29,78,216,.05) 0%, transparent 70%),
+    radial-gradient(ellipse 600px 400px at 50% 50%, rgba(22,163,74,.035) 0%, transparent 70%) !important;
+}
+/* Scrollbar clara */
+html[data-theme="light"] ::-webkit-scrollbar-track{ background:#EEF2F7 !important; }
+html[data-theme="light"] ::-webkit-scrollbar-thumb{ background:rgba(15,23,42,.18) !important; }
+html[data-theme="light"] ::-webkit-scrollbar-thumb:hover{ background:rgba(15,23,42,.32) !important; }
+
+/* ---------- HEADER: tarjeta blanca/marfil + barra dorada + h1 dorado ---------- */
+html[data-theme="light"] .hdr{
+  background:linear-gradient(135deg,#FFFFFF 0%,#FCFAF3 100%) !important;
+  border:1px solid var(--lx-line) !important;
+  box-shadow:var(--lx-shadow) !important;
+}
+html[data-theme="light"] .hdr::before{
+  height:3px !important;
+  background:linear-gradient(90deg,var(--lx-gold1) 0%,var(--lx-gold2) 45%,var(--lx-gold3) 100%) !important;
+}
+html[data-theme="light"] .hdr::after{
+  background:linear-gradient(180deg,var(--lx-gold2),var(--lx-gold3)) !important;
+}
+html[data-theme="light"] .hdr h1{
+  background:linear-gradient(135deg,var(--lx-gold1),var(--lx-gold2) 55%,var(--lx-gold3)) !important;
+  -webkit-background-clip:text !important; background-clip:text !important;
+  -webkit-text-fill-color:transparent !important; color:transparent !important;
+}
+html[data-theme="light"] .hdr .sub{ color:var(--lx-ink3) !important; }
+html[data-theme="light"] .hdr-logo{
+  background:linear-gradient(135deg,var(--lx-gold1),var(--lx-gold3)) !important;
+  color:#3A2A05 !important;
+  box-shadow:0 4px 12px -6px rgba(184,134,11,.6) !important;
+}
+
+/* LIVE badge -> dorado claro */
+html[data-theme="light"] .live-badge{
+  background:rgba(224,179,65,.12) !important;
+  border:1px solid rgba(184,134,11,.35) !important;
+  color:var(--lx-gold3) !important;
+}
+html[data-theme="light"] .live-dot{ background:var(--lx-gold3) !important; }
+html[data-theme="light"] #live-clock{
+  color:var(--lx-ink2) !important;
+  background:#F4F6FA !important;
+  border:1px solid var(--lx-line) !important;
+}
+
+/* Botón exportar -> pill claro */
+html[data-theme="light"] .hdr .btn-export{
+  background:#F4F6FA !important;
+  color:var(--lx-ink2) !important;
+  border:1px solid var(--lx-line2) !important;
+}
+html[data-theme="light"] .hdr .btn-export:hover{
+  background:#FFF7E6 !important;
+  border-color:rgba(184,134,11,.5) !important;
+  color:var(--lx-gold3) !important;
+}
+
+/* NAV links -> pills claros; activo dorado */
+html[data-theme="light"] .hdr .nav{ border-top:1px solid var(--lx-line) !important; }
+html[data-theme="light"] .hdr .nav a{
+  color:var(--lx-ink2) !important;
+  background:#F4F6FA !important;
+  border:1px solid var(--lx-line2) !important;
+}
+html[data-theme="light"] .hdr .nav a:hover{
+  background:#EEF2F8 !important;
+  color:var(--lx-ink) !important;
+  border-color:rgba(15,23,42,.18) !important;
+}
+html[data-theme="light"] .hdr .nav a.active{
+  background:linear-gradient(135deg,rgba(245,195,60,.22),rgba(224,179,65,.12)) !important;
+  color:var(--lx-gold3) !important;
+  border-color:rgba(184,134,11,.45) !important;
+}
+
+/* ---------- TABS ---------- */
+html[data-theme="light"] .tabs{
+  background:#FFFFFF !important;
+  border:1px solid var(--lx-line) !important;
+  box-shadow:var(--lx-shadow-soft) !important;
+}
+html[data-theme="light"] .tab{ color:var(--lx-ink2) !important; }
+html[data-theme="light"] .tab:hover:not(.active){
+  background:#F4F6FA !important; color:var(--lx-ink) !important;
+}
+html[data-theme="light"] .tab.active{
+  background:linear-gradient(135deg,var(--lx-gold1),var(--lx-gold2)) !important;
+  color:#3A2A05 !important;
+  border:1px solid rgba(184,134,11,.45) !important;
+  box-shadow:0 2px 10px -4px rgba(184,134,11,.5) !important;
+}
+
+/* ---------- FILTER BADGE / PILLS ---------- */
+html[data-theme="light"] .filter-badge{
+  background:rgba(29,78,216,.05) !important;
+  border:1px solid rgba(29,78,216,.18) !important;
+  border-left:3px solid var(--lx-blue) !important;
+}
+html[data-theme="light"] .filter-pill{
+  background:#F4F6FA !important;
+  border:1px solid var(--lx-line2) !important;
+  color:var(--lx-ink) !important;
+}
+html[data-theme="light"] .filter-pill-btn{ color:var(--lx-ink3) !important; }
+html[data-theme="light"] .filter-pill-btn:hover{ color:var(--lx-red) !important; }
+html[data-theme="light"] .filter-clear-all{ color:var(--lx-blue) !important; }
+html[data-theme="light"] .filter-clear-all:hover{ color:var(--lx-gold3) !important; }
+
+/* ---------- KPI CARDS ---------- */
+html[data-theme="light"] .kpi{
+  background:linear-gradient(135deg,#FFFFFF 0%,#FCFAF4 100%) !important;
+  border:1px solid var(--lx-line) !important;
+  box-shadow:var(--lx-shadow) !important;
+  container-type:inline-size;          /* el número escala según el ANCHO de su tarjeta */
+}
+html[data-theme="light"] .kpi:hover{
+  box-shadow:0 14px 30px -16px rgba(15,23,42,.22) !important;
+}
+html[data-theme="light"] .kpi-label{ color:var(--lx-ink3) !important; }
+html[data-theme="light"] .kpi-sub{ color:var(--lx-ink3) !important; }
+html[data-theme="light"] .kpi-value{
+  color:var(--lx-ink) !important;
+  font-size:clamp(1rem, 11cqi, 1.65rem) !important;  /* nunca se corta */
+  white-space:nowrap;
+  max-width:100%;
+}
+/* Semáforos claros sobre los valores KPI (especificidad alta para ganar a app-ui.css) */
+html[data-theme="light"] body .kpi .kpi-value.success{ color:var(--lx-green) !important; }
+html[data-theme="light"] body .kpi .kpi-value.warning{ color:var(--lx-amber) !important; }
+html[data-theme="light"] body .kpi .kpi-value.danger{ color:var(--lx-red) !important; }
+
+/* ---------- FILTERS BAR ---------- */
+html[data-theme="light"] .filters{
+  background:#FFFFFF !important;
+  border:1px solid var(--lx-line) !important;
+  box-shadow:var(--lx-shadow-soft) !important;
+}
+html[data-theme="light"] .filters label{ color:var(--lx-ink3) !important; }
+html[data-theme="light"] .filters select,
+html[data-theme="light"] .filters input{
+  background:#F8FAFC !important;
+  border:1px solid var(--lx-line2) !important;
+  color:var(--lx-ink) !important;
+  color-scheme:light;
+}
+html[data-theme="light"] .filters select::placeholder,
+html[data-theme="light"] .filters input::placeholder{ color:#94A3B8 !important; }
+html[data-theme="light"] .filters select:hover,
+html[data-theme="light"] .filters input:hover{ border-color:rgba(29,78,216,.35) !important; }
+html[data-theme="light"] .filters select:focus,
+html[data-theme="light"] .filters input:focus{
+  border-color:var(--lx-blue) !important;
+  box-shadow:0 0 0 3px rgba(29,78,216,.12) !important;
+}
+html[data-theme="light"] .filters select option{
+  background:#FFFFFF !important; color:var(--lx-ink) !important;
+}
+
+/* ---------- CARDS ---------- */
+html[data-theme="light"] .card{
+  background:#FFFFFF !important;
+  border:1px solid var(--lx-line) !important;
+  box-shadow:var(--lx-shadow) !important;
+}
+html[data-theme="light"] .card:hover{ border-color:rgba(15,23,42,.14) !important; }
+html[data-theme="light"] .card h3{ color:var(--lx-ink) !important; }
+
+/* ---------- TABLES ---------- */
+html[data-theme="light"] th{
+  background:#F1F5F9 !important;
+  color:var(--lx-ink2) !important;
+  border-bottom:1px solid var(--lx-line2) !important;
+}
+html[data-theme="light"] th:hover{ color:var(--lx-blue) !important; }
+html[data-theme="light"] td{
+  color:var(--lx-ink) !important;
+  border-bottom:1px solid rgba(15,23,42,.05) !important;
+}
+html[data-theme="light"] tbody tr:hover td{ background:rgba(29,78,216,.04) !important; }
+html[data-theme="light"] .table-row-clickable:hover td{ background:rgba(29,78,216,.06) !important; }
+html[data-theme="light"] .table-row-clickable.selected td{ background:rgba(29,78,216,.10) !important; }
+
+/* ---------- BADGES (semáforos claros) ---------- */
+html[data-theme="light"] .badge-danger { background:rgba(220,38,38,.10) !important; color:var(--lx-red) !important;   border:1px solid rgba(220,38,38,.28) !important; }
+html[data-theme="light"] .badge-success{ background:rgba(22,163,74,.12) !important; color:var(--lx-green) !important; border:1px solid rgba(22,163,74,.28) !important; }
+html[data-theme="light"] .badge-warning{ background:rgba(224,179,65,.16) !important; color:var(--lx-amber) !important; border:1px solid rgba(184,134,11,.32) !important; }
+html[data-theme="light"] .badge-info   { background:rgba(29,78,216,.10) !important;  color:var(--lx-blue) !important;  border:1px solid rgba(29,78,216,.25) !important; }
+html[data-theme="light"] .badge-orange { background:rgba(180,83,9,.12) !important;   color:var(--lx-amber) !important; border:1px solid rgba(180,83,9,.25) !important; }
+
+/* ---------- BAR (mini) ---------- */
+html[data-theme="light"] .bar-container{ background:rgba(15,23,42,.08) !important; }
+
+/* ---------- TIP / TOOLTIP (popover claro, nunca oscuro) ---------- */
+html[data-theme="light"] .tip{ color:var(--lx-blue) !important; border-bottom:1px dotted #94A3B8 !important; }
+html[data-theme="light"] .tip:hover::after{
+  background:#FFFFFF !important;
+  color:var(--lx-ink) !important;
+  border:1px solid var(--lx-line2) !important;
+  box-shadow:var(--lx-shadow) !important;
+}
+html[data-theme="light"] .tip:hover::before{ border-top-color:var(--lx-line2) !important; }
+
+/* ---------- FOOTER ---------- */
+html[data-theme="light"] .footer{
+  color:var(--lx-ink3) !important;
+  border-top:1px solid var(--lx-line) !important;
+}
+
+/* ---------- Spans inline con color heredado de tokens (ya cubiertos por :root),
+     refuerzo para los conteos junto a títulos ---------- */
+html[data-theme="light"] [id$="Count"],
+html[data-theme="light"] #pfDistLegend{ color:var(--lx-ink3) !important; }
+</style>
 </head>
 <body>
 
