@@ -473,3 +473,231 @@ html.theme-premium-light .fb-date {
 html.theme-premium-light .fb-sep { background: rgba(15, 23, 42, .12) !important; }
 html.theme-premium-light .fb-range label,
 html.theme-premium-light .fb-apply-hint { color: #64748B !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   6 · VIVACIDAD PREMIUM — profundidad, color con vida y refinamiento
+   ───────────────────────────────────────────────────────────────────────────
+   Sube el listón de "light plano" a "light premium vivo": malla de color suave
+   de fondo, tarjetas con profundidad y hover vivo, números con carácter, acentos
+   de color vívidos y badges más saturados. Manteniendo elegancia ejecutiva.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Paleta vívida (acentos profesionales, no chillones) */
+:root,
+html.theme-premium-light {
+  --lux-blue:   #2F6BFF;  --lux-blue-2:   #5B9DFF;
+  --lux-emer:   #0EA371;  --lux-emer-2:   #2BD49A;
+  --lux-violet: #7C5CFC;  --lux-violet-2: #A98BFF;
+  --lux-rose:   #F43F6B;  --lux-rose-2:   #FF7A9C;
+  --lux-amber:  #F59E0B;  --lux-amber-2:  #FBBF24;
+  --lux-cyan:   #0BB5D6;  --lux-cyan-2:   #38D6F0;
+}
+
+/* ── 6.1 Fondo con malla de color suave (adiós fondo plano) ──────────────── */
+html.theme-premium-light #vp-aurora-root {
+  background:
+    radial-gradient(1100px 640px at 6% -10%, rgba(224, 179, 65, .16), transparent 56%),
+    radial-gradient(1000px 720px at 100% -4%, rgba(47, 107, 255, .10), transparent 54%),
+    radial-gradient(960px 900px at 52% 120%, rgba(124, 92, 252, .07), transparent 60%),
+    linear-gradient(180deg, #FBFAF6 0%, #F3F5FA 58%, #EEF1F8 100%) !important;
+}
+html.theme-premium-light #vp-aurora-root .vp-blob { display: none !important; }
+html.theme-premium-light,
+html.theme-premium-light body { background-color: #F2F4FA !important; }
+
+/* ── 6.2 Tarjetas con profundidad y hover vivo ───────────────────────────── */
+html.theme-premium-light .card,
+html.theme-premium-light .kpi-card,
+html.theme-premium-light .sc-card,
+html.theme-premium-light .metric-card,
+html.theme-premium-light .module-card,
+html.theme-premium-light .uni-entity-card,
+html.theme-premium-light .chart-container,
+html.theme-premium-light [class*="kpi-card"] {
+  background: linear-gradient(168deg, #FFFFFF 0%, #FCFAF4 100%) !important;
+  border: 1px solid rgba(15, 23, 42, .06) !important;
+  border-radius: 18px !important;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, .04),
+    0 10px 30px -16px rgba(15, 23, 42, .20),
+    inset 0 1px 0 rgba(255, 255, 255, .75) !important;
+  transition: transform .24s cubic-bezier(.22, 1, .36, 1),
+              box-shadow .24s cubic-bezier(.22, 1, .36, 1),
+              border-color .24s !important;
+}
+html.theme-premium-light .card:hover,
+html.theme-premium-light .kpi-card:hover,
+html.theme-premium-light .sc-card:hover,
+html.theme-premium-light .metric-card:hover,
+html.theme-premium-light .module-card:hover,
+html.theme-premium-light .uni-entity-card:hover,
+html.theme-premium-light [class*="kpi-card"]:hover {
+  transform: translateY(-4px) !important;
+  border-color: rgba(224, 179, 65, .40) !important;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, .05),
+    0 22px 48px -18px rgba(15, 23, 42, .28),
+    0 12px 36px -18px rgba(224, 179, 65, .45) !important;
+}
+
+/* ── 6.3 Números KPI con carácter (peso, tamaño, tinta intensa) ──────────── */
+html.theme-premium-light .kpi-value,
+html.theme-premium-light .kpi-val,
+html.theme-premium-light .ms-kpi-value,
+html.theme-premium-light .metric-value,
+html.theme-premium-light .sc-val,
+html.theme-premium-light .uni-sum-pill .u-v,
+html.theme-premium-light [class*="kpi"][class*="val"],
+html.theme-premium-light [class*="metric"][class*="value"] {
+  font-weight: 800 !important;
+  color: #0B1220 !important;
+  -webkit-text-fill-color: #0B1220 !important;
+  letter-spacing: -.035em !important;
+  line-height: 1.04 !important;
+}
+html.theme-premium-light .kpi-value,
+html.theme-premium-light .kpi-val,
+html.theme-premium-light .metric-value,
+html.theme-premium-light .sc-val {
+  font-size: clamp(1.65rem, 2.3vw, 2.2rem) !important;
+}
+
+/* ── 6.4 Acentos de color VÍVIDOS en tarjetas por categoría ──────────────── */
+/* Barra superior vívida (las tarjetas de color de index/dashboards). */
+html.theme-premium-light .kpi-card.blue::before   { background: linear-gradient(90deg, var(--lux-blue),   var(--lux-blue-2))   !important; opacity: 1 !important; height: 3px !important; }
+html.theme-premium-light .kpi-card.green::before  { background: linear-gradient(90deg, var(--lux-emer),   var(--lux-emer-2))   !important; opacity: 1 !important; height: 3px !important; }
+html.theme-premium-light .kpi-card.yellow::before { background: var(--lux-gradient-gold) !important; opacity: 1 !important; height: 3px !important; }
+html.theme-premium-light .kpi-card.orange::before { background: linear-gradient(90deg, var(--lux-amber),  var(--lux-amber-2))  !important; opacity: 1 !important; height: 3px !important; }
+html.theme-premium-light .kpi-card.red::before    { background: linear-gradient(90deg, var(--lux-rose),   var(--lux-rose-2))   !important; opacity: 1 !important; height: 3px !important; }
+html.theme-premium-light .kpi-card.purple::before { background: linear-gradient(90deg, var(--lux-violet), var(--lux-violet-2)) !important; opacity: 1 !important; height: 3px !important; }
+html.theme-premium-light .kpi-card.cyan::before   { background: linear-gradient(90deg, var(--lux-cyan),   var(--lux-cyan-2))   !important; opacity: 1 !important; height: 3px !important; }
+
+/* Chips de iconos / acentos circulares: relleno vívido + glow suave. */
+html.theme-premium-light .kpi-icon,
+html.theme-premium-light .card-icon,
+html.theme-premium-light .sc-icon,
+html.theme-premium-light [class*="icon-chip"],
+html.theme-premium-light [class*="-ico"][class*="wrap"] {
+  background: var(--lux-gradient-gold) !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+  box-shadow: 0 6px 16px -4px rgba(224, 179, 65, .55), inset 0 1px 0 rgba(255, 255, 255, .5) !important;
+  border: none !important;
+}
+
+/* ── 6.5 Badges/semáforos más vívidos (gradiente sutil + saturación) ─────── */
+html.theme-premium-light .sem.ok,
+html.theme-premium-light .situation-badge.ok,
+html.theme-premium-light [class*="badge-ok"],
+html.theme-premium-light [class*="badge-success"],
+html.theme-premium-light .semaforo-verde {
+  background: linear-gradient(135deg, rgba(16, 163, 113, .16), rgba(43, 212, 154, .10)) !important;
+  color: #0E7A52 !important; border-color: rgba(16, 163, 113, .30) !important;
+}
+html.theme-premium-light .sem.warn,
+html.theme-premium-light .situation-badge.warn,
+html.theme-premium-light [class*="badge-warn"],
+html.theme-premium-light .semaforo-amarillo {
+  background: linear-gradient(135deg, rgba(245, 158, 11, .18), rgba(251, 191, 36, .10)) !important;
+  color: #B45309 !important; border-color: rgba(245, 158, 11, .32) !important;
+}
+html.theme-premium-light .sem.danger,
+html.theme-premium-light .situation-badge.danger,
+html.theme-premium-light [class*="badge-danger"],
+html.theme-premium-light [class*="badge-red"],
+html.theme-premium-light .semaforo-rojo {
+  background: linear-gradient(135deg, rgba(244, 63, 107, .16), rgba(255, 122, 156, .10)) !important;
+  color: #C81E4A !important; border-color: rgba(244, 63, 107, .30) !important;
+}
+
+/* ── 6.6 Títulos hero con más presencia + eyebrows con acento ────────────── */
+html.theme-premium-light .hero-title,
+html.theme-premium-light [class*="hero"][class*="title"] {
+  font-size: clamp(2rem, 4vw, 3rem) !important;
+  letter-spacing: -.04em !important;
+  line-height: 1 !important;
+  filter: drop-shadow(0 2px 10px rgba(224, 179, 65, .18));
+}
+html.theme-premium-light .hero-eyebrow,
+html.theme-premium-light .uni-eyebrow,
+html.theme-premium-light .section-divider-label {
+  color: var(--lux-gold-deep) !important;
+  font-weight: 600 !important;
+}
+/* Marcador dorado antes de títulos de sección (ritmo visual). */
+html.theme-premium-light .section-title::before,
+html.theme-premium-light .chart-title::before {
+  content: "" !important;
+  display: inline-block;
+  width: 4px; height: 1em;
+  margin-right: .6rem;
+  vertical-align: -.12em;
+  border-radius: 99px;
+  background: var(--lux-gradient-gold);
+  box-shadow: 0 0 10px -1px rgba(224, 179, 65, .55);
+}
+
+/* ── 6.7 Botones primarios: brillo superior + hover con elevación ────────── */
+html.theme-premium-light .btn-primary,
+html.theme-premium-light button.primary,
+html.theme-premium-light button[class*="primary"],
+html.theme-premium-light [class*="btn-gold"],
+html.theme-premium-light [class*="btn"][class*="gold"],
+html.theme-premium-light .fb-apply {
+  background: linear-gradient(135deg, #FAD06A 0%, #E0B341 46%, #B8860B 100%) !important;
+  color: #1A1200 !important; -webkit-text-fill-color: #1A1200 !important;
+  border: none !important; font-weight: 700 !important;
+  box-shadow: 0 6px 18px -4px rgba(224, 179, 65, .55), inset 0 1px 0 rgba(255, 255, 255, .45) !important;
+}
+html.theme-premium-light .btn-primary:hover,
+html.theme-premium-light button.primary:hover,
+html.theme-premium-light .fb-apply:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 10px 26px -5px rgba(224, 179, 65, .68), inset 0 1px 0 rgba(255, 255, 255, .5) !important;
+}
+
+/* ── 6.8 Tablas: cabecera con tinte cálido + más definición ──────────────── */
+html.theme-premium-light table thead th,
+html.theme-premium-light .uni-table thead th {
+  background: linear-gradient(180deg, #FBF6E9, #F6F8FC) !important;
+  color: #4A4127 !important;
+  border-bottom: 2px solid rgba(224, 179, 65, .35) !important;
+  font-weight: 700 !important;
+}
+html.theme-premium-light table tbody tr:hover {
+  background: linear-gradient(90deg, rgba(224, 179, 65, .12), rgba(224, 179, 65, .03) 70%, transparent) !important;
+}
+
+/* ── 6.9 Lavado de color por categoría (las tarjetas "pintan", no solo blancas) ── */
+html.theme-premium-light .kpi-card.green  { background: linear-gradient(168deg, #FFFFFF 0%, #EFFBF5 100%) !important; }
+html.theme-premium-light .kpi-card.blue   { background: linear-gradient(168deg, #FFFFFF 0%, #EFF5FF 100%) !important; }
+html.theme-premium-light .kpi-card.yellow { background: linear-gradient(168deg, #FFFFFF 0%, #FEF8EA 100%) !important; }
+html.theme-premium-light .kpi-card.orange { background: linear-gradient(168deg, #FFFFFF 0%, #FFF4E8 100%) !important; }
+html.theme-premium-light .kpi-card.red    { background: linear-gradient(168deg, #FFFFFF 0%, #FFF0F3 100%) !important; }
+html.theme-premium-light .kpi-card.purple { background: linear-gradient(168deg, #FFFFFF 0%, #F4F1FF 100%) !important; }
+html.theme-premium-light .kpi-card.cyan   { background: linear-gradient(168deg, #FFFFFF 0%, #ECFAFE 100%) !important; }
+/* Glow de hover con el color de la categoría (vida al pasar el mouse). */
+html.theme-premium-light .kpi-card.green:hover  { box-shadow: 0 22px 48px -18px rgba(15,23,42,.26), 0 14px 36px -18px rgba(16,163,113,.45) !important; border-color: rgba(16,163,113,.40) !important; }
+html.theme-premium-light .kpi-card.blue:hover   { box-shadow: 0 22px 48px -18px rgba(15,23,42,.26), 0 14px 36px -18px rgba(47,107,255,.42) !important;  border-color: rgba(47,107,255,.40) !important; }
+html.theme-premium-light .kpi-card.red:hover    { box-shadow: 0 22px 48px -18px rgba(15,23,42,.26), 0 14px 36px -18px rgba(244,63,107,.42) !important;  border-color: rgba(244,63,107,.40) !important; }
+html.theme-premium-light .kpi-card.purple:hover { box-shadow: 0 22px 48px -18px rgba(15,23,42,.26), 0 14px 36px -18px rgba(124,92,252,.42) !important;  border-color: rgba(124,92,252,.40) !important; }
+
+/* Eyebrow de hero como chip dorado sutil (más presencia de marca). */
+html.theme-premium-light .hero-eyebrow,
+html.theme-premium-light .uni-eyebrow {
+  display: inline-flex; align-items: center;
+  padding: .28rem .7rem;
+  border-radius: 99px;
+  background: linear-gradient(135deg, rgba(245,195,60,.18), rgba(224,179,65,.08)) !important;
+  border: 1px solid rgba(224,179,65,.30);
+  letter-spacing: .14em;
+}
+
+/* Refinar el panel grande del portfolio: borde dorado sutil + halo cálido. */
+html.theme-premium-light .uni-portfolio,
+html.theme-premium-light .uni-portfolio-v2 {
+  box-shadow:
+    0 1px 2px rgba(15,23,42,.04),
+    0 24px 60px -24px rgba(15,23,42,.22),
+    inset 0 1px 0 rgba(255,255,255,.8) !important;
+}
