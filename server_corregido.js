@@ -13878,51 +13878,6 @@ get('/api/cm/cfdi', async (req) => {
   return { ok: true, row: (rows && rows[0]) || null };
 });
 
-get('/api/cm/cfdis-probe', async (req) => {
-  const dbo = getReqDbOpts(req);
-  let dist=null, sample=null, err=null;
-  try {
-    dist = await _fbQueryBlobs(
-      `SELECT r.RFC, COUNT(*) AS N FROM REPOSITORIO_CFDI r GROUP BY r.RFC ORDER BY COUNT(*) DESC`,
-      [], 60000, dbo, []);
-  } catch(e){ err='dist:'+String((e&&e.message)||e); }
-  try {
-    let sm = await _fbQueryBlobs(
-      `SELECT FIRST 6 r.UUID, r.FOLIO, r.FECHA, r.RFC, r.TIPO_COMPROBANTE, r.XML
-         FROM REPOSITORIO_CFDI r WHERE r.RFC <> 'SNT391220717' ORDER BY r.FECHA DESC`,
-      [], 60000, dbo, ['XML']);
-    sample = (sm||[]).map(x=>({UUID:x.UUID, FOLIO:x.FOLIO, RFC:x.RFC, TIPO:x.TIPO_COMPROBANTE, XML_LEN:String(x.XML||'').length}));
-  } catch(e){ err=(err||'')+' | sample:'+String((e&&e.message)||e); }
-  let tipos=null;
-  try {
-    tipos = await _fbQueryBlobs(
-      `SELECT cm.TIPO_DOCTO, COUNT(*) AS N FROM DOCTOS_CM cm GROUP BY cm.TIPO_DOCTO ORDER BY COUNT(*) DESC`,
-      [], 60000, dbo, []);
-  } catch(e){ err=(err||'')+' | tipos:'+String((e&&e.message)||e); }
-  let nat=null;
-  try {
-    nat = await _fbQueryBlobs(
-      `SELECT r.NATURALEZA, COUNT(*) AS N FROM REPOSITORIO_CFDI r GROUP BY r.NATURALEZA`,
-      [], 60000, dbo, []);
-  } catch(e){ err=(err||'')+' | nat:'+String((e&&e.message)||e); }
-  let cfdi_cols=null;
-  try {
-    cfdi_cols = await _fbQueryBlobs(
-      `SELECT TRIM(rf.RDB$FIELD_NAME) AS COL FROM RDB$RELATION_FIELDS rf
-        WHERE rf.RDB$RELATION_NAME = 'REPOSITORIO_CFDI' ORDER BY rf.RDB$FIELD_POSITION`,
-      [], 60000, dbo, []);
-    cfdi_cols = (cfdi_cols||[]).map(x=>x.COL);
-  } catch(e){ err=(err||'')+' | cols:'+String((e&&e.message)||e); }
-  let oc_estatus=null;
-  try {
-    oc_estatus = await _fbQueryBlobs(
-      `SELECT cm.ESTATUS, COUNT(*) AS N, MIN(cm.FECHA) AS FMIN, MAX(cm.FECHA) AS FMAX
-         FROM DOCTOS_CM cm WHERE cm.TIPO_DOCTO = 'O' GROUP BY cm.ESTATUS`,
-      [], 60000, dbo, []);
-  } catch(e){ err=(err||'')+' | oc_est:'+String((e&&e.message)||e); }
-  return { ok:true, err, total_rfcs: dist?dist.length:null, dist_top:(dist||[]).slice(0,15), sample_no_hospital: sample, doctos_cm_por_tipo: tipos, oc_por_estatus: oc_estatus, repositorio_cfdi_cols: cfdi_cols, naturaleza: nat };
-});
-
 // PEDIDOS vs ENTREGADO — Cumplimiento por pedido y línea de artículo
 // Álvaro: "lo que pidió el hospital vs lo que se entregó"
 //
