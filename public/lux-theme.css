@@ -555,26 +555,47 @@ html.theme-premium-light [class*="metric"][class*="value"] {
   letter-spacing: -.035em !important;
   line-height: 1.04 !important;
 }
-/* ── 6.3b · El número SIEMPRE cabe: escala con el ANCHO de la tarjeta ── */
+/* ── 6.3b · El número SIEMPRE cabe (sin amontonar) ─────────────────────────
+   Distingue el valor HERO (1 por tarjeta → escala con la tarjeta) de los
+   mini-stats (varios en columnas angostas → escalan con SU columna). Así los
+   montos largos nunca se cortan ni se enciman. */
 html.theme-premium-light .kpi-card,
 html.theme-premium-light .kpi,
 html.theme-premium-light .sc-card,
 html.theme-premium-light .metric-card,
 html.theme-premium-light .ms-kpi,
 html.theme-premium-light [class*="kpi-card"] { container-type: inline-size; }
+/* contenedores de mini-stats (cada columna es su propio contenedor) */
+html.theme-premium-light .sc-kpi,
+html.theme-premium-light .uni-ec-m,
+html.theme-premium-light .uni-sum-pill { container-type: inline-size; }
 
+/* Valor HERO: grande, escala con la tarjeta */
 html.theme-premium-light .kpi-value,
 html.theme-premium-light .kpi-val,
 html.theme-premium-light .ms-kpi-value,
 html.theme-premium-light .metric-value,
-html.theme-premium-light .sc-val,
-html.theme-premium-light [class*="kpi"][class*="val"],
-html.theme-premium-light [class*="metric"][class*="value"] {
-  font-size: clamp(1.05rem, 11cqi, 1.7rem) !important;
+html.theme-premium-light .sc-val {
+  font-size: clamp(1.05rem, 12cqi, 1.65rem) !important;
   white-space: nowrap !important;
   max-width: 100% !important;
-  overflow: visible !important;
 }
+/* Mini-stats: caben en su columna angosta (PERIODO/HOY/CXC, pills, etc.) */
+html.theme-premium-light .sc-card .sc-kpi-val,
+html.theme-premium-light .uni-entity-card .m-v,
+html.theme-premium-light .uni-sum-pill .u-v {
+  font-size: clamp(.56rem, 12cqi, .82rem) !important;
+  white-space: nowrap !important;
+  letter-spacing: -.02em !important;
+  max-width: 100% !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+/* ── Menos amontonado: tarjetas de empresa más anchas y con aire ── */
+html.theme-premium-light .sc-grid { grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)) !important; gap: 1.1rem !important; }
+html.theme-premium-light .sc-kpis { gap: .55rem !important; }
+html.theme-premium-light .sc-kpi { padding: .55rem .4rem !important; }
+html.theme-premium-light .sc-kpi-lbl { font-size: .5rem !important; }
 
 /* ── 6.4 Acentos de color VÍVIDOS en tarjetas por categoría ──────────────── */
 /* Barra superior vívida (las tarjetas de color de index/dashboards). */
