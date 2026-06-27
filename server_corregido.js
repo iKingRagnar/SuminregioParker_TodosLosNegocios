@@ -13847,9 +13847,9 @@ get('/api/cm/cfdis', async (req) => {
   // METADATA ONLY (sin XML) — para emparejar factura↔CFDI rapido. El XML se baja por /api/cm/cfdi?uuid=
   const dbo   = getReqDbOpts(req);
   const limit = Math.min(parseInt(req.query.limit || '3000', 10) || 3000, 6000);
-  const sql = `SELECT FIRST ${limit} r.UUID, r.FOLIO, r.FECHA, r.RFC, r.TIPO_COMPROBANTE
+  const sql = `SELECT FIRST ${limit} r.UUID, r.FOLIO, r.FECHA, r.RFC, r.NOMBRE, r.IMPORTE, r.NATURALEZA
        FROM REPOSITORIO_CFDI r
-      WHERE r.TIPO_COMPROBANTE = 'I' AND r.RFC <> 'SNT391220717'
+      WHERE r.NATURALEZA = 'R'
       ORDER BY r.FECHA DESC`;
   const rows = await _fbQueryBlobs(sql, [], 60000, dbo, []).catch(() => []);
   return { ok: true, count: (rows || []).length, rows: rows || [] };
