@@ -134,6 +134,41 @@
     { href: 'metas.html',                label: 'Metas',    icon: 'M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z' },
   ];
 
+  // Accesos a OTROS SISTEMAS (externos, abren en pestaña nueva).
+  var EXT_LINKS = [
+    {
+      href: 'https://web-production-d65d4.up.railway.app/',
+      label: 'Suministros Médicos',
+      sub: 'Abrir sistema',
+      kind: 'sumi',
+      icon: 'M20 6h-3V4c0-1.1-.9-2-2-2H9c-1.1 0-2 .9-2 2v2H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-7 7h-2v2H9v-2H7v-2h2V9h2v2h2v2zm0-7H9V4h4v2z'
+    },
+    {
+      href: 'https://mapasuminregio-production.up.railway.app/',
+      label: 'Mapa de Prospección',
+      sub: 'Ver mapa',
+      kind: 'mapa',
+      icon: 'M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z'
+    }
+  ];
+  var EXT_ARROW = 'M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z';
+
+  function buildExtLinks() {
+    return '<div class="sb-ext">' +
+      '<div class="sb-ext-label">Otros sistemas</div>' +
+      EXT_LINKS.map(function (e) {
+        return '<a class="sb-ext-link sb-ext-' + e.kind + '" href="' + e.href + '" target="_blank" rel="noopener noreferrer">' +
+          '<span class="sb-ext-ico"><svg viewBox="0 0 24 24"><path d="' + e.icon + '"/></svg></span>' +
+          '<span class="sb-ext-txt">' +
+            '<span class="sb-ext-name">' + e.label + '</span>' +
+            '<span class="sb-ext-sub">' + e.sub + '</span>' +
+          '</span>' +
+          '<svg class="sb-ext-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="' + EXT_ARROW + '"/></svg>' +
+        '</a>';
+      }).join('') +
+    '</div>';
+  }
+
   var API_ORIGIN = (function () {
     try {
       if (typeof window !== 'undefined' && window.__API_BASE) {
@@ -402,6 +437,30 @@
       'border:1px solid rgba(224,179,65,.4);background:rgba(224,179,65,.10);color:#8A6A0B;transition:all .18s;}',
       '#app-sidebar .nav-logout-btn:hover{background:rgba(224,179,65,.22);}',
 
+      /* ── Otros sistemas (accesos externos, tarjetas premium) ── */
+      '#app-sidebar .sb-ext{padding:.1rem .7rem .9rem;display:flex;flex-direction:column;gap:8px;}',
+      '#app-sidebar .sb-ext-label{font-family:"DM Mono",monospace;font-size:.54rem;letter-spacing:.18em;',
+      'color:#B9A86C;text-transform:uppercase;padding:.2rem .55rem .35rem;}',
+      '#app-sidebar .sb-ext-link{position:relative;display:flex;align-items:center;gap:.6rem;',
+      'padding:.6rem .7rem;border-radius:13px;text-decoration:none;',
+      'border:1px solid rgba(15,23,42,.07);background:linear-gradient(150deg,#FFFFFF,#FCFAF4);',
+      'box-shadow:0 2px 8px -3px rgba(15,23,42,.12),inset 0 1px 0 rgba(255,255,255,.7);',
+      'transition:transform .16s cubic-bezier(.22,1,.36,1),box-shadow .2s,border-color .2s;}',
+      '#app-sidebar .sb-ext-link:hover{transform:translateY(-2px);border-color:rgba(224,179,65,.45);',
+      'box-shadow:0 12px 26px -10px rgba(224,179,65,.5),inset 0 1px 0 rgba(255,255,255,.85);}',
+      '#app-sidebar .sb-ext-ico{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;',
+      'flex-shrink:0;box-shadow:0 5px 14px -4px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.45);}',
+      '#app-sidebar .sb-ext-ico svg{width:19px;height:19px;fill:#fff;}',
+      '#app-sidebar .sb-ext-sumi .sb-ext-ico{background:linear-gradient(135deg,#F5C33C,#E0B341 45%,#B8860B);}',
+      '#app-sidebar .sb-ext-mapa .sb-ext-ico{background:linear-gradient(135deg,#34D399,#0EA371);}',
+      '#app-sidebar .sb-ext-txt{display:flex;flex-direction:column;min-width:0;flex:1;}',
+      '#app-sidebar .sb-ext-name{font-size:.8rem;font-weight:700;color:#1F2937;line-height:1.18;',
+      'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}',
+      '#app-sidebar .sb-ext-sub{font-family:"DM Mono",monospace;font-size:.58rem;color:#94A3B8;margin-top:1px;}',
+      '#app-sidebar .sb-ext-arrow{width:13px;height:13px;fill:#B8860B;flex-shrink:0;opacity:.65;',
+      'transition:transform .16s,opacity .16s;}',
+      '#app-sidebar .sb-ext-link:hover .sb-ext-arrow{transform:translate(2px,-2px);opacity:1;}',
+
       /* ════ Layout: empuja el contenido en desktop ════ */
       '@media(min-width:1024px){',
       'body.has-sidebar{padding-left:var(--sb-w) !important;}',
@@ -581,6 +640,7 @@
         '<div class="sb-nav-label">Menú</div>' +
         buildNav(links) +
       '</nav>' +
+      buildExtLinks() +
       '<div class="sb-foot">' +
         '<div class="sb-status">' +
           '<div class="sb-corte" title="Los datos se actualizan automáticamente cada día a las 11 PM">' +
@@ -655,6 +715,10 @@
     var grid = links.map(function (l) {
       return '<a class="' + (isActive(l.href) ? 'active' : '') + '" href="' + l.href + '">' +
         svg(l.icon) + '<span>' + l.label + '</span></a>';
+    }).join('');
+    grid += EXT_LINKS.map(function (e) {
+      return '<a class="sumi-ext-tile" href="' + e.href + '" target="_blank" rel="noopener noreferrer">' +
+        svg(e.icon) + '<span>' + e.label + '</span></a>';
     }).join('');
     var ftUser = (user && user.email)
       ? '<span class="u" title="' + String(user.email).replace(/"/g, '&quot;') + '">' + String(user.email).replace(/</g, '&lt;') + '</span>'
