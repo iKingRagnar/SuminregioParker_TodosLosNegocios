@@ -13703,6 +13703,7 @@ get('/api/oc/listado', async (req) => {
   const OCT = (e, n) => `CAST(${e} AS VARCHAR(${n}) CHARACTER SET OCTETS)`;
   const rawrows = await query(
     `SELECT cm.DOCTO_CM_ID, ${OCT('cm.FOLIO', 40)} AS FOLIO, cm.FECHA, ${OCT('cm.ESTATUS', 4)} AS ESTATUS,
+            cm.IMPORTE_NETO AS CM_SUBTOTAL, cm.TOTAL_IMPUESTOS AS CM_IVA,
             ${OCT('cm.DESCRIPCION', 4000)} AS REFERENCIA, ${OCT('cm.FOLIO_PROV', 60)} AS FOLIO_PROV,
             cm.PROVEEDOR_ID, ${OCT('prov.NOMBRE', 200)} AS PROVEEDOR, ${OCT('prov.RFC_CURP', 20)} AS PROVEEDOR_RFC,
             det.ARTICULO_ID, ${OCT('det.CLAVE_ARTICULO', 80)} AS CLAVE_ARTICULO, ${OCT('art.NOMBRE', 255)} AS ARTICULO,
