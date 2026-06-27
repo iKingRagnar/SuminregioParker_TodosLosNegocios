@@ -555,26 +555,46 @@ html.theme-premium-light [class*="metric"][class*="value"] {
   letter-spacing: -.035em !important;
   line-height: 1.04 !important;
 }
-/* ── 6.3b · El número SIEMPRE cabe: escala con el ANCHO de la tarjeta ── */
-html.theme-premium-light .kpi-card,
-html.theme-premium-light .kpi,
-html.theme-premium-light .sc-card,
-html.theme-premium-light .metric-card,
-html.theme-premium-light .ms-kpi,
-html.theme-premium-light [class*="kpi-card"] { container-type: inline-size; }
-
+/* ── 6.3b · El número SIEMPRE cabe ───────────────────────────────────────────
+   Antes esto escalaba con 11cqi relativo a la TARJETA, así que las mini-stats
+   (.sc-kpi-val, en columnas angostas) se agrandaban con el ancho COMPLETO de la
+   tarjeta y se derramaban/cortaban (causa de "no se ve todo el resultado").
+   Ahora: el valor HERO usa un tamaño acotado por viewport; las mini-stats usan
+   su propio tamaño de columna; y un auto-fit por JS (kpi-context.js) achica
+   cualquier número que aún no quepa. Sin container-type/cqi, overflow oculto. */
 html.theme-premium-light .kpi-value,
-html.theme-premium-light .kpi-val,
+html.theme-premium-light .kpi-card .kpi-val,
 html.theme-premium-light .ms-kpi-value,
 html.theme-premium-light .metric-value,
-html.theme-premium-light .sc-val,
-html.theme-premium-light [class*="kpi"][class*="val"],
-html.theme-premium-light [class*="metric"][class*="value"] {
-  font-size: clamp(1.05rem, 11cqi, 1.7rem) !important;
+html.theme-premium-light .sc-val {
+  font-size: clamp(1.15rem, 4.4vw, 2rem) !important;
   white-space: nowrap !important;
   max-width: 100% !important;
-  overflow: visible !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
+/* Mini-stats: valores en columnas angostas de tarjetas densas (multi-empresa,
+   módulos, micro-cards). NO deben usar el tamaño hero. */
+html.theme-premium-light .sc-kpi-val,
+html.theme-premium-light .mc-kpi-val,
+html.theme-premium-light .mod-kpi-val,
+html.theme-premium-light .uni-ec-m .m-v {
+  font-size: clamp(.66rem, 2.1vw, .9rem) !important;
+  white-space: nowrap !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  letter-spacing: -.02em !important;
+}
+/* Evitar el "grid/flex blowout": los items mini-stat tienen min-width:auto (=
+   ancho del contenido con nowrap), así que una columna con un número largo
+   crecía más allá de su 1fr y se desbordaba de la tarjeta (3ª columna cortada).
+   min-width:0 deja que el track 1fr mande y el ellipsis/auto-fit hagan su parte. */
+html.theme-premium-light .sc-kpi,
+html.theme-premium-light .sc-kpis > *,
+html.theme-premium-light .uni-ec-metrics > *,
+html.theme-premium-light .uni-ec-m,
+html.theme-premium-light .mc-kpi { min-width: 0 !important; }
 
 /* ── 6.4 Acentos de color VÍVIDOS en tarjetas por categoría ──────────────── */
 /* Barra superior vívida (las tarjetas de color de index/dashboards). */
