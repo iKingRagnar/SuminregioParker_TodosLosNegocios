@@ -269,12 +269,27 @@ nav{display:flex;align-items:center;gap:.15rem;flex-wrap:wrap}
 .footer{text-align:center;padding:1.75rem;font-family:'DM Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.06em;border-top:1px solid var(--border);margin-top:2rem}
 /* ════ LIGHT THEME — Suminregio Parker ════ */
 html.theme-premium-light,html[data-theme="light"]{
-  --bg:#F9FAFB;--s1:#F1F5F9;--s2:#E2E8F0;--s3:#CBD5E1;--s4:#94A3B8;
-  --suminregio:#B45309;--suminregio-dim:rgba(180,83,9,.10);
-  --accent:#B45309;--acc:#B45309;--acc2:#92400E;--acc3:#78350F;
-  --red:#DC2626;--grn:#16A34A;--ylw:#D97706;--cyn:#0891B2;--prp:#7C3AED;
-  --txt:#0F172A;--txt2:#1E293B;--txt3:#475569;
+  --bg:#FCFAF3;--s1:#FFFFFF;--s2:#F8FAFC;--s3:#F1F5F9;--s4:#E2E8F0;
+  --suminregio:#B8860B;--suminregio-dim:rgba(224,179,65,.14);
+  --accent:#B8860B;--acc:#B8860B;--acc2:#92400E;--acc3:#78350F;
+  /* Texto tinta (root cause: el dark dejaba --text casi blanco sobre claro) */
+  --text:#0F172A;--text2:#475569;--muted:#64748B;--dim:#E2E8F0;
+  /* Bordes suaves dark-on-light */
+  --border:rgba(15,23,42,.07);--border2:rgba(15,23,42,.12);
+  /* Semáforos claros */
+  --green:#16A34A;--green-dim:rgba(22,163,74,.10);--green-dim2:rgba(22,163,74,.06);
+  --yellow:#D97706;--yellow-dim:rgba(180,83,9,.10);--yellow-dim2:rgba(180,83,9,.06);
+  --yellow-ink:#B45309;--chart-yellow:#B45309;
+  --orange:#C2410C;--orange-dim:rgba(194,65,12,.10);
+  --red:#DC2626;--red-dim:rgba(220,38,38,.10);--red-dim2:rgba(220,38,38,.06);
+  --blue:#2563EB;--blue-dim:rgba(37,99,235,.10);
+  --purple:#7C3AED;--purple-dim:rgba(124,58,237,.10);
+  --cyan:#0891B2;--cyan-dim:rgba(8,145,178,.10);
+  --grn:#16A34A;--ylw:#D97706;--cyn:#0891B2;--prp:#7C3AED;
+  --txt:#0F172A;--txt2:#475569;--txt3:#64748B;
   --brd:rgba(15,23,42,.08);
+  /* Degradado lux dorado compartido */
+  --lux-gold:linear-gradient(135deg,#F5C33C 0%,#E0B341 50%,#B8860B 100%);
 }
 html.theme-premium-light body,html[data-theme="light"] body{
   background:var(--bg)!important;
@@ -529,6 +544,202 @@ html[data-theme="light"] .sc-card,html.theme-premium-light .sc-card{background:#
 html[data-theme="light"] .sc-kpi,html.theme-premium-light .sc-kpi{background:rgba(15,23,42,.03)!important}
 html[data-theme="light"] .sc-name,html.theme-premium-light .sc-name{color:#111827!important}
 html[data-theme="light"] .sc-id,html.theme-premium-light .sc-id,html[data-theme="light"] .sc-kpi-lbl,html.theme-premium-light .sc-kpi-lbl{color:#64748B!important}
+
+/* ════════════════════════════════════════════════════════════════
+   LUX LIGHT — conversión de oscuros hardcodeados (heros, portfolio,
+   barras, scorecard, tablas y bloque -v2). Va al final para ganar
+   el orden de cascada frente a las reglas !important de -v2.
+   ════════════════════════════════════════════════════════════════ */
+html[data-theme="light"],html.theme-premium-light{
+  --lux-shadow-sm:0 1px 3px rgba(15,23,42,.06);
+  --lux-shadow-md:0 4px 12px -2px rgba(15,23,42,.08);
+  --lux-shadow-lg:0 16px 40px -12px rgba(15,23,42,.15);
+}
+
+/* Header estático (oculto, pero por consistencia) */
+html[data-theme="light"] header,html.theme-premium-light header{
+  background:rgba(252,250,243,.92)!important;
+  border-bottom:1px solid rgba(15,23,42,.07)!important;
+}
+html[data-theme="light"] .logo-icon,html.theme-premium-light .logo-icon{
+  background:linear-gradient(135deg,#F5C33C,#E0B341,#B8860B)!important;
+  box-shadow:0 4px 14px -4px rgba(184,134,11,.45)!important;
+}
+
+/* Live pill (verde claro) */
+html[data-theme="light"] .live-pill,html.theme-premium-light .live-pill,
+html[data-theme="light"] .live-pill-v2,html.theme-premium-light .live-pill-v2{
+  background:rgba(22,163,74,.10)!important;border:1px solid rgba(22,163,74,.25)!important;color:#16A34A!important;
+  animation:none!important;
+}
+html[data-theme="light"] .live-pill .live-dot,html.theme-premium-light .live-pill .live-dot{box-shadow:0 0 6px rgba(22,163,74,.5)!important}
+
+/* Barra de contexto de empresa */
+html[data-theme="light"] .biz-context-bar,html.theme-premium-light .biz-context-bar,
+html[data-theme="light"] .biz-context-bar-v2,html.theme-premium-light .biz-context-bar-v2{
+  background:#FFFFFF!important;
+  border:1px solid rgba(15,23,42,.07)!important;
+  box-shadow:0 4px 12px -2px rgba(15,23,42,.08)!important;
+}
+html[data-theme="light"] .biz-chip,html.theme-premium-light .biz-chip{color:#475569!important;border:1px solid rgba(15,23,42,.12)!important;background:#fff!important}
+html[data-theme="light"] .biz-chip:hover,html.theme-premium-light .biz-chip:hover{color:#0F172A!important;border-color:rgba(184,134,11,.45)!important}
+html[data-theme="light"] .biz-chip.active,html.theme-premium-light .biz-chip.active{color:#92400E!important;border-color:rgba(184,134,11,.55)!important;background:rgba(224,179,65,.14)!important}
+
+/* Portfolio Universo — superficie marfil clara con barra dorada superior */
+html[data-theme="light"] .uni-portfolio,html.theme-premium-light .uni-portfolio,
+html[data-theme="light"] .uni-portfolio-v2,html.theme-premium-light .uni-portfolio-v2{
+  background:linear-gradient(158deg,#FFFFFF 0%,#FCFAF3 100%)!important;
+  border:1px solid rgba(15,23,42,.08)!important;
+  box-shadow:0 16px 40px -12px rgba(15,23,42,.15)!important;
+}
+html[data-theme="light"] .uni-portfolio::before,html.theme-premium-light .uni-portfolio::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,#F5C33C,#E0B341,#B8860B);z-index:2;
+}
+html[data-theme="light"] .uni-eyebrow,html.theme-premium-light .uni-eyebrow{color:#B8860B!important}
+html[data-theme="light"] .uni-title,html.theme-premium-light .uni-title{color:#0F172A!important}
+html[data-theme="light"] .uni-subtitle,html.theme-premium-light .uni-subtitle{color:#64748B!important}
+html[data-theme="light"] .uni-subtitle strong,html.theme-premium-light .uni-subtitle strong{color:#0F172A!important}
+html[data-theme="light"] .uni-subtitle code,html.theme-premium-light .uni-subtitle code{color:#B8860B!important}
+html[data-theme="light"] .uni-sum-pill,html.theme-premium-light .uni-sum-pill,
+html[data-theme="light"] .uni-portfolio-v2 .uni-sum-pill,html.theme-premium-light .uni-portfolio-v2 .uni-sum-pill{
+  background:#FFFFFF!important;border:1px solid rgba(15,23,42,.07)!important;box-shadow:var(--lux-shadow-sm)!important;
+}
+html[data-theme="light"] .uni-portfolio-v2 .uni-sum-pill:hover,html.theme-premium-light .uni-portfolio-v2 .uni-sum-pill:hover{
+  background:rgba(224,179,65,.10)!important;border-color:rgba(184,134,11,.25)!important;
+}
+html[data-theme="light"] .uni-sum-pill .u-l,html.theme-premium-light .uni-sum-pill .u-l{color:#64748B!important}
+html[data-theme="light"] .uni-sum-pill .u-v,html.theme-premium-light .uni-sum-pill .u-v{color:#0F172A!important}
+
+/* Tarjetas de entidad (Universo) */
+html[data-theme="light"] .uni-entity-card,html.theme-premium-light .uni-entity-card{
+  background:#FFFFFF!important;border:1px solid rgba(15,23,42,.07)!important;box-shadow:var(--lux-shadow-sm)!important;
+}
+html[data-theme="light"] .uni-entity-card:hover,html.theme-premium-light .uni-entity-card:hover{
+  border-color:rgba(184,134,11,.30)!important;box-shadow:0 16px 40px -12px rgba(15,23,42,.15)!important;
+}
+html[data-theme="light"] .uni-ec-name,html.theme-premium-light .uni-ec-name{color:#0F172A!important}
+html[data-theme="light"] .uni-ec-id,html.theme-premium-light .uni-ec-id,
+html[data-theme="light"] .uni-ec-path,html.theme-premium-light .uni-ec-path{color:#64748B!important}
+html[data-theme="light"] .uni-ec-m .m-l,html.theme-premium-light .uni-ec-m .m-l{color:#64748B!important}
+html[data-theme="light"] .uni-risk-bar,html.theme-premium-light .uni-risk-bar{background:#F1F5F9!important}
+html[data-theme="light"] .uni-risk-meta,html.theme-premium-light .uni-risk-meta{color:#64748B!important}
+
+/* Panel detalle + tabla Universo */
+html[data-theme="light"] .uni-detail-panel,html.theme-premium-light .uni-detail-panel{
+  background:#FFFFFF!important;border:1px solid rgba(15,23,42,.07)!important;
+}
+html[data-theme="light"] .uni-detail-head,html.theme-premium-light .uni-detail-head{
+  background:#F8FAFC!important;border-bottom:1px solid rgba(15,23,42,.07)!important;
+}
+html[data-theme="light"] .uni-detail-title,html.theme-premium-light .uni-detail-title{color:#475569!important}
+html[data-theme="light"] .uni-tech-badge,html.theme-premium-light .uni-tech-badge{color:#64748B!important;border:1px solid rgba(15,23,42,.12)!important}
+html[data-theme="light"] .uni-table th,html.theme-premium-light .uni-table th{
+  background:#F1F5F9!important;color:#475569!important;border-bottom:1px solid rgba(15,23,42,.08)!important;
+}
+html[data-theme="light"] .uni-table td,html.theme-premium-light .uni-table td{border-bottom:1px solid rgba(15,23,42,.05)!important;color:#0F172A!important}
+html[data-theme="light"] .uni-table tbody tr:hover td,html.theme-premium-light .uni-table tbody tr:hover td{background:rgba(184,134,11,.05)!important}
+html[data-theme="light"] .uni-table .t-name,html.theme-premium-light .uni-table .t-name{color:#0F172A!important}
+html[data-theme="light"] .uni-table .t-id,html.theme-premium-light .uni-table .t-id{color:#64748B!important}
+html[data-theme="light"] .uni-foot,html.theme-premium-light .uni-foot{color:#64748B!important;border-top:1px solid rgba(15,23,42,.07)!important}
+html[data-theme="light"] .uni-setup-callout,html.theme-premium-light .uni-setup-callout{
+  border:1px dashed rgba(184,134,11,.40)!important;background:rgba(224,179,65,.10)!important;color:#475569!important;
+}
+
+/* Scorecard ejecutivo */
+html[data-theme="light"] .scorecard-wrap,html.theme-premium-light .scorecard-wrap{
+  background:#FFFFFF!important;border:1px solid rgba(15,23,42,.07)!important;box-shadow:var(--lux-shadow-md)!important;
+}
+html[data-theme="light"] .scorecard-title,html.theme-premium-light .scorecard-title{color:#0F172A!important}
+html[data-theme="light"] .scorecard-badge,html.theme-premium-light .scorecard-badge{color:#64748B!important;border:1px solid rgba(15,23,42,.12)!important}
+html[data-theme="light"] .sc-table th,html.theme-premium-light .sc-table th,
+html[data-theme="light"] .sc-table-v2 thead th,html.theme-premium-light .sc-table-v2 thead th{
+  background:#F1F5F9!important;color:#475569!important;border-bottom:1px solid rgba(15,23,42,.10)!important;
+}
+html[data-theme="light"] .sc-table-v2 tbody tr:hover td,html.theme-premium-light .sc-table-v2 tbody tr:hover td,
+html[data-theme="light"] .sc-table tr:hover td,html.theme-premium-light .sc-table tr:hover td{background:rgba(184,134,11,.05)!important}
+html[data-theme="light"] .sc-table-v2 tbody tr:hover td:first-child,html.theme-premium-light .sc-table-v2 tbody tr:hover td:first-child{box-shadow:inset 3px 0 0 #B8860B!important}
+html[data-theme="light"] .sc-kpi-name,html.theme-premium-light .sc-kpi-name{color:#0F172A!important}
+html[data-theme="light"] .sc-kpi-area,html.theme-premium-light .sc-kpi-area{color:#64748B!important}
+
+/* Divisor de sección */
+html[data-theme="light"] .section-divider-v2 .section-divider-line,html.theme-premium-light .section-divider-v2 .section-divider-line{
+  background:linear-gradient(90deg,transparent,rgba(15,23,42,.10),rgba(184,134,11,.30),transparent)!important;
+}
+html[data-theme="light"] .section-divider-v2 .section-divider-label::before,html.theme-premium-light .section-divider-v2 .section-divider-label::before{color:#B8860B!important}
+
+/* Tarjeta sc-card (KPI interno) */
+html[data-theme="light"] .sc-kpi,html.theme-premium-light .sc-kpi{background:#F8FAFC!important;border:1px solid rgba(15,23,42,.05)!important}
+
+/* Glow/puntos del módulo v2 (eran blancos para fondo oscuro) */
+html[data-theme="light"] .module-card-v2::before,html.theme-premium-light .module-card-v2::before{
+  background-image:radial-gradient(circle,rgba(184,134,11,.10) 1px,transparent 1px)!important;
+}
+html[data-theme="light"] .module-card-v2::after,html.theme-premium-light .module-card-v2::after{
+  background:radial-gradient(circle at center,rgba(184,134,11,.06),transparent 60%)!important;
+}
+
+/* Badges semáforo en versión clara */
+html[data-theme="light"] .sc-badge-ok,html.theme-premium-light .sc-badge-ok{background:rgba(22,163,74,.10)!important;color:#16A34A!important;border:1px solid rgba(22,163,74,.25)!important}
+html[data-theme="light"] .sc-badge-warn,html.theme-premium-light .sc-badge-warn{background:rgba(180,83,9,.10)!important;color:#B45309!important;border:1px solid rgba(180,83,9,.25)!important}
+html[data-theme="light"] .sc-badge-danger,html.theme-premium-light .sc-badge-danger{background:rgba(220,38,38,.10)!important;color:#DC2626!important;border:1px solid rgba(220,38,38,.25)!important}
+html[data-theme="light"] .sc-badge-muted,html.theme-premium-light .sc-badge-muted{background:#F1F5F9!important;color:#64748B!important;border:1px solid rgba(15,23,42,.12)!important}
+
+/* Avatares de tarjeta: borde dorado sutil en la de Metas (texto oscuro ya OK) */
+html[data-theme="light"] .sc-avatar,html.theme-premium-light .sc-avatar{box-shadow:0 2px 8px -2px rgba(15,23,42,.18)!important}
+
+/* KPI mega-grid y módulos: superficie blanca + sombra suave (refuerzo) */
+html[data-theme="light"] .kpi-card,html.theme-premium-light .kpi-card,
+html[data-theme="light"] .module-card,html.theme-premium-light .module-card,
+html[data-theme="light"] .card,html.theme-premium-light .card{
+  background:#FFFFFF!important;border:1px solid rgba(15,23,42,.07)!important;box-shadow:var(--lux-shadow-sm)!important;
+}
+html[data-theme="light"] .kpi-card:hover,html.theme-premium-light .kpi-card:hover,
+html[data-theme="light"] .module-card:hover,html.theme-premium-light .module-card:hover{
+  border-color:rgba(184,134,11,.25)!important;box-shadow:var(--lux-shadow-md)!important;
+}
+html[data-theme="light"] .kpi-label,html.theme-premium-light .kpi-label{color:#475569!important}
+html[data-theme="light"] .kpi-module,html.theme-premium-light .kpi-module,
+html[data-theme="light"] .kpi-sub,html.theme-premium-light .kpi-sub,
+html[data-theme="light"] .meta-pct,html.theme-premium-light .meta-pct{color:#64748B!important}
+html[data-theme="light"] .mod-name,html.theme-premium-light .mod-name{color:#0F172A!important}
+html[data-theme="light"] .mod-desc,html.theme-premium-light .mod-desc{color:#475569!important}
+html[data-theme="light"] .card-title,html.theme-premium-light .card-title{color:#0F172A!important}
+html[data-theme="light"] .card-badge,html.theme-premium-light .card-badge{color:#64748B!important;border:1px solid rgba(15,23,42,.12)!important}
+html[data-theme="light"] .meta-bar-bg,html.theme-premium-light .meta-bar-bg,
+html[data-theme="light"] .sc-bar-bg,html.theme-premium-light .sc-bar-bg,
+html[data-theme="light"] .vend-bar-bg,html.theme-premium-light .vend-bar-bg,
+html[data-theme="light"] .sc-meta-bar,html.theme-premium-light .sc-meta-bar{background:#E2E8F0!important}
+
+/* Alertas y filas vendedor */
+html[data-theme="light"] .alert-item,html.theme-premium-light .alert-item{background:#F8FAFC!important;border:1px solid rgba(15,23,42,.06)!important}
+html[data-theme="light"] .alert-time,html.theme-premium-light .alert-time{color:#64748B!important}
+html[data-theme="light"] .vend-avatar,html.theme-premium-light .vend-avatar{background:#F1F5F9!important;border:1px solid rgba(15,23,42,.10)!important;color:#0F172A!important}
+html[data-theme="light"] .vend-pct,html.theme-premium-light .vend-pct{color:#64748B!important}
+
+/* Skeletons claros */
+html[data-theme="light"] .skel,html.theme-premium-light .skel{background:linear-gradient(90deg,#F1F5F9 25%,#E2E8F0 50%,#F1F5F9 75%)!important;background-size:200% 100%!important}
+
+/* Footer */
+html[data-theme="light"] .footer,html.theme-premium-light .footer{color:#64748B!important;border-top:1px solid rgba(15,23,42,.07)!important}
+
+/* Orbs de fondo: casi invisibles en claro */
+html[data-theme="light"] .orb,html.theme-premium-light .orb{opacity:.03!important}
+
+/* Hero: subtítulo y hint legibles + título dorado lux */
+html[data-theme="light"] .hero-sub,html.theme-premium-light .hero-sub{color:#475569!important}
+html[data-theme="light"] .hero-eyebrow,html.theme-premium-light .hero-eyebrow,
+html[data-theme="light"] .hero-eyebrow-v2,html.theme-premium-light .hero-eyebrow-v2{color:#B8860B!important}
+html[data-theme="light"] .hero-date,html.theme-premium-light .hero-date{color:#64748B!important}
+html[data-theme="light"] .hero-date-val,html.theme-premium-light .hero-date-val{color:#0F172A!important}
+html[data-theme="light"] .hero-data-hint,html.theme-premium-light .hero-data-hint{
+  border:1px solid rgba(184,134,11,.28)!important;background:rgba(224,179,65,.10)!important;color:#92400E!important;
+}
+html[data-theme="light"] .hero-title-v2,html.theme-premium-light .hero-title-v2{
+  background:linear-gradient(135deg,#E0B341 0%,#F5C33C 30%,#C2410C 75%,#B8860B 100%)!important;
+  background-size:250% auto!important;
+  -webkit-background-clip:text!important;background-clip:text!important;-webkit-text-fill-color:transparent!important;
+}
 </style>
 <link rel="stylesheet" href="design-upgrade.css">
 </head>

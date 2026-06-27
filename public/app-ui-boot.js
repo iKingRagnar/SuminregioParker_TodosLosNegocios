@@ -1842,10 +1842,10 @@
     setTimeout(forceWhiteCards, 5000);
     watchAsyncCards();
     bootDesignUpgrade();
-    bootTiltEffect();
+    // bootTiltEffect();   // DESACTIVADO (look ejecutivo de lujo): tilt 3D holográfico se sentía gimmicky
     bootAiMotion();
     bootManualRefreshBar();
-    bootCursorGlow();
+    // bootCursorGlow();   // DESACTIVADO: halo que seguía al cursor ("la bolita")
     bootKpiCountUp();
     setTimeout(bootAiProLauncher, 120);
     bootKeyboardShortcuts();
@@ -1856,12 +1856,12 @@
     bootPullToRefresh();
     bootBottomNav();
     // ── Premium v4 ──
-    bootParticleNetwork();
+    // bootParticleNetwork();  // DESACTIVADO: red de partículas de fondo se veía "naco"/gamer, no premium
     bootClickRipple();
     bootNumberScramble();
     // ── Premium v5 ──
-    bootCustomCursor();
-    bootMagneticEffect();
+    // bootCustomCursor();   // DESACTIVADO: punto dorado + anillo que seguían al cursor ("la bolita que te sigue")
+    // bootMagneticEffect(); // DESACTIVADO: botones que "huían" hacia el cursor, poco profesional
     bootPageTransitions();
     bootTopLoadingBar();
     // ── Premium v6 ──

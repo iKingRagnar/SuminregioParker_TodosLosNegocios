@@ -21,7 +21,12 @@
     min-height: 100vh;
   }
   main { max-width: 1180px; margin: 0 auto; padding: 28px 22px 48px; }
-  h1 { font-size: 1.55rem; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 6px; }
+  h1 {
+    font-size: 1.6rem; font-weight: 800; letter-spacing: -0.025em; margin-bottom: 6px;
+    background: linear-gradient(135deg, #B8860B, #E0B341 45%, #F5C33C);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: #B8860B;
+  }
   .sub { color: #64748B; font-size: .9rem; margin-bottom: 22px; max-width: 640px; line-height: 1.45; }
 
   .toolbar {
@@ -33,10 +38,10 @@
     font-family: inherit; background: #fff; min-width: 160px;
   }
   .toolbar button {
-    padding: 10px 20px; border-radius: 10px; border: none; cursor: pointer;
-    font-weight: 600; font-family: inherit;
-    background: linear-gradient(135deg,#E0B341,#C99400); color: #1A1200;
-    box-shadow: 0 2px 10px rgba(230,168,0,.28);
+    padding: 10px 20px; border-radius: 12px; border: none; cursor: pointer;
+    font-weight: 700; font-family: inherit; letter-spacing: -0.01em;
+    background: linear-gradient(135deg,#F5C33C,#E0B341,#B8860B); color: #1A1200;
+    box-shadow: 0 4px 14px -2px rgba(184,134,11,.35);
   }
   .toolbar button:disabled { opacity: .5; cursor: not-allowed; }
 
@@ -55,9 +60,9 @@
   .usage-avatar {
     width: 48px; height: 48px; border-radius: 14px;
     display: flex; align-items: center; justify-content: center;
-    font-weight: 700; font-size: 1.1rem; color: #fff;
-    background: linear-gradient(145deg, #475569, #334155);
-    box-shadow: 0 4px 14px rgba(15,23,42,.2);
+    font-weight: 800; font-size: 1.1rem; color: #1A1200;
+    background: linear-gradient(135deg, #F5C33C, #E0B341, #B8860B);
+    box-shadow: 0 4px 14px -2px rgba(184,134,11,.35);
   }
   .usage-identity { flex: 1; min-width: 200px; }
   .usage-email { font-weight: 700; font-size: 1.02rem; word-break: break-all; color: #0F172A; }
@@ -76,17 +81,22 @@
 
   /* Ranking card (inspired by vendedores ranking) */
   .ranking-card {
+    position: relative;
     background: #fff;
-    border: 1px solid rgba(230, 168, 0, 0.32);
-    border-radius: 18px;
-    box-shadow: 0 4px 24px rgba(15, 23, 42, .06);
+    border: 1px solid rgba(15, 23, 42, .08);
+    border-radius: 16px;
+    box-shadow: 0 16px 40px -12px rgba(15, 23, 42, .15), 0 1px 3px rgba(15,23,42,.06);
     overflow: hidden;
+  }
+  .ranking-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(135deg, #F5C33C, #E0B341, #B8860B);
   }
   .ranking-card__head {
     display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
-    gap: 12px; padding: 16px 18px 12px;
-    border-bottom: 1px solid rgba(148, 163, 184, .2);
-    background: linear-gradient(180deg, rgba(255,255,255,.96), #FAFBFC);
+    gap: 12px; padding: 18px 18px 12px;
+    border-bottom: 1px solid rgba(15, 23, 42, .06);
+    background: linear-gradient(180deg, #FFFFFF, #FCFAF3);
   }
   .ranking-card__title {
     display: inline-flex; align-items: center; gap: 8px;
@@ -172,15 +182,20 @@
   }
 
   .events-wrap {
-    background: #fff; border-radius: 16px; border: 1px solid rgba(230,168,0,.22);
-    box-shadow: 0 4px 20px rgba(15,23,42,.05); overflow: hidden;
+    position: relative;
+    background: #fff; border-radius: 16px; border: 1px solid rgba(15,23,42,.08);
+    box-shadow: 0 16px 40px -12px rgba(15,23,42,.15), 0 1px 3px rgba(15,23,42,.06); overflow: hidden;
+  }
+  .events-wrap::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; z-index: 1;
+    background: linear-gradient(135deg, #F5C33C, #E0B341, #B8860B);
   }
   table.events { width: 100%; border-collapse: collapse; font-size: .78rem; }
   table.events th {
-    text-align: left; padding: 12px 14px;
-    background: rgba(230,168,0,.1);
+    text-align: left; padding: 13px 14px;
+    background: linear-gradient(180deg, #FCFAF3, #F8FAFC);
     font-size: .65rem; text-transform: uppercase; letter-spacing: .08em; color: #475569;
-    font-weight: 700; border-bottom: 1px solid #E2E8F0;
+    font-weight: 700; border-bottom: 1px solid rgba(15,23,42,.08);
   }
   table.events td { padding: 11px 14px; border-bottom: 1px solid #F1F5F9; vertical-align: top; }
   table.events tbody tr:hover { background: #FAFBFC; }
@@ -198,7 +213,7 @@
   .ev-path { font-family: 'DM Mono', monospace; font-size: .72rem; color: #334155; word-break: break-all; }
   .ev-path-label { font-weight: 600; color: #0F172A; font-size: .78rem; margin-bottom: 2px; }
   .ev-dur { font-family: 'DM Mono', monospace; font-weight: 600; color: #0F172A; }
-  .ev-dur-muted { color: #CBD5E1; }
+  .ev-dur-muted { color: #94A3B8; }
 
   .footnote {
     color: #94A3B8; font-size: .78rem; margin-top: 14px; line-height: 1.45;
@@ -208,16 +223,22 @@
 
   /* Selector de usuario (top 5 + más usuarios) */
   .user-picker {
+    position: relative;
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
     gap: 12px 14px;
     margin-bottom: 22px;
-    padding: 16px 18px;
+    padding: 18px;
     background: #fff;
-    border: 1px solid rgba(230, 168, 0, 0.28);
+    border: 1px solid rgba(15, 23, 42, .08);
     border-radius: 16px;
-    box-shadow: 0 4px 18px rgba(15, 23, 42, .05);
+    box-shadow: 0 4px 12px -2px rgba(15, 23, 42, .08), 0 1px 3px rgba(15,23,42,.06);
+    overflow: hidden;
+  }
+  .user-picker::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(135deg, #F5C33C, #E0B341, #B8860B);
   }
   .user-picker-chips {
     display: flex;
@@ -263,12 +284,16 @@
     justify-content: center;
     font-weight: 700;
     font-size: .95rem;
-    color: #fff;
-    background: linear-gradient(145deg, #475569, #334155);
+    color: #475569;
+    background: linear-gradient(145deg, #F1F5F9, #E2E8F0);
+    border: 1px solid rgba(15,23,42,.08);
     flex-shrink: 0;
   }
   .user-chip.is-active .user-chip-av {
-    background: linear-gradient(145deg, #CA8A04, #A16207);
+    color: #1A1200;
+    border-color: transparent;
+    background: linear-gradient(135deg, #F5C33C, #E0B341, #B8860B);
+    box-shadow: 0 2px 8px -1px rgba(184,134,11,.35);
   }
   .user-chip-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .user-chip-email {
