@@ -596,6 +596,16 @@ html.theme-premium-light .uni-ec-metrics > *,
 html.theme-premium-light .uni-ec-m,
 html.theme-premium-light .mc-kpi { min-width: 0 !important; }
 
+/* Filas nombre/valor (balance, listas tipo "concepto … $monto"): el nombre
+   puede envolver en lugar de recortarse, y el contenedor flex permite encoger. */
+html.theme-premium-light .bg-row,
+html.theme-premium-light .bg-list { min-width: 0 !important; }
+html.theme-premium-light .bg-row .n {
+  min-width: 0 !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+}
+
 /* ── 6.4 Acentos de color VÍVIDOS en tarjetas por categoría ──────────────── */
 /* Barra superior vívida (las tarjetas de color de index/dashboards). */
 html.theme-premium-light .kpi-card.blue::before   { background: linear-gradient(90deg, var(--lux-blue),   var(--lux-blue-2))   !important; opacity: 1 !important; height: 3px !important; }
