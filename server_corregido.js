@@ -13844,33 +13844,26 @@ get('/api/hospital/cfdis', async (req) => {
 });
 
 get('/api/cm/cfdis', async (req) => {
+  // METADATA ONLY (sin XML) — para emparejar factura↔CFDI rapido. El XML se baja por /api/cm/cfdi?uuid=
   const dbo   = getReqDbOpts(req);
-  const limit = Math.min(parseInt(req.query.limit || '800', 10) || 800, 2000);
-  const dbId  = (typeof dbOptsToId === 'function' ? dbOptsToId(dbo) : '') || 'default';
-  const ckey  = `cmcfdi|${dbId}|${limit}`;
-  const hit   = _cfdiCache.get(ckey);
-  if (hit && (Date.now() - hit.at) < _CFDI_TTL) {
-    return { ok: true, count: hit.rows.length, rows: hit.rows, cached: true };
-  }
-  // CFDIs RECIBIDOS = facturas de proveedor (TIPO_COMPROBANTE 'I' de Ingreso), excluyendo lo emitido
-  // al hospital (RFC del SNTE). El XML es BLOB → se materializa (cacheado 10 min).
-  const sql = `SELECT FIRST ${limit} r.UUID, r.FOLIO, r.FECHA, r.RFC, r.TIPO_COMPROBANTE, r.XML
+  const limit = Math.min(parseInt(req.query.limit || '3000', 10) || 3000, 6000);
+  const sql = `SELECT FIRST ${limit} r.UUID, r.FOLIO, r.FECHA, r.RFC, r.TIPO_COMPROBANTE
        FROM REPOSITORIO_CFDI r
       WHERE r.TIPO_COMPROBANTE = 'I' AND r.RFC <> 'SNT391220717'
       ORDER BY r.FECHA DESC`;
-  let rows = await _fbQueryBlobs(sql, [], 60000, dbo, ['XML']).catch((e) => {
-    console.warn('[CM-CFDI] _fbQueryBlobs fallo, respaldo a metadata:', (e && e.message) || e);
-    return null;
-  });
-  if (!rows) {
-    rows = await _fbQueryBlobs(
-      `SELECT FIRST ${limit} r.UUID, r.FOLIO, r.FECHA, r.RFC, r.TIPO_COMPROBANTE
-         FROM REPOSITORIO_CFDI r WHERE r.TIPO_COMPROBANTE = 'I' AND r.RFC <> 'SNT391220717'
-        ORDER BY r.FECHA DESC`, [], 60000, dbo, []).catch(() => []);
-  }
-  rows = rows || [];
-  _cfdiCache.set(ckey, { at: Date.now(), rows });
-  return { ok: true, count: rows.length, rows };
+  const rows = await _fbQueryBlobs(sql, [], 60000, dbo, []).catch(() => []);
+  return { ok: true, count: (rows || []).length, rows: rows || [] };
+});
+
+get('/api/cm/cfdi', async (req) => {
+  // UN solo CFDI de proveedor CON su XML (materializa 1 BLOB). Para descargar PDF/XML on-demand.
+  const dbo  = getReqDbOpts(req);
+  const uuid = String(req.query.uuid || '').replace(/[^A-Za-z0-9-]/g, '');
+  if (!uuid) return { ok: false, error: 'uuid requerido' };
+  const sql = `SELECT FIRST 1 r.UUID, r.FOLIO, r.FECHA, r.RFC, r.TIPO_COMPROBANTE, r.XML
+       FROM REPOSITORIO_CFDI r WHERE UPPER(r.UUID) = '${uuid.toUpperCase()}'`;
+  const rows = await _fbQueryBlobs(sql, [], 60000, dbo, ['XML']).catch(() => []);
+  return { ok: true, row: (rows && rows[0]) || null };
 });
 
 get('/api/cm/cfdis-probe', async (req) => {
