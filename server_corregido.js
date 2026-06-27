@@ -13843,6 +13843,24 @@ get('/api/hospital/cfdis', async (req) => {
   return { ok: true, count: rows.length, rows };
 });
 
+get('/api/cm/cfdis-probe', async (req) => {
+  const dbo = getReqDbOpts(req);
+  let dist=null, sample=null, err=null;
+  try {
+    dist = await _fbQueryBlobs(
+      `SELECT r.RFC, COUNT(*) AS N FROM REPOSITORIO_CFDI r GROUP BY r.RFC ORDER BY COUNT(*) DESC`,
+      [], 60000, dbo, []);
+  } catch(e){ err='dist:'+String((e&&e.message)||e); }
+  try {
+    let sm = await _fbQueryBlobs(
+      `SELECT FIRST 6 r.UUID, r.FOLIO, r.FECHA, r.RFC, r.TIPO_COMPROBANTE, r.XML
+         FROM REPOSITORIO_CFDI r WHERE r.RFC <> 'SNT391220717' ORDER BY r.FECHA DESC`,
+      [], 60000, dbo, ['XML']);
+    sample = (sm||[]).map(x=>({UUID:x.UUID, FOLIO:x.FOLIO, RFC:x.RFC, TIPO:x.TIPO_COMPROBANTE, XML_LEN:String(x.XML||'').length}));
+  } catch(e){ err=(err||'')+' | sample:'+String((e&&e.message)||e); }
+  return { ok:true, err, total_rfcs: dist?dist.length:null, dist_top:(dist||[]).slice(0,15), sample_no_hospital: sample };
+});
+
 // PEDIDOS vs ENTREGADO — Cumplimiento por pedido y línea de artículo
 // Álvaro: "lo que pidió el hospital vs lo que se entregó"
 //
