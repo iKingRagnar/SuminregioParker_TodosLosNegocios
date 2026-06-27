@@ -13849,7 +13849,7 @@ get('/api/cm/cfdis', async (req) => {
   const limit = Math.min(parseInt(req.query.limit || '3000', 10) || 3000, 6000);
   const sql = `SELECT FIRST ${limit} r.UUID, r.FOLIO, r.FECHA, r.RFC, r.NOMBRE, r.IMPORTE, r.NATURALEZA
        FROM REPOSITORIO_CFDI r
-      WHERE r.NATURALEZA = 'R'
+      WHERE r.TIPO_COMPROBANTE = 'I' AND r.RFC <> 'SNT391220717'
       ORDER BY r.FECHA DESC`;
   const rows = await _fbQueryBlobs(sql, [], 60000, dbo, []).catch(() => []);
   return { ok: true, count: (rows || []).length, rows: rows || [] };
@@ -13887,6 +13887,12 @@ get('/api/cm/cfdis-probe', async (req) => {
       `SELECT cm.TIPO_DOCTO, COUNT(*) AS N FROM DOCTOS_CM cm GROUP BY cm.TIPO_DOCTO ORDER BY COUNT(*) DESC`,
       [], 60000, dbo, []);
   } catch(e){ err=(err||'')+' | tipos:'+String((e&&e.message)||e); }
+  let nat=null;
+  try {
+    nat = await _fbQueryBlobs(
+      `SELECT r.NATURALEZA, COUNT(*) AS N FROM REPOSITORIO_CFDI r GROUP BY r.NATURALEZA`,
+      [], 60000, dbo, []);
+  } catch(e){ err=(err||'')+' | nat:'+String((e&&e.message)||e); }
   let cfdi_cols=null;
   try {
     cfdi_cols = await _fbQueryBlobs(
@@ -13902,7 +13908,7 @@ get('/api/cm/cfdis-probe', async (req) => {
          FROM DOCTOS_CM cm WHERE cm.TIPO_DOCTO = 'O' GROUP BY cm.ESTATUS`,
       [], 60000, dbo, []);
   } catch(e){ err=(err||'')+' | oc_est:'+String((e&&e.message)||e); }
-  return { ok:true, err, total_rfcs: dist?dist.length:null, dist_top:(dist||[]).slice(0,15), sample_no_hospital: sample, doctos_cm_por_tipo: tipos, oc_por_estatus: oc_estatus, repositorio_cfdi_cols: cfdi_cols };
+  return { ok:true, err, total_rfcs: dist?dist.length:null, dist_top:(dist||[]).slice(0,15), sample_no_hospital: sample, doctos_cm_por_tipo: tipos, oc_por_estatus: oc_estatus, repositorio_cfdi_cols: cfdi_cols, naturaleza: nat };
 });
 
 // PEDIDOS vs ENTREGADO — Cumplimiento por pedido y línea de artículo
