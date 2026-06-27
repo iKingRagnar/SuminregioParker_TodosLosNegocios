@@ -13743,13 +13743,18 @@ get('/api/cm/listado', async (req) => {
   const ids = (heads || []).map(h => h.DOCTO_CM_ID).filter(x => x != null);
   if (!ids.length) return { ok: true, rows: [] };
 
-  const rows = await query(
-    `SELECT cm.DOCTO_CM_ID, cm.FOLIO, cm.FECHA, cm.ESTATUS,
-            CAST(cm.DESCRIPCION AS VARCHAR(4000)) AS REFERENCIA, cm.FOLIO_PROV,
+  // Texto WIN1252 sucio: charset NONE + CAST OCTETS + decode latin1 (anti "Malformed string"),
+  // igual que /api/oc/listado. Protege el build del snapshot ante nombres con bytes corruptos.
+  const dboTxt = Object.assign({}, dbo || DB_OPTIONS, { encoding: 'NONE', charset: 'NONE' });
+  const OCT = (e, n) => `CAST(${e} AS VARCHAR(${n}) CHARACTER SET OCTETS)`;
+  let _derr = null;
+  const rawrows = await query(
+    `SELECT cm.DOCTO_CM_ID, ${OCT('cm.FOLIO', 40)} AS FOLIO, cm.FECHA, ${OCT('cm.ESTATUS', 4)} AS ESTATUS,
+            ${OCT('cm.DESCRIPCION', 4000)} AS REFERENCIA, ${OCT('cm.FOLIO_PROV', 60)} AS FOLIO_PROV,
             cm.IMPORTE_NETO AS SUBTOTAL, cm.TOTAL_IMPUESTOS AS IVA,
             (COALESCE(cm.IMPORTE_NETO,0) + COALESCE(cm.TOTAL_IMPUESTOS,0)) AS TOTAL,
-            prov.PROVEEDOR_ID, prov.NOMBRE AS PROVEEDOR, prov.RFC_CURP AS PROVEEDOR_RFC,
-            det.ARTICULO_ID, det.CLAVE_ARTICULO, art.NOMBRE AS ARTICULO,
+            cm.PROVEEDOR_ID, ${OCT('prov.NOMBRE', 200)} AS PROVEEDOR, ${OCT('prov.RFC_CURP', 20)} AS PROVEEDOR_RFC,
+            det.ARTICULO_ID, ${OCT('det.CLAVE_ARTICULO', 80)} AS CLAVE_ARTICULO, ${OCT('art.NOMBRE', 255)} AS ARTICULO,
             det.UNIDADES, det.PRECIO_UNITARIO,
             (COALESCE(det.UNIDADES,0) * COALESCE(det.PRECIO_UNITARIO,0)) AS IMPORTE_LINEA
        FROM DOCTOS_CM cm
@@ -13757,8 +13762,15 @@ get('/api/cm/listado', async (req) => {
        LEFT JOIN PROVEEDORES prov ON prov.PROVEEDOR_ID = cm.PROVEEDOR_ID
        LEFT JOIN ARTICULOS   art  ON art.ARTICULO_ID  = det.ARTICULO_ID
       WHERE cm.DOCTO_CM_ID IN (${ids.join(',')})
-      ORDER BY cm.DOCTO_CM_ID, det.DOCTO_CM_DET_ID`, [], 60000, dbo).catch(() => []);
-  return { ok: true, rows };
+      ORDER BY cm.DOCTO_CM_ID, det.DOCTO_CM_DET_ID`, [], 60000, dboTxt).catch((e) => { _derr = String((e && e.message) || e); return []; });
+  const dec = (v) => Buffer.isBuffer(v) ? v.toString('latin1').replace(/\x00+$/, '').trimEnd() : v;
+  const rows = (rawrows || []).map((r) => {
+    r.FOLIO = dec(r.FOLIO); r.ESTATUS = dec(r.ESTATUS); r.REFERENCIA = dec(r.REFERENCIA);
+    r.FOLIO_PROV = dec(r.FOLIO_PROV); r.PROVEEDOR = dec(r.PROVEEDOR); r.PROVEEDOR_RFC = dec(r.PROVEEDOR_RFC);
+    r.CLAVE_ARTICULO = dec(r.CLAVE_ARTICULO); r.ARTICULO = dec(r.ARTICULO);
+    return r;
+  });
+  return { ok: true, rows, _diag: { heads: ids.length, derr: _derr } };
 });
 
 // ── 3) BUSCAR LA FACTURA AL HOSPITAL (DOCTOS_VE) por referencia o cliente ──────
@@ -13854,29 +13866,6 @@ get('/api/hospital/cfdis', async (req) => {
   rows = rows || [];
   _cfdiCache.set(ckey, { at: Date.now(), rows });
   return { ok: true, count: rows.length, rows };
-});
-
-get('/api/cm/cfdis', async (req) => {
-  // METADATA ONLY (sin XML) — para emparejar factura↔CFDI rapido. El XML se baja por /api/cm/cfdi?uuid=
-  const dbo   = getReqDbOpts(req);
-  const limit = Math.min(parseInt(req.query.limit || '3000', 10) || 3000, 6000);
-  const sql = `SELECT FIRST ${limit} r.UUID, r.FOLIO, r.FECHA, r.RFC, r.NOMBRE, r.IMPORTE, r.NATURALEZA
-       FROM REPOSITORIO_CFDI r
-      WHERE r.TIPO_COMPROBANTE = 'I' AND r.RFC <> 'SNT391220717'
-      ORDER BY r.FECHA DESC`;
-  const rows = await _fbQueryBlobs(sql, [], 60000, dbo, []).catch(() => []);
-  return { ok: true, count: (rows || []).length, rows: rows || [] };
-});
-
-get('/api/cm/cfdi', async (req) => {
-  // UN solo CFDI de proveedor CON su XML (materializa 1 BLOB). Para descargar PDF/XML on-demand.
-  const dbo  = getReqDbOpts(req);
-  const uuid = String(req.query.uuid || '').replace(/[^A-Za-z0-9-]/g, '');
-  if (!uuid) return { ok: false, error: 'uuid requerido' };
-  const sql = `SELECT FIRST 1 r.UUID, r.FOLIO, r.FECHA, r.RFC, r.TIPO_COMPROBANTE, r.XML
-       FROM REPOSITORIO_CFDI r WHERE UPPER(r.UUID) = '${uuid.toUpperCase()}'`;
-  const rows = await _fbQueryBlobs(sql, [], 60000, dbo, ['XML']).catch(() => []);
-  return { ok: true, row: (rows && rows[0]) || null };
 });
 
 // PEDIDOS vs ENTREGADO — Cumplimiento por pedido y línea de artículo
