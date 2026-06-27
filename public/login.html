@@ -8,7 +8,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Syne:wght@600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
     --pb-yellow: #F2C200;
@@ -947,6 +947,62 @@
   .mis-banner, .mis-banner strong, .mis-banner code { color: #92400E !important; }
   .mis-banner { background: rgba(245, 158, 11, .10) !important; border: 1px solid rgba(245, 158, 11, .30) !important; }
   .mis-banner code { background: rgba(15, 23, 42, .05) !important; }
+
+  /* ═══════════ REFINAMIENTO v2 — menos "crudo", más premium ═══════════ */
+  /* Tipografía: sans premium para el cuerpo (adiós monoespaciado), Syne para títulos. */
+  body, .glass-panel, .glass-panel .lead, .glass-panel p, .features li,
+  .field, .field label, .field input, .hint, .stat-pill, .pill, .card-head p,
+  .access-grid article, .access-grid article strong, .remember-label,
+  .toggle-pw, button[type="submit"], #btn, .gate-banner, .mis-banner, .err {
+    font-family: 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif !important;
+    letter-spacing: normal !important;
+  }
+  .glass-panel h1, .glass-panel h2, .glass-panel h3, .card-head h1 {
+    font-family: 'Syne', 'Inter', system-ui, sans-serif !important;
+  }
+  .site-tag, .stat-pill .stat-val { font-family: 'DM Mono', ui-monospace, monospace !important; }
+
+  /* Panel izquierdo: limpio en blanco, con acento dorado superior (no degradado muddy). */
+  .glass-panel--info {
+    background: #FFFFFF !important;
+    border: 1px solid var(--lx-stroke) !important;
+    box-shadow: var(--lx-shadow) !important;
+    position: relative; overflow: hidden;
+  }
+  .glass-panel--info::before {
+    content: ""; position: absolute; inset: 0 0 auto 0; height: 4px;
+    background: var(--lx-grad-gold); z-index: 2;
+  }
+  .glass-panel--info .lead { color: var(--lx-ink2) !important; font-size: 1rem; line-height: 1.65; font-weight: 400; }
+  .glass-panel h2 { font-weight: 800 !important; letter-spacing: -.02em !important; }
+
+  /* Features como filas elegantes con chip dorado de icono. */
+  .features { display: flex; flex-direction: column; gap: .65rem !important; }
+  .features li {
+    display: flex; align-items: center; gap: .8rem;
+    color: var(--lx-ink) !important; font-weight: 500; font-size: .95rem;
+  }
+  .features li svg {
+    width: 36px !important; height: 36px !important; padding: 8px !important;
+    border-radius: 11px !important; flex-shrink: 0; box-sizing: border-box !important;
+    background: linear-gradient(135deg, rgba(245, 195, 60, .20), rgba(224, 179, 65, .06)) !important;
+    border: 1px solid rgba(224, 179, 65, .28) !important;
+    color: var(--lx-gold-deep) !important; stroke: var(--lx-gold-deep) !important;
+  }
+
+  /* Chips refinados. */
+  .stat-pill { border-radius: 11px !important; font-weight: 600 !important; padding: .5rem .8rem !important; }
+  .pill { border-radius: 99px !important; font-weight: 600 !important; }
+  .site-tag { border-radius: 99px !important; font-weight: 500 !important; }
+
+  /* Inputs y botón más premium. */
+  .field input, input[type="text"], input[type="password"] {
+    padding: .9rem 1rem !important; font-size: .95rem !important; border-radius: 12px !important;
+  }
+  .card-head h1 { font-weight: 800 !important; letter-spacing: -.02em !important; }
+  button[type="submit"], #btn {
+    border-radius: 14px !important; font-weight: 700 !important; padding: .95rem 1.2rem !important; font-size: 1rem !important;
+  }
 </style>
 </head>
 <body>
