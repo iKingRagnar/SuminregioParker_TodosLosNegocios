@@ -13697,11 +13697,15 @@ get('/api/oc/listado', async (req) => {
   const ids = (heads || []).map(h => h.DOCTO_CM_ID).filter(x => x != null);
   if (!ids.length) return { ok: true, rows: [], _diag: { heads: (heads||[]).length, herr: _herr } };
 
-  const rows = await _fbQueryBlobs(
-    `SELECT cm.DOCTO_CM_ID, cm.FOLIO, cm.FECHA, cm.ESTATUS,
-            CAST(cm.DESCRIPCION AS VARCHAR(4000)) AS REFERENCIA, cm.FOLIO_PROV,
-            prov.PROVEEDOR_ID, prov.NOMBRE AS PROVEEDOR, prov.RFC_CURP AS PROVEEDOR_RFC,
-            det.ARTICULO_ID, det.CLAVE_ARTICULO, art.NOMBRE AS ARTICULO,
+  // Texto WIN1252 sucio truena con "Malformed string": leer con charset NONE + CAST a OCTETS y
+  // decodificar con latin1 (misma tecnica que el volcado de inventario).
+  const dboTxt = Object.assign({}, dbo || DB_OPTIONS, { encoding: 'NONE', charset: 'NONE' });
+  const OCT = (e, n) => `CAST(${e} AS VARCHAR(${n}) CHARACTER SET OCTETS)`;
+  const rawrows = await query(
+    `SELECT cm.DOCTO_CM_ID, ${OCT('cm.FOLIO', 40)} AS FOLIO, cm.FECHA, ${OCT('cm.ESTATUS', 4)} AS ESTATUS,
+            ${OCT('cm.DESCRIPCION', 4000)} AS REFERENCIA, ${OCT('cm.FOLIO_PROV', 60)} AS FOLIO_PROV,
+            cm.PROVEEDOR_ID, ${OCT('prov.NOMBRE', 200)} AS PROVEEDOR, ${OCT('prov.RFC_CURP', 20)} AS PROVEEDOR_RFC,
+            det.ARTICULO_ID, ${OCT('det.CLAVE_ARTICULO', 80)} AS CLAVE_ARTICULO, ${OCT('art.NOMBRE', 255)} AS ARTICULO,
             det.UNIDADES, det.PRECIO_UNITARIO,
             (COALESCE(det.UNIDADES,0) * COALESCE(det.PRECIO_UNITARIO,0)) AS IMPORTE_LINEA
        FROM DOCTOS_CM cm
@@ -13709,7 +13713,14 @@ get('/api/oc/listado', async (req) => {
        LEFT JOIN PROVEEDORES prov ON prov.PROVEEDOR_ID = cm.PROVEEDOR_ID
        LEFT JOIN ARTICULOS   art  ON art.ARTICULO_ID  = det.ARTICULO_ID
       WHERE cm.DOCTO_CM_ID IN (${ids.join(',')})
-      ORDER BY cm.DOCTO_CM_ID, det.DOCTO_CM_DET_ID`, [], 60000, dbo, []).catch((e) => { _derr = String((e&&e.message)||e); return []; });
+      ORDER BY cm.DOCTO_CM_ID, det.DOCTO_CM_DET_ID`, [], 60000, dboTxt).catch((e) => { _derr = String((e&&e.message)||e); return []; });
+  const dec = (v) => Buffer.isBuffer(v) ? v.toString('latin1').replace(/\x00+$/, '').trimEnd() : v;
+  const rows = (rawrows || []).map((r) => {
+    r.FOLIO = dec(r.FOLIO); r.ESTATUS = dec(r.ESTATUS); r.REFERENCIA = dec(r.REFERENCIA);
+    r.FOLIO_PROV = dec(r.FOLIO_PROV); r.PROVEEDOR = dec(r.PROVEEDOR); r.PROVEEDOR_RFC = dec(r.PROVEEDOR_RFC);
+    r.CLAVE_ARTICULO = dec(r.CLAVE_ARTICULO); r.ARTICULO = dec(r.ARTICULO);
+    return r;
+  });
   return { ok: true, rows, _diag: { heads: ids.length, derr: _derr } };
 });
 
