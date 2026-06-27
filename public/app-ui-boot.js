@@ -1195,6 +1195,18 @@
       document.head.appendChild(link);
     }
 
+    // 1b. Contexto en cada visual (ⓘ qué es + cómo se calcula) + auto-fit de
+    //     números. Los dashboards no cargan nav.js, así que lo inyectamos aquí.
+    //     kpi-context.js trae su propio guard, así que es inocuo si ya estaba.
+    if (!document.getElementById('vp-kpicx-js') && !window.__sumiKpiContext) {
+      var baseCx = (typeof window.__API_BASE === 'string' && window.__API_BASE) ? window.__API_BASE : '';
+      var scx = document.createElement('script');
+      scx.id = 'vp-kpicx-js';
+      scx.src = baseCx + '/kpi-context.js?v=1';
+      scx.defer = true;
+      document.head.appendChild(scx);
+    }
+
     // 2. IntersectionObserver for .ms-reveal → .is-visible (stagger entrance)
     if ('IntersectionObserver' in window) {
       var revealIO = new IntersectionObserver(function (entries) {
