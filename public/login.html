@@ -8,7 +8,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Syne:wght@600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
     --pb-yellow: #F2C200;
@@ -826,6 +826,182 @@
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
     }
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     REDISEÑO LIGHT — "ejecutivo de lujo claro" (capa que gana al cascade)
+     Apaga el fondo oscuro y TODAS las lucecitas (aurora, rejilla, partículas,
+     rayos cónicos tipo Star Wars, borde giratorio) y convierte todo a claro.
+     ═══════════════════════════════════════════════════════════════════════ */
+  :root {
+    --lx-ink: #0F172A; --lx-ink2: #475569; --lx-ink3: #64748B;
+    --lx-gold: #E0B341; --lx-gold-deep: #B8860B;
+    --lx-grad-gold: linear-gradient(135deg, #F5C33C 0%, #E0B341 45%, #B8860B 100%);
+    --lx-surface: #FFFFFF; --lx-ivory: #FCFAF3;
+    --lx-stroke: rgba(15, 23, 42, .09); --lx-stroke-gold: rgba(224, 179, 65, .32);
+    --lx-shadow: 0 30px 80px -34px rgba(15, 23, 42, .30), 0 12px 32px -16px rgba(15, 23, 42, .13);
+    --lx-shadow-sm: 0 4px 14px -6px rgba(15, 23, 42, .14);
+  }
+  html, body { background: #EDF0F7 !important; color: var(--lx-ink) !important; }
+
+  /* Fondo claro + APAGAR lucecitas */
+  .login-bg {
+    background:
+      radial-gradient(1100px 640px at 6% -12%, rgba(224, 179, 65, .18), transparent 55%),
+      radial-gradient(1000px 720px at 102% 0%, rgba(47, 107, 255, .09), transparent 52%),
+      radial-gradient(900px 880px at 50% 122%, rgba(124, 92, 252, .06), transparent 60%),
+      linear-gradient(180deg, #FBFAF6 0%, #F1F4FA 60%, #EAEEF6 100%) !important;
+  }
+  .login-bg::before, .login-bg::after,
+  .login-grid-overlay, .login-particles, .login-bg-vignette,
+  .login-bg-vignette::after,
+  .glass-panel--auth::before, .card-head .lock::after { display: none !important; }
+
+  /* Paneles → tarjetas claras premium */
+  .glass-panel {
+    background: var(--lx-surface) !important;
+    border: 1px solid var(--lx-stroke) !important;
+    box-shadow: var(--lx-shadow) !important;
+    backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+    color: var(--lx-ink2) !important; border-radius: 24px !important;
+  }
+  .glass-panel--info {
+    background: linear-gradient(165deg, #FFFFFF 0%, #FBF3DC 100%) !important;
+    border-color: var(--lx-stroke-gold) !important;
+  }
+
+  /* Marca / textos a tinta + dorado */
+  .glass-panel h1, .glass-panel h2, .glass-panel h3 {
+    color: var(--lx-ink) !important; -webkit-text-fill-color: var(--lx-ink) !important;
+  }
+  .glass-panel .gold {
+    background: var(--lx-grad-gold) !important;
+    -webkit-background-clip: text !important; background-clip: text !important;
+    -webkit-text-fill-color: transparent !important; color: transparent !important;
+  }
+  .glass-panel .lead { color: var(--lx-ink2) !important; }
+  .site-tag {
+    background: linear-gradient(135deg, rgba(245, 195, 60, .18), rgba(224, 179, 65, .07)) !important;
+    border: 1px solid var(--lx-stroke-gold) !important; color: var(--lx-gold-deep) !important;
+  }
+  .features li { color: var(--lx-ink2) !important; }
+  .features li svg { color: var(--lx-gold-deep) !important; stroke: var(--lx-gold-deep) !important; }
+  .stat-pill { background: var(--lx-ivory) !important; border: 1px solid var(--lx-stroke) !important; color: var(--lx-ink2) !important; }
+  .stat-pill .stat-val { color: var(--lx-gold-deep) !important; }
+  .pill { background: #fff !important; border: 1px solid var(--lx-stroke) !important; color: var(--lx-ink3) !important; }
+
+  /* Cabecera de acceso */
+  .card-head .lock {
+    background: linear-gradient(135deg, rgba(245, 195, 60, .22), rgba(224, 179, 65, .08)) !important;
+    border: 1px solid var(--lx-stroke-gold) !important; color: var(--lx-gold-deep) !important;
+    box-shadow: 0 6px 18px -6px rgba(224, 179, 65, .45) !important;
+  }
+  .card-head .lock svg { color: var(--lx-gold-deep) !important; stroke: var(--lx-gold-deep) !important; }
+  .card-head p { color: var(--lx-ink3) !important; }
+
+  /* Formulario */
+  .field label { color: var(--lx-ink) !important; }
+  .field label svg { color: var(--lx-gold-deep) !important; stroke: var(--lx-gold-deep) !important; }
+  .hint { color: var(--lx-ink3) !important; }
+  .field input, input[type="text"], input[type="password"] {
+    background: #fff !important; border: 1px solid var(--lx-stroke) !important;
+    color: var(--lx-ink) !important; box-shadow: 0 1px 2px rgba(15, 23, 42, .04) !important;
+  }
+  .field input::placeholder { color: #9AA7B8 !important; }
+  .field input:focus {
+    border-color: var(--lx-gold) !important;
+    box-shadow: 0 0 0 3px rgba(224, 179, 65, .18) !important; outline: none !important;
+  }
+  .toggle-pw { color: var(--lx-ink3) !important; }
+  .toggle-pw:hover { color: var(--lx-gold-deep) !important; }
+
+  /* Recordar credenciales */
+  .remember-label { color: var(--lx-ink2) !important; }
+  .remember-check { background: #fff !important; border: 1px solid var(--lx-stroke) !important; }
+  .remember-label input:checked + .remember-check { background: var(--lx-gold) !important; border-color: var(--lx-gold) !important; }
+  .remember-check svg { color: #1A1200 !important; stroke: #1A1200 !important; }
+
+  /* Botón entrar */
+  button[type="submit"], #btn {
+    background: var(--lx-grad-gold) !important; color: #1A1200 !important;
+    -webkit-text-fill-color: #1A1200 !important; border: none !important;
+    box-shadow: 0 8px 22px -6px rgba(224, 179, 65, .55), inset 0 1px 0 rgba(255, 255, 255, .5) !important;
+  }
+  button[type="submit"]:hover, #btn:hover {
+    box-shadow: 0 12px 28px -6px rgba(224, 179, 65, .68), inset 0 1px 0 rgba(255, 255, 255, .55) !important;
+  }
+  #btn .btn-text svg { color: #1A1200 !important; stroke: #1A1200 !important; }
+
+  /* Niveles de acceso */
+  .access-foot h3 { color: var(--lx-ink3) !important; }
+  .access-grid article {
+    background: var(--lx-ivory) !important; border: 1px solid var(--lx-stroke) !important;
+    color: var(--lx-ink3) !important; box-shadow: var(--lx-shadow-sm) !important;
+  }
+  .access-grid article strong { color: var(--lx-ink) !important; }
+  .access-grid .role-ico { color: var(--lx-gold-deep) !important; stroke: var(--lx-gold-deep) !important; }
+
+  /* Banners legibles en claro */
+  .err { background: rgba(220, 38, 38, .08) !important; border: 1px solid rgba(220, 38, 38, .25) !important; color: #B91C1C !important; }
+  .gate-banner { background: rgba(245, 158, 11, .10) !important; border: 1px solid rgba(245, 158, 11, .30) !important; color: #B45309 !important; }
+  .mis-banner, .mis-banner strong, .mis-banner code { color: #92400E !important; }
+  .mis-banner { background: rgba(245, 158, 11, .10) !important; border: 1px solid rgba(245, 158, 11, .30) !important; }
+  .mis-banner code { background: rgba(15, 23, 42, .05) !important; }
+
+  /* ═══════════ REFINAMIENTO v2 — menos "crudo", más premium ═══════════ */
+  /* Tipografía: sans premium para el cuerpo (adiós monoespaciado), Syne para títulos. */
+  body, .glass-panel, .glass-panel .lead, .glass-panel p, .features li,
+  .field, .field label, .field input, .hint, .stat-pill, .pill, .card-head p,
+  .access-grid article, .access-grid article strong, .remember-label,
+  .toggle-pw, button[type="submit"], #btn, .gate-banner, .mis-banner, .err {
+    font-family: 'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif !important;
+    letter-spacing: normal !important;
+  }
+  .glass-panel h1, .glass-panel h2, .glass-panel h3, .card-head h1 {
+    font-family: 'Syne', 'Inter', system-ui, sans-serif !important;
+  }
+  .site-tag, .stat-pill .stat-val { font-family: 'DM Mono', ui-monospace, monospace !important; }
+
+  /* Panel izquierdo: limpio en blanco, con acento dorado superior (no degradado muddy). */
+  .glass-panel--info {
+    background: #FFFFFF !important;
+    border: 1px solid var(--lx-stroke) !important;
+    box-shadow: var(--lx-shadow) !important;
+    position: relative; overflow: hidden;
+  }
+  .glass-panel--info::before {
+    content: ""; position: absolute; inset: 0 0 auto 0; height: 4px;
+    background: var(--lx-grad-gold); z-index: 2;
+  }
+  .glass-panel--info .lead { color: var(--lx-ink2) !important; font-size: 1rem; line-height: 1.65; font-weight: 400; }
+  .glass-panel h2 { font-weight: 800 !important; letter-spacing: -.02em !important; }
+
+  /* Features como filas elegantes con chip dorado de icono. */
+  .features { display: flex; flex-direction: column; gap: .65rem !important; }
+  .features li {
+    display: flex; align-items: center; gap: .8rem;
+    color: var(--lx-ink) !important; font-weight: 500; font-size: .95rem;
+  }
+  .features li svg {
+    width: 36px !important; height: 36px !important; padding: 8px !important;
+    border-radius: 11px !important; flex-shrink: 0; box-sizing: border-box !important;
+    background: linear-gradient(135deg, rgba(245, 195, 60, .20), rgba(224, 179, 65, .06)) !important;
+    border: 1px solid rgba(224, 179, 65, .28) !important;
+    color: var(--lx-gold-deep) !important; stroke: var(--lx-gold-deep) !important;
+  }
+
+  /* Chips refinados. */
+  .stat-pill { border-radius: 11px !important; font-weight: 600 !important; padding: .5rem .8rem !important; }
+  .pill { border-radius: 99px !important; font-weight: 600 !important; }
+  .site-tag { border-radius: 99px !important; font-weight: 500 !important; }
+
+  /* Inputs y botón más premium. */
+  .field input, input[type="text"], input[type="password"] {
+    padding: .9rem 1rem !important; font-size: .95rem !important; border-radius: 12px !important;
+  }
+  .card-head h1 { font-weight: 800 !important; letter-spacing: -.02em !important; }
+  button[type="submit"], #btn {
+    border-radius: 14px !important; font-weight: 700 !important; padding: .95rem 1.2rem !important; font-size: 1rem !important;
   }
 </style>
 </head>
