@@ -701,3 +701,95 @@ html.theme-premium-light .uni-portfolio-v2 {
     0 24px 60px -24px rgba(15,23,42,.22),
     inset 0 1px 0 rgba(255,255,255,.8) !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   7 · MODO DRAMÁTICO — más color, números con acento, glows marcados, hero wow
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* 7.1 · Tarjetas de categoría: lavado de color MÁS saturado + glow permanente. */
+html.theme-premium-light .kpi-card.green  { background: linear-gradient(160deg, #FFFFFF 0%, #E4F8EE 100%) !important; box-shadow: 0 1px 2px rgba(15,23,42,.05), 0 14px 34px -18px rgba(16,163,113,.40), inset 0 1px 0 rgba(255,255,255,.8) !important; }
+html.theme-premium-light .kpi-card.blue   { background: linear-gradient(160deg, #FFFFFF 0%, #E2EEFF 100%) !important; box-shadow: 0 1px 2px rgba(15,23,42,.05), 0 14px 34px -18px rgba(47,107,255,.38), inset 0 1px 0 rgba(255,255,255,.8) !important; }
+html.theme-premium-light .kpi-card.yellow { background: linear-gradient(160deg, #FFFFFF 0%, #FDF1D6 100%) !important; box-shadow: 0 1px 2px rgba(15,23,42,.05), 0 14px 34px -18px rgba(224,179,65,.45), inset 0 1px 0 rgba(255,255,255,.8) !important; }
+html.theme-premium-light .kpi-card.orange { background: linear-gradient(160deg, #FFFFFF 0%, #FFEAD2 100%) !important; box-shadow: 0 1px 2px rgba(15,23,42,.05), 0 14px 34px -18px rgba(245,158,11,.42), inset 0 1px 0 rgba(255,255,255,.8) !important; }
+html.theme-premium-light .kpi-card.red    { background: linear-gradient(160deg, #FFFFFF 0%, #FFE4EA 100%) !important; box-shadow: 0 1px 2px rgba(15,23,42,.05), 0 14px 34px -18px rgba(244,63,107,.40), inset 0 1px 0 rgba(255,255,255,.8) !important; }
+html.theme-premium-light .kpi-card.purple { background: linear-gradient(160deg, #FFFFFF 0%, #ECE6FF 100%) !important; box-shadow: 0 1px 2px rgba(15,23,42,.05), 0 14px 34px -18px rgba(124,92,252,.40), inset 0 1px 0 rgba(255,255,255,.8) !important; }
+html.theme-premium-light .kpi-card.cyan   { background: linear-gradient(160deg, #FFFFFF 0%, #DEF6FD 100%) !important; box-shadow: 0 1px 2px rgba(15,23,42,.05), 0 14px 34px -18px rgba(11,181,214,.40), inset 0 1px 0 rgba(255,255,255,.8) !important; }
+
+/* Barra superior más marcada. */
+html.theme-premium-light .kpi-card.blue::before,
+html.theme-premium-light .kpi-card.green::before,
+html.theme-premium-light .kpi-card.yellow::before,
+html.theme-premium-light .kpi-card.orange::before,
+html.theme-premium-light .kpi-card.red::before,
+html.theme-premium-light .kpi-card.purple::before,
+html.theme-premium-light .kpi-card.cyan::before { height: 4px !important; }
+
+/* 7.2 · Números KPI con ACENTO DE COLOR por categoría (protagonistas). */
+html.theme-premium-light .kpi-card.green  .kpi-value, html.theme-premium-light .kpi-card.green  .kpi-val { color: #0C8C5C !important; -webkit-text-fill-color: #0C8C5C !important; }
+html.theme-premium-light .kpi-card.blue   .kpi-value, html.theme-premium-light .kpi-card.blue   .kpi-val { color: #2257E6 !important; -webkit-text-fill-color: #2257E6 !important; }
+html.theme-premium-light .kpi-card.red    .kpi-value, html.theme-premium-light .kpi-card.red    .kpi-val { color: #E11D48 !important; -webkit-text-fill-color: #E11D48 !important; }
+html.theme-premium-light .kpi-card.purple .kpi-value, html.theme-premium-light .kpi-card.purple .kpi-val { color: #6D28D9 !important; -webkit-text-fill-color: #6D28D9 !important; }
+html.theme-premium-light .kpi-card.cyan   .kpi-value, html.theme-premium-light .kpi-card.cyan   .kpi-val { color: #0A93B0 !important; -webkit-text-fill-color: #0A93B0 !important; }
+/* Categorías doradas: número con degradado dorado (text-clip). */
+html.theme-premium-light .kpi-card.yellow .kpi-value, html.theme-premium-light .kpi-card.yellow .kpi-val,
+html.theme-premium-light .kpi-card.orange .kpi-value, html.theme-premium-light .kpi-card.orange .kpi-val {
+  background: linear-gradient(135deg, #D99A0B, #F5C33C 55%, #B8860B) !important;
+  -webkit-background-clip: text !important; background-clip: text !important;
+  -webkit-text-fill-color: transparent !important; color: transparent !important;
+}
+
+/* 7.3 · Etiqueta de categoría dentro de la tarjeta, en su color. */
+html.theme-premium-light .kpi-card.green  .kpi-module { color: #0C8C5C !important; }
+html.theme-premium-light .kpi-card.blue   .kpi-module { color: #2257E6 !important; }
+html.theme-premium-light .kpi-card.red    .kpi-module { color: #E11D48 !important; }
+html.theme-premium-light .kpi-card.purple .kpi-module { color: #6D28D9 !important; }
+html.theme-premium-light .kpi-card.cyan   .kpi-module { color: #0A93B0 !important; }
+html.theme-premium-light .kpi-card.yellow .kpi-module,
+html.theme-premium-light .kpi-card.orange .kpi-module { color: #B8860B !important; }
+
+/* 7.4 · Hero ESPECTACULAR: título dorado con brillo animado. */
+@keyframes luxShine { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+html.theme-premium-light .hero-title,
+html.theme-premium-light .uni-title.lux-gold,
+html.theme-premium-light [class*="hero"][class*="title"] {
+  background: linear-gradient(100deg, #B8860B 0%, #E0B341 25%, #FFE9A8 50%, #E0B341 75%, #B8860B 100%) !important;
+  background-size: 220% auto !important;
+  -webkit-background-clip: text !important; background-clip: text !important;
+  -webkit-text-fill-color: transparent !important; color: transparent !important;
+  animation: luxShine 7s linear infinite;
+  filter: drop-shadow(0 3px 14px rgba(224, 179, 65, .30));
+}
+
+/* 7.5 · Glows/sombras generales más marcados en tarjetas neutras al hover. */
+html.theme-premium-light .card:hover,
+html.theme-premium-light .sc-card:hover,
+html.theme-premium-light .metric-card:hover,
+html.theme-premium-light .module-card:hover,
+html.theme-premium-light .uni-entity-card:hover {
+  box-shadow:
+    0 1px 2px rgba(15,23,42,.06),
+    0 26px 56px -20px rgba(15,23,42,.32),
+    0 16px 44px -20px rgba(224,179,65,.50) !important;
+}
+
+/* Respeta reduce-motion: sin brillo animado. */
+@media (prefers-reduced-motion: reduce) {
+  html.theme-premium-light .hero-title,
+  html.theme-premium-light .uni-title.lux-gold,
+  html.theme-premium-light [class*="hero"][class*="title"] { animation: none !important; }
+}
+
+/* 7.6 · Título principal del portfolio (hero) en dorado con brillo animado. */
+html.theme-premium-light .uni-portfolio .uni-title,
+html.theme-premium-light .uni-portfolio-v2 .uni-title {
+  background: linear-gradient(100deg, #B8860B 0%, #E0B341 25%, #FFE9A8 50%, #E0B341 75%, #B8860B 100%) !important;
+  background-size: 220% auto !important;
+  -webkit-background-clip: text !important; background-clip: text !important;
+  -webkit-text-fill-color: transparent !important; color: transparent !important;
+  animation: luxShine 7s linear infinite;
+  filter: drop-shadow(0 3px 14px rgba(224, 179, 65, .28));
+}
+@media (prefers-reduced-motion: reduce) {
+  html.theme-premium-light .uni-portfolio .uni-title,
+  html.theme-premium-light .uni-portfolio-v2 .uni-title { animation: none !important; }
+}
