@@ -13887,6 +13887,14 @@ get('/api/cm/cfdis-probe', async (req) => {
       `SELECT cm.TIPO_DOCTO, COUNT(*) AS N FROM DOCTOS_CM cm GROUP BY cm.TIPO_DOCTO ORDER BY COUNT(*) DESC`,
       [], 60000, dbo, []);
   } catch(e){ err=(err||'')+' | tipos:'+String((e&&e.message)||e); }
+  let cfdi_cols=null;
+  try {
+    cfdi_cols = await _fbQueryBlobs(
+      `SELECT TRIM(rf.RDB$FIELD_NAME) AS COL FROM RDB$RELATION_FIELDS rf
+        WHERE rf.RDB$RELATION_NAME = 'REPOSITORIO_CFDI' ORDER BY rf.RDB$FIELD_POSITION`,
+      [], 60000, dbo, []);
+    cfdi_cols = (cfdi_cols||[]).map(x=>x.COL);
+  } catch(e){ err=(err||'')+' | cols:'+String((e&&e.message)||e); }
   let oc_estatus=null;
   try {
     oc_estatus = await _fbQueryBlobs(
@@ -13894,7 +13902,7 @@ get('/api/cm/cfdis-probe', async (req) => {
          FROM DOCTOS_CM cm WHERE cm.TIPO_DOCTO = 'O' GROUP BY cm.ESTATUS`,
       [], 60000, dbo, []);
   } catch(e){ err=(err||'')+' | oc_est:'+String((e&&e.message)||e); }
-  return { ok:true, err, total_rfcs: dist?dist.length:null, dist_top:(dist||[]).slice(0,15), sample_no_hospital: sample, doctos_cm_por_tipo: tipos, oc_por_estatus: oc_estatus };
+  return { ok:true, err, total_rfcs: dist?dist.length:null, dist_top:(dist||[]).slice(0,15), sample_no_hospital: sample, doctos_cm_por_tipo: tipos, oc_por_estatus: oc_estatus, repositorio_cfdi_cols: cfdi_cols };
 });
 
 // PEDIDOS vs ENTREGADO — Cumplimiento por pedido y línea de artículo
