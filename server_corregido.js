@@ -665,6 +665,49 @@ function _fbQuery(sql, params = [], timeoutMs = 12000, dbOptsOverride = null) {
   return Promise.race([queryPromise, timeoutPromise]);
 }
 
+// ── Lectura Firebird con BLOBs materializados ─────────────────────────
+// node-firebird entrega los campos BLOB como un callback (no como string). El snapshot
+// DuckDB ademas EXCLUYE los BLOB. Por eso el XML del CFDI llegaba vacio. Este helper lee
+// de Firebird y materializa los BLOB indicados a texto UTF-8.
+function _fbQueryBlobs(sql, params = [], timeoutMs = 60000, dbOptsOverride = null, blobCols = []) {
+  const attachOpts = dbOptsOverride || DB_OPTIONS;
+  const work = new Promise((resolve, reject) => {
+    Firebird.attach(attachOpts, (err, db) => {
+      if (err) return reject(err);
+      db.query(sql, params, (err2, rows) => {
+        if (err2) { try { db.detach(); } catch (_) {} return reject(err2); }
+        const list = rows || [];
+        const readBlob = (fn) => new Promise((res) => {
+          try {
+            fn((e, name, emitter) => {
+              if (e || !emitter || typeof emitter.on !== 'function') return res(null);
+              const chunks = [];
+              emitter.on('data', (c) => chunks.push(c));
+              emitter.on('end', () => { try { res(Buffer.concat(chunks).toString('utf8')); } catch (_) { res(null); } });
+              emitter.on('error', () => res(null));
+            });
+          } catch (_) { res(null); }
+        });
+        (async () => {
+          for (const row of list) {
+            for (const col of blobCols) {
+              if (typeof row[col] === 'function') row[col] = await readBlob(row[col]);
+            }
+          }
+          try { db.detach(); } catch (_) {}
+          resolve(list);
+        })().catch((e) => { try { db.detach(); } catch (_) {} reject(e); });
+      });
+    });
+  });
+  const to = new Promise((_, rej) => setTimeout(() => rej(new Error(`Blob query timeout (${timeoutMs}ms)`)), timeoutMs));
+  return Promise.race([work, to]);
+}
+
+// Cache en memoria para CFDIs (evita golpear Firebird en cada carga del tablero).
+const _cfdiCache = new Map(); // key: dbId|folio|limit -> { at, rows }
+const _CFDI_TTL = 10 * 60 * 1000;
+
 // ── DuckDB Multi-Base Snapshot Layer ─────────────────────────────────────────
 // Cada empresa tiene su propio snapshot DuckDB.
 // sync_duckdb.py genera uno por base y los sube cada noche.
@@ -13771,14 +13814,33 @@ get('/api/hospital/cfdis', async (req) => {
   const dbo   = getReqDbOpts(req);
   const limit = Math.min(parseInt(req.query.limit || '300', 10) || 300, 1000);
   const folio = String(req.query.folio || '').replace(/[^A-Za-z0-9_-]/g, '');
+  const dbId  = dbOptsToId(dbo) || 'default';
+  const ckey  = `${dbId}|${folio}|${limit}`;
+  const hit   = _cfdiCache.get(ckey);
+  if (hit && (Date.now() - hit.at) < _CFDI_TTL) {
+    return { ok: true, count: hit.rows.length, rows: hit.rows, cached: true };
+  }
   const where = [`r.RFC = 'SNT391220717'`];
   if (folio) where.push(`UPPER(r.FOLIO) = '${folio.toUpperCase()}'`);
-  const rows = await query(
-    `SELECT FIRST ${limit} r.UUID, r.FOLIO, r.FECHA, r.NOM_ARCH, r.TIPO_COMPROBANTE, r.XML
+  const sql = `SELECT FIRST ${limit} r.UUID, r.FOLIO, r.FECHA, r.NOM_ARCH, r.TIPO_COMPROBANTE, r.XML
        FROM REPOSITORIO_CFDI r
       WHERE ${where.join(' AND ')}
-      ORDER BY r.FECHA DESC`, [], 60000, dbo).catch(() => []);
-  return { ok: true, count: (rows || []).length, rows: rows || [] };
+      ORDER BY r.FECHA DESC`;
+  // El XML es BLOB: el snapshot no lo trae y node-firebird lo entrega como callback. Leemos
+  // de Firebird materializando el BLOB a texto (cacheado 10 min para no saturar la WAN).
+  let rows = await _fbQueryBlobs(sql, [], 60000, dbo, ['XML']).catch((e) => {
+    console.warn('[CFDI] _fbQueryBlobs fallo, respaldo a metadata:', (e && e.message) || e);
+    return null;
+  });
+  if (!rows) {
+    rows = await query(
+      `SELECT FIRST ${limit} r.UUID, r.FOLIO, r.FECHA, r.NOM_ARCH, r.TIPO_COMPROBANTE
+         FROM REPOSITORIO_CFDI r WHERE ${where.join(' AND ')} ORDER BY r.FECHA DESC`,
+      [], 60000, dbo).catch(() => []);
+  }
+  rows = rows || [];
+  _cfdiCache.set(ckey, { at: Date.now(), rows });
+  return { ok: true, count: rows.length, rows };
 });
 
 // PEDIDOS vs ENTREGADO — Cumplimiento por pedido y línea de artículo
