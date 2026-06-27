@@ -48,7 +48,7 @@
       addLink('vp-mobile-css',  '/mobile-enhance.css?v=1');
       // Tema "ejecutivo de lujo claro": refinamiento premium global.
       // Se carga al FINAL para ganar al resto del cascade.
-      addLink('vp-lux-css',     '/lux-theme.css?v=lux5');
+      addLink('vp-lux-css',     '/lux-theme.css?v=lux6');
 
       // Manifest PWA
       if (!document.querySelector('link[rel="manifest"]')) {
@@ -91,7 +91,7 @@
         ['vp-xlsx-js',      '/xlsx-export.js?v=1'],
         ['vp-tablefilter-js', '/table-filter.js?v=lux4'],
         ['vp-emptyperiod-js', '/empty-period-helper.js?v=1'],
-        ['vp-kpicx-js',       '/kpi-context.js?v=1'],
+        ['vp-kpicx-js',       '/kpi-context.js?v=2'],
       ].forEach(function (pair) {
         if (document.getElementById(pair[0])) return;
         var sc = document.createElement('script');
