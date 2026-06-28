@@ -781,8 +781,7 @@ function renderAll(){
   const ticketProm   = totalFacturas>0 ? totalCobrado/totalFacturas : 0;
   const topVend      = [...d].sort((a,b)=>(+b.TOTAL_COBRADO||0)-(+a.TOTAL_COBRADO||0))[0];
 
-  const _ivaTxt = (totalCobradoConIvaGlobal && totalCobradoConIvaGlobal > totalCobrado + 1) ? (' (c/IVA ' + fmtM(totalCobradoConIvaGlobal) + ')') : '';
-  document.getElementById('heroSub').textContent = d.length+' vendedores \u2022 '+totalFacturas+' facturas \u2022 '+fmtM(totalCobrado)+' cobrado sin IVA'+_ivaTxt;
+  document.getElementById('heroSub').textContent = d.length+' vendedores \u2022 '+totalFacturas+' facturas \u2022 '+fmtM(totalCobrado)+' cobrado sin IVA';
   document.getElementById('kpiTotalCobrado').textContent = fmtM(totalCobrado);
   document.getElementById('kpiTotalCobradoSub').textContent = totalFacturas+' facturas cobradas';
   document.getElementById('kpiTotalVenta').textContent = fmtM(totalVenta);

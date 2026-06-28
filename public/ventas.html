@@ -1384,10 +1384,10 @@ async function loadResumen() {
     if (bloq) {
       setText('kpi-hoy-sub', 'Meta equipo no aplica (solo PV)');
     } else {
-      setText('kpi-hoy-sub', `Meta equipo (día laboral): ${fmtK(metaDia)}${hoyIva>0.005 ? ` · c/IVA: ${fmt(hoyIva)}` : ''}`);
+      setText('kpi-hoy-sub', `Meta equipo (día laboral): ${fmtK(metaDia)}`);
     }
     setText('kpi-mes', fmt(mes));
-    setText('kpi-mes-sub', `${docs} docs · meta ideal acum. (${laborMes} d. lab.) · remisiones: ${fmtK(remMes)}${remMesIva>0.005 ? ` (c/IVA: ${fmtK(remMesIva)})` : ''}${mesIva>0.005 ? ` · Mes c/IVA: ${fmt(mesIva)}` : ''}`);
+    setText('kpi-mes-sub', `${docs} docs · meta ideal acum. (${laborMes} d. lab.) · remisiones: ${fmtK(remMes)}`);
     setText('kpi-facturas', docs.toLocaleString());
     setText('kpi-prom', fmtK(diasCal>0?mes/diasCal:0));
     setText('kpi-prom-sub', `${diasCal} días calendario del mes`);

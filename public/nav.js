@@ -91,7 +91,7 @@
         ['vp-xlsx-js',      '/xlsx-export.js?v=1'],
         ['vp-tablefilter-js', '/table-filter.js?v=lux4'],
         ['vp-emptyperiod-js', '/empty-period-helper.js?v=1'],
-        ['vp-kpicx-js',       '/kpi-context.js?v=2'],
+        ['vp-kpicx-js',       '/kpi-context.js?v=3'],
       ].forEach(function (pair) {
         if (document.getElementById(pair[0])) return;
         var sc = document.createElement('script');

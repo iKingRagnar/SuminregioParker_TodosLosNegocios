@@ -1202,7 +1202,7 @@
       var baseCx = (typeof window.__API_BASE === 'string' && window.__API_BASE) ? window.__API_BASE : '';
       var scx = document.createElement('script');
       scx.id = 'vp-kpicx-js';
-      scx.src = baseCx + '/kpi-context.js?v=2';
+      scx.src = baseCx + '/kpi-context.js?v=3';
       scx.defer = true;
       document.head.appendChild(scx);
     }
