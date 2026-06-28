@@ -351,6 +351,13 @@
     '#kpi-cx-tip .cx-f b{color:#FDE68A;font-weight:700}',
     /* badge "LIVE" de los dashboards: no dejar que el flex lo exprima ("● L") */
     '.live-pill{flex:none!important;white-space:nowrap!important}',
+    /* "más número, menos letras": el VALOR es el protagonista; labels/subtítulos
+       y la caption se vuelven secundarios (peso/opacidad, sin agrandar para no
+       reintroducir cortes — el auto-fit ya cuida el tamaño). */
+    '.kpi-value,.kpi-val,.kpi-v,.metric-value,.stat-val,.mod-kpi-val,.sc-kpi-val,.kc-value,.bg-kpi-val,.mc-kpi-val{font-weight:800!important;letter-spacing:-.03em!important}',
+    '.kpi-label,.kpi-l,.kpi-lbl,.sc-kpi-lbl,.stat-label,.mod-kpi-label,.kc-label,.mc-kpi-label,.bg-kpi-label{font-weight:600!important;opacity:.7!important}',
+    '.kpi-sub,.sc-kpi-sub,.kpi-hint,.mc-kpi-hint{opacity:.62!important;font-size:.92em!important}',
+    '.kpi-cx-cap{opacity:.8}',
     '@media print{.kpi-cx-i{display:none}#kpi-cx-tip{display:none}}'
   ].join('');
   var st = document.createElement('style');
