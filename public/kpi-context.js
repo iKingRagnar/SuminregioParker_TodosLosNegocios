@@ -535,8 +535,53 @@
     } catch (e) { /* noop */ }
   }
 
+  /* ── "Más cards": promover sub-métricas a su propia card ───────────────────
+     Cuando un KPI trae una métrica suelta debajo del resultado (un %, un monto
+     o un número, NO texto descriptivo), la sacamos a una card hermana propia.
+     Estricto: sólo promueve si el subtítulo es una métrica PURA, así el texto
+     descriptivo ("105 documentos", "vs meta") se queda intacto.               */
+  var SUB_SEL = '.kpi-subtitle,.kpi-sub2,.kpi-extra,.kpi-second,.kpi-delta,.kpi-pct';
+  function isPureMetric(t) {
+    t = (t || '').trim();
+    if (t.length < 1 || t.length > 14) return false;
+    if (/^[-+]?0+(\.0+)?\s*%?$/.test(t)) return false;          // 0 / 0% → no aporta
+    return /^[-+]?\$?\s?\d[\d.,]*\s*%?$/.test(t) ||              // 46% · $1,234 · 1,284
+           /^[-+]?\$?\s?\d[\d.,]*\s?[KkMm]$/.test(t);           // $1.2M · 84K
+  }
+  function promoteSubmetrics() {
+    var cards = document.querySelectorAll('.kpi-card,.kpi,.metric-card,.kpi-box');
+    for (var i = 0; i < cards.length; i++) {
+      var card = cards[i];
+      if (card.getAttribute('data-cx-promoted')) continue;
+      var sub = card.querySelector(SUB_SEL);
+      if (!sub || sub.getAttribute('data-cx-promoted')) continue;
+      var t = (sub.textContent || '').trim();
+      if (!isPureMetric(t)) continue;
+      var labEl = card.querySelector('.kpi-label,.kpi-lbl,.kpi-l');
+      var lab = labEl ? labEl.textContent.replace(/\s+/g, ' ').trim() : 'Detalle';
+      if (lab.length > 28) lab = lab.slice(0, 28);
+      var qual = /%/.test(t) ? ' (%)' : /\$/.test(t) ? ' ($)' : '';
+      card.setAttribute('data-cx-promoted', '1');
+      sub.setAttribute('data-cx-promoted', '1');
+      var sib = document.createElement('div');
+      sib.className = card.className;
+      sib.setAttribute('data-cx-promoted', '1');
+      sib.setAttribute('data-cx-derived', '1');
+      // reusar las clases de label/valor del propio card para heredar estilo
+      var lc = (labEl && labEl.className) || 'kpi-label';
+      var vEl = card.querySelector('.kpi-value,.kpi-val,.kpi-v');
+      var vc = (vEl && vEl.className) || 'kpi-value';
+      sib.innerHTML = '<div class="' + lc + '">' + esc(lab + qual) + '</div>' +
+                      '<div class="' + vc + '">' + esc(t) + '</div>';
+      if (card.nextSibling) card.parentNode.insertBefore(sib, card.nextSibling);
+      else card.parentNode.appendChild(sib);
+      sub.style.display = 'none';   // ocultar el subtítulo original (ya es card)
+    }
+  }
+
   function scan() {
     try {
+      promoteSubmetrics();
       var labels = document.querySelectorAll(LABEL_SEL);
       for (var a = 0; a < labels.length; a++) annotateLabel(labels[a]);
       var titles = document.querySelectorAll(TITLE_SEL);
