@@ -536,17 +536,43 @@
   }
 
   /* ── "Más cards": promover sub-métricas a su propia card ───────────────────
-     Cuando un KPI trae una métrica suelta debajo del resultado (un %, un monto
-     o un número, NO texto descriptivo), la sacamos a una card hermana propia.
-     Estricto: sólo promueve si el subtítulo es una métrica PURA, así el texto
-     descriptivo ("105 documentos", "vs meta") se queda intacto.               */
-  var SUB_SEL = '.kpi-subtitle,.kpi-sub2,.kpi-extra,.kpi-second,.kpi-delta,.kpi-pct';
-  function isPureMetric(t) {
-    t = (t || '').trim();
-    if (t.length < 1 || t.length > 14) return false;
-    if (/^[-+]?0+(\.0+)?\s*%?$/.test(t)) return false;          // 0 / 0% → no aporta
-    return /^[-+]?\$?\s?\d[\d.,]*\s*%?$/.test(t) ||              // 46% · $1,234 · 1,284
-           /^[-+]?\$?\s?\d[\d.,]*\s?[KkMm]$/.test(t);           // $1.2M · 84K
+     Cuando un KPI trae una métrica suelta debajo del resultado, la sacamos a su
+     propia card. Cubre dos casos:
+       (a) métrica PURA  → "46%" / "$1.2M" / "1,284"
+       (b) línea de métricas separadas por · | • → "46 docs · 29.2%" se parte en
+           dos cards ("Docs 46" y "% 29.2%"); "105 documentos" → "Documentos 105".
+     Guardas: salta prosa larga (segmentos > 26), ceros, y deja intacto el texto
+     descriptivo sin números ("vs meta", "Todo el periodo").                    */
+  var SUB_SEL = '.kpi-subtitle,.kpi-sub2,.kpi-extra,.kpi-second,.kpi-delta,.kpi-pct,.kpi-sub';
+  var NUMV = '\\$?\\s?\\d[\\d.,]*\\s*[KkMm]?\\s*%?';
+  function isZeroV(v) { return /^[-+]?\$?\s?0+(\.0+)?\s*%?$/.test((v || '').trim()); }
+  function capit(s) { s = (s || '').trim(); return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+  function segLabel(raw, parentLabel, value) {
+    var l = (raw || '').replace(/[()\[\]:=]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!l) { l = (parentLabel || 'Detalle') + (/%/.test(value) ? ' (%)' : ''); }
+    if (l.length > 26) l = l.slice(0, 26);
+    return capit(l);
+  }
+  // Devuelve [{label, value}] a partir del texto del subtítulo.
+  function extractMetrics(text, parentLabel) {
+    var out = [], t = (text || '').trim();
+    if (!t) return out;
+    var segs = t.split(/[·•|]/);
+    var multi = segs.length >= 2;   // sólo partimos líneas con VARIAS métricas
+    for (var s = 0; s < segs.length && out.length < 4; s++) {
+      var seg = segs[s].replace(/\s+/g, ' ').trim();
+      if (!seg || seg.length > 26) continue;          // prosa larga → fuera
+      var m;
+      if (multi && (m = seg.match(new RegExp('^(.{1,20}?)\\s*[:=]\\s*(' + NUMV + ')$')))) {
+        if (!isZeroV(m[2])) out.push({ label: segLabel(m[1], parentLabel, m[2]), value: m[2].replace(/\s/g, '') });
+      } else if (multi && (m = seg.match(new RegExp('^(' + NUMV + ')\\s+(.{1,18})$')))) {
+        if (!isZeroV(m[1]) && !/^(de|en|del|vs|por|al|a)\b/i.test(m[2])) out.push({ label: segLabel(m[2], parentLabel, m[1]), value: m[1].replace(/\s/g, '') });
+      } else if ((m = seg.match(new RegExp('^(' + NUMV + ')$')))) {
+        // valor PURO suelto ("46%", "$1.2M"): se promueve aun en línea simple.
+        if (!isZeroV(m[1])) out.push({ label: segLabel('', parentLabel, m[1]), value: m[1].replace(/\s/g, '') });
+      }
+    }
+    return out;
   }
   function promoteSubmetrics() {
     var cards = document.querySelectorAll('.kpi-card,.kpi,.metric-card,.kpi-box');
@@ -555,26 +581,28 @@
       if (card.getAttribute('data-cx-promoted')) continue;
       var sub = card.querySelector(SUB_SEL);
       if (!sub || sub.getAttribute('data-cx-promoted')) continue;
-      var t = (sub.textContent || '').trim();
-      if (!isPureMetric(t)) continue;
       var labEl = card.querySelector('.kpi-label,.kpi-lbl,.kpi-l');
       var lab = labEl ? labEl.textContent.replace(/\s+/g, ' ').trim() : 'Detalle';
       if (lab.length > 28) lab = lab.slice(0, 28);
-      var qual = /%/.test(t) ? ' (%)' : /\$/.test(t) ? ' ($)' : '';
+      var mets = extractMetrics(sub.textContent, lab);
+      if (!mets.length) continue;
       card.setAttribute('data-cx-promoted', '1');
       sub.setAttribute('data-cx-promoted', '1');
-      var sib = document.createElement('div');
-      sib.className = card.className;
-      sib.setAttribute('data-cx-promoted', '1');
-      sib.setAttribute('data-cx-derived', '1');
-      // reusar las clases de label/valor del propio card para heredar estilo
       var lc = (labEl && labEl.className) || 'kpi-label';
       var vEl = card.querySelector('.kpi-value,.kpi-val,.kpi-v');
       var vc = (vEl && vEl.className) || 'kpi-value';
-      sib.innerHTML = '<div class="' + lc + '">' + esc(lab + qual) + '</div>' +
-                      '<div class="' + vc + '">' + esc(t) + '</div>';
-      if (card.nextSibling) card.parentNode.insertBefore(sib, card.nextSibling);
-      else card.parentNode.appendChild(sib);
+      var anchor = card;
+      for (var k = 0; k < mets.length; k++) {
+        var sib = document.createElement('div');
+        sib.className = card.className;
+        sib.setAttribute('data-cx-promoted', '1');
+        sib.setAttribute('data-cx-derived', '1');
+        sib.innerHTML = '<div class="' + lc + '">' + esc(mets[k].label) + '</div>' +
+                        '<div class="' + vc + '">' + esc(mets[k].value) + '</div>';
+        if (anchor.nextSibling) anchor.parentNode.insertBefore(sib, anchor.nextSibling);
+        else anchor.parentNode.appendChild(sib);
+        anchor = sib;
+      }
       sub.style.display = 'none';   // ocultar el subtítulo original (ya es card)
     }
   }
