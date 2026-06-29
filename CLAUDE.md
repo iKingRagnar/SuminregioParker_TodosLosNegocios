@@ -18,14 +18,18 @@
    - Las demás unidades (Grupo Suminregio, Agua, Cartón, Maderas, Reciclaje, Suministros
      Médicos, los respaldos Parker `_ant`/`23jun`/`320`, PARKER-MFG, etc.) **NO se tocan**.
 
-2. **Sin IVA en todo el proyecto.**
-   - Ya es el **default** del código: `MICROSIP_VENTAS_INCLUIR_IMPUESTOS` vale `0` salvo que
-     alguien lo ponga en `1`. Las cifras salen netas (IMPORTE_NETO). **No hay que cambiar nada.**
+2. **Sin IVA en TODO el proyecto (FORZADO en código).**
+   - `sqlVentaImporteBaseExpr()` devuelve SIEMPRE el neto `IMPORTE_NETO`, ignorando a propósito
+     `MICROSIP_VENTAS_INCLUIR_IMPUESTOS` / `IVA_FACTOR` / `SIN_IVA_DIVISOR`. Así NINGUNA pantalla
+     suma IVA, sin depender de variables de Render. (Producción tenía `INCLUIR_IMPUESTOS=1`, por eso
+     Ventas mostraba el número CON IVA.) Hay un badge global "TODAS LAS CIFRAS SIN IVA" en el nav.
 
 ## Fuente de ventas — OPERATIVA (autorizado explícitamente por el usuario)
 
-- El usuario confirmó que el valor CORRECTO de ventas es el **operativo (DOCTOS_VE + DOCTOS_PV)**:
-  para **Mangueras y Conexiones, jun-2026 = $1,573,815.65** (VE $1,321,812.75 + PV $252,002.9).
+- El usuario confirmó que el valor CORRECTO de ventas es el **operativo (DOCTOS_VE + DOCTOS_PV), SIN IVA**:
+  para **Mangueras y Conexiones, jun-2026 = $1,356,737.64** (neto). ⚠️ OJO con el IVA: $1,573,815.65 es
+  ese MISMO neto + 16% IVA ($1,356,737.64 × 1.16 = $1,573,815.65). El correcto SIN IVA es **$1,356,737.64**;
+  NO usar $1,573,815.65 (lleva IVA). VE+PV netos = $1,321,812.75 + $252,002.9 serían CON IVA en la UI vieja.
 - Por eso **Finanzas (P&L), Director y `/api/ventas/resumen` usan la fuente OPERATIVA por default**
   (`useConta = false`), y el PV del P&L está alineado con `ventasSub()`. **NO revertir a contable**
   (SALDOS_CO 4*); el contable daba $1,232,141.32 y NO cuadraba. El contable queda solo bajo
