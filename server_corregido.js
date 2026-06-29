@@ -1569,7 +1569,7 @@ function parseDatabaseRegistry() {
   if (defaultIdx >= 0 && primaryPath) {
     entries[defaultIdx].options = { ...entries[defaultIdx].options, database: primaryPath };
     if (!entries[defaultIdx].label || /principal/i.test(String(entries[defaultIdx].label))) {
-      entries[defaultIdx].label = process.env.EMPRESA_NOMBRE || 'Suminregio Parker (principal)';
+      entries[defaultIdx].label = process.env.EMPRESA_NOMBRE || 'Mangueras y Conexiones';
     }
   }
 
@@ -9010,16 +9010,19 @@ async function resultadosPnlCore(req, dbOpts) {
     const descuentosDev = descMap[key(r.ANIO, r.MES)] || 0;
     const kmKey = key(r.ANIO, r.MES);
     const ventasConta = +(ventasContaMap[kmKey] || 0);
-    // Ventas netas P&L: por defecto alinear con Estado de resultados / Power BI (SALDOS_CO cuentas 4*)
-    // cuando hay saldo. La suma VE+PV en facturas (TIPO F) puede quedar ~3% por debajo vs contable
-    // (remisiones/cruces/timing). Forzar suma documentos: ?pnl_ventas=docs o MICROSIP_PNL_USAR_VENTAS_DOCS=1
+    // Ventas netas P&L: por DEFAULT usamos los MISMOS documentos operativos (DOCTOS_VE +
+    // DOCTOS_PV, base neta sin IVA) que el resto del proyecto (Ventas/Director/Inicio), para
+    // que TODO el dashboard cuadre con un solo número de ventas. Antes el default era la
+    // contabilidad (SALDOS_CO cuentas 4*), que no incorpora el mostrador (PV) igual y daba una
+    // cifra distinta (de ahí $1.23M contable vs $1.57M operativo). Para volver a la base
+    // contable del Estado de Resultados: ?pnl_ventas=conta  o  MICROSIP_PNL_USAR_VENTAS_CONTA=1.
     const qVentas = String(req.query.pnl_ventas || '').trim().toLowerCase();
     const envDocs = /^(1|true|yes)$/i.test(String(process.env.MICROSIP_PNL_USAR_VENTAS_DOCS || '').trim());
     const envConta = /^(1|true|yes)$/i.test(String(process.env.MICROSIP_PNL_USAR_VENTAS_CONTA || '').trim());
     let useConta;
-    if (qVentas === 'docs' || envDocs) useConta = false;
-    else if (qVentas === 'conta' || envConta) useConta = true;
-    else useConta = ventasConta > 0.01;
+    if (qVentas === 'conta' || envConta) useConta = true;       // opt-in explícito a contable
+    else if (qVentas === 'docs' || envDocs) useConta = false;
+    else useConta = false;   // DEFAULT: documentos operativos (cuadra con toda la app)
     const ventas = useConta && ventasConta > 0.01 ? ventasConta : ventasBrutas;
     ventasFuentes.push({
       ANIO: r.ANIO,
