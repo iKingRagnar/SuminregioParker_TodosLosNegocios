@@ -405,6 +405,13 @@
 
       /* Selector de unidad de negocio */
       '#app-sidebar .sb-db{padding:.35rem 1.1rem .6rem;}',
+      /* Indicador global "SIN IVA": todas las cifras del proyecto son netas */
+      '#app-sidebar .sb-iva-badge{display:flex;align-items:center;gap:.4rem;margin:.1rem 1.1rem .5rem;',
+      'padding:.34rem .6rem;border-radius:9px;font-family:"DM Mono",monospace;font-size:.58rem;',
+      'letter-spacing:.06em;text-transform:uppercase;color:#15803D;',
+      'background:rgba(22,163,74,.08);border:1px solid rgba(22,163,74,.22);}',
+      '#app-sidebar .sb-iva-badge svg{width:13px;height:13px;fill:#16A34A;flex-shrink:0;}',
+      '#app-sidebar .sb-iva-badge strong{font-weight:800;color:#0F7A35;}',
 
       /* Navegación vertical */
       '#app-sidebar .sb-nav{flex:1;display:flex !important;flex-direction:column !important;gap:2px !important;padding:.4rem .65rem 1rem !important;}',
@@ -643,6 +650,10 @@
         '</a>' +
       '</div>' +
       '<div class="sb-db" id="navDbContainer"></div>' +
+      '<div class="sb-iva-badge" title="Todas las cifras de los tableros están expresadas SIN IVA (netas, IMPORTE_NETO).">' +
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1 6h2v2h-2V7zm0 4h2v6h-2v-6z"/></svg>' +
+        '<span>Todas las cifras <strong>SIN IVA</strong></span>' +
+      '</div>' +
       '<nav class="sb-nav" id="main-nav" aria-label="Secciones">' +
         '<div class="sb-nav-label">Menú</div>' +
         buildNav(links) +
