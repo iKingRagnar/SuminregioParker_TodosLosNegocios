@@ -3889,7 +3889,7 @@ get('/api/ventas/resumen', async (req) => {
       tipo === '' ? getVentasNetasContaForPeriod(dbo, desdeStr, hastaStr, 15000) : Promise.resolve(0),
     ]);
     const docsTotal = +((rows[0] && rows[0].MES_ACTUAL) || 0);
-    const useConta = tipo === '' && (+ventasConta || 0) > 0.01;
+    const useConta = false;   // operativo VE+PV (docs), igual que Ventas/Finanzas — antes prefería contable
     const out = {
       HOY: +((rows[0] && rows[0].HOY) || 0),
       // MES_ACTUAL = mismo número que el P&L (resultados.html). Si no hay saldo contable,
@@ -5159,7 +5159,7 @@ async function directorResumenSnapshot(req, dbOpts, perQueryMs) {
   const rem = remRow[0] || {};
   const co = coRow[0] || {};
   const docsTotal = +(v.MES_ACTUAL || 0);
-  const useConta = (+ventasConta || 0) > 0.01;
+  const useConta = false;   // operativo VE+PV (docs), cuadra con Ventas/Finanzas — antes prefería contable
   const out = {
     ventas: {
       HOY: +(v.HOY||0),
@@ -8351,6 +8351,10 @@ async function resultadosPnlCore(req, dbOpts) {
   // Antes usaba sqlVentaImporteResultadosExpr (sin divisor) → ventas 16% más altas.
   // P&L: VENTAS_NETAS SIEMPRE sin IVA (base neta), sin importar la config global.
   const impRes = sqlVentaImporteBaseExpr('d', true);
+  // P&L: alinear los filtros de DOCTOS_PV con ventasSub() (la fuente de la página Ventas)
+  // para que el Estado de Resultados CUADRE con Ventas ($1,573,815.65). Antes el PV del P&L
+  // excluía ESTATUS 'S' (Surtida = venta VÁLIDA en mostrador) → dejaba fuera ventas reales.
+  const pvAplicadoFilterRes = PV_REQUIERE_APLICADO ? `\n      AND COALESCE(d.APLICADO, 'N') = 'S'` : '';
   const ventasSubRes = `(
     SELECT
       d.FECHA,
@@ -8390,9 +8394,8 @@ async function resultadosPnlCore(req, dbOpts) {
       d.DOCTO_PV_ID,
       'PV' AS TIPO_SRC
     FROM DOCTOS_PV d
-    WHERE d.TIPO_DOCTO IN ('F')
-      AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
-      AND COALESCE(d.APLICADO, 'N') = 'S'
+    WHERE d.TIPO_DOCTO IN (${PV_TIPOS_DOCTO_SQL})
+      AND COALESCE(d.ESTATUS, 'N') NOT IN (${PV_ESTATUS_EXCLUIR_SQL})${pvAplicadoFilterRes}
   )`;
 
   // Costo principal: renglones VE/PV con costo unitario histórico desde entradas (misma base lógica que margen-producto).
@@ -9019,7 +9022,7 @@ async function resultadosPnlCore(req, dbOpts) {
     let useConta;
     if (qVentas === 'docs' || envDocs) useConta = false;
     else if (qVentas === 'conta' || envConta) useConta = true;
-    else useConta = ventasConta > 0.01;
+    else useConta = false;   // DEFAULT: operativo VE+PV (cuadra con Ventas = $1,573,815.65). Contable solo con ?pnl_ventas=conta o MICROSIP_PNL_USAR_VENTAS_CONTA=1.
     const ventas = useConta && ventasConta > 0.01 ? ventasConta : ventasBrutas;
     ventasFuentes.push({
       ANIO: r.ANIO,
