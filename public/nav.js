@@ -287,6 +287,14 @@
 
   function buildDbSelector(databases) {
     var cur = getCurrentDb();
+    // Etiqueta SUPERFICIAL solo para el dropdown del filtro: la unidad principal
+    // (id 'default' = SUMINREGIO-PARKER.FDB) se MUESTRA como "Mangueras y Conexiones".
+    // El negocio real sigue siendo Suminregio Parker; NO cambia nada interno
+    // (alertas, asistente IA, API, datos y el resto del proyecto quedan IGUAL).
+    function dbDisplayLabel(d) {
+      if (d && String(d.id).toLowerCase() === 'default') return 'Mangueras y Conexiones';
+      return (d && (d.label || d.id)) || '';
+    }
     // Sort: default first, then alphabetical by label
     var sorted = databases.slice().sort(function (a, b) {
       if ((a.id || '').toLowerCase() === 'default') return -1;
@@ -296,7 +304,7 @@
 
     var curEntry = sorted.find(function (d) { return String(d.id) === cur; });
     var curLabel = curEntry
-      ? (curEntry.label || curEntry.id)
+      ? dbDisplayLabel(curEntry)
       : (cur ? cur : 'Por defecto');
     // Trim long labels
     if (curLabel.length > 16) curLabel = curLabel.substring(0, 14) + '…';
@@ -305,7 +313,7 @@
       '<span class="nav-db-opt-dot"></span>Por defecto</div>';
     sorted.forEach(function (d) {
       var active = String(d.id) === cur ? ' active' : '';
-      var lbl = (d.label || d.id || '').replace(/</g, '&lt;');
+      var lbl = dbDisplayLabel(d).replace(/</g, '&lt;');
       optionsHtml += '<div class="nav-db-opt' + active + '" data-db="' + String(d.id).replace(/"/g, '&quot;') + '">' +
         '<span class="nav-db-opt-dot"></span>' + lbl + '</div>';
     });
