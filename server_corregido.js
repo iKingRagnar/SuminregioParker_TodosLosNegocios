@@ -5025,6 +5025,12 @@ get('/api/ventas/cumplimiento', async (req) => {
     }
   }
 
+  // CORTE DIARIO: este endpoint arma su propio rango (EXTRACT) y NO pasa por buildFiltros,
+  // por eso "hoy" se colaba en VENTA_HOY/VENTA_MES (Vendedores mostraba montos en vivo).
+  // Topamos TODO al corte (ayer durante el día). VENTA_HOY queda 0 — es lo correcto, igual
+  // que en Ventas/Director/Finanzas. Solo es un filtro que ACOTA (no cambia lógica).
+  condAnioMes = `(${condAnioMes}) AND CAST(d.FECHA AS DATE) <= CAST('${corteHastaISO()}' AS DATE)`;
+
   const condVendedor = vendedorQ != null ? ` AND COALESCE(d.VENDEDOR_ID, 0) = ${vendedorQ}` : '';
   const anioExpr = anioQ || 'EXTRACT(YEAR FROM CURRENT_DATE)';
 
