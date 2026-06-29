@@ -1,5 +1,5 @@
 [
-  {"id": "default",                        "label": "Suminregio Parker (principal)",      "database": "C:/Microsip datos/SUMINREGIO-PARKER.FDB"},
+  {"id": "default",                        "label": "Mangueras y Conexiones",             "database": "C:/Microsip datos/SUMINREGIO-PARKER.FDB"},
   {"id": "elige",                          "label": "ELIGE",                              "database": "C:/Microsip datos/ELIGE.FDB"},
   {"id": "empresa",                        "label": "EMPRESA",                            "database": "C:/Microsip datos/EMPRESA.FDB"},
   {"id": "grupo_suminregio",               "label": "Grupo Suminregio",                   "database": "C:/Microsip datos/GRUPO SUMINREGIO.FDB"},

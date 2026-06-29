@@ -21,3 +21,7 @@ services:
         value: /var/data/cache/sumi-db
       - key: NODE_VERSION
         value: "20"
+      # Todo el proyecto en base NETA (sin IVA) por default — cifras de ventas
+      # = IMPORTE_NETO. NO poner en "1" (eso sumaría el IVA como en la UI Microsip).
+      - key: MICROSIP_VENTAS_INCLUIR_IMPUESTOS
+        value: "0"
