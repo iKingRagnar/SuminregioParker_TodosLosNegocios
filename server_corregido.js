@@ -2466,6 +2466,20 @@ function get(routePath, handler, opts = {}) {
 // Retorna { sql, params, lookbackOverride }
 // lookbackOverride: días desde 'desde' hasta hoy — para que los endpoints
 //   con ventana fija (CURRENT_DATE - N) no corten los datos pedidos.
+// ── Corte diario: fecha del último corte de datos (carga 23:00 CDMX = 05:00 UTC) ──
+// El dashboard trabaja con un snapshot diario: NO cuenta "hoy" hasta el refresh de las
+// 23:00. Por pedido del usuario, TODO se muestra HASTA EL CORTE (ayer durante el día) para
+// que Ventas, Finanzas, Director, etc. cuadren al MISMO día. CDMX es UTC-6 fijo (sin DST).
+function corteHastaISO() {
+  const nowMs = Date.now();
+  const n = new Date(nowMs);
+  const today05Utc = Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate(), 5, 0, 0);
+  // 23:00 CDMX = 05:00 UTC del día siguiente. El corte vigente y su fecha de datos:
+  const cutInstant = nowMs >= today05Utc ? today05Utc : today05Utc - 86400000;
+  const cutDate = new Date(cutInstant - 6 * 3600 * 1000); // 23:00 CDMX = el día anterior al 05:00 UTC
+  return `${cutDate.getUTCFullYear()}-${String(cutDate.getUTCMonth() + 1).padStart(2, '0')}-${String(cutDate.getUTCDate()).padStart(2, '0')}`;
+}
+
 function buildFiltros(req, alias = 'd', options = {}) {
   const omitVC = options.omitVendedorCliente === true;
   const conds  = [];
@@ -2524,6 +2538,13 @@ function buildFiltros(req, alias = 'd', options = {}) {
   if (desde) {
     const daysAgo = Math.ceil((Date.now() - new Date(desde).getTime()) / 86400000);
     lookbackOverride = Math.max(daysAgo + 5, 31);
+  }
+
+  // CORTE DIARIO: si la query filtra por fecha, NO contar "hoy" (datos hasta el corte 23:00).
+  // Así Ventas/Finanzas/Director cuadran al mismo día. No se toca si no hay filtro de fecha.
+  if (anio || mes || desde || hasta || dia) {
+    conds.push(`CAST(${feRoot} AS DATE) <= CAST(? AS DATE)`);
+    params.push(corteHastaISO());
   }
 
   return { sql: conds.length ? ' AND ' + conds.join(' AND ') : '', params, lookbackOverride };
@@ -9540,6 +9561,17 @@ get('/api/resultados/pnl-universe', async (req) => {
 });
 
 function resolveDateRangeFromQuery(q) {
+  // CORTE DIARIO: topa el rango en el corte (ayer) para que NO incluya "hoy" — igual que
+  // buildFiltros. Así Finanzas/Director/contable cuadran con Ventas al mismo día.
+  const r = _resolveDateRangeRaw(q);
+  const cut = corteHastaISO();
+  let desdeStr = r.desdeStr, hastaStr = r.hastaStr;
+  if (hastaStr > cut) hastaStr = cut;
+  if (desdeStr > cut) desdeStr = cut; // rango que empezaba hoy/futuro → cae al corte
+  return { desdeStr, hastaStr };
+}
+
+function _resolveDateRangeRaw(q) {
   const reDate = /^\d{4}-\d{2}-\d{2}$/;
   let { desde, hasta, anio, mes } = q || {};
   if (desde && reDate.test(String(desde)) && hasta && reDate.test(String(hasta))) {
