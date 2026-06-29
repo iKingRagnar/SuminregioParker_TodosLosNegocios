@@ -609,7 +609,11 @@
 
   function scan() {
     try {
-      promoteSubmetrics();
+      // NOTA: la promoción de sub-métricas a cards se DESACTIVÓ — generaba labels
+      // derivados de los datos que cambian en cada filtro/recarga ("se cambian los
+      // nombres y los diseños"). Se conserva el código por si se reactiva con un
+      // diseño estable, pero NO se llama.
+      // promoteSubmetrics();
       var labels = document.querySelectorAll(LABEL_SEL);
       for (var a = 0; a < labels.length; a++) annotateLabel(labels[a]);
       var titles = document.querySelectorAll(TITLE_SEL);

@@ -8351,6 +8351,12 @@ async function resultadosPnlCore(req, dbOpts) {
   // Antes usaba sqlVentaImporteResultadosExpr (sin divisor) → ventas 16% más altas.
   // P&L: VENTAS_NETAS SIEMPRE sin IVA (base neta), sin importar la config global.
   const impRes = sqlVentaImporteBaseExpr('d', true);
+  // P&L: alinear los filtros de DOCTOS_PV con ventasSub() (la fuente de Ventas/Director/Inicio)
+  // para que el Estado de Resultados CUADRE con la página de Ventas. Antes el PV del P&L
+  // hardcodeaba ESTATUS NOT IN ('C','D','S') —excluía 'S'=Surtida, que en PV es venta VÁLIDA—
+  // y APLICADO='S', dejando fuera el mostrador de contado → P&L < Ventas (1.23M vs 1.57M).
+  // Ahora usa PV_TIPOS_DOCTO_SQL / PV_ESTATUS_EXCLUIR_SQL / PV_REQUIERE_APLICADO, idénticos a ventasSub().
+  const pvAplicadoFilterRes = PV_REQUIERE_APLICADO ? `\n      AND COALESCE(d.APLICADO, 'N') = 'S'` : '';
   const ventasSubRes = `(
     SELECT
       d.FECHA,
@@ -8390,9 +8396,8 @@ async function resultadosPnlCore(req, dbOpts) {
       d.DOCTO_PV_ID,
       'PV' AS TIPO_SRC
     FROM DOCTOS_PV d
-    WHERE d.TIPO_DOCTO IN ('F')
-      AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
-      AND COALESCE(d.APLICADO, 'N') = 'S'
+    WHERE d.TIPO_DOCTO IN (${PV_TIPOS_DOCTO_SQL})
+      AND COALESCE(d.ESTATUS, 'N') NOT IN (${PV_ESTATUS_EXCLUIR_SQL})${pvAplicadoFilterRes}
   )`;
 
   // Costo principal: renglones VE/PV con costo unitario histórico desde entradas (misma base lógica que margen-producto).
