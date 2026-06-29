@@ -32,6 +32,37 @@
     } catch (_) {}
   })();
 
+  // Reserva de inmediato el ancho del sidebar en desktop para que el contenido NO
+  // salte cuando el header se monta tras validar la sesión ("el contenido salta al
+  // cargar"). Pinta un riel placeholder con el fondo del sidebar para que el lado
+  // izquierdo se vea intencional desde el primer frame (menos "se ve roto un instante").
+  // El sidebar real (z-index 200) se monta encima y el placeholder se retira en mountHeader.
+  (function reserveSidebarSpace() {
+    try {
+      var css =
+        ':root{--sb-w:266px;}' +
+        '@media(min-width:1024px){html.sb-reserve body{padding-left:var(--sb-w);}}' +
+        '#nav-sb-placeholder{position:fixed;top:0;left:0;bottom:0;width:var(--sb-w);z-index:199;' +
+        'background:linear-gradient(180deg,#FFFFFF 0%,#FCFAF3 100%);' +
+        'border-right:1px solid rgba(15,23,42,.07);box-shadow:8px 0 32px -18px rgba(15,23,42,.18);}' +
+        '@media(max-width:1023px){html.sb-reserve body{padding-left:0;}#nav-sb-placeholder{display:none!important;}}';
+      var s = document.createElement('style');
+      s.id = 'nav-reserve-css';
+      s.textContent = css;
+      (document.head || document.documentElement).appendChild(s);
+      document.documentElement.classList.add('sb-reserve');
+      var addPlaceholder = function () {
+        if (!document.body || document.getElementById('nav-sb-placeholder') || document.getElementById('app-sidebar')) return;
+        var ph = document.createElement('aside');
+        ph.id = 'nav-sb-placeholder';
+        ph.setAttribute('aria-hidden', 'true');
+        document.body.insertBefore(ph, document.body.firstChild);
+      };
+      if (document.body) addPlaceholder();
+      else document.addEventListener('DOMContentLoaded', addPlaceholder);
+    } catch (_) {}
+  })();
+
   // Cargar capa visual premium al final del cascade, en todas las páginas
   (function injectVisualPolish() {
     try {
@@ -132,7 +163,8 @@
     { href: 'admin.html',           label: 'Admin',      icon: 'M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-1.06 13.54L7.4 11l1.41-1.41 2.12 2.12 4.24-4.24 1.41 1.41-5.64 5.66z' },
     { href: 'ia.html',        label: 'Sumi IA',      icon: 'M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z' },
     { href: 'mejora-continua.html',      label: 'Mejoras',  icon: 'M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z' },
-    { href: 'metas.html',                label: 'Metas',    icon: 'M14.4 6L14 4H5v17h2v-7h5.6l.4 2h7V6z' },
+    // 'Metas' se quitó: metas.html no existe (daba 404). La función de metas ya vive
+    // embebida dentro de los dashboards (metas-estandar.js), no como página aparte.
   ];
 
   // Accesos a OTROS SISTEMAS (externos, abren en pestaña nueva).
@@ -670,6 +702,11 @@
     try { buildMobileNav(links, user); } catch (e) { console.warn('[nav] bottom nav', e); }
     ensureChatWidget();
     try { document.body.classList.add('has-sidebar'); } catch (_) {}
+    // El sidebar real ya está montado (z-index 200) sobre el riel placeholder: retíralo.
+    try {
+      var ph = document.getElementById('nav-sb-placeholder');
+      if (ph && ph.parentNode) ph.parentNode.removeChild(ph);
+    } catch (_) {}
   }
 
   /**
