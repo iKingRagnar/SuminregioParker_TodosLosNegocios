@@ -21,3 +21,9 @@ services:
         value: /var/data/cache/sumi-db
       - key: NODE_VERSION
         value: "20"
+      # TODO el proyecto SIN IVA: el código ya lo fuerza (sqlVentaImporteBaseExpr
+      # usa siempre IMPORTE_NETO neto), pero lo declaramos en 0 para que NINGUNA
+      # variable sume IVA. ⚠️ Si en el dashboard de Render existe esta misma variable
+      # en "1", ESA gana sobre este archivo — hay que ponerla en 0 (o borrarla) allí.
+      - key: MICROSIP_VENTAS_INCLUIR_IMPUESTOS
+        value: "0"
