@@ -95,20 +95,13 @@ const VENTAS_SIN_IVA_DIVISOR = Number.isFinite(_ivaDiv) && _ivaDiv >= 0.0001 ? _
 
 function sqlVentaImporteBaseExpr(alias = 'd', forceNoIva = false) {
   const a = alias;
-  const base = `COALESCE(${a}.IMPORTE_NETO, 0)`;
-  // El P&L (Estado de Resultados) siempre usa base NETA sin IVA (norma contable).
-  if (forceNoIva) return base;
-  if (VENTAS_INCLUIR_IMPUESTOS) {
-    // Suma el IVA real de cada documento — resultado idéntico a Microsip UI
-    return `(${base} + COALESCE(${a}.TOTAL_IMPUESTOS, 0))`;
-  }
-  if (VENTAS_IVA_FACTOR !== null && Math.abs(VENTAS_IVA_FACTOR - 1) > 0.00001) {
-    return `(${base} * CAST(${VENTAS_IVA_FACTOR} AS DOUBLE PRECISION))`;
-  }
-  if (VENTAS_SIN_IVA_DIVISOR > 1.00001) {
-    return `(${base} / CAST(${VENTAS_SIN_IVA_DIVISOR} AS DOUBLE PRECISION))`;
-  }
-  return base;
+  // TODO EL PROYECTO ES SIN IVA (requisito explícito y repetido del usuario): SIEMPRE se usa
+  // la base NETA IMPORTE_NETO (que en esta instalación NO incluye IVA). Se IGNORA a propósito
+  // cualquier override de entorno (MICROSIP_VENTAS_INCLUIR_IMPUESTOS / IVA_FACTOR / SIN_IVA_DIVISOR)
+  // para que NINGUNA pantalla sume IVA — así Ventas, Finanzas, Director, etc. dan el MISMO neto.
+  // El parámetro forceNoIva se conserva por compatibilidad de firma; el resultado siempre es neto.
+  void forceNoIva; void VENTAS_INCLUIR_IMPUESTOS; void VENTAS_IVA_FACTOR; void VENTAS_SIN_IVA_DIVISOR;
+  return `COALESCE(${a}.IMPORTE_NETO, 0)`;
 }
 
 /**
