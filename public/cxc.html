@@ -7,7 +7,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
-<script src="/vendor/chart-4.4.1.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script>window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');</script>
 <script src="filters.js?v=cxcfix-20260411-docneto"></script>
 <style>
@@ -1497,7 +1497,7 @@ async function loadResumen() {
     setText('agingBreakdown', 'Deuda total '+fmtK(saldo)+' · Vencido '+fmtK(venc)+' · Vigente '+fmtK(pvenc)+(lineaBi ? lineaBi : ''));
     var hintEl = document.getElementById('cxcKpiTotalHint');
     if (hintEl) {
-      hintEl.textContent = 'Saldo neto documento (sin IVA): ' + fmtK(res.CXC_TOTAL_DOC || res.SALDO_TOTAL) + ' · referencia cliente neto ' + fmtK(res.CXC_TOTAL_ALT_NETO);
+      hintEl.textContent = 'Saldo neto documento (KPI): ' + fmtK(res.CXC_TOTAL_DOC || res.SALDO_TOTAL) + ' · referencia cliente neto ' + fmtK(res.CXC_TOTAL_ALT_NETO) + ' · referencia con IVA ' + fmtK(res.CXC_TOTAL_ALT_IVA);
     }
     const agCorriente = document.getElementById('agC');
     if (agCorriente) agCorriente.style.color = '';

@@ -7,7 +7,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500&display=swap" rel="stylesheet">
 <script>window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');</script>
-<script src="/vendor/chart-4.4.1.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="filters.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -781,7 +781,8 @@ function renderAll(){
   const ticketProm   = totalFacturas>0 ? totalCobrado/totalFacturas : 0;
   const topVend      = [...d].sort((a,b)=>(+b.TOTAL_COBRADO||0)-(+a.TOTAL_COBRADO||0))[0];
 
-  document.getElementById('heroSub').textContent = d.length+' vendedores \u2022 '+totalFacturas+' facturas \u2022 '+fmtM(totalCobrado)+' cobrado sin IVA';
+  const _ivaTxt = (totalCobradoConIvaGlobal && totalCobradoConIvaGlobal > totalCobrado + 1) ? (' (c/IVA ' + fmtM(totalCobradoConIvaGlobal) + ')') : '';
+  document.getElementById('heroSub').textContent = d.length+' vendedores \u2022 '+totalFacturas+' facturas \u2022 '+fmtM(totalCobrado)+' cobrado sin IVA'+_ivaTxt;
   document.getElementById('kpiTotalCobrado').textContent = fmtM(totalCobrado);
   document.getElementById('kpiTotalCobradoSub').textContent = totalFacturas+' facturas cobradas';
   document.getElementById('kpiTotalVenta').textContent = fmtM(totalVenta);

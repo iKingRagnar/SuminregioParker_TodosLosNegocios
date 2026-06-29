@@ -1,13 +1,5 @@
 # Instrucciones para agentes — microsip-api
 
-## Protocolo de operación (obligatorio)
-
-Antes de cualquier trabajo técnico, lee y aplica **`CLAUDE.md`** — contiene el
-**Protocolo de Operación Experta** (autocrítica obligatoria con nivel de confianza,
-skill-first, cero memoria para datos volátiles, calidad de datos como gate, etc.) y los
-hechos verificados del proyecto (sin IVA por default, fuente única de "Ventas", catálogo
-de negocios, deploy).
-
 ## Alcance
 
 Este repositorio es la API / backend y estáticos asociados (Suminregio). Los agentes deben seguir las reglas en **`.cursor/rules/`** y, para trabajo de datos/BI/automatización, leer también el skill **`.cursor/skills/data-ai-ecosystem-copilot/SKILL.md`**.

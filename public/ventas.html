@@ -6,7 +6,7 @@
 <title>Suminregio Parker &mdash; Ventas</title>
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
-<script src="/vendor/chart-4.4.1.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 // API = mismo origen que la página. Si abres por file:// se usa localhost:7000. filters.js aplica el fix para ngrok.
 window.__API_BASE = (window.location.protocol === 'file:') ? 'http://localhost:7000' : (window.location.origin || '');
@@ -1384,10 +1384,10 @@ async function loadResumen() {
     if (bloq) {
       setText('kpi-hoy-sub', 'Meta equipo no aplica (solo PV)');
     } else {
-      setText('kpi-hoy-sub', `Meta equipo (día laboral): ${fmtK(metaDia)}`);
+      setText('kpi-hoy-sub', `Meta equipo (día laboral): ${fmtK(metaDia)}${hoyIva>0.005 ? ` · c/IVA: ${fmt(hoyIva)}` : ''}`);
     }
     setText('kpi-mes', fmt(mes));
-    setText('kpi-mes-sub', `${docs} docs · meta ideal acum. (${laborMes} d. lab.) · remisiones: ${fmtK(remMes)}`);
+    setText('kpi-mes-sub', `${docs} docs · meta ideal acum. (${laborMes} d. lab.) · remisiones: ${fmtK(remMes)}${remMesIva>0.005 ? ` (c/IVA: ${fmtK(remMesIva)})` : ''}${mesIva>0.005 ? ` · Mes c/IVA: ${fmt(mesIva)}` : ''}`);
     setText('kpi-facturas', docs.toLocaleString());
     setText('kpi-prom', fmtK(diasCal>0?mes/diasCal:0));
     setText('kpi-prom-sub', `${diasCal} días calendario del mes`);

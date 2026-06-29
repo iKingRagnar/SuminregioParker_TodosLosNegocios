@@ -24,10 +24,9 @@
     return (s || '')
       .replace(/ /g, ' ')
       .replace(/\([^)]*\)/g, ' ')                 // quita parentéticos (VE),(≤30d)…
-      .replace(/[²₂]/g, '2').replace(/[³₃]/g, '3')  // superíndices: R² → r2
       .normalize('NFD').replace(/[̀-ͯ]/g, '') // sin acentos
       .toLowerCase()
-      .replace(/[^a-z0-9ñ ]+/g, ' ')              // fuera emojis, ▪, →, símbolos, %, $…
+      .replace(/[%$€·.,:;#≤≥<>/+*°"']/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
   }
@@ -194,11 +193,8 @@
 
     // ── Correlación / estadística (dashboards) ────────────────────────────────
     'coeficiente r2':     { what: 'Qué tan fuerte es la relación (0–1).', how: 'R² de la regresión lineal entre las variables.' },
-    'intercepto':         { what: 'Valor base cuando x = 0.', how: 'Término independiente α de la recta y = α + βx.' },
-    'pendiente':          { what: 'Cuánto cambia y por cada unidad de x.', how: 'Coeficiente β de la recta y = α + βx.' },
-    'interpretacion':     { what: 'Lectura en lenguaje simple del resultado.', how: 'Traduce el R²/β a una conclusión de negocio.' },
-    'meses analizados':   { what: 'Cuántos meses entran en el análisis.', how: 'Conteo de periodos mensuales con datos.' },
-    'tendencia ratio':    { what: 'Hacia dónde va la relación gasto/venta.', how: 'Pendiente del ratio a lo largo del tiempo.' },
+    'intercepto a':       { what: 'Valor base cuando x = 0.', how: 'Término independiente α de la recta y = α + βx.' },
+    'pendiente b':        { what: 'Cuánto cambia y por cada unidad de x.', how: 'Coeficiente β de la recta y = α + βx.' },
 
     // ── Consumos / abastecimiento ─────────────────────────────────────────────
     'brecha total':       { what: 'Brecha entre lo que se consume y lo cubierto.', how: 'Consumo proyectado − stock/cobertura disponible.' },
@@ -218,25 +214,7 @@
     'ytd':                { what: 'Acumulado del año a la fecha (Year-To-Date).', how: 'Σ del 1° de enero a hoy.' },
     'vendedor top del mes':{ what: 'Vendedor líder del mes.', how: 'Vendedor con mayor venta del mes.' },
 
-    // ── Riesgo / cartera (clientes, alertas) ──────────────────────────────────
-    'monto critico':      { what: 'Saldo en mora severa (>90 días).', how: 'Σ saldo vencido a más de 90 días.' },
-    'monto alto':         { what: 'Saldo en mora media (61–90 días).', how: 'Σ saldo vencido entre 61 y 90 días.' },
-    'capital en riesgo':  { what: 'Saldo expuesto en clientes de alto riesgo.', how: 'Σ saldo vencido de clientes en alerta.' },
-    'exposicion vencida': { what: 'Monto total expuesto ya vencido.', how: 'Σ saldos vencidos (leve+medio+alto+crítico).' },
-    'en meta':            { what: 'Cuántos van cumpliendo su meta.', how: 'Conteo de elementos con avance ≥ 100%.' },
-    'en riesgo':          { what: 'Elementos que requieren atención.', how: 'Conteo de los que cruzan el umbral de riesgo.' },
-    'criticos':           { what: 'Casos en estado crítico.', how: 'Conteo de elementos marcados como críticos.' },
-    'top10 venta':        { what: 'Qué % de la venta está en el top 10.', how: 'Venta de los 10 mayores ÷ venta total × 100.' },
-    'pagos procesados':   { what: 'Pagos registrados en el periodo.', how: 'Conteo de pagos aplicados.' },
-    'registros':          { what: 'Número de registros considerados.', how: 'Conteo de filas del análisis.' },
-    'inventario activo total': { what: 'Peso del inventario en el activo.', how: 'Inventario ÷ activo total × 100.' },
-    'costo total':        { what: 'Costo total del concepto.', how: 'Σ costo de los artículos o partidas.' },
-
     // ── Mejora continua / operación ───────────────────────────────────────────
-    'total reportes':     { what: 'Total de reportes/incidencias.', how: 'Conteo de tickets registrados.' },
-    'resueltos':          { what: 'Casos ya resueltos.', how: 'Conteo de tickets cerrados.' },
-    'en revision':        { what: 'Casos en revisión.', how: 'Conteo de tickets en proceso.' },
-    'p1 p2 criticos altos': { what: 'Incidencias críticas y altas (P1+P2).', how: 'Conteo de tickets de prioridad 1 y 2.' },
     'mttr':               { what: 'Tiempo medio de resolución de incidentes.', how: 'Promedio de horas entre apertura y cierre.' },
     'cumplimiento sla':   { what: 'Qué % de casos cumple el SLA.', how: 'Casos dentro de SLA ÷ total × 100.' }
   };
@@ -252,9 +230,7 @@
     'dormidos 61 90d': 'dormidos',
     'perdidos 90 d': 'perdidos',
     'en riesgo 31 60d': 'clientes en riesgo',
-    'clientes en riesgo cxc': 'clientes en riesgo',
-    'p1 p2': 'p1 p2 criticos altos',
-    'cotiz del mes': 'cotiz mes'
+    'clientes en riesgo cxc': 'clientes en riesgo'
   };
 
   /* títulos de gráficas / paneles → contexto (sólo ⓘ, sin caption) */
@@ -267,50 +243,6 @@
     'aging de cartera':      { what: 'Cartera por antigüedad de vencimiento.', how: 'Agrupa los saldos por tramos de días vencidos.' },
     'alertas del sistema':   { what: 'Avisos que requieren tu atención.', how: 'Reglas sobre ventas, cartera e inventario.' }
   };
-
-  /* Patrones para títulos de gráficas/paneles: cubren el "largo tail" sin
-     escribir cada título. Se prueban en orden cuando no hay match exacto.    */
-  var CHART_PATTERNS = [
-    [/aging|antiguedad/,                 'Cartera por antigüedad de vencimiento.', 'Agrupa los saldos por tramos de días vencidos.'],
-    [/pareto|concentracion|curva de/,    'Regla 80/20: pocos concentran la mayoría.', 'Ordena por aporte y acumula el % del total.'],
-    [/scatter|dispersion|correlacion/,   'Relación entre dos variables.', 'Cada punto es un periodo; la recta es la tendencia.'],
-    [/proyeccion|forecast|fin de mes/,   'Estimación hacia el futuro.', 'Extrapola la tendencia reciente del periodo.'],
-    [/matriz/,                           'Cruce de dos dimensiones.', 'Una dimensión en filas y otra en columnas.'],
-    [/tendencia|evolucion|movil|acumulad/, 'Evolución de la métrica en el tiempo.', 'Valor agrupado por día, semana o mes.'],
-    [/ranking|top \d|^top|mejores|menos rentables|lentos|mas\b/, 'Los primeros del ranking, ordenados.', 'Ordena por el valor y toma los primeros.'],
-    [/distribucion|reparto|\bmix\b|por fuente|por tipo|por nivel|por estatus|por condicion|por bucket|bucket/, 'Cómo se reparte el total entre categorías.', '% que aporta cada categoría al total.'],
-    [/comparativa|\bvs\b|versus|primera vs/, 'Comparación lado a lado.', 'Pone dos o más series juntas para contrastar.'],
-    [/aging|cobranza|cobros|cobrado/,    'Dinero cobrado por periodo.', 'Σ pagos aplicados, agrupados por periodo.'],
-    [/comision/,                         'Comisiones por vendedor o periodo.', '% de comisión × monto cobrado.'],
-    [/rotacion|velocidad/,               'Qué tan rápido rota el inventario.', 'Costo de ventas ÷ inventario promedio.'],
-    [/rentabilidad|margen|ratio/,        'Rentabilidad / ratios por segmento.', 'Utilidad ÷ ventas × 100 (o el ratio indicado).'],
-    [/flujo|efectivo|saldos bancarios|bancos/, 'Movimiento de efectivo.', 'Entradas − salidas por periodo.'],
-    [/dso|dias de cobro|dias de pago/,   'Velocidad de cobro a clientes.', 'Días promedio entre la venta y el pago.'],
-    [/estacionalidad|dia de la semana|quincena|por dia del mes/, 'Patrón por día o temporada.', 'Promedia la métrica según el día o periodo.'],
-    [/balance|activo|pasivo|estructura/, 'Situación financiera (balance).', 'Activo = pasivo + capital, al corte.'],
-    [/consumo|cobertura|quiebre|stock minimo|bajo minimo/, 'Consumo y abasto de inventario.', 'Σ salidas frente a existencia y reposición.'],
-    [/compras|proveedor/,                'Compras y proveedores.', 'Σ importe de compras por proveedor o periodo.'],
-    [/cumplimiento|meta/,                'Avance frente a la meta.', 'Real ÷ meta × 100.'],
-    [/causa raiz|prioridad|diagnostico|accion recomendada|seguimiento|modelo de mejora/, 'Apoyo de mejora continua (ITIL).', 'Estructura el análisis y la acción del caso.'],
-    [/sin movimiento|nunca vendidos|capital por linea|valor en stock|por clasificacion/, 'Inventario por estado/clasificación.', 'Σ valor o existencia agrupada por clase.'],
-    [/abc|linea|categoria/,              'Desglose por producto o línea.', 'Σ de la métrica agrupada por artículo/línea.'],
-    [/vendedor|equipo/,                  'Desglose por vendedor.', 'Σ de la métrica agrupada por vendedor.'],
-    [/deudor|deuda|debe|por cobrar|saldo|como pagan|comportamiento de pago/, 'Desglose por cliente y su saldo.', 'Σ saldo pendiente agrupado por cliente.'],
-    [/cliente/,                          'Desglose por cliente.', 'Σ de la métrica agrupada por cliente.'],
-    [/documento|factura|movimiento|detalle|tabla|listado|registr/, 'Desglose fila por fila del concepto.', 'Una fila por registro con sus columnas.'],
-    [/estatus|estado|alertas|riesgo/,    'Estado actual y avisos.', 'Clasifica según reglas de negocio.'],
-    [/cotiza|conversion/,                'Cotizaciones y su conversión.', 'Σ cotizaciones y % que pasa a venta.'],
-    [/ventas|venta|facturacion/,         'Comportamiento de ventas.', 'Σ ventas agrupadas por la dimensión del eje.'],
-    [/indicadores|metricas|resumen|analisis/, 'Resumen de indicadores del módulo.', 'Consolida los KPIs clave de la vista.']
-  ];
-  function matchChart(key) {
-    if (!key) return null;
-    if (CHARTS[key]) return CHARTS[key];
-    for (var i = 0; i < CHART_PATTERNS.length; i++) {
-      if (CHART_PATTERNS[i][0].test(key)) return { what: CHART_PATTERNS[i][1], how: CHART_PATTERNS[i][2] };
-    }
-    return null;
-  }
 
   function lookup(key) {
     if (!key) return null;
@@ -335,10 +267,9 @@
     '.kpi-cx-i:hover,.kpi-cx-i:focus{background:#E6A800;border-color:#E6A800;color:#1A1200;outline:none}',
     '.kpi-cx-i::before{content:"i"}',
     '.kpi-cx-cap{margin-top:.32rem;font-family:"DM Mono","SFMono-Regular",ui-monospace,monospace;font-size:.58rem;line-height:1.35;',
-    'color:#94A3B8;font-weight:500;letter-spacing:.01em;display:flex;gap:.3em;align-items:flex-start}',
+    'color:#94A3B8;font-weight:500;letter-spacing:.01em;display:flex;gap:.28em;align-items:baseline}',
     '.kpi-cx-cap b{color:#B8860B;font-weight:700;flex:none}',
-    /* la fórmula SE ENVUELVE (no se trunca): así se lee completa y no parece "cortada" */
-    '.kpi-cx-cap .cx-txt{white-space:normal;overflow-wrap:anywhere;min-width:0;flex:1}',
+    '.kpi-cx-cap .cx-txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
     /* tooltip flotante */
     '#kpi-cx-tip{position:fixed;z-index:99999;max-width:300px;background:#0F172A;color:#E5EDF7;border:1px solid rgba(230,168,0,.35);',
     'border-radius:12px;padding:11px 13px;box-shadow:0 18px 48px -12px rgba(15,23,42,.55);font-family:system-ui,-apple-system,sans-serif;',
@@ -349,15 +280,6 @@
     '#kpi-cx-tip .cx-f{color:#FCD34D;font-family:"DM Mono",ui-monospace,monospace;font-size:.7rem;display:block;',
     'border-top:1px solid rgba(255,255,255,.1);padding-top:6px}',
     '#kpi-cx-tip .cx-f b{color:#FDE68A;font-weight:700}',
-    /* badge "LIVE" de los dashboards: no dejar que el flex lo exprima ("● L") */
-    '.live-pill{flex:none!important;white-space:nowrap!important}',
-    /* "más número, menos letras": el VALOR es el protagonista; labels/subtítulos
-       y la caption se vuelven secundarios (peso/opacidad, sin agrandar para no
-       reintroducir cortes — el auto-fit ya cuida el tamaño). */
-    '.kpi-value,.kpi-val,.kpi-v,.metric-value,.stat-val,.mod-kpi-val,.sc-kpi-val,.kc-value,.bg-kpi-val,.mc-kpi-val{font-weight:800!important;letter-spacing:-.03em!important}',
-    '.kpi-label,.kpi-l,.kpi-lbl,.sc-kpi-lbl,.stat-label,.mod-kpi-label,.kc-label,.mc-kpi-label,.bg-kpi-label{font-weight:600!important;opacity:.7!important}',
-    '.kpi-sub,.sc-kpi-sub,.kpi-hint,.mc-kpi-hint{opacity:.62!important;font-size:.92em!important}',
-    '.kpi-cx-cap{opacity:.8}',
     '@media print{.kpi-cx-i{display:none}#kpi-cx-tip{display:none}}'
   ].join('');
   var st = document.createElement('style');
@@ -461,14 +383,12 @@
   }
 
   /* ── Anotar un título de gráfica/panel (sólo ⓘ) ───────────────────────────── */
-  // h1 NO (es el título de la página, no una gráfica). h2/h3 + clases de panel.
-  var TITLE_SEL = 'h2,h3,.panel-title,.card-title,.section-title,.chart-title,.sc-title,.block-title,.chart-h,.card-h,.widget-title';
+  var TITLE_SEL = 'h1,h2,h3,h4,.panel-title,.card-title,.section-title,.chart-title,.sc-title,.block-title';
   function annotateTitle(el) {
     if (!el || el.getAttribute('data-cx') || !el.textContent) return;
-    var raw = el.textContent.replace(/\s+/g, ' ').trim();
-    if (raw.length > 60 || raw.length < 4) return;
-    if (/por qu[eé]|porqu[eé]| = /i.test(raw)) return;  // saltar FAQ ("¿Por qué…", "A = B")
-    var def = matchChart(norm(raw));
+    var raw = el.textContent.trim();
+    if (raw.length > 50 || raw.length < 4) return;
+    var def = CHARTS[norm(raw)];
     if (!def) return;
     el.setAttribute('data-cx', '1');
     var i = document.createElement('span');
@@ -494,38 +414,24 @@
      de su caja, hasta un piso legible. Resuelve los cortes en columnas angostas
      que el CSS por sí solo no puede (longitud de texto variable).            */
   var FIT_SEL = '.kpi-value,.kpi-v,.kpi-val,.sc-kpi-val,.stat-val,.mod-kpi-val,.mc-kpi-val,.bg-kpi-val,.kpi-num,.metric-val,.sc-val,.uni-ec-m .m-v,.u-v,.kc-value,.pill-value';
-  var FIT_CARD_SEL = '.kpi-card,.kpi,.sc-kpi,.stat-item,.mod-kpi,.mc-kpi,.metric,.kpi-box,.pl-sc-card,.bg-kpi,.kc-card';
-  // Ancho REAL disponible para el valor: el menor entre su propia caja y el
-  // interior de su tarjeta. Clave porque un valor sin restricción de ancho puede
-  // crecer MÁS que su tarjeta (clientWidth == scrollWidth) y el corte ocurre
-  // contra la TARJETA, no contra el propio valor.
-  function availWidth(el) {
-    var own = el.clientWidth || 0;
-    var card = el.closest(FIT_CARD_SEL);
-    if (card) {
-      var cs = getComputedStyle(card);
-      var inner = card.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
-      if (inner > 24) return own ? Math.min(own, inner) : inner;
-    }
-    return own;
-  }
   function fitValue(el) {
     if (!el || !el.offsetParent) return;             // invisible → omitir
+    var w = el.clientWidth;
+    if (!w) return;
     // reset al tamaño de CSS. Usamos setProperty con 'important' porque las
     // reglas de tamaño del tema llevan !important y de otro modo ganarían al
     // estilo inline (por eso un fitter sin 'important' no tenía efecto).
     el.style.removeProperty('font-size');
-    var avail = availWidth(el);
-    if (!avail) return;
-    if (el.scrollWidth <= avail + 1) return;         // ya cabe en su tarjeta
+    if (el.scrollWidth <= w + 1) return;             // ya cabe
     var px = parseFloat(getComputedStyle(el).fontSize) || 14;
-    var floor = Math.max(9, px * 0.4);               // no bajar de ~9px ni del 40%
+    var floor = Math.max(9, px * 0.5);               // no bajar de ~9px ni del 50%
     var guard = 0;
-    while (el.scrollWidth > avail + 1 && px > floor && guard < 20) {
+    while (el.scrollWidth > w + 1 && px > floor && guard < 16) {
       px = px * 0.93;
       el.style.setProperty('font-size', px + 'px', 'important');
       guard++;
     }
+    // si aún no cabe en el piso, el CSS (text-overflow:ellipsis) hace el resto
     if (!el.getAttribute('title')) el.setAttribute('title', el.textContent.trim());
   }
   function fitAll() {
@@ -535,85 +441,8 @@
     } catch (e) { /* noop */ }
   }
 
-  /* ── "Más cards": promover sub-métricas a su propia card ───────────────────
-     Cuando un KPI trae una métrica suelta debajo del resultado, la sacamos a su
-     propia card. Cubre dos casos:
-       (a) métrica PURA  → "46%" / "$1.2M" / "1,284"
-       (b) línea de métricas separadas por · | • → "46 docs · 29.2%" se parte en
-           dos cards ("Docs 46" y "% 29.2%"); "105 documentos" → "Documentos 105".
-     Guardas: salta prosa larga (segmentos > 26), ceros, y deja intacto el texto
-     descriptivo sin números ("vs meta", "Todo el periodo").                    */
-  var SUB_SEL = '.kpi-subtitle,.kpi-sub2,.kpi-extra,.kpi-second,.kpi-delta,.kpi-pct,.kpi-sub';
-  var NUMV = '\\$?\\s?\\d[\\d.,]*\\s*[KkMm]?\\s*%?';
-  function isZeroV(v) { return /^[-+]?\$?\s?0+(\.0+)?\s*%?$/.test((v || '').trim()); }
-  function capit(s) { s = (s || '').trim(); return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
-  function segLabel(raw, parentLabel, value) {
-    var l = (raw || '').replace(/[()\[\]:=]/g, ' ').replace(/\s+/g, ' ').trim();
-    if (!l) { l = (parentLabel || 'Detalle') + (/%/.test(value) ? ' (%)' : ''); }
-    if (l.length > 26) l = l.slice(0, 26);
-    return capit(l);
-  }
-  // Devuelve [{label, value}] a partir del texto del subtítulo.
-  function extractMetrics(text, parentLabel) {
-    var out = [], t = (text || '').trim();
-    if (!t) return out;
-    var segs = t.split(/[·•|]/);
-    var multi = segs.length >= 2;   // sólo partimos líneas con VARIAS métricas
-    for (var s = 0; s < segs.length && out.length < 4; s++) {
-      var seg = segs[s].replace(/\s+/g, ' ').trim();
-      if (!seg || seg.length > 26) continue;          // prosa larga → fuera
-      var m;
-      if (multi && (m = seg.match(new RegExp('^(.{1,20}?)\\s*[:=]\\s*(' + NUMV + ')$')))) {
-        if (!isZeroV(m[2])) out.push({ label: segLabel(m[1], parentLabel, m[2]), value: m[2].replace(/\s/g, '') });
-      } else if (multi && (m = seg.match(new RegExp('^(' + NUMV + ')\\s+(.{1,18})$')))) {
-        if (!isZeroV(m[1]) && !/^(de|en|del|vs|por|al|a)\b/i.test(m[2])) out.push({ label: segLabel(m[2], parentLabel, m[1]), value: m[1].replace(/\s/g, '') });
-      } else if ((m = seg.match(new RegExp('^(' + NUMV + ')$')))) {
-        // valor PURO suelto ("46%", "$1.2M"): se promueve aun en línea simple.
-        if (!isZeroV(m[1])) out.push({ label: segLabel('', parentLabel, m[1]), value: m[1].replace(/\s/g, '') });
-      }
-    }
-    return out;
-  }
-  function promoteSubmetrics() {
-    var cards = document.querySelectorAll('.kpi-card,.kpi,.metric-card,.kpi-box');
-    for (var i = 0; i < cards.length; i++) {
-      var card = cards[i];
-      if (card.getAttribute('data-cx-promoted')) continue;
-      var sub = card.querySelector(SUB_SEL);
-      if (!sub || sub.getAttribute('data-cx-promoted')) continue;
-      var labEl = card.querySelector('.kpi-label,.kpi-lbl,.kpi-l');
-      var lab = labEl ? labEl.textContent.replace(/\s+/g, ' ').trim() : 'Detalle';
-      if (lab.length > 28) lab = lab.slice(0, 28);
-      var mets = extractMetrics(sub.textContent, lab);
-      if (!mets.length) continue;
-      card.setAttribute('data-cx-promoted', '1');
-      sub.setAttribute('data-cx-promoted', '1');
-      var lc = (labEl && labEl.className) || 'kpi-label';
-      var vEl = card.querySelector('.kpi-value,.kpi-val,.kpi-v');
-      var vc = (vEl && vEl.className) || 'kpi-value';
-      var anchor = card;
-      for (var k = 0; k < mets.length; k++) {
-        var sib = document.createElement('div');
-        sib.className = card.className;
-        sib.setAttribute('data-cx-promoted', '1');
-        sib.setAttribute('data-cx-derived', '1');
-        sib.innerHTML = '<div class="' + lc + '">' + esc(mets[k].label) + '</div>' +
-                        '<div class="' + vc + '">' + esc(mets[k].value) + '</div>';
-        if (anchor.nextSibling) anchor.parentNode.insertBefore(sib, anchor.nextSibling);
-        else anchor.parentNode.appendChild(sib);
-        anchor = sib;
-      }
-      sub.style.display = 'none';   // ocultar el subtítulo original (ya es card)
-    }
-  }
-
   function scan() {
     try {
-      // NOTA: la promoción de sub-métricas a cards se DESACTIVÓ — generaba labels
-      // derivados de los datos que cambian en cada filtro/recarga ("se cambian los
-      // nombres y los diseños"). Se conserva el código por si se reactiva con un
-      // diseño estable, pero NO se llama.
-      // promoteSubmetrics();
       var labels = document.querySelectorAll(LABEL_SEL);
       for (var a = 0; a < labels.length; a++) annotateLabel(labels[a]);
       var titles = document.querySelectorAll(TITLE_SEL);

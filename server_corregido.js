@@ -1569,7 +1569,7 @@ function parseDatabaseRegistry() {
   if (defaultIdx >= 0 && primaryPath) {
     entries[defaultIdx].options = { ...entries[defaultIdx].options, database: primaryPath };
     if (!entries[defaultIdx].label || /principal/i.test(String(entries[defaultIdx].label))) {
-      entries[defaultIdx].label = process.env.EMPRESA_NOMBRE || 'Mangueras y Conexiones';
+      entries[defaultIdx].label = process.env.EMPRESA_NOMBRE || 'Suminregio Parker (principal)';
     }
   }
 
@@ -8351,12 +8351,6 @@ async function resultadosPnlCore(req, dbOpts) {
   // Antes usaba sqlVentaImporteResultadosExpr (sin divisor) → ventas 16% más altas.
   // P&L: VENTAS_NETAS SIEMPRE sin IVA (base neta), sin importar la config global.
   const impRes = sqlVentaImporteBaseExpr('d', true);
-  // P&L: alinear los filtros de DOCTOS_PV con ventasSub() (la fuente de Ventas/Director/Inicio)
-  // para que el Estado de Resultados CUADRE con la página de Ventas. Antes el PV del P&L
-  // hardcodeaba ESTATUS NOT IN ('C','D','S') —excluía 'S'=Surtida, que en PV es venta VÁLIDA—
-  // y APLICADO='S', dejando fuera el mostrador de contado → P&L < Ventas (1.23M vs 1.57M).
-  // Ahora usa PV_TIPOS_DOCTO_SQL / PV_ESTATUS_EXCLUIR_SQL / PV_REQUIERE_APLICADO, idénticos a ventasSub().
-  const pvAplicadoFilterRes = PV_REQUIERE_APLICADO ? `\n      AND COALESCE(d.APLICADO, 'N') = 'S'` : '';
   const ventasSubRes = `(
     SELECT
       d.FECHA,
@@ -8396,8 +8390,9 @@ async function resultadosPnlCore(req, dbOpts) {
       d.DOCTO_PV_ID,
       'PV' AS TIPO_SRC
     FROM DOCTOS_PV d
-    WHERE d.TIPO_DOCTO IN (${PV_TIPOS_DOCTO_SQL})
-      AND COALESCE(d.ESTATUS, 'N') NOT IN (${PV_ESTATUS_EXCLUIR_SQL})${pvAplicadoFilterRes}
+    WHERE d.TIPO_DOCTO IN ('F')
+      AND COALESCE(d.ESTATUS, 'N') NOT IN ('C', 'D', 'S')
+      AND COALESCE(d.APLICADO, 'N') = 'S'
   )`;
 
   // Costo principal: renglones VE/PV con costo unitario histórico desde entradas (misma base lógica que margen-producto).
@@ -9015,19 +9010,16 @@ async function resultadosPnlCore(req, dbOpts) {
     const descuentosDev = descMap[key(r.ANIO, r.MES)] || 0;
     const kmKey = key(r.ANIO, r.MES);
     const ventasConta = +(ventasContaMap[kmKey] || 0);
-    // Ventas netas P&L: por DEFAULT usamos los MISMOS documentos operativos (DOCTOS_VE +
-    // DOCTOS_PV, base neta sin IVA) que el resto del proyecto (Ventas/Director/Inicio), para
-    // que TODO el dashboard cuadre con un solo número de ventas. Antes el default era la
-    // contabilidad (SALDOS_CO cuentas 4*), que no incorpora el mostrador (PV) igual y daba una
-    // cifra distinta (de ahí $1.23M contable vs $1.57M operativo). Para volver a la base
-    // contable del Estado de Resultados: ?pnl_ventas=conta  o  MICROSIP_PNL_USAR_VENTAS_CONTA=1.
+    // Ventas netas P&L: por defecto alinear con Estado de resultados / Power BI (SALDOS_CO cuentas 4*)
+    // cuando hay saldo. La suma VE+PV en facturas (TIPO F) puede quedar ~3% por debajo vs contable
+    // (remisiones/cruces/timing). Forzar suma documentos: ?pnl_ventas=docs o MICROSIP_PNL_USAR_VENTAS_DOCS=1
     const qVentas = String(req.query.pnl_ventas || '').trim().toLowerCase();
     const envDocs = /^(1|true|yes)$/i.test(String(process.env.MICROSIP_PNL_USAR_VENTAS_DOCS || '').trim());
     const envConta = /^(1|true|yes)$/i.test(String(process.env.MICROSIP_PNL_USAR_VENTAS_CONTA || '').trim());
     let useConta;
-    if (qVentas === 'conta' || envConta) useConta = true;       // opt-in explícito a contable
-    else if (qVentas === 'docs' || envDocs) useConta = false;
-    else useConta = false;   // DEFAULT: documentos operativos (cuadra con toda la app)
+    if (qVentas === 'docs' || envDocs) useConta = false;
+    else if (qVentas === 'conta' || envConta) useConta = true;
+    else useConta = ventasConta > 0.01;
     const ventas = useConta && ventasConta > 0.01 ? ventasConta : ventasBrutas;
     ventasFuentes.push({
       ANIO: r.ANIO,
