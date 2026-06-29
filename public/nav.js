@@ -294,17 +294,24 @@
       return (a.label || a.id || '').localeCompare(b.label || b.id || '');
     });
 
-    var curEntry = sorted.find(function (d) { return String(d.id) === cur; });
-    var curLabel = curEntry
-      ? (curEntry.label || curEntry.id)
-      : (cur ? cur : 'Por defecto');
+    // Sin ?db=, el servidor usa SIEMPRE la unidad "default" (la principal). Antes el
+    // botón decía "Por defecto" si no había selección, pero mostraba el nombre real
+    // cuando alguna página forzaba ?db=default → el selector se veía DISTINTO en cada
+    // página ("nombres/menús distintos cada html"). Ahora la unidad default es la activa
+    // por defecto y SIEMPRE se muestra con su nombre real (Mangueras y Conexiones), igual
+    // en todas las páginas. Se elimina la opción sintética "Por defecto" (duplicaba la unidad default).
+    var defEntry = sorted.find(function (d) { return String(d.id).toLowerCase() === 'default'; }) || sorted[0];
+    var curEntry = cur
+      ? (sorted.find(function (d) { return String(d.id) === cur; }) || defEntry)
+      : defEntry;
+    var activeId = curEntry ? String(curEntry.id) : '';
+    var curLabel = curEntry ? (curEntry.label || curEntry.id) : (cur || 'Unidad de negocio');
     // Trim long labels
     if (curLabel.length > 16) curLabel = curLabel.substring(0, 14) + '…';
 
-    var optionsHtml = '<div class="nav-db-opt' + (!cur ? ' active' : '') + '" data-db="">' +
-      '<span class="nav-db-opt-dot"></span>Por defecto</div>';
+    var optionsHtml = '';
     sorted.forEach(function (d) {
-      var active = String(d.id) === cur ? ' active' : '';
+      var active = String(d.id) === activeId ? ' active' : '';
       var lbl = (d.label || d.id || '').replace(/</g, '&lt;');
       optionsHtml += '<div class="nav-db-opt' + active + '" data-db="' + String(d.id).replace(/"/g, '&quot;') + '">' +
         '<span class="nav-db-opt-dot"></span>' + lbl + '</div>';
