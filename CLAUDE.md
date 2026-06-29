@@ -39,6 +39,17 @@
   el consolidado con una sola unidad. (El $9M con "unidad seleccionada" del pasado fue un bug de
   scope/nav, ya revertido — NO volver a tocar el scope ni nav.js para esto.)
 
+## Corte diario — TODO hasta AYER (autorizado por el usuario)
+
+- El dashboard trabaja con snapshot diario (carga 23:00 CDMX). El usuario pidió que **TODOS
+  los paneles muestren datos HASTA EL CORTE (ayer)**, NO en vivo, para que Ventas, Finanzas,
+  Director, etc. **cuadren al mismo día**.
+- Implementado con `corteHastaISO()` (fecha del último corte 23:00 CDMX) topando la fecha
+  final en `buildFiltros` (`AND FECHA <= corte`) y `resolveDateRangeFromQuery`. **NO quitar.**
+- Efecto esperado: la tarjeta "HOY" da 0 (hoy entra hasta el refresh de las 23:00). Es CORRECTO.
+- La diferencia que antes se veía entre Ventas y Finanzas NO era IVA: era la venta de HOY
+  (Ventas en vivo vs Finanzas al corte). Con el tope, ambos dan el número del corte.
+
 ## Prohibido (a menos que el usuario lo pida EXPLÍCITAMENTE)
 
 - ❌ Tocar el SCOPE del P&L (single-unit vs consolidado) ni la resolución de `db` en nav.js:
