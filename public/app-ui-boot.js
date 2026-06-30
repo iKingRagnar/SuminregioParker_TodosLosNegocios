@@ -1846,6 +1846,57 @@
     } catch (e) { setTimeout(forceWhiteCards, 5000); }
   }
 
+  // ── Números SIEMPRE dentro de su card (nada cortado) ─────────────────────
+  // Pedido del usuario: en TODAS las cards de TODAS las páginas el número debe
+  // caber completo. Valores grandes en DM Mono (p. ej. "$624,173.94") se salían
+  // de la card (.kpi tiene overflow:hidden) y se veían cortados. Esto SOLO ACHICA
+  // la fuente del número hasta que entra (nunca la agranda); no toca nada más.
+  function bootKpiAutoFit() {
+    var SEL = '.kpi-val,.kpi-value,.kpi-v,.sc-kpi-val,.mc-kpi-value,.stat-val,' +
+              '.sc-value,.mega-val,.proy-val,.kc-value,.aging-val';
+    function fitOne(el) {
+      if (!el || !el.isConnected) return;
+      // Reset: medimos desde el tamaño de diseño en cada pasada (el valor pudo cambiar).
+      el.style.fontSize = '';
+      el.style.whiteSpace = 'nowrap';
+      var avail = el.clientWidth;              // ancho útil = caja del texto (card − padding)
+      if (avail <= 0) return;                  // inline/oculto: no lo tocamos
+      var guard = 0;
+      while (el.scrollWidth > avail + 0.5 && guard < 40) {
+        var cur = parseFloat(window.getComputedStyle(el).fontSize) || 16;
+        var factor = Math.min(0.97, Math.max(0.62, avail / el.scrollWidth));
+        var next = cur * factor;
+        if (next < 9) next = 9;                // piso: nunca ilegible
+        if (next >= cur) break;                // ya no puede achicar más
+        el.style.fontSize = next + 'px';
+        if (next <= 9) break;
+        guard++;
+      }
+    }
+    function fitAll() {
+      try { document.querySelectorAll(SEL).forEach(fitOne); } catch (e) {}
+    }
+    // 1) pasadas iniciales + tras cargar datos async (los valores arrancan en "--").
+    fitAll();
+    [250, 800, 1800, 3500].forEach(function (ms) { setTimeout(fitAll, ms); });
+    // 2) al redimensionar la ventana cambian los anchos de card → re-ajustar.
+    var rt = null;
+    window.addEventListener('resize', function () {
+      if (rt) return;
+      rt = setTimeout(function () { rt = null; fitAll(); }, 150);
+    }, { passive: true });
+    // 3) cuando el contenido cambia (AJAX/contadores) re-ajustar. Observa SOLO
+    //    texto/estructura, NO atributos → cambiar el font-size no re-dispara (sin bucle).
+    try {
+      var mt = null;
+      var obs = new MutationObserver(function () {
+        if (mt) return;
+        mt = setTimeout(function () { mt = null; fitAll(); }, 180);
+      });
+      obs.observe(document.body, { childList: true, subtree: true, characterData: true });
+    } catch (e) {}
+  }
+
   function bootAll() {
     bootApiCache();       // ← PRIMERO: intercepta fetch antes de que las páginas carguen datos
     forceWhiteCards();
@@ -1859,6 +1910,7 @@
     bootManualRefreshBar();
     // bootCursorGlow();   // DESACTIVADO: halo que seguía al cursor ("la bolita")
     bootKpiCountUp();
+    bootKpiAutoFit();     // ← números siempre dentro de su card (nada cortado)
     setTimeout(bootAiProLauncher, 120);
     bootKeyboardShortcuts();
     bootMobile();
