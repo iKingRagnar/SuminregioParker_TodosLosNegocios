@@ -177,6 +177,25 @@
     } catch (e) { console.error('[premium] kpiIcons', e && e.message); }
   }
 
+  /* KPI con valor cero → gris mudo (como el diseño). Inline porque el app re-colorea. */
+  function kpiZero() {
+    try {
+      document.querySelectorAll('.kpi-card').forEach(function (c) {
+        var v = c.querySelector('.kpi-value'); if (!v) return;
+        var zero = /^\$?\s*0([.,]0+)?\s*%?$/.test((v.textContent || '').trim());
+        if (zero) {
+          c.classList.add('pu-zero');
+          v.style.setProperty('color', '#9A8D76', 'important');
+          var ic = c.querySelector('.pu-kpi-ico'); if (ic) ic.style.setProperty('color', '#9A8D76', 'important');
+        } else if (c.classList.contains('pu-zero')) {
+          c.classList.remove('pu-zero');
+          v.style.removeProperty('color');
+          var ic2 = c.querySelector('.pu-kpi-ico'); if (ic2) ic2.style.removeProperty('color');
+        }
+      });
+    } catch (e) { console.error('[premium] kpiZero', e && e.message); }
+  }
+
   function styleCharts() {
     try {
       if (!window.Chart || !Chart.defaults) return;
@@ -216,7 +235,7 @@
   }
 
   /* Corre todas las mejoras de paridad (idempotente) */
-  function enhance() { logoMark(); userAvatar(); headerEyebrow(); headerPill(); kpiIcons(); groupNav(); }
+  function enhance() { logoMark(); userAvatar(); headerEyebrow(); headerPill(); kpiIcons(); kpiZero(); groupNav(); }
 
   function init() {
     forceBg(); styleCharts(); enhance();

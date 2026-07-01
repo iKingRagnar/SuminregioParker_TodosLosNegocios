@@ -73,12 +73,17 @@ body.ms-page-admin .page-title{
 
 /* ── KPI: fondo crema + barra de acento 3px + ícono en cuadro (paridad diseño) ─ */
 .kpi-card{
-  position:relative !important; overflow:hidden !important; padding:.85rem 1rem .95rem !important;
-  background:linear-gradient(170deg,#FFFFFF,#FBF6EC) !important;
+  position:relative !important; overflow:hidden !important; padding:.9rem 1.05rem 1rem !important;
+  background:linear-gradient(160deg,#FDFBF5,#F4EDDC) !important;
   border:1px solid rgba(31,24,12,.08) !important; border-radius:16px !important;
   box-shadow:0 10px 26px -20px rgba(40,28,12,.35) !important;
-  display:flex !important; flex-direction:column !important; gap:.4rem !important;
+  display:flex !important; flex-direction:column !important; gap:.45rem !important;
 }
+/* extras del app (info "(i)", trend YoY) más sutiles, como el diseño limpio */
+.kpi-card .kpi-i,.kpi-card [class*="info-dot"],.kpi-card .info-i{ opacity:.35 !important; }
+/* KPI con valor CERO → gris mudo (como el diseño); accent gris con alta especificidad */
+html.theme-premium-light[data-theme="light"] .kpi-card.pu-zero::before,
+html[data-theme="light"] .kpi-card.pu-zero::before,.kpi-card.pu-zero::before{ background:#B9AE98 !important; }
 .kpi-card::before{ content:'' !important; position:absolute !important; top:0; left:0; right:0; height:3px !important; z-index:2; background:#B8860B; }
 .kpi-card.blue::before{background:#2563EB !important;}   .kpi-card.blue .kpi-value{color:#2563EB !important;}
 .kpi-card.green::before{background:#0E9F6E !important;}  .kpi-card.green .kpi-value{color:#067647 !important;}
