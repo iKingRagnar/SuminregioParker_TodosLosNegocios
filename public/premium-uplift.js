@@ -217,7 +217,9 @@
     try {
       document.querySelectorAll('.kpi-card').forEach(function (c) {
         var v = c.querySelector('.kpi-value'); if (!v) return;
-        var zero = /^\$?\s*0([.,]0+)?\s*%?$/.test((v.textContent || '').trim());
+        // usar el valor FINAL (no el que va contando) para no titilar
+        var raw = v.getAttribute('data-val') || v.dataset.cv || v.textContent || '';
+        var zero = /^\$?\s*0([.,]0+)?\s*%?$/.test(raw.trim());
         if (zero) {
           c.classList.add('pu-zero');
           v.style.setProperty('color', '#9A8D76', 'important');
@@ -290,10 +292,18 @@
     requestAnimationFrame(function () { requestAnimationFrame(animate); });
     // Re-aplica tras render async de KPIs / login footer / theme toggles
     [250, 700, 1400, 2600].forEach(function (ms) { setTimeout(function () { forceBg(); enhance(); }, ms); });
-    // Observa cambios del DOM (KPIs que se pintan al cargar datos)
+    // Observa cambios del DOM (KPIs que se pintan al cargar datos).
+    // IMPORTANTE: ignora mutaciones de SOLO TEXTO (los contadores que animan las cifras),
+    // si no, enhance() se dispararía en cada frame del conteo y causaría el "tick"/salto.
     try {
-      var mo = new MutationObserver(function () {
-        clearTimeout(window.__puT); window.__puT = setTimeout(enhance, 120);
+      var mo = new MutationObserver(function (muts) {
+        var structural = false;
+        for (var i = 0; i < muts.length && !structural; i++) {
+          var m = muts[i], nodes = [].slice.call(m.addedNodes).concat([].slice.call(m.removedNodes));
+          for (var j = 0; j < nodes.length; j++) { if (nodes[j].nodeType === 1) { structural = true; break; } }
+        }
+        if (!structural) return; // solo cambió texto (conteo) → no re-ejecutar
+        clearTimeout(window.__puT); window.__puT = setTimeout(enhance, 200);
       });
       mo.observe(document.body, { childList: true, subtree: true });
     } catch (e) {}
