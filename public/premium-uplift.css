@@ -245,6 +245,26 @@ html[data-theme="light"] .sc-kpi, html.theme-premium-light .sc-kpi, .sc-kpi{ bac
 .sc-kpi-lbl{ text-align:left !important; }
 .sc-kpi-val{ text-align:left !important; overflow:visible !important; text-overflow:clip !important; white-space:nowrap !important; }
 
+/* ── Scorecard Ejecutivo (Metas vs Actual) — tabla elegante 1:1 con Inicio.dc.html ── */
+.scorecard-wrap{ background:#fff !important; border:1px solid rgba(31,24,12,.08) !important; border-radius:18px !important;
+  box-shadow:0 14px 34px -24px rgba(40,28,12,.3) !important; overflow:hidden !important; }
+.scorecard-head{ background:transparent !important; padding:1.1rem 1.3rem .4rem !important; border:none !important; }
+.scorecard-title{ font-family:var(--pu-serif) !important; font-size:1.15rem !important; font-weight:600 !important; color:#211A10 !important; }
+.scorecard-title svg{ fill:#B8860B !important; width:18px !important; height:18px !important; }
+.scorecard-badge{ font-family:var(--pu-mono) !important; color:#A2937A !important; background:transparent !important; border:1px solid rgba(31,24,12,.1) !important; }
+.sc-table, .sc-table tbody, .sc-table thead{ background:#fff !important; }
+.sc-table thead tr{ background:linear-gradient(180deg,#FBF4E4,#fff) !important; }
+.sc-table th{ font-family:var(--pu-mono) !important; font-size:.56rem !important; letter-spacing:.1em !important; text-transform:uppercase !important;
+  color:#A2937A !important; font-weight:500 !important; padding:.8rem 1.2rem !important; border-bottom:1px solid rgba(31,24,12,.08) !important; background:transparent !important; }
+.sc-table td{ padding:.85rem 1.2rem !important; border-bottom:1px solid rgba(31,24,12,.05) !important; background:transparent !important; color:#211A10 !important; }
+.sc-table tbody tr:hover td{ background:#FBF6EC !important; }
+.sc-kpi-name{ color:#211A10 !important; font-weight:500 !important; font-size:.86rem !important; font-family:var(--pu-body) !important; }
+.sc-val{ font-family:var(--pu-mono) !important; color:#211A10 !important; font-weight:600 !important; }
+.sc-meta{ font-family:var(--pu-mono) !important; color:#9A8D76 !important; }
+.sc-delta .delta-up{ color:#067647 !important; } .sc-delta .delta-down{ color:#B42318 !important; } .sc-delta .delta-flat{ color:#9A8D76 !important; }
+.sc-bar-bg{ background:rgba(31,24,12,.08) !important; height:6px !important; }
+.sc-sem span{ font-family:var(--pu-mono) !important; font-size:.62rem !important; font-weight:600 !important; padding:.26rem .62rem !important; border-radius:999px !important; display:inline-block !important; }
+
 /* ── Banner decorativo del app (Director, etc.) → panel oscuro espresso ──────────
    La referencia usa un hero oscuro; el banner del app quedaba como banda blanca vacía.
    Se adapta con los tokens del diseño para que combine (no se borra: es decorativo). */
