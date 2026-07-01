@@ -264,8 +264,13 @@ html[data-theme="light"] .sc-kpi, html.theme-premium-light .sc-kpi, .sc-kpi{ bac
 .sc-table td{ padding:.85rem 1.2rem !important; border-bottom:1px solid rgba(31,24,12,.05) !important; background:transparent !important; color:#211A10 !important; }
 .sc-table tbody tr:hover td{ background:#FBF6EC !important; }
 .sc-kpi-name{ color:#211A10 !important; font-weight:500 !important; font-size:.86rem !important; font-family:var(--pu-body) !important; }
-.sc-val{ font-family:var(--pu-mono) !important; color:#211A10 !important; font-weight:600 !important; }
+/* ACTUAL: el app lo ponía en 32px (gigante y feo) — a tamaño normal como la referencia.
+   Alta especificidad para ganar a la regla themed del app. */
+html[data-theme="light"] .sc-table .sc-val, html.theme-premium-light .sc-table .sc-val, .sc-table .sc-val, .sc-val{
+  font-family:var(--pu-mono) !important; color:#211A10 !important; font-weight:600 !important; font-size:.95rem !important; line-height:1.2 !important; }
 .sc-meta{ font-family:var(--pu-mono) !important; color:#9A8D76 !important; }
+/* la fila de filtros (table-filter) no va en el diseño — ocultarla */
+.sc-table tr.tf-row{ display:none !important; }
 .sc-delta .delta-up{ color:#067647 !important; } .sc-delta .delta-down{ color:#B42318 !important; } .sc-delta .delta-flat{ color:#9A8D76 !important; }
 .sc-bar-bg{ background:rgba(31,24,12,.08) !important; height:6px !important; }
 .sc-sem span{ font-family:var(--pu-mono) !important; font-size:.62rem !important; font-weight:600 !important; padding:.26rem .62rem !important; border-radius:999px !important; display:inline-block !important; }
