@@ -1,134 +1,133 @@
 /* ============================================================================
-   SUMINREGIO PARKER — PREMIUM UPLIFT (capa visual, sobre public/*.html)
-   Reskin del handoff de Claude Design aplicado a las CLASES REALES de la app.
-   SOLO cosmético: color, tipografía, sombra, radio, borde, transición.
-   NO toca layout (display/position/grid/flex/width), ni lógica ni datos.
-   Se carga AL FINAL (después de lux-theme.css) para mandar sobre el tema anterior.
+   SUMINREGIO PARKER — PREMIUM UPLIFT (reskin Claude Design, capa visual)
+   Aplica el diseño premium (sidebar dorado) a las CLASES REALES de public/*.html.
+   SOLO cosmético: color / tipografía / sombra / radio / borde / transición.
+   NO toca layout estructural (grid/flex/position/width), lógica, datos ni Chart.js.
+   Se carga al final (después de lux-theme.css). El fondo y el sidebar oscuro se
+   refuerzan desde premium-uplift.js / nav.js por especificidad.
    ============================================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Outfit:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 
 :root{
-  --pu-font-body:'Outfit',system-ui,sans-serif;
-  --pu-font-serif:'Fraunces',serif;
-  --pu-font-mono:'DM Mono',monospace;
-
-  --pu-bg-gradient:
-    radial-gradient(1200px 720px at 6% -8%, rgba(224,179,65,.16), transparent 55%),
-    radial-gradient(1100px 760px at 104% 4%, rgba(120,86,40,.07), transparent 52%),
-    linear-gradient(180deg, #FBF7EE 0%, #F2ECDE 60%, #EDE6D6 100%);
-  --pu-bg-fallback:#EFE9DC;
-  --pu-card:#FFFFFF;
-  --pu-card-warm:linear-gradient(170deg,#FFFFFF,#FBF7EE);
-  --pu-row-hover:#FBF6EC;
-
-  --pu-text:#211A10;
-  --pu-text-2:#3A3020;
-  --pu-muted:#6E624E;
-  --pu-faint:#8A7C64;
-  --pu-mono-label:#A2937A;
-
-  --pu-gold-50:#F6D279;
-  --pu-gold-400:#E0B341;
-  --pu-gold-600:#B8860B;
-  --pu-gold-deep:#8A6516;
+  --pu-body:'Outfit',system-ui,sans-serif;
+  --pu-serif:'Fraunces',serif;
+  --pu-mono:'DM Mono',monospace;
   --pu-gold-grad:linear-gradient(135deg,#F6D279,#E0B341,#B8860B);
-
-  --pu-ok:#0E9F6E;      --pu-ok-bg:#E7F6EF;
-  --pu-warn:#B45309;    --pu-warn-bg:#FBF1DC;
-  --pu-danger:#D92D20;  --pu-danger-bg:#FEECEA;
-  --pu-neutral:#9A8D76;
-
-  --pu-r-lg:16px; --pu-r-xl:18px; --pu-r-2xl:20px; --pu-r-pill:999px;
-  --pu-shadow-rest:0 16px 38px -24px rgba(40,28,12,.32);
-  --pu-shadow-rest-sm:0 10px 24px -20px rgba(40,28,12,.3);
+  --pu-espresso:linear-gradient(135deg,#322310,#6A4A1C);
+  --pu-text:#211A10; --pu-muted:#6E624E; --pu-mono-label:#A2937A;
+  --pu-ok:#0E9F6E; --pu-ok-bg:#E7F6EF; --pu-ok-bd:#BBEBCB;
+  --pu-warn:#B45309; --pu-warn-bg:#FBF1DC; --pu-warn-bd:#F0DDB0;
+  --pu-danger:#D92D20; --pu-danger-bg:#FEECEA; --pu-danger-bd:#FAD2CD;
+  --pu-r-lg:16px; --pu-r-2xl:20px; --pu-r-pill:999px;
+  --pu-shadow:0 16px 38px -24px rgba(40,28,12,.32);
+  --pu-shadow-sm:0 10px 24px -20px rgba(40,28,12,.3);
   --pu-shadow-hover:0 26px 54px -22px rgba(40,28,12,.34);
   --pu-border:1px solid rgba(31,24,12,.08);
-  --pu-hairline:1px solid rgba(31,24,12,.06);
 }
 
-/* ── Fondo cálido de la app (empuje del sidebar ya lo maneja nav.js) ──────── */
-html body{
-  font-family:var(--pu-font-body) !important;
+/* ── Base tipográfica + fondo cálido (el fondo lo refuerza premium-uplift.js) ── */
+html[data-theme="light"] body, html.theme-premium-light body, html body, body{
+  font-family:var(--pu-body) !important;
   color:var(--pu-text);
-  background:var(--pu-bg-fallback);
-  background-image:var(--pu-bg-gradient) !important;
-  background-attachment:fixed;
-  -webkit-font-smoothing:antialiased;
-  text-rendering:optimizeLegibility;
+  background:#EFE9DC !important;
+  background-image:
+    radial-gradient(1200px 720px at 6% -8%, rgba(224,179,65,.18), transparent 55%),
+    radial-gradient(1100px 760px at 104% 6%, rgba(120,86,40,.08), transparent 52%),
+    linear-gradient(180deg,#FBF7EE 0%,#F2ECDE 60%,#EDE6D6 100%) !important;
+  background-attachment:fixed !important;
 }
 ::selection{background:rgba(224,179,65,.26);}
+.page,main,#app-content,.dash{background:transparent !important;}
 
-/* ── Tipografía editorial ─────────────────────────────────────────────────── */
-.page-title,.hero-title,.uni-title,.sc-name,.card-title,
-h1,h2,h3,.sd-label + *,.cxc-kpi-storytitle{
-  font-family:var(--pu-font-serif);
-  letter-spacing:-.01em;
+/* ── Títulos editoriales (Fraunces) ─────────────────────────────────────────── */
+.page-title,.uni-title,.hero-title,.sc-name,.card-title,.sd-label + *,
+h1,h2,h3,.cxc-kpi-storytitle{ font-family:var(--pu-serif) !important; letter-spacing:-.01em !important; color:var(--pu-text) !important; }
+.page-title,.uni-title,h1{ font-size:clamp(1.8rem,3vw,2.5rem) !important; font-weight:600 !important; letter-spacing:-.02em !important; }
+.card-title{ font-size:1.15rem !important; font-weight:600 !important; }
+.page-sub,.uni-subtitle{ color:var(--pu-muted) !important; font-family:var(--pu-body) !important; }
+/* Título con degradado dorado en páginas que lo usan (Consumos/Margen/P&L/Mejoras/Admin) */
+body.ms-page-consumos .page-title, body.ms-page-margen .page-title,
+body.ms-page-resultados .page-title, body.ms-page-mejora .page-title,
+body.ms-page-admin .page-title{
+  background:var(--pu-gold-grad) !important; -webkit-background-clip:text !important;
+  background-clip:text !important; -webkit-text-fill-color:transparent !important; color:transparent !important;
 }
-.page-title,.uni-title,h1{
-  font-weight:600;
-  color:var(--pu-text);
-  letter-spacing:-.02em;
-}
-/* Cifras / labels técnicos SIEMPRE monoespaciados y tabulares */
+
+/* ── Cifras / labels técnicos (DM Mono tabular) ─────────────────────────────── */
 .kpi-value,.kpi-val,.sc-kpi-val,.aging-val,.mono,.num,td.num,td.mono,.t-val,
-.metric-value,.kpi-v{
-  font-family:var(--pu-font-mono);
-  font-variant-numeric:tabular-nums;
-  letter-spacing:-.02em;
+.metric-value,.kpi-v,.kpi-num,[class*="u-v"]{
+  font-family:var(--pu-mono) !important; font-variant-numeric:tabular-nums !important; letter-spacing:-.02em !important;
 }
-/* Labels tipo eyebrow (uppercase mono) en dorado tenue */
-.kpi-label,.kpi-lbl,.sc-kpi-lbl,.aging-lbl,.card-badge,.sd-label,.param-desc{
-  font-family:var(--pu-font-mono);
-  color:var(--pu-mono-label);
+.kpi-label,.kpi-lbl,.sc-kpi-lbl,.aging-lbl,.card-badge,.sd-label,.param-desc,.uni-eyebrow{
+  font-family:var(--pu-mono) !important; color:var(--pu-mono-label) !important; text-transform:uppercase; letter-spacing:.08em;
 }
 
-/* ── Cards premium (clases reales: .card .kpi-card .sc-card) ──────────────── */
-.card,.kpi-card,.sc-card,.kpi,.aging-bkt,.param-panel,.sp-card,.uni-detail-panel{
-  background:var(--pu-card);
-  border:var(--pu-border);
-  border-radius:var(--pu-r-2xl);
-  box-shadow:var(--pu-shadow-rest);
-  transition:box-shadow .26s cubic-bezier(.22,.7,.25,1),
-             transform .26s cubic-bezier(.22,.7,.25,1),
-             border-color .26s;
+/* ── Cards premium ──────────────────────────────────────────────────────────── */
+.card,.kpi-card,.sc-card,.kpi,.aging-bkt,.uni-detail-panel,.sp-card{
+  background:#fff !important; border:var(--pu-border) !important; border-radius:var(--pu-r-2xl) !important;
+  box-shadow:var(--pu-shadow) !important;
+  transition:transform .26s cubic-bezier(.22,.7,.25,1), box-shadow .26s, border-color .26s !important;
 }
-.kpi-card,.kpi,.aging-bkt{ border-radius:var(--pu-r-lg); box-shadow:var(--pu-shadow-rest-sm); }
+.kpi-card,.kpi,.aging-bkt{ border-radius:var(--pu-r-lg) !important; box-shadow:var(--pu-shadow-sm) !important; }
 .card:hover,.kpi-card:hover,.sc-card:hover,.kpi:hover,.aging-bkt:hover{
-  transform:translateY(-4px);
-  box-shadow:var(--pu-shadow-hover);
-  border-color:rgba(224,179,65,.4);
+  transform:translateY(-4px) !important; box-shadow:var(--pu-shadow-hover) !important; border-color:rgba(224,179,65,.4) !important;
 }
 
-/* ── Tablas premium ───────────────────────────────────────────────────────── */
-table thead th,.tbl thead th,.rank-table thead th,.detalle-table thead th{
-  font-family:var(--pu-font-mono);
-  text-transform:uppercase;
-  letter-spacing:.08em;
-  color:var(--pu-mono-label);
-  font-weight:500;
-  border-bottom:var(--pu-hairline);
-}
-table tbody td,.tbl tbody td{ color:var(--pu-text); border-bottom:1px solid rgba(31,24,12,.05); }
-table tbody tr:hover td,.tbl tbody tr:hover td{ background:var(--pu-row-hover); }
+/* ── KPI: barra de acento superior 3px + valor del color semántico ─────────── */
+.kpi-card{ position:relative !important; overflow:hidden !important; padding:1rem 1.15rem 1.1rem !important; }
+.kpi-card::before{ content:'' !important; position:absolute !important; top:0; left:0; right:0; height:3px !important; z-index:2; background:#B8860B; }
+.kpi-card.blue::before{background:#2563EB !important;}   .kpi-card.blue .kpi-value{color:#2563EB !important;}
+.kpi-card.green::before{background:#0E9F6E !important;}  .kpi-card.green .kpi-value{color:#067647 !important;}
+.kpi-card.yellow::before,.kpi-card.gold::before{background:#B8860B !important;} .kpi-card.yellow .kpi-value,.kpi-card.gold .kpi-value{color:#B8860B !important;}
+.kpi-card.orange::before{background:#C2410C !important;} .kpi-card.orange .kpi-value{color:#C2410C !important;}
+.kpi-card.purple::before{background:#7C5CFC !important;} .kpi-card.purple .kpi-value{color:#5B43C9 !important;}
+.kpi-card.red::before{background:#D92D20 !important;}    .kpi-card.red .kpi-value{color:#B42318 !important;}
+.kpi-value{ font-size:1.62rem !important; font-weight:500 !important; line-height:1.05 !important; margin:.15rem 0 !important; }
+.kpi-label{ font-size:.58rem !important; }
+.kpi-sub{ font-size:.6rem !important; color:var(--pu-mono-label) !important; line-height:1.45 !important; }
+.kpi-label [class*="trend"],.kpi-label [class*="yoy"],.kpi-trend-v{ opacity:.55 !important; font-size:.5rem !important; }
 
-/* ── Badges de estado (semáforo) ──────────────────────────────────────────── */
-.sc-badge,.badge,.pu-badge{
-  font-family:var(--pu-font-mono);
-  font-weight:700;
-  letter-spacing:.04em;
-  border-radius:var(--pu-r-pill);
-}
-.sc-badge-ok,.badge--cumplido,.pu-ok{ color:var(--pu-ok) !important; background:var(--pu-ok-bg) !important; }
-.sc-badge-warn,.badge--atencion,.pu-warn{ color:var(--pu-warn) !important; background:var(--pu-warn-bg) !important; }
-.sc-badge-danger,.badge--alerta,.pu-danger{ color:var(--pu-danger) !important; background:var(--pu-danger-bg) !important; }
+/* ── Badges de estado (con borde propio, como el diseño) ────────────────────── */
+.sc-badge,.badge,.pu-badge{ font-family:var(--pu-mono) !important; font-weight:700 !important; letter-spacing:.04em !important; border-radius:var(--pu-r-pill) !important; }
+.sc-badge-ok,.badge--cumplido,.pu-ok{ color:var(--pu-ok) !important; background:var(--pu-ok-bg) !important; border:1px solid var(--pu-ok-bd) !important; }
+.sc-badge-warn,.badge--atencion,.pu-warn{ color:var(--pu-warn) !important; background:var(--pu-warn-bg) !important; border:1px solid var(--pu-warn-bd) !important; }
+.sc-badge-danger,.badge--alerta,.pu-danger{ color:var(--pu-danger) !important; background:var(--pu-danger-bg) !important; border:1px solid var(--pu-danger-bd) !important; }
 
-/* ── Panel hero (Universo de negocios / mensajes ejecutivos) ─────────────── */
-.uni-portfolio,.hero-panel,.intel-bar,.exec-mission{
-  border-radius:var(--pu-r-xl);
-}
+/* ── Pills de fecha (activo = degradado espresso) ───────────────────────────── */
+.fb-presets{ background:#fff !important; border:var(--pu-border) !important; border-radius:13px !important; padding:4px !important; box-shadow:0 6px 18px -12px rgba(40,28,12,.22) !important; }
+.fb-preset{ border:none !important; background:transparent !important; padding:.5rem .9rem !important; border-radius:9px !important; font-family:var(--pu-mono) !important; font-size:.72rem !important; color:var(--pu-muted) !important; font-weight:500 !important; transition:background .25s,color .2s !important; }
+.fb-preset:hover{ color:var(--pu-text) !important; background:#FAF6EC !important; }
+.fb-presets .fb-preset.active,.fb-preset.active{ background:var(--pu-espresso) !important; color:#F6E7C8 !important; font-weight:600 !important; }
 
-/* ── Helpers de animación (los dispara premium-uplift.js) ─────────────────── */
+/* ── Tabs (subrayado dorado) ────────────────────────────────────────────────── */
+.source-tabs{ border-bottom:1px solid rgba(31,24,12,.1) !important; }
+.source-tabs .tab-btn,.tab-btn{ background:transparent !important; border:none !important; border-radius:0 !important; font-family:var(--pu-serif) !important; font-size:.95rem !important; color:var(--pu-muted) !important; font-weight:500 !important; border-bottom:2px solid transparent !important; margin-bottom:-1px !important; }
+.tab-btn.active,.tab-btn.tab-all.active,.tab-btn.active-all,.tab-btn.active-ve,.tab-btn.active-pv{ color:var(--pu-text) !important; font-weight:600 !important; border-bottom-color:#B8860B !important; background:transparent !important; }
+
+/* ── Tablas premium ─────────────────────────────────────────────────────────── */
+table thead th,.tbl thead th,.rank-table thead th,.detalle-table thead th,.uni-table thead th,.sc-table thead th{
+  font-family:var(--pu-mono) !important; font-size:.53rem !important; letter-spacing:.08em !important; text-transform:uppercase !important;
+  color:var(--pu-mono-label) !important; font-weight:500 !important; border-bottom:1px solid rgba(31,24,12,.06) !important;
+}
+table tbody td,.tbl tbody td{ color:var(--pu-text) !important; border-bottom:1px solid rgba(31,24,12,.05) !important; }
+table tbody tr:hover td,.tbl tbody tr:hover td{ background:#FBF6EC !important; }
+/* rank / # en dorado */
+td.t-rank,.t-name .rank,.sc-rank,td:first-child .rank{ color:#B8860B !important; }
+
+/* ── Chips de documento en tablas (Factura/Remisión/Cotización) ─────────────── */
+.doc-chip,.tipo-chip,[class*="chip-fact"],[class*="chip-ve"]{ font-family:var(--pu-mono) !important; font-weight:600 !important; border-radius:6px !important; }
+
+/* ── Barra lateral de color en tarjetas de negocio / vendedor ───────────────── */
+.sc-card{ position:relative; }
+.sc-name{ font-family:var(--pu-serif) !important; font-weight:600 !important; color:var(--pu-text) !important; }
+.sc-kpi-val{ color:var(--pu-text) !important; }
+
+/* ── Paneles hero / secciones destacadas ────────────────────────────────────── */
+.uni-portfolio,.hero-panel,.exec-mission{ border-radius:18px !important; }
+.intel-bar{ border-radius:18px !important; }
+
+/* ── Helpers de animación (los dispara premium-uplift.js) ───────────────────── */
 .sp-rise,.ms-reveal{ will-change:transform,opacity; }
 @keyframes pu-blink{0%,100%{opacity:1}50%{opacity:.3}}
 @media (prefers-reduced-motion: reduce){

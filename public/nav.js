@@ -50,7 +50,7 @@
       // Se carga al FINAL para ganar al resto del cascade.
       addLink('vp-lux-css',     '/lux-theme.css?v=lux5');
       // Premium uplift (reskin Claude Design) — se carga AL FINAL para mandar sobre el resto del cascade.
-      addLink('vp-premium-css', '/premium-uplift.css?v=1');
+      addLink('vp-premium-css', '/premium-uplift.css?v=2');
 
       // Manifest PWA
       if (!document.querySelector('link[rel="manifest"]')) {
@@ -94,7 +94,7 @@
         ['vp-tablefilter-js', '/table-filter.js?v=lux4'],
         ['vp-emptyperiod-js', '/empty-period-helper.js?v=1'],
         ['vp-kpicx-js',       '/kpi-context.js?v=1'],
-        ['vp-premium-js',     '/premium-uplift.js?v=1'],
+        ['vp-premium-js',     '/premium-uplift.js?v=2'],
       ].forEach(function (pair) {
         if (document.getElementById(pair[0])) return;
         var sc = document.createElement('script');
@@ -587,6 +587,50 @@
       '#cw-fab,#sumi-ai-pro-btn,#cw-launcher,.cw-fab{bottom:calc(80px + env(safe-area-inset-bottom))!important;}',
       '}',
       '@media(min-width:1024px){#sumi-bnav,#sumi-msheet,#sumi-msheet-ov{display:none!important;}}',
+
+      /* ══ PREMIUM UPLIFT — sidebar oscuro espresso (override final, gana el cascade) ══ */
+      '#app-sidebar.sb,#app-sidebar{background:#1C150D !important;',
+      'border-right:1px solid rgba(255,255,255,.06) !important;',
+      'box-shadow:10px 0 40px -22px rgba(0,0,0,.7) !important;}',
+      /* Logo */
+      '#app-sidebar .sb-logo-name{font-family:"Fraunces",serif !important;color:#F5EFE3 !important;font-weight:600 !important;letter-spacing:-.01em !important;}',
+      '#app-sidebar .sb-logo-sub{color:#B9975A !important;}',
+      '#app-sidebar .sb-logo-icon{box-shadow:0 6px 18px -8px rgba(224,179,65,.55) !important;}',
+      /* Encabezados de grupo (PANEL / INTELIGENCIA) */
+      '#app-sidebar .sb-nav-label{color:#8A7C64 !important;letter-spacing:.14em !important;font-weight:600 !important;}',
+      /* Ítems del menú */
+      '#app-sidebar .nav-link{color:#A79E8F !important;background:transparent !important;border-radius:11px !important;',
+      'justify-content:flex-start !important;text-align:left !important;width:100% !important;gap:.7rem !important;',
+      'padding:.55rem .8rem !important;font-weight:500 !important;transition:background .2s,color .18s,box-shadow .2s !important;}',
+      '#app-sidebar .nav-link svg,#app-sidebar .nav-link .nav-ico{opacity:.72 !important;transition:opacity .18s !important;}',
+      '#app-sidebar .nav-link:hover{color:#F1EBDD !important;background:rgba(255,255,255,.05) !important;}',
+      '#app-sidebar .nav-link:hover svg,#app-sidebar .nav-link:hover .nav-ico{opacity:1 !important;}',
+      '#app-sidebar .nav-link.active,#app-sidebar .nav-link[aria-current="page"]{',
+      'color:#F2C667 !important;background:rgba(224,179,65,.14) !important;font-weight:600 !important;',
+      'box-shadow:inset 2px 0 0 #E0B341 !important;}',
+      '#app-sidebar .nav-link.active svg,#app-sidebar .nav-link.active .nav-ico{opacity:1 !important;}',
+      /* Footer / usuario / salir */
+      '#app-sidebar .sb-foot{border-top:1px solid rgba(255,255,255,.08) !important;}',
+      '#app-sidebar .nav-user{color:#8A7C64 !important;}',
+      '#app-sidebar .sb-clock{color:#8A7C64 !important;}',
+      '#app-sidebar .sb-corte{color:#9BB89E !important;}',
+      '#app-sidebar .nav-logout-btn{border:1px solid rgba(224,179,65,.3) !important;background:rgba(224,179,65,.08) !important;color:#E7C877 !important;}',
+      '#app-sidebar .nav-logout-btn:hover{background:rgba(224,179,65,.16) !important;}',
+      /* Selector de base de datos (Mangueras y Conexiones) */
+      '#app-sidebar .nav-db-btn{background:rgba(255,255,255,.05) !important;border:1px solid rgba(255,255,255,.09) !important;color:#E8E1D2 !important;}',
+      '#app-sidebar .nav-db-btn:hover{background:rgba(255,255,255,.09) !important;}',
+      '#app-sidebar #navDbLabel{color:#E8E1D2 !important;}',
+      '#app-sidebar .nav-db-dropdown{background:#241B10 !important;border:1px solid rgba(255,255,255,.1) !important;box-shadow:0 20px 44px -16px rgba(0,0,0,.7) !important;}',
+      '#app-sidebar .nav-db-opt{color:#B7AC98 !important;}',
+      '#app-sidebar .nav-db-opt:hover{background:rgba(224,179,65,.12) !important;color:#F2C667 !important;}',
+      '#app-sidebar .nav-db-opt.active{color:#F2C667 !important;}',
+      /* Badge SIN IVA sobre fondo oscuro */
+      '#app-sidebar .sb-iva-badge{background:rgba(14,159,110,.15) !important;border:1px solid rgba(14,159,110,.32) !important;color:#7FD9AF !important;}',
+      '#app-sidebar .sb-iva-badge svg{fill:#5FD3A3 !important;}',
+      '#app-sidebar .sb-iva-badge strong{color:#8FE6BE !important;}',
+      /* Scrollbar del sidebar */
+      '#app-sidebar::-webkit-scrollbar{width:6px;}',
+      '#app-sidebar::-webkit-scrollbar-thumb{background:rgba(224,179,65,.22);border-radius:99px;}',
     ].join('');
     document.head.appendChild(s);
   }
