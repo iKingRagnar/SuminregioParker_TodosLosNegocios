@@ -276,11 +276,22 @@
     try {
       document.querySelectorAll('.sc-card').forEach(function (card) {
         if (card.getAttribute('data-pu-sc') === '1') return;
+        card.setAttribute('data-pu-sc', '1');
+        // 1) badge de cartera → al header (arriba-derecha) como la referencia
         var badge = card.querySelector('.sc-badge');
         var header = card.querySelector('.sc-header');
-        if (badge && header && badge.parentElement !== header) {
-          card.setAttribute('data-pu-sc', '1');
-          header.appendChild(badge);
+        if (badge && header && badge.parentElement !== header) header.appendChild(badge);
+        // 2) orden de la referencia: Periodo/Hoy/CxC → Cartera vencida (barra) → Cotiz/%Vencido.
+        //    En el app la fila Cotiz va ANTES de la barra; movemos la barra antes de la 2da fila.
+        var kpis = card.querySelectorAll('.sc-kpis');
+        var meta = card.querySelector('.sc-meta-row');
+        if (kpis.length >= 2 && meta && (meta.compareDocumentPosition(kpis[1]) & Node.DOCUMENT_POSITION_PRECEDING)) {
+          card.insertBefore(meta, kpis[1]);
+        }
+        // 3) PERIODO (1er valor) más grande que Hoy/CxC (referencia). Inline para ganar al auto-fit.
+        if (kpis[0]) {
+          var fk = kpis[0].querySelector('.sc-kpi');
+          if (fk) { var v = fk.querySelector('.sc-kpi-val'); if (v) { v.style.setProperty('font-size', '1.22rem', 'important'); v._kcFit = 'LOCK'; v._fitTxt = 'LOCK'; } }
         }
       });
     } catch (e) { console.error('[premium] scCards', e && e.message); }
