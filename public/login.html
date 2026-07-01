@@ -1022,8 +1022,13 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
 .glass-panel--info .stat-pill{color:#D8C7A4!important;border:1px solid rgba(240,200,104,.22)!important;background:rgba(255,255,255,.05)!important;}
 .glass-panel--info .stat-pill .stat-val{color:#F0C868!important;font-family:'DM Mono',monospace!important;}
 .glass-panel--info .pill{color:#E6D3AC!important;border:1px solid rgba(240,200,104,.28)!important;background:transparent!important;}
-/* panel acceso (derecha) → crema */
-.glass-panel--auth{background:linear-gradient(180deg,#FFFFFF 0%,#FBF7EE 100%)!important;border:none!important;color:#211A10!important;backdrop-filter:none!important;}
+/* brand-row: marca a la izquierda, badge a la derecha */
+.glass-panel--info .brand-row{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:1rem!important;flex-wrap:wrap!important;}
+/* panel acceso (derecha) → crema, TODO alineado a la izquierda (como la referencia) */
+.glass-panel--auth{background:linear-gradient(180deg,#FFFFFF 0%,#FBF7EE 100%)!important;border:none!important;color:#211A10!important;backdrop-filter:none!important;align-items:stretch!important;text-align:left!important;}
+.glass-panel--auth .card-head{text-align:left!important;align-items:flex-start!important;display:block!important;}
+.glass-panel--auth .card-head h1{text-align:left!important;font-family:'Fraunces',serif!important;font-weight:600!important;font-size:2rem!important;color:#211A10!important;}
+.glass-panel--auth .card-head p{text-align:left!important;}
 .glass-panel--auth .card-head h1,.glass-panel--auth .card-head h2,.glass-panel--auth .card-head strong{font-family:'Fraunces',serif!important;color:#211A10!important;}
 .glass-panel--auth .card-head p{color:#8A7C64!important;}
 .glass-panel--auth .field label{font-family:'DM Mono',monospace!important;color:#7A6B52!important;}
@@ -1044,10 +1049,16 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
   <main class="shell">
     <section class="glass-panel glass-panel--info" aria-label="Suminregio Industrial">
       <div class="brand-row">
-        <div class="logo-plate" id="logoPlate" style="background:linear-gradient(135deg,#E0B341,#F5C000);border-radius:18px;width:64px;height:64px;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 32px rgba(230,168,0,.45),0 0 0 1px rgba(230,168,0,.3);">
-          <svg viewBox="0 0 24 24" style="width:32px;height:32px;fill:#ffffff;"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+        <div style="display:flex;align-items:center;gap:0.85rem;">
+          <div class="logo-plate" id="logoPlate" style="background:linear-gradient(135deg,#F6D279,#E0B341,#B8860B);border-radius:15px;width:54px;height:54px;display:flex;align-items:center;justify-content:center;box-shadow:0 12px 28px -8px rgba(224,179,65,.6),inset 0 1px 0 rgba(255,255,255,.45);">
+            <span style="font-family:'Fraunces',serif;font-weight:700;font-size:1.25rem;color:#241A08;letter-spacing:-0.02em;">SP</span>
+          </div>
+          <div style="line-height:1.1;">
+            <div style="font-family:'Fraunces',serif;font-size:1.02rem;font-weight:600;color:#F6EEDD;">Suminregio</div>
+            <div style="font-family:'DM Mono',monospace;font-size:0.58rem;letter-spacing:0.26em;text-transform:uppercase;color:#CDB387;margin-top:2px;">Parker · Group</div>
+          </div>
         </div>
-        <span class="site-tag">Industrial — BI</span>
+        <span class="site-tag">Industrial · BI</span>
       </div>
       <h2>Panel ejecutivo <span class="gold">Parker</span></h2>
       <p class="lead">Scorecard, KPIs, ventas y operación en una sola plataforma con acceso seguro por roles.</p>
@@ -1082,8 +1093,9 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
     </section>
     <section class="glass-panel glass-panel--auth" aria-label="Acceso">
       <div class="card-head">
-        <div class="lock" aria-hidden="true">
-          <svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>
+        <div class="pu-access-badge" style="display:inline-flex;align-items:center;gap:0.55rem;padding:0.4rem 0.8rem 0.4rem 0.5rem;border-radius:999px;border:1px solid rgba(184,134,11,.22);background:linear-gradient(135deg,rgba(246,210,121,.18),rgba(224,179,65,.06));margin-bottom:1.1rem;">
+          <span style="width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#F6D279,#E0B341,#B8860B);display:flex;align-items:center;justify-content:center;box-shadow:0 4px 10px -3px rgba(184,134,11,.5);"><svg width="14" height="14" fill="none" stroke="#241A08" stroke-width="2.1" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z"/></svg></span>
+          <span style="font-family:'DM Mono',monospace;font-size:0.6rem;letter-spacing:0.16em;text-transform:uppercase;color:#9A7322;">Acceso seguro</span>
         </div>
         <h1>Iniciar sesión</h1>
         <p>Introduce las credenciales de tu cuenta para continuar al panel.</p>
