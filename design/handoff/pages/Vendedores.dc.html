@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Outfit:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Outfit',system-ui,sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;color:#211A10;background:#EFE9DC;}
+  ::selection{background:rgba(224,179,65,0.26);}
+  .mono{font-family:'DM Mono',monospace;}
+  .fr{font-family:'Fraunces',serif;}
+  @keyframes sp-blink{0%,100%{opacity:1}50%{opacity:.3}}
+  .sp-card{transition:box-shadow .26s cubic-bezier(.22,.7,.25,1), transform .26s cubic-bezier(.22,.7,.25,1), border-color .26s;}
+  .sp-card:hover{transform:translateY(-4px); box-shadow:0 26px 54px -22px rgba(40,28,12,.34) !important; border-color:rgba(224,179,65,.4) !important;}
+  .sp-pill{transition:background .25s ease, color .2s ease, border-color .25s ease;}
+  @media (prefers-reduced-motion: reduce){*{animation:none !important;}}
+</style>
+</helmet>
+<div id="sp-root" style="display:flex; position:relative; min-height:100vh; font-family:'Outfit',system-ui,sans-serif; color:#211A10; background:radial-gradient(1200px 720px at 6% -8%, rgba(224,179,65,.16), transparent 55%), radial-gradient(1100px 760px at 104% 4%, rgba(120,86,40,.07), transparent 52%), linear-gradient(180deg,#FBF7EE 0%, #F2ECDE 60%, #EDE6D6 100%);">
+
+    <aside style="position:sticky; top:0; height:100vh; flex:0 0 248px; width:248px; background:#1C150D; color:#fff; display:flex; flex-direction:column; padding:20px 14px 16px; overflow-y:auto;">
+    <a href="Inicio.dc.html" style="display:flex; align-items:center; gap:11px; padding:4px 6px 18px; text-decoration:none;">
+      <div style="width:38px; height:38px; border-radius:10px; background:linear-gradient(135deg,#F6D279,#E0B341,#B8860B); display:flex; align-items:center; justify-content:center; flex:0 0 auto; box-shadow:0 2px 10px rgba(184,134,11,.4);">
+        <span class="fr" style="font-weight:700; font-size:15px; color:#241A08; letter-spacing:-0.02em;">SP</span>
+      </div>
+      <div style="min-width:0;">
+        <div class="fr" style="font-size:14.5px; font-weight:600; letter-spacing:-0.01em; line-height:1.1; color:#F3EFE8;">Suminregio Parker</div>
+        <div class="mono" style="font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#8A7C64; margin-top:3px;">ERP · Scorecard</div>
+      </div>
+    </a>
+
+    <div class="mono" style="font-size:9px; letter-spacing:0.16em; text-transform:uppercase; color:#6E624E; padding:6px 10px 6px;">Panel</div>
+    <nav style="display:flex; flex-direction:column; gap:1px;">
+      <a href="Inicio.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5 10 4.5l6 5"/><path d="M5.4 8.6V15.5h9V8.6"/></svg>Inicio
+      </a>
+      <a href="Ventas.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 8 9l3 3 6-6"/><path d="M13 6h4v4"/></svg>Ventas
+      </a>
+      <a href="Cobradas.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6.4"/><path d="M7 10.2 9.2 12.4 13.4 8"/></svg>Cobradas
+      </a>
+      <a href="Vendedores.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:600; color:#F2C667; background:rgba(224,179,65,.15); box-shadow:inset 2px 0 0 #E0B341; text-decoration:none; cursor:pointer;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.7" cy="8" r="2.5"/><path d="M3.6 16c0-2.4 1.9-3.9 4.1-3.9S11.8 13.6 11.8 16"/><path d="M13.4 6.4a2.3 2.3 0 0 1 0 4.3"/><path d="M16.4 16c0-1.7-.8-2.8-2-3.4"/></svg>Vendedores
+      </a>
+      <a href="CxC.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.4" y="5.5" width="13.2" height="9.5" rx="2"/><path d="M3.4 8.4h13.2"/><circle cx="13.3" cy="11.4" r="0.9" fill="currentColor" stroke="none"/></svg>CxC
+      </a>
+      <a href="Clientes.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3.6" width="10" height="12.8" rx="1.2"/><path d="M7.8 6.6h1.4M10.9 6.6h1.4M7.8 9.4h1.4M10.9 9.4h1.4M8.8 16.4v-3h2.4v3"/></svg>Clientes
+      </a>
+      <a href="Director.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="7" width="13" height="8.4" rx="1.6"/><path d="M7.4 7V5.8A1.3 1.3 0 0 1 8.7 4.5h2.6A1.3 1.3 0 0 1 12.6 5.8V7"/></svg>Director
+      </a>
+      <a href="Inventario.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3.6 16.3 7v6L10 16.4 3.7 13V7Z"/><path d="M3.7 7 10 10.4 16.3 7M10 10.4V16.4"/></svg>Inventario
+      </a>
+      <a href="Consumos.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 10.5h3l2-5 3 9 2-4h3.2"/></svg>Consumos
+      </a>
+      <a href="Margen.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="1.7"/><circle cx="13" cy="13" r="1.7"/><path d="M14 6 6 14"/></svg>Margen
+      </a>
+      <a href="PL.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16h12M5.6 15.5V9M10 15.5V9M14.4 15.5V9M3.6 8.4 10 4.4l6.4 4Z"/></svg>Finanzas
+      </a>
+      <a href="Admin.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h7M14.4 6.5h1.6M4 13.5h2M9.4 13.5h6.6"/><circle cx="12.5" cy="6.5" r="1.7"/><circle cx="7.5" cy="13.5" r="1.7"/></svg>Admin
+      </a>
+    </nav>
+
+    <div class="mono" style="font-size:9px; letter-spacing:0.16em; text-transform:uppercase; color:#6E624E; padding:16px 10px 6px;">Inteligencia</div>
+    <nav style="display:flex; flex-direction:column; gap:1px;">
+      <a href="#" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4 11.3 8.2 15.5 9.6 11.3 11 10 15.2 8.7 11 4.5 9.6 8.7 8.2Z"/></svg>Sumi IA
+      </a>
+      <a href="MejoraContinua.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 14 14 6M8.2 6H14v5.8"/></svg>Mejoras
+      </a>
+      <a href="#" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6"/><circle cx="10" cy="10" r="2.6"/></svg>Metas
+      </a>
+    </nav>
+
+    <div style="margin-top:auto; display:flex; align-items:center; gap:10px; padding:11px 8px 4px; border-top:1px solid rgba(255,255,255,.08); margin-top:18px;">
+      <div style="width:33px; height:33px; border-radius:50%; background:#2C2013; color:#E0CBA8; display:flex; align-items:center; justify-content:center; font-size:11.5px; font-weight:700; flex:0 0 auto;">RM</div>
+      <div style="min-width:0; flex:1;">
+        <div style="font-size:12.5px; font-weight:600; color:#E8E3DA; line-height:1.1;">R. Mendoza</div>
+        <div style="font-size:10.5px; color:#8A7C64; margin-top:2px;">Dirección General</div>
+      </div>
+    </div>
+  </aside>
+
+  <main style="flex:1; min-width:0; max-width:1480px; margin:0 auto; padding:clamp(1.1rem,2.4vw,2rem) clamp(1rem,2.4vw,2rem) 3rem;">
+
+    <div class="sp-rise" style="margin-bottom:1.5rem;">
+      <div class="mono" style="font-size:0.6rem; letter-spacing:0.22em; text-transform:uppercase; color:#B8860B;">Cumplimiento · Diario · Mensual · YTD</div>
+      <h1 class="fr" style="font-size:clamp(1.9rem,3vw,2.5rem); font-weight:600; letter-spacing:-0.02em; color:#211A10; margin-top:0.4rem;">Vendedores</h1>
+      <p style="font-size:0.92rem; color:#8A7C64; margin-top:0.35rem;">7 vendedores · equipo al <span class="mono" style="color:#B8860B;">96%</span> de la meta mensual · mejor YTD CONSIGNA</p>
+    </div>
+
+    <div class="sp-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(184px,1fr)); gap:1rem; margin-bottom:1.6rem;">
+      <sc-for list="{{ kpiCards }}" as="k" hint-placeholder-count="6">
+        <div class="sp-card" style="position:relative; background:linear-gradient(170deg,#FFFFFF,#FBF6EC); border:1px solid rgba(31,24,12,.08); border-radius:18px; padding:1.1rem 1.15rem; box-shadow:0 12px 30px -20px rgba(40,28,12,.3); overflow:hidden; display:flex; flex-direction:column; gap:0.45rem;">
+          <div style="position:absolute; inset:0 0 auto 0; height:3px; background:{{ k.accent }};"></div>
+          <div class="mono" style="font-size:0.56rem; letter-spacing:0.06em; text-transform:uppercase; color:#9A8D76;">{{ k.label }}</div>
+          <div class="mono {{ k.countCls }}" style="font-size:1.35rem; font-weight:500; letter-spacing:-0.02em; color:{{ k.vcolor }}; line-height:1.05;">{{ k.value }}</div>
+          <div class="mono" style="font-size:0.58rem; color:#A2937A;">{{ k.sub }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div class="sp-rise" style="display:flex; align-items:center; gap:0.9rem; margin-bottom:1.1rem;">
+      <span style="width:7px; height:7px; border-radius:50%; background:linear-gradient(135deg,#E0B341,#B8860B);"></span>
+      <h3 class="fr" style="font-size:1.2rem; font-weight:600; color:#211A10;">Cumplimiento por Vendedor</h3>
+      <span style="flex:1; height:1px; background:linear-gradient(90deg, rgba(31,24,12,.12), transparent);"></span>
+    </div>
+    <div class="sp-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:1rem; margin-bottom:1.85rem;">
+      <sc-for list="{{ vendors }}" as="v" hint-placeholder-count="7">
+        <div class="sp-card" style="position:relative; background:linear-gradient(170deg,#FFFFFF,#FBF5E9); border:1px solid rgba(31,24,12,.08); border-radius:18px; padding:1.15rem 1.2rem; box-shadow:0 12px 30px -20px rgba(40,28,12,.3); overflow:hidden;">
+          <div style="position:absolute; left:0; top:0; bottom:0; width:4px; background:{{ v.color }};"></div>
+          <div style="display:flex; align-items:center; gap:0.8rem; margin-bottom:1rem;">
+            <div class="fr" style="width:44px; height:44px; border-radius:12px; background:{{ v.avatarBg }}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:0.95rem; font-weight:600; flex:0 0 auto; box-shadow:0 6px 16px -6px {{ v.color }};">{{ v.initials }}</div>
+            <div style="min-width:0; flex:1;">
+              <div class="fr" style="font-size:1rem; font-weight:600; color:#211A10; line-height:1.1;">{{ v.name }}</div>
+              <div class="mono" style="font-size:0.58rem; color:#A2937A; margin-top:2px;">Vendedor</div>
+            </div>
+            <span style="display:inline-flex; align-items:center; gap:5px; padding:0.24rem 0.6rem; border-radius:999px; font-size:0.6rem; font-weight:600; white-space:nowrap; background:{{ v.statBg }}; color:{{ v.statColor }}; border:1px solid {{ v.statBorder }};"><span style="width:5px; height:5px; border-radius:50%; background:{{ v.statColor }};"></span>{{ v.status }}</span>
+          </div>
+          <div style="display:flex; gap:0.8rem; margin-bottom:1rem;">
+            <div style="flex:1;"><div class="mono" style="font-size:0.5rem; letter-spacing:0.08em; text-transform:uppercase; color:#A2937A;">Hoy</div><div class="mono" style="font-size:0.84rem; color:#4A3F2C; margin-top:2px;">{{ v.hoy }}</div></div>
+            <div style="flex:1;"><div class="mono" style="font-size:0.5rem; letter-spacing:0.08em; text-transform:uppercase; color:#A2937A;">Mes</div><div class="mono" style="font-size:0.84rem; color:#211A10; margin-top:2px;">{{ v.mes }}</div></div>
+            <div style="flex:1;"><div class="mono" style="font-size:0.5rem; letter-spacing:0.08em; text-transform:uppercase; color:#A2937A;">YTD</div><div class="mono" style="font-size:0.84rem; color:#4A3F2C; margin-top:2px;">{{ v.ytd }}</div></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem;"><span class="mono" style="font-size:0.58rem; color:#6E624E;">% Meta mes</span><span class="mono" style="font-size:0.78rem; font-weight:500; color:{{ v.statColor }};">{{ v.pct }}</span></div>
+          <div style="height:7px; border-radius:999px; background:rgba(31,24,12,.07); overflow:hidden;"><div class="sp-bar-fill" style="height:100%; border-radius:999px; width:{{ v.barW }}; background:{{ v.statColor }}; transform-origin:left;"></div></div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- ════ ANÁLISIS COMPARATIVO ════ -->
+    <div class="sp-rise" style="display:flex; align-items:center; gap:0.9rem; margin-bottom:1.1rem;">
+      <span style="width:7px; height:7px; border-radius:50%; background:linear-gradient(135deg,#E0B341,#B8860B);"></span>
+      <h3 class="fr" style="font-size:1.2rem; font-weight:600; color:#211A10;">Análisis Comparativo</h3>
+      <span style="flex:1; height:1px; background:linear-gradient(90deg, rgba(31,24,12,.12), transparent);"></span>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(360px,1fr)); gap:1.1rem; align-items:start;">
+
+      <!-- (1) Tendencia Diaria del Equipo (30 días) -->
+      <div class="sp-rise sp-card" style="background:linear-gradient(170deg,#FFFFFF,#FBF7EE); border:1px solid rgba(31,24,12,.08); border-radius:20px; padding:1.4rem 1.5rem; box-shadow:0 16px 38px -24px rgba(40,28,12,.32);">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:0.8rem; flex-wrap:wrap; margin-bottom:0.4rem;">
+          <h3 class="fr" style="font-size:1.12rem; font-weight:600; color:#211A10;">Tendencia Diaria del Equipo</h3>
+          <span class="mono" style="font-size:0.62rem; color:#A2937A; border:1px solid rgba(31,24,12,.1); padding:0.22rem 0.6rem; border-radius:999px;">30 días</span>
+        </div>
+        <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:0.8rem;">
+          <span style="display:inline-flex; align-items:center; gap:0.4rem; font-size:0.62rem; color:#6E624E;"><span style="width:14px; height:3px; border-radius:2px; background:#C8901F;"></span>Venta equipo</span>
+          <span style="display:inline-flex; align-items:center; gap:0.4rem; font-size:0.62rem; color:#6E624E;"><span style="width:14px; height:0; border-top:2px dashed #B8860B;"></span>Meta equilibrio</span>
+          <span style="display:inline-flex; align-items:center; gap:0.4rem; font-size:0.62rem; color:#6E624E;"><span style="width:14px; height:0; border-top:2px dashed #0E9F6E;"></span>Meta ideal +30%</span>
+        </div>
+        <div style="display:flex; gap:0.5rem;">
+          <div style="display:flex; flex-direction:column; justify-content:space-between; padding:6px 0 26px; flex:0 0 auto;">
+            <sc-for list="{{ yLabels }}" as="y" hint-placeholder-count="5"><span class="mono" style="font-size:0.5rem; color:#A2937A;">{{ y }}</span></sc-for>
+          </div>
+          <div style="flex:1; min-width:0;">
+            <svg viewBox="0 0 1000 210" preserveAspectRatio="none" style="width:100%; height:220px; display:block; overflow:visible;">
+              <defs><linearGradient id="teamGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#E0B341" stop-opacity="0.26"/><stop offset="100%" stop-color="#E0B341" stop-opacity="0.02"/></linearGradient></defs>
+              <line x1="0" y1="6" x2="1000" y2="6" stroke="rgba(31,24,12,.06)" stroke-width="1"/>
+              <line x1="0" y1="50.75" x2="1000" y2="50.75" stroke="rgba(31,24,12,.06)" stroke-width="1"/>
+              <line x1="0" y1="95.5" x2="1000" y2="95.5" stroke="rgba(31,24,12,.06)" stroke-width="1"/>
+              <line x1="0" y1="140.25" x2="1000" y2="140.25" stroke="rgba(31,24,12,.06)" stroke-width="1"/>
+              <line x1="0" y1="185" x2="1000" y2="185" stroke="rgba(31,24,12,.12)" stroke-width="1"/>
+              <line x1="0" y1="{{ metaEquilY }}" x2="1000" y2="{{ metaEquilY }}" stroke="#B8860B" stroke-width="1.3" stroke-dasharray="6 5" opacity="0.8"/>
+              <line x1="0" y1="{{ metaIdealY }}" x2="1000" y2="{{ metaIdealY }}" stroke="#0E9F6E" stroke-width="1.3" stroke-dasharray="5 4" opacity="0.7"/>
+              <path d="{{ teamArea }}" fill="url(#teamGrad)"/>
+              <path class="sp-draw" d="{{ teamLine }}" fill="none" stroke="#C8901F" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+            </svg>
+            <div style="display:flex; justify-content:space-between; margin-top:0.4rem;">
+              <span class="mono" style="font-size:0.5rem; color:#A2937A;">01/06</span><span class="mono" style="font-size:0.5rem; color:#A2937A;">08/06</span><span class="mono" style="font-size:0.5rem; color:#A2937A;">15/06</span><span class="mono" style="font-size:0.5rem; color:#A2937A;">22/06</span><span class="mono" style="font-size:0.5rem; color:#A2937A;">29/06</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- (2) % Cumplimiento vs Meta Mensual -->
+      <div class="sp-rise sp-card" style="background:linear-gradient(170deg,#FFFFFF,#FBF7EE); border:1px solid rgba(31,24,12,.08); border-radius:20px; padding:1.4rem 1.5rem; box-shadow:0 16px 38px -24px rgba(40,28,12,.32);">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:0.8rem; margin-bottom:0.4rem;">
+          <h3 class="fr" style="font-size:1.12rem; font-weight:600; color:#211A10;">% Cumplimiento vs Meta Mensual</h3>
+        </div>
+        <div style="display:flex; gap:1rem; margin-bottom:0.9rem;">
+          <span style="display:inline-flex; align-items:center; gap:0.4rem; font-size:0.62rem; color:#6E624E;"><span style="width:14px; height:0; border-top:2px dashed #6E624E;"></span>Meta 100%</span>
+        </div>
+        <div style="position:relative; display:flex; align-items:flex-end; gap:clamp(6px,1.6vw,14px); height:210px;">
+          <div style="position:absolute; left:0; right:0; bottom:{{ meta100Px }}; height:0; border-top:2px dashed #6E624E; opacity:0.6; z-index:1;"></div>
+          <sc-for list="{{ cumpl }}" as="c" hint-placeholder-count="7">
+            <div style="flex:1; display:flex; align-items:flex-end; justify-content:center; height:100%; min-width:0;">
+              <div class="sp-vbar" style="width:100%; max-width:30px; height:{{ c.barPx }}; background:{{ c.color }}; border-radius:5px 5px 2px 2px; transform-origin:bottom;"></div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex; gap:clamp(6px,1.6vw,14px); margin-top:0.5rem;">
+          <sc-for list="{{ cumpl }}" as="c" hint-placeholder-count="7">
+            <div style="flex:1; text-align:center; min-width:0;"><div class="mono" style="font-size:0.72rem; font-weight:500; color:{{ c.color }};">{{ c.pct }}</div><div class="mono" style="font-size:0.5rem; color:#A2937A; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ c.short }}</div></div>
+          </sc-for>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Ventas vs Cobros Mensuales -->
+    <div style="display:grid; grid-template-columns:1.6fr 1fr; gap:1.1rem; margin-top:1.1rem;">
+      <div class="sp-rise sp-card" style="background:linear-gradient(170deg,#FFFFFF,#FBF7EE); border:1px solid rgba(31,24,12,.08); border-radius:20px; padding:1.4rem 1.5rem; box-shadow:0 16px 38px -24px rgba(40,28,12,.32);">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:0.8rem; flex-wrap:wrap; margin-bottom:0.8rem;">
+          <h3 class="fr" style="font-size:1.12rem; font-weight:600; color:#211A10;">Ventas vs Cobros Mensuales — Eficiencia de Cobro</h3>
+          <span class="mono" style="font-size:0.62rem; color:#0E9F6E; border:1px solid rgba(14,159,110,.3); background:rgba(14,159,110,.08); padding:0.22rem 0.6rem; border-radius:999px;">{{ eficBadge }}</span>
+        </div>
+        <svg viewBox="0 0 600 175" style="width:100%; height:185px; display:block;">
+          <sc-for list="{{ vcBars }}" as="b" hint-placeholder-count="6">
+            <rect class="sp-vbar" x="{{ b.x }}" y="{{ b.y }}" width="{{ b.w }}" height="{{ b.h }}" rx="4" fill="rgba(184,134,11,.45)" style="transform-origin:{{ b.cx }}px 160px;"></rect>
+          </sc-for>
+          <polyline class="sp-draw" points="{{ vcLine }}" fill="none" stroke="#0E9F6E" strokeWidth="2.5" strokeDasharray="1300" strokeDashoffset="0"></polyline>
+          <line x1="20" y1="160" x2="580" y2="160" stroke="rgba(31,24,12,.1)" strokeWidth="1"></line>
+        </svg>
+        <div style="display:flex; gap:1rem; margin-top:0.5rem;">
+          <span class="mono" style="font-size:0.64rem; color:#6E624E; display:flex; align-items:center; gap:0.3rem;"><span style="width:9px; height:9px; border-radius:2px; background:rgba(184,134,11,.6); display:inline-block;"></span>Ventas</span>
+          <span class="mono" style="font-size:0.64rem; color:#6E624E; display:flex; align-items:center; gap:0.3rem;"><span style="width:9px; height:2px; background:#0E9F6E; display:inline-block;"></span>Cobros</span>
+        </div>
+      </div>
+      <div class="sp-rise sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:20px; padding:1.4rem 1.5rem; display:flex; flex-direction:column; gap:0.8rem; box-shadow:0 16px 38px -24px rgba(40,28,12,.32);">
+        <div><div class="mono" style="font-size:0.56rem; color:#A2937A; text-transform:uppercase;">Eficiencia de Cobro</div><div class="mono sp-count" style="font-size:1.5rem; font-weight:600; color:#0E9F6E; margin-top:0.2rem;">{{ eficPct }}</div></div>
+        <div><div class="mono" style="font-size:0.56rem; color:#A2937A; text-transform:uppercase;">Ventas del Periodo</div><div class="mono sp-count" style="font-size:1.1rem; font-weight:600; margin-top:0.2rem;">{{ ventasPeriodo }}</div></div>
+        <div><div class="mono" style="font-size:0.56rem; color:#A2937A; text-transform:uppercase;">Cobros del Periodo</div><div class="mono sp-count" style="font-size:1.1rem; font-weight:600; margin-top:0.2rem; color:#0E9F6E;">{{ cobrosPeriodo }}</div></div>
+      </div>
+    </div>
+
+    <!-- Tabla Completa de Cumplimiento -->
+    <div class="sp-rise sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:20px; overflow:hidden; box-shadow:0 16px 38px -24px rgba(40,28,12,.32); margin-top:1.25rem;">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:1.2rem 1.5rem 0.9rem;">
+        <h3 class="fr" style="font-size:1.12rem; font-weight:600; color:#211A10;">Tabla Completa de Cumplimiento</h3>
+        <span class="mono" style="font-size:0.62rem; color:#A2937A;">mes actual</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; min-width:840px;">
+          <thead><tr>
+            <sc-for list="{{ tblCols }}" as="h" hint-placeholder-count="10">
+              <th class="mono" style="text-align:{{ h.align }}; padding:0.6rem 1rem; font-size:0.52rem; letter-spacing:0.08em; text-transform:uppercase; color:#A2937A; font-weight:500; border-top:1px solid rgba(31,24,12,.06); border-bottom:1px solid rgba(31,24,12,.06);">{{ h.label }}</th>
+            </sc-for>
+          </tr></thead>
+          <tbody>
+            <sc-for list="{{ tblRows }}" as="r" hint-placeholder-count="7">
+              <tr style="transition:background .15s;" style-hover="background:#FBF6EC;">
+                <td class="mono" style="padding:0.6rem 1rem; font-size:0.76rem; color:#B8860B; border-bottom:1px solid rgba(31,24,12,.05);">{{ r.rank }}</td>
+                <td style="padding:0.6rem 1rem; font-size:0.82rem; font-weight:500; color:#211A10; border-bottom:1px solid rgba(31,24,12,.05);">{{ r.name }}</td>
+                <td class="mono" style="text-align:right; padding:0.6rem 1rem; font-size:0.76rem; color:#6E624E; border-bottom:1px solid rgba(31,24,12,.05);">{{ r.ventaHoy }}</td>
+                <td class="mono" style="text-align:right; padding:0.6rem 1rem; font-size:0.76rem; color:#6E624E; border-bottom:1px solid rgba(31,24,12,.05);">{{ r.metaDia }}</td>
+                <td class="mono" style="text-align:right; padding:0.6rem 1rem; font-size:0.78rem; color:#211A10; border-bottom:1px solid rgba(31,24,12,.05);">{{ r.ventaMes }}</td>
+                <td class="mono" style="text-align:right; padding:0.6rem 1rem; font-size:0.78rem; font-weight:500; color:{{ r.statColor }}; border-bottom:1px solid rgba(31,24,12,.05);">{{ r.metaMes }}</td>
+                <td class="mono" style="text-align:right; padding:0.6rem 1rem; font-size:0.76rem; color:#6E624E; border-bottom:1px solid rgba(31,24,12,.05);">{{ r.ytd }}</td>
+                <td class="mono" style="text-align:right; padding:0.6rem 1rem; font-size:0.76rem; color:#6E624E; border-bottom:1px solid rgba(31,24,12,.05);">{{ r.factHoy }}</td>
+                <td class="mono" style="text-align:right; padding:0.6rem 1rem; font-size:0.76rem; color:#6E624E; border-bottom:1px solid rgba(31,24,12,.05);">{{ r.factMes }}</td>
+                <td style="padding:0.6rem 1rem; border-bottom:1px solid rgba(31,24,12,.05);"><span style="font-size:0.6rem; font-weight:600; padding:0.16rem 0.5rem; border-radius:999px; background:{{ r.statBg }}; color:{{ r.statColor }};">{{ r.status }}</span></td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;accentColor&quot;: { &quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#E0B341&quot;, &quot;options&quot;: [&quot;#E0B341&quot;,&quot;#B8860B&quot;,&quot;#C2410C&quot;,&quot;#2563EB&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Marca&quot; }
+}">
+class Component extends DCLogic {
+  componentDidMount() {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const run = () => {
+      const root = document.getElementById('sp-root') || document;
+      const ease = 'cubic-bezier(.18,.7,.25,1)', easeBar = 'cubic-bezier(.3,.85,.3,1)';
+      const rise = (el, d) => { try { el.animate([{ opacity: 0, transform: 'translateY(26px)' }, { opacity: 1, transform: 'none' }], { duration: 640, delay: d, easing: ease, fill: 'backwards' }); } catch (e) {} };
+      root.querySelectorAll('.sp-rise').forEach((el, i) => rise(el, 50 + i * 80));
+      root.querySelectorAll('.sp-grid').forEach(g => [...g.children].forEach((c, i) => rise(c, 150 + i * 60)));
+      root.querySelectorAll('.sp-bar-fill').forEach((b, i) => { try { b.animate([{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], { duration: 1000, delay: 300 + (i % 8) * 45, easing: easeBar, fill: 'backwards' }); } catch (e) {} });
+      root.querySelectorAll('.sp-vbar').forEach((b, i) => { try { b.animate([{ transform: 'scaleY(0)' }, { transform: 'scaleY(1)' }], { duration: 760, delay: 350 + i * 60, easing: easeBar, fill: 'backwards' }); } catch (e) {} });
+      root.querySelectorAll('.sp-draw').forEach(p => { try { const len = p.getTotalLength(); p.style.strokeDasharray = len; p.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }], { duration: 1600, delay: 360, easing: 'cubic-bezier(.4,.6,.3,1)', fill: 'backwards' }); } catch (e) {} });
+      root.querySelectorAll('.sp-count').forEach((el, i) => {
+        const raw = (el.textContent || '').trim();
+        const m = raw.match(/^([^\d-]*)(-?[\d,]+(?:\.\d+)?)(.*)$/);
+        if (!m) return;
+        const pre = m[1], suf = m[3], dec = (m[2].split('.')[1] || '').length;
+        const target = parseFloat(m[2].replace(/,/g, ''));
+        if (!isFinite(target)) return;
+        const dur = 1100, t0 = performance.now() + 300 + (i % 8) * 55;
+        const fmtN = v => v.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+        el.dataset.cv = raw;
+        const step = now => { let p = Math.max(0, Math.min(1, (now - t0) / dur)); p = 1 - Math.pow(1 - p, 3); el.textContent = pre + fmtN(target * p) + suf; if (p < 1) requestAnimationFrame(step); else el.textContent = raw; };
+        requestAnimationFrame(step);
+      });
+    };
+    const root0 = document.getElementById('sp-root');
+    const guarded = () => { if (root0 && root0.dataset.spAnimated) return; if (root0) root0.dataset.spAnimated = '1'; run(); };
+    requestAnimationFrame(() => requestAnimationFrame(guarded));
+    setTimeout(guarded, 170);
+    setTimeout(() => { try { const r = document.getElementById('sp-root') || document; const fin = el => el.getAnimations && el.getAnimations().forEach(a => { if (a.effect && a.effect.getTiming().iterations !== Infinity) a.finish(); }); r.querySelectorAll('.sp-rise,.sp-bar-fill,.sp-vbar,.sp-draw').forEach(fin); r.querySelectorAll('.sp-grid').forEach(g => [...g.children].forEach(fin)); r.querySelectorAll('.sp-count').forEach(el => { if (el.dataset.cv) el.textContent = el.dataset.cv; }); } catch (e) {} }, 2800);
+  }
+  renderVals() {
+    const navItems = [
+      ['Inicio', 'Inicio.dc.html', false], ['Ventas', 'Ventas.dc.html', false], ['Cobradas', 'Cobradas.dc.html', false],
+      ['Vendedores', 'Vendedores.dc.html', true], ['CxC', 'CxC.dc.html', false], ['Clientes', 'Clientes.dc.html', false],
+      ['Director', 'Director.dc.html', false], ['Inventario', 'Inventario.dc.html', false], ['P&L', '#', false]
+    ];
+    const nav = navItems.map(([label, href, active]) => ({
+      label, href, color: active ? '#241A08' : '#6E624E',
+      bg: active ? 'linear-gradient(135deg, rgba(246,210,121,.5), rgba(224,179,65,.28))' : 'transparent', weight: active ? 600 : 500
+    }));
+    const kpiCards = [
+      ['Vendedores activos', '7', '#5B43C9', 'en el equipo', 'sp-count', '#7C5CFC'],
+      ['Mejor hoy', '—', '#067647', 'sin ventas hoy', '', '#0E9F6E'],
+      ['Total equipo hoy', '$0', '#1D4FD8', 'Meta: $45,200', 'sp-count', '#2F6BFF'],
+      ['Total equipo mes', '$1,391,490', '#B8860B', 'Meta acum: $1,447,000', 'sp-count', '#E0B341'],
+      ['Meta mes cumpl.', '3', '#C2410C', 'de 7 vendedores', 'sp-count', '#D98324'],
+      ['Mejor mes YTD', 'CONSIGNA', '#067647', '$2.85M YTD', '', '#0E9F6E']
+    ].map(k => ({ label: k[0], value: k[1], vcolor: k[2], sub: k[3], countCls: k[4], accent: k[5] }));
+    const statOf = pct => pct >= 100 ? ['En meta', '#067647', '#E7F6EF', '#BBEBCB', '#0E9F6E'] : pct >= 80 ? ['Parcial', '#B45309', '#FBF1DC', '#F0DDB0', '#E0B341'] : ['Bajo', '#B42318', '#FEECEA', '#FAD2CD', '#D92D20'];
+    const palette = ['#B8860B', '#7C5CFC', '#0E7490', '#2563EB', '#C2410C', '#0E9F6E', '#9C6B45'];
+    const vRaw = [
+      ['CONSIGNA', 'CO', 0, 370590, 2850000, 179, 0, 72],
+      ['ESTEFANIA', 'ES', 0, 287000, 2240000, 140, 0, 58],
+      ['SUSANA', 'SU', 0, 221400, 1720000, 108, 0, 47],
+      ['CARLOS', 'CA', 0, 188600, 1470000, 92, 0, 41],
+      ['RICARDO', 'RI', 0, 145550, 1130000, 71, 0, 36],
+      ['SUMINREGIO', 'SM', 0, 110700, 860000, 54, 0, 30],
+      ['ELIAS', 'EL', 0, 67650, 530000, 33, 0, 24]
+    ];
+    const money = n => '$' + n.toLocaleString('en-US');
+    const moneyM = n => '$' + (n / 1000000).toFixed(2) + 'M';
+    const vendors = vRaw.map((v, i) => {
+      const s = statOf(v[5]);
+      return {
+        name: v[0], initials: v[1], color: palette[i], avatarBg: 'linear-gradient(135deg,' + palette[i] + ',' + palette[i] + 'BB)',
+        hoy: money(v[2]), mes: money(v[3]), ytd: moneyM(v[4]), pct: v[5] + '%', barW: Math.min(100, v[5]) + '%',
+        status: s[0], statColor: s[1], statBg: s[2], statBorder: s[3]
+      };
+    });
+    // (2) % Cumplimiento bars (px heights, scale max 200%)
+    const Hc = 210, scaleC = 200, meta100Px = Math.round(100 / scaleC * Hc);
+    const cumpl = vRaw.map(v => { const s = statOf(v[5]); return { short: v[0].length > 8 ? v[0].slice(0, 7) + '…' : v[0], pct: v[5] + '%', color: s[4], barPx: Math.round(Math.min(scaleC, v[5]) / scaleC * Hc) + 'px' }; });
+    // (1) Tendencia diaria del equipo — línea, eje $0..$160k
+    const td = [88, 102, 76, 120, 95, 138, 110, 82, 145, 99, 118, 72, 130, 105, 150, 90, 125, 68, 142, 112, 128];
+    const axMax = 160, tW = 1000, tH = 210, pT = 6, pB = 25;
+    const txAt = i => (tW) * (i / (td.length - 1));
+    const tyAt = v => (tH - pB) - ((tH - pB - pT) * (v / axMax));
+    const tpts = td.map((v, i) => txAt(i).toFixed(1) + ',' + tyAt(v).toFixed(1));
+    const teamLine = 'M' + tpts.join(' L');
+    const teamArea = 'M' + tpts[0] + ' L' + tpts.slice(1).join(' L') + ' L' + txAt(td.length - 1).toFixed(1) + ',' + (tH - pB) + ' L0,' + (tH - pB) + ' Z';
+    const metaEquilY = tyAt(100).toFixed(1), metaIdealY = tyAt(130).toFixed(1);
+    const yLabels = ['$160k', '$120k', '$80k', '$40k', '$0'];
+    const tblCols = [['#', 'left'], ['Vendedor', 'left'], ['Venta Hoy', 'right'], ['% Meta Día', 'right'], ['Venta Mes', 'right'], ['% Meta Mes', 'right'], ['Venta YTD', 'right'], ['Facts. Hoy', 'right'], ['Facts. Mes', 'right'], ['Status', 'left']].map(c => ({ label: c[0], align: c[1] }));
+    const tblRows = vRaw.map((v, i) => { const s = statOf(v[5]); return { rank: i + 1, name: v[0], ventaHoy: money(v[2]), metaDia: '0%', ventaMes: money(v[3]), metaMes: v[5] + '%', ytd: moneyM(v[4]), factHoy: v[6], factMes: v[7], status: s[0], statColor: s[1], statBg: s[2] }; });
+    // Ventas vs Cobros mensuales (6 meses)
+    const vM = [980000, 1050000, 1120000, 1240000, 1310000, 1391490];
+    const cM = [850000, 910000, 980000, 1080000, 1190000, 1603572];
+    const maxVC = Math.max(...vM, ...cM);
+    const padLv = 20, plotWv = 560, plotHv = 140, slotv = plotWv / vM.length, barWv = 30;
+    const vcBars = vM.map((v, i) => {
+      const cx = padLv + i * slotv + slotv / 2;
+      const h = v / maxVC * plotHv;
+      return { x: (cx - barWv / 2).toFixed(0), y: (160 - h).toFixed(0), w: barWv, h: h.toFixed(0), cx: cx.toFixed(0) };
+    });
+    const vcLine = cM.map((v, i) => { const cx = padLv + i * slotv + slotv / 2; return cx.toFixed(0) + ',' + (160 - v / maxVC * plotHv).toFixed(1); }).join(' ');
+    const totalV = vM.reduce((s, v) => s + v, 0), totalC = cM.reduce((s, v) => s + v, 0);
+    const eficPctNum = (totalC / totalV * 100).toFixed(1);
+    return {
+      nav, kpiCards, vendors, cumpl, meta100Px: meta100Px + 'px', teamLine, teamArea, metaEquilY, metaIdealY, yLabels, tblCols, tblRows,
+      vcBars, vcLine, eficBadge: eficPctNum + '% eficiencia', eficPct: eficPctNum + '%',
+      ventasPeriodo: '$' + totalV.toLocaleString('en-US'), cobrosPeriodo: '$' + totalC.toLocaleString('en-US')
+    };
+  }
+}
+</script>
+</body>
+</html>

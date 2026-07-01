@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Outfit:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{margin:0;padding:0;}
+  body{font-family:'Outfit',system-ui,sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;color:#211A10;background:#EFE9DC;}
+  ::selection{background:rgba(224,179,65,0.26);}
+  .mono{font-family:'DM Mono',monospace;}
+  .fr{font-family:'Fraunces',serif;}
+  @keyframes sp-blink{0%,100%{opacity:1}50%{opacity:.3}}
+  .sp-card{transition:box-shadow .26s cubic-bezier(.22,.7,.25,1), transform .26s cubic-bezier(.22,.7,.25,1), border-color .26s;}
+  .sp-card:hover{transform:translateY(-4px); box-shadow:0 26px 54px -22px rgba(40,28,12,.34) !important; border-color:rgba(224,179,65,.4) !important;}
+  .sp-pill{transition:background .25s ease, color .2s ease, border-color .25s ease;}
+  tr.mc-row:hover td{background:rgba(224,179,65,.05) !important;}
+  @media (prefers-reduced-motion: reduce){*{animation:none !important;}}
+</style>
+</helmet>
+<div id="mc-root" style="display:flex; position:relative; min-height:100vh; font-family:'Outfit',system-ui,sans-serif; color:#211A10; background:radial-gradient(1200px 720px at 6% -8%, rgba(224,179,65,.16), transparent 55%), radial-gradient(1100px 760px at 104% 4%, rgba(120,86,40,.07), transparent 52%), linear-gradient(180deg,#FBF7EE 0%, #F2ECDE 60%, #EDE6D6 100%);">
+
+    <aside style="position:sticky; top:0; height:100vh; flex:0 0 248px; width:248px; background:#1C150D; color:#fff; display:flex; flex-direction:column; padding:20px 14px 16px; overflow-y:auto;">
+    <a href="Inicio.dc.html" style="display:flex; align-items:center; gap:11px; padding:4px 6px 18px; text-decoration:none;">
+      <div style="width:38px; height:38px; border-radius:10px; background:linear-gradient(135deg,#F6D279,#E0B341,#B8860B); display:flex; align-items:center; justify-content:center; flex:0 0 auto; box-shadow:0 2px 10px rgba(184,134,11,.4);">
+        <span class="fr" style="font-weight:700; font-size:15px; color:#241A08; letter-spacing:-0.02em;">SP</span>
+      </div>
+      <div style="min-width:0;">
+        <div class="fr" style="font-size:14.5px; font-weight:600; letter-spacing:-0.01em; line-height:1.1; color:#F3EFE8;">Suminregio Parker</div>
+        <div class="mono" style="font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#8A7C64; margin-top:3px;">ERP · Scorecard</div>
+      </div>
+    </a>
+
+    <div class="mono" style="font-size:9px; letter-spacing:0.16em; text-transform:uppercase; color:#6E624E; padding:6px 10px 6px;">Panel</div>
+    <nav style="display:flex; flex-direction:column; gap:1px;">
+      <a href="Inicio.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5 10 4.5l6 5"/><path d="M5.4 8.6V15.5h9V8.6"/></svg>Inicio
+      </a>
+      <a href="Ventas.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 8 9l3 3 6-6"/><path d="M13 6h4v4"/></svg>Ventas
+      </a>
+      <a href="Cobradas.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6.4"/><path d="M7 10.2 9.2 12.4 13.4 8"/></svg>Cobradas
+      </a>
+      <a href="Vendedores.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.7" cy="8" r="2.5"/><path d="M3.6 16c0-2.4 1.9-3.9 4.1-3.9S11.8 13.6 11.8 16"/><path d="M13.4 6.4a2.3 2.3 0 0 1 0 4.3"/><path d="M16.4 16c0-1.7-.8-2.8-2-3.4"/></svg>Vendedores
+      </a>
+      <a href="CxC.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.4" y="5.5" width="13.2" height="9.5" rx="2"/><path d="M3.4 8.4h13.2"/><circle cx="13.3" cy="11.4" r="0.9" fill="currentColor" stroke="none"/></svg>CxC
+      </a>
+      <a href="Clientes.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3.6" width="10" height="12.8" rx="1.2"/><path d="M7.8 6.6h1.4M10.9 6.6h1.4M7.8 9.4h1.4M10.9 9.4h1.4M8.8 16.4v-3h2.4v3"/></svg>Clientes
+      </a>
+      <a href="Director.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="7" width="13" height="8.4" rx="1.6"/><path d="M7.4 7V5.8A1.3 1.3 0 0 1 8.7 4.5h2.6A1.3 1.3 0 0 1 12.6 5.8V7"/></svg>Director
+      </a>
+      <a href="Inventario.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3.6 16.3 7v6L10 16.4 3.7 13V7Z"/><path d="M3.7 7 10 10.4 16.3 7M10 10.4V16.4"/></svg>Inventario
+      </a>
+      <a href="Consumos.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 10.5h3l2-5 3 9 2-4h3.2"/></svg>Consumos
+      </a>
+      <a href="Margen.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="1.7"/><circle cx="13" cy="13" r="1.7"/><path d="M14 6 6 14"/></svg>Margen
+      </a>
+      <a href="PL.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16h12M5.6 15.5V9M10 15.5V9M14.4 15.5V9M3.6 8.4 10 4.4l6.4 4Z"/></svg>Finanzas
+      </a>
+      <a href="Admin.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h7M14.4 6.5h1.6M4 13.5h2M9.4 13.5h6.6"/><circle cx="12.5" cy="6.5" r="1.7"/><circle cx="7.5" cy="13.5" r="1.7"/></svg>Admin
+      </a>
+    </nav>
+
+    <div class="mono" style="font-size:9px; letter-spacing:0.16em; text-transform:uppercase; color:#6E624E; padding:16px 10px 6px;">Inteligencia</div>
+    <nav style="display:flex; flex-direction:column; gap:1px;">
+      <a href="#" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4 11.3 8.2 15.5 9.6 11.3 11 10 15.2 8.7 11 4.5 9.6 8.7 8.2Z"/></svg>Sumi IA
+      </a>
+      <a href="MejoraContinua.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:600; color:#F2C667; background:rgba(224,179,65,.15); box-shadow:inset 2px 0 0 #E0B341; text-decoration:none; cursor:pointer;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 14 14 6M8.2 6H14v5.8"/></svg>Mejoras
+      </a>
+      <a href="#" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6"/><circle cx="10" cy="10" r="2.6"/></svg>Metas
+      </a>
+    </nav>
+
+    <div style="margin-top:auto; display:flex; align-items:center; gap:10px; padding:11px 8px 4px; border-top:1px solid rgba(255,255,255,.08); margin-top:18px;">
+      <div style="width:33px; height:33px; border-radius:50%; background:#2C2013; color:#E0CBA8; display:flex; align-items:center; justify-content:center; font-size:11.5px; font-weight:700; flex:0 0 auto;">RM</div>
+      <div style="min-width:0; flex:1;">
+        <div style="font-size:12.5px; font-weight:600; color:#E8E3DA; line-height:1.1;">R. Mendoza</div>
+        <div style="font-size:10.5px; color:#8A7C64; margin-top:2px;">Dirección General</div>
+      </div>
+    </div>
+  </aside>
+
+  <main style="flex:1; min-width:0; max-width:1480px; margin:0 auto; padding:clamp(1.1rem,2.4vw,2rem) clamp(1rem,2.4vw,2rem) 3rem;">
+
+    <div class="sp-rise" style="margin-bottom:1.2rem;">
+      <h1 class="fr" style="font-size:clamp(1.7rem,3vw,2.3rem); font-weight:600; letter-spacing:-0.02em; background:linear-gradient(135deg,#F6D279,#E0B341,#B8860B); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;">Centro de Mejora Continua</h1>
+      <p style="font-size:0.85rem; color:#6E624E; margin-top:0.4rem; max-width:90ch; line-height:1.55;">Registro de mejora continua (CI Register) e incidencias del ERP, con prácticas ITIL 4 de <strong>Incident</strong>, <strong>Problem</strong> y <strong>Continual Improvement</strong>: priorización por matriz Impacto × Urgencia, SLA por criticidad y diagnóstico de causa raíz, mapeado a objetivos COBIT 2019.</p>
+    </div>
+
+    <!-- KPIs -->
+    <div class="sp-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:0.8rem; margin-bottom:1.3rem;">
+      <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="6">
+        <div class="sp-card" style="position:relative; background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:14px; padding:0.9rem 1rem; overflow:hidden; box-shadow:0 10px 24px -20px rgba(40,28,12,.3);">
+          <div style="position:absolute; top:0; left:0; right:0; height:3px; background:{{ k.color }};"></div>
+          <div class="mono" style="font-size:0.56rem; letter-spacing:0.06em; text-transform:uppercase; color:#A2937A;">{{ k.l }}</div>
+          <div class="mono sp-count" style="font-size:1.55rem; font-weight:600; margin-top:0.35rem; color:{{ k.color }};">{{ k.v }}</div>
+          <div style="font-size:0.62rem; color:#8A7C64; margin-top:0.25rem;">{{ k.s }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- ITIL panels -->
+    <div class="sp-grid" style="display:grid; grid-template-columns:1.4fr 1fr; gap:1.1rem; margin-bottom:1.3rem;">
+      <div class="sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:18px; padding:1.2rem 1.3rem; box-shadow:0 14px 32px -24px rgba(40,28,12,.3);">
+        <div class="fr" style="font-size:0.88rem; font-weight:600; margin-bottom:0.9rem; display:flex; align-items:center; gap:0.5rem;">Modelo de Mejora Continua <span class="mono" style="font-size:0.56rem; padding:0.12rem 0.5rem; border-radius:99px; border:1px solid rgba(37,99,235,.35); color:#2563EB;">ITIL 4 · 7 pasos</span></div>
+        <div style="display:flex; flex-wrap:wrap; gap:0.55rem;">
+          <sc-for list="{{ steps }}" as="s" hint-placeholder-count="7">
+            <div style="flex:1 1 calc(25% - 0.55rem); min-width:120px; background:#FAF6EC; border:1px solid rgba(31,24,12,.06); border-radius:10px; padding:0.6rem 0.7rem;">
+              <div class="mono" style="width:20px; height:20px; border-radius:50%; background:rgba(37,99,235,.12); color:#2563EB; font-size:0.68rem; font-weight:700; display:flex; align-items:center; justify-content:center; margin-bottom:0.35rem;">{{ s.n }}</div>
+              <div style="font-size:0.72rem; font-weight:600; line-height:1.3;">{{ s.t }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:1rem;">
+          <sc-for list="{{ principles }}" as="p" hint-placeholder-count="6">
+            <span class="mono" style="font-size:0.64rem; color:#6E624E; background:#FAF6EC; border:1px solid rgba(31,24,12,.07); border-radius:99px; padding:0.22rem 0.65rem;">{{ p }}</span>
+          </sc-for>
+        </div>
+      </div>
+
+      <div class="sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:18px; padding:1.2rem 1.3rem; box-shadow:0 14px 32px -24px rgba(40,28,12,.3);">
+        <div class="fr" style="font-size:0.88rem; font-weight:600; margin-bottom:0.9rem;">Matriz de Prioridad · Impacto × Urgencia</div>
+        <table style="width:100%; border-collapse:separate; border-spacing:4px;">
+          <tr><th></th><th class="mono" style="font-size:0.56rem; color:#8A7C64; text-transform:uppercase;">Urg. Alta</th><th class="mono" style="font-size:0.56rem; color:#8A7C64; text-transform:uppercase;">Urg. Media</th><th class="mono" style="font-size:0.56rem; color:#8A7C64; text-transform:uppercase;">Urg. Baja</th></tr>
+          <sc-for list="{{ matrix }}" as="row" hint-placeholder-count="3">
+            <tr>
+              <th class="mono" style="font-size:0.56rem; color:#8A7C64; text-transform:uppercase; text-align:right; padding-right:0.4rem;">{{ row.label }}</th>
+              <sc-for list="{{ row.cells }}" as="c" hint-placeholder-count="3">
+                <td class="mono" style="text-align:center; font-weight:800; padding:0.5rem 0.2rem; border-radius:8px; background:{{ c.bg }}; color:#fff; font-size:0.7rem;">{{ c.label }}</td>
+              </sc-for>
+            </tr>
+          </sc-for>
+        </table>
+        <div style="margin-top:1rem; display:flex; flex-direction:column; gap:0.4rem;">
+          <sc-for list="{{ cobit }}" as="co" hint-placeholder-count="4">
+            <div style="font-size:0.68rem; color:#6E624E; display:flex; gap:0.5rem; align-items:baseline;"><code class="mono" style="font-size:0.62rem; color:#0E9F6E; background:rgba(14,159,110,.1); border:1px solid rgba(14,159,110,.25); border-radius:6px; padding:0.05rem 0.4rem;">{{ co.code }}</code>{{ co.desc }}</div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <!-- Auto-Scan IA -->
+    <div class="sp-rise" style="display:flex; justify-content:flex-end; align-items:center; gap:0.7rem; margin-bottom:0.9rem;">
+      <span class="mono" style="font-size:0.66rem; color:#0E9F6E;">{{ scanMsg }}</span>
+      <button style="display:flex; align-items:center; gap:0.4rem; border:1px solid rgba(124,92,252,.35); background:rgba(124,92,252,.1); color:#6D4FD0; padding:0.5rem 1rem; border-radius:99px; font-family:inherit; font-size:0.76rem; font-weight:700; cursor:pointer;" onClick="{{ runScan }}">🤖 Auto-Scan IA</button>
+    </div>
+
+    <!-- Nuevo reporte -->
+    <section class="sp-rise sp-card" style="background:#fff; border:1px solid rgba(224,179,65,.3); border-radius:18px; padding:1.2rem 1.3rem; margin-bottom:1.3rem; box-shadow:0 14px 32px -24px rgba(40,28,12,.3);">
+      <div class="fr" style="font-size:0.9rem; font-weight:600; margin-bottom:0.9rem;">🔍 Nuevo Reporte de Incidencia</div>
+      <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+        <div style="flex:2; min-width:260px; display:flex; flex-direction:column; gap:0.4rem;">
+          <label class="mono" style="font-size:0.6rem; color:#8A7C64; text-transform:uppercase;">¿Qué está fallando?</label>
+          <textarea placeholder="Ej: El módulo de CxC no carga, el dashboard está lento…" style="min-height:70px; resize:vertical; border:1px solid rgba(31,24,12,.12); border-radius:9px; padding:0.6rem 0.75rem; font-family:inherit; font-size:0.78rem; color:#211A10;"></textarea>
+        </div>
+        <div style="flex:1; min-width:180px; display:flex; flex-direction:column; gap:0.4rem;">
+          <label class="mono" style="font-size:0.6rem; color:#8A7C64; text-transform:uppercase;">Página / Área afectada</label>
+          <input type="text" placeholder="Ej: cxc.html, ventas…" style="border:1px solid rgba(31,24,12,.12); border-radius:9px; padding:0.6rem 0.75rem; font-family:inherit; font-size:0.78rem; color:#211A10;">
+        </div>
+      </div>
+      <button style="margin-top:1rem; border:none; padding:0.6rem 1.2rem; border-radius:9px; background:linear-gradient(135deg,#F6D279,#E0B341); color:#241A08; font-weight:700; font-family:inherit; font-size:0.8rem; cursor:pointer;">🔧 Analizar y Reportar</button>
+    </section>
+
+    <!-- Filtros -->
+    <div class="sp-rise" style="display:flex; gap:0.45rem; margin-bottom:0.9rem; flex-wrap:wrap;">
+      <sc-for list="{{ filters }}" as="f" hint-placeholder-count="6">
+        <button class="sp-pill" style="border:1px solid {{ f.border }}; background:{{ f.bg }}; color:{{ f.color }}; padding:0.4rem 0.95rem; border-radius:99px; font-family:inherit; font-size:0.74rem; font-weight:600; cursor:pointer;" onClick="{{ f.onClick }}">{{ f.label }}</button>
+      </sc-for>
+    </div>
+
+    <!-- Tabla tickets -->
+    <section class="sp-rise sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:18px; overflow:hidden; box-shadow:0 14px 36px -24px rgba(40,28,12,.3);">
+      <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; font-size:0.78rem; min-width:780px;">
+          <thead>
+            <tr>
+              <th style="text-align:left; padding:0.55rem 1.3rem; font-family:'DM Mono',monospace; font-size:0.58rem; color:#A2937A; text-transform:uppercase; background:#FAF6EC;">ID</th>
+              <th style="text-align:left; padding:0.55rem 1rem; font-family:'DM Mono',monospace; font-size:0.58rem; color:#A2937A; text-transform:uppercase; background:#FAF6EC;">Título</th>
+              <th style="text-align:left; padding:0.55rem 1rem; font-family:'DM Mono',monospace; font-size:0.58rem; color:#A2937A; text-transform:uppercase; background:#FAF6EC;">Criticidad</th>
+              <th style="text-align:left; padding:0.55rem 1rem; font-family:'DM Mono',monospace; font-size:0.58rem; color:#A2937A; text-transform:uppercase; background:#FAF6EC;">COBIT</th>
+              <th style="text-align:left; padding:0.55rem 1rem; font-family:'DM Mono',monospace; font-size:0.58rem; color:#A2937A; text-transform:uppercase; background:#FAF6EC;">Área</th>
+              <th style="text-align:left; padding:0.55rem 1rem; font-family:'DM Mono',monospace; font-size:0.58rem; color:#A2937A; text-transform:uppercase; background:#FAF6EC;">Estado</th>
+              <th style="text-align:left; padding:0.55rem 1.3rem; font-family:'DM Mono',monospace; font-size:0.58rem; color:#A2937A; text-transform:uppercase; background:#FAF6EC;">Fecha</th>
+              <th style="background:#FAF6EC;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{ tickets }}" as="t" hint-placeholder-count="8">
+              <tr class="mc-row" style="border-top:1px solid rgba(31,24,12,.05);">
+                <td class="mono" style="padding:0.6rem 1.3rem; color:#A2937A; font-size:0.68rem;">{{ t.id }}</td>
+                <td style="padding:0.6rem 1rem; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ t.titulo }}</td>
+                <td style="padding:0.6rem 1rem;"><span class="mono" style="font-size:0.62rem; font-weight:800; padding:0.16rem 0.5rem; border-radius:6px; background:{{ t.prioBg }}; color:{{ t.prioColor }};">{{ t.criticidad }}</span></td>
+                <td style="padding:0.6rem 1rem;"><span class="mono" style="font-size:0.66rem; color:#2563EB;">{{ t.cobit }}</span></td>
+                <td style="padding:0.6rem 1rem; color:#6E624E;">{{ t.area }}</td>
+                <td style="padding:0.6rem 1rem;"><span class="mono" style="font-size:0.6rem; font-weight:700; padding:0.14rem 0.45rem; border-radius:6px; background:{{ t.estadoBg }}; color:{{ t.estadoColor }};">{{ t.estado }}</span></td>
+                <td class="mono" style="padding:0.6rem 1.3rem; font-size:0.68rem; color:#8A7C64; white-space:nowrap;">{{ t.fecha }}</td>
+                <td style="padding:0.6rem 1rem;"><button style="border:1px solid rgba(224,179,65,.35); background:rgba(224,179,65,.1); color:#8A6516; padding:0.28rem 0.65rem; border-radius:6px; font-family:inherit; font-size:0.68rem; font-weight:600; cursor:pointer;" onClick="{{ t.openModal }}">Ver hilo</button></td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Modal hilo -->
+    <sc-if value="{{ modalTicket }}" hint-placeholder-val="{{ false }}">
+      <div style="position:fixed; inset:0; background:rgba(20,15,8,.55); z-index:1000; display:flex; align-items:flex-start; justify-content:center; padding:3rem 1rem; overflow-y:auto;" onClick="{{ closeModal }}">
+        <div style="background:#fff; border-radius:18px; width:100%; max-width:680px; box-shadow:0 30px 70px rgba(20,15,8,.4);" onClick="{{ stopProp }}">
+          <div style="padding:1.2rem 1.4rem; border-bottom:1px solid rgba(31,24,12,.08); display:flex; justify-content:space-between; gap:1rem;">
+            <div class="fr" style="font-size:1rem; font-weight:600;">{{ modalTicket.titulo }}</div>
+            <button style="background:none; border:none; font-size:1.2rem; color:#A2937A; cursor:pointer; line-height:1;" onClick="{{ closeModal }}">✕</button>
+          </div>
+          <div style="padding:1.2rem 1.4rem;">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:0.6rem; margin-bottom:1.1rem;">
+              <div style="background:#FAF6EC; border-radius:9px; padding:0.5rem 0.65rem;"><div class="mono" style="font-size:0.56rem; color:#A2937A; text-transform:uppercase;">Criticidad</div><div style="font-size:0.8rem; font-weight:600; margin-top:0.2rem;">{{ modalTicket.criticidad }}</div></div>
+              <div style="background:#FAF6EC; border-radius:9px; padding:0.5rem 0.65rem;"><div class="mono" style="font-size:0.56rem; color:#A2937A; text-transform:uppercase;">COBIT</div><div style="font-size:0.8rem; font-weight:600; margin-top:0.2rem; color:#2563EB;">{{ modalTicket.cobit }}</div></div>
+              <div style="background:#FAF6EC; border-radius:9px; padding:0.5rem 0.65rem;"><div class="mono" style="font-size:0.56rem; color:#A2937A; text-transform:uppercase;">Área</div><div style="font-size:0.8rem; font-weight:600; margin-top:0.2rem;">{{ modalTicket.area }}</div></div>
+              <div style="background:#FAF6EC; border-radius:9px; padding:0.5rem 0.65rem;"><div class="mono" style="font-size:0.56rem; color:#A2937A; text-transform:uppercase;">Estado</div><div style="font-size:0.8rem; font-weight:600; margin-top:0.2rem;">{{ modalTicket.estado }}</div></div>
+            </div>
+            <div style="border-left:3px solid #2563EB; background:#FAF6EC; border-radius:10px; padding:0.7rem 0.9rem; margin-bottom:0.7rem;">
+              <div class="mono" style="font-size:0.62rem; color:#2563EB; text-transform:uppercase; margin-bottom:0.3rem;">🤖 Diagnóstico inicial · ITIL Incident</div>
+              <div style="font-size:0.8rem; line-height:1.55; color:#3A3020;">{{ modalTicket.diagnostico }}</div>
+            </div>
+            <div style="border-left:3px solid #C2410C; background:#FAF6EC; border-radius:10px; padding:0.7rem 0.9rem; margin-bottom:0.7rem;">
+              <div class="mono" style="font-size:0.62rem; color:#C2410C; text-transform:uppercase; margin-bottom:0.3rem;">🔍 Causa raíz · Problem Mgmt DSS03</div>
+              <div style="font-size:0.8rem; line-height:1.55; color:#3A3020;">{{ modalTicket.causa }}</div>
+            </div>
+            <div style="border-left:3px solid #0E9F6E; background:#FAF6EC; border-radius:10px; padding:0.7rem 0.9rem; margin-bottom:1.1rem;">
+              <div class="mono" style="font-size:0.62rem; color:#0E9F6E; text-transform:uppercase; margin-bottom:0.3rem;">✅ Acción recomendada · BAI06</div>
+              <div style="font-size:0.8rem; line-height:1.55; color:#3A3020;">{{ modalTicket.accion }}</div>
+            </div>
+            <div class="mono" style="font-size:0.62rem; color:#A2937A; text-transform:uppercase; margin-bottom:0.6rem;">💬 Hilo de seguimiento</div>
+            <sc-for list="{{ modalTicket.thread }}" as="c" hint-placeholder-count="2">
+              <div style="display:flex; gap:0.6rem; margin-bottom:0.7rem;">
+                <div style="width:28px; height:28px; border-radius:50%; background:#FAF6EC; display:flex; align-items:center; justify-content:center; font-size:0.85rem; flex:0 0 auto;">{{ c.avatar }}</div>
+                <div style="flex:1; background:#FAF6EC; border-radius:10px; padding:0.5rem 0.7rem;">
+                  <div class="mono" style="font-size:0.6rem; color:#A2937A; margin-bottom:0.2rem;">{{ c.autor }} · {{ c.fecha }}</div>
+                  <div style="font-size:0.78rem; color:#3A3020;">{{ c.mensaje }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+  </main>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filter: 'todos', modalId: null, scanned: false };
+  }
+  componentDidMount() {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const run = () => {
+      const root = document.getElementById('mc-root') || document;
+      const ease = 'cubic-bezier(.18,.7,.25,1)';
+      const rise = (el, d) => { try { el.animate([{ opacity: 0, transform: 'translateY(26px)' }, { opacity: 1, transform: 'none' }], { duration: 640, delay: d, easing: ease, fill: 'backwards' }); } catch (e) {} };
+      root.querySelectorAll('.sp-rise').forEach((el, i) => rise(el, 60 + i * 90));
+      root.querySelectorAll('.sp-grid').forEach(g => [...g.children].forEach((c, i) => rise(c, 180 + i * 60)));
+      root.querySelectorAll('.sp-count').forEach((el, i) => {
+        const raw = (el.textContent || '').trim();
+        const m = raw.match(/^([^\d-]*)(-?[\d,]+(?:\.\d+)?)(.*)$/);
+        if (!m) return;
+        const pre = m[1], suf = m[3], dec = (m[2].split('.')[1] || '').length;
+        const target = parseFloat(m[2].replace(/,/g, ''));
+        if (!isFinite(target)) return;
+        const dur = 1100, t0 = performance.now() + 300 + (i % 8) * 60;
+        const fmtN = v => v.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+        el.dataset.cv = raw;
+        const step = now => { let p = Math.max(0, Math.min(1, (now - t0) / dur)); p = 1 - Math.pow(1 - p, 3); el.textContent = pre + fmtN(target * p) + suf; if (p < 1) requestAnimationFrame(step); else el.textContent = raw; };
+        requestAnimationFrame(step);
+      });
+    };
+    const root0 = document.getElementById('mc-root');
+    const guarded = () => { if (root0 && root0.dataset.spAnimated) return; if (root0) root0.dataset.spAnimated = '1'; run(); };
+    requestAnimationFrame(() => requestAnimationFrame(guarded));
+    setTimeout(guarded, 170);
+    setTimeout(() => { try { const r = document.getElementById('mc-root') || document; const fin = el => el.getAnimations && el.getAnimations().forEach(a => { if (a.effect && a.effect.getTiming().iterations !== Infinity) a.finish(); }); r.querySelectorAll('.sp-rise').forEach(fin); r.querySelectorAll('.sp-grid').forEach(g => [...g.children].forEach(fin)); r.querySelectorAll('.sp-count').forEach(el => { if (el.dataset.cv) el.textContent = el.dataset.cv; }); } catch (e) {} }, 2500);
+  }
+  renderVals() {
+    const kpis = [
+      { l: 'Total Reportes', v: '24', s: 'CI Register · incidencias', color: '#B8860B' },
+      { l: 'P1 + P2 (Críticos)', v: '5', s: 'Prioridad alta abierta', color: '#D92D20' },
+      { l: 'En Revisión', v: '7', s: 'En progreso / diagnóstico', color: '#C2410C' },
+      { l: 'Resueltos', v: '12', s: 'Cerrados / resueltos', color: '#0E9F6E' },
+      { l: 'MTTR', v: '6.4h', s: 'Tiempo medio de resolución', color: '#2563EB' },
+      { l: 'Cumplimiento SLA', v: '83%', s: 'Resueltos dentro de SLA', color: '#0E9F6E' }
+    ];
+    const steps = ['¿Cuál es la visión?', '¿Dónde estamos hoy?', '¿Dónde queremos estar?', '¿Cómo llegamos? (plan)', 'Actuar (ejecutar)', '¿Llegamos? (medir)', 'Mantener el impulso']
+      .map((t, i) => ({ n: i + 1, t }));
+    const principles = ['Empezar donde estás', 'Progresar iterativamente', 'Colaborar y dar visibilidad', 'Pensar holísticamente', 'Mantenerlo simple', 'Optimizar y automatizar'];
+    const matrix = [
+      { label: 'Imp. Alto', cells: [{ label: 'P1', bg: '#D92D20' }, { label: 'P2', bg: '#E0922E' }, { label: 'P3', bg: '#E0B341' }] },
+      { label: 'Imp. Medio', cells: [{ label: 'P2', bg: '#E0922E' }, { label: 'P3', bg: '#E0B341' }, { label: 'P4', bg: '#0E9F6E' }] },
+      { label: 'Imp. Bajo', cells: [{ label: 'P3', bg: '#E0B341' }, { label: 'P4', bg: '#0E9F6E' }, { label: 'P4', bg: '#0E9F6E' }] }
+    ];
+    const cobit = [
+      { code: 'DSS02', desc: 'Gestión de solicitudes e incidentes' }, { code: 'DSS03', desc: 'Gestión de problemas (causa raíz)' },
+      { code: 'BAI06', desc: 'Gestión de cambios de TI' }, { code: 'APO12', desc: 'Gestión de riesgos · APO14 datos' }
+    ];
+    const fil = this.state.filter;
+    const filterDef = [['Todos', 'todos'], ['P1 Crítico', 'P1'], ['P2 Alto', 'P2'], ['P3 Medio', 'P3'], ['P4 Bajo', 'P4'], ['Resueltos', 'resueltos']];
+    const filters = filterDef.map(([label, val]) => ({
+      label, onClick: () => this.setState({ filter: val }),
+      bg: val === fil ? 'rgba(224,179,65,.14)' : 'transparent', color: val === fil ? '#8A6516' : '#6E624E',
+      border: val === fil ? 'rgba(224,179,65,.5)' : 'rgba(31,24,12,.1)'
+    }));
+    const prioMap = { P1: ['#FEECEA', '#D92D20'], P2: ['#FDF1E6', '#C2410C'], P3: ['#FBF1DC', '#B45309'], P4: ['#E7F6EF', '#0E9F6E'] };
+    const estMap = { NUEVO: ['#EAF0FE', '#2563EB'], EN_REVISION: ['#FBF1DC', '#B45309'], RESUELTO: ['#E7F6EF', '#0E9F6E'], CERRADO: ['#F2ECDE', '#8A7C64'] };
+    const ticketsRaw = [
+      ['mc-024', 'Dashboard CxC tarda en cargar aging', 'P1', 'DSS02', 'CxC', 'EN_REVISION', '28 jun 09:14', 'El endpoint /api/cxc/aging tarda >12s con rango "todo el periodo" en empresas con más de 30k documentos históricos.', 'Falta índice en DOCTOS_CC sobre (EMPRESA, FECHA, SALDO); el cálculo de aging se hace fila por fila en memoria.', 'Agregar índice compuesto y precalcular buckets de aging en una tabla resumen actualizada cada 15 min.'],
+      ['mc-023', 'Export PDF no incluye logo en Ventas', 'P3', 'DSS02', 'Ventas', 'NUEVO', '27 jun 16:40', 'El botón "Exportar PDF" genera el archivo pero el header pierde el logo dorado en la versión impresa.', 'La regla @media print oculta elementos con position:sticky antes de que el navegador capture el canvas del logo.', 'Forzar position:static en el header solo durante el evento beforeprint.'],
+      ['mc-022', 'Comisiones calculadas con tasa anterior', 'P1', 'DSS03', 'Cobradas', 'RESUELTO', '26 jun 11:05', 'Las comisiones de 3 vendedores se calcularon con 7% en vez del 8% vigente desde el 1 de junio.', 'El valor de COMISION_PCT estaba cacheado en el cliente desde antes del cambio de tasa y no se invalidó.', 'Se recalcularon las comisiones afectadas y se agregó invalidación de caché al cambiar parámetros globales.'],
+      ['mc-021', 'Filtro de vendedor se resetea al cambiar mes', 'P2', 'DSS02', 'Vendedores', 'EN_REVISION', '25 jun 14:22', 'Al cambiar el selector de mes, el filtro de vendedor activo vuelve a "Todos" en vez de mantenerse.', 'El componente de filtros reconstruye sus opciones al cambiar de mes y no preserva el valor seleccionado previamente.', 'Guardar el vendedor seleccionado en estado persistente antes de reconstruir el select.'],
+      ['mc-020', 'Inventario: artículos sin movimiento no marcan alerta', 'P2', 'DSS03', 'Inventario', 'NUEVO', '24 jun 10:08', 'Artículos con 0 salidas en 180+ días no aparecen resaltados en el tablero, dificultando depurar catálogo.', 'La consulta de "sin movimiento" usa fecha de creación del artículo en vez de fecha de última salida real.', 'Cambiar la consulta para usar MAX(FECHA_SALIDA) por artículo como referencia.'],
+      ['mc-019', 'Clientes en riesgo no concuerda con CxC', 'P1', 'BAI06', 'Clientes', 'RESUELTO', '22 jun 17:50', 'El conteo de "Clientes en riesgo" en el módulo Clientes no coincidía con el total de cartera vencida en CxC.', 'Clientes usaba el campo CONDICION_PAGO mientras CxC usa el saldo neto real (cargo-cobro); criterios distintos.', 'Se unificó ambos módulos para usar la misma fórmula de saldo neto por documento.'],
+      ['mc-018', 'Solicitud: agregar export Excel a Margen', 'P4', 'APO12', 'Margen', 'CERRADO', '19 jun 08:30', 'Solicitud de un gerente para exportar la tabla de Detalle por producto directamente a Excel.', 'No es una falla; es una mejora solicitada por el usuario, sin impacto en operación actual.', 'Agregado a backlog de mejoras del módulo Margen para el próximo sprint.'],
+      ['mc-017', 'Reloj de header desfasado 1h en algunos equipos', 'P3', 'APO12', 'Global', 'RESUELTO', '15 jun 12:15', 'El reloj del header mostraba una hora de diferencia en equipos con zona horaria distinta a Monterrey.', 'El reloj usaba la hora local del navegador sin normalizar a la zona horaria de la empresa.', 'Se fijó la zona horaria a America/Monterrey en el cálculo del reloj de todos los tableros.']
+    ];
+    let ftRows = ticketsRaw;
+    if (fil === 'resueltos') ftRows = ticketsRaw.filter(r => r[5] === 'RESUELTO' || r[5] === 'CERRADO');
+    else if (fil !== 'todos') ftRows = ticketsRaw.filter(r => r[2] === fil);
+    const threadFor = id => ([
+      { avatar: '🤖', autor: 'Sumi IA', fecha: 'hace 2 días', mensaje: 'Diagnóstico generado automáticamente al crear el ticket.' },
+      { avatar: '🛡️', autor: 'R. Mendoza', fecha: 'hace 1 día', mensaje: 'Confirmado en producción, pasa a revisión del equipo de datos.' }
+    ]);
+    const tickets = ftRows.map(r => {
+      const [id, titulo, criticidad, cobit2, area, estado, fecha, diagnostico, causa, accion] = r;
+      const pm = prioMap[criticidad], em = estMap[estado];
+      return {
+        id, titulo, criticidad, cobit: cobit2, area, estado: estado.replace('_', ' '), fecha,
+        prioBg: pm[0], prioColor: pm[1], estadoBg: em[0], estadoColor: em[1],
+        openModal: () => this.setState({ modalId: id }),
+        diagnostico, causa, accion
+      };
+    });
+    const allMapped = ticketsRaw.map(r => ({
+      id: r[0], titulo: r[1], criticidad: r[2], cobit: r[3], area: r[4], estado: r[5].replace('_', ' '),
+      diagnostico: r[7], causa: r[8], accion: r[9], thread: threadFor(r[0])
+    }));
+    const modalTicket = this.state.modalId ? (allMapped.find(t => t.id === this.state.modalId) || false) : false;
+    const closeModal = () => this.setState({ modalId: null });
+    const stopProp = e => { if (e && e.stopPropagation) e.stopPropagation(); };
+    const runScan = () => this.setState({ scanned: true });
+    const scanMsg = this.state.scanned ? '✅ Sin anomalías nuevas detectadas.' : '';
+    return { kpis, steps, principles, matrix, cobit, filters, tickets, modalTicket, closeModal, stopProp, runScan, scanMsg };
+  }
+}
+</script>
+</body>
+</html>

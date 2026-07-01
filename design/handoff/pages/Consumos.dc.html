@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Outfit:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{margin:0;padding:0;}
+  body{font-family:'Outfit',system-ui,sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;color:#211A10;background:#EFE9DC;}
+  ::selection{background:rgba(224,179,65,0.26);}
+  .mono{font-family:'DM Mono',monospace;}
+  .fr{font-family:'Fraunces',serif;}
+  @keyframes sp-blink{0%,100%{opacity:1}50%{opacity:.3}}
+  .sp-card{transition:box-shadow .26s cubic-bezier(.22,.7,.25,1), transform .26s cubic-bezier(.22,.7,.25,1), border-color .26s;}
+  .sp-card:hover{transform:translateY(-4px); box-shadow:0 26px 54px -22px rgba(40,28,12,.34) !important; border-color:rgba(224,179,65,.4) !important;}
+  .sp-pill{transition:background .25s ease, color .2s ease, border-color .25s ease;}
+  tr.cs-row:hover td{background:rgba(224,179,65,.05) !important;}
+  @media (prefers-reduced-motion: reduce){*{animation:none !important;}}
+</style>
+</helmet>
+<div id="cs-root" style="display:flex; position:relative; min-height:100vh; font-family:'Outfit',system-ui,sans-serif; color:#211A10; background:radial-gradient(1200px 720px at 6% -8%, rgba(224,179,65,.16), transparent 55%), radial-gradient(1100px 760px at 104% 4%, rgba(120,86,40,.07), transparent 52%), linear-gradient(180deg,#FBF7EE 0%, #F2ECDE 60%, #EDE6D6 100%);">
+
+  <aside style="position:sticky; top:0; height:100vh; flex:0 0 248px; width:248px; background:#1C150D; color:#fff; display:flex; flex-direction:column; padding:20px 14px 16px; overflow-y:auto;">
+    <a href="Inicio.dc.html" style="display:flex; align-items:center; gap:11px; padding:4px 6px 18px; text-decoration:none;">
+      <div style="width:38px; height:38px; border-radius:10px; background:linear-gradient(135deg,#F6D279,#E0B341,#B8860B); display:flex; align-items:center; justify-content:center; flex:0 0 auto; box-shadow:0 2px 10px rgba(184,134,11,.4);">
+        <span class="fr" style="font-weight:700; font-size:15px; color:#241A08; letter-spacing:-0.02em;">SP</span>
+      </div>
+      <div style="min-width:0;">
+        <div class="fr" style="font-size:14.5px; font-weight:600; letter-spacing:-0.01em; line-height:1.1; color:#F3EFE8;">Suminregio Parker</div>
+        <div class="mono" style="font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#8A7C64; margin-top:3px;">ERP · Scorecard</div>
+      </div>
+    </a>
+    <div class="mono" style="font-size:9px; letter-spacing:0.16em; text-transform:uppercase; color:#6E624E; padding:6px 10px 6px;">Panel</div>
+    <nav style="display:flex; flex-direction:column; gap:1px;">
+      <a href="Inicio.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5 10 4.5l6 5"/><path d="M5.4 8.6V15.5h9V8.6"/></svg>Inicio</a>
+      <a href="Ventas.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 8 9l3 3 6-6"/><path d="M13 6h4v4"/></svg>Ventas</a>
+      <a href="Cobradas.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6.4"/><path d="M7 10.2 9.2 12.4 13.4 8"/></svg>Cobradas</a>
+      <a href="Vendedores.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.7" cy="8" r="2.5"/><path d="M3.6 16c0-2.4 1.9-3.9 4.1-3.9S11.8 13.6 11.8 16"/><path d="M13.4 6.4a2.3 2.3 0 0 1 0 4.3"/><path d="M16.4 16c0-1.7-.8-2.8-2-3.4"/></svg>Vendedores</a>
+      <a href="CxC.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.4" y="5.5" width="13.2" height="9.5" rx="2"/><path d="M3.4 8.4h13.2"/><circle cx="13.3" cy="11.4" r="0.9" fill="currentColor" stroke="none"/></svg>CxC</a>
+      <a href="Clientes.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3.6" width="10" height="12.8" rx="1.2"/><path d="M7.8 6.6h1.4M10.9 6.6h1.4M7.8 9.4h1.4M10.9 9.4h1.4M8.8 16.4v-3h2.4v3"/></svg>Clientes</a>
+      <a href="Director.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="7" width="13" height="8.4" rx="1.6"/><path d="M7.4 7V5.8A1.3 1.3 0 0 1 8.7 4.5h2.6A1.3 1.3 0 0 1 12.6 5.8V7"/></svg>Director</a>
+      <a href="Inventario.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3.6 16.3 7v6L10 16.4 3.7 13V7Z"/><path d="M3.7 7 10 10.4 16.3 7M10 10.4V16.4"/></svg>Inventario</a>
+      <a href="Consumos.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:600; color:#F2C667; background:rgba(224,179,65,.15); box-shadow:inset 2px 0 0 #E0B341; text-decoration:none; cursor:pointer;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 10.5h3l2-5 3 9 2-4h3.2"/></svg>Consumos</a>
+      <a href="Margen.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="1.7"/><circle cx="13" cy="13" r="1.7"/><path d="M14 6 6 14"/></svg>Margen</a>
+      <a href="PL.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16h12M5.6 15.5V9M10 15.5V9M14.4 15.5V9M3.6 8.4 10 4.4l6.4 4Z"/></svg>Finanzas</a>
+      <a href="Admin.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h7M14.4 6.5h1.6M4 13.5h2M9.4 13.5h6.6"/><circle cx="12.5" cy="6.5" r="1.7"/><circle cx="7.5" cy="13.5" r="1.7"/></svg>Admin</a>
+    </nav>
+    <div class="mono" style="font-size:9px; letter-spacing:0.16em; text-transform:uppercase; color:#6E624E; padding:16px 10px 6px;">Inteligencia</div>
+    <nav style="display:flex; flex-direction:column; gap:1px;">
+      <a href="#" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4 11.3 8.2 15.5 9.6 11.3 11 10 15.2 8.7 11 4.5 9.6 8.7 8.2Z"/></svg>Sumi IA</a>
+      <a href="MejoraContinua.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 14 14 6M8.2 6H14v5.8"/></svg>Mejoras</a>
+      <a href="#" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6"/><circle cx="10" cy="10" r="2.6"/></svg>Metas</a>
+    </nav>
+    <div style="margin-top:auto; display:flex; align-items:center; gap:10px; padding:11px 8px 4px; border-top:1px solid rgba(255,255,255,.08); margin-top:18px;">
+      <div style="width:33px; height:33px; border-radius:50%; background:#2C2013; color:#E0CBA8; display:flex; align-items:center; justify-content:center; font-size:11.5px; font-weight:700; flex:0 0 auto;">RM</div>
+      <div style="min-width:0; flex:1;">
+        <div style="font-size:12.5px; font-weight:600; color:#E8E3DA; line-height:1.1;">R. Mendoza</div>
+        <div style="font-size:10.5px; color:#8A7C64; margin-top:2px;">Dirección General</div>
+      </div>
+    </div>
+  </aside>
+
+  <main style="flex:1; min-width:0; max-width:1480px; margin:0 auto; padding:clamp(1.1rem,2.4vw,2rem) clamp(1rem,2.4vw,2rem) 3rem;">
+
+    <div class="sp-rise" style="margin-bottom:1.2rem;">
+      <h1 class="fr" style="font-size:clamp(1.7rem,3vw,2.3rem); font-weight:600; letter-spacing:-0.02em; background:linear-gradient(135deg,#F6D279,#E0B341,#B8860B); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;">Consumos</h1>
+      <p style="font-size:0.85rem; color:#6E624E; margin-top:0.4rem; max-width:90ch; line-height:1.55;">Unidades vendidas en el periodo, ritmo diario, cobertura de inventario y alertas de quiebre — insumo directo para compras.</p>
+    </div>
+
+    <!-- 8 KPIs -->
+    <div class="sp-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:0.8rem; margin-bottom:1.4rem;">
+      <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="8">
+        <div class="sp-card" style="position:relative; background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:14px; padding:0.85rem 1rem; overflow:hidden; box-shadow:0 10px 24px -20px rgba(40,28,12,.3);">
+          <div style="position:absolute; top:0; left:0; right:0; height:3px; background:{{ k.color }};"></div>
+          <div class="mono" style="font-size:0.55rem; letter-spacing:0.05em; text-transform:uppercase; color:#A2937A;">{{ k.icon }} {{ k.l }}</div>
+          <div class="mono sp-count" style="font-size:1.3rem; font-weight:600; margin-top:0.3rem; color:{{ k.color }};">{{ k.v }}</div>
+          <div style="font-size:0.6rem; color:#8A7C64; margin-top:0.2rem;">{{ k.s }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- Sección 1: Tendencia y distribución -->
+    <div class="sp-rise" style="margin-bottom:0.7rem;"><span class="fr" style="font-size:1rem; font-weight:600;">📉 Tendencia y Distribución</span><div class="mono" style="font-size:0.62rem; color:#A2937A; margin-top:0.2rem;">Línea = consumo diario (30 días). Barras = Pareto 80/20 acumulado por artículo.</div></div>
+    <div class="sp-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:1.1rem; margin-bottom:1.3rem;">
+      <div class="sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:18px; padding:1.2rem 1.3rem; box-shadow:0 14px 32px -24px rgba(40,28,12,.3);">
+        <div class="fr" style="font-size:0.88rem; font-weight:600; margin-bottom:0.3rem;">Tendencia Diaria de Consumo</div>
+        <div class="mono" style="font-size:0.6rem; color:#A2937A; margin-bottom:0.8rem;">Últimos 30 días · unidades</div>
+        <svg viewBox="0 0 600 175" style="width:100%; height:170px; display:block;">
+          <polyline class="sp-draw" points="{{ diarioLine }}" fill="none" stroke="#B8860B" strokeWidth="2.5" strokeDasharray="1500" strokeDashoffset="0"></polyline>
+          <line x1="20" y1="160" x2="580" y2="160" stroke="rgba(31,24,12,.1)" strokeWidth="1"></line>
+        </svg>
+      </div>
+      <div class="sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:18px; padding:1.2rem 1.3rem; box-shadow:0 14px 32px -24px rgba(40,28,12,.3);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.8rem; flex-wrap:wrap; gap:0.5rem;">
+          <div class="fr" style="font-size:0.88rem; font-weight:600;">Pareto — Top Artículos</div>
+          <div style="display:flex; gap:0.3rem;">
+            <sc-for list="{{ topNOpts }}" as="o" hint-placeholder-count="4">
+              <button style="border:1px solid {{ o.border }}; background:{{ o.bg }}; color:{{ o.color }}; padding:0.22rem 0.55rem; border-radius:6px; font-family:'DM Mono',monospace; font-size:0.66rem; font-weight:600; cursor:pointer;" onClick="{{ o.onClick }}">{{ o.n }}</button>
+            </sc-for>
+          </div>
+        </div>
+        <div style="display:flex; align-items:flex-end; gap:3px; height:150px;">
+          <sc-for list="{{ paretoBars }}" as="b" hint-placeholder-count="10">
+            <div class="sp-bar-v" style="flex:1; height:{{ b.h }}; background:linear-gradient(180deg,#F6D279,#B8860B); border-radius:3px 3px 0 0; transform-origin:bottom;" title="{{ b.name }}"></div>
+          </sc-for>
+        </div>
+        <div class="mono" style="font-size:0.62rem; color:#8A7C64; margin-top:0.6rem;">Top {{ topN }} artículos concentran <strong style="color:#B45309;">{{ paretoPct }}</strong> del consumo del periodo.</div>
+      </div>
+    </div>
+
+    <!-- Sección 2: Riesgo de quiebre -->
+    <div class="sp-rise" style="margin-bottom:0.7rem;"><span class="fr" style="font-size:1rem; font-weight:600;">🚨 Riesgo de Quiebre — Cobertura de Inventario <span class="mono" style="font-size:0.66rem; color:#D92D20; background:#FEECEA; padding:0.1rem 0.45rem; border-radius:99px; margin-left:0.4rem;">{{ quiebresCount }}</span></span><div class="mono" style="font-size:0.62rem; color:#A2937A; margin-top:0.2rem;">Días = Existencia ÷ Consumo diario. Rojo &lt;7d · Ámbar 7–20d · Verde 21+d.</div></div>
+    <div class="sp-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:0.7rem; margin-bottom:1.4rem;">
+      <sc-for list="{{ quiebres }}" as="q" hint-placeholder-count="8">
+        <div class="sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.08); border-left:4px solid {{ q.color }}; border-radius:12px; padding:0.8rem 0.9rem; box-shadow:0 10px 24px -20px rgba(40,28,12,.3);">
+          <div style="font-size:0.74rem; font-weight:600; color:#3A3020; margin-bottom:0.3rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ q.nombre }}</div>
+          <div class="mono" style="font-size:1.15rem; font-weight:700; color:{{ q.color }};">{{ q.dias }}d</div>
+          <div style="font-size:0.62rem; color:#8A7C64; margin-top:0.2rem;">{{ q.consumo }} u/día · exist. {{ q.existencia }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- Sección 3: Pedidos vs Consumo -->
+    <div class="sp-rise" style="margin-bottom:0.7rem;"><span class="fr" style="font-size:1rem; font-weight:600;">🛒 Pedidos / OC vs Consumo</span><div class="mono" style="font-size:0.62rem; color:#A2937A; margin-top:0.2rem;">¿Cuánto ya está pedido vs lo que se consume? Brecha = necesidad de reabasto.</div></div>
+    <div class="sp-grid" style="display:grid; grid-template-columns:1.3fr 1fr; gap:1.1rem; margin-bottom:1.4rem;">
+      <div class="sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:18px; overflow:hidden; box-shadow:0 14px 32px -24px rgba(40,28,12,.3);">
+        <div style="padding:1.1rem 1.3rem 0.5rem;"><div class="fr" style="font-size:0.88rem; font-weight:600;">Cobertura de Pedidos por Artículo</div></div>
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:0.5rem; padding:0 1.3rem 1rem;">
+          <sc-for list="{{ ocPills }}" as="p" hint-placeholder-count="4">
+            <div style="background:#FAF6EC; border-radius:9px; padding:0.5rem 0.6rem;"><div class="mono" style="font-size:0.5rem; color:#A2937A; text-transform:uppercase;">{{ p.l }}</div><div class="mono" style="font-size:0.82rem; font-weight:700; margin-top:0.2rem;">{{ p.v }}</div></div>
+          </sc-for>
+        </div>
+        <table style="width:100%; border-collapse:collapse; font-size:0.72rem;">
+          <thead><tr><th style="text-align:left; padding:0.4rem 1.3rem; font-family:'DM Mono',monospace; font-size:0.54rem; color:#A2937A; text-transform:uppercase; background:#FAF6EC;">Artículo</th><th style="text-align:right; padding:0.4rem 0.8rem; font-family:'DM Mono',monospace; font-size:0.54rem; color:#A2937A; text-transform:uppercase; background:#FAF6EC;">Consumo</th><th style="text-align:right; padding:0.4rem 0.8rem; font-family:'DM Mono',monospace; font-size:0.54rem; color:#A2937A; text-transform:uppercase; background:#FAF6EC;">Pedido</th><th style="text-align:right; padding:0.4rem 0.8rem; font-family:'DM Mono',monospace; font-size:0.54rem; color:#A2937A; text-transform:uppercase; background:#FAF6EC;">Brecha</th><th style="text-align:right; padding:0.4rem 1.3rem; font-family:'DM Mono',monospace; font-size:0.54rem; color:#A2937A; text-transform:uppercase; background:#FAF6EC;">Cobert.</th></tr></thead>
+          <tbody>
+            <sc-for list="{{ ocRows }}" as="r" hint-placeholder-count="6">
+              <tr class="cs-row" style="border-top:1px solid rgba(31,24,12,.05);">
+                <td style="padding:0.5rem 1.3rem; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ r.nombre }}</td>
+                <td class="mono" style="padding:0.5rem 0.8rem; text-align:right;">{{ r.consumo }}</td>
+                <td class="mono" style="padding:0.5rem 0.8rem; text-align:right;">{{ r.pedido }}</td>
+                <td class="mono" style="padding:0.5rem 0.8rem; text-align:right; color:{{ r.brechaColor }};">{{ r.brecha }}</td>
+                <td class="mono" style="padding:0.5rem 1.3rem; text-align:right;">{{ r.cobertura }}</td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+      <div class="sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:18px; overflow:hidden; box-shadow:0 14px 32px -24px rgba(40,28,12,.3);">
+        <div style="padding:1.1rem 1.3rem 0.5rem;"><div class="fr" style="font-size:0.88rem; font-weight:600;">Consumo por Vendedor</div></div>
+        <table style="width:100%; border-collapse:collapse; font-size:0.74rem;">
+          <thead><tr><th style="text-align:left; padding:0.4rem 1.3rem; font-family:'DM Mono',monospace; font-size:0.54rem; color:#A2937A; text-transform:uppercase; background:#FAF6EC;">Vendedor</th><th style="text-align:right; padding:0.4rem 0.8rem; font-family:'DM Mono',monospace; font-size:0.54rem; color:#A2937A; text-transform:uppercase; background:#FAF6EC;">Unid.</th><th style="text-align:right; padding:0.4rem 0.8rem; font-family:'DM Mono',monospace; font-size:0.54rem; color:#A2937A; text-transform:uppercase; background:#FAF6EC;">Part %</th><th style="text-align:right; padding:0.4rem 1.3rem; font-family:'DM Mono',monospace; font-size:0.54rem; color:#A2937A; text-transform:uppercase; background:#FAF6EC;">Venta $</th></tr></thead>
+          <tbody>
+            <sc-for list="{{ vendRows }}" as="v" hint-placeholder-count="6">
+              <tr class="cs-row" style="border-top:1px solid rgba(31,24,12,.05);">
+                <td style="padding:0.5rem 1.3rem;">{{ v.nombre }}</td>
+                <td class="mono" style="padding:0.5rem 0.8rem; text-align:right;">{{ v.unidades }}</td>
+                <td class="mono" style="padding:0.5rem 0.8rem; text-align:right;">{{ v.pct }}</td>
+                <td class="mono" style="padding:0.5rem 1.3rem; text-align:right; color:#0E9F6E;">{{ v.venta }}</td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Sección 4: Insights -->
+    <div class="sp-rise" style="margin-bottom:0.7rem;"><span class="fr" style="font-size:1rem; font-weight:600;">💡 Inteligencia de Consumo</span><div class="mono" style="font-size:0.62rem; color:#A2937A; margin-top:0.2rem;">Análisis automático: variación, concentración, ritmo vs periodo anterior.</div></div>
+    <section class="sp-rise sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:18px; padding:1.2rem 1.3rem; margin-bottom:1.4rem; box-shadow:0 14px 32px -24px rgba(40,28,12,.3);">
+      <div class="fr" style="font-size:0.88rem; font-weight:600; margin-bottom:0.9rem;">Análisis del Periodo</div>
+      <div style="display:flex; flex-direction:column; gap:0.6rem;">
+        <sc-for list="{{ insights }}" as="i" hint-placeholder-count="4">
+          <div style="display:flex; gap:0.6rem; align-items:flex-start; background:#FAF6EC; border-radius:10px; padding:0.6rem 0.8rem;">
+            <span style="width:8px; height:8px; border-radius:50%; background:{{ i.color }}; margin-top:0.3rem; flex:0 0 auto;"></span>
+            <span style="font-size:0.78rem; color:#3A3020; line-height:1.5;">{{ i.text }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+    <!-- Sección 5: Matriz semanal (colapsable) -->
+    <div class="sp-rise sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:18px; overflow:hidden; box-shadow:0 14px 32px -24px rgba(40,28,12,.3);">
+      <div style="padding:1.1rem 1.3rem; display:flex; justify-content:space-between; align-items:center; cursor:pointer;" onClick="{{ toggleMatrix }}">
+        <div><span class="fr" style="font-size:0.92rem; font-weight:600;">📅 Consumo Semanal por Artículo (matriz detallada)</span><div class="mono" style="font-size:0.6rem; color:#A2937A; margin-top:0.2rem;">Click para expandir/contraer · semanas del mes seleccionado</div></div>
+        <span class="mono" style="font-size:0.8rem; color:#A2937A;">{{ matrixArrow }}</span>
+      </div>
+      <sc-if value="{{ matrixOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="overflow-x:auto; border-top:1px solid rgba(31,24,12,.07);">
+          <table style="width:100%; border-collapse:collapse; font-size:0.72rem; min-width:700px;">
+            <thead>
+              <tr>
+                <th style="text-align:left; padding:0.5rem 1.3rem; font-family:'DM Mono',monospace; font-size:0.54rem; color:#A2937A; text-transform:uppercase; background:#FAF6EC;">Artículo</th>
+                <sc-for list="{{ weekLabels }}" as="w" hint-placeholder-count="4">
+                  <th style="text-align:right; padding:0.5rem 0.9rem; font-family:'DM Mono',monospace; font-size:0.54rem; color:#A2937A; text-transform:uppercase; background:#FAF6EC;">{{ w }}</th>
+                </sc-for>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{ matrixRows }}" as="m" hint-placeholder-count="6">
+                <tr class="cs-row" style="border-top:1px solid rgba(31,24,12,.05);">
+                  <td style="padding:0.55rem 1.3rem; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ m.nombre }}</td>
+                  <sc-for list="{{ m.weeks }}" as="wv" hint-placeholder-count="4">
+                    <td class="mono" style="padding:0.55rem 0.9rem; text-align:right;">{{ wv }}</td>
+                  </sc-for>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+      </sc-if>
+    </div>
+
+  </main>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { topN: 10, matrixOpen: false };
+  }
+  componentDidMount() {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const run = () => {
+      const root = document.getElementById('cs-root') || document;
+      const ease = 'cubic-bezier(.18,.7,.25,1)', easeBar = 'cubic-bezier(.3,.85,.3,1)';
+      const rise = (el, d) => { try { el.animate([{ opacity: 0, transform: 'translateY(26px)' }, { opacity: 1, transform: 'none' }], { duration: 640, delay: d, easing: ease, fill: 'backwards' }); } catch (e) {} };
+      root.querySelectorAll('.sp-rise').forEach((el, i) => rise(el, 50 + i * 70));
+      root.querySelectorAll('.sp-grid').forEach(g => [...g.children].forEach((c, i) => rise(c, 160 + i * 40)));
+      root.querySelectorAll('.sp-draw').forEach((p, i) => { try { p.animate([{ strokeDashoffset: 1500 }, { strokeDashoffset: 0 }], { duration: 1400, delay: 500, easing: easeBar, fill: 'backwards' }); } catch (e) {} });
+      root.querySelectorAll('.sp-bar-v').forEach((b, i) => { try { b.animate([{ transform: 'scaleY(0)' }, { transform: 'scaleY(1)' }], { duration: 600, delay: 400 + (i % 50) * 12, easing: easeBar, fill: 'backwards' }); } catch (e) {} });
+      root.querySelectorAll('.sp-count').forEach((el, i) => {
+        const raw = (el.textContent || '').trim();
+        const m = raw.match(/^([^\d-]*)(-?[\d,]+(?:\.\d+)?)(.*)$/);
+        if (!m) return;
+        const pre = m[1], suf = m[3], dec = (m[2].split('.')[1] || '').length;
+        const target = parseFloat(m[2].replace(/,/g, ''));
+        if (!isFinite(target)) return;
+        const dur = 1000, t0 = performance.now() + 300 + (i % 8) * 55;
+        const fmtN = v => v.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+        el.dataset.cv = raw;
+        const step = now => { let p = Math.max(0, Math.min(1, (now - t0) / dur)); p = 1 - Math.pow(1 - p, 3); el.textContent = pre + fmtN(target * p) + suf; if (p < 1) requestAnimationFrame(step); else el.textContent = raw; };
+        requestAnimationFrame(step);
+      });
+    };
+    const root0 = document.getElementById('cs-root');
+    const guarded = () => { if (root0 && root0.dataset.spAnimated) return; if (root0) root0.dataset.spAnimated = '1'; run(); };
+    requestAnimationFrame(() => requestAnimationFrame(guarded));
+    setTimeout(guarded, 170);
+    setTimeout(() => { try { const r = document.getElementById('cs-root') || document; const fin = el => el.getAnimations && el.getAnimations().forEach(a => { if (a.effect && a.effect.getTiming().iterations !== Infinity) a.finish(); }); r.querySelectorAll('.sp-rise,.sp-draw,.sp-bar-v').forEach(fin); r.querySelectorAll('.sp-grid').forEach(g => [...g.children].forEach(fin)); r.querySelectorAll('.sp-count').forEach(el => { if (el.dataset.cv) el.textContent = el.dataset.cv; }); } catch (e) {} }, 2500);
+  }
+  componentDidUpdate() {
+    requestAnimationFrame(() => {
+      const root = document.getElementById('cs-root') || document;
+      root.querySelectorAll('.sp-bar-v').forEach((b, i) => { try { b.animate([{ transform: 'scaleY(0)' }, { transform: 'scaleY(1)' }], { duration: 420, delay: i * 10, easing: 'cubic-bezier(.3,.85,.3,1)', fill: 'backwards' }); } catch (e) {} });
+    });
+  }
+  renderVals() {
+    const kpis = [
+      { icon: '📊', l: 'Consumo Hoy', v: '124', s: '$18,420', color: '#B8860B' },
+      { icon: '📅', l: 'Consumo Periodo', v: '3,842', s: '$612,480 · vs ant. +12%', color: '#0E9F6E' },
+      { icon: '📈', l: 'Ritmo Diario', v: '128', s: 'u/día con movimiento', color: '#2563EB' },
+      { icon: '⚡', l: 'Pico Máximo', v: '412', s: 'mayor consumo en un día', color: '#2563EB' },
+      { icon: '📦', l: 'Artículos Activos', v: '186', s: '940 movimientos', color: '#6D4FD0' },
+      { icon: '⚠️', l: 'Alertas Quiebre', v: '9', s: 'artículos bajo 7 días', color: '#D92D20' },
+      { icon: '🎯', l: 'Concentración Top 5', v: '38%', s: 'del consumo total', color: '#B45309' },
+      { icon: '🔄', l: 'Variación Semanal', v: '+6.2%', s: 'últimos 7 vs 7 previos', color: '#0E9F6E' }
+    ];
+    // Tendencia diaria 30d
+    const seedDaily = [62,58,71,65,80,74,69,88,95,77,84,90,68,72,99,103,91,86,78,82,94,110,98,89,76,81,93,101,108,124];
+    const maxD = Math.max(...seedDaily);
+    const padL = 20, plotW = 560, plotH = 150, slot = plotW / (seedDaily.length - 1);
+    const diarioLine = seedDaily.map((v, i) => (padL + i * slot).toFixed(0) + ',' + (160 - v / maxD * plotH).toFixed(1)).join(' ');
+    // Pareto
+    const topN = this.state.topN;
+    const arts = Array.from({ length: 50 }, (_, i) => ({ name: 'Art-' + (i + 1), v: Math.round(900 * Math.pow(0.91, i)) }));
+    const shown = arts.slice(0, topN);
+    const maxA = shown[0].v;
+    const paretoBars = shown.map(a => ({ name: a.name, h: (a.v / maxA * 100).toFixed(0) + '%' }));
+    const totalAll = arts.reduce((s, a) => s + a.v, 0);
+    const totalTop = shown.reduce((s, a) => s + a.v, 0);
+    const paretoPct = (totalTop / totalAll * 100).toFixed(0) + '%';
+    const topNOpts = [10, 20, 30, 50].map(n => ({
+      n, onClick: () => this.setState({ topN: n }),
+      bg: n === topN ? 'rgba(224,179,65,.16)' : '#fff', color: n === topN ? '#8A6516' : '#6E624E',
+      border: n === topN ? 'rgba(224,179,65,.5)' : 'rgba(31,24,12,.1)'
+    }));
+    // Quiebres
+    const quiebresRaw = [
+      ['Tubería PVC 4"', 3, 18, 54], ['Cable THW cal.10', 5, 22, 110], ['Cemento gris 50kg', 6, 31, 186],
+      ['Conector PVC 90°', 9, 8, 72], ['Pintura vinílica 19L', 12, 6, 72], ['Varilla 3/8"', 16, 14, 224],
+      ['Malla electrosoldada', 19, 4, 76], ['Lámina galvanizada', 27, 9, 243]
+    ];
+    const quiebres = quiebresRaw.map(([nombre, dias, consumo, existencia]) => ({
+      nombre, dias, consumo, existencia,
+      color: dias < 7 ? '#D92D20' : dias <= 20 ? '#B45309' : '#0E9F6E'
+    }));
+    const quiebresCount = quiebresRaw.filter(q => q[1] < 7).length;
+    // OC pills + rows
+    const ocPills = [
+      { l: 'Cobertura General', v: '74%' }, { l: 'Consumo Top', v: '2,140 u' },
+      { l: 'Pedido Top', v: '1,580 u' }, { l: 'Brecha Total', v: '560 u' }
+    ];
+    const ocRaw = [
+      ['Tubería PVC 4"', 320, 210, 65.6], ['Cable THW cal.10', 480, 410, 85.4], ['Cemento gris 50kg', 610, 720, 118.0],
+      ['Conector PVC 90°', 180, 95, 52.8], ['Pintura vinílica 19L', 140, 150, 107.1], ['Varilla 3/8"', 410, 295, 71.9]
+    ];
+    const ocRows = ocRaw.map(([nombre, consumo, pedido, covPct]) => {
+      const brecha = consumo - pedido;
+      return { nombre, consumo, pedido, brecha: (brecha > 0 ? '−' : '+') + Math.abs(brecha), brechaColor: brecha > 0 ? '#D92D20' : '#0E9F6E', cobertura: covPct.toFixed(0) + '%' };
+    });
+    // Vendedores
+    const vendRaw = [
+      ['María López', 1240, 32.3, 198400], ['Jorge Sánchez', 980, 25.5, 156800], ['Ana Torres', 740, 19.3, 118400],
+      ['Carlos Ibarra', 520, 13.5, 83200], ['Luis Medina', 362, 9.4, 57920]
+    ];
+    const vendRows = vendRaw.map(([nombre, unidades, pct, venta]) => ({ nombre, unidades: unidades.toLocaleString('en-US'), pct: pct.toFixed(1) + '%', venta: '$' + venta.toLocaleString('en-US') }));
+    // Insights
+    const insights = [
+      { color: '#0E9F6E', text: 'El consumo del periodo subió 12% vs el periodo anterior, impulsado por Tubería PVC y Cable THW.' },
+      { color: '#B45309', text: 'Los Top 5 artículos concentran 38% del consumo total — riesgo de dependencia en pocos SKUs.' },
+      { color: '#D92D20', text: '9 artículos están por debajo de 7 días de cobertura; priorizar su compra esta semana.' },
+      { color: '#2563EB', text: 'La variación semanal (+6.2%) sugiere una tendencia de crecimiento sostenido, sin picos atípicos.' }
+    ];
+    // Matriz semanal
+    const weekLabels = ['Sem 1', 'Sem 2', 'Sem 3', 'Sem 4'];
+    const matrixRaw = [
+      ['Tubería PVC 4"', [82, 95, 71, 72]], ['Cable THW cal.10', [120, 110, 130, 120]], ['Cemento gris 50kg', [160, 150, 175, 125]],
+      ['Conector PVC 90°', [45, 50, 38, 47]], ['Pintura vinílica 19L', [38, 35, 40, 27]], ['Varilla 3/8"', [98, 105, 112, 95]]
+    ];
+    const matrixRows = matrixRaw.map(([nombre, weeks]) => ({ nombre, weeks }));
+    const matrixOpen = this.state.matrixOpen;
+    const toggleMatrix = () => this.setState({ matrixOpen: !matrixOpen });
+    return {
+      kpis, diarioLine, paretoBars, paretoPct, topN, topNOpts,
+      quiebres, quiebresCount, ocPills, ocRows, vendRows, insights,
+      weekLabels, matrixRows, matrixOpen, matrixArrow: matrixOpen ? '▲' : '▼', toggleMatrix
+    };
+  }
+}
+</script>
+</body>
+</html>

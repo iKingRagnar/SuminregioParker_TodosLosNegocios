@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Outfit:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{margin:0;padding:0;}
+  body{font-family:'Outfit',system-ui,sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;color:#211A10;background:#EFE9DC;}
+  ::selection{background:rgba(224,179,65,0.26);}
+  .mono{font-family:'DM Mono',monospace;}
+  .fr{font-family:'Fraunces',serif;}
+  @keyframes sp-pulse{0%,100%{box-shadow:0 0 0 0 rgba(217,45,32,0)}50%{box-shadow:0 0 0 5px rgba(217,45,32,0.12)}}
+  @keyframes sp-blink{0%,100%{opacity:1}50%{opacity:.3}}
+  @keyframes lx-float{0%,100%{transform:translate(0,0)}50%{transform:translate(16px,-14px)}}
+  .sp-card{transition:box-shadow .26s cubic-bezier(.22,.7,.25,1), transform .26s cubic-bezier(.22,.7,.25,1), border-color .26s;}
+  .sp-card:hover{transform:translateY(-4px); box-shadow:0 26px 54px -22px rgba(40,28,12,.34) !important; border-color:rgba(224,179,65,.4) !important;}
+  .sp-pill{transition:background .25s ease, color .2s ease, border-color .25s ease;}
+  .sp-pulse{animation:sp-pulse 2.6s ease-in-out infinite;}
+  @media (prefers-reduced-motion: reduce){*{animation:none !important;}}
+</style>
+</helmet>
+<div id="sp-root" style="display:flex; position:relative; min-height:100vh; font-family:'Outfit',system-ui,sans-serif; color:#211A10; background:radial-gradient(1200px 720px at 6% -8%, rgba(224,179,65,.16), transparent 55%), radial-gradient(1100px 760px at 104% 4%, rgba(120,86,40,.07), transparent 52%), linear-gradient(180deg,#FBF7EE 0%, #F2ECDE 60%, #EDE6D6 100%);">
+
+    <aside style="position:sticky; top:0; height:100vh; flex:0 0 248px; width:248px; background:#1C150D; color:#fff; display:flex; flex-direction:column; padding:20px 14px 16px; overflow-y:auto;">
+    <a href="Inicio.dc.html" style="display:flex; align-items:center; gap:11px; padding:4px 6px 18px; text-decoration:none;">
+      <div style="width:38px; height:38px; border-radius:10px; background:linear-gradient(135deg,#F6D279,#E0B341,#B8860B); display:flex; align-items:center; justify-content:center; flex:0 0 auto; box-shadow:0 2px 10px rgba(184,134,11,.4);">
+        <span class="fr" style="font-weight:700; font-size:15px; color:#241A08; letter-spacing:-0.02em;">SP</span>
+      </div>
+      <div style="min-width:0;">
+        <div class="fr" style="font-size:14.5px; font-weight:600; letter-spacing:-0.01em; line-height:1.1; color:#F3EFE8;">Suminregio Parker</div>
+        <div class="mono" style="font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#8A7C64; margin-top:3px;">ERP · Scorecard</div>
+      </div>
+    </a>
+
+    <div class="mono" style="font-size:9px; letter-spacing:0.16em; text-transform:uppercase; color:#6E624E; padding:6px 10px 6px;">Panel</div>
+    <nav style="display:flex; flex-direction:column; gap:1px;">
+      <a href="Inicio.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:600; color:#F2C667; background:rgba(224,179,65,.15); box-shadow:inset 2px 0 0 #E0B341; text-decoration:none; cursor:pointer;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5 10 4.5l6 5"/><path d="M5.4 8.6V15.5h9V8.6"/></svg>Inicio
+      </a>
+      <a href="Ventas.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 8 9l3 3 6-6"/><path d="M13 6h4v4"/></svg>Ventas
+      </a>
+      <a href="Cobradas.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6.4"/><path d="M7 10.2 9.2 12.4 13.4 8"/></svg>Cobradas
+      </a>
+      <a href="Vendedores.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.7" cy="8" r="2.5"/><path d="M3.6 16c0-2.4 1.9-3.9 4.1-3.9S11.8 13.6 11.8 16"/><path d="M13.4 6.4a2.3 2.3 0 0 1 0 4.3"/><path d="M16.4 16c0-1.7-.8-2.8-2-3.4"/></svg>Vendedores
+      </a>
+      <a href="CxC.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.4" y="5.5" width="13.2" height="9.5" rx="2"/><path d="M3.4 8.4h13.2"/><circle cx="13.3" cy="11.4" r="0.9" fill="currentColor" stroke="none"/></svg>CxC
+      </a>
+      <a href="Clientes.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3.6" width="10" height="12.8" rx="1.2"/><path d="M7.8 6.6h1.4M10.9 6.6h1.4M7.8 9.4h1.4M10.9 9.4h1.4M8.8 16.4v-3h2.4v3"/></svg>Clientes
+      </a>
+      <a href="Director.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="7" width="13" height="8.4" rx="1.6"/><path d="M7.4 7V5.8A1.3 1.3 0 0 1 8.7 4.5h2.6A1.3 1.3 0 0 1 12.6 5.8V7"/></svg>Director
+      </a>
+      <a href="Inventario.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3.6 16.3 7v6L10 16.4 3.7 13V7Z"/><path d="M3.7 7 10 10.4 16.3 7M10 10.4V16.4"/></svg>Inventario
+      </a>
+      <a href="Consumos.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 10.5h3l2-5 3 9 2-4h3.2"/></svg>Consumos
+      </a>
+      <a href="Margen.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="1.7"/><circle cx="13" cy="13" r="1.7"/><path d="M14 6 6 14"/></svg>Margen
+      </a>
+      <a href="PL.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16h12M5.6 15.5V9M10 15.5V9M14.4 15.5V9M3.6 8.4 10 4.4l6.4 4Z"/></svg>Finanzas
+      </a>
+      <a href="Admin.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h7M14.4 6.5h1.6M4 13.5h2M9.4 13.5h6.6"/><circle cx="12.5" cy="6.5" r="1.7"/><circle cx="7.5" cy="13.5" r="1.7"/></svg>Admin
+      </a>
+    </nav>
+
+    <div class="mono" style="font-size:9px; letter-spacing:0.16em; text-transform:uppercase; color:#6E624E; padding:16px 10px 6px;">Inteligencia</div>
+    <nav style="display:flex; flex-direction:column; gap:1px;">
+      <a href="#" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4 11.3 8.2 15.5 9.6 11.3 11 10 15.2 8.7 11 4.5 9.6 8.7 8.2Z"/></svg>Sumi IA
+      </a>
+      <a href="MejoraContinua.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 14 14 6M8.2 6H14v5.8"/></svg>Mejoras
+      </a>
+      <a href="#" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6"/><circle cx="10" cy="10" r="2.6"/></svg>Metas
+      </a>
+    </nav>
+
+    <div style="margin-top:auto; display:flex; align-items:center; gap:10px; padding:11px 8px 4px; border-top:1px solid rgba(255,255,255,.08); margin-top:18px;">
+      <div style="width:33px; height:33px; border-radius:50%; background:#2C2013; color:#E0CBA8; display:flex; align-items:center; justify-content:center; font-size:11.5px; font-weight:700; flex:0 0 auto;">RM</div>
+      <div style="min-width:0; flex:1;">
+        <div style="font-size:12.5px; font-weight:600; color:#E8E3DA; line-height:1.1;">R. Mendoza</div>
+        <div style="font-size:10.5px; color:#8A7C64; margin-top:2px;">Dirección General</div>
+      </div>
+    </div>
+  </aside>
+
+  <main style="flex:1; min-width:0; max-width:1480px; margin:0 auto; padding:clamp(1.1rem,2.4vw,2rem) clamp(1rem,2.4vw,2rem) 3rem;">
+
+    <!-- Filtros -->
+    <div class="sp-rise" style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:0.85rem;">
+      <div style="display:flex; background:#FFFFFF; border:1px solid rgba(31,24,12,.09); border-radius:13px; padding:4px; gap:2px; flex-wrap:wrap; box-shadow:0 6px 18px -12px rgba(40,28,12,.22);">
+        <sc-for list="{{ presets }}" as="p" hint-placeholder-count="7">
+          <button class="sp-pill" style="border:none; padding:0.5rem 0.95rem; border-radius:9px; font-family:inherit; font-size:0.78rem; cursor:pointer; background:{{ p.bg }}; color:{{ p.color }}; font-weight:{{ p.weight }};" onClick="{{ p.onClick }}">{{ p.label }}</button>
+        </sc-for>
+      </div>
+      <div style="display:flex; align-items:center; gap:0.55rem; flex-wrap:wrap;">
+        <sc-for list="{{ selects }}" as="s" hint-placeholder-count="3">
+          <div style="position:relative; display:flex; align-items:center;">
+            <select style="appearance:none; -webkit-appearance:none; background:#fff; border:1px solid rgba(31,24,12,.1); border-radius:11px; padding:0.55rem 2rem 0.55rem 0.85rem; font-family:inherit; font-size:0.78rem; font-weight:500; color:#3A3020; cursor:pointer; box-shadow:0 4px 12px -10px rgba(40,28,12,.3);">
+              <option>{{ s.label }}</option>
+            </select>
+            <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="#A2937A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="position:absolute; right:9px; pointer-events:none;"><path d="M5 8l5 5 5-5"/></svg>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- Chips de empresa -->
+    <div class="sp-rise" style="display:flex; align-items:center; gap:0.7rem; flex-wrap:wrap; margin-bottom:1.5rem; padding:0.6rem 0.9rem; background:rgba(255,255,255,.55); border:1px solid rgba(31,24,12,.07); border-radius:13px;">
+      <span class="mono" style="font-size:0.56rem; letter-spacing:0.14em; text-transform:uppercase; color:#A2937A; white-space:nowrap;">Unidad de negocio</span>
+      <div style="display:flex; gap:0.4rem; flex-wrap:wrap;">
+        <sc-for list="{{ bizChips }}" as="b" hint-placeholder-count="7">
+          <button class="sp-pill" style="border:1px solid {{ b.border }}; background:{{ b.bg }}; color:{{ b.color }}; font-family:'DM Mono',monospace; font-size:0.66rem; padding:0.32rem 0.78rem; border-radius:999px; cursor:pointer; font-weight:{{ b.weight }};" onClick="{{ b.onClick }}">{{ b.label }}</button>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- ════ UNIVERSO DE NEGOCIOS ════ -->
+    <section class="sp-rise" style="border-radius:24px; overflow:hidden; background:#FBF8F1; border:1px solid rgba(31,24,12,.08); box-shadow:0 30px 70px -38px rgba(40,28,12,.4); margin-bottom:1.75rem;">
+      <div style="position:relative; overflow:hidden; padding:clamp(1.4rem,2.4vw,2rem); background:linear-gradient(150deg,#1C150D 0%, #322310 42%, #6A4A1C 84%, #95682A 100%); color:#F2E9D6;">
+        <div aria-hidden="true" style="position:absolute; top:-40%; right:-8%; width:380px; height:380px; border-radius:50%; background:radial-gradient(circle, rgba(240,200,104,.3), transparent 65%); animation:lx-float 18s ease-in-out infinite;"></div>
+        <div style="position:relative; display:flex; justify-content:space-between; align-items:flex-start; gap:1.5rem; flex-wrap:wrap;">
+          <div style="min-width:240px;">
+            <div class="mono" style="font-size:0.6rem; letter-spacing:0.24em; text-transform:uppercase; color:#E2BE72;">Inteligencia corporativa</div>
+            <h2 class="fr" style="font-size:clamp(1.7rem,2.8vw,2.3rem); font-weight:600; letter-spacing:-0.015em; color:#F7EFDE; margin:0.5rem 0 0.55rem;">Universo de negocios</h2>
+            <p style="font-size:0.92rem; color:#D2C09C; line-height:1.55; max-width:46ch;">Ventas del periodo <strong style="color:#F7EFDE; font-weight:600;">$9.31M</strong> · por cobrar <strong style="color:#F7EFDE; font-weight:600;">$14.28M</strong> · <strong style="color:#F0A88A; font-weight:600;">5 negocios en rojo</strong>.</p>
+          </div>
+          <div style="display:flex; gap:0.6rem; flex-wrap:wrap; max-width:560px;">
+            <sc-for list="{{ summaryPills }}" as="s" hint-placeholder-count="5">
+              <div class="sp-pop" style="min-width:118px; padding:0.7rem 0.9rem; border-radius:13px; background:rgba(255,255,255,.06); border:1px solid rgba(240,200,104,.2);">
+                <div class="mono" style="font-size:0.54rem; letter-spacing:0.08em; text-transform:uppercase; color:#C7AE80;">{{ s.label }}</div>
+                <div class="mono sp-count" style="font-size:1.08rem; font-weight:500; color:#F7EFDE; margin-top:0.25rem; letter-spacing:-0.01em;">{{ s.value }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div style="padding:clamp(1.2rem,2vw,1.6rem);">
+        <div class="sp-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(310px,1fr)); gap:1rem;">
+          <sc-for list="{{ entities }}" as="e" hint-placeholder-count="7">
+            <div class="sp-card" style="position:relative; background:linear-gradient(170deg,#FFFFFF,#FBF5E9); border:1px solid rgba(31,24,12,.08); border-radius:18px; padding:1.15rem 1.2rem; box-shadow:0 12px 30px -20px rgba(40,28,12,.3); overflow:hidden;">
+              <div style="position:absolute; left:0; top:0; bottom:0; width:4px; background:{{ e.color }};"></div>
+              <div style="display:flex; align-items:center; gap:0.8rem; margin-bottom:1rem;">
+                <div class="fr" style="width:46px; height:46px; border-radius:13px; background:{{ e.avatarBg }}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:1rem; font-weight:600; flex:0 0 auto; box-shadow:0 6px 16px -6px {{ e.color }};">{{ e.initials }}</div>
+                <div style="min-width:0; flex:1;">
+                  <div class="fr" style="font-size:1.02rem; font-weight:600; color:#211A10; line-height:1.1;">{{ e.name }}</div>
+                  <div class="mono" style="font-size:0.6rem; color:#A2937A; margin-top:2px;">ID · {{ e.id }}</div>
+                </div>
+                <span class="{{ e.pulse }}" style="display:inline-flex; align-items:center; gap:5px; padding:0.28rem 0.6rem; border-radius:999px; font-size:0.62rem; font-weight:600; white-space:nowrap; background:{{ e.badgeBg }}; color:{{ e.badgeText }}; border:1px solid {{ e.badgeBorder }};"><span style="width:5px; height:5px; border-radius:50%; background:{{ e.badgeText }};"></span>{{ e.badgeLabel }}</span>
+              </div>
+              <div style="display:flex; gap:0.9rem; align-items:flex-end; margin-bottom:0.9rem;">
+                <div style="flex:1.3;">
+                  <div class="mono" style="font-size:0.54rem; letter-spacing:0.1em; text-transform:uppercase; color:#A2937A;">Periodo</div>
+                  <div class="mono sp-count" style="font-size:1.3rem; font-weight:500; color:#211A10; letter-spacing:-0.02em; margin-top:3px;">{{ e.periodo }}</div>
+                </div>
+                <div style="flex:1;">
+                  <div class="mono" style="font-size:0.54rem; letter-spacing:0.1em; text-transform:uppercase; color:#A2937A;">Hoy</div>
+                  <div class="mono" style="font-size:0.92rem; font-weight:500; color:#4A3F2C; margin-top:3px;">{{ e.hoy }}</div>
+                </div>
+                <div style="flex:1.1;">
+                  <div class="mono" style="font-size:0.54rem; letter-spacing:0.1em; text-transform:uppercase; color:#A2937A;">CxC</div>
+                  <div class="mono" style="font-size:0.92rem; font-weight:500; color:#4A3F2C; margin-top:3px;">{{ e.cxc }}</div>
+                </div>
+              </div>
+              <div style="height:1px; background:rgba(31,24,12,.07); margin-bottom:0.85rem;"></div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.55rem;">
+                <span style="font-size:0.72rem; color:#6E624E;">Cartera vencida</span>
+                <span class="mono" style="font-size:0.78rem; font-weight:500; color:{{ e.barColor }};">{{ e.vencStr }}</span>
+              </div>
+              <div style="height:7px; border-radius:999px; background:rgba(31,24,12,.07); overflow:hidden;">
+                <div class="sp-bar-fill" style="height:100%; border-radius:999px; width:{{ e.vencStr }}; background:{{ e.barColor }}; transform-origin:left;"></div>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-top:0.85rem;">
+                <div><div class="mono" style="font-size:0.52rem; letter-spacing:0.08em; text-transform:uppercase; color:#A2937A;">Cotiz. periodo</div><div class="mono" style="font-size:0.82rem; color:#4A3F2C; margin-top:2px;">{{ e.cotiz }}</div></div>
+                <div style="text-align:right;"><div class="mono" style="font-size:0.52rem; letter-spacing:0.08em; text-transform:uppercase; color:#A2937A;">% Vencido</div><div class="mono" style="font-size:0.82rem; font-weight:500; color:{{ e.barColor }}; margin-top:2px;">{{ e.vencStr }}</div></div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="margin-top:1.3rem; border:1px solid rgba(31,24,12,.08); border-radius:16px; overflow:hidden; background:#fff;">
+          <div style="display:flex; align-items:center; justify-content:space-between; padding:0.85rem 1.15rem; background:linear-gradient(180deg,#FBF4E4,#FBF8F1); border-bottom:1px solid rgba(31,24,12,.07);">
+            <span class="mono" style="font-size:0.62rem; letter-spacing:0.13em; text-transform:uppercase; color:#7A6B52; font-weight:500;">Comparativo detallado</span>
+            <span class="mono" style="font-size:0.58rem; color:#A2937A; border:1px solid rgba(31,24,12,.1); padding:0.22rem 0.6rem; border-radius:999px;">7 entidades</span>
+          </div>
+          <div style="overflow-x:auto;">
+            <table style="width:100%; border-collapse:collapse; min-width:640px;">
+              <thead>
+                <tr>
+                  <th class="mono" style="text-align:left; padding:0.7rem 1.15rem; font-size:0.56rem; letter-spacing:0.1em; text-transform:uppercase; color:#A2937A; font-weight:500; border-bottom:1px solid rgba(31,24,12,.07);">Empresa</th>
+                  <th class="mono" style="text-align:right; padding:0.7rem 1.15rem; font-size:0.56rem; letter-spacing:0.1em; text-transform:uppercase; color:#A2937A; font-weight:500; border-bottom:1px solid rgba(31,24,12,.07);">Venta periodo</th>
+                  <th class="mono" style="text-align:right; padding:0.7rem 1.15rem; font-size:0.56rem; letter-spacing:0.1em; text-transform:uppercase; color:#A2937A; font-weight:500; border-bottom:1px solid rgba(31,24,12,.07);">CxC</th>
+                  <th class="mono" style="text-align:right; padding:0.7rem 1.15rem; font-size:0.56rem; letter-spacing:0.1em; text-transform:uppercase; color:#A2937A; font-weight:500; border-bottom:1px solid rgba(31,24,12,.07);">% vencido</th>
+                  <th class="mono" style="text-align:right; padding:0.7rem 1.15rem; font-size:0.56rem; letter-spacing:0.1em; text-transform:uppercase; color:#A2937A; font-weight:500; border-bottom:1px solid rgba(31,24,12,.07);">Cotiz. periodo</th>
+                </tr>
+              </thead>
+              <tbody>
+                <sc-for list="{{ entities }}" as="e" hint-placeholder-count="7">
+                  <tr style="transition:background .15s;" style-hover="background:#FBF6EC;">
+                    <td style="padding:0.7rem 1.15rem; border-bottom:1px solid rgba(31,24,12,.05);"><span style="display:inline-flex; align-items:center; gap:0.55rem;"><span style="width:8px; height:8px; border-radius:3px; background:{{ e.color }};"></span><span style="font-size:0.84rem; font-weight:500; color:#211A10;">{{ e.name }}</span></span></td>
+                    <td class="mono" style="text-align:right; padding:0.7rem 1.15rem; font-size:0.8rem; color:#211A10; border-bottom:1px solid rgba(31,24,12,.05);">{{ e.periodo }}</td>
+                    <td class="mono" style="text-align:right; padding:0.7rem 1.15rem; font-size:0.8rem; color:#6E624E; border-bottom:1px solid rgba(31,24,12,.05);">{{ e.cxc }}</td>
+                    <td class="mono" style="text-align:right; padding:0.7rem 1.15rem; font-size:0.8rem; font-weight:500; color:{{ e.barColor }}; border-bottom:1px solid rgba(31,24,12,.05);">{{ e.vencStr }}</td>
+                    <td class="mono" style="text-align:right; padding:0.7rem 1.15rem; font-size:0.8rem; color:#6E624E; border-bottom:1px solid rgba(31,24,12,.05);">{{ e.cotiz }}</td>
+                  </tr>
+                </sc-for>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════ KPIs DEL DÍA (semáforo) ════ -->
+    <div class="sp-rise" style="display:flex; align-items:baseline; gap:0.6rem; margin-bottom:0.95rem;">
+      <h3 class="fr" style="font-size:1.2rem; font-weight:600; color:#211A10;">Indicadores del día</h3>
+      <span class="mono" style="font-size:0.62rem; color:#A2937A;">· Suminregio Parker</span>
+    </div>
+    <div class="sp-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(216px,1fr)); gap:1rem; margin-bottom:1.85rem;">
+      <sc-for list="{{ kpiCards }}" as="k" hint-placeholder-count="6">
+        <div class="sp-card" style="position:relative; background:linear-gradient(170deg,#FFFFFF,#FBF6EC); border:1px solid rgba(31,24,12,.08); border-radius:18px; padding:1.15rem 1.2rem; box-shadow:0 12px 30px -20px rgba(40,28,12,.3); overflow:hidden; display:flex; flex-direction:column; gap:0.7rem;">
+          <div style="position:absolute; inset:0 0 auto 0; height:3px; background:{{ k.accent }};"></div>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:0.6rem;">
+            <span style="display:inline-flex; align-items:center; gap:0.5rem;">
+              <span style="width:30px; height:30px; border-radius:9px; background:{{ k.iconBg }}; color:{{ k.accent }}; display:flex; align-items:center; justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="{{ k.icon }}"/></svg></span>
+              <span class="mono" style="font-size:0.56rem; letter-spacing:0.09em; text-transform:uppercase; color:#9A8D76;">{{ k.eyebrow }}</span>
+            </span>
+            <span style="display:inline-flex; align-items:center; gap:5px;"><span style="width:6px; height:6px; border-radius:50%; background:{{ k.semColor }};"></span><span class="mono" style="font-size:0.58rem; color:{{ k.semColor }};">{{ k.semTxt }}</span></span>
+          </div>
+          <div>
+            <div style="font-size:0.78rem; font-weight:600; color:#6E624E;">{{ k.label }}</div>
+            <div class="mono sp-count" style="font-size:1.6rem; font-weight:500; letter-spacing:-0.025em; color:{{ k.vcolor }}; line-height:1.05; margin-top:0.25rem;">{{ k.value }}</div>
+            <div class="mono" style="font-size:0.6rem; color:#A2937A; margin-top:0.3rem;">{{ k.sub }}</div>
+          </div>
+          <div style="margin-top:auto;">
+            <div style="height:5px; border-radius:999px; background:rgba(31,24,12,.07); overflow:hidden;">
+              <div class="sp-bar-fill" style="height:100%; border-radius:999px; width:{{ k.barW }}; background:{{ k.accent }}; transform-origin:left;"></div>
+            </div>
+            <div class="mono" style="font-size:0.56rem; color:#A2937A; text-align:right; margin-top:0.3rem;">{{ k.barLabel }}</div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- ════ METAS / CUMPLIMIENTO ════ -->
+    <div class="sp-rise" style="display:flex; align-items:baseline; gap:0.6rem; margin-bottom:0.95rem;">
+      <h3 class="fr" style="font-size:1.2rem; font-weight:600; color:#211A10;">Metas y Cumplimiento</h3>
+      <span class="mono" style="font-size:0.62rem; color:#A2937A;">· Estándares vs resultado real</span>
+    </div>
+    <div class="sp-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:0.9rem; margin-bottom:2rem;">
+      <sc-for list="{{ metasKpi }}" as="m" hint-placeholder-count="6">
+        <div class="sp-card" style="position:relative; background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:16px; padding:1.1rem 1.2rem; overflow:hidden; box-shadow:0 12px 28px -22px rgba(40,28,12,.32); display:flex; flex-direction:column; gap:0.5rem;">
+          <div style="position:absolute; top:0; left:0; right:0; height:3px; background:{{ m.color }};"></div>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem;">
+            <span class="mono" style="font-size:0.56rem; letter-spacing:0.08em; text-transform:uppercase; color:#A2937A;">{{ m.tag }}</span>
+            <span class="mono" style="font-size:0.56rem; font-weight:700; letter-spacing:0.04em; padding:0.16rem 0.5rem; border-radius:99px; background:{{ m.badgeBg }}; color:{{ m.color }};">{{ m.badge }}</span>
+          </div>
+          <div style="font-size:0.82rem; font-weight:600; color:#3A3020;">{{ m.title }}</div>
+          <div class="mono sp-count" style="font-size:1.35rem; font-weight:600; color:#211A10; letter-spacing:-0.02em;">{{ m.value }}</div>
+          <div style="font-size:0.68rem; color:#8A7C64;">{{ m.sub }}</div>
+          <div style="margin-top:0.2rem;">
+            <div style="height:6px; background:#F2ECDE; border-radius:99px; overflow:hidden;"><div class="sp-bar-fill" style="height:100%; width:{{ m.barPct }}; background:{{ m.color }}; border-radius:99px; transform-origin:left;"></div></div>
+            <div class="mono" style="font-size:0.9rem; font-weight:700; color:{{ m.color }}; margin-top:0.4rem;">{{ m.pct }}</div>
+            <div class="mono" style="font-size:0.56rem; color:#A2937A;">{{ m.pctLabel }}</div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- ════ METAS VS ACTUAL ════ -->
+    <div class="sp-rise" style="display:flex; align-items:baseline; gap:0.6rem; margin-bottom:0.95rem;">
+      <h3 class="fr" style="font-size:1.2rem; font-weight:600; color:#211A10;">Scorecard ejecutivo</h3>
+      <span class="mono" style="font-size:0.62rem; color:#A2937A;">· Metas vs Actual</span>
+    </div>
+    <div class="sp-rise" style="border:1px solid rgba(31,24,12,.08); border-radius:18px; overflow:hidden; background:#fff; box-shadow:0 14px 34px -24px rgba(40,28,12,.3); margin-bottom:1.85rem;">
+      <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; min-width:720px;">
+          <thead>
+            <tr style="background:linear-gradient(180deg,#FBF4E4,#fff);">
+              <th class="mono" style="text-align:left; padding:0.8rem 1.2rem; font-size:0.56rem; letter-spacing:0.1em; text-transform:uppercase; color:#A2937A; font-weight:500; border-bottom:1px solid rgba(31,24,12,.08);">KPI</th>
+              <th class="mono" style="text-align:right; padding:0.8rem 1.2rem; font-size:0.56rem; letter-spacing:0.1em; text-transform:uppercase; color:#A2937A; font-weight:500; border-bottom:1px solid rgba(31,24,12,.08);">Actual</th>
+              <th class="mono" style="text-align:right; padding:0.8rem 1.2rem; font-size:0.56rem; letter-spacing:0.1em; text-transform:uppercase; color:#A2937A; font-weight:500; border-bottom:1px solid rgba(31,24,12,.08);">Meta</th>
+              <th class="mono" style="text-align:right; padding:0.8rem 1.2rem; font-size:0.56rem; letter-spacing:0.1em; text-transform:uppercase; color:#A2937A; font-weight:500; border-bottom:1px solid rgba(31,24,12,.08);">Var. %</th>
+              <th class="mono" style="text-align:left; padding:0.8rem 1.2rem; font-size:0.56rem; letter-spacing:0.1em; text-transform:uppercase; color:#A2937A; font-weight:500; border-bottom:1px solid rgba(31,24,12,.08); width:22%;">Progreso</th>
+              <th class="mono" style="text-align:right; padding:0.8rem 1.2rem; font-size:0.56rem; letter-spacing:0.1em; text-transform:uppercase; color:#A2937A; font-weight:500; border-bottom:1px solid rgba(31,24,12,.08);">Estatus</th>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{ metas }}" as="m" hint-placeholder-count="6">
+              <tr style="transition:background .15s;" style-hover="background:#FBF6EC;">
+                <td style="padding:0.85rem 1.2rem; font-size:0.86rem; font-weight:500; color:#211A10; border-bottom:1px solid rgba(31,24,12,.05);">{{ m.kpi }}</td>
+                <td class="mono" style="text-align:right; padding:0.85rem 1.2rem; font-size:0.84rem; font-weight:500; color:#211A10; border-bottom:1px solid rgba(31,24,12,.05);">{{ m.actual }}</td>
+                <td class="mono" style="text-align:right; padding:0.85rem 1.2rem; font-size:0.84rem; color:#9A8D76; border-bottom:1px solid rgba(31,24,12,.05);">{{ m.meta }}</td>
+                <td class="mono" style="text-align:right; padding:0.85rem 1.2rem; font-size:0.84rem; font-weight:500; color:{{ m.varColor }}; border-bottom:1px solid rgba(31,24,12,.05);">{{ m.varStr }}</td>
+                <td style="padding:0.85rem 1.2rem; border-bottom:1px solid rgba(31,24,12,.05);">
+                  <div style="height:6px; border-radius:999px; background:rgba(31,24,12,.08); overflow:hidden;"><div class="sp-bar-fill" style="height:100%; border-radius:999px; width:{{ m.progW }}; background:{{ m.statColor }}; transform-origin:left;"></div></div>
+                </td>
+                <td style="text-align:right; padding:0.85rem 1.2rem; border-bottom:1px solid rgba(31,24,12,.05);"><span style="display:inline-block; padding:0.26rem 0.62rem; border-radius:999px; font-size:0.64rem; font-weight:600; background:{{ m.statBg }}; color:{{ m.statColor }}; border:1px solid {{ m.statBorder }};">{{ m.estatus }}</span></td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ════ MÓDULOS DEL SISTEMA ════ -->
+    <div class="sp-rise" style="display:flex; align-items:center; gap:0.9rem; margin-bottom:1.1rem;">
+      <span style="width:7px; height:7px; border-radius:50%; background:linear-gradient(135deg,#E0B341,#B8860B);"></span>
+      <h3 class="fr" style="font-size:1.2rem; font-weight:600; color:#211A10;">Módulos del Sistema</h3>
+      <span style="flex:1; height:1px; background:linear-gradient(90deg, rgba(31,24,12,.12), transparent);"></span>
+    </div>
+    <div class="sp-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:1rem;">
+      <sc-for list="{{ modules }}" as="m" hint-placeholder-count="10">
+        <a href="{{ m.href }}" class="sp-card" style="display:block; text-decoration:none; background:linear-gradient(170deg,#FFFFFF,#FBF5E9); border:1px solid rgba(31,24,12,.08); border-radius:18px; padding:1.2rem; box-shadow:0 12px 30px -20px rgba(40,28,12,.3);">
+          <div style="display:flex; align-items:center; gap:0.8rem; margin-bottom:1rem;">
+            <div class="fr" style="width:46px; height:46px; border-radius:13px; background:{{ m.avatarBg }}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:0.92rem; font-weight:600; flex:0 0 auto; box-shadow:0 6px 16px -6px {{ m.color }};">{{ m.letter }}</div>
+            <div style="min-width:0; flex:1;">
+              <div class="fr" style="font-size:1rem; font-weight:600; color:#211A10; line-height:1.1;">{{ m.name }}</div>
+              <div style="font-size:0.68rem; color:#9A8D76; margin-top:2px;">{{ m.desc }}</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:0.7rem; padding:0.7rem 0; border-top:1px solid rgba(31,24,12,.06); border-bottom:1px solid rgba(31,24,12,.06);">
+            <sc-for list="{{ m.kpis }}" as="kp" hint-placeholder-count="3">
+              <div style="flex:1; min-width:0;"><div class="mono" style="font-size:0.5rem; letter-spacing:0.07em; text-transform:uppercase; color:#A2937A;">{{ kp.l }}</div><div class="mono" style="font-size:0.86rem; font-weight:500; color:#3A3020; margin-top:2px;">{{ kp.v }}</div></div>
+            </sc-for>
+          </div>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-top:0.85rem;">
+            <span style="display:inline-flex; align-items:center; gap:0.35rem; font-size:0.72rem; font-weight:600; color:#8A6516;">Abrir módulo <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></span>
+            <span style="font-size:0.6rem; font-weight:600; padding:0.24rem 0.6rem; border-radius:999px; background:{{ m.badgeBg }}; color:{{ m.badgeColor }}; border:1px solid {{ m.badgeBorder }};">{{ m.badge }}</span>
+          </div>
+        </a>
+      </sc-for>
+    </div>
+
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;accentColor&quot;: { &quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#E0B341&quot;, &quot;options&quot;: [&quot;#E0B341&quot;,&quot;#B8860B&quot;,&quot;#C2410C&quot;,&quot;#2563EB&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Marca&quot; }
+}">
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { preset: 'Este Mes', biz: 'Suminregio Parker' };
+  }
+  componentDidMount() {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const run = () => {
+      const root = document.getElementById('sp-root') || document;
+      const ease = 'cubic-bezier(.18,.7,.25,1)', easeBar = 'cubic-bezier(.3,.85,.3,1)';
+      const rise = (el, d) => { try { el.animate([{ opacity: 0, transform: 'translateY(26px)' }, { opacity: 1, transform: 'none' }], { duration: 640, delay: d, easing: ease, fill: 'backwards' }); } catch (e) {} };
+      root.querySelectorAll('.sp-rise').forEach((el, i) => rise(el, 60 + i * 90));
+      root.querySelectorAll('.sp-grid').forEach(g => [...g.children].forEach((c, i) => rise(c, 180 + i * 75)));
+      root.querySelectorAll('.sp-pop').forEach((el, i) => { try { el.animate([{ opacity: 0, transform: 'translateY(10px) scale(.9)' }, { opacity: 1, transform: 'none' }], { duration: 460, delay: 300 + i * 70, easing: ease, fill: 'backwards' }); } catch (e) {} });
+      root.querySelectorAll('.sp-bar-fill').forEach((b, i) => { try { b.animate([{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], { duration: 1000, delay: 420 + (i % 8) * 50, easing: easeBar, fill: 'backwards' }); } catch (e) {} });
+      root.querySelectorAll('.sp-count').forEach((el, i) => {
+        const raw = (el.textContent || '').trim();
+        const m = raw.match(/^([^\d-]*)(-?[\d,]+(?:\.\d+)?)(.*)$/);
+        if (!m) return;
+        const pre = m[1], suf = m[3], dec = (m[2].split('.')[1] || '').length;
+        const target = parseFloat(m[2].replace(/,/g, ''));
+        if (!isFinite(target)) return;
+        const dur = 1100, t0 = performance.now() + 300 + (i % 8) * 60;
+        const fmtN = v => v.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+        el.dataset.cv = raw;
+        const step = now => { let p = Math.max(0, Math.min(1, (now - t0) / dur)); p = 1 - Math.pow(1 - p, 3); el.textContent = pre + fmtN(target * p) + suf; if (p < 1) requestAnimationFrame(step); else el.textContent = raw; };
+        requestAnimationFrame(step);
+      });
+    };
+    const root0 = document.getElementById('sp-root');
+    const guarded = () => { if (root0 && root0.dataset.spAnimated) return; if (root0) root0.dataset.spAnimated = '1'; run(); };
+    requestAnimationFrame(() => requestAnimationFrame(guarded));
+    setTimeout(guarded, 170);
+    setTimeout(() => { try { const r = document.getElementById('sp-root') || document; const fin = el => el.getAnimations && el.getAnimations().forEach(a => { if (a.effect && a.effect.getTiming().iterations !== Infinity) a.finish(); }); r.querySelectorAll('.sp-rise,.sp-pop,.sp-bar-fill').forEach(fin); r.querySelectorAll('.sp-grid').forEach(g => [...g.children].forEach(fin)); r.querySelectorAll('.sp-count').forEach(el => { if (el.dataset.cv) el.textContent = el.dataset.cv; }); } catch (e) {} }, 2600);
+  }
+  renderVals() {
+    const gold = '#B8860B';
+    const navItems = [
+      ['Inicio', 'Inicio.dc.html', true], ['Ventas', 'Ventas.dc.html', false], ['Cobradas', 'Cobradas.dc.html', false],
+      ['Vendedores', '#', false], ['CxC', 'CxC.dc.html', false], ['Clientes', 'Clientes.dc.html', false],
+      ['Director', 'Director.dc.html', false], ['Inventario', 'Inventario.dc.html', false], ['P&L', 'PL.dc.html', false]
+    ];
+    const nav = navItems.map(([label, href, active]) => ({
+      label, href,
+      color: active ? '#241A08' : '#6E624E',
+      bg: active ? 'linear-gradient(135deg, rgba(246,210,121,.5), rgba(224,179,65,.28))' : 'transparent',
+      weight: active ? 600 : 500
+    }));
+    const presetList = ['Hoy', 'Esta Semana', 'Este Mes', 'Mes Anterior', 'YTD', 'Este Año', 'Año Anterior'];
+    const ap = this.state.preset;
+    const presets = presetList.map(p => ({
+      label: p,
+      bg: p === ap ? 'linear-gradient(135deg,#322310,#6A4A1C)' : 'transparent',
+      color: p === ap ? '#F6E7C8' : '#6E624E',
+      weight: p === ap ? 600 : 500,
+      onClick: () => this.setState({ preset: p })
+    }));
+    const selects = [{ label: 'Año 2026' }, { label: 'Junio' }, { label: 'Todos los vendedores' }];
+    const bizList = ['Suminregio Parker', 'Grupo Suminregio', 'Suminregio Agua', 'Cartón', 'Maderas', 'Reciclaje', 'Sum. Médicos'];
+    const cb = this.state.biz;
+    const bizChips = bizList.map(b => ({
+      label: b,
+      bg: b === cb ? 'rgba(224,179,65,.14)' : '#fff',
+      color: b === cb ? '#8A6516' : '#6E624E',
+      border: b === cb ? 'rgba(224,179,65,.5)' : 'rgba(31,24,12,.1)',
+      weight: b === cb ? 600 : 400,
+      onClick: () => this.setState({ biz: b })
+    }));
+    const summaryPills = [
+      ['Σ Ventas periodo', '$9,307,781'], ['Σ Cartera CxC', '$14,275,207'],
+      ['Σ Cotizaciones', '$10,239,017'], ['Facturas (periodo)', '383'], ['Negocios activos', '7 / 7']
+    ].map(([label, value]) => ({ label, value }));
+    const fmt = n => '$' + n.toLocaleString('en-US');
+    const eRaw = [
+      ['Suminregio', 'SUM-01', 'SU', '#6D4FD0', 3842610, 184920, 5120400, 4210000, 44],
+      ['Grupo Suminregio', 'GSU-02', 'GS', '#2563EB', 1920340, 96210, 3410880, 2180500, 41],
+      ['Suminregio Agua', 'AGU-03', 'SA', '#0E9F6E', 1104275, 72540, 980120, 1050000, 6],
+      ['Cartón', 'CAR-04', 'CA', '#B8860B', 880910, 41300, 1640200, 920400, 43],
+      ['Maderas', 'MAD-05', 'MA', '#C2410C', 690420, 28750, 1310540, 760300, 45],
+      ['Reciclaje', 'REC-06', 'RE', '#B42318', 512840, 19600, 1180900, 640200, 47],
+      ['Suministros Médicos', 'MED-07', 'SM', '#0E7490', 356386, 15840, 632167, 477617, 9]
+    ];
+    const entities = eRaw.map(r => {
+      const venc = r[8];
+      const crit = venc > 40, warn = venc > 20 && venc <= 40;
+      const barColor = crit ? '#D92D20' : warn ? '#E0B341' : '#17B26A';
+      return {
+        name: r[0], id: r[1], initials: r[2], color: r[3],
+        avatarBg: 'linear-gradient(135deg,' + r[3] + ',' + r[3] + 'BB)',
+        periodo: fmt(r[4]), hoy: fmt(r[5]), cxc: fmt(r[6]), cotiz: fmt(r[7]),
+        vencStr: venc + '%', barColor,
+        badgeLabel: crit ? 'Cartera crítica' : warn ? 'Atención' : 'Cartera sana',
+        badgeBg: crit ? '#FEECEA' : warn ? '#FBF1DC' : '#E7F6EF',
+        badgeText: crit ? '#B42318' : warn ? '#B45309' : '#067647',
+        badgeBorder: crit ? '#FAD2CD' : warn ? '#F0DDB0' : '#BBEBCB',
+        pulse: crit ? 'sp-pulse' : ''
+      };
+    });
+    const kRaw = [
+      ['Ventas · Día', 'neutral', 'Sin registro', 'Venta del Día', '$0', '#9A8D76', 'vs meta diaria', '#0E9F6E', 0, 'M3 17l6-6 4 4 8-8M21 7h-4M21 7v4'],
+      ['Ventas · Acum.', 'warn', '77% meta', 'Venta del Mes', '$1,391,490', '#1D4FD8', 'vs meta mensual', '#2F6BFF', 77, 'M7 3v3M17 3v3M4 8h16M5 6h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1Z'],
+      ['Cotiz · Día', 'ok', 'En meta', 'Cotiz. del Día', '$312,540', '#B8860B', 'vs meta cotización', '#E0B341', 78, 'M7 3h7l4 4v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1ZM14 3v4h4'],
+      ['CxC · Cartera', 'neutral', 'Cartera', 'Saldo Total CxC', '$1,341,900', '#C2410C', 'cartera activa', '#D98324', 100, 'M3 7h15a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h12M16 12h3'],
+      ['CxC · Vencido', 'danger', '46.5%', 'Vencido', '$624,174', '#B42318', '% de cartera', '#E0463A', 46.5, 'M12 4 21 19H3ZM12 10v4M12 17h.01'],
+      ['Inventario', 'warn', '36 alertas', 'Bajo Mínimo', '36', '#5B43C9', 'artículos en alerta', '#7C5CFC', 100, 'M12 3 20 7.5v9L12 21 4 16.5v-9ZM4 7.5 12 12l8-4.5M12 12v9']
+    ];
+    const semCol = { ok: '#0E9F6E', warn: '#C98A1E', danger: '#D92D20', neutral: '#9A8D76' };
+    const kpiCards = kRaw.map(k => ({
+      eyebrow: k[0], semColor: semCol[k[1]], semTxt: k[2], label: k[3], value: k[4], vcolor: k[5],
+      sub: k[6], accent: k[7], barW: k[8] + '%', barLabel: (k[1] === 'neutral' && k[8] === 100) ? '—' : k[8] + '%',
+      iconBg: 'rgba(' + (k[7] === '#E0B341' ? '224,179,65' : '120,90,40') + ',.1)', icon: k[9]
+    }));
+    const mRaw = [
+      ['Venta del Mes', '$1,391,490', '$1,800,000', '−22.7%', 'red', 77, 'En riesgo', 'orange'],
+      ['Cobranza del Mes', '$1,603,572', '$1,500,000', '+6.9%', 'green', 100, 'Cumplida', 'green'],
+      ['Cotizaciones', '$10,239,017', '$9,000,000', '+13.8%', 'green', 100, 'Cumplida', 'green'],
+      ['Margen Bruto', '23.4%', '26.0%', '−2.6 pp', 'red', 90, 'Atención', 'gold'],
+      ['Cartera Vencida', '46.5%', '≤ 30%', '+16.5 pp', 'red', 60, 'Crítico', 'red'],
+      ['Facturas', '383', '360', '+6.4%', 'green', 100, 'Cumplida', 'green']
+    ];
+    const statMap = {
+      green: ['#067647', '#E7F6EF', '#BBEBCB'], orange: ['#B45309', '#FBF1DC', '#F0DDB0'],
+      gold: ['#8A6516', '#FBF1DC', '#F0DDB0'], red: ['#B42318', '#FEECEA', '#FAD2CD']
+    };
+    const metas = mRaw.map(m => {
+      const s = statMap[m[7]];
+      return {
+        kpi: m[0], actual: m[1], meta: m[2], varStr: m[3],
+        varColor: m[4] === 'red' ? '#B42318' : '#067647',
+        progW: m[5] + '%', estatus: m[6], statColor: s[0], statBg: s[1], statBorder: s[2]
+      };
+    });
+    const modRaw = [
+      ['V', '#0E9F6E', 'Ventas', 'Facturación industrial · Tendencia 30d', [['Hoy', '$0'], ['Mes', '$1,391,490'], ['Cotiz.', '$312,540']], 'Activo', 'green', 'Ventas.dc.html'],
+      ['C', '#0E7490', 'Cobradas', 'Facturas cobradas · Comisión 8%', [['Cobrado', '$1,603,572'], ['Comisión', '$128,286'], ['Facturas', '308']], 'Activo', 'green', 'Cobradas.dc.html'],
+      ['VD', '#6D4FD0', 'Vendedores', 'Cumplimiento diario y mensual', [['En Meta', '4/7'], ['% Equipo', '63%'], ['Activos', '7']], 'Activo', 'green', '#'],
+      ['CxC', '#C2410C', 'Cuentas por Cobrar', 'Aging · vencidos · top deudores', [['Saldo', '$1,341,900'], ['Vencido', '$624,174'], ['Clientes', '25']], 'Atención', 'gold', 'CxC.dc.html'],
+      ['CL', '#B42318', 'Clientes', 'Riesgo de cartera · comportamiento de pago', [['En Riesgo', '13'], ['Crítico', '$43,094'], ['Inactivos', '23']], 'Riesgo', 'red', 'Clientes.dc.html'],
+      ['INV', '#2563EB', 'Inventario', 'Existencias · mínimos · sin movimiento', [['Artículos', '69,398'], ['Bajo Mín.', '36'], ['Sin Stock', '7']], 'Activo', 'green', 'Inventario.dc.html'],
+      ['DG', '#B8860B', 'Director General', 'Vista ejecutiva · KPIs estratégicos', [['Venta Mes', '$1.39M'], ['Margen', '23.4%'], ['Cartera', '53.5%']], 'Ejecutivo', 'gold', 'Director.dc.html'],
+      ['P&L', '#0E9F6E', 'P&L', 'Ventas netas · margen bruto · tendencias', [['Ventas', '$1.39M'], ['Margen', '23.4%'], ['Cobros', '$1.60M']], 'Activo', 'green', 'PL.dc.html'],
+      ['CO', '#0E7490', 'Consumos', 'Abastecimiento · alertas de quiebre', [['Piezas', '18,300'], ['Promedio', '$1.07M'], ['Alertas', '5']], 'Activo', 'green', 'Consumos.dc.html'],
+      ['MT', '#6D4FD0', 'Metas activas', 'Objetivos vs avance del periodo', [['Activas', '8'], ['Cumplidas', '5'], ['En riesgo', '3']], 'Seguimiento', 'gold', '#']
+    ];
+    const badgeMap = {
+      green: ['#067647', '#E7F6EF', '#BBEBCB'], gold: ['#8A6516', '#FBF1DC', '#F0DDB0'], red: ['#B42318', '#FEECEA', '#FAD2CD']
+    };
+    const modules = modRaw.map(m => {
+      const b = badgeMap[m[6]];
+      return {
+        letter: m[0], color: m[1], avatarBg: 'linear-gradient(135deg,' + m[1] + ',' + m[1] + 'BB)',
+        name: m[2], desc: m[3], kpis: m[4].map(([l, v]) => ({ l, v })),
+        badge: m[5], badgeColor: b[0], badgeBg: b[1], badgeBorder: b[2], href: m[7]
+      };
+    });
+    const badgeColors = { CUMPLIDO: '#0E9F6E', ATENCION: '#B45309', ALERTA: '#D92D20' };
+    const badgeBgs = { CUMPLIDO: '#E7F6EF', ATENCION: '#FBF1DC', ALERTA: '#FEECEA' };
+    const metasKpiRaw = [
+      ['VENTAS · MES', 'CUMPLIDO', 'Venta de Junio', '$1,391,490.69', 'Meta $124,300', '1119%', 'Meta cumplida'],
+      ['VENTAS · AÑO', 'CUMPLIDO', 'Ventas del Año 2026', '$13,145,814.41', 'Meta anual $1,491,600', '881%', 'Meta cumplida'],
+      ['COTIZ. · MES', 'CUMPLIDO', 'Cotiz. del Mes', '$5,944,361.99', 'Meta $220,000', '2702%', 'Meta cumplida'],
+      ['CXC · CARTERA', 'ATENCION', 'Saldo Total CXC', '$1,341,900.15', '22 clientes activos', '47%', 'Atención requerida'],
+      ['CXC · VENCIDO', 'ATENCION', 'Vencido', '$624,173.94', '47% de cartera', '47%', 'Atención requerida'],
+      ['INVENTARIO', 'ALERTA', 'Bajo Mínimo', '36', 'de 69,398 artículos', '36', 'Artículos en alerta']
+    ];
+    const metasKpi = metasKpiRaw.map(([tag, badge, title, value, sub, pct, pctLabel]) => {
+      const color = badgeColors[badge], badgeBg = badgeBgs[badge];
+      const pctNum = parseFloat(pct);
+      const barPct = Math.min(100, isFinite(pctNum) ? Math.abs(pctNum) : 100) + '%';
+      return { tag, badge, color, badgeBg, title, value, sub, pct, pctLabel, barPct };
+    });
+    return { nav, presets, selects, bizChips, summaryPills, entities, kpiCards, metas, metasKpi, modules };
+  }
+}
+</script>
+</body>
+</html>

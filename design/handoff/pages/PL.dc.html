@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Outfit:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{margin:0;padding:0;}
+  body{font-family:'Outfit',system-ui,sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;color:#211A10;background:#EFE9DC;}
+  ::selection{background:rgba(224,179,65,0.26);}
+  .mono{font-family:'DM Mono',monospace;}
+  .fr{font-family:'Fraunces',serif;}
+  @keyframes sp-blink{0%,100%{opacity:1}50%{opacity:.3}}
+  @keyframes lx-float{0%,100%{transform:translate(0,0)}50%{transform:translate(16px,-14px)}}
+  .sp-card{transition:box-shadow .26s cubic-bezier(.22,.7,.25,1), transform .26s cubic-bezier(.22,.7,.25,1), border-color .26s;}
+  .sp-card:hover{transform:translateY(-4px); box-shadow:0 26px 54px -22px rgba(40,28,12,.34) !important; border-color:rgba(224,179,65,.4) !important;}
+  .sp-pill{transition:background .25s ease, color .2s ease, border-color .25s ease;}
+  .sp-bar-v{transform-origin:bottom;}
+  @media (prefers-reduced-motion: reduce){*{animation:none !important;}}
+</style>
+</helmet>
+<div id="pl-root" style="display:flex; position:relative; min-height:100vh; font-family:'Outfit',system-ui,sans-serif; color:#211A10; background:radial-gradient(1200px 720px at 6% -8%, rgba(224,179,65,.16), transparent 55%), radial-gradient(1100px 760px at 104% 4%, rgba(120,86,40,.07), transparent 52%), linear-gradient(180deg,#FBF7EE 0%, #F2ECDE 60%, #EDE6D6 100%);">
+
+    <aside style="position:sticky; top:0; height:100vh; flex:0 0 248px; width:248px; background:#1C150D; color:#fff; display:flex; flex-direction:column; padding:20px 14px 16px; overflow-y:auto;">
+    <a href="Inicio.dc.html" style="display:flex; align-items:center; gap:11px; padding:4px 6px 18px; text-decoration:none;">
+      <div style="width:38px; height:38px; border-radius:10px; background:linear-gradient(135deg,#F6D279,#E0B341,#B8860B); display:flex; align-items:center; justify-content:center; flex:0 0 auto; box-shadow:0 2px 10px rgba(184,134,11,.4);">
+        <span class="fr" style="font-weight:700; font-size:15px; color:#241A08; letter-spacing:-0.02em;">SP</span>
+      </div>
+      <div style="min-width:0;">
+        <div class="fr" style="font-size:14.5px; font-weight:600; letter-spacing:-0.01em; line-height:1.1; color:#F3EFE8;">Suminregio Parker</div>
+        <div class="mono" style="font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#8A7C64; margin-top:3px;">ERP · Scorecard</div>
+      </div>
+    </a>
+
+    <div class="mono" style="font-size:9px; letter-spacing:0.16em; text-transform:uppercase; color:#6E624E; padding:6px 10px 6px;">Panel</div>
+    <nav style="display:flex; flex-direction:column; gap:1px;">
+      <a href="Inicio.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5 10 4.5l6 5"/><path d="M5.4 8.6V15.5h9V8.6"/></svg>Inicio
+      </a>
+      <a href="Ventas.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 8 9l3 3 6-6"/><path d="M13 6h4v4"/></svg>Ventas
+      </a>
+      <a href="Cobradas.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6.4"/><path d="M7 10.2 9.2 12.4 13.4 8"/></svg>Cobradas
+      </a>
+      <a href="Vendedores.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.7" cy="8" r="2.5"/><path d="M3.6 16c0-2.4 1.9-3.9 4.1-3.9S11.8 13.6 11.8 16"/><path d="M13.4 6.4a2.3 2.3 0 0 1 0 4.3"/><path d="M16.4 16c0-1.7-.8-2.8-2-3.4"/></svg>Vendedores
+      </a>
+      <a href="CxC.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.4" y="5.5" width="13.2" height="9.5" rx="2"/><path d="M3.4 8.4h13.2"/><circle cx="13.3" cy="11.4" r="0.9" fill="currentColor" stroke="none"/></svg>CxC
+      </a>
+      <a href="Clientes.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3.6" width="10" height="12.8" rx="1.2"/><path d="M7.8 6.6h1.4M10.9 6.6h1.4M7.8 9.4h1.4M10.9 9.4h1.4M8.8 16.4v-3h2.4v3"/></svg>Clientes
+      </a>
+      <a href="Director.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="7" width="13" height="8.4" rx="1.6"/><path d="M7.4 7V5.8A1.3 1.3 0 0 1 8.7 4.5h2.6A1.3 1.3 0 0 1 12.6 5.8V7"/></svg>Director
+      </a>
+      <a href="Inventario.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3.6 16.3 7v6L10 16.4 3.7 13V7Z"/><path d="M3.7 7 10 10.4 16.3 7M10 10.4V16.4"/></svg>Inventario
+      </a>
+      <a href="Consumos.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 10.5h3l2-5 3 9 2-4h3.2"/></svg>Consumos
+      </a>
+      <a href="Margen.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="1.7"/><circle cx="13" cy="13" r="1.7"/><path d="M14 6 6 14"/></svg>Margen
+      </a>
+      <a href="PL.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:600; color:#F2C667; background:rgba(224,179,65,.15); box-shadow:inset 2px 0 0 #E0B341; text-decoration:none; cursor:pointer;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16h12M5.6 15.5V9M10 15.5V9M14.4 15.5V9M3.6 8.4 10 4.4l6.4 4Z"/></svg>Finanzas
+      </a>
+      <a href="Admin.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h7M14.4 6.5h1.6M4 13.5h2M9.4 13.5h6.6"/><circle cx="12.5" cy="6.5" r="1.7"/><circle cx="7.5" cy="13.5" r="1.7"/></svg>Admin
+      </a>
+    </nav>
+
+    <div class="mono" style="font-size:9px; letter-spacing:0.16em; text-transform:uppercase; color:#6E624E; padding:16px 10px 6px;">Inteligencia</div>
+    <nav style="display:flex; flex-direction:column; gap:1px;">
+      <a href="#" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4 11.3 8.2 15.5 9.6 11.3 11 10 15.2 8.7 11 4.5 9.6 8.7 8.2Z"/></svg>Sumi IA
+      </a>
+      <a href="MejoraContinua.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 14 14 6M8.2 6H14v5.8"/></svg>Mejoras
+      </a>
+      <a href="#" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6"/><circle cx="10" cy="10" r="2.6"/></svg>Metas
+      </a>
+    </nav>
+
+    <div style="margin-top:auto; display:flex; align-items:center; gap:10px; padding:11px 8px 4px; border-top:1px solid rgba(255,255,255,.08); margin-top:18px;">
+      <div style="width:33px; height:33px; border-radius:50%; background:#2C2013; color:#E0CBA8; display:flex; align-items:center; justify-content:center; font-size:11.5px; font-weight:700; flex:0 0 auto;">RM</div>
+      <div style="min-width:0; flex:1;">
+        <div style="font-size:12.5px; font-weight:600; color:#E8E3DA; line-height:1.1;">R. Mendoza</div>
+        <div style="font-size:10.5px; color:#8A7C64; margin-top:2px;">Dirección General</div>
+      </div>
+    </div>
+  </aside>
+
+  <main style="flex:1; min-width:0; max-width:1480px; margin:0 auto; padding:clamp(1.1rem,2.4vw,2rem) clamp(1rem,2.4vw,2rem) 3rem;">
+
+    <!-- Filtros -->
+    <div class="sp-rise" style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:1rem;">
+      <div style="display:flex; background:#FFFFFF; border:1px solid rgba(31,24,12,.09); border-radius:13px; padding:4px; gap:2px; flex-wrap:wrap; box-shadow:0 6px 18px -12px rgba(40,28,12,.22);">
+        <sc-for list="{{ presets }}" as="p" hint-placeholder-count="7">
+          <button class="sp-pill" style="border:none; padding:0.5rem 0.95rem; border-radius:9px; font-family:inherit; font-size:0.78rem; cursor:pointer; background:{{ p.bg }}; color:{{ p.color }}; font-weight:{{ p.weight }};" onClick="{{ p.onClick }}">{{ p.label }}</button>
+        </sc-for>
+      </div>
+      <div style="display:flex; align-items:center; gap:0.55rem; flex-wrap:wrap;">
+        <sc-for list="{{ selects }}" as="s" hint-placeholder-count="2">
+          <div style="position:relative; display:flex; align-items:center;">
+            <select style="appearance:none; -webkit-appearance:none; background:#fff; border:1px solid rgba(31,24,12,.1); border-radius:11px; padding:0.55rem 2rem 0.55rem 0.85rem; font-family:inherit; font-size:0.78rem; font-weight:500; color:#3A3020; cursor:pointer; box-shadow:0 4px 12px -10px rgba(40,28,12,.3);">
+              <option>{{ s.label }}</option>
+            </select>
+            <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="#A2937A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="position:absolute; right:9px; pointer-events:none;"><path d="M5 8l5 5 5-5"/></svg>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- Hero -->
+    <div class="sp-rise" style="margin-bottom:1.4rem;">
+      <div class="mono" style="font-size:0.62rem; letter-spacing:0.2em; text-transform:uppercase; color:#A2937A; display:flex; align-items:center; gap:0.5rem;"><span style="width:18px; height:1px; background:#B8860B; display:inline-block;"></span>Estado de resultados</div>
+      <h1 class="fr" style="font-size:clamp(2rem,3.6vw,2.9rem); font-weight:600; letter-spacing:-0.02em; margin:0.35rem 0 0.4rem; background:linear-gradient(135deg,#F6D279,#E0B341,#B8860B); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;">P&amp;L</h1>
+      <p style="font-size:0.88rem; color:#6E624E; max-width:70ch; line-height:1.55;">Ventas Netas, Costo de Ventas, Utilidad Bruta y Utilidad de Operación · junio 2026 — comparativo de 6 meses.</p>
+    </div>
+
+    <!-- Scorecard P&L por Unidad de Negocio -->
+    <section class="sp-rise sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:18px; overflow:hidden; box-shadow:0 14px 36px -24px rgba(40,28,12,.3); margin-bottom:1.4rem;">
+      <div style="padding:0.95rem 1.3rem; border-bottom:1px solid rgba(31,24,12,.07); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.5rem;">
+        <span class="fr" style="font-size:0.95rem; font-weight:600;">Scorecard P&amp;L por Unidad de Negocio</span>
+        <span class="mono" style="font-size:0.62rem; color:#A2937A;">7 unidades · junio 2026</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; font-size:0.82rem;">
+          <thead>
+            <tr>
+              <th style="text-align:left; padding:0.6rem 1.3rem; font-family:'DM Mono',monospace; font-size:0.6rem; letter-spacing:0.08em; text-transform:uppercase; color:#A2937A; background:#FAF6EC;">Unidad de Negocio</th>
+              <th style="text-align:right; padding:0.6rem 1.3rem; font-family:'DM Mono',monospace; font-size:0.6rem; letter-spacing:0.08em; text-transform:uppercase; color:#A2937A; background:#FAF6EC;">Ventas Netas</th>
+              <th style="text-align:right; padding:0.6rem 1.3rem; font-family:'DM Mono',monospace; font-size:0.6rem; letter-spacing:0.08em; text-transform:uppercase; color:#A2937A; background:#FAF6EC;">Util. Bruta</th>
+              <th style="text-align:right; padding:0.6rem 1.3rem; font-family:'DM Mono',monospace; font-size:0.6rem; letter-spacing:0.08em; text-transform:uppercase; color:#A2937A; background:#FAF6EC;">Cobros</th>
+              <th style="text-align:right; padding:0.6rem 1.3rem; font-family:'DM Mono',monospace; font-size:0.6rem; letter-spacing:0.08em; text-transform:uppercase; color:#A2937A; background:#FAF6EC;">Facts</th>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{ bizRows }}" as="r" hint-placeholder-count="7">
+              <tr style="border-top:1px solid rgba(31,24,12,.05);" style-hover="background:rgba(224,179,65,.04);">
+                <td style="padding:0.65rem 1.3rem; font-weight:600;">{{ r.name }}</td>
+                <td class="mono" style="padding:0.65rem 1.3rem; text-align:right;">{{ r.ventas }}</td>
+                <td class="mono" style="padding:0.65rem 1.3rem; text-align:right; color:#0E9F6E;">{{ r.util }}</td>
+                <td class="mono" style="padding:0.65rem 1.3rem; text-align:right;">{{ r.cobros }}</td>
+                <td class="mono" style="padding:0.65rem 1.3rem; text-align:right;">{{ r.facts }}</td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- KPIs -->
+    <div class="sp-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:1rem; margin-bottom:1.4rem;">
+      <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="4">
+        <div class="sp-card" style="position:relative; background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:16px; padding:1.15rem 1.3rem; overflow:hidden; box-shadow:0 12px 30px -22px rgba(40,28,12,.28);">
+          <div style="position:absolute; top:0; left:0; right:0; height:3px; background:{{ k.color }};"></div>
+          <div class="mono" style="font-size:0.62rem; letter-spacing:0.07em; text-transform:uppercase; color:#8A7C64; font-weight:500; margin-bottom:0.45rem;">{{ k.label }}</div>
+          <div class="mono sp-count" style="font-size:1.7rem; font-weight:500; letter-spacing:-0.02em; color:{{ k.color }};">{{ k.value }}</div>
+          <div class="mono" style="font-size:0.66rem; color:#A2937A; margin-top:0.4rem;">{{ k.sub }}</div>
+          <div class="mono" style="font-size:0.68rem; font-weight:600; margin-top:0.3rem; color:{{ k.trendColor }};">{{ k.trend }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- Insight -->
+    <div class="sp-rise sp-card" style="display:flex; gap:1rem; align-items:flex-start; background:#fff; border:1px solid rgba(31,24,12,.08); border-left:3px solid #2563EB; border-radius:14px; padding:1.05rem 1.3rem; margin-bottom:1.1rem; box-shadow:0 10px 26px -20px rgba(40,28,12,.26);">
+      <div style="width:34px; height:34px; border-radius:9px; background:rgba(37,99,235,.1); display:flex; align-items:center; justify-content:center; flex:0 0 auto;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+      <div>
+        <div class="fr" style="font-size:0.88rem; font-weight:600; margin-bottom:0.3rem;">Análisis BI — Estado Financiero</div>
+        <div class="mono" style="font-size:0.74rem; color:#6E624E; line-height:1.65;">Margen bruto saludable de <strong style="color:#0E9F6E;">76.6%</strong>, impulsado por la mezcla de Venta Industrial. Los cobros (<strong style="color:#211A10;">$1,603,572</strong>) superan lo facturado del mes por cobranza de saldos anteriores — eficiencia de cobranza <strong style="color:#0E9F6E;">+8.1%</strong> vs el mes previo.</div>
+      </div>
+    </div>
+
+    <!-- Gastos notice -->
+    <div class="sp-rise sp-card" style="background:rgba(217,131,36,.07); border:1px solid rgba(217,131,36,.22); border-radius:14px; padding:1rem 1.3rem; margin-bottom:1.4rem;">
+      <div class="mono" style="font-size:0.72rem; color:#B45309; line-height:1.7;"><strong>¿Por qué Utilidad Bruta ≠ Utilidad Neta?</strong><br>El Costo de Ventas se obtiene de Contabilidad. La jerarquía del Estado de Resultados es: Ventas Netas − Costo de Ventas → <strong>Utilidad Bruta</strong> − Gastos Operativos → <strong>Utilidad de Operación (EBIT)</strong> − Impuestos/ISR → Utilidad Neta. Esta vista llega hasta EBIT; la Utilidad Neta requiere integrar más cuentas contables.</div>
+    </div>
+
+    <!-- Charts -->
+    <div class="sp-grid" style="display:grid; grid-template-columns:1.3fr 1fr; gap:1.1rem; margin-bottom:1.4rem;">
+      <div class="sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:18px; padding:1.2rem 1.3rem; box-shadow:0 14px 32px -24px rgba(40,28,12,.3); display:flex; flex-direction:column;">
+        <div class="fr" style="font-size:0.92rem; font-weight:600; margin-bottom:0.2rem;">Ventas Netas &amp; Utilidad Bruta por Mes</div>
+        <div class="mono" style="font-size:0.6rem; color:#A2937A; margin-bottom:1rem;">Últimos 6 meses</div>
+        <div style="display:flex; align-items:flex-end; gap:0.9rem; flex:1; min-height:190px; padding:0 0.2rem;">
+          <sc-for list="{{ monthBars }}" as="m" hint-placeholder-count="6">
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:0.4rem; height:100%; justify-content:flex-end;">
+              <div style="display:flex; align-items:flex-end; gap:3px; height:160px;">
+                <div class="sp-bar-v" style="width:11px; height:{{ m.vH }}; border-radius:4px 4px 0 0; background:linear-gradient(180deg,#F6D279,#B8860B);"></div>
+                <div class="sp-bar-v" style="width:11px; height:{{ m.uH }}; border-radius:4px 4px 0 0; background:linear-gradient(180deg,#5FE0B8,#0E9F6E);"></div>
+              </div>
+              <div class="mono" style="font-size:0.62rem; color:#8A7C64;">{{ m.label }}</div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display:flex; gap:1.2rem; margin-top:0.9rem; padding-top:0.8rem; border-top:1px solid rgba(31,24,12,.06);">
+          <span class="mono" style="font-size:0.66rem; color:#6E624E; display:flex; align-items:center; gap:0.35rem;"><span style="width:9px; height:9px; border-radius:2px; background:#B8860B; display:inline-block;"></span>Ventas Netas</span>
+          <span class="mono" style="font-size:0.66rem; color:#6E624E; display:flex; align-items:center; gap:0.35rem;"><span style="width:9px; height:9px; border-radius:2px; background:#0E9F6E; display:inline-block;"></span>Utilidad Bruta</span>
+        </div>
+      </div>
+
+      <div class="sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:18px; padding:1.2rem 1.3rem; box-shadow:0 14px 32px -24px rgba(40,28,12,.3);">
+        <div class="fr" style="font-size:0.92rem; font-weight:600; margin-bottom:0.2rem;">Ventas vs Cobros</div>
+        <div class="mono" style="font-size:0.6rem; color:#A2937A; margin-bottom:1rem;">Industrial (VE) vs Mostrador (PV)</div>
+        <sc-for list="{{ channelRows }}" as="c" hint-placeholder-count="3">
+          <div style="margin-bottom:0.95rem;">
+            <div style="display:flex; justify-content:space-between; font-size:0.74rem; margin-bottom:0.3rem;"><span style="font-weight:600;">{{ c.label }}</span><span class="mono" style="color:#8A7C64;">{{ c.value }}</span></div>
+            <div style="height:9px; background:#F2ECDE; border-radius:99px; overflow:hidden;">
+              <div class="sp-bar-fill" style="height:100%; width:{{ c.pct }}; background:{{ c.color }}; border-radius:99px; transform-origin:left;"></div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- Ventas Netas por Empresa -->
+    <section class="sp-rise sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:18px; padding:1.2rem 1.3rem; margin-bottom:1.4rem; box-shadow:0 14px 32px -24px rgba(40,28,12,.3);">
+      <div class="fr" style="font-size:0.92rem; font-weight:600; margin-bottom:0.2rem;">Ventas Netas por Empresa</div>
+      <div class="mono" style="font-size:0.6rem; color:#A2937A; margin-bottom:1rem;">Periodo seleccionado · vista consolidado</div>
+      <sc-for list="{{ empresaBars }}" as="e" hint-placeholder-count="7">
+        <div style="margin-bottom:0.7rem;">
+          <div style="display:flex; justify-content:space-between; font-size:0.74rem; margin-bottom:0.3rem;"><span style="font-weight:600;">{{ e.name }}</span><span class="mono" style="color:#8A7C64;">{{ e.value }}</span></div>
+          <div style="height:9px; background:#F2ECDE; border-radius:99px; overflow:hidden;">
+            <div class="sp-bar-fill" style="height:100%; width:{{ e.pct }}; background:linear-gradient(90deg,#F6D279,#B8860B); border-radius:99px; transform-origin:left;"></div>
+          </div>
+        </div>
+      </sc-for>
+    </section>
+
+    <!-- Desglose de gastos -->
+    <section class="sp-rise sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:18px; padding:1.2rem 1.3rem; margin-bottom:1.4rem; box-shadow:0 14px 32px -24px rgba(40,28,12,.3);">
+      <div class="fr" style="font-size:0.92rem; font-weight:600; margin-bottom:0.2rem;">Desglose de gastos: venta, operación y administración</div>
+      <div class="mono" style="font-size:0.6rem; color:#A2937A; margin-bottom:1rem;">Junio 2026 · $336,010 total</div>
+      <sc-for list="{{ gastoRows }}" as="g" hint-placeholder-count="4">
+        <div style="margin-bottom:0.85rem;">
+          <div style="display:flex; justify-content:space-between; font-size:0.76rem; margin-bottom:0.3rem;"><span>{{ g.label }}</span><span class="mono" style="color:#8A7C64;">{{ g.value }} · {{ g.pct }}</span></div>
+          <div style="height:8px; background:#F2ECDE; border-radius:99px; overflow:hidden;">
+            <div class="sp-bar-fill" style="height:100%; width:{{ g.pct }}; background:{{ g.color }}; border-radius:99px; transform-origin:left;"></div>
+          </div>
+        </div>
+      </sc-for>
+    </section>
+
+    <!-- P&L Estructurado -->
+    <section class="sp-rise sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:18px; overflow:hidden; box-shadow:0 14px 36px -24px rgba(40,28,12,.3); margin-bottom:1.4rem;">
+      <div style="padding:0.95rem 1.3rem; border-bottom:1px solid rgba(31,24,12,.07);"><span class="fr" style="font-size:0.95rem; font-weight:600;">P&amp;L Detallado por Mes</span></div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; font-size:0.78rem; min-width:760px;">
+          <thead>
+            <tr>
+              <th style="text-align:left; padding:0.55rem 1.3rem; font-family:'DM Mono',monospace; font-size:0.58rem; letter-spacing:0.07em; text-transform:uppercase; color:#A2937A; background:#FAF6EC;">Concepto</th>
+              <sc-for list="{{ monthLabels }}" as="ml" hint-placeholder-count="6">
+                <th style="text-align:right; padding:0.55rem 1rem; font-family:'DM Mono',monospace; font-size:0.58rem; letter-spacing:0.07em; text-transform:uppercase; color:#A2937A; background:#FAF6EC;">{{ ml }}</th>
+              </sc-for>
+            </tr>
+          </thead>
+          <tbody>
+            <sc-for list="{{ pnlRows }}" as="row" hint-placeholder-count="5">
+              <tr style="border-top:1px solid rgba(31,24,12,.05); background:{{ row.bg }};">
+                <td style="padding:0.6rem 1.3rem; font-weight:{{ row.weight }}; color:{{ row.textColor }};">{{ row.label }}</td>
+                <sc-for list="{{ row.vals }}" as="v" hint-placeholder-count="6">
+                  <td class="mono" style="padding:0.6rem 1rem; text-align:right; font-weight:{{ row.weight }}; color:{{ row.textColor }};">{{ v }}</td>
+                </sc-for>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Balance General -->
+    <section class="sp-rise sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:18px; padding:1.2rem 1.3rem; box-shadow:0 14px 32px -24px rgba(40,28,12,.3);">
+      <div class="fr" style="font-size:0.95rem; font-weight:600; margin-bottom:0.3rem;">Balance General</div>
+      <div class="mono" style="font-size:0.6rem; color:#A2937A; margin-bottom:1.1rem;">Resumen contable · junio 2026</div>
+
+      <div style="display:grid; grid-template-columns:repeat(2,1fr); gap:1rem; margin-bottom:1.2rem;">
+        <div style="background:#FAF6EC; border:1px solid rgba(31,24,12,.06); border-radius:12px; padding:0.9rem 1rem;">
+          <div class="mono" style="font-size:0.58rem; letter-spacing:0.08em; text-transform:uppercase; color:#A2937A; margin-bottom:0.5rem;">Activo</div>
+          <sc-for list="{{ activoRows }}" as="a" hint-placeholder-count="3">
+            <div style="display:flex; justify-content:space-between; font-size:0.72rem; padding:0.28rem 0; border-bottom:1px dashed rgba(31,24,12,.08);"><span style="color:#6E624E;">{{ a.n }}</span><span class="mono">{{ a.v }}</span></div>
+          </sc-for>
+        </div>
+        <div style="background:#FAF6EC; border:1px solid rgba(31,24,12,.06); border-radius:12px; padding:0.9rem 1rem;">
+          <div class="mono" style="font-size:0.58rem; letter-spacing:0.08em; text-transform:uppercase; color:#A2937A; margin-bottom:0.5rem;">Pasivo + Capital</div>
+          <sc-for list="{{ pasivoRows }}" as="p" hint-placeholder-count="3">
+            <div style="display:flex; justify-content:space-between; font-size:0.72rem; padding:0.28rem 0; border-bottom:1px dashed rgba(31,24,12,.08);"><span style="color:#6E624E;">{{ p.n }}</span><span class="mono">{{ p.v }}</span></div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div class="sp-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:0.7rem; margin-bottom:1.2rem;">
+        <sc-for list="{{ bgKpis }}" as="b" hint-placeholder-count="4">
+          <div class="sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.07); border-radius:10px; padding:0.75rem 0.85rem;">
+            <div class="mono" style="font-size:0.56rem; letter-spacing:0.07em; text-transform:uppercase; color:#A2937A;">{{ b.l }}</div>
+            <div class="mono sp-count" style="font-size:1.02rem; font-weight:600; margin-top:0.3rem;">{{ b.v }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div class="sp-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:0.7rem; margin-bottom:1.1rem;">
+        <sc-for list="{{ ratios }}" as="r" hint-placeholder-count="4">
+          <div class="sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.07); border-radius:10px; padding:0.75rem 0.85rem;">
+            <div class="mono" style="font-size:0.56rem; letter-spacing:0.07em; text-transform:uppercase; color:#A2937A;">{{ r.l }}</div>
+            <div class="mono" style="font-size:0.92rem; font-weight:700; margin-top:0.3rem; color:{{ r.color }};">{{ r.v }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div class="sp-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:0.9rem;">
+        <div class="sp-card" style="background:#FAF6EC; border:1px solid rgba(31,24,12,.06); border-radius:14px; padding:0.9rem 1rem;">
+          <div class="mono" style="font-size:0.58rem; letter-spacing:0.07em; text-transform:uppercase; color:#A2937A; margin-bottom:0.4rem;">Gauge · Liquidez Corriente</div>
+          <svg viewBox="0 0 180 105" style="width:100%; height:120px; display:block;">
+            <path d="{{ gaugeTrackPath }}" fill="none" stroke="#F2ECDE" strokeWidth="14" strokeLinecap="round"></path>
+            <path class="sp-draw" d="{{ gaugeValuePath }}" fill="none" stroke="#0E9F6E" strokeWidth="14" strokeLinecap="round" strokeDasharray="500" strokeDashoffset="0"></path>
+            <line x1="{{ gaugeTickX }}" y1="{{ gaugeTickY1 }}" x2="{{ gaugeTickX }}" y2="{{ gaugeTickY2 }}" stroke="#B45309" strokeWidth="2"></line>
+            <text x="90" y="92" textAnchor="middle" fontFamily="DM Mono, monospace" fontSize="20" fontWeight="600" fill="#0E9F6E">2.33</text>
+          </svg>
+          <div class="mono" style="font-size:0.62rem; color:#8A7C64; text-align:center;">Objetivo &gt; 1.5</div>
+        </div>
+
+        <div class="sp-card" style="background:#FAF6EC; border:1px solid rgba(31,24,12,.06); border-radius:14px; padding:0.9rem 1rem;">
+          <div class="mono" style="font-size:0.58rem; letter-spacing:0.07em; text-transform:uppercase; color:#A2937A; margin-bottom:0.4rem;">Puente · Activo vs Pasivo + Capital</div>
+          <div style="display:flex; align-items:flex-end; justify-content:center; gap:2rem; height:150px;">
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%;">
+              <div class="sp-bar-v" style="width:46px; height:{{ activoBH }}px; background:linear-gradient(180deg,#F6D279,#B8860B); border-radius:6px 6px 0 0; transform-origin:bottom;"></div>
+              <div class="mono" style="font-size:0.58rem; color:#8A7C64; margin-top:0.4rem;">Activo</div>
+            </div>
+            <div style="display:flex; flex-direction:column-reverse; align-items:center; height:100%;">
+              <div class="mono" style="font-size:0.58rem; color:#8A7C64; margin-top:0.4rem;">Pasivo+Cap.</div>
+              <div style="display:flex; flex-direction:column; width:46px;">
+                <div class="sp-bar-v" style="width:46px; height:{{ capitalBH }}px; background:linear-gradient(180deg,#5FE0B8,#0E9F6E); border-radius:6px 6px 0 0; transform-origin:bottom;"></div>
+                <div class="sp-bar-v" style="width:46px; height:{{ pasivoBH }}px; background:linear-gradient(180deg,#F0A88A,#C2410C); transform-origin:bottom;"></div>
+              </div>
+            </div>
+          </div>
+          <div class="mono" style="font-size:0.6rem; color:#8A7C64; text-align:center; margin-top:0.3rem;">Cierra con diferencia $0</div>
+        </div>
+
+        <div class="sp-card" style="background:#FAF6EC; border:1px solid rgba(31,24,12,.06); border-radius:14px; padding:0.9rem 1rem;">
+          <div class="mono" style="font-size:0.58rem; letter-spacing:0.07em; text-transform:uppercase; color:#A2937A; margin-bottom:0.4rem;">Donut · Composición de Pasivo</div>
+          <div style="display:flex; align-items:center; justify-content:center; gap:1rem;">
+            <svg class="sp-donut" viewBox="0 0 120 120" style="width:100px; height:100px; transform:rotate(-90deg);">
+              <sc-for list="{{ pasivoSegs }}" as="s" hint-placeholder-count="3">
+                <circle cx="60" cy="60" r="54" fill="none" stroke="{{ s.color }}" strokeWidth="14" strokeDasharray="{{ s.dash }}" strokeDashoffset="{{ s.off }}"></circle>
+              </sc-for>
+            </svg>
+            <div style="display:flex; flex-direction:column; gap:0.3rem;">
+              <sc-for list="{{ pasivoSegs }}" as="s" hint-placeholder-count="3">
+                <div style="display:flex; align-items:center; gap:0.35rem; font-size:0.66rem;"><span style="width:8px; height:8px; border-radius:2px; background:{{ s.color }};"></span><span style="color:#6E624E;">{{ s.name }}</span><span class="mono" style="color:#8A7C64;">{{ s.pct }}</span></div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Correlación Gastos · Ventas -->
+    <div class="sp-rise" style="margin:1.4rem 0 1rem;">
+      <div class="fr" style="font-size:1.05rem; font-weight:600;">Correlación Gastos · Ventas</div>
+      <div class="mono" style="font-size:0.62rem; color:#A2937A; margin-top:0.2rem;">Ratio Gasto/Venta actual: <strong style="color:#B45309;">{{ corrRatioFinal }}</strong></div>
+    </div>
+
+    <div class="sp-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:1.1rem; margin-bottom:1.1rem;">
+      <div class="sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:18px; padding:1.2rem 1.3rem; box-shadow:0 14px 32px -24px rgba(40,28,12,.3);">
+        <div class="fr" style="font-size:0.88rem; font-weight:600; margin-bottom:0.9rem;">Ventas vs Gastos — Tendencia Mensual</div>
+        <svg viewBox="0 0 600 175" style="width:100%; height:170px; display:block;">
+          <polyline class="sp-draw" points="{{ corrVentasLine }}" fill="none" stroke="#2563EB" strokeWidth="2.5" strokeDasharray="1300" strokeDashoffset="0"></polyline>
+          <polyline class="sp-draw" points="{{ corrGastosLine }}" fill="none" stroke="#C2410C" strokeWidth="2.5" strokeDasharray="1300" strokeDashoffset="0"></polyline>
+          <line x1="30" y1="160" x2="570" y2="160" stroke="rgba(31,24,12,.1)" strokeWidth="1"></line>
+          <sc-for list="{{ corrMonthLabels }}" as="m" hint-placeholder-count="6">
+            <text x="{{ m.x }}" y="172" textAnchor="middle" fontFamily="DM Mono, monospace" fontSize="10" fill="#A2937A">{{ m.label }}</text>
+          </sc-for>
+        </svg>
+        <div style="display:flex; gap:1rem; margin-top:0.5rem;">
+          <span class="mono" style="font-size:0.64rem; color:#6E624E; display:flex; align-items:center; gap:0.3rem;"><span style="width:9px; height:2px; background:#2563EB; display:inline-block;"></span>Ventas Netas</span>
+          <span class="mono" style="font-size:0.64rem; color:#6E624E; display:flex; align-items:center; gap:0.3rem;"><span style="width:9px; height:2px; background:#C2410C; display:inline-block;"></span>Gastos Totales</span>
+        </div>
+      </div>
+
+      <div class="sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:18px; padding:1.2rem 1.3rem; box-shadow:0 14px 32px -24px rgba(40,28,12,.3);">
+        <div class="fr" style="font-size:0.88rem; font-weight:600; margin-bottom:0.9rem;">Ratio Gasto/Venta y Margen Bruto (%)</div>
+        <svg viewBox="0 0 600 175" style="width:100%; height:170px; display:block;">
+          <polyline class="sp-draw" points="{{ ratioLine }}" fill="none" stroke="#B45309" strokeWidth="2.5" strokeDasharray="1300" strokeDashoffset="0"></polyline>
+          <polyline class="sp-draw" points="{{ margenLine }}" fill="none" stroke="#0E9F6E" strokeWidth="2.5" strokeDasharray="1300" strokeDashoffset="0"></polyline>
+          <line x1="30" y1="160" x2="570" y2="160" stroke="rgba(31,24,12,.1)" strokeWidth="1"></line>
+          <sc-for list="{{ corrMonthLabels }}" as="m" hint-placeholder-count="6">
+            <text x="{{ m.x }}" y="172" textAnchor="middle" fontFamily="DM Mono, monospace" fontSize="10" fill="#A2937A">{{ m.label }}</text>
+          </sc-for>
+        </svg>
+        <div style="display:flex; gap:1rem; margin-top:0.5rem;">
+          <span class="mono" style="font-size:0.64rem; color:#6E624E; display:flex; align-items:center; gap:0.3rem;"><span style="width:9px; height:2px; background:#B45309; display:inline-block;"></span>Ratio Gasto/Venta</span>
+          <span class="mono" style="font-size:0.64rem; color:#6E624E; display:flex; align-items:center; gap:0.3rem;"><span style="width:9px; height:2px; background:#0E9F6E; display:inline-block;"></span>Margen Bruto</span>
+        </div>
+      </div>
+    </div>
+
+    <section class="sp-rise sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:18px; padding:1.2rem 1.3rem; margin-bottom:1.4rem; box-shadow:0 14px 32px -24px rgba(40,28,12,.3);">
+      <div class="fr" style="font-size:0.88rem; font-weight:600; margin-bottom:0.3rem;">Dispersión: Ventas vs Gastos (cada punto = 1 mes)</div>
+      <div class="mono" style="font-size:0.6rem; color:#A2937A; margin-bottom:0.9rem;">Eje X: Ventas Netas · Eje Y: Gastos Totales</div>
+      <svg viewBox="0 0 300 160" style="width:100%; height:200px; display:block;">
+        <line x1="40" y1="10" x2="40" y2="150" stroke="rgba(31,24,12,.12)" strokeWidth="1"></line>
+        <line x1="40" y1="150" x2="270" y2="150" stroke="rgba(31,24,12,.12)" strokeWidth="1"></line>
+        <sc-for list="{{ scatterPts }}" as="p" hint-placeholder-count="6">
+          <circle class="sp-pop" cx="{{ p.x }}" cy="{{ p.y }}" r="5.5" fill="#6D4FD0" opacity="0.85"></circle>
+        </sc-for>
+      </svg>
+      <p class="mono" style="font-size:0.62rem; color:#A2937A; margin-top:0.6rem; line-height:1.6;">💡 Puntos alineados en diagonal = gastos crecen proporcionalmente con ventas (eficiencia estable).</p>
+    </section>
+
+    <!-- Tendencia Balance -->
+    <section class="sp-rise sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:18px; padding:1.2rem 1.3rem; margin-bottom:1.4rem; box-shadow:0 14px 32px -24px rgba(40,28,12,.3);">
+      <div class="fr" style="font-size:0.92rem; font-weight:600; margin-bottom:0.9rem;">Tendencia Balance (últimos 6 meses)</div>
+      <div style="position:relative; height:190px;">
+        <div style="display:flex; align-items:flex-end; gap:1rem; height:166px; padding:0 1rem;">
+          <sc-for list="{{ balanceBars }}" as="b" hint-placeholder-count="6">
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%;">
+              <div class="sp-bar-v" style="width:100%; max-width:46px; height:{{ b.h }}; background:linear-gradient(180deg,#F6D279,#B8860B); border-radius:6px 6px 0 0; transform-origin:bottom;"></div>
+            </div>
+          </sc-for>
+        </div>
+        <svg viewBox="0 0 600 166" preserveAspectRatio="none" style="position:absolute; top:0; left:0; width:100%; height:166px;">
+          <polyline class="sp-draw" points="{{ pasivoLineStr }}" fill="none" stroke="#D92D20" strokeWidth="2.5" strokeDasharray="1300" strokeDashoffset="0" vectorEffect="non-scaling-stroke"></polyline>
+          <polyline class="sp-draw" points="{{ capitalLineStr }}" fill="none" stroke="#0E9F6E" strokeWidth="2.5" strokeDasharray="1300" strokeDashoffset="0" vectorEffect="non-scaling-stroke"></polyline>
+        </svg>
+      </div>
+      <div style="display:flex; gap:1rem; margin-top:0.7rem;">
+        <span class="mono" style="font-size:0.64rem; color:#6E624E; display:flex; align-items:center; gap:0.3rem;"><span style="width:9px; height:9px; border-radius:2px; background:#B8860B; display:inline-block;"></span>Activo</span>
+        <span class="mono" style="font-size:0.64rem; color:#6E624E; display:flex; align-items:center; gap:0.3rem;"><span style="width:9px; height:2px; background:#D92D20; display:inline-block;"></span>Pasivo</span>
+        <span class="mono" style="font-size:0.64rem; color:#6E624E; display:flex; align-items:center; gap:0.3rem;"><span style="width:9px; height:2px; background:#0E9F6E; display:inline-block;"></span>Capital Neto</span>
+      </div>
+      <p class="mono" style="font-size:0.6rem; color:#A2937A; margin-top:0.6rem;">📊 Evolución mensual de Activo (barras) vs Pasivo (línea roja) vs Capital Neto (línea verde).</p>
+    </section>
+
+    <!-- Inventario en Balance -->
+    <section class="sp-rise sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:18px; padding:1.2rem 1.3rem; box-shadow:0 14px 32px -24px rgba(40,28,12,.3);">
+      <div class="fr" style="font-size:0.92rem; font-weight:600; margin-bottom:0.2rem;">Inventario en Balance — Desglose y Tendencia</div>
+      <div class="mono" style="font-size:0.6rem; color:#A2937A; margin-bottom:1rem;">Valor de inventario · últimos 6 meses</div>
+      <div style="display:flex; align-items:flex-end; gap:1rem; height:130px; padding:0 1rem;">
+        <sc-for list="{{ invBars }}" as="b" hint-placeholder-count="6">
+          <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:0.4rem;">
+            <div class="sp-bar-v" style="width:100%; max-width:40px; height:{{ b.h }}; background:linear-gradient(180deg,#C98AE0,#6D4FD0); border-radius:6px 6px 0 0; transform-origin:bottom;"></div>
+            <div class="mono" style="font-size:0.56rem; color:#A2937A;">{{ b.label }}</div>
+          </div>
+        </sc-for>
+      </div>
+    </section>
+
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { preset: 'Este Mes' };
+  }
+  componentDidMount() {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const run = () => {
+      const root = document.getElementById('pl-root') || document;
+      const ease = 'cubic-bezier(.18,.7,.25,1)', easeBar = 'cubic-bezier(.3,.85,.3,1)';
+      const rise = (el, d) => { try { el.animate([{ opacity: 0, transform: 'translateY(26px)' }, { opacity: 1, transform: 'none' }], { duration: 640, delay: d, easing: ease, fill: 'backwards' }); } catch (e) {} };
+      root.querySelectorAll('.sp-rise').forEach((el, i) => rise(el, 60 + i * 90));
+      root.querySelectorAll('.sp-grid').forEach(g => [...g.children].forEach((c, i) => rise(c, 180 + i * 75)));
+      root.querySelectorAll('.sp-bar-fill').forEach((b, i) => { try { b.animate([{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], { duration: 1000, delay: 420 + (i % 10) * 50, easing: easeBar, fill: 'backwards' }); } catch (e) {} });
+      root.querySelectorAll('.sp-bar-v').forEach((b, i) => { try { b.animate([{ transform: 'scaleY(0)' }, { transform: 'scaleY(1)' }], { duration: 900, delay: 380 + (i % 12) * 45, easing: easeBar, fill: 'backwards' }); } catch (e) {} });
+      root.querySelectorAll('.sp-draw').forEach((p, i) => { try { p.animate([{ strokeDashoffset: 1200 }, { strokeDashoffset: 0 }], { duration: 1400, delay: 460 + (i % 8) * 90, easing: easeBar, fill: 'backwards' }); } catch (e) {} });
+      root.querySelectorAll('.sp-donut').forEach(d => { try { d.animate([{ opacity: 0, transform: 'rotate(-150deg) scale(.82)' }, { opacity: 1, transform: 'rotate(-90deg) scale(1)' }], { duration: 1000, delay: 420, easing: ease, fill: 'backwards' }); } catch (e) {} });
+      root.querySelectorAll('.sp-pop').forEach((el, i) => { try { el.animate([{ opacity: 0, transform: 'scale(.7)' }, { opacity: 1, transform: 'scale(1)' }], { duration: 500, delay: 700 + (i % 8) * 70, easing: ease, fill: 'backwards' }); } catch (e) {} });
+      root.querySelectorAll('.sp-count').forEach((el, i) => {
+        const raw = (el.textContent || '').trim();
+        const m = raw.match(/^([^\d-]*)(-?[\d,]+(?:\.\d+)?)(.*)$/);
+        if (!m) return;
+        const pre = m[1], suf = m[3], dec = (m[2].split('.')[1] || '').length;
+        const target = parseFloat(m[2].replace(/,/g, ''));
+        if (!isFinite(target)) return;
+        const dur = 1100, t0 = performance.now() + 300 + (i % 8) * 60;
+        const fmtN = v => v.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+        el.dataset.cv = raw;
+        const step = now => { let p = Math.max(0, Math.min(1, (now - t0) / dur)); p = 1 - Math.pow(1 - p, 3); el.textContent = pre + fmtN(target * p) + suf; if (p < 1) requestAnimationFrame(step); else el.textContent = raw; };
+        requestAnimationFrame(step);
+      });
+    };
+    const root0 = document.getElementById('pl-root');
+    const guarded = () => { if (root0 && root0.dataset.spAnimated) return; if (root0) root0.dataset.spAnimated = '1'; run(); };
+    requestAnimationFrame(() => requestAnimationFrame(guarded));
+    setTimeout(guarded, 170);
+    setTimeout(() => { try { const r = document.getElementById('pl-root') || document; const fin = el => el.getAnimations && el.getAnimations().forEach(a => { if (a.effect && a.effect.getTiming().iterations !== Infinity) a.finish(); }); r.querySelectorAll('.sp-rise,.sp-bar-fill,.sp-bar-v,.sp-draw,.sp-donut,.sp-pop').forEach(fin); r.querySelectorAll('.sp-grid').forEach(g => [...g.children].forEach(fin)); r.querySelectorAll('.sp-count').forEach(el => { if (el.dataset.cv) el.textContent = el.dataset.cv; }); } catch (e) {} }, 2700);
+  }
+  renderVals() {
+    const navItems = [
+      ['Inicio', 'Inicio.dc.html', false], ['Ventas', 'Ventas.dc.html', false], ['Cobradas', 'Cobradas.dc.html', false],
+      ['Vendedores', '#', false], ['CxC', 'CxC.dc.html', false], ['Clientes', 'Clientes.dc.html', false],
+      ['Director', 'Director.dc.html', false], ['Inventario', 'Inventario.dc.html', false], ['P&L', 'PL.dc.html', true]
+    ];
+    const nav = navItems.map(([label, href, active]) => ({
+      label, href, color: active ? '#241A08' : '#6E624E',
+      bg: active ? 'linear-gradient(135deg, rgba(246,210,121,.5), rgba(224,179,65,.28))' : 'transparent',
+      weight: active ? 600 : 500
+    }));
+    const presetList = ['Hoy', 'Esta Semana', 'Este Mes', 'Mes Anterior', 'YTD', 'Este Año', 'Año Anterior'];
+    const ap = this.state.preset;
+    const presets = presetList.map(p => ({
+      label: p, bg: p === ap ? 'linear-gradient(135deg,#322310,#6A4A1C)' : 'transparent',
+      color: p === ap ? '#F6E7C8' : '#6E624E', weight: p === ap ? 600 : 500,
+      onClick: () => this.setState({ preset: p })
+    }));
+    const selects = [{ label: 'Año 2026' }, { label: 'Junio' }];
+    const fmt = n => '$' + n.toLocaleString('en-US');
+
+    const bizRaw = [
+      ['Suminregio', 3842610, 2945240, 4120300, 132],
+      ['Grupo Suminregio', 1920340, 1471460, 1985210, 64],
+      ['Suminregio Agua', 1104275, 845870, 1098300, 41],
+      ['Cartón', 880910, 674780, 845600, 28],
+      ['Maderas', 690420, 528910, 712450, 24],
+      ['Reciclaje', 512840, 392920, 498100, 18],
+      ['Suministros Médicos', 356386, 273050, 343200, 13]
+    ];
+    const bizRows = bizRaw.map(r => ({ name: r[0], ventas: fmt(r[1]), util: fmt(r[2]), cobros: fmt(r[3]), facts: String(r[4]) }));
+
+    const kpis = [
+      { label: 'Ventas Netas', value: '$1,391,490', color: '#2563EB', sub: '320 facturas · periodo', trend: '+6.4% vs mes anterior', trendColor: '#0E9F6E' },
+      { label: 'Utilidad Bruta', value: '$1,065,460', color: '#0E9F6E', sub: '76.6% sobre ventas netas', trend: '+1.2 pp vs mes anterior', trendColor: '#0E9F6E' },
+      { label: 'Costo de Ventas', value: '$326,030', color: '#C2410C', sub: '23.4% de ventas', trend: '', trendColor: '#8A7C64' },
+      { label: 'Cobros Recibidos', value: '$1,603,572', color: '#6D4FD0', sub: '115.2% de facturado', trend: '+8.1% eficiencia', trendColor: '#0E9F6E' }
+    ];
+
+    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'];
+    const ventasM = [980000, 1050000, 1120000, 1240000, 1310000, 1391490];
+    const utilM = [720000, 790000, 855000, 945000, 996000, 1065460];
+    const maxV = Math.max(...ventasM);
+    const monthBars = months.map((label, i) => ({ label, vH: (ventasM[i] / maxV * 160).toFixed(0) + 'px', uH: (utilM[i] / maxV * 160).toFixed(0) + 'px' }));
+    const monthLabels = months.map(m => m + ' 26');
+
+    const channelRows = [
+      { label: 'Venta Industrial (VE)', value: '$958,210', pct: '68.9%', color: 'linear-gradient(90deg,#7BAEFF,#2563EB)' },
+      { label: 'Mostrador (PV)', value: '$433,280', pct: '31.1%', color: 'linear-gradient(90deg,#C98AE0,#6D4FD0)' },
+      { label: 'Cobros del periodo', value: '$1,603,572', pct: '100%', color: 'linear-gradient(90deg,#5FE0B8,#0E9F6E)' }
+    ];
+
+    const gastoRows = [
+      { label: 'A · Gastos de Venta', value: '$142,300', pct: '42.3%', color: 'linear-gradient(90deg,#F6D279,#B8860B)' },
+      { label: 'B · Administración', value: '$98,650', pct: '29.4%', color: 'linear-gradient(90deg,#7BAEFF,#2563EB)' },
+      { label: 'C · Operación', value: '$76,420', pct: '22.7%', color: 'linear-gradient(90deg,#C98AE0,#6D4FD0)' },
+      { label: 'D · Otros', value: '$18,640', pct: '5.6%', color: 'linear-gradient(90deg,#F0A88A,#C2410C)' }
+    ];
+
+    const costoM = ventasM.map((v, i) => v - utilM[i]);
+    const gastosOpM = [298000, 305000, 312000, 322000, 329000, 336010];
+    const ebitM = utilM.map((u, i) => u - gastosOpM[i]);
+    const rowDef = [
+      ['Ventas Netas', ventasM, 500, '#211A10', 'transparent'],
+      ['Costo de Ventas', costoM.map(v => -v), 400, '#C2410C', 'transparent'],
+      ['Utilidad Bruta', utilM, 700, '#0E9F6E', 'rgba(14,159,110,.06)'],
+      ['Gastos Operativos (A+B+C+D)', gastosOpM.map(v => -v), 400, '#B45309', 'transparent'],
+      ['Utilidad de Operación (EBIT)', ebitM, 800, '#0E9F6E', 'rgba(224,179,65,.12)']
+    ];
+    const pnlRows = rowDef.map(([label, vals, weight, textColor, bg]) => ({
+      label, weight, textColor, bg,
+      vals: vals.map(v => (v < 0 ? '−$' + Math.abs(v).toLocaleString('en-US') : '$' + v.toLocaleString('en-US')))
+    }));
+
+    const activoRows = [
+      { n: 'Activo Circulante', v: '$3,820,500' }, { n: 'Activo Fijo', v: '$4,180,200' }, { n: 'Diferidos / Otros', v: '$419,600' }
+    ];
+    const pasivoRows = [
+      { n: 'Pasivo Corto Plazo', v: '$1,640,200' }, { n: 'Pasivo Largo Plazo', v: '$1,510,600' }, { n: 'Capital Contable', v: '$5,269,500' }
+    ];
+    const bgKpis = [
+      { l: 'Activo Total', v: '$8,420,300' }, { l: 'Pasivo Total', v: '$3,150,800' }, { l: 'Capital Total', v: '$5,269,500' }, { l: 'Diferencia', v: '$0' }
+    ];
+    const ratios = [
+      { l: 'Liquidez Corriente', v: '2.33', color: '#0E9F6E' }, { l: 'Apalancamiento', v: '37.4%', color: '#B45309' },
+      { l: 'Capital de Trabajo', v: '$2,180,300', color: '#211A10' }, { l: 'Pasivo / Capital', v: '0.60', color: '#211A10' }
+    ];
+
+    // Ventas netas por empresa
+    const maxBiz = Math.max(...bizRaw.map(r => r[1]));
+    const empresaBars = bizRaw.map(r => ({ name: r[0], value: fmt(r[1]), pct: (r[1] / maxBiz * 100).toFixed(0) + '%' }));
+
+    // Gauge · Liquidez Corriente (semicírculo real)
+    const liqVal = 2.33, liqMax = 3, liqFrac = liqVal / liqMax;
+    const gCx = 90, gCy = 95, gR = 70, toRad = d => d * Math.PI / 180;
+    const gEndAngle = 180 - liqFrac * 180;
+    const gEndX = (gCx + gR * Math.cos(toRad(gEndAngle))).toFixed(1);
+    const gEndY = (gCy - gR * Math.sin(toRad(gEndAngle))).toFixed(1);
+    const gaugeTrackPath = 'M ' + (gCx - gR) + ' ' + gCy + ' A ' + gR + ' ' + gR + ' 0 0 1 ' + (gCx + gR) + ' ' + gCy;
+    const gaugeValuePath = 'M ' + (gCx - gR) + ' ' + gCy + ' A ' + gR + ' ' + gR + ' 0 0 1 ' + gEndX + ' ' + gEndY;
+    const gaugeTickX = gCx, gaugeTickY1 = gCy - gR, gaugeTickY2 = gCy - gR - 12;
+
+    // Donut · Composición de Pasivo
+    const pasivoSegsRaw = [['Proveedores', 1890480, '#2563EB'], ['Bancos', 756192, '#0E9F6E'], ['Otros', 504128, '#C2410C']];
+    const pasivoTotalD = 3150800, Cdon = 2 * Math.PI * 54;
+    let offD = 0;
+    const pasivoSegs = pasivoSegsRaw.map(([name, v, color]) => {
+      const frac = v / pasivoTotalD, len = frac * Cdon;
+      const seg = { name, color, dash: len.toFixed(2) + ' ' + (Cdon - len).toFixed(2), off: (-offD).toFixed(2), pct: (frac * 100).toFixed(0) + '%', value: fmt(v) };
+      offD += len; return seg;
+    });
+
+    // Puente contable · Activo vs Pasivo + Capital
+    const bridgeMax = 8420300;
+    const activoBH = (8420300 / bridgeMax * 150).toFixed(0);
+    const pasivoBH = (3150800 / bridgeMax * 150).toFixed(0);
+    const capitalBH = (5269500 / bridgeMax * 150).toFixed(0);
+
+    // Correlación Gastos · Ventas
+    const gastosTotalM = costoM.map((c, i) => c + gastosOpM[i]);
+    const ratioM = gastosTotalM.map((g, i) => (g / ventasM[i] * 100));
+    const margenM = utilM.map((u, i) => (u / ventasM[i] * 100));
+    const mkLine = (vals, max, h, padTop) => {
+      const n = vals.length, padL2 = 30, plotW2 = 540, slot2 = plotW2 / (n - 1);
+      return vals.map((v, i) => ({ x: (padL2 + i * slot2).toFixed(0), y: (padTop + h - (v / max * h)).toFixed(1) }));
+    };
+    const maxVG = Math.max(...ventasM) * 1.05;
+    const corrVentasPts = mkLine(ventasM, maxVG, 150, 10);
+    const corrGastosPts = mkLine(gastosTotalM, maxVG, 150, 10);
+    const corrVentasLine = corrVentasPts.map(p => p.x + ',' + p.y).join(' ');
+    const corrGastosLine = corrGastosPts.map(p => p.x + ',' + p.y).join(' ');
+    const corrMonthLabels = months.map((m, i) => ({ x: corrVentasPts[i].x, label: m }));
+
+    const ratioMax = Math.max(...ratioM, ...margenM) * 1.12;
+    const ratioPts = mkLine(ratioM, ratioMax, 150, 10);
+    const margenPts = mkLine(margenM, ratioMax, 150, 10);
+    const ratioLine = ratioPts.map(p => p.x + ',' + p.y).join(' ');
+    const margenLine = margenPts.map(p => p.x + ',' + p.y).join(' ');
+
+    // Dispersión Ventas vs Gastos
+    const xMinS = Math.min(...ventasM), xMaxS = Math.max(...ventasM);
+    const yMinS = Math.min(...gastosTotalM), yMaxS = Math.max(...gastosTotalM);
+    const scatterPts = ventasM.map((v, i) => {
+      const x = 40 + (v - xMinS) / (xMaxS - xMinS) * 230;
+      const y = 10 + 140 - (gastosTotalM[i] - yMinS) / (yMaxS - yMinS) * 140;
+      return { x: x.toFixed(0), y: y.toFixed(0), label: months[i] };
+    });
+    const corrRatioFinal = ratioM[ratioM.length - 1].toFixed(1) + '%';
+
+    // Tendencia Balance (6 meses)
+    const activoM = [7820000, 7910000, 8005000, 8140000, 8280000, 8420300];
+    const pasivoM2 = [3020000, 3055000, 3080000, 3110000, 3130000, 3150800];
+    const capitalM = activoM.map((a, i) => a - pasivoM2[i]);
+    const maxBal = Math.max(...activoM);
+    const balanceBars = months.map((label, i) => ({ label, h: (activoM[i] / maxBal * 150).toFixed(0) + 'px' }));
+    const pasivoLineStr = mkLine(pasivoM2, maxBal, 150, 10).map(p => p.x + ',' + p.y).join(' ');
+    const capitalLineStr = mkLine(capitalM, maxBal, 150, 10).map(p => p.x + ',' + p.y).join(' ');
+
+    // Inventario en Balance
+    const invM = [14850000, 15020000, 15180000, 15340000, 15510000, 15694747];
+    const maxInv = Math.max(...invM);
+    const invBars = months.map((label, i) => ({ label, h: (invM[i] / maxInv * 120).toFixed(0) + 'px' }));
+
+    return {
+      nav, presets, selects, bizRows, kpis, monthBars, monthLabels, channelRows, gastoRows, pnlRows, activoRows, pasivoRows, bgKpis, ratios,
+      empresaBars, gaugeTrackPath, gaugeValuePath, gaugeTickX, gaugeTickY1, gaugeTickY2, pasivoSegs,
+      activoBH, pasivoBH, capitalBH, corrVentasLine, corrGastosLine, corrMonthLabels, ratioLine, margenLine, corrRatioFinal,
+      scatterPts, balanceBars, pasivoLineStr, capitalLineStr, invBars
+    };
+  }
+}
+</script>
+</body>
+</html>

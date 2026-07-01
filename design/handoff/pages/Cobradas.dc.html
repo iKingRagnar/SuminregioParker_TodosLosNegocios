@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Outfit:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Outfit',system-ui,sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;color:#211A10;background:#EFE9DC;}
+  ::selection{background:rgba(224,179,65,0.26);}
+  .mono{font-family:'DM Mono',monospace;}
+  .fr{font-family:'Fraunces',serif;}
+  @keyframes sp-blink{0%,100%{opacity:1}50%{opacity:.3}}
+  @keyframes lx-float{0%,100%{transform:translate(0,0)}50%{transform:translate(14px,-12px)}}
+  .sp-card{transition:box-shadow .26s cubic-bezier(.22,.7,.25,1), transform .26s cubic-bezier(.22,.7,.25,1), border-color .26s;}
+  .sp-card:hover{transform:translateY(-4px); box-shadow:0 26px 54px -22px rgba(40,28,12,.34) !important; border-color:rgba(224,179,65,.4) !important;}
+  .sp-pill{transition:background .25s ease, color .2s ease, border-color .25s ease;}
+  @media (prefers-reduced-motion: reduce){*{animation:none !important;}}
+</style>
+</helmet>
+<div id="sp-root" style="display:flex; position:relative; min-height:100vh; font-family:'Outfit',system-ui,sans-serif; color:#211A10; background:radial-gradient(1200px 720px at 6% -8%, rgba(224,179,65,.16), transparent 55%), radial-gradient(1100px 760px at 104% 4%, rgba(120,86,40,.07), transparent 52%), linear-gradient(180deg,#FBF7EE 0%, #F2ECDE 60%, #EDE6D6 100%);">
+
+    <aside style="position:sticky; top:0; height:100vh; flex:0 0 248px; width:248px; background:#1C150D; color:#fff; display:flex; flex-direction:column; padding:20px 14px 16px; overflow-y:auto;">
+    <a href="Inicio.dc.html" style="display:flex; align-items:center; gap:11px; padding:4px 6px 18px; text-decoration:none;">
+      <div style="width:38px; height:38px; border-radius:10px; background:linear-gradient(135deg,#F6D279,#E0B341,#B8860B); display:flex; align-items:center; justify-content:center; flex:0 0 auto; box-shadow:0 2px 10px rgba(184,134,11,.4);">
+        <span class="fr" style="font-weight:700; font-size:15px; color:#241A08; letter-spacing:-0.02em;">SP</span>
+      </div>
+      <div style="min-width:0;">
+        <div class="fr" style="font-size:14.5px; font-weight:600; letter-spacing:-0.01em; line-height:1.1; color:#F3EFE8;">Suminregio Parker</div>
+        <div class="mono" style="font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:#8A7C64; margin-top:3px;">ERP · Scorecard</div>
+      </div>
+    </a>
+
+    <div class="mono" style="font-size:9px; letter-spacing:0.16em; text-transform:uppercase; color:#6E624E; padding:6px 10px 6px;">Panel</div>
+    <nav style="display:flex; flex-direction:column; gap:1px;">
+      <a href="Inicio.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5 10 4.5l6 5"/><path d="M5.4 8.6V15.5h9V8.6"/></svg>Inicio
+      </a>
+      <a href="Ventas.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 8 9l3 3 6-6"/><path d="M13 6h4v4"/></svg>Ventas
+      </a>
+      <a href="Cobradas.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:600; color:#F2C667; background:rgba(224,179,65,.15); box-shadow:inset 2px 0 0 #E0B341; text-decoration:none; cursor:pointer;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6.4"/><path d="M7 10.2 9.2 12.4 13.4 8"/></svg>Cobradas
+      </a>
+      <a href="Vendedores.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.7" cy="8" r="2.5"/><path d="M3.6 16c0-2.4 1.9-3.9 4.1-3.9S11.8 13.6 11.8 16"/><path d="M13.4 6.4a2.3 2.3 0 0 1 0 4.3"/><path d="M16.4 16c0-1.7-.8-2.8-2-3.4"/></svg>Vendedores
+      </a>
+      <a href="CxC.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.4" y="5.5" width="13.2" height="9.5" rx="2"/><path d="M3.4 8.4h13.2"/><circle cx="13.3" cy="11.4" r="0.9" fill="currentColor" stroke="none"/></svg>CxC
+      </a>
+      <a href="Clientes.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3.6" width="10" height="12.8" rx="1.2"/><path d="M7.8 6.6h1.4M10.9 6.6h1.4M7.8 9.4h1.4M10.9 9.4h1.4M8.8 16.4v-3h2.4v3"/></svg>Clientes
+      </a>
+      <a href="Director.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="7" width="13" height="8.4" rx="1.6"/><path d="M7.4 7V5.8A1.3 1.3 0 0 1 8.7 4.5h2.6A1.3 1.3 0 0 1 12.6 5.8V7"/></svg>Director
+      </a>
+      <a href="Inventario.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3.6 16.3 7v6L10 16.4 3.7 13V7Z"/><path d="M3.7 7 10 10.4 16.3 7M10 10.4V16.4"/></svg>Inventario
+      </a>
+      <a href="Consumos.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.4 10.5h3l2-5 3 9 2-4h3.2"/></svg>Consumos
+      </a>
+      <a href="Margen.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="1.7"/><circle cx="13" cy="13" r="1.7"/><path d="M14 6 6 14"/></svg>Margen
+      </a>
+      <a href="PL.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16h12M5.6 15.5V9M10 15.5V9M14.4 15.5V9M3.6 8.4 10 4.4l6.4 4Z"/></svg>Finanzas
+      </a>
+      <a href="Admin.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5h7M14.4 6.5h1.6M4 13.5h2M9.4 13.5h6.6"/><circle cx="12.5" cy="6.5" r="1.7"/><circle cx="7.5" cy="13.5" r="1.7"/></svg>Admin
+      </a>
+    </nav>
+
+    <div class="mono" style="font-size:9px; letter-spacing:0.16em; text-transform:uppercase; color:#6E624E; padding:16px 10px 6px;">Inteligencia</div>
+    <nav style="display:flex; flex-direction:column; gap:1px;">
+      <a href="#" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 4 11.3 8.2 15.5 9.6 11.3 11 10 15.2 8.7 11 4.5 9.6 8.7 8.2Z"/></svg>Sumi IA
+      </a>
+      <a href="MejoraContinua.dc.html" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 14 14 6M8.2 6H14v5.8"/></svg>Mejoras
+      </a>
+      <a href="#" style="display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px; font-size:13px; font-weight:500; color:#9A938A; text-decoration:none; cursor:pointer; transition:background .15s,color .15s;" style-hover="background:rgba(255,255,255,.06); color:#E8E3DA;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="6"/><circle cx="10" cy="10" r="2.6"/></svg>Metas
+      </a>
+    </nav>
+
+    <div style="margin-top:auto; display:flex; align-items:center; gap:10px; padding:11px 8px 4px; border-top:1px solid rgba(255,255,255,.08); margin-top:18px;">
+      <div style="width:33px; height:33px; border-radius:50%; background:#2C2013; color:#E0CBA8; display:flex; align-items:center; justify-content:center; font-size:11.5px; font-weight:700; flex:0 0 auto;">RM</div>
+      <div style="min-width:0; flex:1;">
+        <div style="font-size:12.5px; font-weight:600; color:#E8E3DA; line-height:1.1;">R. Mendoza</div>
+        <div style="font-size:10.5px; color:#8A7C64; margin-top:2px;">Dirección General</div>
+      </div>
+    </div>
+  </aside>
+
+  <main style="flex:1; min-width:0; max-width:1480px; margin:0 auto; padding:clamp(1.1rem,2.4vw,2rem) clamp(1rem,2.4vw,2rem) 3rem;">
+
+    <div class="sp-rise" style="display:flex; align-items:flex-end; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:1.5rem;">
+      <div>
+        <div class="mono" style="font-size:0.6rem; letter-spacing:0.22em; text-transform:uppercase; color:#B8860B;">Facturas Cobradas · Comisiones</div>
+        <h1 class="fr" style="font-size:clamp(1.9rem,3vw,2.5rem); font-weight:600; letter-spacing:-0.02em; color:#211A10; margin-top:0.4rem;">Cobradas &amp; Comisiones</h1>
+        <p style="font-size:0.92rem; color:#8A7C64; margin-top:0.35rem;">7 vendedores · 308 facturas · <span class="mono" style="color:#5A4E38;">$1,603,572</span> cobrado sin IVA</p>
+      </div>
+      <div style="display:flex; align-items:center; gap:0.5rem; background:#fff; border:1px solid rgba(31,24,12,.09); border-radius:999px; padding:0.4rem 0.85rem; box-shadow:0 6px 16px -12px rgba(40,28,12,.3);">
+        <span style="width:7px; height:7px; border-radius:50%; background:#0E9F6E;"></span>
+        <span class="mono" style="font-size:0.66rem; color:#6E624E;">Junio 2026</span>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="sp-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(214px,1fr)); gap:1rem; margin-bottom:1.5rem;">
+      <sc-for list="{{ kpiCards }}" as="k" hint-placeholder-count="5">
+        <div class="sp-card" style="position:relative; background:linear-gradient(170deg,#FFFFFF,#FBF6EC); border:1px solid rgba(31,24,12,.08); border-radius:18px; padding:1.15rem 1.2rem; box-shadow:0 12px 30px -20px rgba(40,28,12,.3); overflow:hidden; display:flex; flex-direction:column; gap:0.5rem;">
+          <div style="position:absolute; inset:0 0 auto 0; height:3px; background:{{ k.accent }};"></div>
+          <div class="mono" style="font-size:0.5rem; letter-spacing:0.12em; text-transform:uppercase; color:#B8860B;">{{ k.mod }}</div>
+          <div class="mono" style="font-size:0.6rem; letter-spacing:0.04em; text-transform:uppercase; color:#9A8D76;">{{ k.label }}</div>
+          <div class="mono {{ k.countCls }}" style="font-size:1.4rem; font-weight:500; letter-spacing:-0.025em; color:{{ k.vcolor }}; line-height:1.05; margin-top:0.1rem;">{{ k.value }}</div>
+          <div class="mono" style="font-size:0.6rem; color:#A2937A;">{{ k.sub }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- Ranking por Vendedor -->
+    <div class="sp-rise" style="display:flex; align-items:center; gap:0.9rem; margin:0.4rem 0 1.1rem;">
+      <span style="width:7px; height:7px; border-radius:50%; background:linear-gradient(135deg,#E0B341,#B8860B);"></span>
+      <h3 class="fr" style="font-size:1.2rem; font-weight:600; color:#211A10;">Ranking por Vendedor</h3>
+      <span style="flex:1; height:1px; background:linear-gradient(90deg, rgba(31,24,12,.12), transparent);"></span>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); gap:1.1rem; margin-bottom:1.25rem;">
+      <div class="sp-rise sp-card" style="grid-column:span 2; min-width:0; background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:20px; overflow:hidden; box-shadow:0 16px 38px -24px rgba(40,28,12,.32);">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:1.2rem 1.5rem 0.9rem;">
+          <h3 class="fr" style="font-size:1.12rem; font-weight:600; color:#211A10;">Comisión por Vendedor</h3>
+          <span class="mono" style="font-size:0.62rem; color:#B8860B; border:1px solid rgba(224,179,65,.4); background:rgba(224,179,65,.08); padding:0.22rem 0.6rem; border-radius:999px;">8% del cobro</span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%; border-collapse:collapse; min-width:680px;">
+            <thead><tr>
+              <sc-for list="{{ comCols }}" as="h" hint-placeholder-count="7">
+                <th class="mono" style="text-align:{{ h.align }}; padding:0.6rem 1.1rem; font-size:0.54rem; letter-spacing:0.09em; text-transform:uppercase; color:#A2937A; font-weight:500; border-top:1px solid rgba(31,24,12,.06); border-bottom:1px solid rgba(31,24,12,.06);">{{ h.label }}</th>
+              </sc-for>
+            </tr></thead>
+            <tbody>
+              <sc-for list="{{ comRows }}" as="r" hint-placeholder-count="7">
+                <tr style="transition:background .15s; background:{{ r.rowBg }};" style-hover="background:#FBF6EC;">
+                  <td class="mono" style="padding:0.65rem 1.1rem; font-size:0.78rem; color:#B8860B; border-bottom:1px solid rgba(31,24,12,.05);">{{ r.rank }}</td>
+                  <td style="padding:0.65rem 1.1rem; border-bottom:1px solid rgba(31,24,12,.05);"><span style="display:inline-flex; align-items:center; gap:0.5rem;"><span style="width:8px; height:8px; border-radius:3px; background:{{ r.color }};"></span><span style="font-size:0.82rem; font-weight:500; color:#211A10;">{{ r.name }}</span>{{ r.topBadge }}</span></td>
+                  <td class="mono" style="text-align:right; padding:0.65rem 1.1rem; font-size:0.78rem; color:#6E624E; border-bottom:1px solid rgba(31,24,12,.05);">{{ r.fac }}</td>
+                  <td class="mono" style="text-align:right; padding:0.65rem 1.1rem; font-size:0.78rem; color:#6E624E; border-bottom:1px solid rgba(31,24,12,.05);">{{ r.base }}</td>
+                  <td class="mono" style="text-align:right; padding:0.65rem 1.1rem; font-size:0.8rem; font-weight:500; color:#211A10; border-bottom:1px solid rgba(31,24,12,.05);">{{ r.cobrado }}</td>
+                  <td class="mono" style="text-align:right; padding:0.65rem 1.1rem; font-size:0.78rem; color:#0E7C5A; border-bottom:1px solid rgba(31,24,12,.05);">{{ r.pct }}</td>
+                  <td class="mono" style="text-align:right; padding:0.65rem 1.1rem; font-size:0.8rem; font-weight:500; color:#B8860B; border-bottom:1px solid rgba(31,24,12,.05);">{{ r.com }}</td>
+                </tr>
+              </sc-for>
+              <tr style="background:#FBF4E4;">
+                <td style="padding:0.7rem 1.1rem;"></td>
+                <td class="fr" style="padding:0.7rem 1.1rem; font-size:0.82rem; font-weight:600; color:#211A10;">Total</td>
+                <td class="mono" style="text-align:right; padding:0.7rem 1.1rem; font-size:0.8rem; font-weight:500; color:#211A10;">308</td>
+                <td class="mono" style="text-align:right; padding:0.7rem 1.1rem; font-size:0.8rem; font-weight:500; color:#211A10;">$1,731,858.50</td>
+                <td class="mono" style="text-align:right; padding:0.7rem 1.1rem; font-size:0.8rem; font-weight:500; color:#211A10;">$1,603,572.69</td>
+                <td class="mono" style="text-align:right; padding:0.7rem 1.1rem; font-size:0.8rem; font-weight:500; color:#0E7C5A;">92.6%</td>
+                <td class="mono" style="text-align:right; padding:0.7rem 1.1rem; font-size:0.8rem; font-weight:600; color:#B8860B;">$128,285.82</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="sp-rise sp-card" style="min-width:0; background:linear-gradient(170deg,#FFFFFF,#FBF7EE); border:1px solid rgba(31,24,12,.08); border-radius:20px; padding:1.4rem; box-shadow:0 16px 38px -24px rgba(40,28,12,.32);">
+        <h3 class="fr" style="font-size:1.12rem; font-weight:600; color:#211A10; margin-bottom:1.2rem;">Distribución</h3>
+        <div style="position:relative; width:170px; height:170px; margin:0 auto 1.2rem;">
+          <svg class="sp-donut" viewBox="0 0 140 140" style="width:100%; height:100%; transform:rotate(-90deg);">
+            <circle cx="70" cy="70" r="54" fill="none" stroke="rgba(31,24,12,.07)" stroke-width="16"/>
+            <sc-for list="{{ donut }}" as="d" hint-placeholder-count="7">
+              <circle cx="70" cy="70" r="54" fill="none" stroke="{{ d.color }}" stroke-width="16" stroke-dasharray="{{ d.dash }}" stroke-dashoffset="{{ d.off }}"></circle>
+            </sc-for>
+          </svg>
+          <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+            <div class="mono sp-count" style="font-size:1.25rem; font-weight:500; color:#B8860B;">25.7%</div>
+            <div class="mono" style="font-size:0.5rem; letter-spacing:0.1em; text-transform:uppercase; color:#A2937A; margin-top:2px;">top 1</div>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:0.55rem;">
+          <sc-for list="{{ donut }}" as="d" hint-placeholder-count="7">
+            <div style="display:flex; align-items:center; gap:0.5rem;"><span style="width:8px; height:8px; border-radius:2px; background:{{ d.color }}; flex:0 0 auto;"></span><span style="flex:1; min-width:0; font-size:0.74rem; color:#3A3020; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ d.name }}</span><span class="mono" style="font-size:0.7rem; color:#6E624E;">{{ d.pct }}</span></div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cobrado vs Facturado + Últimas Facturas -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:1.1rem; margin-bottom:1.25rem;">
+      <div class="sp-rise sp-card" style="background:linear-gradient(170deg,#FFFFFF,#FBF7EE); border:1px solid rgba(31,24,12,.08); border-radius:20px; padding:1.4rem 1.5rem; box-shadow:0 16px 38px -24px rgba(40,28,12,.32); display:flex; flex-direction:column;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:0.8rem; flex-wrap:wrap;">
+          <h3 class="fr" style="font-size:1.12rem; font-weight:600; color:#211A10;">Tendencia Cobros &amp; Comisiones</h3>
+          <span class="mono" style="font-size:0.62rem; color:#A2937A;">últimos 6 meses</span>
+        </div>
+        <div style="display:flex; gap:0.9rem; margin:0.7rem 0 0.4rem;">
+          <span style="display:inline-flex; align-items:center; gap:0.4rem; font-size:0.66rem; color:#6E624E;"><span style="width:9px; height:9px; border-radius:2px; background:#4DA6FF;"></span>Cobrado</span>
+          <span style="display:inline-flex; align-items:center; gap:0.4rem; font-size:0.66rem; color:#6E624E;"><span style="width:9px; height:2px; background:#0E9F6E;"></span>Comisión 8% (escala secundaria)</span>
+        </div>
+        <div style="flex:1; min-height:200px; position:relative;">
+          <svg viewBox="0 0 600 200" style="width:100%; height:100%; display:block;" preserveAspectRatio="xMidYMid meet">
+            <sc-for list="{{ evoBars }}" as="b" hint-placeholder-count="6">
+              <rect class="sp-vbar" x="{{ b.x }}" y="{{ b.y }}" width="{{ b.w }}" height="{{ b.h }}" rx="4" fill="url(#evoGrad)" style="transform-origin:{{ b.cx }}px 176px;"></rect>
+            </sc-for>
+            <defs>
+              <linearGradient id="evoGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#7BAEFF"></stop>
+                <stop offset="100%" stopColor="#2563EB"></stop>
+              </linearGradient>
+            </defs>
+            <polyline class="sp-draw" points="{{ evoLinePoints }}" fill="none" stroke="#0E9F6E" strokeWidth="2.5" strokeDasharray="1000" strokeDashoffset="0"></polyline>
+            <sc-for list="{{ evoCircles }}" as="c" hint-placeholder-count="6">
+              <circle cx="{{ c.x }}" cy="{{ c.y }}" r="3.5" fill="#0E9F6E"></circle>
+            </sc-for>
+            <line x1="30" y1="176" x2="590" y2="176" stroke="rgba(31,24,12,.1)" strokeWidth="1"></line>
+            <sc-for list="{{ evoLabels }}" as="m" hint-placeholder-count="6">
+              <text x="{{ m.x }}" y="194" textAnchor="middle" fontFamily="DM Mono, monospace" fontSize="11" fill="#A2937A">{{ m.label }}</text>
+            </sc-for>
+          </svg>
+        </div>
+      </div>
+
+      <div class="sp-rise sp-card" style="background:linear-gradient(170deg,#FFFFFF,#FBF7EE); border:1px solid rgba(31,24,12,.08); border-radius:20px; padding:1.4rem 1.5rem; box-shadow:0 16px 38px -24px rgba(40,28,12,.32); display:flex; flex-direction:column;">
+        <h3 class="fr" style="font-size:1.12rem; font-weight:600; color:#211A10; margin-bottom:1.1rem;">Últimas Facturas Cobradas</h3>
+        <div style="display:flex; flex-direction:column;">
+          <sc-for list="{{ ultimas }}" as="f" hint-placeholder-count="7">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:0.8rem; padding:0.7rem 0; border-bottom:1px solid rgba(31,24,12,.06);">
+              <div style="min-width:0;"><div class="mono" style="font-size:0.7rem; color:#B8860B;">{{ f.folio }}</div><div style="font-size:0.8rem; color:#3A3020; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ f.cliente }}</div></div>
+              <div style="text-align:right; flex:0 0 auto;"><div class="mono" style="font-size:0.82rem; color:#2563EB;">{{ f.monto }}</div><div class="mono" style="font-size:0.66rem; color:#0E9F6E;">+{{ f.comision }}</div></div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cobros registrados (CC tipo R) -->
+    <div class="sp-rise sp-card" style="background:#fff; border:1px solid rgba(31,24,12,.08); border-radius:20px; overflow:hidden; box-shadow:0 16px 38px -24px rgba(40,28,12,.32);">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:1.2rem 1.5rem 0.9rem;">
+        <h3 class="fr" style="font-size:1.12rem; font-weight:600; color:#211A10;">Cobros registrados <span class="mono" style="font-size:0.7rem; color:#A2937A;">(CC tipo R)</span></h3>
+        <span class="mono" style="font-size:0.62rem; color:#A2937A;">detalle de cobros</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; min-width:620px;">
+          <thead><tr>
+            <sc-for list="{{ ccCols }}" as="h" hint-placeholder-count="5">
+              <th class="mono" style="text-align:{{ h.align }}; padding:0.6rem 1.2rem; font-size:0.54rem; letter-spacing:0.09em; text-transform:uppercase; color:#A2937A; font-weight:500; border-top:1px solid rgba(31,24,12,.06); border-bottom:1px solid rgba(31,24,12,.06);">{{ h.label }}</th>
+            </sc-for>
+          </tr></thead>
+          <tbody>
+            <sc-for list="{{ ccRows }}" as="r" hint-placeholder-count="8">
+              <tr style="transition:background .15s;" style-hover="background:#FBF6EC;">
+                <td class="mono" style="padding:0.6rem 1.2rem; font-size:0.76rem; color:#B8860B; border-bottom:1px solid rgba(31,24,12,.05);">{{ r.folio }}</td>
+                <td style="padding:0.6rem 1.2rem; font-size:0.8rem; color:#211A10; border-bottom:1px solid rgba(31,24,12,.05);">{{ r.cliente }}</td>
+                <td style="padding:0.6rem 1.2rem; font-size:0.78rem; color:#6E624E; border-bottom:1px solid rgba(31,24,12,.05);">{{ r.vendedor }}</td>
+                <td class="mono" style="text-align:right; padding:0.6rem 1.2rem; font-size:0.8rem; font-weight:500; color:#0E7C5A; border-bottom:1px solid rgba(31,24,12,.05);">{{ r.monto }}</td>
+                <td class="mono" style="padding:0.6rem 1.2rem; font-size:0.74rem; color:#A2937A; border-bottom:1px solid rgba(31,24,12,.05);">{{ r.fecha }}</td>
+              </tr>
+            </sc-for>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;accentColor&quot;: { &quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#E0B341&quot;, &quot;options&quot;: [&quot;#E0B341&quot;,&quot;#B8860B&quot;,&quot;#C2410C&quot;,&quot;#2563EB&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Marca&quot; }
+}">
+class Component extends DCLogic {
+  componentDidMount() {
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const run = () => {
+      const root = document.getElementById('sp-root') || document;
+      const ease = 'cubic-bezier(.18,.7,.25,1)', easeBar = 'cubic-bezier(.3,.85,.3,1)';
+      const rise = (el, d) => { try { el.animate([{ opacity: 0, transform: 'translateY(26px)' }, { opacity: 1, transform: 'none' }], { duration: 640, delay: d, easing: ease, fill: 'backwards' }); } catch (e) {} };
+      root.querySelectorAll('.sp-rise').forEach((el, i) => rise(el, 50 + i * 80));
+      root.querySelectorAll('.sp-grid').forEach(g => [...g.children].forEach((c, i) => rise(c, 150 + i * 70)));
+      root.querySelectorAll('.sp-bar-fill').forEach((b, i) => { try { b.animate([{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }], { duration: 1000, delay: 300 + (i % 8) * 45, easing: easeBar, fill: 'backwards' }); } catch (e) {} });
+      root.querySelectorAll('.sp-draw').forEach((p, i) => { try { p.animate([{ strokeDashoffset: 1000 }, { strokeDashoffset: 0 }], { duration: 1300, delay: 500 + i * 80, easing: 'cubic-bezier(.3,.85,.3,1)', fill: 'backwards' }); } catch (e) {} });
+      root.querySelectorAll('.sp-vbar').forEach((b, i) => { try { b.animate([{ transform: 'scaleY(0)' }, { transform: 'scaleY(1)' }], { duration: 720, delay: 250 + (i % 16) * 35, easing: easeBar, fill: 'backwards' }); } catch (e) {} });
+      root.querySelectorAll('.sp-donut').forEach(d => { try { d.animate([{ opacity: 0, transform: 'rotate(-150deg) scale(.82)' }, { opacity: 1, transform: 'rotate(-90deg) scale(1)' }], { duration: 1000, delay: 360, easing: ease, fill: 'backwards' }); } catch (e) {} });
+      root.querySelectorAll('.sp-count').forEach((el, i) => {
+        const raw = (el.textContent || '').trim();
+        const m = raw.match(/^([^\d-]*)(-?[\d,]+(?:\.\d+)?)(.*)$/);
+        if (!m) return;
+        const pre = m[1], suf = m[3], dec = (m[2].split('.')[1] || '').length;
+        const target = parseFloat(m[2].replace(/,/g, ''));
+        if (!isFinite(target)) return;
+        const dur = 1100, t0 = performance.now() + 300 + (i % 8) * 55;
+        const fmtN = v => v.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+        el.dataset.cv = raw;
+        const step = now => { let p = Math.max(0, Math.min(1, (now - t0) / dur)); p = 1 - Math.pow(1 - p, 3); el.textContent = pre + fmtN(target * p) + suf; if (p < 1) requestAnimationFrame(step); else el.textContent = raw; };
+        requestAnimationFrame(step);
+      });
+    };
+    const root0 = document.getElementById('sp-root');
+    const guarded = () => { if (root0 && root0.dataset.spAnimated) return; if (root0) root0.dataset.spAnimated = '1'; run(); };
+    requestAnimationFrame(() => requestAnimationFrame(guarded));
+    setTimeout(guarded, 170);
+    setTimeout(() => { try { const r = document.getElementById('sp-root') || document; const fin = el => el.getAnimations && el.getAnimations().forEach(a => { if (a.effect && a.effect.getTiming().iterations !== Infinity) a.finish(); }); r.querySelectorAll('.sp-rise,.sp-bar-fill,.sp-vbar,.sp-donut,.sp-draw').forEach(fin); r.querySelectorAll('.sp-grid').forEach(g => [...g.children].forEach(fin)); r.querySelectorAll('.sp-count').forEach(el => { if (el.dataset.cv) el.textContent = el.dataset.cv; }); } catch (e) {} }, 2800);
+  }
+  renderVals() {
+    const navItems = [
+      ['Inicio', 'Inicio.dc.html', false], ['Ventas', 'Ventas.dc.html', false], ['Cobradas', 'Cobradas.dc.html', true],
+      ['Vendedores', '#', false], ['CxC', 'CxC.dc.html', false], ['Clientes', 'Clientes.dc.html', false],
+      ['Director', 'Director.dc.html', false], ['Inventario', 'Inventario.dc.html', false], ['P&L', '#', false]
+    ];
+    const nav = navItems.map(([label, href, active]) => ({
+      label, href, color: active ? '#241A08' : '#6E624E',
+      bg: active ? 'linear-gradient(135deg, rgba(246,210,121,.5), rgba(224,179,65,.28))' : 'transparent', weight: active ? 600 : 500
+    }));
+    const kpiCards = [
+      ['Cobros', 'Total cobrado del mes', '$1,603,572.69', '#067647', '#0E9F6E', '308 facturas', 'sp-count'],
+      ['Facturación', 'Total facturado (base cobros)', '$1,391,490.69', '#1D4FD8', '#2F6BFF', '115% de conversión', 'sp-count'],
+      ['Comisiones', 'Total comisiones 8% cobro', '$128,285.82', '#B8860B', '#E0B341', '8% sobre monto cobrado', 'sp-count'],
+      ['Promedio', 'Ticket promedio cobrado', '$5,206', '#C2410C', '#D98324', '308 facturas en periodo', 'sp-count'],
+      ['Mejor', 'Vendedor top del mes', 'CONSIGNA', '#5B43C9', '#7C5CFC', '$35,046 en comisión', '']
+    ].map(k => ({ mod: k[0], label: k[1], value: k[2], vcolor: k[3], accent: k[4], sub: k[5], countCls: k[6] }));
+    const comCols = [['#', 'left'], ['Vendedor', 'left'], ['Facturas', 'right'], ['Venta Base', 'right'], ['Cobrado', 'right'], ['% Cobro', 'right'], ['Comisión 8%', 'right']].map(c => ({ label: c[0], align: c[1] }));
+    const palette = ['#B8860B', '#2563EB', '#0E7490', '#9C6B45', '#0E9F6E', '#7C5CFC', '#B0668A'];
+    const vRaw = [
+      ['CONSIGNA', 72, 445284.54, 412300.50, 35045.54, true],
+      ['A. Lozano', 58, 344131.42, 318640.20, 26128.50, false],
+      ['M. Treviño', 47, 285671.66, 264510.80, 21160.86, false],
+      ['J. Cantú', 41, 224996.83, 208330.40, 16249.77, false],
+      ['R. Salas', 36, 178653.76, 165420.15, 12406.51, false],
+      ['P. Gómez', 30, 144947.45, 134210.60, 10736.85, false],
+      ['L. Vega', 24, 108172.84, 100160.04, 6557.79, false]
+    ];
+    const money = n => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const comRows = vRaw.map((v, i) => ({
+      rank: i + 1, name: v[0], color: palette[i], fac: v[1],
+      base: money(v[2]), cobrado: money(v[3]),
+      pct: (v[3] / v[2] * 100).toFixed(1) + '%', com: money(v[4]),
+      rowBg: v[5] ? '#FFFCF4' : '#FFFFFF',
+      topBadge: v[5] ? React.createElement('span', { style: { fontFamily: "'DM Mono',monospace", fontSize: '0.56rem', color: '#B8860B', background: '#FBF1DC', border: '1px solid #F0DDB0', padding: '1px 6px', borderRadius: '5px', marginLeft: '6px', textTransform: 'uppercase', letterSpacing: '0.06em' } }, 'Top') : ''
+    }));
+    const total = 1603572.69, C = 2 * Math.PI * 54;
+    let off = 0;
+    const donut = vRaw.map((v, i) => {
+      const frac = v[3] / total, len = frac * C;
+      const seg = { name: v[0], color: palette[i], dash: len.toFixed(2) + ' ' + (C - len).toFixed(2), off: (-off).toFixed(2), pct: (frac * 100).toFixed(1) + '%' };
+      off += len; return seg;
+    });
+    const baseMax = vRaw[0][2];
+    const cobrosM = [1120000, 1185000, 1290000, 1380000, 1460000, 1603572];
+    const comisionM = cobrosM.map(v => Math.round(v * 0.08));
+    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'];
+    const maxC = cobrosM[cobrosM.length - 1];
+    const padL = 30, plotW = 560, plotH = 166, slot = plotW / 6, barW = 34, baseY = 176;
+    const evoBars = cobrosM.map((v, i) => {
+      const cx = padL + i * slot + slot / 2;
+      const h = v / maxC * plotH;
+      return { x: (cx - barW / 2).toFixed(0), y: (baseY - h).toFixed(0), w: barW, h: h.toFixed(0), cx: cx.toFixed(0) };
+    });
+    const maxCom = Math.max(...comisionM);
+    const evoCircles = comisionM.map((v, i) => {
+      const cx = padL + i * slot + slot / 2;
+      const y = baseY - (v / maxCom * plotH * 0.92);
+      return { x: cx.toFixed(0), y: y.toFixed(1) };
+    });
+    const evoLinePoints = evoCircles.map(c => c.x + ',' + c.y).join(' ');
+    const evoLabels = evoBars.map((b, i) => ({ x: b.cx, label: months[i] }));
+    const ultimas = [
+      ['F-10492', 'Aceros del Norte', '$84,210', '$6,737'], ['F-10491', 'Constructora REM', '$57,890', '$4,631'],
+      ['F-10490', 'Grupo Ferre', '$38,720', '$3,098'], ['F-10489', 'Industrias Vela', '$72,940', '$5,835'],
+      ['F-10488', 'Metales del Bajío', '$15,330', '$1,226'], ['F-10487', 'Taller Díaz', '$9,140', '$731'],
+      ['F-10486', 'Aceros del Norte', '$66,500', '$5,320']
+    ].map(f => ({ folio: f[0], cliente: f[1], monto: f[2], comision: f[3] }));
+    const ccCols = [['Folio', 'left'], ['Cliente', 'left'], ['Vendedor', 'left'], ['Monto', 'right'], ['Fecha', 'left']].map(c => ({ label: c[0], align: c[1] }));
+    const ccRows = [
+      ['CR-8841', 'Aceros del Norte', 'A. Lozano', '$84,210', '30 jun'],
+      ['CR-8840', 'Constructora REM', 'M. Treviño', '$57,890', '30 jun'],
+      ['CR-8839', 'Industrias Vela', 'J. Cantú', '$72,940', '29 jun'],
+      ['CR-8838', 'Grupo Ferre', 'R. Salas', '$38,720', '29 jun'],
+      ['CR-8837', 'Taller Díaz', 'P. Gómez', '$9,140', '29 jun'],
+      ['CR-8836', 'Metales del Bajío', 'L. Vega', '$15,330', '28 jun'],
+      ['CR-8835', 'Aceros del Norte', 'A. Lozano', '$66,500', '28 jun'],
+      ['CR-8834', 'Industrias Vela', 'M. Treviño', '$41,220', '27 jun']
+    ].map(r => ({ folio: r[0], cliente: r[1], vendedor: r[2], monto: r[3], fecha: r[4] }));
+    return { nav, kpiCards, comCols, comRows, donut, evoBars, evoCircles, evoLinePoints, evoLabels, ultimas, ccCols, ccRows };
+  }
+}
+</script>
+</body>
+</html>
