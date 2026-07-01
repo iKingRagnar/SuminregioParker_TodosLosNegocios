@@ -52,7 +52,7 @@
       // Sistema visual Claude Design (tokens + componentes .sp-*). Antes de premium-uplift.
       addLink('vp-design-system', '/design-system.css?v=1');
       // Premium uplift (reskin Claude Design) — se carga AL FINAL para mandar sobre el resto del cascade.
-      addLink('vp-premium-css', '/premium-uplift.css?v=17');
+      addLink('vp-premium-css', '/premium-uplift.css?v=18');
 
       // Manifest PWA
       if (!document.querySelector('link[rel="manifest"]')) {

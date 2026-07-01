@@ -100,6 +100,11 @@ html[data-theme="light"] .kpi-card.pu-zero::before,.kpi-card.pu-zero::before{ ba
 .kpi.purple .kpi-val,.kpi.purple .kpi-value{color:#5B43C9 !important;}
 .kpi.red .kpi-val,.kpi.red .kpi-value{color:#B42318 !important;}
 .kpi-value{ font-size:1.4rem !important; font-weight:500 !important; line-height:1.05 !important; margin:0 !important; }
+/* cifras completas (sin "…"): el app truncaba con ellipsis; se deja visible y los "Indicadores
+   del día" (kpi-mega-grid, 6 por fila) se hacen un poco más anchos para que quepa el valor con centavos */
+html[data-theme="light"] .kpi-value, html.theme-premium-light .kpi-value, .kpi-value, .kpi-val{ overflow:visible !important; text-overflow:clip !important; }
+.kpi-mega-grid{ grid-template-columns:repeat(auto-fit,minmax(232px,1fr)) !important; }
+.kpi-mega-grid .kpi-value{ font-size:1.25rem !important; }
 .kpi-label{ font-size:.54rem !important; display:flex !important; align-items:center !important; gap:.45rem !important; margin:0 !important; }
 .kpi-sub{ font-size:.57rem !important; color:var(--pu-mono-label) !important; line-height:1.4 !important; margin:0 !important; }
 .kpi-label [class*="trend"],.kpi-label [class*="yoy"],.kpi-trend-v{ opacity:.55 !important; font-size:.5rem !important; }
