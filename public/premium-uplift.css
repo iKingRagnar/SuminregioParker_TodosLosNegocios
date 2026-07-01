@@ -26,16 +26,13 @@
   --pu-border:1px solid rgba(31,24,12,.08);
 }
 
-/* ── Base tipográfica + fondo cálido (el fondo lo refuerza premium-uplift.js) ── */
+/* ── Base tipográfica + fondo crema cálido ──────────────────────────────────────
+   El color visible lo refuerza premium-uplift.js recoloreando las capas fijas
+   (aurora/lux) que la app pinta en z-index:-1 sobre el body. Aquí solo el fallback. */
 html[data-theme="light"] body, html.theme-premium-light body, html body, body{
   font-family:var(--pu-body) !important;
   color:var(--pu-text);
-  background:#EFE9DC !important;
-  background-image:
-    radial-gradient(1200px 720px at 6% -8%, rgba(224,179,65,.18), transparent 55%),
-    radial-gradient(1100px 760px at 104% 6%, rgba(120,86,40,.08), transparent 52%),
-    linear-gradient(180deg,#FBF7EE 0%,#F2ECDE 60%,#EDE6D6 100%) !important;
-  background-attachment:fixed !important;
+  background:#E8DEC8 !important;
 }
 ::selection{background:rgba(224,179,65,.26);}
 .page,main,#app-content,.dash{background:transparent !important;}
@@ -76,11 +73,11 @@ body.ms-page-admin .page-title{
 
 /* ── KPI: fondo crema + barra de acento 3px + ícono en cuadro (paridad diseño) ─ */
 .kpi-card{
-  position:relative !important; overflow:hidden !important; padding:1.15rem 1.2rem !important;
+  position:relative !important; overflow:hidden !important; padding:.85rem 1rem .95rem !important;
   background:linear-gradient(170deg,#FFFFFF,#FBF6EC) !important;
-  border:1px solid rgba(31,24,12,.08) !important; border-radius:18px !important;
-  box-shadow:0 12px 30px -20px rgba(40,28,12,.3) !important;
-  display:flex !important; flex-direction:column !important; gap:.55rem !important;
+  border:1px solid rgba(31,24,12,.08) !important; border-radius:16px !important;
+  box-shadow:0 10px 26px -20px rgba(40,28,12,.35) !important;
+  display:flex !important; flex-direction:column !important; gap:.4rem !important;
 }
 .kpi-card::before{ content:'' !important; position:absolute !important; top:0; left:0; right:0; height:3px !important; z-index:2; background:#B8860B; }
 .kpi-card.blue::before{background:#2563EB !important;}   .kpi-card.blue .kpi-value{color:#2563EB !important;}
@@ -89,14 +86,14 @@ body.ms-page-admin .page-title{
 .kpi-card.orange::before{background:#D98324 !important;} .kpi-card.orange .kpi-value{color:#C2410C !important;}
 .kpi-card.purple::before{background:#7C5CFC !important;} .kpi-card.purple .kpi-value{color:#5B43C9 !important;}
 .kpi-card.red::before{background:#D92D20 !important;}    .kpi-card.red .kpi-value{color:#B42318 !important;}
-.kpi-value{ font-size:1.55rem !important; font-weight:500 !important; line-height:1.05 !important; margin:0 !important; }
-.kpi-label{ font-size:.56rem !important; display:flex !important; align-items:center !important; gap:.5rem !important; margin:0 !important; }
-.kpi-sub{ font-size:.6rem !important; color:var(--pu-mono-label) !important; line-height:1.45 !important; margin:0 !important; }
+.kpi-value{ font-size:1.4rem !important; font-weight:500 !important; line-height:1.05 !important; margin:0 !important; }
+.kpi-label{ font-size:.54rem !important; display:flex !important; align-items:center !important; gap:.45rem !important; margin:0 !important; }
+.kpi-sub{ font-size:.57rem !important; color:var(--pu-mono-label) !important; line-height:1.4 !important; margin:0 !important; }
 .kpi-label [class*="trend"],.kpi-label [class*="yoy"],.kpi-trend-v{ opacity:.55 !important; font-size:.5rem !important; }
-/* ícono cuadrado 30px (inyectado por premium-uplift.js) */
-.pu-kpi-ico{ width:30px !important; height:30px !important; border-radius:9px !important; background:rgba(120,90,40,.1) !important;
+/* ícono cuadrado (inyectado por premium-uplift.js) */
+.pu-kpi-ico{ width:26px !important; height:26px !important; border-radius:8px !important; background:rgba(120,90,40,.1) !important;
   display:flex !important; align-items:center !important; justify-content:center !important; flex:0 0 auto !important; }
-.pu-kpi-ico svg{ display:block; }
+.pu-kpi-ico svg{ display:block; width:14px; height:14px; }
 
 /* ── Eyebrow del encabezado (inyectado) ─────────────────────────────────────── */
 .pu-eyebrow{ font-family:var(--pu-mono) !important; font-size:.6rem !important; letter-spacing:.22em !important;

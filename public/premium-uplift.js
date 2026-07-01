@@ -31,15 +31,32 @@
     [/finanzas|resultado|p&l/i,'Finanzas'],[/meta/i,'Objetivos'],[/mejora/i,'Mejora continua'],[/uso/i,'Actividad']
   ];
 
+  /* Fondo crema cálido del diseño. Ojo: la app tiene capas decorativas fijas
+     (aurora #0B1629 + una capa lux/ms-ux con gradiente casi-blanco) en z-index:-1
+     que se pintan ENCIMA del fondo del body. Hay que recolorearlas o el crema no se ve. */
+  var PU_CREAM = '#E8DEC8';
+  var PU_GRAD =
+    'radial-gradient(1200px 720px at 6% -8%,rgba(224,179,65,.20),transparent 55%),' +
+    'radial-gradient(1000px 700px at 104% 4%,rgba(150,110,50,.10),transparent 52%),' +
+    'linear-gradient(180deg,#EDE3CE 0%,#E7DCC5 55%,#E2D7BF 100%)';
   function forceBg() {
     try {
-      var grad = 'radial-gradient(1200px 720px at 6% -8%,rgba(224,179,65,.18),transparent 55%),' +
-                 'radial-gradient(1100px 760px at 104% 6%,rgba(120,86,40,.08),transparent 52%),' +
-                 'linear-gradient(180deg,#FBF7EE 0%,#F2ECDE 60%,#EDE6D6 100%)';
-      document.documentElement.style.setProperty('background', '#EFE9DC', 'important');
-      document.body.style.setProperty('background-color', '#EFE9DC', 'important');
-      document.body.style.setProperty('background-image', grad, 'important');
-      document.body.style.setProperty('background-attachment', 'fixed', 'important');
+      document.documentElement.style.setProperty('background', PU_CREAM, 'important');
+      document.body.style.setProperty('background-color', PU_CREAM, 'important');
+      document.body.style.setProperty('background-image', 'none', 'important');
+      // Recolorear las capas decorativas fijas (z-index:-1) que tapan el fondo
+      document.querySelectorAll('div').forEach(function (el) {
+        var cs = getComputedStyle(el);
+        if (cs.position === 'fixed' && cs.zIndex === '-1') {
+          var r = el.getBoundingClientRect();
+          if (r.width > 700 && r.height > 400) {
+            el.style.setProperty('background-color', PU_CREAM, 'important');
+            el.style.setProperty('background-image', PU_GRAD, 'important');
+            // ocultar los blobs de la aurora (colores que no van en el tema claro)
+            el.querySelectorAll('.vp-blob, .vp-noise').forEach(function (b) { b.style.setProperty('display', 'none', 'important'); });
+          }
+        }
+      });
     } catch (e) { console.error('[premium] bg', e && e.message); }
   }
 
