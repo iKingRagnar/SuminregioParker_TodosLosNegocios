@@ -91,6 +91,14 @@ html[data-theme="light"] .kpi-card.pu-zero::before,.kpi-card.pu-zero::before{ ba
 .kpi-card.orange::before{background:#D98324 !important;} .kpi-card.orange .kpi-value{color:#C2410C !important;}
 .kpi-card.purple::before{background:#7C5CFC !important;} .kpi-card.purple .kpi-value{color:#5B43C9 !important;}
 .kpi-card.red::before{background:#D92D20 !important;}    .kpi-card.red .kpi-value{color:#B42318 !important;}
+/* Variante .kpi (Cobradas/otras): mismo color de valor por clase, para que las cifras
+   NO queden en negro sino con el color del diseño (verde/azul/oro/naranja/morado/rojo). */
+.kpi.blue .kpi-val,.kpi.blue .kpi-value{color:#2563EB !important;}
+.kpi.green .kpi-val,.kpi.green .kpi-value{color:#067647 !important;}
+.kpi.yellow .kpi-val,.kpi.gold .kpi-val,.kpi.yellow .kpi-value,.kpi.gold .kpi-value{color:#B8860B !important;}
+.kpi.orange .kpi-val,.kpi.orange .kpi-value{color:#C2410C !important;}
+.kpi.purple .kpi-val,.kpi.purple .kpi-value{color:#5B43C9 !important;}
+.kpi.red .kpi-val,.kpi.red .kpi-value{color:#B42318 !important;}
 .kpi-value{ font-size:1.4rem !important; font-weight:500 !important; line-height:1.05 !important; margin:0 !important; }
 .kpi-label{ font-size:.54rem !important; display:flex !important; align-items:center !important; gap:.45rem !important; margin:0 !important; }
 .kpi-sub{ font-size:.57rem !important; color:var(--pu-mono-label) !important; line-height:1.4 !important; margin:0 !important; }

@@ -193,21 +193,35 @@
   }
 
   /* KPI cards → ícono en cuadro + eyebrow (fondo crema lo pone el CSS) */
+  function mkIco(col) {
+    var ic = ICONS[col] || ICONS._def;
+    var span = document.createElement('span');
+    span.className = 'pu-kpi-ico';
+    span.style.color = ic.c;
+    span.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="' + ic.d + '"/></svg>';
+    return span;
+  }
+  function colOf(card) {
+    for (var i = 0; i < COLS.length; i++) { if (card.classList.contains(COLS[i])) return COLS[i]; }
+    return '_def';
+  }
   function kpiIcons() {
     try {
+      // .kpi-card (Ventas/Finanzas/etc.): ícono dentro de .kpi-label
       document.querySelectorAll('.kpi-card').forEach(function (card) {
         if (card.getAttribute('data-pu') === '1') return;
         var lbl = card.querySelector('.kpi-label');
         if (!lbl) return;
         card.setAttribute('data-pu', '1');
-        var col = '_def';
-        for (var i = 0; i < COLS.length; i++) { if (card.classList.contains(COLS[i])) { col = COLS[i]; break; } }
-        var ic = ICONS[col] || ICONS._def;
-        var span = document.createElement('span');
-        span.className = 'pu-kpi-ico';
-        span.style.color = ic.c;
-        span.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="' + ic.d + '"/></svg>';
-        lbl.insertBefore(span, lbl.firstChild);
+        lbl.insertBefore(mkIco(colOf(card)), lbl.firstChild);
+      });
+      // .kpi con clase de color (Cobradas/etc.): ícono dentro de .kpi-mod (eyebrow)
+      document.querySelectorAll('.kpi.blue,.kpi.green,.kpi.yellow,.kpi.gold,.kpi.orange,.kpi.purple,.kpi.red').forEach(function (card) {
+        if (card.classList.contains('kpi-card') || card.getAttribute('data-pu-ki') === '1') return;
+        var mod = card.querySelector('.kpi-mod'); if (!mod) return;
+        card.setAttribute('data-pu-ki', '1');
+        mod.style.display = 'flex'; mod.style.alignItems = 'center'; mod.style.gap = '.45rem';
+        mod.insertBefore(mkIco(colOf(card)), mod.firstChild);
       });
     } catch (e) { console.error('[premium] kpiIcons', e && e.message); }
   }
