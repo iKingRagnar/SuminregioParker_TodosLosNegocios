@@ -1827,11 +1827,18 @@
               '.sc-value,.mega-val,.proy-val,.kc-value,.aging-val';
     function fitOne(el) {
       if (!el || !el.isConnected) return;
-      // Reset: medimos desde el tamaño de diseño en cada pasada (el valor pudo cambiar).
+      var txt = el.textContent;
+      // IDEMPOTENTE: si ya se ajustó para ESTE mismo valor, salir ANTES de leer scrollWidth.
+      // Leer scrollWidth/clientWidth fuerza layout síncrono; hacerlo en cada pasada (y algo
+      // llamaba fitAll ~14/s) causaba el thrash que congelaba la página y hacía "latir" las
+      // cifras. Solo re-ajustamos cuando el valor realmente cambia.
+      if (el._fitTxt === txt) return;
+      var avail = el.clientWidth;              // ancho útil = caja del texto (card − padding)
+      if (avail <= 0) return;                  // inline/oculto/aún sin layout: reintentar luego (no marcar)
+      el._fitTxt = txt;
+      // Reset: medimos desde el tamaño de diseño (el valor cambió).
       el.style.fontSize = '';
       el.style.whiteSpace = 'nowrap';
-      var avail = el.clientWidth;              // ancho útil = caja del texto (card − padding)
-      if (avail <= 0) return;                  // inline/oculto: no lo tocamos
       var guard = 0;
       while (el.scrollWidth > avail + 0.5 && guard < 40) {
         var cur = parseFloat(window.getComputedStyle(el).fontSize) || 16;
