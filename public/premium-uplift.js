@@ -233,6 +233,17 @@
     } catch (e) { console.error('[premium] kpiZero', e && e.message); }
   }
 
+  /* Detener el conteo de números (animateNum del app + sp-count): mostrar el valor final ya. */
+  function killCountUp() {
+    try {
+      document.querySelectorAll('.kpi-val[data-val],.kpi-num[data-val]').forEach(function (el) {
+        el._ms_counted = true; // evita que app-ui-boot lo cuente
+        var f = el.getAttribute('data-val'); if (f != null && f !== '') el.textContent = f;
+      });
+      document.querySelectorAll('.sp-count[data-cv]').forEach(function (el) { el.textContent = el.dataset.cv; });
+    } catch (e) { console.error('[premium] killCountUp', e && e.message); }
+  }
+
   /* Pills de resumen del "Universo" → translúcidos sobre la banda oscura (app los pinta blancos) */
   function uniPills() {
     try {
@@ -285,11 +296,11 @@
   }
 
   /* Corre todas las mejoras de paridad (idempotente) */
-  function enhance() { logoMark(); navIcons(); userAvatar(); headerEyebrow(); headerPill(); kpiIcons(); kpiZero(); uniPills(); groupNav(); }
+  function enhance() { logoMark(); navIcons(); userAvatar(); headerEyebrow(); headerPill(); kpiIcons(); kpiZero(); uniPills(); killCountUp(); groupNav(); }
 
   function init() {
     forceBg(); styleCharts(); enhance();
-    requestAnimationFrame(function () { requestAnimationFrame(animate); });
+    // Animaciones de entrada DESACTIVADAS a pedido del usuario (nada se mueve al cargar).
     // Re-aplica tras render async de KPIs / login footer / theme toggles
     [250, 700, 1400, 2600].forEach(function (ms) { setTimeout(function () { forceBg(); enhance(); }, ms); });
     // Observa cambios del DOM (KPIs que se pintan al cargar datos).

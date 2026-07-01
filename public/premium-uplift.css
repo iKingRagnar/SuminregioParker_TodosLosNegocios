@@ -165,12 +165,15 @@ td.t-rank,.t-name .rank,.sc-rank,td:first-child .rank{ color:#B8860B !important;
 .uni-portfolio,.hero-panel,.exec-mission{ border-radius:18px !important; }
 .intel-bar{ border-radius:18px !important; }
 
-/* ── Helpers de animación (los dispara premium-uplift.js) ───────────────────── */
-.sp-rise,.ms-reveal{ will-change:transform,opacity; }
-@keyframes pu-blink{0%,100%{opacity:1}50%{opacity:.3}}
-@media (prefers-reduced-motion: reduce){
-  .sp-rise,.ms-reveal,.sp-bar-fill,.sp-vbar,.sp-draw{ animation:none !important; opacity:1 !important; transform:none !important; }
+/* ── Animaciones de movimiento DESACTIVADAS (a pedido del usuario) ────────────
+   Nada de entrada que suba/deslice ni números que salten: todo en su estado final. */
+.ms-reveal,.ms-reveal.is-visible,.sp-rise,.sp-pop,.sp-bar-fill,.sp-vbar,.sp-draw,
+.kpi-card,.sc-card,.kpi-mega-grid > *,.kpi-grid > *,.sc-grid > *,.uni-card-grid > *,.aging-grid > *{
+  opacity:1 !important; transform:none !important; animation:none !important;
+  transition:box-shadow .26s, border-color .26s, background-color .2s, color .2s !important;
 }
+/* el hover de tarjetas sí puede animar (no es movimiento de carga) */
+.kpi-card:hover,.sc-card:hover,.card:hover,.kpi:hover,.aging-bkt:hover{ transition:transform .26s cubic-bezier(.22,.7,.25,1), box-shadow .26s, border-color .26s !important; }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    INICIO — "Universo de negocios" con la estructura de design/handoff/pages/Inicio.dc.html
