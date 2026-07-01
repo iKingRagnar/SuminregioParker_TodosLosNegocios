@@ -270,6 +270,22 @@
     } catch (e) { console.error('[premium] uniPills', e && e.message); }
   }
 
+  /* Tarjetas de entidad (Universo): mover el badge de cartera al header (arriba-derecha),
+     como la referencia. Por defecto el app lo pone al final de la card. */
+  function scCards() {
+    try {
+      document.querySelectorAll('.sc-card').forEach(function (card) {
+        if (card.getAttribute('data-pu-sc') === '1') return;
+        var badge = card.querySelector('.sc-badge');
+        var header = card.querySelector('.sc-header');
+        if (badge && header && badge.parentElement !== header) {
+          card.setAttribute('data-pu-sc', '1');
+          header.appendChild(badge);
+        }
+      });
+    } catch (e) { console.error('[premium] scCards', e && e.message); }
+  }
+
   function styleCharts() {
     try {
       if (!window.Chart || !Chart.defaults) return;
@@ -309,7 +325,7 @@
   }
 
   /* Corre todas las mejoras de paridad (idempotente) */
-  function enhance() { logoMark(); navIcons(); userAvatar(); headerEyebrow(); headerPill(); kpiIcons(); kpiZero(); uniPills(); killCountUp(); groupNav(); }
+  function enhance() { logoMark(); navIcons(); userAvatar(); headerEyebrow(); headerPill(); kpiIcons(); kpiZero(); uniPills(); scCards(); killCountUp(); groupNav(); }
 
   function init() {
     forceBg(); styleCharts(); enhance();

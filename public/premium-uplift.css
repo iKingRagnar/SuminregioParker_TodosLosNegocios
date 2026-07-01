@@ -225,6 +225,25 @@ article.sc-card{
 .sc-name{ font-family:var(--pu-serif) !important; font-weight:600 !important; color:#211A10 !important; }
 .sc-kpi,.sc-kpi-val,.sc-kpi-lbl{ font-family:var(--pu-mono) !important; }
 
+/* ── Tarjetas de entidad (Universo) — layout ELEGANTE 1:1 con Inicio.dc.html ──────
+   Barra de color a la izquierda, badge de cartera arriba-derecha (movido por JS al
+   header), mini-KPIs SIN caja gris (label+valor), nombre completo, tarjetas más anchas. */
+.uni-card-grid, #uniCardGrid{ grid-template-columns:repeat(auto-fill,minmax(340px,1fr)) !important; }
+.sc-card::before{ top:0 !important; left:0 !important; right:auto !important; bottom:0 !important;
+  width:4px !important; height:auto !important; background:var(--vc,#B8860B) !important; opacity:1 !important; }
+article.sc-card, .sc-card{ padding-left:1.35rem !important; }
+.sc-header{ display:flex !important; align-items:flex-start !important; gap:.65rem !important; position:relative !important; }
+.sc-header > *:nth-child(2){ flex:1 1 auto !important; min-width:0 !important; overflow:visible !important; }
+.sc-avatar{ border-radius:13px !important; width:46px !important; height:46px !important; margin-top:.1rem !important; }
+.sc-name{ font-family:var(--pu-serif) !important; font-size:1rem !important; font-weight:600 !important; line-height:1.12 !important;
+  white-space:normal !important; overflow:visible !important; text-overflow:clip !important; }
+.sc-badge{ position:static !important; flex:0 0 auto !important; align-self:flex-start !important; white-space:nowrap !important;
+  margin:0 !important; font-size:.55rem !important; padding:.16rem .5rem !important; gap:.3rem !important; line-height:1.1 !important; }
+.sc-kpis{ grid-template-columns:1.4fr 1fr 1.1fr !important; gap:.5rem !important; }
+.sc-kpi{ background:transparent !important; padding:0 !important; text-align:left !important; }
+.sc-kpi-lbl{ text-align:left !important; }
+.sc-kpi-val{ text-align:left !important; overflow:visible !important; text-overflow:clip !important; white-space:nowrap !important; }
+
 /* ── Banner decorativo del app (Director, etc.) → panel oscuro espresso ──────────
    La referencia usa un hero oscuro; el banner del app quedaba como banda blanca vacía.
    Se adapta con los tokens del diseño para que combine (no se borra: es decorativo). */
