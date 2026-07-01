@@ -416,8 +416,14 @@
   var FIT_SEL = '.kpi-value,.kpi-v,.kpi-val,.sc-kpi-val,.stat-val,.mod-kpi-val,.mc-kpi-val,.bg-kpi-val,.kpi-num,.metric-val,.sc-val,.uni-ec-m .m-v,.u-v,.kc-value,.pill-value';
   function fitValue(el) {
     if (!el || !el.offsetParent) return;             // invisible → omitir
+    var txt = el.textContent;
+    // IDEMPOTENTE: si ya se ajustó para ESTE mismo valor y ancho, salir ANTES de leer
+    // scrollWidth. Sin esto, el MutationObserver re-ejecutaba fitAll ~10/s y cada pasada
+    // reseteaba y re-medía (forzando layout) → thrash que congelaba y hacía "latir" las cifras.
     var w = el.clientWidth;
     if (!w) return;
+    if (el._kcFit === txt && el._kcW === w) return;
+    el._kcFit = txt; el._kcW = w;
     // reset al tamaño de CSS. Usamos setProperty con 'important' porque las
     // reglas de tamaño del tema llevan !important y de otro modo ganarían al
     // estilo inline (por eso un fitter sin 'important' no tenía efecto).
