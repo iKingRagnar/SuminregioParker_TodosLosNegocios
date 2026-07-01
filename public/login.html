@@ -1004,6 +1004,37 @@
     border-radius: 14px !important; font-weight: 700 !important; padding: .95rem 1.2rem !important; font-size: 1rem !important;
   }
 </style>
+<!-- ═══ RESKIN Claude Design (login) — solo visual, no toca el form ni su lógica ═══ -->
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Outfit:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style id="pu-login">
+/* fondo crema cálido + ocultar aurora oscura (ref Login.dc.html) */
+body{background:#EFE9DC!important;font-family:'Outfit',system-ui,sans-serif!important;color:#211A10!important;}
+.login-bg,.login-grid-overlay,.login-particles,.login-bg-vignette{display:none!important;}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(1200px 720px at 8% -10%,rgba(224,179,65,.22),transparent 55%),radial-gradient(1100px 760px at 104% 8%,rgba(120,86,40,.10),transparent 52%),linear-gradient(180deg,#FBF7EE 0%,#F1EBDD 58%,#E9E1CF 100%);}
+.shell{position:relative;z-index:2;background:#FBF8F1!important;border:1px solid rgba(31,24,12,.08)!important;border-radius:30px!important;box-shadow:0 50px 120px -45px rgba(40,28,12,.5),0 18px 44px -28px rgba(40,28,12,.28)!important;overflow:hidden!important;}
+/* panel marca (izquierda) → espresso oscuro */
+.glass-panel--info{background:linear-gradient(158deg,#1C150D 0%,#322310 38%,#6A4A1C 80%,#95682A 100%)!important;border:none!important;color:#F2E9D6!important;backdrop-filter:none!important;}
+.glass-panel--info h2{font-family:'Fraunces',serif!important;font-weight:600!important;color:#F7EFDE!important;-webkit-text-fill-color:#F7EFDE!important;background:none!important;}
+.glass-panel--info h2 .gold{font-family:'Fraunces',serif!important;font-style:italic!important;-webkit-text-fill-color:transparent!important;background:linear-gradient(105deg,#F9DD8E,#E9BD56,#C79433,#F9DD8E)!important;-webkit-background-clip:text!important;background-clip:text!important;}
+.glass-panel--info .lead{color:#D8C7A4!important;}
+.glass-panel--info .features li{color:#EADFC8!important;border-color:rgba(240,200,104,.14)!important;}
+.glass-panel--info .site-tag{color:#F0C868!important;border:1px solid rgba(240,200,104,.35)!important;background:rgba(240,200,104,.08)!important;}
+.glass-panel--info .stat-pill{color:#D8C7A4!important;border:1px solid rgba(240,200,104,.22)!important;background:rgba(255,255,255,.05)!important;}
+.glass-panel--info .stat-pill .stat-val{color:#F0C868!important;font-family:'DM Mono',monospace!important;}
+.glass-panel--info .pill{color:#E6D3AC!important;border:1px solid rgba(240,200,104,.28)!important;background:transparent!important;}
+/* panel acceso (derecha) → crema */
+.glass-panel--auth{background:linear-gradient(180deg,#FFFFFF 0%,#FBF7EE 100%)!important;border:none!important;color:#211A10!important;backdrop-filter:none!important;}
+.glass-panel--auth .card-head h1,.glass-panel--auth .card-head h2,.glass-panel--auth .card-head strong{font-family:'Fraunces',serif!important;color:#211A10!important;}
+.glass-panel--auth .card-head p{color:#8A7C64!important;}
+.glass-panel--auth .field label{font-family:'DM Mono',monospace!important;color:#7A6B52!important;}
+.glass-panel--auth .field input[type=text],.glass-panel--auth .field input[type=password],.glass-panel--auth #email,.glass-panel--auth #pw{background:#fff!important;border:1px solid rgba(31,24,12,.13)!important;color:#211A10!important;border-radius:13px!important;font-family:'Outfit',sans-serif!important;}
+.glass-panel--auth .field .hint{color:#A2937A!important;}
+.glass-panel--auth #btn{background:linear-gradient(135deg,#F6D279 0%,#E0B341 45%,#B8860B 100%)!important;color:#241A08!important;border:none!important;border-radius:14px!important;box-shadow:0 14px 30px -10px rgba(184,134,11,.6),inset 0 1px 0 rgba(255,255,255,.55)!important;font-family:'Outfit',sans-serif!important;font-weight:600!important;}
+.glass-panel--auth .access-foot h3{font-family:'DM Mono',monospace!important;color:#A2937A!important;}
+.glass-panel--auth .access-grid > *{background:linear-gradient(165deg,#FFFFFF,#FBF4E4)!important;border:1px solid rgba(31,24,12,.08)!important;color:#211A10!important;border-radius:15px!important;}
+.glass-panel--auth .access-grid strong{font-family:'Fraunces',serif!important;color:#211A10!important;}
+.glass-panel--auth .lock{background:linear-gradient(135deg,rgba(246,210,121,.25),rgba(224,179,65,.08))!important;border:1px solid rgba(224,179,65,.28)!important;}
+</style>
 </head>
 <body>
   <div class="login-bg" id="loginBg" aria-hidden="true"></div>
