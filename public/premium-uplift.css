@@ -240,7 +240,8 @@ article.sc-card, .sc-card{ padding-left:1.35rem !important; }
 .sc-badge{ position:static !important; flex:0 0 auto !important; align-self:flex-start !important; white-space:nowrap !important;
   margin:0 !important; font-size:.55rem !important; padding:.16rem .5rem !important; gap:.3rem !important; line-height:1.1 !important; }
 .sc-kpis{ grid-template-columns:1.4fr 1fr 1.1fr !important; gap:.5rem !important; }
-.sc-kpi{ background:transparent !important; padding:0 !important; text-align:left !important; }
+/* mayor especificidad: el app fija .sc-kpi con html[data-theme="light"] !important y de otro modo gana */
+html[data-theme="light"] .sc-kpi, html.theme-premium-light .sc-kpi, .sc-kpi{ background:transparent !important; border:none !important; padding:0 !important; text-align:left !important; }
 .sc-kpi-lbl{ text-align:left !important; }
 .sc-kpi-val{ text-align:left !important; overflow:visible !important; text-overflow:clip !important; white-space:nowrap !important; }
 
