@@ -71,7 +71,12 @@ body.ms-page-admin .page-title{
   transform:translateY(-4px) !important; box-shadow:var(--pu-shadow-hover) !important; border-color:rgba(224,179,65,.4) !important;
 }
 
-/* ── KPI: fondo crema + barra de acento 3px + ícono en cuadro (paridad diseño) ─ */
+/* ── KPI: fondo crema + barra de acento 3px + ícono en cuadro (paridad diseño) ─
+   PREFIJO DE TEMA para GANAR especificidad al app (html[data-theme=light] .kpi-card{background:#fff!important}).
+   Sin esto: fondo blanco + position:static → la barra ::before no se ancla a la tarjeta y no se ve. */
+html[data-theme="light"] .kpi-card,
+html.theme-premium-light .kpi-card,
+html.theme-premium-light[data-theme="light"] .kpi-card,
 .kpi-card{
   position:relative !important; overflow:hidden !important; padding:.9rem 1.05rem 1rem !important;
   background:linear-gradient(160deg,#FDFBF5,#F4EDDC) !important;
@@ -79,12 +84,17 @@ body.ms-page-admin .page-title{
   box-shadow:0 10px 26px -20px rgba(40,28,12,.35) !important;
   display:flex !important; flex-direction:column !important; gap:.45rem !important;
 }
+/* Grid de KPIs (.kpi-grid, usado en Ventas y otras): tarjetas anchas como el diseño
+   (antes 5 apretadas por fila). auto-fit + minmax = se ajustan al ancho, ~3 por fila en desktop. */
+html[data-theme="light"] .kpi-grid,
+html.theme-premium-light .kpi-grid,
+.kpi-grid{ grid-template-columns:repeat(auto-fit,minmax(340px,1fr)) !important; gap:1rem !important; }
 /* extras del app (info "(i)", trend YoY) más sutiles, como el diseño limpio */
 .kpi-card .kpi-i,.kpi-card [class*="info-dot"],.kpi-card .info-i{ opacity:.35 !important; }
 /* KPI con valor CERO → gris mudo (como el diseño); accent gris con alta especificidad */
 html.theme-premium-light[data-theme="light"] .kpi-card.pu-zero::before,
 html[data-theme="light"] .kpi-card.pu-zero::before,.kpi-card.pu-zero::before{ background:#B9AE98 !important; }
-.kpi-card::before{ content:'' !important; position:absolute !important; top:0; left:0; right:0; height:3px !important; z-index:2; background:#B8860B; }
+.kpi-card::before{ content:'' !important; position:absolute !important; top:0; left:0; right:0; height:4px !important; z-index:2; background:#B8860B; }
 .kpi-card.blue::before{background:#2563EB !important;}   .kpi-card.blue .kpi-value{color:#2563EB !important;}
 .kpi-card.green::before{background:#0E9F6E !important;}  .kpi-card.green .kpi-value{color:#067647 !important;}
 .kpi-card.yellow::before,.kpi-card.gold::before{background:#E0B341 !important;} .kpi-card.yellow .kpi-value,.kpi-card.gold .kpi-value{color:#B8860B !important;}

@@ -1794,10 +1794,13 @@
     if (de.getAttribute('data-theme') !== 'light' && !de.classList.contains('theme-premium-light')) return;
     var sel = '.kpi-card,.kpi,.card,.sc-card,.aging-bkt,.intel-bar,.exec-score-wrap,.insight-box,.pl-sc-card,.pl-mini-wrap,.module-card,.uni-entity-card,.biz-card,.kpi-block,.ranking-card,.events-wrap,.bg-kpi,.bg-box,.bg-viz-card,.bg-classic,.bg-ratio,.live-preview,.ccard,.tcard,.uni-sum-pill';
     document.querySelectorAll(sel).forEach(function(el) {
-      el.style.setProperty('background','#ffffff','important');
+      // RESKIN Claude Design: NO forzar fondo blanco — el diseño usa tarjetas crema con
+      // barra de acento. Forzar #fff inline con !important pisaba TODO el reskin (un inline
+      // !important le gana a cualquier hoja de estilo). Solo se conserva backdrop:none (las
+      // tarjetas no son de vidrio en tema claro) y el arreglo de contraste de texto.
       el.style.setProperty('backdrop-filter','none','important');
       el.style.setProperty('-webkit-backdrop-filter','none','important');
-      _fixTextContrastIn(el);                               // ← texto legible sobre el blanco forzado
+      _fixTextContrastIn(el);                               // ← texto legible sobre fondo claro
     });
   }
   // El universe scorecard / rankings llegan async (Firebird): re-aplica el fix
