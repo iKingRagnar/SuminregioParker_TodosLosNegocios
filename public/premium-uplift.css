@@ -109,6 +109,32 @@ html[data-theme="light"] .kpi-card.pu-zero::before,.kpi-card.pu-zero::before{ ba
 .kpi.orange .kpi-val,.kpi.orange .kpi-value{color:#C2410C !important;}
 .kpi.purple .kpi-val,.kpi.purple .kpi-value{color:#5B43C9 !important;}
 .kpi.red .kpi-val,.kpi.red .kpi-value{color:#B42318 !important;}
+/* ── PARIDAD: la variante .kpi (Cobradas, Vendedores, CxC story, Margen, Finanzas, Clientes)
+   recibe EL MISMO look que .kpi-card: fondo crema + barra de acento arriba. Antes quedaban
+   BLANCAS y SIN barra (mi regla de crema/acento solo apuntaba a .kpi-card). Prefijo de tema
+   para ganar especificidad al #fff del app/base. ─────────────────────────────────────────── */
+/* NOTA especificidad: app-ui.css tiene `html.theme-premium-light[data-theme=light] body:not(.ms-page-cxc) .kpi{bg:#fff}` = (0,4,2)
+   y design-upgrade.css se carga DESPUÉS de premium-uplift con (0,2,1). Para ganar SIN importar el orden uso
+   `.kpi.kpi.kpi` = (0,5,1) en el fondo y `.kpi.kpi.kpi::before` = (0,5,2) en la barra. */
+html.theme-premium-light[data-theme="light"] .kpi.kpi.kpi,
+html[data-theme="light"] .kpi.kpi.kpi{
+  position:relative !important; overflow:hidden !important;
+  background:linear-gradient(160deg,#FDFBF5,#F4EDDC) !important;
+}
+html.theme-premium-light[data-theme="light"] .kpi.kpi.kpi::before,
+html[data-theme="light"] .kpi.kpi.kpi::before{ content:'' !important; position:absolute !important; top:0 !important; left:0 !important; right:0 !important; height:4px !important; z-index:2 !important; background:#B8860B !important; }
+/* barra por clase de color */
+html.theme-premium-light[data-theme="light"] .kpi.kpi.blue::before{background:#2563EB !important;}
+html.theme-premium-light[data-theme="light"] .kpi.kpi.green::before{background:#0E9F6E !important;}
+html.theme-premium-light[data-theme="light"] .kpi.kpi.yellow::before,html.theme-premium-light[data-theme="light"] .kpi.kpi.gold::before{background:#E0B341 !important;}
+html.theme-premium-light[data-theme="light"] .kpi.kpi.orange::before{background:#D98324 !important;}
+html.theme-premium-light[data-theme="light"] .kpi.kpi.purple::before{background:#7C5CFC !important;}
+html.theme-premium-light[data-theme="light"] .kpi.kpi.red::before{background:#D92D20 !important;}
+/* barra por modificador semántico (CxC "story"): total/cobrado dorado, vencido rojo, vigente verde, salud teal */
+html.theme-premium-light[data-theme="light"] .kpi.kpi.kpi--total::before,html.theme-premium-light[data-theme="light"] .kpi.kpi.kpi--cobrado::before{background:#B8860B !important;}
+html.theme-premium-light[data-theme="light"] .kpi.kpi.kpi--venc::before{background:#D92D20 !important;}
+html.theme-premium-light[data-theme="light"] .kpi.kpi.kpi--vig::before{background:#0E9F6E !important;}
+html.theme-premium-light[data-theme="light"] .kpi.kpi.kpi--health::before{background:#0E7490 !important;}
 .kpi-value{ font-size:1.4rem !important; font-weight:500 !important; line-height:1.05 !important; margin:0 !important; }
 /* cifras completas (sin "…"): el app truncaba con ellipsis; se deja visible y los "Indicadores
    del día" (kpi-mega-grid, 6 por fila) se hacen un poco más anchos para que quepa el valor con centavos */
