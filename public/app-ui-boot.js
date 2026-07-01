@@ -437,25 +437,9 @@
       var prefix   = el.dataset.prefix || '';
       var suffix   = el.dataset.suffix || '';
       var decimals = (el.dataset.val.split('.')[1] || '').replace(/[^0-9]/g,'').length;
-      var dur      = 1400;
-      var t0       = performance.now();
 
-      function step(now) {
-        var p = Math.min((now - t0) / dur, 1);
-        var e = easeOutExpo(p);
-        var v = e * raw;
-        el.textContent = fmtNum(v, decimals, prefix, suffix);
-        if (p < 1) {
-          requestAnimationFrame(step);
-        } else {
-          el.textContent = fmtNum(raw, decimals, prefix, suffix);
-          // Micro-pop CSS al terminar
-          el.classList.add('counting');
-          setTimeout(function () { el.classList.remove('counting'); }, 450);
-        }
-      }
-
-      requestAnimationFrame(step);
+      // Sin animación de conteo (pedido del usuario): mostrar el valor final directo.
+      el.textContent = fmtNum(raw, decimals, prefix, suffix);
     }
 
     if (!('IntersectionObserver' in window)) {

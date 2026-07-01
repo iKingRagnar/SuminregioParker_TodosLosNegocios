@@ -236,11 +236,10 @@
   /* Detener el conteo de números (animateNum del app + sp-count): mostrar el valor final ya. */
   function killCountUp() {
     try {
-      document.querySelectorAll('.kpi-val[data-val],.kpi-num[data-val]').forEach(function (el) {
-        el._ms_counted = true; // evita que app-ui-boot lo cuente
-        var f = el.getAttribute('data-val'); if (f != null && f !== '') el.textContent = f;
-      });
-      document.querySelectorAll('.sp-count[data-cv]').forEach(function (el) { el.textContent = el.dataset.cv; });
+      // Marca todo lo que cuenta para que app-ui-boot no lo anime (sin tocar el texto:
+      // el valor final ya lo escribe animateNum/render, y así no se pierde el formato $/,).
+      document.querySelectorAll('[data-val]').forEach(function (el) { el._ms_counted = true; });
+      document.querySelectorAll('.sp-count[data-cv]').forEach(function (el) { if (el.dataset.cv) el.textContent = el.dataset.cv; });
     } catch (e) { console.error('[premium] killCountUp', e && e.message); }
   }
 
