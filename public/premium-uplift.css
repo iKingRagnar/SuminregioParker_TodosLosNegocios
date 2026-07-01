@@ -171,3 +171,41 @@ td.t-rank,.t-name .rank,.sc-rank,td:first-child .rank{ color:#B8860B !important;
 @media (prefers-reduced-motion: reduce){
   .sp-rise,.ms-reveal,.sp-bar-fill,.sp-vbar,.sp-draw{ animation:none !important; opacity:1 !important; transform:none !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   INICIO — "Universo de negocios" con la estructura de design/handoff/pages/Inicio.dc.html
+   Banda oscura espresso (header) + cuerpo claro con tarjetas de entidad. Valores 1:1.
+   ═══════════════════════════════════════════════════════════════════════════════ */
+.uni-portfolio,.uni-portfolio-shell{
+  background:#FBF8F1 !important; border:1px solid rgba(31,24,12,.08) !important;
+  border-radius:24px !important; box-shadow:0 30px 70px -38px rgba(40,28,12,.4) !important;
+  overflow:hidden !important; padding:0 !important;
+}
+.uni-portfolio-top{
+  background:linear-gradient(150deg,#1C150D 0%,#322310 42%,#6A4A1C 84%,#95682A 100%) !important;
+  color:#F2E9D6 !important; padding:clamp(1.4rem,2.4vw,2rem) !important; margin:0 !important; border-radius:0 !important;
+  display:flex !important; justify-content:space-between !important; align-items:flex-start !important; gap:1.5rem !important; flex-wrap:wrap !important;
+}
+.uni-portfolio-top .uni-eyebrow{ color:#E2BE72 !important; font-family:var(--pu-mono) !important; font-size:.6rem !important; letter-spacing:.24em !important; text-transform:uppercase !important; }
+.uni-portfolio-top .uni-title{ color:#F7EFDE !important; font-family:var(--pu-serif) !important; font-size:clamp(1.7rem,2.8vw,2.3rem) !important; font-weight:600 !important; letter-spacing:-.015em !important; margin:.5rem 0 .55rem !important; }
+.uni-portfolio-top .uni-subtitle{ color:#D2C09C !important; font-size:.92rem !important; line-height:1.55 !important; font-family:var(--pu-body) !important; }
+.uni-summary-strip{ display:flex !important; gap:.6rem !important; flex-wrap:wrap !important; max-width:560px !important; }
+/* pills translúcidos sobre el oscuro (el color final lo fuerza premium-uplift.js) */
+.uni-portfolio-top .uni-summary-strip .uni-sum-pill,.uni-summary-strip .uni-sum-pill{
+  min-width:118px !important; padding:.7rem .9rem !important; border-radius:13px !important;
+  background:rgba(255,255,255,.06) !important; border:1px solid rgba(240,200,104,.2) !important; box-shadow:none !important;
+}
+.uni-portfolio-top .uni-sum-pill .u-l{ font-family:var(--pu-mono) !important; font-size:.54rem !important; letter-spacing:.08em !important; text-transform:uppercase !important; color:#C7AE80 !important; }
+.uni-portfolio-top .uni-sum-pill .u-v{ font-family:var(--pu-mono) !important; font-size:1.08rem !important; font-weight:500 !important; color:#F7EFDE !important; margin-top:.25rem !important; letter-spacing:-.01em !important; }
+/* cuerpo (cards + tabla) con padding claro */
+.uni-card-grid{ padding:clamp(1.2rem,2vw,1.6rem) clamp(1.2rem,2vw,1.6rem) 0 !important; }
+.uni-detail-panel{ margin:1.3rem clamp(1.2rem,2vw,1.6rem) clamp(1.2rem,2vw,1.6rem) !important; }
+/* tarjetas de entidad estilo referencia */
+article.sc-card{
+  background:linear-gradient(170deg,#FFFFFF,#FBF5E9) !important; border:1px solid rgba(31,24,12,.08) !important;
+  border-radius:18px !important; box-shadow:0 12px 30px -20px rgba(40,28,12,.3) !important;
+  padding:1.15rem 1.2rem !important; position:relative !important; overflow:hidden !important;
+}
+.sc-avatar{ width:46px !important; height:46px !important; border-radius:13px !important; font-family:var(--pu-serif) !important; font-weight:600 !important; }
+.sc-name{ font-family:var(--pu-serif) !important; font-weight:600 !important; color:#211A10 !important; }
+.sc-kpi,.sc-kpi-val,.sc-kpi-lbl{ font-family:var(--pu-mono) !important; }

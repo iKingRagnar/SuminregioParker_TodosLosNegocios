@@ -196,6 +196,19 @@
     } catch (e) { console.error('[premium] kpiZero', e && e.message); }
   }
 
+  /* Pills de resumen del "Universo" → translúcidos sobre la banda oscura (app los pinta blancos) */
+  function uniPills() {
+    try {
+      document.querySelectorAll('.uni-summary-strip .uni-sum-pill').forEach(function (p) {
+        p.style.setProperty('background', 'rgba(255,255,255,.06)', 'important');
+        p.style.setProperty('border', '1px solid rgba(240,200,104,.2)', 'important');
+        p.style.setProperty('box-shadow', 'none', 'important');
+        var l = p.querySelector('.u-l'); if (l) l.style.setProperty('color', '#C7AE80', 'important');
+        var v = p.querySelector('.u-v'); if (v) v.style.setProperty('color', '#F7EFDE', 'important');
+      });
+    } catch (e) { console.error('[premium] uniPills', e && e.message); }
+  }
+
   function styleCharts() {
     try {
       if (!window.Chart || !Chart.defaults) return;
@@ -235,7 +248,7 @@
   }
 
   /* Corre todas las mejoras de paridad (idempotente) */
-  function enhance() { logoMark(); userAvatar(); headerEyebrow(); headerPill(); kpiIcons(); kpiZero(); groupNav(); }
+  function enhance() { logoMark(); userAvatar(); headerEyebrow(); headerPill(); kpiIcons(); kpiZero(); uniPills(); groupNav(); }
 
   function init() {
     forceBg(); styleCharts(); enhance();

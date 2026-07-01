@@ -1,0 +1,342 @@
+/* ============================================================================
+   SUMINREGIO PARKER — SISTEMA VISUAL PREMIUM (Sidebar Dorado)
+   Hoja de estilo maestra — TODO el sistema en un solo archivo.
+   Copiar tal cual; los valores están tomados 1:1 de los prototipos .dc.html.
+   ============================================================================ */
+
+/* ---------------------------------------------------------------------------
+   1. TIPOGRAFÍA — @import de las 3 familias usadas en todo el sistema
+   --------------------------------------------------------------------------- */
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Outfit:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+:root {
+  /* Fuentes */
+  --font-body: 'Outfit', system-ui, sans-serif;   /* UI general */
+  --font-serif: 'Fraunces', serif;                /* títulos H1–H3 */
+  --font-mono: 'DM Mono', monospace;               /* cifras, badges, metadata */
+
+  /* ---- Fondo de la app ---- */
+  --bg-page-gradient:
+    radial-gradient(1200px 720px at 6% -8%, rgba(224,179,65,.16), transparent 55%),
+    radial-gradient(1100px 760px at 104% 4%, rgba(120,86,40,.07), transparent 52%),
+    linear-gradient(180deg, #FBF7EE 0%, #F2ECDE 60%, #EDE6D6 100%);
+  --bg-page-fallback: #EFE9DC;
+  --bg-card: #FFFFFF;
+  --bg-card-warm: linear-gradient(170deg, #FFFFFF, #FBF7EE);
+  --bg-row-hover: #FBF6EC;
+  --bg-pill-soft: #FAF6EC;
+
+  /* ---- Texto ---- */
+  --text-primary:   #211A10;
+  --text-secondary: #3A3020;
+  --text-muted:     #6E624E;
+  --text-faint:     #8A7C64;
+  --text-mono-label:#A2937A;
+
+  /* ---- Marca / acento dorado ---- */
+  --gold-50:  #F6D279;
+  --gold-400: #E0B341;
+  --gold-600: #B8860B;
+  --gold-deep:#8A6516;
+  --gold-grad: linear-gradient(135deg, #F6D279, #E0B341, #B8860B);
+
+  /* ---- Semáforo de estado ---- */
+  --state-ok:       #0E9F6E;
+  --state-ok-bg:    #E7F6EF;
+  --state-warn:     #B45309;
+  --state-warn-bg:  #FBF1DC;
+  --state-warn-soft:#C98A1E; /* variante ámbar suave (indicadores del día) */
+  --state-danger:    #D92D20;
+  --state-danger-bg: #FEECEA;
+  --state-neutral:  #9A8D76;
+
+  /* ---- Paleta categórica (series / avatares) ---- */
+  --series-blue:   #2563EB;
+  --series-blue-light: #4F86F7;
+  --series-green:  #0E9F6E;
+  --series-green-text: #067647;
+  --series-purple: #7C5CFC;
+  --series-purple-light: #9B82FF;
+  --series-orange: #C2410C;
+  --series-cyan:   #0E7490;
+  --series-violet: #5B43C9;
+
+  /* ---- Sidebar oscuro ---- */
+  --sidebar-bg:        #1C150D;
+  --sidebar-text:      #9A938A;
+  --sidebar-text-hover:#E8E3DA;
+  --sidebar-text-active:#F2C667;
+  --sidebar-heading:   #6E624E;
+  --sidebar-hover-bg:  rgba(255,255,255,.06);
+  --sidebar-active-bg: rgba(224,179,65,.15);
+  --sidebar-border:    rgba(255,255,255,.08);
+
+  /* ---- Radios ---- */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 18px;
+  --radius-2xl: 20px;
+  --radius-pill: 999px;
+
+  /* ---- Sombras ---- */
+  --shadow-card-rest:    0 16px 38px -24px rgba(40,28,12,.32);
+  --shadow-card-rest-sm: 0 10px 24px -20px rgba(40,28,12,.3);
+  --shadow-card-hover:   0 26px 54px -22px rgba(40,28,12,.34);
+  --shadow-pill-row:     0 6px 18px -12px rgba(40,28,12,.22);
+  --shadow-logo:         0 2px 10px rgba(184,134,11,.4);
+
+  /* ---- Bordes ---- */
+  --border-card:       1px solid rgba(31,24,12,.08);
+  --border-hairline:   1px solid rgba(31,24,12,.05);
+  --border-hairline-2: 1px solid rgba(31,24,12,.06);
+}
+
+/* ---------------------------------------------------------------------------
+   2. RESET Y BASE
+   NOTA (retrofit Suminregio): el reset global `*{margin:0;padding:0}` original
+   rompía el espaciado de la app real; se acotó a los componentes .sp-* para no
+   afectar el layout existente. El resto del sistema queda 1:1.
+   --------------------------------------------------------------------------- */
+[class^="sp-"],[class*=" sp-"]{box-sizing:border-box;}
+::selection{background:rgba(224,179,65,0.26);}
+.mono{font-family:var(--font-mono);}
+.fr{font-family:var(--font-serif);}
+
+/* ---------------------------------------------------------------------------
+   3. LAYOUT RAÍZ DE PÁGINA
+   --------------------------------------------------------------------------- */
+.sp-root{
+  display:flex;
+  position:relative;
+  min-height:100vh;
+  font-family:var(--font-body);
+  color:var(--text-primary);
+  background:var(--bg-page-gradient);
+}
+.sp-main{
+  flex:1;
+  min-width:0;
+  max-width:1480px;
+  margin:0 auto;
+  padding:clamp(1.1rem,2.4vw,2rem) clamp(1rem,2.4vw,2rem) 3rem;
+}
+
+/* ---------------------------------------------------------------------------
+   4. SIDEBAR
+   --------------------------------------------------------------------------- */
+.sp-sidebar{
+  position:sticky; top:0; height:100vh; flex:0 0 248px; width:248px;
+  background:var(--sidebar-bg); color:#fff;
+  display:flex; flex-direction:column;
+  padding:20px 14px 16px; overflow-y:auto;
+}
+.sp-sidebar-logo{
+  display:flex; align-items:center; gap:11px; padding:4px 6px 18px; text-decoration:none;
+}
+.sp-sidebar-logo-mark{
+  width:38px; height:38px; border-radius:10px;
+  background:var(--gold-grad);
+  display:flex; align-items:center; justify-content:center; flex:0 0 auto;
+  box-shadow:var(--shadow-logo);
+}
+.sp-sidebar-logo-mark span{
+  font-family:var(--font-serif); font-weight:700; font-size:15px; color:#241A08; letter-spacing:-0.02em;
+}
+.sp-sidebar-logo-title{
+  font-family:var(--font-serif); font-size:14.5px; font-weight:600; letter-spacing:-0.01em; line-height:1.1; color:#F3EFE8;
+}
+.sp-sidebar-logo-sub{
+  font-family:var(--font-mono); font-size:9.5px; letter-spacing:0.14em; text-transform:uppercase; color:var(--text-faint); margin-top:3px;
+}
+.sp-sidebar-heading{
+  font-family:var(--font-mono); font-size:9px; letter-spacing:0.16em; text-transform:uppercase;
+  color:var(--sidebar-heading); padding:6px 10px 6px;
+}
+.sp-sidebar-heading + .sp-sidebar-heading{ padding-top:16px; } /* segundo grupo ("Inteligencia") */
+.sp-sidebar-nav{ display:flex; flex-direction:column; gap:1px; }
+.sp-nav-item{
+  display:flex; align-items:center; gap:11px; padding:8px 11px; border-radius:9px;
+  font-size:13px; font-weight:500; color:var(--sidebar-text);
+  text-decoration:none; cursor:pointer;
+  transition:background .15s, color .15s;
+}
+.sp-nav-item:hover{ background:var(--sidebar-hover-bg); color:var(--sidebar-text-hover); }
+.sp-nav-item.is-active{
+  font-weight:600; color:var(--sidebar-text-active);
+  background:var(--sidebar-active-bg);
+  box-shadow:inset 2px 0 0 var(--gold-400);
+}
+.sp-nav-item svg{ width:18px; height:18px; flex:0 0 auto; }
+.sp-sidebar-user{
+  margin-top:auto; display:flex; align-items:center; gap:10px;
+  padding:11px 8px 4px; border-top:1px solid var(--sidebar-border); margin-top:18px;
+}
+.sp-sidebar-user-avatar{
+  width:33px; height:33px; border-radius:50%; background:#2C2013; color:#E0CBA8;
+  display:flex; align-items:center; justify-content:center; font-size:11.5px; font-weight:700; flex:0 0 auto;
+}
+.sp-sidebar-user-name{ font-size:12.5px; font-weight:600; color:var(--sidebar-text-hover); line-height:1.1; }
+.sp-sidebar-user-role{ font-size:10.5px; color:var(--text-faint); margin-top:2px; }
+
+/* ---------------------------------------------------------------------------
+   5. CARDS
+   --------------------------------------------------------------------------- */
+.sp-card{
+  background:var(--bg-card);
+  border:var(--border-card);
+  border-radius:var(--radius-2xl);
+  box-shadow:var(--shadow-card-rest);
+  transition:box-shadow .26s cubic-bezier(.22,.7,.25,1),
+             transform .26s cubic-bezier(.22,.7,.25,1),
+             border-color .26s;
+}
+.sp-card:hover{
+  transform:translateY(-4px);
+  box-shadow:var(--shadow-card-hover) !important;
+  border-color:rgba(224,179,65,.4) !important;
+}
+.sp-card--chart{ background:var(--bg-card-warm); padding:1.4rem 1.5rem; }
+.sp-card--table{ overflow:hidden; }
+.sp-card--compact{ border-radius:var(--radius-xl); }
+
+.sp-card-header{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:1.2rem 1.5rem 0.9rem; gap:1rem; flex-wrap:wrap;
+}
+.sp-card-header h3{
+  font-family:var(--font-serif); font-size:1.15rem; font-weight:600; color:var(--text-primary);
+  display:flex; align-items:center; gap:0.55rem;
+}
+.sp-card-header .sp-card-meta{ font-family:var(--font-mono); font-size:0.62rem; color:var(--text-mono-label); }
+
+/* ---------------------------------------------------------------------------
+   6. TARJETA KPI
+   --------------------------------------------------------------------------- */
+.sp-kpi{
+  position:relative; overflow:hidden;
+  background:var(--bg-card);
+  border:var(--border-card);
+  border-radius:var(--radius-lg);
+  padding:0.85rem 1rem 1rem;
+  box-shadow:var(--shadow-card-rest-sm);
+}
+.sp-kpi::before{
+  content:''; position:absolute; top:0; left:0; right:0; height:3px;
+  background:var(--kpi-accent, var(--gold-600));
+}
+.sp-kpi-eyebrow{
+  font-family:var(--font-mono); font-size:0.56rem; letter-spacing:0.09em;
+  text-transform:uppercase; color:var(--text-muted);
+}
+.sp-kpi-value{
+  font-family:var(--font-mono); font-size:1.55rem; font-weight:500; letter-spacing:-0.025em;
+  color:var(--kpi-color, var(--text-primary)); line-height:1.05;
+}
+.sp-kpi-sub{ font-family:var(--font-mono); font-size:0.6rem; color:var(--text-mono-label); }
+
+/* ---------------------------------------------------------------------------
+   7. BADGES DE ESTADO (CUMPLIDO / ATENCION / ALERTA)
+   --------------------------------------------------------------------------- */
+.sp-badge{
+  display:inline-block;
+  font-family:var(--font-mono); font-size:0.56rem; font-weight:700; letter-spacing:0.04em;
+  padding:0.16rem 0.5rem; border-radius:var(--radius-pill);
+}
+.sp-badge--cumplido{ color:var(--state-ok);     background:var(--state-ok-bg); }
+.sp-badge--atencion{ color:var(--state-warn);   background:var(--state-warn-bg); }
+.sp-badge--alerta  { color:var(--state-danger); background:var(--state-danger-bg); }
+
+/* Barra de progreso interna de una tarjeta de meta */
+.sp-progress-track{ height:6px; border-radius:var(--radius-pill); background:#F2ECDE; overflow:hidden; }
+.sp-progress-fill{ height:100%; border-radius:var(--radius-pill); background:var(--kpi-accent, var(--gold-600)); }
+
+/* ---------------------------------------------------------------------------
+   8. TABLAS
+   --------------------------------------------------------------------------- */
+.sp-table{ width:100%; border-collapse:collapse; }
+.sp-table thead th{
+  text-align:left; padding:0.55rem 1.5rem;
+  font-family:var(--font-mono); font-size:0.52rem; letter-spacing:0.08em; text-transform:uppercase;
+  color:var(--text-mono-label); font-weight:500;
+  border-top:var(--border-hairline-2); border-bottom:var(--border-hairline-2);
+}
+.sp-table thead th.sp-align-right{ text-align:right; }
+.sp-table tbody td{
+  padding:0.55rem 1.5rem; font-size:0.78rem; color:var(--text-primary);
+  border-bottom:var(--border-hairline);
+}
+.sp-table tbody td.mono{ font-family:var(--font-mono); }
+.sp-table tbody td.sp-align-right{ text-align:right; }
+.sp-table tbody tr:hover td{ background:var(--bg-row-hover); }
+.sp-table .sp-rank{ color:var(--gold-600); font-weight:600; }
+
+/* Chips de tipo de documento dentro de tabla (Factura/Remisión/Cotización) */
+.sp-doc-chip{
+  display:inline-block; font-family:var(--font-mono); font-size:0.62rem; font-weight:600;
+  padding:0.15rem 0.5rem; border-radius:var(--radius-pill);
+}
+
+/* ---------------------------------------------------------------------------
+   9. PANEL HERO OSCURO (mensajes ejecutivos, resumen operativo)
+   --------------------------------------------------------------------------- */
+.sp-hero{
+  background:linear-gradient(135deg, rgba(246,210,121,.16), rgba(37,99,235,.06));
+  border:1px solid rgba(184,134,11,.2);
+  border-radius:var(--radius-xl);
+  padding:1.3rem 1.5rem;
+}
+.sp-hero--alert{ background:linear-gradient(135deg, rgba(246,210,121,.14), rgba(217,45,32,.05)); }
+.sp-hero h2{ font-family:var(--font-serif); font-size:1.1rem; font-weight:600; color:#241A08; }
+.sp-hero p{ font-size:0.86rem; color:#5A4F3C; line-height:1.55; }
+
+/* ---------------------------------------------------------------------------
+   10. CHIPS / FILTROS TIPO PILL (presets de fecha, tabs)
+   --------------------------------------------------------------------------- */
+.sp-pill-row{
+  display:flex; background:#FFFFFF; border:1px solid rgba(31,24,12,.09);
+  border-radius:13px; padding:4px; gap:2px; flex-wrap:wrap;
+  box-shadow:var(--shadow-pill-row);
+}
+.sp-pill{
+  border:none; background:transparent; padding:0.5rem 0.9rem; border-radius:9px;
+  font-family:var(--font-mono); font-size:0.72rem; cursor:pointer;
+  color:var(--text-muted); font-weight:500;
+  transition:background .25s ease, color .2s ease, border-color .25s ease;
+}
+.sp-pill.is-active{
+  background:linear-gradient(135deg,#322310,#6A4A1C);
+  color:#F6E7C8; font-weight:600;
+}
+.sp-tabs{ display:flex; gap:0.3rem; border-bottom:1px solid rgba(31,24,12,.1); }
+.sp-tab{
+  border:none; background:transparent; padding:0.7rem 1rem 0.8rem;
+  font-family:var(--font-serif); font-size:0.95rem; cursor:pointer;
+  margin-bottom:-1px; border-bottom:2px solid transparent;
+  color:var(--text-muted); font-weight:500;
+  transition:color .2s, border-color .2s;
+}
+.sp-tab.is-active{ color:var(--text-primary); font-weight:600; border-bottom-color:var(--gold-600); }
+
+/* ---------------------------------------------------------------------------
+   11. ANIMACIONES — keyframes + utilidades
+   --------------------------------------------------------------------------- */
+@keyframes sp-blink{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes lx-float{0%,100%{transform:translate(0,0)}50%{transform:translate(14px,-12px)}}
+
+/* Punto "en vivo" (dato de hoy sin registro aún) */
+.sp-live-dot{ animation:sp-blink 1.6s ease-in-out infinite; }
+
+/* Elemento flotante decorativo de fondo (opcional, headers hero) */
+.sp-float{ animation:lx-float 7s ease-in-out infinite; }
+
+/*
+  Nota: .sp-rise, .sp-bar-fill, .sp-vbar, .sp-draw, .sp-count NO llevan animación
+  CSS directa — son solo marcadores que el motor JS (design-system-animations.js)
+  anima una vez al montar la página vía Web Animations API. Esto permite
+  reiniciar/forzar el estado final de forma controlada (ver ese archivo).
+*/
+
+@media (prefers-reduced-motion: reduce){
+  *{ animation:none !important; }
+}
