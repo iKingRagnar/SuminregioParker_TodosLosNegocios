@@ -52,7 +52,7 @@
       // Sistema visual Claude Design (tokens + componentes .sp-*). Antes de premium-uplift.
       addLink('vp-design-system', '/design-system.css?v=1');
       // Premium uplift (reskin Claude Design) — se carga AL FINAL para mandar sobre el resto del cascade.
-      addLink('vp-premium-css', '/premium-uplift.css?v=7');
+      addLink('vp-premium-css', '/premium-uplift.css?v=8');
 
       // Manifest PWA
       if (!document.querySelector('link[rel="manifest"]')) {
@@ -96,7 +96,7 @@
         ['vp-tablefilter-js', '/table-filter.js?v=lux4'],
         ['vp-emptyperiod-js', '/empty-period-helper.js?v=1'],
         ['vp-kpicx-js',       '/kpi-context.js?v=1'],
-        ['vp-premium-js',     '/premium-uplift.js?v=7'],
+        ['vp-premium-js',     '/premium-uplift.js?v=8'],
       ].forEach(function (pair) {
         if (document.getElementById(pair[0])) return;
         var sc = document.createElement('script');
@@ -604,13 +604,13 @@
       '#app-sidebar .nav-link{color:#A79E8F !important;background:transparent !important;border-radius:11px !important;',
       'justify-content:flex-start !important;text-align:left !important;width:100% !important;gap:.7rem !important;',
       'padding:.55rem .8rem !important;font-weight:500 !important;transition:background .2s,color .18s,box-shadow .2s !important;}',
-      '#app-sidebar .nav-link svg,#app-sidebar .nav-link .nav-ico{opacity:.72 !important;transition:opacity .18s !important;}',
-      '#app-sidebar .nav-link:hover{color:#F1EBDD !important;background:rgba(255,255,255,.05) !important;}',
+      '#app-sidebar .nav-link svg,#app-sidebar .nav-link .nav-ico{opacity:.85 !important;fill:none !important;stroke:currentColor !important;transition:opacity .18s !important;}',
+      '#app-sidebar .nav-link:hover{color:#E8E3DA !important;background:rgba(255,255,255,.06) !important;}',
       '#app-sidebar .nav-link:hover svg,#app-sidebar .nav-link:hover .nav-ico{opacity:1 !important;}',
       '#app-sidebar .nav-link.active,#app-sidebar .nav-link[aria-current="page"]{',
-      'color:#F2C667 !important;background:rgba(224,179,65,.14) !important;font-weight:600 !important;',
+      'color:#F2C667 !important;background:rgba(224,179,65,.15) !important;background-image:none !important;font-weight:600 !important;',
       'box-shadow:inset 2px 0 0 #E0B341 !important;}',
-      '#app-sidebar .nav-link.active svg,#app-sidebar .nav-link.active .nav-ico{opacity:1 !important;}',
+      '#app-sidebar .nav-link.active svg,#app-sidebar .nav-link.active .nav-ico{opacity:1 !important;fill:none !important;stroke:currentColor !important;}',
       /* Footer / usuario / salir */
       '#app-sidebar .sb-foot{border-top:1px solid rgba(255,255,255,.08) !important;}',
       '#app-sidebar .nav-user{color:#8A7C64 !important;}',

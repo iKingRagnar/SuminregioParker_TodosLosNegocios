@@ -81,6 +81,41 @@
     } catch (e) { console.error('[premium] groupNav', e && e.message); }
   }
 
+  /* Íconos del sidebar → los de línea exactos de la referencia (Inicio.dc.html) */
+  var NAV_ICONS = {
+    inicio:'<path d="M4 9.5 10 4.5l6 5"/><path d="M5.4 8.6V15.5h9V8.6"/>',
+    ventas:'<path d="M3 14 8 9l3 3 6-6"/><path d="M13 6h4v4"/>',
+    cobrad:'<circle cx="10" cy="10" r="6.4"/><path d="M7 10.2 9.2 12.4 13.4 8"/>',
+    vended:'<circle cx="7.7" cy="8" r="2.5"/><path d="M3.6 16c0-2.4 1.9-3.9 4.1-3.9S11.8 13.6 11.8 16"/><path d="M13.4 6.4a2.3 2.3 0 0 1 0 4.3"/><path d="M16.4 16c0-1.7-.8-2.8-2-3.4"/>',
+    cxc:'<rect x="3.4" y="5.5" width="13.2" height="9.5" rx="2"/><path d="M3.4 8.4h13.2"/><circle cx="13.3" cy="11.4" r="0.9" fill="currentColor" stroke="none"/>',
+    client:'<rect x="5" y="3.6" width="10" height="12.8" rx="1.2"/><path d="M7.8 6.6h1.4M10.9 6.6h1.4M7.8 9.4h1.4M10.9 9.4h1.4M8.8 16.4v-3h2.4v3"/>',
+    director:'<rect x="3.5" y="7" width="13" height="8.4" rx="1.6"/><path d="M7.4 7V5.8A1.3 1.3 0 0 1 8.7 4.5h2.6A1.3 1.3 0 0 1 12.6 5.8V7"/>',
+    inventar:'<path d="M10 3.6 16.3 7v6L10 16.4 3.7 13V7Z"/><path d="M3.7 7 10 10.4 16.3 7M10 10.4V16.4"/>',
+    consumo:'<path d="M3.4 10.5h3l2-5 3 9 2-4h3.2"/>',
+    margen:'<circle cx="7" cy="7" r="1.7"/><circle cx="13" cy="13" r="1.7"/><path d="M14 6 6 14"/>',
+    finanz:'<path d="M4 16h12M5.6 15.5V9M10 15.5V9M14.4 15.5V9M3.6 8.4 10 4.4l6.4 4Z"/>',
+    admin:'<path d="M4 6.5h7M14.4 6.5h1.6M4 13.5h2M9.4 13.5h6.6"/><circle cx="12.5" cy="6.5" r="1.7"/><circle cx="7.5" cy="13.5" r="1.7"/>',
+    sumi:'<path d="M10 4 11.3 8.2 15.5 9.6 11.3 11 10 15.2 8.7 11 4.5 9.6 8.7 8.2Z"/>',
+    mejora:'<path d="M6 14 14 6M8.2 6H14v5.8"/>',
+    metas:'<circle cx="10" cy="10" r="6"/><circle cx="10" cy="10" r="2.6"/>',
+    uso:'<circle cx="10" cy="10" r="6.4"/><path d="M10 6.4V10l2.4 1.6"/>'
+  };
+  var NAV_MATCH = ['inicio','ventas','cobrad','vended','cxc','client','director','inventar','consumo','margen','finanz','uso','admin','sumi','mejora','metas'];
+  function navIcons() {
+    try {
+      document.querySelectorAll('#app-sidebar .nav-link').forEach(function (a) {
+        if (a.getAttribute('data-pu-ico') === '1') return;
+        var t = (a.textContent || '').toLowerCase(), key = null;
+        for (var i = 0; i < NAV_MATCH.length; i++) { if (t.indexOf(NAV_MATCH[i]) >= 0) { key = NAV_MATCH[i]; break; } }
+        var d = key && NAV_ICONS[key]; if (!d) return;
+        a.setAttribute('data-pu-ico', '1');
+        var wrap = '<svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>';
+        var svg = a.querySelector('svg');
+        if (svg) svg.outerHTML = wrap; else a.insertAdjacentHTML('afterbegin', wrap);
+      });
+    } catch (e) { console.error('[premium] navIcons', e && e.message); }
+  }
+
   /* Logo → monograma "SP" dorado */
   function logoMark() {
     try {
@@ -248,7 +283,7 @@
   }
 
   /* Corre todas las mejoras de paridad (idempotente) */
-  function enhance() { logoMark(); userAvatar(); headerEyebrow(); headerPill(); kpiIcons(); kpiZero(); uniPills(); groupNav(); }
+  function enhance() { logoMark(); navIcons(); userAvatar(); headerEyebrow(); headerPill(); kpiIcons(); kpiZero(); uniPills(); groupNav(); }
 
   function init() {
     forceBg(); styleCharts(); enhance();
