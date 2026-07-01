@@ -98,12 +98,24 @@ body.ms-page-admin .page-title{
 .fb-presets{ background:#fff !important; border:var(--pu-border) !important; border-radius:13px !important; padding:4px !important; box-shadow:0 6px 18px -12px rgba(40,28,12,.22) !important; }
 .fb-preset{ border:none !important; background:transparent !important; padding:.5rem .9rem !important; border-radius:9px !important; font-family:var(--pu-mono) !important; font-size:.72rem !important; color:var(--pu-muted) !important; font-weight:500 !important; transition:background .25s,color .2s !important; }
 .fb-preset:hover{ color:var(--pu-text) !important; background:#FAF6EC !important; }
-.fb-presets .fb-preset.active,.fb-preset.active{ background:var(--pu-espresso) !important; color:#F6E7C8 !important; font-weight:600 !important; }
+/* activo: gana a lux-theme/app-ui (html.theme-premium-light[data-theme]) con mayor especificidad */
+html.theme-premium-light[data-theme="light"] .fb-presets .fb-preset.active,
+html[data-theme="light"] .fb-presets .fb-preset.active,
+.fb-presets .fb-preset.active,.fb-preset.active{
+  background-image:linear-gradient(135deg,#322310,#6A4A1C) !important;
+  background-color:#3A2913 !important; color:#F6E7C8 !important; font-weight:600 !important;
+  box-shadow:0 6px 16px -8px rgba(50,35,16,.6) !important;
+}
 
 /* ── Tabs (subrayado dorado) ────────────────────────────────────────────────── */
 .source-tabs{ border-bottom:1px solid rgba(31,24,12,.1) !important; }
 .source-tabs .tab-btn,.tab-btn{ background:transparent !important; border:none !important; border-radius:0 !important; font-family:var(--pu-serif) !important; font-size:.95rem !important; color:var(--pu-muted) !important; font-weight:500 !important; border-bottom:2px solid transparent !important; margin-bottom:-1px !important; }
-.tab-btn.active,.tab-btn.tab-all.active,.tab-btn.active-all,.tab-btn.active-ve,.tab-btn.active-pv{ color:var(--pu-text) !important; font-weight:600 !important; border-bottom-color:#B8860B !important; background:transparent !important; }
+html.theme-premium-light[data-theme="light"] .source-tabs .tab-btn.active,
+html[data-theme="light"] .source-tabs .tab-btn.active,
+.tab-btn.active,.tab-btn.tab-all.active,.tab-btn.active-all,.tab-btn.active-ve,.tab-btn.active-pv{
+  color:var(--pu-text) !important; font-weight:600 !important; border-bottom:2px solid #B8860B !important;
+  background-image:none !important; background-color:transparent !important; box-shadow:none !important;
+}
 
 /* ── Tablas premium ─────────────────────────────────────────────────────────── */
 table thead th,.tbl thead th,.rank-table thead th,.detalle-table thead th,.uni-table thead th,.sc-table thead th{
