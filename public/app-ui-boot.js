@@ -1848,24 +1848,18 @@
       try { document.querySelectorAll(SEL).forEach(fitOne); } catch (e) {}
     }
     // 1) pasadas iniciales + tras cargar datos async (los valores arrancan en "--").
+    //    Varias pasadas hasta 6s cubren el render async sin necesidad de un observer
+    //    continuo (ese observer causaba que el fit se re-ejecutara ~12/s y las cifras
+    //    "latieran" sin parar, porque cada pasada resetea la fuente y la vuelve a achicar).
     fitAll();
-    [250, 800, 1800, 3500].forEach(function (ms) { setTimeout(fitAll, ms); });
-    // 2) al redimensionar la ventana cambian los anchos de card → re-ajustar.
+    [250, 800, 1800, 3500, 6000].forEach(function (ms) { setTimeout(fitAll, ms); });
+    // 2) al redimensionar la ventana cambian los anchos de card → re-ajustar (una vez).
     var rt = null;
     window.addEventListener('resize', function () {
       if (rt) return;
       rt = setTimeout(function () { rt = null; fitAll(); }, 150);
     }, { passive: true });
-    // 3) cuando el contenido cambia (AJAX/contadores) re-ajustar. Observa SOLO
-    //    texto/estructura, NO atributos → cambiar el font-size no re-dispara (sin bucle).
-    try {
-      var mt = null;
-      var obs = new MutationObserver(function () {
-        if (mt) return;
-        mt = setTimeout(function () { mt = null; fitAll(); }, 180);
-      });
-      obs.observe(document.body, { childList: true, subtree: true, characterData: true });
-    } catch (e) {}
+    // 3) NADA de MutationObserver continuo: causaba el bucle de "cifras que laten".
   }
 
   function bootAll() {
