@@ -74,19 +74,37 @@ body.ms-page-admin .page-title{
   transform:translateY(-4px) !important; box-shadow:var(--pu-shadow-hover) !important; border-color:rgba(224,179,65,.4) !important;
 }
 
-/* ── KPI: barra de acento superior 3px + valor del color semántico ─────────── */
-.kpi-card{ position:relative !important; overflow:hidden !important; padding:1rem 1.15rem 1.1rem !important; }
+/* ── KPI: fondo crema + barra de acento 3px + ícono en cuadro (paridad diseño) ─ */
+.kpi-card{
+  position:relative !important; overflow:hidden !important; padding:1.15rem 1.2rem !important;
+  background:linear-gradient(170deg,#FFFFFF,#FBF6EC) !important;
+  border:1px solid rgba(31,24,12,.08) !important; border-radius:18px !important;
+  box-shadow:0 12px 30px -20px rgba(40,28,12,.3) !important;
+  display:flex !important; flex-direction:column !important; gap:.55rem !important;
+}
 .kpi-card::before{ content:'' !important; position:absolute !important; top:0; left:0; right:0; height:3px !important; z-index:2; background:#B8860B; }
 .kpi-card.blue::before{background:#2563EB !important;}   .kpi-card.blue .kpi-value{color:#2563EB !important;}
 .kpi-card.green::before{background:#0E9F6E !important;}  .kpi-card.green .kpi-value{color:#067647 !important;}
-.kpi-card.yellow::before,.kpi-card.gold::before{background:#B8860B !important;} .kpi-card.yellow .kpi-value,.kpi-card.gold .kpi-value{color:#B8860B !important;}
-.kpi-card.orange::before{background:#C2410C !important;} .kpi-card.orange .kpi-value{color:#C2410C !important;}
+.kpi-card.yellow::before,.kpi-card.gold::before{background:#E0B341 !important;} .kpi-card.yellow .kpi-value,.kpi-card.gold .kpi-value{color:#B8860B !important;}
+.kpi-card.orange::before{background:#D98324 !important;} .kpi-card.orange .kpi-value{color:#C2410C !important;}
 .kpi-card.purple::before{background:#7C5CFC !important;} .kpi-card.purple .kpi-value{color:#5B43C9 !important;}
 .kpi-card.red::before{background:#D92D20 !important;}    .kpi-card.red .kpi-value{color:#B42318 !important;}
-.kpi-value{ font-size:1.62rem !important; font-weight:500 !important; line-height:1.05 !important; margin:.15rem 0 !important; }
-.kpi-label{ font-size:.58rem !important; }
-.kpi-sub{ font-size:.6rem !important; color:var(--pu-mono-label) !important; line-height:1.45 !important; }
+.kpi-value{ font-size:1.55rem !important; font-weight:500 !important; line-height:1.05 !important; margin:0 !important; }
+.kpi-label{ font-size:.56rem !important; display:flex !important; align-items:center !important; gap:.5rem !important; margin:0 !important; }
+.kpi-sub{ font-size:.6rem !important; color:var(--pu-mono-label) !important; line-height:1.45 !important; margin:0 !important; }
 .kpi-label [class*="trend"],.kpi-label [class*="yoy"],.kpi-trend-v{ opacity:.55 !important; font-size:.5rem !important; }
+/* ícono cuadrado 30px (inyectado por premium-uplift.js) */
+.pu-kpi-ico{ width:30px !important; height:30px !important; border-radius:9px !important; background:rgba(120,90,40,.1) !important;
+  display:flex !important; align-items:center !important; justify-content:center !important; flex:0 0 auto !important; }
+.pu-kpi-ico svg{ display:block; }
+
+/* ── Eyebrow del encabezado (inyectado) ─────────────────────────────────────── */
+.pu-eyebrow{ font-family:var(--pu-mono) !important; font-size:.6rem !important; letter-spacing:.22em !important;
+  text-transform:uppercase !important; color:#A2937A !important; margin-bottom:.35rem !important; }
+
+/* ── Avatar de usuario en el sidebar (inyectado) ────────────────────────────── */
+.pu-avatar{ width:33px; height:33px; border-radius:50%; background:#2C2013; color:#E0CBA8;
+  display:flex; align-items:center; justify-content:center; font-size:11.5px; font-weight:700; flex:0 0 auto; margin-right:9px; }
 
 /* ── Badges de estado (con borde propio, como el diseño) ────────────────────── */
 .sc-badge,.badge,.pu-badge{ font-family:var(--pu-mono) !important; font-weight:700 !important; letter-spacing:.04em !important; border-radius:var(--pu-r-pill) !important; }
