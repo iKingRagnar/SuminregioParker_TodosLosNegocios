@@ -1218,21 +1218,8 @@
       mo.observe(document.body, { childList: true, subtree: true });
     }
 
-    // 3. KPI value pop animation when content changes
-    var popObserver = new MutationObserver(function (mutations) {
-      mutations.forEach(function (m) {
-        var el = m.target;
-        if (el && el.classList && el.classList.contains('kpi-value')) {
-          el.classList.remove('counting');
-          void el.offsetWidth; // reflow
-          el.classList.add('counting');
-          setTimeout(function () { el.classList.remove('counting'); }, 500);
-        }
-      });
-    });
-    document.querySelectorAll('.kpi-value').forEach(function (el) {
-      popObserver.observe(el, { childList: true, characterData: true, subtree: true });
-    });
+    // 3. KPI value pop animation DESACTIVADA (a pedido del usuario): el pop se disparaba
+    //    cada vez que cambiaba una cifra y hacía que los números "saltaran a cada rato".
 
     // 4. Add ms-reveal to KPI cards and module cards that don't have it yet
     // ⚠️  GUARD — REGLA DE ORO:

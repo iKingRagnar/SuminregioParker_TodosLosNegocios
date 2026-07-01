@@ -174,6 +174,10 @@ td.t-rank,.t-name .rank,.sc-rank,td:first-child .rank{ color:#B8860B !important;
 }
 /* el hover de tarjetas sí puede animar (no es movimiento de carga) */
 .kpi-card:hover,.sc-card:hover,.card:hover,.kpi:hover,.aging-bkt:hover{ transition:transform .26s cubic-bezier(.22,.7,.25,1), box-shadow .26s, border-color .26s !important; }
+/* ── ANTI "pop": el popObserver del app agrega .counting cada vez que cambia una cifra,
+   causando el escalado/salto de los numeros "a cada rato". Se desactiva por completo. ── */
+.counting,.kpi-value.counting,.kpi-val.counting,.kpi-num.counting,.sc-kpi-val.counting,
+[class*="counting"]{ animation:none !important; transform:none !important; transition:color .2s !important; }
 
 /* ═══════════════════════════════════════════════════════════════════════════════
    INICIO — "Universo de negocios" con la estructura de design/handoff/pages/Inicio.dc.html
