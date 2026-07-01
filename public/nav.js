@@ -50,7 +50,7 @@
       // Se carga al FINAL para ganar al resto del cascade.
       addLink('vp-lux-css',     '/lux-theme.css?v=lux5');
       // Premium uplift (reskin Claude Design) — se carga AL FINAL para mandar sobre el resto del cascade.
-      addLink('vp-premium-css', '/premium-uplift.css?v=3');
+      addLink('vp-premium-css', '/premium-uplift.css?v=4');
 
       // Manifest PWA
       if (!document.querySelector('link[rel="manifest"]')) {
@@ -94,7 +94,7 @@
         ['vp-tablefilter-js', '/table-filter.js?v=lux4'],
         ['vp-emptyperiod-js', '/empty-period-helper.js?v=1'],
         ['vp-kpicx-js',       '/kpi-context.js?v=1'],
-        ['vp-premium-js',     '/premium-uplift.js?v=3'],
+        ['vp-premium-js',     '/premium-uplift.js?v=4'],
       ].forEach(function (pair) {
         if (document.getElementById(pair[0])) return;
         var sc = document.createElement('script');

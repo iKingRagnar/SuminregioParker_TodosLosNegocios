@@ -112,6 +112,34 @@
     } catch (e) { console.error('[premium] eyebrow', e && e.message); }
   }
 
+  /* Pill "● Actualizado HH:MM" a la derecha del encabezado (mueve la hora del subtítulo) */
+  function headerPill() {
+    try {
+      var hdr = document.querySelector('.page-header');
+      if (!hdr || hdr.getAttribute('data-pu-pill') === '1') return;
+      var sub = hdr.querySelector('.page-sub');
+      var txt = sub ? sub.textContent : '';
+      var m = txt.match(/(\d{1,2}:\d{2})(?::\d{2})?\s*([ap]\.?\s*m\.?)?/i);
+      if (!m) return; // sin hora que mover, no reestructura
+      hdr.setAttribute('data-pu-pill', '1');
+      var hora = m[1] + (m[2] ? (' ' + m[2].replace(/\s+/g, '').toLowerCase()) : '');
+      if (sub) {
+        var parts = txt.split('·').map(function (s) { return s.trim(); }).filter(function (s) { return s && !/actualiz/i.test(s); });
+        sub.textContent = parts.join(' · ');
+        if (!parts.length) sub.style.display = 'none';
+      }
+      hdr.style.setProperty('display', 'flex', 'important');
+      hdr.style.setProperty('align-items', 'flex-end', 'important');
+      hdr.style.setProperty('justify-content', 'space-between', 'important');
+      hdr.style.setProperty('flex-wrap', 'wrap', 'important');
+      hdr.style.setProperty('gap', '1rem', 'important');
+      var pill = document.createElement('div');
+      pill.className = 'pu-updated-pill';
+      pill.innerHTML = '<span class="pu-dot"></span><span class="pu-updated-txt">Actualizado ' + hora + '</span>';
+      hdr.appendChild(pill);
+    } catch (e) { console.error('[premium] headerPill', e && e.message); }
+  }
+
   /* KPI cards → ícono en cuadro + eyebrow (fondo crema lo pone el CSS) */
   function kpiIcons() {
     try {
@@ -171,7 +199,7 @@
   }
 
   /* Corre todas las mejoras de paridad (idempotente) */
-  function enhance() { logoMark(); userAvatar(); headerEyebrow(); kpiIcons(); groupNav(); }
+  function enhance() { logoMark(); userAvatar(); headerEyebrow(); headerPill(); kpiIcons(); groupNav(); }
 
   function init() {
     forceBg(); styleCharts(); enhance();
